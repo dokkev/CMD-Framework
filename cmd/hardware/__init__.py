@@ -1,11 +1,19 @@
-"""Solver-neutral hardware geometry used by hand-layout design."""
+"""Minimal actuator hardware representations."""
 
-from .actuator import BoxEnvelope, RevoluteActuatorGeometry, Vector3
+from .actuator import (
+    Actuator,
+    MechanicalParameters,
+    RectangularBox,
+    ShaftLocation,
+    Vector3,
+)
 from .xm335 import XM335Actuator
 
 __all__ = [
-    "BoxEnvelope",
-    "RevoluteActuatorGeometry",
+    "Actuator",
+    "MechanicalParameters",
+    "RectangularBox",
+    "ShaftLocation",
     "Vector3",
     "XM335Actuator",
 ]

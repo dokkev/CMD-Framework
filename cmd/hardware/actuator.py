@@ -1,8 +1,12 @@
-"""Solver-neutral actuator hardware geometry primitives.
+"""Minimal solver-independent actuator representation.
 
-All dimensions are in millimetres.  These classes intentionally describe only
-lightweight geometry and frame semantics needed by hand-layout optimization and
-collision/clearance screening.  They do not create simulator-specific bodies.
+The hardware model intentionally contains only the physical information needed
+for hand layout and later kinematic or Newton compilation:
+
+    actuator = rectangular box + shaft location/axis + mechanics
+
+It does not define keep-out regions, collision primitives, simulator bodies, or
+actuator transmission geometry.
 """
 
 from __future__ import annotations
@@ -24,94 +28,100 @@ def _finite_real(name: str, value: object) -> float:
     return value
 
 
-def _vector3(name: str, value: object) -> Vector3:
+def _positive_real(name: str, value: object) -> float:
+    value = _finite_real(name, value)
+    if value <= 0.0:
+        raise ValueError(f"{name} must be strictly positive; got {value!r}")
+    return value
+
+
+def _axis_xyz(value: object) -> Vector3:
     if not isinstance(value, tuple) or len(value) != 3:
-        raise TypeError(f"{name} must be a length-3 tuple")
-    return tuple(_finite_real(f"{name}[{i}]", component) for i, component in enumerate(value))  # type: ignore[return-value]
+        raise TypeError("axis_xyz must be a length-3 tuple")
+
+    axis = tuple(
+        _finite_real(f"axis_xyz[{index}]", component)
+        for index, component in enumerate(value)
+    )
+    norm = math.sqrt(sum(component * component for component in axis))
+    if not math.isclose(norm, 1.0, rel_tol=1e-12, abs_tol=1e-12):
+        raise ValueError(f"axis_xyz must be a unit vector; got {value!r}")
+    return axis  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)
-class BoxEnvelope:
-    """One oriented-box keep-out primitive expressed in an actuator frame.
+class RectangularBox:
+    """Rectangular actuator body dimensions, all in millimetres."""
 
-    ``center_mm`` and ``size_mm`` are local coordinates.  Orientation is supplied
-    by the pose of the owning actuator, so this primitive is an OBB once placed
-    in a hand model even though no rotation is stored here.
-    """
-
-    size_mm: Vector3
-    center_mm: Vector3 = (0.0, 0.0, 0.0)
+    width_mm: float
+    height_mm: float
+    depth_mm: float
 
     def __post_init__(self) -> None:
-        size = _vector3("size_mm", self.size_mm)
-        center = _vector3("center_mm", self.center_mm)
-        if any(length <= 0.0 for length in size):
-            raise ValueError(f"size_mm components must be strictly positive; got {size!r}")
-        object.__setattr__(self, "size_mm", size)
-        object.__setattr__(self, "center_mm", center)
+        object.__setattr__(self, "width_mm", _positive_real("width_mm", self.width_mm))
+        object.__setattr__(self, "height_mm", _positive_real("height_mm", self.height_mm))
+        object.__setattr__(self, "depth_mm", _positive_real("depth_mm", self.depth_mm))
 
-    @property
-    def half_extents_mm(self) -> Vector3:
-        return tuple(length / 2.0 for length in self.size_mm)  # type: ignore[return-value]
 
-    @property
-    def min_corner_mm(self) -> Vector3:
-        return tuple(
-            center - half
-            for center, half in zip(self.center_mm, self.half_extents_mm)
-        )  # type: ignore[return-value]
+@dataclass(frozen=True)
+class ShaftLocation:
+    """Actuator shaft location and unit axis in the actuator frame."""
 
-    @property
-    def max_corner_mm(self) -> Vector3:
-        return tuple(
-            center + half
-            for center, half in zip(self.center_mm, self.half_extents_mm)
-        )  # type: ignore[return-value]
+    center_from_bottom_mm: float
+    axis_xyz: Vector3 = (1.0, 0.0, 0.0)
 
-    def expanded(self, clearance_mm: float) -> "BoxEnvelope":
-        """Return a box expanded uniformly by ``clearance_mm`` on every face."""
-
-        clearance = _finite_real("clearance_mm", clearance_mm)
-        if clearance < 0.0:
-            raise ValueError("clearance_mm must be non-negative")
-        return BoxEnvelope(
-            size_mm=tuple(length + 2.0 * clearance for length in self.size_mm),  # type: ignore[arg-type]
-            center_mm=self.center_mm,
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "center_from_bottom_mm",
+            _positive_real("center_from_bottom_mm", self.center_from_bottom_mm),
         )
+        object.__setattr__(self, "axis_xyz", _axis_xyz(self.axis_xyz))
 
 
 @dataclass(frozen=True)
-class RevoluteActuatorGeometry:
-    """Minimal solver-neutral geometry for a revolute actuator."""
+class MechanicalParameters:
+    """Mechanical actuator properties used by later design/simulation code."""
 
-    model_name: str
-    joint_axis: Vector3
-    keepout_boxes: tuple[BoxEnvelope, ...]
-    mass_g: float | None = None
+    gear_ratio: float
+    max_output_torque_nm: float
+    mass_g: float
 
     def __post_init__(self) -> None:
-        if not isinstance(self.model_name, str) or not self.model_name.strip():
-            raise ValueError("model_name must be a non-empty string")
-        axis = _vector3("joint_axis", self.joint_axis)
-        norm = math.sqrt(sum(component * component for component in axis))
-        if norm <= 0.0:
-            raise ValueError("joint_axis must be non-zero")
-        boxes = self.keepout_boxes
-        if not isinstance(boxes, tuple) or not boxes:
-            raise ValueError("keepout_boxes must contain at least one BoxEnvelope")
-        if not all(isinstance(box, BoxEnvelope) for box in boxes):
-            raise TypeError("keepout_boxes must contain only BoxEnvelope instances")
-        if self.mass_g is not None:
-            mass = _finite_real("mass_g", self.mass_g)
-            if mass <= 0.0:
-                raise ValueError("mass_g must be strictly positive")
-            object.__setattr__(self, "mass_g", mass)
-        object.__setattr__(self, "joint_axis", axis)
-
-    @property
-    def unit_joint_axis(self) -> Vector3:
-        norm = math.sqrt(sum(component * component for component in self.joint_axis))
-        return tuple(component / norm for component in self.joint_axis)  # type: ignore[return-value]
+        object.__setattr__(self, "gear_ratio", _positive_real("gear_ratio", self.gear_ratio))
+        object.__setattr__(
+            self,
+            "max_output_torque_nm",
+            _positive_real("max_output_torque_nm", self.max_output_torque_nm),
+        )
+        object.__setattr__(self, "mass_g", _positive_real("mass_g", self.mass_g))
 
 
-__all__ = ["BoxEnvelope", "RevoluteActuatorGeometry", "Vector3"]
+@dataclass(frozen=True)
+class Actuator:
+    """Minimal actuator value object: box, shaft, and mechanical parameters."""
+
+    box: RectangularBox
+    shaft: ShaftLocation
+    mechanics: MechanicalParameters
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.box, RectangularBox):
+            raise TypeError("box must be a RectangularBox instance")
+        if not isinstance(self.shaft, ShaftLocation):
+            raise TypeError("shaft must be a ShaftLocation instance")
+        if not isinstance(self.mechanics, MechanicalParameters):
+            raise TypeError("mechanics must be a MechanicalParameters instance")
+        if self.shaft.center_from_bottom_mm >= self.box.height_mm:
+            raise ValueError(
+                "shaft.center_from_bottom_mm must be below the top of the actuator box"
+            )
+
+
+__all__ = [
+    "Actuator",
+    "MechanicalParameters",
+    "RectangularBox",
+    "ShaftLocation",
+    "Vector3",
+]
