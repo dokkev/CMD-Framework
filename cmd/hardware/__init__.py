@@ -1,6 +1,7 @@
 """Minimal actuator hardware representations."""
 
 from .actuator import (
+    ACTUATOR_SHAFT_SIDE_AXIS_XYZ,
     Actuator,
     MechanicalParameters,
     RectangularBox,
@@ -10,6 +11,7 @@ from .actuator import (
 from .xm335 import XM335Actuator
 
 __all__ = [
+    "ACTUATOR_SHAFT_SIDE_AXIS_XYZ",
     "Actuator",
     "MechanicalParameters",
     "RectangularBox",

@@ -30,7 +30,7 @@ class XM335Actuator(Actuator):
     shaft: ShaftLocation = field(
         default_factory=lambda: ShaftLocation(
             center_from_bottom_mm=25.5,
-            axis_xyz=(1.0, 0.0, 0.0),
+            axis_xyz=(0.0, 0.0, 1.0),
         )
     )
     mechanics: MechanicalParameters = field(

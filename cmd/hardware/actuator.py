@@ -7,6 +7,10 @@ for hand layout and later kinematic or Newton compilation:
 
 It does not define keep-out regions, collision primitives, simulator bodies, or
 actuator transmission geometry.
+
+The actuator-local frame uses ``+X`` toward the shaft-facing side of the body.
+The shaft axis is represented independently by ``ShaftLocation.axis_xyz``; the
+XM335 convention is ``+Z``.
 """
 
 from __future__ import annotations
@@ -17,6 +21,10 @@ from numbers import Real
 
 
 Vector3 = tuple[float, float, float]
+
+# The actuator body-to-shaft-facing direction is a frame convention, not a
+# design parameter.
+ACTUATOR_SHAFT_SIDE_AXIS_XYZ: Vector3 = (1.0, 0.0, 0.0)
 
 
 def _finite_real(name: str, value: object) -> float:
@@ -68,7 +76,7 @@ class ShaftLocation:
     """Actuator shaft location and unit axis in the actuator frame."""
 
     center_from_bottom_mm: float
-    axis_xyz: Vector3 = (1.0, 0.0, 0.0)
+    axis_xyz: Vector3 = (0.0, 0.0, 1.0)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -119,6 +127,7 @@ class Actuator:
 
 
 __all__ = [
+    "ACTUATOR_SHAFT_SIDE_AXIS_XYZ",
     "Actuator",
     "MechanicalParameters",
     "RectangularBox",
