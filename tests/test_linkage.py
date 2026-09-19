@@ -60,6 +60,32 @@ def test_coupler_lengths_are_derived_from_reference_positions() -> None:
     assert "coupler_2_length_mm" not in parameter_names
 
 
+def test_parameter_fields_are_only_independent_design_variables() -> None:
+    parameters = make_parameters()
+
+    assert {field.name for field in fields(parameters)} == {
+        "main_chain",
+        "coupling",
+    }
+    assert {field.name for field in fields(parameters.main_chain)} == {
+        "proximal_length_mm",
+        "middle_length_mm",
+        "distal_length_mm",
+    }
+    assert {field.name for field in fields(parameters.coupling)} == {
+        "base_anchor",
+        "proximal_anchor",
+        "middle_anchor",
+        "distal_anchor",
+    }
+
+    assert not hasattr(parameters, "q1")
+    assert not hasattr(parameters, "q2")
+    assert not hasattr(parameters, "q3")
+    assert not hasattr(parameters, "coupler_1_length_mm")
+    assert not hasattr(parameters, "coupler_2_length_mm")
+
+
 def test_planar_convention_has_no_independent_x_coordinate() -> None:
     linkage = FingerLinkage(make_parameters())
 

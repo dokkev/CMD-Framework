@@ -1,14 +1,31 @@
-"""Immutable parameters for the planar CLEAR Hand flexion linkage.
+"""Independent design variables for the planar CLEAR finger linkage.
 
-The linkage uses the same canonical frame as the fingertip morphology: ``X``
-is lateral, ``Y`` points distally, and ``Z`` is dorsal.  This parameter module
-stores only local YZ geometry.  The planar assumption therefore keeps every
-linkage point at ``X = 0`` without exposing an unnecessary optimization
+The linkage uses the canonical finger frame: ``X`` is lateral, ``Y`` points
+distally, and ``Z`` is dorsal. Flexion is planar in YZ and every represented
+point therefore has ``X = 0`` without exposing an unnecessary optimization
 coordinate.
 
-Angles are intentionally absent.  The reference configuration is the fully
-extended configuration with all future flexion angles equal to zero; solving
-those angles belongs to a later kinematics component.
+This module owns only independent, optimizer-controlled design variables:
+
+Independent design variables
+----------------------------
+
+* ``main_chain.proximal_length_mm`` = ``|OA|``
+* ``main_chain.middle_length_mm`` = ``|AB|``
+* ``main_chain.distal_length_mm`` = ``|BC|``
+* ``coupling.base_anchor`` = ``O'`` in the fixed base frame
+* ``coupling.proximal_anchor`` = ``A'`` in the proximal-body frame
+* ``coupling.middle_anchor`` = ``B'`` in the middle-body frame
+* ``coupling.distal_anchor`` = ``C'`` in the distal-body frame
+
+Derived geometry belongs to :mod:`cmd.morphology.linkage`: reference point
+positions and coupling-rod lengths are computed from these variables at the
+fully extended reference configuration. Configuration-dependent quantities,
+including joint angles and posed point positions, are intentionally absent and
+will be produced later by kinematics. Optimization bounds, manufacturability
+rules, collision margins, and other design-space constraints are also a
+separate concern; this module enforces only local finite/positive-value
+admissibility required to construct a meaningful parameter object.
 """
 
 from __future__ import annotations
@@ -35,7 +52,7 @@ def _require_positive(name: str, value: object) -> None:
 
 @dataclass(frozen=True)
 class AnchorYZ:
-    """A planar point expressed in a local or fixed YZ frame, in mm."""
+    """An independent planar anchor coordinate in a local or fixed YZ frame."""
 
     y_mm: float
     z_mm: float
@@ -54,7 +71,7 @@ class AnchorYZ:
 
 @dataclass(frozen=True)
 class MainChainParameters:
-    """Reference lengths of the serial main chain O-A-B-C."""
+    """Independent optimizer-controlled lengths of the serial chain O-A-B-C."""
 
     proximal_length_mm: float
     middle_length_mm: float
@@ -68,7 +85,16 @@ class MainChainParameters:
 
 @dataclass(frozen=True)
 class CouplingAnchorParameters:
-    """Local YZ locations of the two four-bar coupling anchors."""
+    """Independent local YZ coordinates for O', A', B', and C'.
+
+    The four fields are design inputs, not world positions and not coupling-rod
+    lengths. Their owning-frame interpretation is:
+
+    * ``base_anchor``: ``O'`` in the fixed base frame;
+    * ``proximal_anchor``: ``A'`` in the proximal-body frame;
+    * ``middle_anchor``: ``B'`` in the middle-body frame;
+    * ``distal_anchor``: ``C'`` in the distal-body frame.
+    """
 
     base_anchor: AnchorYZ
     proximal_anchor: AnchorYZ
@@ -88,12 +114,36 @@ class CouplingAnchorParameters:
 
 @dataclass(frozen=True)
 class FingerLinkageParameters:
-    """Complete immutable design input for one CLEAR finger linkage.
+    """Independent design variables for the CLEAR flexion linkage.
 
-    ``base_anchor`` is expressed in the fixed base frame.  The other three
-    anchors are local to the proximal, middle, and distal main-link frames,
-    respectively.  Coupler lengths are deliberately absent: they are derived
-    from these anchors at the fully extended reference configuration.
+    Independent / optimizer-controlled quantities
+    ----------------------------------------------
+
+    Main chain
+    ~~~~~~~~~~
+
+    * ``main_chain.proximal_length_mm`` = ``|OA|``
+    * ``main_chain.middle_length_mm`` = ``|AB|``
+    * ``main_chain.distal_length_mm`` = ``|BC|``
+
+    Coupling-anchor geometry
+    ~~~~~~~~~~~~~~~~~~~~~~~~
+
+    * ``coupling.base_anchor`` = ``O'`` in the fixed base frame
+    * ``coupling.proximal_anchor`` = ``A'`` in the proximal-body frame
+    * ``coupling.middle_anchor`` = ``B'`` in the middle-body frame
+    * ``coupling.distal_anchor`` = ``C'`` in the distal-body frame
+
+    These values define the mechanism design. They do not include quantities
+    uniquely determined from the reference assembly or from a commanded
+    configuration. In particular, coupler lengths, world reference
+    positions, joint angles, and posed positions are not fields of this
+    dataclass.
+
+    Local validation enforces finite anchor coordinates and positive finite
+    main-link lengths. It does not encode optimizer bounds, manufacturing
+    limits, collision constraints, or other application-specific design-space
+    constraints; those belong in a separate design/optimization layer.
     """
 
     main_chain: MainChainParameters

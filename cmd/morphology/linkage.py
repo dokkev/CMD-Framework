@@ -1,13 +1,14 @@
-"""Reference-configuration geometry for the CLEAR Hand flexion linkage.
+"""Derived reference geometry for the CLEAR Hand flexion linkage.
 
-This module is intentionally solver-independent.  It constructs the world
-positions of the O-A-B-C main chain and the O'-A'-B'-C' coupling anchors at
-the fully extended configuration.  Future kinematics and simulation modules
-can consume those positions and the derived fixed coupler lengths without
-redefining the mechanism geometry.
+This module consumes the independent design variables from
+``linkage_parameter.py`` and derives the fully extended reference assembly.
+It owns no optimizer variables and does not solve configuration-dependent
+joint angles or posed positions. Future kinematics and simulation modules can
+consume these derived positions and fixed coupler lengths without redefining
+the mechanism geometry.
 
 The mechanism is planar in YZ, so every represented point has X = 0 by
-construction.  All revolute flexion axes are +X, but no joint-angle solving is
+construction. All revolute flexion axes are +X, but no joint-angle solving is
 implemented here.
 """
 
@@ -24,11 +25,12 @@ from .linkage_parameter import (
 
 @dataclass(frozen=True)
 class ReferencePositions:
-    """World/reference YZ positions of all eight linkage points.
+    """Derived YZ positions of all eight points at the reference assembly.
 
     Lowercase names mirror the mechanism notation: ``o``, ``a``, ``b``, and
     ``c`` are the main-chain pivots, while ``op``, ``ap``, ``bp``, and ``cp``
-    are the corresponding primed coupling anchors.
+    are the corresponding primed coupling anchors. These are not independent
+    design variables.
     """
 
     o: AnchorYZ
@@ -43,7 +45,12 @@ class ReferencePositions:
 
 @dataclass(frozen=True)
 class FingerLinkage:
-    """Constructed reference geometry for one parameterized CLEAR linkage."""
+    """Constructed derived reference geometry for one CLEAR linkage.
+
+    The ``parameters`` field is the independent design input. All geometric
+    properties exposed by this class are derived from it at q1=q2=q3=0.
+    Configuration-dependent values must be added by a later kinematics layer.
+    """
 
     parameters: FingerLinkageParameters
 
@@ -61,7 +68,7 @@ class FingerLinkage:
 
     @property
     def reference_positions(self) -> ReferencePositions:
-        """Return all linkage-point positions at q1=q2=q3=0."""
+        """Derive all linkage-point positions at q1=q2=q3=0."""
 
         main = self.parameters.main_chain
         coupling = self.parameters.coupling
@@ -91,19 +98,19 @@ class FingerLinkage:
 
     @property
     def coupler_1_length_mm(self) -> float:
-        """Derived fixed length of the O'-B' coupling rod."""
+        """Return the derived fixed length of the O'-B' coupling rod."""
 
         return self._coupler_1_length(self.reference_positions)
 
     @property
     def coupler_2_length_mm(self) -> float:
-        """Derived fixed length of the A'-C' coupling rod."""
+        """Return the derived fixed length of the A'-C' coupling rod."""
 
         return self._coupler_2_length(self.reference_positions)
 
     @property
     def total_main_chain_length_mm(self) -> float:
-        """Return ``|OA| + |AB| + |BC|`` in the reference configuration."""
+        """Return the derived sum ``|OA| + |AB| + |BC|``."""
 
         main = self.parameters.main_chain
         return (
@@ -114,7 +121,7 @@ class FingerLinkage:
 
     @property
     def flexion_axis_xyz(self) -> tuple[float, float, float]:
-        """Return the common +X revolute flexion axis."""
+        """Return the fixed +X flexion-axis convention, not a design variable."""
 
         return self.FLEXION_AXIS_XYZ
 

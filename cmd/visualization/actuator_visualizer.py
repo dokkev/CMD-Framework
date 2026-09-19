@@ -29,10 +29,10 @@ def _positive_finite(name: str, value: object) -> float:
 class ActuatorVisualizer:
     """Render only the actuator box, shaft axis, and actuator-local frame.
 
-    The actuator shaft center is the visualization origin ``(0, 0, 0)``.
-    The actuator-local frame uses +X toward the shaft-facing side, +Y across
-    the body width, and +Z along the XM335 shaft axis. The box shaft-facing
-    face is placed at ``X = 0`` and its body extends toward ``-X``.
+    The actuator shaft center is the visualization origin ``(0, 0, 0)`` and
+    lies at the actuator box center along X. The actuator-local frame uses +X
+    toward the shaft-facing side, +Y across the body width, and +Z along the
+    XM335 shaft axis. The box is symmetric about ``X = 0``.
     """
 
     actuator: Actuator = field(default_factory=XM335Actuator)
@@ -76,8 +76,8 @@ class ActuatorVisualizer:
 
     def _plot_actuator_box(self, axis: Axes3D) -> None:
         box = self.actuator.box
-        x_min = -box.depth_mm
-        x_max = 0.0
+        x_min = -box.depth_mm / 2.0
+        x_max = box.depth_mm / 2.0
         y_min = -box.width_mm / 2.0
         y_max = box.width_mm / 2.0
         z_min = -self.actuator.shaft.center_from_bottom_mm
@@ -166,8 +166,8 @@ class ActuatorVisualizer:
         box = self.actuator.box
         z_min = -self.actuator.shaft.center_from_bottom_mm
         z_max = z_min + box.height_mm
-        x_min = -box.depth_mm
-        x_max = self.axis_marker_length_mm
+        x_min = -box.depth_mm / 2.0 - 2.0
+        x_max = box.depth_mm / 2.0 + self.axis_marker_length_mm
         y_extent = box.width_mm / 2.0
         z_margin = max(box.height_mm * 0.08, 2.0)
 
