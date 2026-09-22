@@ -1,4 +1,4 @@
-"""Matplotlib 3D visualization for the analytic fingertip geometry."""
+"""Orthographic 2D and interactive 3D views of the analytic fingertip."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Patch
+from matplotlib.axes import Axes
+from matplotlib.patches import Patch, Polygon
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
@@ -15,9 +16,14 @@ from mpl_toolkits.mplot3d.axes3d import Axes3D
 from ..morphology import Fingertip
 
 
+CARRIER_COLOR = "#999c9f"
+PAD_COLOR = "#b8d5a8"
+OUTLINE_COLOR = "#50575b"
+
+
 @dataclass(frozen=True)
 class FingertipVisualizer:
-    """Render the fingertip contact envelope and carrier as a 3D model.
+    """Render three orthographic silhouettes and one 3D fingertip view.
 
     The visualizer consumes the analytic ``Fingertip`` representation directly
     and does not create a mesh or introduce a second geometry definition. The
@@ -38,15 +44,69 @@ class FingertipVisualizer:
             raise ValueError("samples must be at least 2")
 
     def create_figure(self) -> Figure:
-        """Create and return a new 3D fingertip model figure."""
+        """Create end, side, top, and rotatable 3D views in one figure."""
 
-        figure = plt.figure(figsize=(10.5, 8.0), constrained_layout=True)
-        axis = figure.add_subplot(111, projection="3d")
+        figure = plt.figure(figsize=(12, 9), constrained_layout=True)
+        for position, view in enumerate(("end", "side", "top"), start=1):
+            self._plot_2d(figure.add_subplot(2, 2, position), view)
+        axis = figure.add_subplot(2, 2, 4, projection="3d")
         self._plot_outer_envelope(axis)
         self._plot_carrier(axis)
         self._configure_3d_axis(axis)
-        figure.suptitle("Analytic fingertip morphology", fontsize=14)
+        figure.suptitle("Fingertip morphology", fontsize=16)
+        figure.legend(handles=[
+            Patch(facecolor=CARRIER_COLOR, edgecolor=OUTLINE_COLOR, label="Carrier / nail"),
+            Patch(facecolor=PAD_COLOR, edgecolor=OUTLINE_COLOR, label="Pad"),
+        ], loc="upper center", bbox_to_anchor=(0.5, 0.965), ncol=2, frameon=False)
         return figure
+
+    def _plot_2d(self, axis: Axes, view: str) -> None:
+        """Project the model envelope; carrier hides pad where they overlap."""
+
+        f = self.fingertip
+        phalanx = f.parameters.phalanx
+        x = np.linspace(-f.half_width_mm, f.half_width_mm, self.samples)
+        y = np.unique(np.r_[np.linspace(0.0, f.total_length_mm, self.samples),
+                             f.parameters.pad.body_length_mm, f.carrier_length_mm])
+        if view == "end":
+            lower = [f.lower_surface_z_mm(float(value), 0.0) for value in x]
+            axis.fill_between(x, lower, 0.0, color=PAD_COLOR, ec=OUTLINE_COLOR, lw=1)
+            carrier = f.carrier_cross_section
+            title, xlabel, ylabel = "End view · XZ", "X [mm]", "Z [mm]"
+        elif view == "side":
+            # Include the centre explicitly, even for an even sample count.
+            x_samples = np.unique(np.r_[x, 0.0])
+            lower, upper = [], []
+            for value in y:
+                bounds = [f.outer_envelope_z_bounds_mm(float(xx), float(value))
+                          for xx in x_samples]
+                lower.append(min(pair[0] for pair in bounds))
+                upper.append(max(pair[1] for pair in bounds))
+            axis.fill_between(y, lower, upper, color=PAD_COLOR, ec=OUTLINE_COLOR, lw=1)
+            carrier = [(0.0, -phalanx.stem_height_mm),
+                       (f.carrier_length_mm, -phalanx.stem_height_mm),
+                       (f.carrier_length_mm, 0.0), (f.dorsal_plate_length_mm, 0.0),
+                       (f.dorsal_plate_length_mm, phalanx.carrier_height_mm),
+                       (0.0, phalanx.carrier_height_mm)]
+            title, xlabel, ylabel = "Side view · YZ", "Y [mm]", "Z [mm]"
+        elif view == "top":
+            pad_width = [f.half_width_at_y_mm(float(value)) for value in y]
+            axis.fill_betweenx(y, -np.asarray(pad_width), pad_width,
+                               color=PAD_COLOR, ec=OUTLINE_COLOR, lw=1)
+            nail_width = [f.dorsal_plate_half_width_at_y_mm(float(value)) for value in y]
+            carrier = [(-width, float(value)) for width, value in zip(nail_width, y)]
+            carrier += [(width, float(value)) for width, value in zip(nail_width[::-1], y[::-1])]
+            title, xlabel, ylabel = "Top view · XY", "X [mm]", "Y [mm]"
+        else:
+            raise ValueError(f"unknown view: {view!r}")
+        axis.add_patch(Polygon(carrier, closed=True, facecolor=CARRIER_COLOR,
+                               edgecolor=OUTLINE_COLOR, linewidth=1.1, zorder=3))
+        axis.set(title=title, xlabel=xlabel, ylabel=ylabel)
+        axis.set_aspect("equal", adjustable="box")
+        axis.margins(0.12)
+        axis.set_axisbelow(True)
+        axis.grid(True, color="#dce1e4", linewidth=0.6)
+        axis.spines[["top", "right"]].set_visible(False)
 
     def save(self, output_path: str | Path, dpi: int = 160) -> Path:
         """Render the figure to ``output_path`` and return the saved path."""
@@ -63,8 +123,8 @@ class FingertipVisualizer:
         return output_path
 
     def _plot_outer_envelope(self, axis: Axes3D) -> None:
-        pad_color = "#4ea8de"
-        lower_color = "#0077b6"
+        pad_color = PAD_COLOR
+        lower_color = PAD_COLOR
 
         for surface in ("body", "nose"):
             x_grid, y_grid, lower_grid = self._surface_grid(surface, upper=False)
@@ -73,9 +133,10 @@ class FingertipVisualizer:
                 np.asarray(y_grid),
                 np.asarray(lower_grid),
                 color=lower_color,
-                alpha=0.82,
+                alpha=1.0,
                 linewidth=0,
-                antialiased=True,
+                antialiased=False,
+                shade=False,
             )
 
             _, _, upper_grid = self._surface_grid(surface, upper=True)
@@ -84,9 +145,10 @@ class FingertipVisualizer:
                 np.asarray(y_grid),
                 np.asarray(upper_grid),
                 color=pad_color,
-                alpha=0.18,
+                alpha=1.0,
                 linewidth=0,
                 antialiased=False,
+                shade=False,
             )
 
         self._plot_lateral_walls(axis)
@@ -113,9 +175,11 @@ class FingertipVisualizer:
                         ],
                     ]
                 ),
-                color="#4ea8de",
-                alpha=0.18,
+                color=PAD_COLOR,
+                alpha=1.0,
                 linewidth=0,
+                antialiased=False,
+                shade=False,
             )
 
         nose_y_values = self._linspace(
@@ -139,9 +203,11 @@ class FingertipVisualizer:
                         ],
                     ]
                 ),
-                color="#4ea8de",
-                alpha=0.18,
+                color=PAD_COLOR,
+                alpha=1.0,
                 linewidth=0,
+                antialiased=False,
+                shade=False,
             )
 
     def _plot_carrier(self, axis: Axes3D) -> None:
@@ -192,7 +258,7 @@ class FingertipVisualizer:
                           (s, y, 0.0), (-s, y, 0.0)])
 
         axis.add_collection3d(Poly3DCollection(
-            faces, facecolors="#f4a261", edgecolors="none", alpha=0.78,
+            faces, facecolors=CARRIER_COLOR, edgecolors="none", alpha=1.0,
         ))
 
     def _configure_3d_axis(self, axis: Axes3D) -> None:
@@ -201,7 +267,7 @@ class FingertipVisualizer:
         lower_z_mm = -pad.pad_straight_height_mm - pad.ellipse_height_mm
         upper_z_mm = phalanx.carrier_height_mm
 
-        axis.set_title("3D analytic model")
+        axis.set_title("3D view")
         axis.set_xlabel("X [mm]")
         axis.set_ylabel("Y [mm]")
         axis.set_zlabel("Z [mm]")
@@ -217,15 +283,6 @@ class FingertipVisualizer:
         )
         axis.view_init(elev=23.0, azim=-62.0)
         axis.grid(True, alpha=0.25)
-        axis.legend(
-            handles=[
-                Patch(facecolor="#4ea8de", edgecolor="#0077b6", alpha=0.55, label="compliant envelope"),
-                Patch(facecolor="#f4a261", edgecolor="#c45a00", alpha=0.78, label="T carrier + dorsal nail"),
-            ],
-            loc="upper left",
-            fontsize=8,
-        )
-
     def _surface_grid(
         self,
         surface: str,

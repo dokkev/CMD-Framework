@@ -1,4 +1,4 @@
-"""Command-line entry point for the 3D analytic fingertip visualization."""
+"""Command-line entry point for the four-view analytic fingertip visualization."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Visualize the analytic fingertip morphology with Matplotlib."
+        description="Show end, side, top, and 3D views of the analytic fingertip."
     )
     parser.add_argument(
         "--output",
