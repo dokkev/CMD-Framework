@@ -29,54 +29,100 @@ def test_planar_hand_parameters_are_immutable_and_finite() -> None:
         PlanarPlacement(float("nan"), 0.0)
 
 
-def test_compile_emits_only_the_opened_hand_placement_tree() -> None:
+def _joint_map(root: ElementTree.Element) -> dict[str, ElementTree.Element]:
+    return {joint.attrib["name"]: joint for joint in root.findall("joint")}
+
+
+def test_compile_emits_hardware_aware_opened_tree_in_urdf_metres() -> None:
     root = ElementTree.fromstring(compile_hand_urdf(make_hand_design()))
 
     assert root.tag == "robot"
     assert root.attrib == {"name": "clear_hand"}
 
     links = {link.attrib["name"] for link in root.findall("link")}
-    assert links == {
-        "palm_link",
-        "index_mcp_aa_link",
-        "middle_mcp_aa_link",
-        "ring_mcp_aa_link",
-        "little_mcp_aa_link",
-        "thumb_cmc_link",
-    }
+    expected_links = {"palm_link", "thumb_cmc_link"}
+    for finger_name in ("index", "middle", "ring", "little"):
+        expected_links.update(
+            {
+                f"{finger_name}_mcp_aa_housing",
+                f"{finger_name}_mcp_aa_output",
+                f"{finger_name}_linkage_frame",
+            }
+        )
+    assert links == expected_links
 
-    joints = {joint.attrib["name"]: joint for joint in root.findall("joint")}
-    assert set(joints) == {
-        "index_mcp_aa_joint",
-        "middle_mcp_aa_joint",
-        "ring_mcp_aa_joint",
-        "little_mcp_aa_joint",
-        "thumb_cmc_joint",
-    }
-    assert not any("mcp_fe" in name for name in (*links, *joints))
+    joints = _joint_map(root)
+    expected_joints = {"thumb_cmc_mount_joint"}
+    for finger_name in ("index", "middle", "ring", "little"):
+        expected_joints.update(
+            {
+                f"{finger_name}_mcp_aa_housing_mount_joint",
+                f"{finger_name}_mcp_aa_joint",
+                f"{finger_name}_mcp_fe_to_linkage_frame_joint",
+            }
+        )
+    assert set(joints) == expected_joints
+    assert not any("mcp_fe_joint" in name for name in joints)
 
-    index_joint = joints["index_mcp_aa_joint"]
-    assert index_joint.attrib["type"] == "continuous"
-    assert index_joint.find("parent").attrib["link"] == "palm_link"
-    assert index_joint.find("child").attrib["link"] == "index_mcp_aa_link"
-    assert index_joint.find("origin").attrib == {
-        "xyz": "30 10 0",
-        "rpy": "0 0 0",
-    }
-    assert index_joint.find("axis").attrib == {"xyz": "0 0 1"}
+    housing_mount = joints["index_mcp_aa_housing_mount_joint"]
+    assert housing_mount.attrib["type"] == "fixed"
+    assert housing_mount.find("parent").attrib["link"] == "palm_link"
+    assert housing_mount.find("child").attrib["link"] == "index_mcp_aa_housing"
+    assert [float(value) for value in housing_mount.find("origin").attrib["xyz"].split()] == pytest.approx(
+        [0.03, 0.01, 0.0]
+    )
 
-    thumb_joint = joints["thumb_cmc_joint"]
-    assert thumb_joint.attrib["type"] == "fixed"
-    assert thumb_joint.find("origin").attrib == {
-        "xyz": "12 18 0",
-        "rpy": "0 0 0",
-    }
-    assert thumb_joint.find("axis") is None
+    mcp_aa = joints["index_mcp_aa_joint"]
+    assert mcp_aa.attrib["type"] == "continuous"
+    assert mcp_aa.find("parent").attrib["link"] == "index_mcp_aa_housing"
+    assert mcp_aa.find("child").attrib["link"] == "index_mcp_aa_output"
+    assert [float(value) for value in mcp_aa.find("origin").attrib["xyz"].split()] == pytest.approx(
+        [0.0, 0.008, 0.0]
+    )
+    assert mcp_aa.find("axis").attrib == {"xyz": "0 0 1"}
+    housing_xyz = [
+        float(value) for value in housing_mount.find("origin").attrib["xyz"].split()
+    ]
+    shaft_offset_xyz = [
+        float(value) for value in mcp_aa.find("origin").attrib["xyz"].split()
+    ]
+    assert [housing_xyz[index] + shaft_offset_xyz[index] for index in range(3)] == pytest.approx(
+        [0.03, 0.018, 0.0]
+    )
+
+    linkage_frame = joints["index_mcp_fe_to_linkage_frame_joint"]
+    assert linkage_frame.attrib["type"] == "fixed"
+    assert linkage_frame.find("parent").attrib["link"] == "index_mcp_aa_output"
+    assert linkage_frame.find("child").attrib["link"] == "index_linkage_frame"
+    assert linkage_frame.find("origin").attrib["rpy"] == "0 0 -1.57079632679"
+
+    housing_link = next(
+        link for link in root.findall("link") if link.attrib["name"] == "index_mcp_aa_housing"
+    )
+    for geometry_owner in ("visual", "collision"):
+        box = housing_link.find(f"{geometry_owner}/geometry/box")
+        assert [float(value) for value in box.attrib["size"].split()] == pytest.approx(
+            [0.019, 0.035, 0.022]
+        )
+
+    thumb_mount = joints["thumb_cmc_mount_joint"]
+    assert thumb_mount.attrib["type"] == "fixed"
+    assert thumb_mount.find("origin").attrib["xyz"] == "0.012 0.018 0"
 
 
-def test_compile_rejects_wrong_input_and_invalid_robot_names() -> None:
+def test_compile_rejects_wrong_input_invalid_robot_names_and_wrong_actuator_frame() -> None:
     with pytest.raises(TypeError):
         compile_hand_urdf(object())
 
     with pytest.raises(ValueError):
         compile_hand_urdf(make_hand_design(), robot_name="clear hand")
+
+    from cmd.hardware import Actuator, MechanicalParameters, RectangularBox, ShaftLocation
+
+    wrong_frame_actuator = Actuator(
+        box=RectangularBox(19.0, 35.0, 22.0),
+        shaft=ShaftLocation(25.5, axis_xyz=(1.0, 0.0, 0.0)),
+        mechanics=MechanicalParameters(323.04, 1.0, 27.0),
+    )
+    with pytest.raises(ValueError, match=r"\+Z shaft axis"):
+        compile_hand_urdf(make_hand_design(), actuator=wrong_frame_actuator)

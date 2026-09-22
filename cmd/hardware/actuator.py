@@ -8,9 +8,9 @@ for hand layout and later kinematic or Newton compilation:
 It does not define keep-out regions, collision primitives, simulator bodies, or
 actuator transmission geometry.
 
-The actuator-local frame uses ``+X`` toward the shaft-facing side of the body.
-The shaft axis is represented independently by ``ShaftLocation.axis_xyz``; the
-XM335 convention is ``+Z``.
+The actuator-local frame uses ``+X`` across the body width, ``+Y`` from the
+bottom toward the top of the body, and ``+Z`` along the shaft axis. The XM335
+shaft center is therefore measured along ``+Y`` from the bottom face.
 """
 
 from __future__ import annotations
@@ -22,9 +22,8 @@ from numbers import Real
 
 Vector3 = tuple[float, float, float]
 
-# The actuator body-to-shaft-facing direction is a frame convention, not a
-# design parameter.
-ACTUATOR_SHAFT_SIDE_AXIS_XYZ: Vector3 = (1.0, 0.0, 0.0)
+# The actuator width direction is a frame convention, not a design parameter.
+ACTUATOR_WIDTH_AXIS_XYZ: Vector3 = (1.0, 0.0, 0.0)
 
 
 def _finite_real(name: str, value: object) -> float:
@@ -59,7 +58,10 @@ def _axis_xyz(value: object) -> Vector3:
 
 @dataclass(frozen=True)
 class RectangularBox:
-    """Rectangular actuator body dimensions, all in millimetres."""
+    """Rectangular actuator body dimensions, all in millimetres.
+
+    In the actuator-local frame, width is X, height is Y, and depth is Z.
+    """
 
     width_mm: float
     height_mm: float
@@ -73,7 +75,11 @@ class RectangularBox:
 
 @dataclass(frozen=True)
 class ShaftLocation:
-    """Actuator shaft location and unit axis in the actuator frame."""
+    """Actuator shaft location and unit axis in the actuator frame.
+
+    ``center_from_bottom_mm`` is measured along actuator-local +Y. The XM335
+    default shaft axis is +Z.
+    """
 
     center_from_bottom_mm: float
     axis_xyz: Vector3 = (0.0, 0.0, 1.0)
@@ -107,7 +113,10 @@ class MechanicalParameters:
 
 @dataclass(frozen=True)
 class Actuator:
-    """Minimal actuator value object: box, shaft, and mechanical parameters."""
+    """Minimal actuator value object: box, shaft, and mechanical parameters.
+
+    The actuator frame is +X width, +Y bottom-to-top, and +Z shaft axis.
+    """
 
     box: RectangularBox
     shaft: ShaftLocation
@@ -127,7 +136,7 @@ class Actuator:
 
 
 __all__ = [
-    "ACTUATOR_SHAFT_SIDE_AXIS_XYZ",
+    "ACTUATOR_WIDTH_AXIS_XYZ",
     "Actuator",
     "MechanicalParameters",
     "RectangularBox",

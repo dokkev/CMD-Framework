@@ -3,7 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from cmd.hardware import (
-    ACTUATOR_SHAFT_SIDE_AXIS_XYZ,
+    ACTUATOR_WIDTH_AXIS_XYZ,
     Actuator,
     MechanicalParameters,
     RectangularBox,
@@ -20,7 +20,7 @@ def test_xm335_uses_the_project_parameters() -> None:
     assert actuator.box.depth_mm == pytest.approx(22.0)
     assert actuator.shaft.center_from_bottom_mm == pytest.approx(25.5)
     assert actuator.shaft.axis_xyz == pytest.approx((0.0, 0.0, 1.0))
-    assert ACTUATOR_SHAFT_SIDE_AXIS_XYZ == pytest.approx((1.0, 0.0, 0.0))
+    assert ACTUATOR_WIDTH_AXIS_XYZ == pytest.approx((1.0, 0.0, 0.0))
     assert actuator.mechanics.gear_ratio == pytest.approx(323.04)
     assert actuator.mechanics.max_output_torque_nm == pytest.approx(1.0)
     assert actuator.mechanics.mass_g == pytest.approx(27.0)

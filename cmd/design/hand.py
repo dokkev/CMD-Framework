@@ -30,11 +30,13 @@ class PlanarPlacement:
 
 @dataclass(frozen=True)
 class HandDesignParameters:
-    """Right-hand MCP-AA and thumb-CMC placement design values.
+    """Right-hand MCP-AA housing and thumb-CMC placement design values.
 
     Coordinates use the canonical right-hand palm frame: +X is distal, +Y
     points toward the thumb/radial side, and +Z is dorsal. Every placement is
-    planar and therefore expressed as an XY point on ``Z = 0``.
+    planar and therefore expressed as an XY point on ``Z = 0``. For MCP-AA,
+    the placement is the XM335 housing-frame position; the shaft/output point
+    is derived inside the housing from the actuator parameters.
     """
 
     index_mcp_aa: PlanarPlacement
