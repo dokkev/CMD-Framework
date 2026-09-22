@@ -3,7 +3,6 @@
 from .fingertip import Fingertip
 from .fingertip_parameter import (
     FingertipParameters,
-    MountingInterfaceParameters,
     PadParameters,
     PhalanxParameters,
 )
@@ -20,7 +19,6 @@ __all__ = [
     "FingertipParameters",
     "FingerLinkage",
     "FingerLinkageParameters",
-    "MountingInterfaceParameters",
     "PadParameters",
     "PhalanxParameters",
     "AnchorYZ",

@@ -1,8 +1,7 @@
 """Immutable physical parameters for the analytic fingertip morphology.
 
 The dimensions in this module are all in millimetres.  The parameter groups
-keep the fundamental compliant pad morphology separate from the internal
-T-shaped phalanx and from the fixed mounting feature used by the prototype.
+keep the compliant pad morphology separate from the plain T-shaped carrier.
 """
 
 from __future__ import annotations
@@ -51,7 +50,12 @@ class PadParameters:
 
 @dataclass(frozen=True)
 class PhalanxParameters:
-    """Dimensions of the rigid T-shaped distal phalanx / carrier."""
+    """Dimensions of the rigid T-shaped carrier.
+
+    ``carrier_height_mm`` is the dorsal plate thickness. The stem extends
+    below its shoulder and ends ``carrier_extension_mm`` beyond the straight
+    body. The dorsal plate continues over the full rounded fingertip nose.
+    """
 
     carrier_height_mm: float = 6.0
     stem_width_mm: float = 8.0
@@ -69,66 +73,37 @@ class PhalanxParameters:
 
 
 @dataclass(frozen=True)
-class MountingInterfaceParameters:
-    """Fixed stepped bonding dimensions added for practical fabrication."""
-
-    bond_width_mm: float = 5.0
-    bond_height_mm: float = 4.0
-
-    def __post_init__(self) -> None:
-        for name in ("bond_width_mm", "bond_height_mm"):
-            _require_positive(f"mounting_interface.{name}", getattr(self, name))
-
-
-@dataclass(frozen=True)
 class FingertipParameters:
     """Complete immutable input set for one concrete fingertip.
 
     ``pad`` defines the contact envelope.  ``phalanx`` defines the internal
-    rigid core.  ``mounting_interface`` defines the fixed stepped bonding
-    feature and is intentionally not part of the fundamental pad morphology.
+    rigid T-shaped carrier, without a stepped bonding interface.
     """
 
     pad: PadParameters = field(default_factory=PadParameters)
     phalanx: PhalanxParameters = field(default_factory=PhalanxParameters)
-    mounting_interface: MountingInterfaceParameters = field(
-        default_factory=MountingInterfaceParameters
-    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.pad, PadParameters):
             raise TypeError("pad must be a PadParameters instance")
         if not isinstance(self.phalanx, PhalanxParameters):
             raise TypeError("phalanx must be a PhalanxParameters instance")
-        if not isinstance(self.mounting_interface, MountingInterfaceParameters):
-            raise TypeError(
-                "mounting_interface must be a MountingInterfaceParameters instance"
-            )
 
         pad = self.pad
         phalanx = self.phalanx
-        mounting = self.mounting_interface
-
-        if mounting.bond_height_mm >= phalanx.carrier_height_mm:
-            raise ValueError(
-                "mounting_interface.bond_height_mm must be below "
-                "phalanx.carrier_height_mm"
-            )
         if phalanx.stem_width_mm >= pad.width_mm:
             raise ValueError("phalanx.stem_width_mm must be smaller than pad.width_mm")
-
-        half_width_mm = pad.width_mm / 2.0
-        stem_half_width_mm = phalanx.stem_width_mm / 2.0
-        if mounting.bond_width_mm >= half_width_mm - stem_half_width_mm:
-            raise ValueError(
-                "mounting_interface.bond_width_mm leaves no valid material "
-                "between the bond step and the stem"
-            )
 
         if phalanx.carrier_extension_mm >= pad.tip_length_mm:
             raise ValueError(
                 "phalanx.carrier_extension_mm must be smaller than pad.tip_length_mm"
             )
+
+        end_half_width_mm = (pad.width_mm / 2.0) * math.sqrt(
+            1.0 - (phalanx.carrier_extension_mm / pad.tip_length_mm) ** 2
+        )
+        if phalanx.stem_width_mm / 2.0 >= end_half_width_mm:
+            raise ValueError("the stem must remain narrower than the dorsal plate at its distal end")
 
         maximum_pad_depth_mm = pad.pad_straight_height_mm + pad.ellipse_height_mm
         if phalanx.stem_height_mm >= maximum_pad_depth_mm:
@@ -140,7 +115,6 @@ class FingertipParameters:
 
 __all__ = [
     "FingertipParameters",
-    "MountingInterfaceParameters",
     "PadParameters",
     "PhalanxParameters",
 ]

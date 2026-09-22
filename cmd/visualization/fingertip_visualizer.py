@@ -22,8 +22,8 @@ class FingertipVisualizer:
     The visualizer consumes the analytic ``Fingertip`` representation directly
     and does not create a mesh or introduce a second geometry definition. The
     lower and upper contact surfaces are sampled from the analytic model. The
-    carrier cross-section is extruded along ``Y`` to show the rigid core and
-    its separate distal dorsal plate extension.
+    stem is extruded along ``Y``; the dorsal nail follows its own rounded
+    footprint and extends beyond the stem.
     """
 
     fingertip: Fingertip = field(default_factory=Fingertip)
@@ -145,37 +145,55 @@ class FingertipVisualizer:
             )
 
     def _plot_carrier(self, axis: Axes3D) -> None:
-        carrier_color = "#f4a261"
-        core_length_mm = self.fingertip.carrier_length_mm
-        total_length_mm = self.fingertip.dorsal_plate_length_mm
+        fingertip = self.fingertip
+        pad = fingertip.parameters.pad
+        phalanx = fingertip.parameters.phalanx
+        stem_end = fingertip.carrier_length_mm
+        stem_half_width = phalanx.stem_width_mm / 2.0
+        stem_bottom = -phalanx.stem_height_mm
+        plate_top = phalanx.carrier_height_mm
 
-        self._add_extruded_polygon(
-            axis,
-            self.fingertip.carrier_cross_section,
+        # Split at the stem end so the nail underside starts there. Do not
+        # extrude the whole T section to the fingertip or add an internal cap.
+        y_values = sorted(set([
             0.0,
-            core_length_mm,
-            face_color=carrier_color,
-            edge_color="#c45a00",
-            alpha=0.78,
-        )
+            stem_end,
+            *self._linspace(pad.body_length_mm, fingertip.dorsal_plate_length_mm, self.samples),
+        ]))
+        faces = []
+        for y0, y1 in zip(y_values, y_values[1:]):
+            w0 = fingertip.dorsal_plate_half_width_at_y_mm(y0)
+            w1 = fingertip.dorsal_plate_half_width_at_y_mm(y1)
+            faces.append([(-w0, y0, plate_top), (w0, y0, plate_top),
+                          (w1, y1, plate_top), (-w1, y1, plate_top)])
+            for sign in (-1, 1):
+                faces.append([(sign * w0, y0, 0.0), (sign * w1, y1, 0.0),
+                              (sign * w1, y1, plate_top), (sign * w0, y0, plate_top)])
+            if y1 <= stem_end:
+                for sign in (-1, 1):
+                    faces.append([(sign * stem_half_width, y0, 0.0),
+                                  (sign * w0, y0, 0.0), (sign * w1, y1, 0.0),
+                                  (sign * stem_half_width, y1, 0.0)])
+            else:
+                faces.append([(-w0, y0, 0.0), (-w1, y1, 0.0),
+                              (w1, y1, 0.0), (w0, y0, 0.0)])
 
-        half_width_mm = self.fingertip.half_width_mm
-        carrier_height_mm = self.fingertip.parameters.phalanx.carrier_height_mm
-        dorsal_plate = (
-            (-half_width_mm, 0.0),
-            (half_width_mm, 0.0),
-            (half_width_mm, carrier_height_mm),
-            (-half_width_mm, carrier_height_mm),
-        )
-        self._add_extruded_polygon(
-            axis,
-            dorsal_plate,
-            core_length_mm,
-            total_length_mm,
-            face_color="#e76f51",
-            edge_color="#b23a2f",
-            alpha=0.78,
-        )
+        a = fingertip.half_width_mm
+        s = stem_half_width
+        faces.append([(-a, 0.0, 0.0), (a, 0.0, 0.0),
+                      (a, 0.0, plate_top), (-a, 0.0, plate_top)])
+        faces.append([(-s, 0.0, stem_bottom), (s, 0.0, stem_bottom),
+                      (s, stem_end, stem_bottom), (-s, stem_end, stem_bottom)])
+        for x in (-s, s):
+            faces.append([(x, 0.0, stem_bottom), (x, stem_end, stem_bottom),
+                          (x, stem_end, 0.0), (x, 0.0, 0.0)])
+        for y in (0.0, stem_end):
+            faces.append([(-s, y, stem_bottom), (s, y, stem_bottom),
+                          (s, y, 0.0), (-s, y, 0.0)])
+
+        axis.add_collection3d(Poly3DCollection(
+            faces, facecolors="#f4a261", edgecolors="none", alpha=0.78,
+        ))
 
     def _configure_3d_axis(self, axis: Axes3D) -> None:
         pad = self.fingertip.parameters.pad
@@ -202,8 +220,7 @@ class FingertipVisualizer:
         axis.legend(
             handles=[
                 Patch(facecolor="#4ea8de", edgecolor="#0077b6", alpha=0.55, label="compliant envelope"),
-                Patch(facecolor="#f4a261", edgecolor="#c45a00", alpha=0.78, label="rigid carrier core"),
-                Patch(facecolor="#e76f51", edgecolor="#b23a2f", alpha=0.78, label="distal dorsal plate"),
+                Patch(facecolor="#f4a261", edgecolor="#c45a00", alpha=0.78, label="T carrier + dorsal nail"),
             ],
             loc="upper left",
             fontsize=8,
@@ -250,42 +267,6 @@ class FingertipVisualizer:
             z_grid.append(z_row)
 
         return x_grid, y_grid, z_grid
-
-    @staticmethod
-    def _add_extruded_polygon(
-        axis: Axes3D,
-        polygon: tuple[tuple[float, float], ...],
-        start_y_mm: float,
-        end_y_mm: float,
-        face_color: str,
-        edge_color: str,
-        alpha: float,
-    ) -> None:
-        side_faces = []
-        for start_point, end_point in zip(polygon, (*polygon[1:], polygon[0])):
-            x_start, z_start = start_point
-            x_end, z_end = end_point
-            side_faces.append(
-                [
-                    (x_start, start_y_mm, z_start),
-                    (x_end, start_y_mm, z_end),
-                    (x_end, end_y_mm, z_end),
-                    (x_start, end_y_mm, z_start),
-                ]
-            )
-
-        cap_faces = [
-            [(x_mm, start_y_mm, z_mm) for x_mm, z_mm in polygon],
-            [(x_mm, end_y_mm, z_mm) for x_mm, z_mm in polygon],
-        ]
-        collection = Poly3DCollection(
-            (*side_faces, *cap_faces),
-            facecolors=face_color,
-            edgecolors=edge_color,
-            linewidths=0.7,
-            alpha=alpha,
-        )
-        axis.add_collection3d(collection)
 
     @staticmethod
     def _linspace(start: float, stop: float, count: int) -> list[float]:

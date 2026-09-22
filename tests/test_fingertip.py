@@ -3,7 +3,6 @@ import pytest
 from cmd.morphology import (
     Fingertip,
     FingertipParameters,
-    MountingInterfaceParameters,
     PadParameters,
     PhalanxParameters,
 )
@@ -90,18 +89,13 @@ def test_invalid_distal_carrier_penetration_is_rejected() -> None:
         )
 
 
-def test_invalid_mounting_and_stem_dimensions_are_rejected() -> None:
+def test_invalid_stem_dimensions_are_rejected() -> None:
     with pytest.raises(ValueError, match="stem_width"):
         FingertipParameters(phalanx=PhalanxParameters(stem_width_mm=25.0))
 
-    with pytest.raises(ValueError, match="bond_height"):
+    with pytest.raises(ValueError, match="narrower than the dorsal plate"):
         FingertipParameters(
-            phalanx=PhalanxParameters(carrier_height_mm=4.0),
-        )
-
-    with pytest.raises(ValueError, match="leaves no valid material"):
-        FingertipParameters(
-            mounting_interface=MountingInterfaceParameters(bond_width_mm=9.0),
+            phalanx=PhalanxParameters(stem_width_mm=20.0, carrier_extension_mm=14.0),
         )
 
 
@@ -110,7 +104,7 @@ def test_carrier_cross_section_is_derived_deterministic_and_symmetric() -> None:
     cross_section = fingertip.carrier_cross_section
 
     assert cross_section == fingertip.carrier_cross_section
-    assert len(cross_section) == 12
+    assert len(cross_section) == 8
     assert all(
         any(
             x_other == pytest.approx(-x) and z_other == pytest.approx(z)
@@ -118,7 +112,7 @@ def test_carrier_cross_section_is_derived_deterministic_and_symmetric() -> None:
         )
         for x, z in cross_section
     )
-    assert fingertip.t_phalanx_cross_section[0] == pytest.approx((-12.5, 0.0))
+    assert fingertip.carrier_cross_section[0] == pytest.approx((-12.5, 0.0))
     assert fingertip.outer_envelope_z_bounds_mm(0.0, 0.0) == pytest.approx((-16.0, 0.0))
 
 
@@ -130,3 +124,12 @@ def test_queries_outside_geometry_domain_raise() -> None:
     with pytest.raises(ValueError, match="x_mm"):
         fingertip.lower_surface_z_mm(13.0, 0.0)
     assert not fingertip.is_inside_pad_footprint(13.0, 0.0)
+
+
+def test_dorsal_nail_rounds_off_beyond_the_stem() -> None:
+    fingertip = Fingertip()
+    pad = fingertip.parameters.pad
+    assert fingertip.dorsal_plate_half_width_at_y_mm(pad.body_length_mm) == pytest.approx(12.5)
+    assert fingertip.dorsal_plate_half_width_at_y_mm(pad.body_length_mm + 0.6 * pad.tip_length_mm) == pytest.approx(10.0)
+    assert fingertip.dorsal_plate_half_width_at_y_mm(fingertip.dorsal_plate_length_mm) == pytest.approx(0.0)
+    assert fingertip.carrier_length_mm < fingertip.dorsal_plate_length_mm

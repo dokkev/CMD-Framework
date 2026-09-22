@@ -17,10 +17,10 @@ distal nose used by the prototype.
 
 The compliant outer envelope is represented separately from the rigid carrier:
 at a footprint point it spans between analytic lower and upper surfaces. The
-carrier is a derived XZ polygon. Its fundamental component is a T-shaped
-phalanx; the exposed polygon additionally contains the fixed stepped bonding
-interface. The distal rigid core extends into the rounded cap only by
-``carrier_extension_mm``.
+carrier has a plain T-shaped reference XZ section without bonding steps.
+The stem extends by ``carrier_extension_mm`` beyond the straight body. The
+dorsal plate continues to the full fingertip length with an elliptical nose,
+forming the fingernail.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class Fingertip:
 
     @property
     def carrier_length_mm(self) -> float:
-        """Length of the rigid core through the body and into the nose."""
+        """Length of the carrier stem, excluding the longer dorsal nail."""
 
         pad = self.parameters.pad
         return pad.body_length_mm + self.parameters.phalanx.carrier_extension_mm
@@ -79,6 +79,16 @@ class Fingertip:
         """Length of the dorsal plate interface, through the complete nose."""
 
         return self.total_length_mm
+
+    def dorsal_plate_half_width_at_y_mm(self, y_mm: float) -> float:
+        """Return the nail half-width: straight body followed by an ellipse."""
+
+        y_mm = self._validate_y(y_mm)
+        pad = self.parameters.pad
+        if y_mm <= pad.body_length_mm:
+            return self.a
+        v = (y_mm - pad.body_length_mm) / pad.tip_length_mm
+        return self.a * math.sqrt(max(0.0, 1.0 - v * v))
 
     @property
     def a(self) -> float:
@@ -158,11 +168,11 @@ class Fingertip:
         return self.lower_surface_z_mm(x_mm, y_mm), self.upper_surface_z_mm(x_mm, y_mm)
 
     @property
-    def t_phalanx_cross_section(self) -> tuple[PointXZ, ...]:
-        """Return the fundamental T-shaped phalanx XZ polygon.
+    def carrier_cross_section(self) -> tuple[PointXZ, ...]:
+        """Return the plain T-shaped carrier section in the straight body.
 
-        The polygon is derived from the phalanx and pad dimensions.  It does
-        not include the fixed stepped bonding interface.
+        Distally the nail narrows and continues beyond the end of the stem;
+        this reference section must not be extruded through the entire nail.
         """
 
         phalanx = self.parameters.phalanx
@@ -176,35 +186,6 @@ class Fingertip:
             (self.a, 0.0),
             (self.a, phalanx.carrier_height_mm),
             (-self.a, phalanx.carrier_height_mm),
-        )
-
-    @property
-    def carrier_cross_section(self) -> tuple[PointXZ, ...]:
-        """Return the physical stepped carrier XZ polygon.
-
-        The twelve vertices are derived from the semantic T-phalanx and
-        mounting-interface dimensions; they are not independent parameters.
-        """
-
-        phalanx = self.parameters.phalanx
-        mounting = self.parameters.mounting_interface
-        bond_width_mm = mounting.bond_width_mm
-        bond_height_mm = mounting.bond_height_mm
-        stem_half_width_mm = phalanx.stem_width_mm / 2.0
-        a_mm = self.a
-        return (
-            (-a_mm, bond_height_mm),
-            (-a_mm + bond_width_mm, bond_height_mm),
-            (-a_mm + bond_width_mm, 0.0),
-            (-stem_half_width_mm, 0.0),
-            (-stem_half_width_mm, -phalanx.stem_height_mm),
-            (stem_half_width_mm, -phalanx.stem_height_mm),
-            (stem_half_width_mm, 0.0),
-            (a_mm - bond_width_mm, 0.0),
-            (a_mm - bond_width_mm, bond_height_mm),
-            (a_mm, bond_height_mm),
-            (a_mm, phalanx.carrier_height_mm),
-            (-a_mm, phalanx.carrier_height_mm),
         )
 
     def _validate_y(self, y_mm: float) -> float:
