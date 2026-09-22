@@ -26,7 +26,11 @@ def _require_positive(name: str, value: object) -> None:
 
 @dataclass(frozen=True)
 class PadParameters:
-    """Fundamental compliant contact-envelope dimensions."""
+    """Fundamental compliant contact-envelope dimensions.
+
+    The lateral width is constant along the finger. ``tip_length_mm`` is the
+    longitudinal length of the rounded distal cap.
+    """
 
     width_mm: float = 25.0
     pad_straight_height_mm: float = 6.0
@@ -126,26 +130,11 @@ class FingertipParameters:
                 "phalanx.carrier_extension_mm must be smaller than pad.tip_length_mm"
             )
 
-        corner_x_mm = stem_half_width_mm
-        q = (corner_x_mm / half_width_mm) ** 2 + (
-            phalanx.carrier_extension_mm / pad.tip_length_mm
-        ) ** 2
-        if q >= 1.0:
+        maximum_pad_depth_mm = pad.pad_straight_height_mm + pad.ellipse_height_mm
+        if phalanx.stem_height_mm >= maximum_pad_depth_mm:
             raise ValueError(
-                "the distal rigid-core corner lies outside the quarter-ellipsoid "
-                f"envelope: q={q:.16g} must be < 1"
-            )
-
-        penetration_mm = max(
-            0.0,
-            phalanx.stem_height_mm - pad.pad_straight_height_mm,
-        )
-        allowable_penetration_mm = pad.ellipse_height_mm * math.sqrt(1.0 - q)
-        if penetration_mm >= allowable_penetration_mm:
-            raise ValueError(
-                "the distal rigid-core stem breaks through the quarter-ellipsoid "
-                "envelope: penetration must be less than "
-                f"{allowable_penetration_mm:.16g} mm"
+                "the rigid-core stem must fit within the maximum compliant pad "
+                f"depth of {maximum_pad_depth_mm:.16g} mm"
             )
 
 

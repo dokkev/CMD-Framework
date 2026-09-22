@@ -5,20 +5,22 @@ the finger extends toward positive ``Y``.  The straight body occupies
 ``0 <= y <= L`` and the distal nose occupies ``L <= y <= L + b``.  All public
 dimensions and query coordinates are in millimetres.
 
-The lower contact surface is a transverse semiellipse in the straight body,
+The compliant pad keeps a constant lateral width along the finger. Its
+straight body has a transverse semielliptic lower surface,
 
-``z = -h - c * sqrt(1 - (x/a)**2)``,
+``z = -h - c * sqrt(1 - (x/a)**2)``.
 
-and a true distal quarter-ellipsoid,
-
-``z = -h - c * sqrt(1 - (x/a)**2 - ((y-L)/b)**2)``.
+The distal section is a rounded longitudinal cap. For each lateral section,
+the lower and upper surfaces converge at the distal end instead of shrinking
+the pad width to zero. This matches the physical U-shaped pad and rounded
+distal nose used by the prototype.
 
 The compliant outer envelope is represented separately from the rigid carrier:
-at a footprint point it spans from the analytic lower contact surface to the
-carrier shoulder plane ``z = 0``.  The carrier is a derived XZ polygon.  Its
-fundamental component is a T-shaped phalanx; the exposed polygon additionally
-contains the fixed stepped bonding interface.  The distal rigid core extends
-into the ellipsoid only by ``carrier_extension_mm``.
+at a footprint point it spans between analytic lower and upper surfaces. The
+carrier is a derived XZ polygon. Its fundamental component is a T-shaped
+phalanx; the exposed polygon additionally contains the fixed stepped bonding
+interface. The distal rigid core extends into the rounded cap only by
+``carrier_extension_mm``.
 """
 
 from __future__ import annotations
@@ -54,7 +56,7 @@ class Fingertip:
 
     @property
     def half_width_mm(self) -> float:
-        """Maximum half-width of the straight contact body."""
+        """Half-width of the constant-width compliant pad."""
 
         return self.parameters.pad.width_mm / 2.0
 
@@ -86,30 +88,21 @@ class Fingertip:
 
     @property
     def b(self) -> float:
-        """Longitudinal semi-axis ``b`` of the distal quarter-ellipsoid, in mm."""
+        """Longitudinal length ``b`` of the rounded distal cap, in mm."""
 
         return self.parameters.pad.tip_length_mm
 
     @property
     def c(self) -> float:
-        """Dorsal semi-axis ``c`` of the distal quarter-ellipsoid, in mm."""
+        """Maximum lower-surface depth ``c`` below the pad shoulder, in mm."""
 
         return self.parameters.pad.ellipse_height_mm
 
     def half_width_at_y_mm(self, y_mm: float) -> float:
-        """Return the available pad half-width at longitudinal coordinate ``y``.
+        """Return the constant pad half-width at longitudinal coordinate ``y``."""
 
-        The footprint is constant through the straight body and follows the
-        ellipsoidal ``a * sqrt(1 - v**2)`` law in the distal nose.
-        """
-
-        y_mm = self._validate_y(y_mm)
-        body_length_mm = self.parameters.pad.body_length_mm
-        if y_mm <= body_length_mm:
-            return self.a
-
-        v = (y_mm - body_length_mm) / self.b
-        return self.a * math.sqrt(max(0.0, 1.0 - v * v))
+        self._validate_y(y_mm)
+        return self.a
 
     def lower_surface_z_mm(self, x_mm: float, y_mm: float) -> float:
         """Return the analytic lower contact surface at ``(x, y)``.
@@ -120,19 +113,28 @@ class Fingertip:
 
         x_mm = _require_finite_query("x_mm", x_mm)
         y_mm = self._validate_y(y_mm)
-        half_width_mm = self.half_width_at_y_mm(y_mm)
-        self._validate_x_in_footprint(x_mm, half_width_mm)
+        self._validate_x_in_footprint(x_mm, self.a)
 
         pad = self.parameters.pad
-        h_mm = pad.pad_straight_height_mm
         if y_mm <= pad.body_length_mm:
-            normalized_x = x_mm / self.a
-            radicand = max(0.0, 1.0 - normalized_x * normalized_x)
-        else:
-            v = (y_mm - pad.body_length_mm) / self.b
-            normalized_x = x_mm / self.a
-            radicand = max(0.0, 1.0 - normalized_x * normalized_x - v * v)
-        return -h_mm - self.c * math.sqrt(radicand)
+            return self._body_lower_surface_z_mm(x_mm)
+        return self._distal_cap_bounds_z_mm(x_mm, y_mm)[0]
+
+    def upper_surface_z_mm(self, x_mm: float, y_mm: float) -> float:
+        """Return the analytic upper surface of the compliant pad in mm.
+
+        The straight body meets the carrier shoulder at ``z = 0``. The
+        rounded distal cap lowers this upper surface until it meets the lower
+        surface at the end of the pad.
+        """
+
+        x_mm = _require_finite_query("x_mm", x_mm)
+        y_mm = self._validate_y(y_mm)
+        self._validate_x_in_footprint(x_mm, self.a)
+
+        if y_mm <= self.parameters.pad.body_length_mm:
+            return 0.0
+        return self._distal_cap_bounds_z_mm(x_mm, y_mm)[1]
 
     def is_inside_pad_footprint(self, x_mm: float, y_mm: float) -> bool:
         """Return whether ``(x, y)`` belongs to the closed pad footprint.
@@ -149,13 +151,11 @@ class Fingertip:
     def outer_envelope_z_bounds_mm(self, x_mm: float, y_mm: float) -> tuple[float, float]:
         """Return ``(lower_z, upper_z)`` for the compliant outer envelope.
 
-        The supplied morphology defines the upper shoulder plane at ``z=0``;
-        the dorsal carrier above that plane is returned separately through its
-        carrier cross-section rather than folded into the contact envelope.
+        The dorsal carrier is returned separately through its carrier
+        cross-section rather than folded into the contact envelope.
         """
 
-        lower_z_mm = self.lower_surface_z_mm(x_mm, y_mm)
-        return lower_z_mm, 0.0
+        return self.lower_surface_z_mm(x_mm, y_mm), self.upper_surface_z_mm(x_mm, y_mm)
 
     @property
     def t_phalanx_cross_section(self) -> tuple[PointXZ, ...]:
@@ -219,6 +219,31 @@ class Fingertip:
         if abs(y_mm - self.total_length_mm) <= _QUERY_TOLERANCE_MM:
             return self.total_length_mm
         return y_mm
+
+    def _body_lower_surface_z_mm(self, x_mm: float) -> float:
+        pad = self.parameters.pad
+        normalized_x = x_mm / self.a
+        return -pad.pad_straight_height_mm - self.c * math.sqrt(
+            max(0.0, 1.0 - normalized_x * normalized_x)
+        )
+
+    def _distal_cap_bounds_z_mm(
+        self,
+        x_mm: float,
+        y_mm: float,
+    ) -> tuple[float, float]:
+        """Return lower/upper z bounds for one rounded-cap section."""
+
+        pad = self.parameters.pad
+        lower_body_z_mm = self._body_lower_surface_z_mm(x_mm)
+        center_z_mm = lower_body_z_mm / 2.0
+        half_thickness_mm = -lower_body_z_mm / 2.0
+        normalized_y = (y_mm - pad.body_length_mm) / pad.tip_length_mm
+        cap_scale = math.sqrt(max(0.0, 1.0 - normalized_y * normalized_y))
+        return (
+            center_z_mm - half_thickness_mm * cap_scale,
+            center_z_mm + half_thickness_mm * cap_scale,
+        )
 
     @staticmethod
     def _validate_x_in_footprint(x_mm: float, half_width_mm: float) -> None:

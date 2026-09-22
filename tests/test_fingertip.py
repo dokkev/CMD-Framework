@@ -1,5 +1,3 @@
-import math
-
 import pytest
 
 from cmd.morphology import (
@@ -45,17 +43,23 @@ def test_distal_surface_matches_straight_body_at_join() -> None:
         )
 
 
-def test_distal_tip_closes_at_the_equator() -> None:
+def test_distal_cap_closes_at_the_distal_end() -> None:
     fingertip = Fingertip()
     pad = fingertip.parameters.pad
+    end_z_mm = -(pad.pad_straight_height_mm + pad.ellipse_height_mm) / 2.0
 
     assert fingertip.lower_surface_z_mm(0.0, fingertip.total_length_mm) == pytest.approx(
-        -pad.pad_straight_height_mm
+        end_z_mm
     )
-    assert fingertip.half_width_at_y_mm(fingertip.total_length_mm) == pytest.approx(0.0)
+    assert fingertip.upper_surface_z_mm(0.0, fingertip.total_length_mm) == pytest.approx(
+        end_z_mm
+    )
+    assert fingertip.half_width_at_y_mm(fingertip.total_length_mm) == pytest.approx(
+        pad.width_mm / 2.0
+    )
 
 
-def test_distal_footprint_shrinks_continuously() -> None:
+def test_distal_footprint_keeps_constant_width_through_rounded_cap() -> None:
     fingertip = Fingertip()
     pad = fingertip.parameters.pad
     samples = [
@@ -63,10 +67,7 @@ def test_distal_footprint_shrinks_continuously() -> None:
         for fraction in (0.0, 0.25, 0.5, 0.75, 1.0)
     ]
 
-    assert samples[0] == pytest.approx(pad.width_mm / 2.0)
-    assert samples[-1] == pytest.approx(0.0)
-    assert all(left >= right for left, right in zip(samples, samples[1:]))
-    assert samples[2] == pytest.approx((pad.width_mm / 2.0) * math.sqrt(0.75))
+    assert samples == pytest.approx([pad.width_mm / 2.0] * len(samples))
 
 
 def test_surface_is_symmetric_about_the_centerline() -> None:
@@ -80,10 +81,10 @@ def test_surface_is_symmetric_about_the_centerline() -> None:
 
 
 def test_invalid_distal_carrier_penetration_is_rejected() -> None:
-    with pytest.raises(ValueError, match="breaks through"):
+    with pytest.raises(ValueError, match="maximum compliant pad depth"):
         FingertipParameters(
             phalanx=PhalanxParameters(
-                stem_height_mm=8.0,
+                stem_height_mm=17.0,
                 carrier_extension_mm=14.0,
             )
         )

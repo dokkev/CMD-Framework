@@ -20,10 +20,10 @@ class FingertipVisualizer:
     """Render the fingertip contact envelope and carrier as a 3D model.
 
     The visualizer consumes the analytic ``Fingertip`` representation directly
-    and does not create a mesh or introduce a second geometry definition.  The
-    lower contact surface and the outer shoulder envelope are sampled as
-    analytic surfaces.  The carrier cross-section is extruded along ``Y`` to
-    show the rigid core and its separate distal dorsal plate extension.
+    and does not create a mesh or introduce a second geometry definition. The
+    lower and upper contact surfaces are sampled from the analytic model. The
+    carrier cross-section is extruded along ``Y`` to show the rigid core and
+    its separate distal dorsal plate extension.
     """
 
     fingertip: Fingertip = field(default_factory=Fingertip)
@@ -92,12 +92,6 @@ class FingertipVisualizer:
         self._plot_lateral_walls(axis)
 
     def _plot_lateral_walls(self, axis: Axes3D) -> None:
-        wall_z_values = self._linspace(
-            -self.fingertip.parameters.pad.pad_straight_height_mm,
-            0.0,
-            max(8, self.samples // 10),
-        )
-
         body_y_values = self._linspace(
             0.0,
             self.fingertip.parameters.pad.body_length_mm,
@@ -105,9 +99,20 @@ class FingertipVisualizer:
         )
         for x_mm in (-self.fingertip.half_width_mm, self.fingertip.half_width_mm):
             axis.plot_surface(
-                np.asarray([[x_mm] * len(body_y_values) for _ in wall_z_values]),
-                np.asarray([body_y_values for _ in wall_z_values]),
-                np.asarray([[z_mm for _ in body_y_values] for z_mm in wall_z_values]),
+                np.asarray([[x_mm] * len(body_y_values)] * 2),
+                np.asarray([body_y_values, body_y_values]),
+                np.asarray(
+                    [
+                        [
+                            self.fingertip.lower_surface_z_mm(x_mm, y_mm)
+                            for y_mm in body_y_values
+                        ],
+                        [
+                            self.fingertip.upper_surface_z_mm(x_mm, y_mm)
+                            for y_mm in body_y_values
+                        ],
+                    ]
+                ),
                 color="#4ea8de",
                 alpha=0.18,
                 linewidth=0,
@@ -118,17 +123,22 @@ class FingertipVisualizer:
             self.fingertip.total_length_mm,
             self.samples,
         )
-        nose_half_width_values = [
-            self.fingertip.half_width_at_y_mm(y_mm) for y_mm in nose_y_values
-        ]
-        for sign in (-1.0, 1.0):
+        for x_mm in (-self.fingertip.half_width_mm, self.fingertip.half_width_mm):
             axis.plot_surface(
-                np.asarray([
-                    [sign * half_width_mm for half_width_mm in nose_half_width_values]
-                    for _ in wall_z_values
-                ]),
-                np.asarray([nose_y_values for _ in wall_z_values]),
-                np.asarray([[z_mm for _ in nose_y_values] for z_mm in wall_z_values]),
+                np.asarray([[x_mm] * len(nose_y_values)] * 2),
+                np.asarray([nose_y_values, nose_y_values]),
+                np.asarray(
+                    [
+                        [
+                            self.fingertip.lower_surface_z_mm(x_mm, y_mm)
+                            for y_mm in nose_y_values
+                        ],
+                        [
+                            self.fingertip.upper_surface_z_mm(x_mm, y_mm)
+                            for y_mm in nose_y_values
+                        ],
+                    ]
+                ),
                 color="#4ea8de",
                 alpha=0.18,
                 linewidth=0,
@@ -223,27 +233,18 @@ class FingertipVisualizer:
         x_grid: list[list[float]] = []
         y_grid: list[list[float]] = []
         z_grid: list[list[float]] = []
-        pad = self.fingertip.parameters.pad
 
         for y_mm in y_values:
             half_width_mm = self.fingertip.half_width_at_y_mm(y_mm)
             x_row = [half_width_mm * normalized_x for normalized_x in normalized_x_values]
-            if upper:
-                z_row = [0.0] * len(normalized_x_values)
-            elif surface == "body":
-                z_row = [
-                    -pad.pad_straight_height_mm
-                    - pad.ellipse_height_mm * (max(0.0, 1.0 - normalized_x**2) ** 0.5)
-                    for normalized_x in normalized_x_values
-                ]
-            else:
-                v = (y_mm - pad.body_length_mm) / pad.tip_length_mm
-                z_row = [
-                    -pad.pad_straight_height_mm
-                    - pad.ellipse_height_mm
-                    * (max(0.0, 1.0 - normalized_x**2 - v**2) ** 0.5)
-                    for normalized_x in normalized_x_values
-                ]
+            z_row = [
+                (
+                    self.fingertip.upper_surface_z_mm(x_mm, y_mm)
+                    if upper
+                    else self.fingertip.lower_surface_z_mm(x_mm, y_mm)
+                )
+                for x_mm in x_row
+            ]
             x_grid.append(x_row)
             y_grid.append([y_mm] * len(normalized_x_values))
             z_grid.append(z_row)
