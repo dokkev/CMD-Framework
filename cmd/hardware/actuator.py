@@ -1,8 +1,8 @@
 """Solver-independent actuator geometry and mechanical parameters.
 
-The canonical actuator frame is shaft-centred: +X points toward the rounded
-body cap, +Y is the shaft axis, and +Z is the lateral body-width direction.
-All dimensions are in millimetres.
+The canonical actuator frame is shaft-centred: +X is the lateral body width,
++Y points toward the rounded cap, and +Z is the shaft axis. All dimensions are
+in millimetres.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from numbers import Real
 
 
 Vector3 = tuple[float, float, float]
-ACTUATOR_SHAFT_AXIS_XYZ: Vector3 = (0.0, 1.0, 0.0)
+ACTUATOR_SHAFT_AXIS_XYZ: Vector3 = (0.0, 0.0, 1.0)
 
 
 def _finite_real(name: str, value: object) -> float:
@@ -34,11 +34,12 @@ def _positive_real(name: str, value: object) -> float:
 
 @dataclass(frozen=True)
 class DShapedExtrusion:
-    """D-shaped XZ profile extruded along local Y, with dimensions in mm.
+    """D-shaped XY profile extruded along local Z, with dimensions in mm.
 
-    The profile has a rectangular rear extent ``[-rear_extent_mm, 0]`` and a
-    rounded cap of radius ``radius_mm`` in ``x >= 0``. The shaft center is the
-    origin and the extrusion is centred about ``Y = 0``.
+    The rectangular profile spans ``x = +/- radius_mm`` and
+    ``y = [-rear_extent_mm, 0]``. Its rounded cap has radius ``radius_mm`` in
+    ``y >= 0``. The shaft center is the origin and the extrusion is centred
+    about ``Z = 0``.
     """
 
     radius_mm: float
@@ -61,13 +62,13 @@ class DShapedExtrusion:
 
     @property
     def longitudinal_extent_mm(self) -> float:
-        """Total X extent from the rear face to the rounded tip."""
+        """Total Y extent from the rear face to the rounded tip."""
 
         return self.rear_extent_mm + self.radius_mm
 
     @property
     def width_mm(self) -> float:
-        """Full lateral Z width of the D-shaped profile."""
+        """Full lateral X width of the D-shaped profile."""
 
         return 2.0 * self.radius_mm
 
@@ -76,9 +77,9 @@ class DShapedExtrusion:
         """Return ``((xmin, xmax), (ymin, ymax), (zmin, zmax))`` in mm."""
 
         return (
+            (-self.radius_mm, self.radius_mm),
             (-self.rear_extent_mm, self.radius_mm),
             (-self.depth_mm / 2.0, self.depth_mm / 2.0),
-            (-self.radius_mm, self.radius_mm),
         )
 
 

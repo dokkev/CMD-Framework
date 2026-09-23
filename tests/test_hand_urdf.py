@@ -1,43 +1,24 @@
 import math
-from dataclasses import FrozenInstanceError
 from xml.etree import ElementTree
 
 import pytest
 
-from cmd.design import HandDesignParameters, PlanarPlacement, compile_hand_urdf
+from cmd.design import compile_hand_urdf
+from cmd.morphology import HandMorphology, HandMorphologyParameters, HandPlanePoint, RigidTransform
 
 
-def make_hand_design() -> HandDesignParameters:
-    return HandDesignParameters(
-        index_mcp_aa=PlanarPlacement(30.0, 10.0),
-        middle_mcp_aa=PlanarPlacement(32.0, 3.0),
-        ring_mcp_aa=PlanarPlacement(31.0, -4.0),
-        little_mcp_aa=PlanarPlacement(28.0, -11.0),
-        thumb_cmc=PlanarPlacement(12.0, 18.0),
-    )
-
-
-def test_planar_hand_parameters_are_immutable_and_finite() -> None:
-    parameters = make_hand_design()
-
-    with pytest.raises(FrozenInstanceError):
-        parameters.thumb_cmc = PlanarPlacement(1.0, 1.0)
-
-    with pytest.raises(FrozenInstanceError):
-        parameters.index_mcp_aa.x_mm = 1.0
-
-    with pytest.raises(ValueError):
-        PlanarPlacement(float("nan"), 0.0)
-
-
-def _joint_map(root: ElementTree.Element) -> dict[str, ElementTree.Element]:
-    return {joint.attrib["name"]: joint for joint in root.findall("joint")}
-
-
-def _matmul(first, second):
-    return tuple(
-        tuple(sum(first[row][k] * second[k][column] for k in range(3)) for column in range(3))
-        for row in range(3)
+def make_morphology() -> HandMorphology:
+    return HandMorphology(
+        HandMorphologyParameters(
+            middle_mcp_aa=HandPlanePoint(40.0, 5.0),
+            ring_mcp_aa=HandPlanePoint(35.0, -5.0),
+            little_mcp_aa=HandPlanePoint(25.0, -15.0),
+            thumb_cmc_ro=HandPlanePoint(5.0, 30.0),
+            theta_rad=0.25,
+            ro_raa_distance_mm=35.0,
+            raa_mcp_fe_distance_mm=28.0,
+            phi_rad=-0.2,
+        )
     )
 
 
@@ -52,135 +33,164 @@ def _rotation_from_rpy(rpy):
     return _matmul(_matmul(rz, ry), rx)
 
 
+def _matmul(first, second):
+    return tuple(
+        tuple(sum(first[row][k] * second[k][column] for k in range(3)) for column in range(3))
+        for row in range(3)
+    )
+
+
 def _rotate(rotation, vector):
-    return tuple(sum(rotation[row][column] * vector[column] for column in range(3)) for row in range(3))
+    return tuple(
+        sum(rotation[row][column] * vector[column] for column in range(3))
+        for row in range(3)
+    )
 
 
-def _parse_vector(text: str) -> tuple[float, ...]:
-    return tuple(float(value) for value in text.split())
+def _parse_vector(value: str) -> tuple[float, ...]:
+    return tuple(float(component) for component in value.split())
 
 
-def test_compile_emits_shaft_centered_d_body_and_preserves_hand_axes() -> None:
-    root = ElementTree.fromstring(compile_hand_urdf(make_hand_design()))
+def _parse_origin(origin: ElementTree.Element) -> RigidTransform:
+    xyz_m = _parse_vector(origin.attrib["xyz"])
+    rpy = _parse_vector(origin.attrib["rpy"])
+    return RigidTransform(
+        rotation_matrix=_rotation_from_rpy(rpy),
+        translation_mm=tuple(value * 1000.0 for value in xyz_m),
+    )
 
+
+def _assert_transform_equal(actual: RigidTransform, expected: RigidTransform) -> None:
+    assert actual.translation_mm == pytest.approx(expected.translation_mm, abs=1.0e-8)
+    actual_rotation = [value for row in actual.rotation_matrix for value in row]
+    expected_rotation = [value for row in expected.rotation_matrix for value in row]
+    assert actual_rotation == pytest.approx(expected_rotation, abs=1.0e-10)
+
+
+def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
+    morphology = make_morphology()
+    root = ElementTree.fromstring(compile_hand_urdf(morphology))
     assert root.tag == "robot"
     assert root.attrib == {"name": "clear_hand"}
 
-    links = {link.attrib["name"] for link in root.findall("link")}
-    expected_links = {"palm_link", "thumb_cmc_link"}
-    for finger_name in ("index", "middle", "ring", "little"):
-        expected_links.update(
-            {
-                f"{finger_name}_mcp_aa_housing",
-                f"{finger_name}_mcp_aa_output",
-                f"{finger_name}_linkage_frame",
-            }
+    joint_map = {joint.attrib["name"]: joint for joint in root.findall("joint")}
+    link_names = {link.attrib["name"] for link in root.findall("link")}
+    assert "palm_link" in link_names
+
+    frame_parents = []
+    for finger in ("index", "middle", "ring", "little"):
+        frame_parents.extend(
+            (
+                (f"{finger}_mcp_aa", None, "palm_link"),
+                (
+                    f"{finger}_mcp_fe",
+                    f"{finger}_mcp_aa",
+                    f"{finger}_mcp_aa_output",
+                ),
+            )
         )
-    assert links == expected_links
-
-    joints = _joint_map(root)
-    expected_joints = {"thumb_cmc_mount_joint"}
-    for finger_name in ("index", "middle", "ring", "little"):
-        expected_joints.update(
-            {
-                f"{finger_name}_mcp_aa_housing_mount_joint",
-                f"{finger_name}_mcp_aa_joint",
-                f"{finger_name}_mcp_fe_to_linkage_frame_joint",
-            }
+    frame_parents.extend(
+        (
+            ("thumb_cmc_ro", None, "palm_link"),
+            ("thumb_cmc_raa", "thumb_cmc_ro", "thumb_cmc_ro_output"),
+            ("thumb_mcp_fe", "thumb_cmc_raa", "thumb_cmc_raa_output"),
         )
-    assert set(joints) == expected_joints
-    assert not any("mcp_fe_joint" in name for name in joints)
-
-    actuator_mount = joints["index_mcp_aa_housing_mount_joint"]
-    assert actuator_mount.attrib["type"] == "fixed"
-    assert actuator_mount.find("parent").attrib["link"] == "palm_link"
-    assert actuator_mount.find("child").attrib["link"] == "index_mcp_aa_housing"
-    assert _parse_vector(actuator_mount.find("origin").attrib["xyz"]) == pytest.approx(
-        (0.03, 0.01, 0.0)
-    )
-    actuator_rpy = _parse_vector(actuator_mount.find("origin").attrib["rpy"])
-    assert actuator_rpy == pytest.approx((math.pi / 2.0, 0.0, 0.0))
-
-    mcp_aa = joints["index_mcp_aa_joint"]
-    assert mcp_aa.attrib["type"] == "continuous"
-    assert mcp_aa.find("parent").attrib["link"] == "index_mcp_aa_housing"
-    assert mcp_aa.find("child").attrib["link"] == "index_mcp_aa_output"
-    assert _parse_vector(mcp_aa.find("origin").attrib["xyz"]) == pytest.approx(
-        (0.0, 0.0, 0.0)
-    )
-    assert _parse_vector(mcp_aa.find("axis").attrib["xyz"]) == pytest.approx(
-        (0.0, 1.0, 0.0)
     )
 
-    # The new actuator +Y axis remains the established physical hand +Z axis.
-    actuator_to_hand = _rotation_from_rpy(actuator_rpy)
-    assert _rotate(actuator_to_hand, (0.0, 1.0, 0.0)) == pytest.approx(
-        (0.0, 0.0, 1.0), abs=1.0e-10
-    )
+    expected_links = {"palm_link"}
+    expected_joint_names = set()
+    for frame_name, parent_frame, parent_link in frame_parents:
+        actuator_link = f"{frame_name}_actuator"
+        output_link = f"{frame_name}_output"
+        mount_name = f"{frame_name}_actuator_mount"
+        joint_name = f"{frame_name}_joint"
+        expected_links.update((actuator_link, output_link))
+        expected_joint_names.update((mount_name, joint_name))
 
-    linkage_joint = joints["index_mcp_fe_to_linkage_frame_joint"]
-    assert linkage_joint.attrib["type"] == "fixed"
-    assert linkage_joint.find("parent").attrib["link"] == "index_mcp_aa_output"
-    assert linkage_joint.find("child").attrib["link"] == "index_linkage_frame"
-    linkage_rpy = _parse_vector(linkage_joint.find("origin").attrib["rpy"])
-    actuator_to_linkage = _rotation_from_rpy(linkage_rpy)
-    hand_to_linkage = _matmul(actuator_to_hand, actuator_to_linkage)
-    assert _rotate(hand_to_linkage, (1.0, 0.0, 0.0)) == pytest.approx(
-        (0.0, -1.0, 0.0), abs=1.0e-10
-    )
-    assert _rotate(hand_to_linkage, (0.0, 1.0, 0.0)) == pytest.approx(
-        (1.0, 0.0, 0.0), abs=1.0e-10
-    )
-    assert _rotate(hand_to_linkage, (0.0, 0.0, 1.0)) == pytest.approx(
-        (0.0, 0.0, 1.0), abs=1.0e-10
-    )
-
-    housing_link = next(
-        link for link in root.findall("link") if link.attrib["name"] == "index_mcp_aa_housing"
-    )
-    for geometry_owner in ("visual", "collision"):
-        components = housing_link.findall(geometry_owner)
-        assert len(components) == 2
-        box = next(component for component in components if component.find("geometry/box") is not None)
-        cylinder = next(
-            component for component in components
-            if component.find("geometry/cylinder") is not None
+        mount_joint = joint_map[mount_name]
+        assert mount_joint.attrib["type"] == "fixed"
+        assert mount_joint.find("parent").attrib["link"] == parent_link
+        assert mount_joint.find("child").attrib["link"] == actuator_link
+        mount_transform = _parse_origin(mount_joint.find("origin"))
+        parent_pose = (
+            RigidTransform.identity()
+            if parent_frame is None
+            else morphology.joint_transforms[parent_frame]
+        )
+        _assert_transform_equal(
+            parent_pose @ mount_transform,
+            morphology.actuator_transforms[frame_name],
         )
 
-        assert _parse_vector(box.find("origin").attrib["xyz"]) == pytest.approx(
-            (-0.01275, 0.0, 0.0)
+        revolute = joint_map[joint_name]
+        assert revolute.attrib["type"] == "continuous"
+        assert revolute.find("parent").attrib["link"] == actuator_link
+        assert revolute.find("child").attrib["link"] == output_link
+        actuator_to_joint = _parse_origin(revolute.find("origin"))
+        _assert_transform_equal(
+            morphology.actuator_transforms[frame_name] @ actuator_to_joint,
+            morphology.joint_transforms[frame_name],
         )
-        assert _parse_vector(box.find("geometry/box").attrib["size"]) == pytest.approx(
-            (0.0255, 0.022, 0.019)
+        assert actuator_to_joint.translation_mm == pytest.approx((0.0, 0.0, 0.0), abs=1.0e-8)
+        assert _parse_vector(revolute.find("axis").attrib["xyz"]) == pytest.approx(
+            morphology.joint_axes_local[frame_name]
         )
-        assert _parse_vector(cylinder.find("origin").attrib["xyz"]) == pytest.approx(
-            (0.0, 0.0, 0.0)
+        assert _rotate(
+            morphology.joint_transforms[frame_name].rotation_matrix,
+            _parse_vector(revolute.find("axis").attrib["xyz"]),
+        ) == pytest.approx(morphology.joint_axes_hand[frame_name], abs=1.0e-10)
+
+        actuator_xml = next(link for link in root.findall("link") if link.attrib["name"] == actuator_link)
+        for element_name in ("visual", "collision"):
+            elements = actuator_xml.findall(element_name)
+            assert len(elements) == 2
+            box = next(element for element in elements if element.find("geometry/box") is not None)
+            cylinder = next(
+                element
+                for element in elements
+                if element.find("geometry/cylinder") is not None
+            )
+            assert _parse_vector(box.find("origin").attrib["xyz"]) == pytest.approx(
+                (0.0, -0.01275, 0.0)
+            )
+            assert _parse_vector(box.find("geometry/box").attrib["size"]) == pytest.approx(
+                (0.019, 0.0255, 0.022)
+            )
+            assert _parse_vector(cylinder.find("origin").attrib["rpy"]) == pytest.approx(
+                (0.0, 0.0, 0.0)
+            )
+            cylinder_geometry = cylinder.find("geometry/cylinder")
+            assert float(cylinder_geometry.attrib["radius"]) == pytest.approx(0.0095)
+            assert float(cylinder_geometry.attrib["length"]) == pytest.approx(0.022)
+
+    for finger in ("index", "middle", "ring", "little"):
+        linkage_frame = f"{finger}_linkage_frame"
+        expected_links.add(linkage_frame)
+        linkage_joint = f"{finger}_mcp_fe_to_linkage_frame"
+        expected_joint_names.add(linkage_joint)
+        assert joint_map[linkage_joint].find("parent").attrib["link"] == f"{finger}_mcp_fe_output"
+        linkage_transform = _parse_origin(joint_map[linkage_joint].find("origin"))
+        expected_rotation = RigidTransform.rotation_about_axis((0.0, 0.0, 1.0), -math.pi / 2.0)
+        _assert_transform_equal(linkage_transform, expected_rotation)
+        assert linkage_transform.transform_vector((1.0, 0.0, 0.0)) == pytest.approx(
+            (0.0, -1.0, 0.0),
+            abs=1.0e-10,
         )
-        cylinder_rpy = _parse_vector(cylinder.find("origin").attrib["rpy"])
-        assert cylinder_rpy == pytest.approx((-math.pi / 2.0, 0.0, 0.0))
-        cylinder_axis = _rotate(
-            _rotation_from_rpy(cylinder_rpy),
+        assert linkage_transform.transform_vector((0.0, 1.0, 0.0)) == pytest.approx(
+            (1.0, 0.0, 0.0),
+            abs=1.0e-10,
+        )
+        assert linkage_transform.transform_vector((0.0, 0.0, 1.0)) == pytest.approx(
             (0.0, 0.0, 1.0),
-        )
-        assert cylinder_axis == pytest.approx((0.0, 1.0, 0.0), abs=1.0e-10)
-        assert float(cylinder.find("geometry/cylinder").attrib["radius"]) == pytest.approx(
-            0.0095
-        )
-        assert float(cylinder.find("geometry/cylinder").attrib["length"]) == pytest.approx(
-            0.022
+            abs=1.0e-10,
         )
 
-    thumb_mount = joints["thumb_cmc_mount_joint"]
-    assert thumb_mount.attrib["type"] == "fixed"
-    assert thumb_mount.find("origin").attrib["xyz"] == "0.012 0.018 0"
+    assert link_names == expected_links
+    assert set(joint_map) == expected_joint_names
 
 
-def test_compile_rejects_wrong_input_invalid_names_and_non_actuator() -> None:
-    with pytest.raises(TypeError):
+def test_urdf_rejects_wrong_morphology_and_invalid_robot_name() -> None:
+    with pytest.raises(TypeError, match="HandMorphology"):
         compile_hand_urdf(object())
-
-    with pytest.raises(ValueError):
-        compile_hand_urdf(make_hand_design(), robot_name="clear hand")
-
-    with pytest.raises(TypeError, match="Actuator"):
-        compile_hand_urdf(make_hand_design(), actuator=object())
+    with pytest.raises(ValueError, match="robot_name"):
+        compile_hand_urdf(make_morphology(), robot_name="clear hand")
