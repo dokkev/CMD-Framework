@@ -14,6 +14,7 @@ from .linkage_parameter import (
     MainChainParameters,
 )
 from .kinematics import KinematicClosureError, LinkageKinematics, LinkagePose
+from .linkage_seed import BASELINE_LINKAGE_V0
 
 __all__ = [
     "Fingertip",
@@ -29,4 +30,5 @@ __all__ = [
     "KinematicClosureError",
     "LinkageKinematics",
     "LinkagePose",
+    "BASELINE_LINKAGE_V0",
 ]
