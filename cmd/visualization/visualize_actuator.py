@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Visualize the CLEAR XM335 actuator in 3D.")
-    parser.add_argument("--axis-marker-length", type=float, default=12.0, metavar="MM")
+    parser.add_argument("--axis-marker-length", type=float, default=16.0, metavar="MM")
     parser.add_argument("--output", type=Path, help="save a PNG/PDF/SVG figure")
     parser.add_argument("--dpi", type=int, default=160)
     parser.add_argument("--show", action="store_true", help="open the Matplotlib window")

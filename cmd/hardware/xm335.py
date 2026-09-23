@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 
 from .actuator import (
     Actuator,
+    DShapedExtrusion,
     MechanicalParameters,
-    RectangularBox,
-    ShaftLocation,
 )
 
 
@@ -20,17 +19,11 @@ class XM335Actuator(Actuator):
     geometry model.
     """
 
-    box: RectangularBox = field(
-        default_factory=lambda: RectangularBox(
-            width_mm=19.0,
-            height_mm=35.0,
+    geometry: DShapedExtrusion = field(
+        default_factory=lambda: DShapedExtrusion(
+            radius_mm=9.5,
+            rear_extent_mm=25.5,
             depth_mm=22.0,
-        )
-    )
-    shaft: ShaftLocation = field(
-        default_factory=lambda: ShaftLocation(
-            center_from_bottom_mm=25.5,
-            axis_xyz=(0.0, 0.0, 1.0),
         )
     )
     mechanics: MechanicalParameters = field(

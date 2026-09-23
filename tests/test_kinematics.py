@@ -4,31 +4,32 @@ import pytest
 
 from cmd.morphology import (
     AnchorYZ,
-    CouplingAnchorParameters,
+    BASELINE_LINKAGE_V0,
     FingerLinkage,
-    FingerLinkageParameters,
     KinematicClosureError,
     LinkageKinematics,
-    MainChainParameters,
 )
 
 
 def make_linkage() -> FingerLinkage:
-    return FingerLinkage(
-        FingerLinkageParameters(
-            main_chain=MainChainParameters(
-                proximal_length_mm=20.0,
-                middle_length_mm=15.0,
-                distal_length_mm=10.0,
-            ),
-            coupling=CouplingAnchorParameters(
-                base_anchor=AnchorYZ(y_mm=0.0, z_mm=3.0),
-                proximal_anchor=AnchorYZ(y_mm=3.0, z_mm=2.0),
-                middle_anchor=AnchorYZ(y_mm=4.0, z_mm=-2.0),
-                distal_anchor=AnchorYZ(y_mm=5.0, z_mm=1.0),
-            ),
-        )
+    return BASELINE_LINKAGE_V0
+
+
+def reference_link_angles(linkage: FingerLinkage) -> tuple[float, float, float]:
+    reference = linkage.reference_positions
+    theta1 = math.atan2(
+        reference.a.z_mm - reference.o.z_mm,
+        reference.a.y_mm - reference.o.y_mm,
     )
+    theta2 = math.atan2(
+        reference.b.z_mm - reference.a.z_mm,
+        reference.b.y_mm - reference.a.y_mm,
+    )
+    theta3 = math.atan2(
+        reference.c.z_mm - reference.b.z_mm,
+        reference.c.y_mm - reference.b.y_mm,
+    )
+    return theta1, theta2, theta3
 
 
 def rotate(point: AnchorYZ, angle_rad: float) -> AnchorYZ:
@@ -67,8 +68,10 @@ def test_nonzero_pose_preserves_main_chain_and_coupler_lengths() -> None:
     pose = LinkageKinematics(linkage).solve(-0.05)
     parameters = linkage.parameters
     coupling = parameters.coupling
-    theta2 = pose.q1_rad + pose.q2_rad
-    theta3 = theta2 + pose.q3_rad
+    theta1_ref, theta2_ref, theta3_ref = reference_link_angles(linkage)
+    theta1 = theta1_ref + pose.q1_rad
+    theta2 = theta2_ref + pose.q1_rad + pose.q2_rad
+    theta3 = theta3_ref + pose.q1_rad + pose.q2_rad + pose.q3_rad
 
     assert pose.o.distance_to(pose.a) == pytest.approx(
         parameters.main_chain.proximal_length_mm
@@ -84,7 +87,7 @@ def test_nonzero_pose_preserves_main_chain_and_coupler_lengths() -> None:
 
     assert_point_close(
         pose.ap,
-        translated(pose.o, coupling.proximal_anchor, pose.q1_rad),
+        translated(pose.o, coupling.proximal_anchor, theta1),
     )
     assert_point_close(
         pose.bp,
@@ -94,6 +97,10 @@ def test_nonzero_pose_preserves_main_chain_and_coupler_lengths() -> None:
         pose.cp,
         translated(pose.b, coupling.distal_anchor, theta3),
     )
+    assert math.atan2(
+        pose.ap.z_mm - pose.o.z_mm,
+        pose.ap.y_mm - pose.o.y_mm,
+    ) == pytest.approx(pose.q1_rad)
 
 
 def test_assembly_branch_selection_is_deterministic() -> None:

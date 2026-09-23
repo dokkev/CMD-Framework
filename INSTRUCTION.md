@@ -2,167 +2,312 @@ CODEX TASK
 ==========
 
 Task:
-Implement deterministic closed-form kinematics for the planar CLEAR finger linkage in `cmd/morphology`, using the existing reference geometry and coupler lengths.
+Replace the current box-based XM335 actuator model with the shaft-centered D-shaped extruded geometry and coordinate convention shown in the established design.
 
 
 OBJECTIVE
 =========
 Implement:
 
-1. Solve the planar closed-chain linkage from a commanded proximal flexion angle `q1`.
-2. Derive `q2` and `q3` geometrically from the two fixed-length coupler loops.
-3. Return the posed main-chain and coupling-anchor positions for downstream Stage 1 evaluation.
+1. Replace the rectangular-box XM335 body representation with the exact D-shaped extruded body profile.
+2. Change the actuator-local frame so the output shaft center is the origin and the shaft axis is local +Y.
+3. Update all directly affected visualization, URDF, tests, and frame assumptions to use the new actuator geometry and coordinates consistently.
 
 Success means:
 
-`FingerLinkage` continues to define only the mechanism/reference geometry, while `kinematics.py` can deterministically compute a valid posed linkage configuration without Newton, Pinocchio, SymPy, or iterative numerical solving.
+XM335 geometry, visualization, and URDF compilation all use one canonical shaft-centered actuator frame:
+
+- origin = output shaft center
+- +X = actuator longitudinal direction toward the rounded cap
+- +Y = output shaft / rotation axis
+- +Z = actuator lateral width direction
+
+and the actuator body matches the defined 35 x 19 x 22 mm D-shaped extrusion rather than a rectangular bounding box.
 
 
 ESTABLISHED CONTEXT
 ===================
 Treat these as established inputs, not questions to reopen:
 
-- The linkage is planar in the YZ plane.
-- Flexion axes are along +X.
-- `O` is the local origin `(0, 0)`.
-- The main chain is `O-A-B-C`.
-- `q1`, `q2`, and `q3` are relative revolute joint angles:
-  - proximal absolute angle: `theta1 = q1`
-  - middle absolute angle: `theta2 = q1 + q2`
-  - distal absolute angle: `theta3 = q1 + q2 + q3`
-- The fully extended reference configuration is `q1 = q2 = q3 = 0`.
-- Existing `FingerLinkageParameters` contains only independent design variables.
-- Existing `FingerLinkage` derives the fully extended reference positions and the fixed coupler lengths.
-- `O'` is fixed to the base.
-- `A'` is fixed to the proximal body.
-- `B'` is fixed to the middle body.
-- `C'` is fixed to the distal body.
-- The two rigid couplers are:
-  - `O' - B'`
-  - `A' - C'`
-- `|O'B'|` and `|A'C'|` are derived deterministically from the fully extended reference configuration and are not independent design variables.
-- The current anchor-frame definitions in `linkage_parameter.py` are established for this task; do not reparameterize them.
-- Stage 1 is intended for very fast kinematic search and later massive parallel evaluation.
-- Newton/VBD belongs to Stage 2 and must not be introduced into this Stage 1 kinematics implementation.
-- Design-space constraints such as maximum `OC`, min/max `OA'`, `B'B`, `BC`, manufacturability bounds, and feasible-design sampling are intentionally deferred.
+- Repository:
+  https://github.com/dokkev/CMD-Framework
+
+- Relevant existing files include:
+  - `cmd/hardware/actuator.py`
+  - `cmd/hardware/xm335.py`
+  - `cmd/hardware/__init__.py`
+  - `cmd/visualization/actuator_visualizer.py`
+  - `cmd/design/urdf.py`
+  - `cmd/design/hand.py`
+  - `tests/test_xm335.py`
+  - `tests/test_hand_urdf.py`
+
+- The current actuator model is based on:
+  - `RectangularBox`
+  - `ShaftLocation(center_from_bottom_mm=...)`
+  - actuator-local +X = width
+  - actuator-local +Y = body height
+  - actuator-local +Z = shaft axis
+
+- That old coordinate convention is being replaced.
+
+- The new canonical XM335 frame is fixed as:
+
+      origin = output shaft center
+
+      +X = longitudinal body direction toward the rounded cap
+      +Y = shaft / revolute axis
+      +Z = lateral body-width direction
+
+- The XZ cross-section is a D-shaped profile.
+
+- Exact profile geometry in millimetres:
+
+      rectangular portion:
+          -25.5 <= x <= 0
+          -9.5  <= z <= 9.5
+
+      rounded portion:
+          x^2 + z^2 <= 9.5^2
+          x >= 0
+
+      extrusion:
+          -11 <= y <= 11
+
+- Therefore:
+
+      rounded radius = 9.5 mm
+      body extent behind shaft = 25.5 mm
+      total X extent = 35.0 mm
+      total Z width = 19.0 mm
+      Y depth = 22.0 mm
+
+- The shaft center is not a secondary offset inside the actuator anymore.
+  It is the actuator frame origin.
+
+- The canonical shaft axis is therefore:
+
+      (0, 1, 0)
+
+- Do not retain the old `center_from_bottom_mm` transformation model merely for compatibility.
+
+- The D-shaped solid can be represented exactly as the union of:
+
+  1. a rectangular prism
+
+         X size = 25.5 mm
+         Y size = 22.0 mm
+         Z size = 19.0 mm
+         center = (-12.75, 0, 0)
+
+  2. a cylinder
+
+         radius = 9.5 mm
+         length = 22.0 mm
+         center = (0, 0, 0)
+         axis = local Y
+
+  The negative-X half of the cylinder lies completely inside the rectangular
+  prism, so this union is exactly the desired D-shaped extrusion.
+
+- This actuator model will later be used directly for hand morphology
+  placement and hard actuator packaging constraints.
+
+- MCP-AA, MCP-FE, CMC-RO, CMC-RAA, and IP-FE all use this XM335 actuator.
+
+- Do not implement the new full hand morphology parameterization or actuator
+  collision constraints in this task.
+
+- Existing finger linkage morphology/kinematics are separate and should not be
+  redesigned here.
 
 
 REQUIRED CHANGES
 ================
 
-1. `cmd/morphology/kinematics.py`
-   - Implement a small numeric closed-form linkage solver.
-   - Do not use an iterative root solver.
-   - Do not use SymPy, SciPy optimization, Pinocchio, Newton, or another physics engine.
-   - Use only direct planar geometry and standard numeric operations.
+1. Actuator geometry representation
+   - Replace the current rectangular-box-only actuator body representation with
+     a representation capable of describing the established XM335 D-shaped
+     extrusion.
+   - Use a small geometry abstraction appropriate to the actual shape; do not
+     preserve `RectangularBox` as the canonical XM335 geometry.
+   - Store only meaningful independent dimensions where practical.
+   - Redundant dimensions such as total width or total longitudinal extent
+     should be derived rather than duplicated when that keeps the model clear.
+   - Keep mechanical actuator properties such as gear ratio, torque, and mass.
+   - Keep the representation solver-independent.
 
-   Define a result representation for one posed linkage configuration containing at minimum:
-   - `q1_rad`
-   - `q2_rad`
-   - `q3_rad`
-   - posed positions of:
-     - `O`
-     - `A`
-     - `B`
-     - `C`
-     - `O'`
-     - `A'`
-     - `B'`
-     - `C'`
+2. Canonical actuator frame
+   - Make the shaft center `(0, 0, 0)`.
+   - Set the shaft / rotation axis to local `+Y`.
+   - Define local axes consistently:
 
-   Prefer a compact immutable dataclass representation consistent with the existing morphology code.
+         +X = toward rounded cap
+         +Y = shaft axis
+         +Z = lateral width
 
-2. First closure loop: `O' - B'`
-   - Treat `q1` as the commanded/input angle.
-   - Compute the posed location of `A`.
-   - `B'` is fixed in the middle-body frame, so its distance from `A` is constant.
-   - The fixed coupler imposes:
+   - Remove assumptions that:
+     - +X is actuator width
+     - +Y is actuator body height
+     - +Z is shaft axis
+   - Remove the old need to recover the shaft location from
+     `center_from_bottom_mm`.
 
-     `|O'B'| = linkage.coupler_1_length_mm`
+3. XM335 parameters
+   - Encode the established geometry:
 
-   - Solve `B'` as the intersection of:
-     - a circle centered at `A` with radius equal to the fixed local distance `|AB'|`
-     - a circle centered at `O'` with radius `|O'B'|`
+         radius_mm = 9.5
+         rear_extent_mm = 25.5
+         depth_mm = 22.0
 
-   - Use the selected `B'` position and the existing local `B'` anchor vector to recover the absolute middle-link orientation `theta2`.
-   - Compute:
+   - Ensure the resulting occupied volume has bounds:
 
-     `q2 = theta2 - q1`
+         X: [-25.5, 9.5]
+         Y: [-11.0, 11.0]
+         Z: [-9.5, 9.5]
 
-3. Second closure loop: `A' - C'`
-   - Once `q1` and `q2` are known, compute posed `A`, `B`, `A'`, and the middle-link orientation.
-   - `C'` is fixed in the distal-body frame, so its distance from `B` is constant.
-   - The fixed coupler imposes:
+   - Preserve the existing project mechanical parameters unless they are
+     already defined elsewhere:
 
-     `|A'C'| = linkage.coupler_2_length_mm`
+         gear_ratio = 323.04
+         max_output_torque_nm = 1.0
+         mass_g = 27.0
 
-   - Solve `C'` as the intersection of:
-     - a circle centered at `B` with radius equal to the fixed local distance `|BC'|`
-     - a circle centered at posed `A'` with radius `|A'C'|`
+4. Hardware public API
+   - Update `cmd/hardware/__init__.py` exports to match the new representation.
+   - Remove obsolete exports whose semantics belong only to the old box/frame
+     convention.
+   - Do not keep dead compatibility aliases unless an actual current caller
+     requires them.
+   - Update all in-repository callers instead.
 
-   - Use the selected `C'` position and the existing local `C'` anchor vector to recover the absolute distal-link orientation `theta3`.
-   - Compute:
+5. Actuator visualization
+   - Update `cmd/visualization/actuator_visualizer.py`.
+   - Render the actual D-shaped extrusion rather than a 19 x 35 x 22 box.
+   - The visualization origin must be the shaft center.
+   - Display the new local axes correctly:
 
-     `q3 = theta3 - theta2`
+         +X longitudinal / rounded-cap direction
+         +Y shaft axis
+         +Z lateral width
 
-4. Assembly branch
-   - Circle-circle intersection generally produces two solutions.
-   - The physical assembly branch must be deterministic.
-   - Infer the branch independently for each closure loop from the existing fully extended reference configuration.
-   - Use signed planar orientation / cross-product sign of the reference intersection to select the corresponding intersection during motion.
-   - Do not choose a solution based on arbitrary list order.
-   - Do not choose the branch independently at every call based only on smallest angle.
-   - If the reference configuration is itself degenerate such that the assembly branch cannot be defined, fail clearly rather than silently selecting a branch.
+   - Update labels, comments, axis ranges, and legend text so no old coordinate
+     convention remains.
+   - Do not introduce an unrelated visualization framework.
 
-5. Geometric helper
-   - Keep the circle-circle intersection implementation small and internal to the kinematics module.
-   - Handle:
-     - separated circles
-     - one circle completely inside the other
-     - coincident centers
-     - tangent configurations
-     - small floating-point roundoff near tangency
-   - An unreachable closure must produce an explicit kinematic-closure failure rather than NaN propagation.
-   - A tangent configuration may be geometrically valid; do not classify all tangencies as invalid merely because they are singular.
-   - Do not add design-space singularity-margin constraints in this task.
+6. URDF geometry
+   - Update `cmd/design/urdf.py` to consume the new actuator representation.
+   - Represent the XM335 D-shaped body using standard URDF primitives as the
+     exact union of:
+       - one rectangular prism
+       - one cylinder
+   - Use both components for `visual` and `collision`.
+   - For the rectangular component, use the established shaft-centered offset:
 
-6. Main-chain pose reconstruction
-   - Reconstruct the main pivots from the solved absolute link orientations:
+         center = (-12.75, 0, 0) mm
+         size   = (25.5, 22.0, 19.0) mm
+                  along actuator-local (X, Y, Z)
 
-     `A = O + R(theta1) * OA`
-     `B = A + R(theta2) * AB`
-     `C = B + R(theta3) * BC`
+   - For the cylindrical component:
 
-   - Reconstruct all primed anchors from their existing owning-body local coordinates.
-   - The returned posed positions must satisfy both coupler lengths within numerical tolerance.
+         center = (0, 0, 0)
+         radius = 9.5 mm
+         length = 22.0 mm
+         axis   = actuator-local Y
 
-7. Public API
-   - Provide a simple API centered on something equivalent to:
+   - URDF cylinders are axis-aligned with their local Z axis by default, so
+     apply the required fixed rotation explicitly to align the cylinder with
+     actuator-local Y.
 
-     `LinkageKinematics(linkage).solve(q1_rad)`
+7. Hand/URDF actuator-frame assumptions
+   - Inspect the current MCP-AA URDF path carefully.
+   - The existing implementation places an actuator housing frame and then
+     adds an 8 mm shaft-center offset derived from the old box-centered frame.
+   - That offset must disappear under the new shaft-centered actuator frame.
+   - The actuator link frame and MCP-AA revolute joint origin should coincide at
+     the shaft center.
+   - The MCP-AA revolute axis in the actuator frame must be `(0, 1, 0)`.
+   - Preserve the existing physical MCP-AA rotation axis in the hand frame.
+   - Therefore derive and apply the fixed actuator-to-hand mounting rotation
+     needed to map actuator-local +Y onto the intended hand MCP-AA axis.
+   - Do not silently leave the previous identity housing orientation or +Z
+     joint-axis assumption in place.
 
-   - Exact naming may follow the existing package style, but keep the API small.
-   - `FingerLinkage` must remain the reference/design geometry object.
-   - Configuration-dependent solving belongs in `kinematics.py`.
-   - Export the new public kinematics types through `cmd/morphology/__init__.py` if that file currently serves as the package public API.
+8. Hand placement semantics
+   - Inspect `HandDesignParameters` / `PlanarPlacement` documentation and usage.
+   - Where an MCP-AA placement is currently documented or interpreted as the
+     old actuator housing/body-center position, change it to the canonical
+     MCP-AA shaft/joint-frame position.
+   - Do not introduce a hidden body-center offset to preserve the old meaning.
+   - Update affected comments and tests accordingly.
+   - Do not otherwise redesign the hand placement parameterization in this task.
+
+9. Linkage-frame boundary
+   - Re-derive the fixed transform between the new MCP-AA output/actuator frame
+     and the existing linkage-local frame.
+   - Do not reuse `LINKAGE_FRAME_RPY_IN_HAND_RAD` blindly if its assumptions
+     depended on the old actuator frame.
+   - Preserve the existing linkage convention:
+
+         linkage +X = flexion axis
+         linkage +Y = distal
+         linkage +Z = dorsal
+
+   - Preserve physical behavior; only the coordinate representation should
+     change.
+
+10. Tests
+   - Update `tests/test_xm335.py` for the new geometry and frame.
+   - Remove assertions that intentionally require:
+       - `RectangularBox`
+       - `center_from_bottom_mm`
+       - +Z shaft axis
+       - old width-axis convention
+   - Add focused assertions for:
+       - radius 9.5 mm
+       - rear extent 25.5 mm
+       - depth 22 mm
+       - bounds X [-25.5, 9.5]
+       - bounds Y [-11, 11]
+       - bounds Z [-9.5, 9.5]
+       - shaft axis `(0, 1, 0)`
+       - immutable actuator values
+       - invalid geometry values rejected
+
+   - Update `tests/test_hand_urdf.py` to verify:
+       - MCP-AA placement is the shaft/joint-frame position
+       - no old 8 mm shaft offset remains
+       - revolute axis uses the new actuator-local +Y convention
+       - actuator mounting orientation maps that axis to the same intended
+         physical hand axis
+       - both box and cylinder geometry are emitted for visual and collision
+       - box/cylinder dimensions and origins match the established geometry
+       - cylinder orientation is correct
+
+   - Update any focused actuator-visualizer tests if such tests already exist.
 
 
 IMPLEMENTATION RULES
 ====================
 - Make the smallest change that satisfies the objective.
 - Change behavior at the layer that owns it.
-- Reuse `FingerLinkage`, `ReferencePositions`, `AnchorYZ`, and the existing linkage parameters.
-- Do not duplicate reference-geometry or coupler-length calculations already owned by `FingerLinkage`.
-- Keep all calculations in the existing YZ planar convention.
-- Use radians for joint angles.
-- Keep the implementation numeric and lightweight.
-- Prefer `math` and simple scalar arithmetic.
-- Structure the math so it can later be ported cleanly to a batched Warp kernel.
-- Do not introduce NumPy solely for this scalar reference implementation.
-- Do not introduce a generic IK abstraction.
-- Do not add backend-specific FCL, Warp, or Newton code.
-- Do not modify the linkage design parameterization as part of this task.
-- Avoid unrelated refactors.
+- Reuse existing APIs and abstractions where appropriate.
+- Avoid duplicate logic.
+- Avoid speculative abstractions.
+- Avoid unrelated refactors or cleanup.
+- Preserve behavior not explicitly changed by this task.
+- Use millimetres inside the Python design/hardware model and convert to metres
+  only at the URDF serialization boundary, consistent with the existing code.
+- Keep actuator geometry independent of URDF, matplotlib, Newton, or any other
+  consumer.
+- Do not approximate the D-shaped actuator with its rectangular bounding box.
+- Do not introduce a mesh asset when the exact geometry can be represented by
+  the established box-plus-cylinder union.
+- Do not model screws, horns, cables, mounting tabs, or detailed CAD features.
+- Do not add actuator-actuator collision checking yet.
+- Do not implement the planned thumb/hand morphology transform chain yet.
+- Treat the new actuator frame convention as canonical; update downstream code
+  rather than maintaining two competing coordinate conventions.
 
 
 SUBAGENTS
@@ -182,6 +327,10 @@ Evaluate:
 - semantic correctness
 - unnecessary complexity
 - scope creep
+
+For this task, Advisor is appropriate only if the actuator-to-hand or
+actuator-to-linkage frame transform cannot be determined unambiguously from the
+existing coordinate conventions.
 
 Output:
 
@@ -211,14 +360,15 @@ Reviewer is read-only and reviews the actual implementation.
 Check:
 - objective satisfied
 - required changes satisfied
-- `FingerLinkage` remains reference geometry only
-- kinematics owns configuration-dependent solving
-- reference configuration reproduces exactly the existing reference geometry
-- both fixed coupler lengths remain satisfied after solving
-- assembly branch selection is deterministic
-- no iterative solver or simulation dependency was introduced
-- no design-space constraints were added prematurely
+- correct architectural placement
+- new shaft-centered coordinate convention is consistent everywhere
+- D-shaped geometry is represented exactly
+- URDF physical MCP-AA axis is preserved despite the local-frame change
+- no stale old-coordinate assumptions remain in directly affected code
+- no unintended behavior changes
+- no duplicate/unnecessary abstraction
 - no scope creep
+- checks correspond to the changed behavior
 
 Output:
 
@@ -242,32 +392,36 @@ VALIDATION
 Run only checks justified by the change.
 
 Required:
-- Existing linkage tests continue to pass.
-- Add focused kinematics tests verifying `solve(0.0)` reproduces the existing fully extended reference positions and returns approximately `q2 = q3 = 0`.
-- Test at least one nonzero reachable `q1` configuration and verify:
-  - all main-link lengths are preserved
-  - `|O'B'|` equals the reference coupler-1 length
-  - `|A'C'|` equals the reference coupler-2 length
-  - reconstructed primed anchors agree with the solved points
-- Test deterministic assembly-branch selection.
-- Test at least one unreachable closure and verify a clear kinematic failure is produced instead of NaN or arbitrary geometry.
+- Run the focused XM335 hardware tests.
+- Run the focused hand URDF tests.
+- Run any existing actuator visualizer tests directly affected by the change.
+- Render or inspect one actuator visualization sufficiently to verify the
+  D-shaped body and axis convention if the existing visualization path supports
+  a lightweight artifact check.
+- Search directly affected source files for stale assumptions such as
+  `center_from_bottom_mm`, `+Z shaft axis`, or old `X=width, Y=height, Z=shaft`
+  documentation and confirm they are removed where no longer valid.
 
 Rules:
-- Prefer focused tests in `tests/test_linkage.py` or a small dedicated kinematics test file.
-- Do not add large sweeps or performance benchmarks yet.
+- Prefer focused tests.
 - Do not repeat completed validation.
-- Reuse existing test fixtures where appropriate.
+- Reuse existing results when they already answer the question.
+- Do not perform expensive work merely for reassurance.
 
 
 HARD STOPS
 ==========
 Stop and report if:
 
-- the current owning-frame definitions for `A'`, `B'`, or `C'` are internally inconsistent with `FingerLinkage.reference_positions`
-- the existing fully extended reference geometry cannot determine a unique physical assembly branch
-- implementing the closure requires changing the established linkage topology
-- satisfying the task requires introducing a generic nonlinear solver
-- a required assumption about the two rigid coupler loops is false
+- the established actuator dimensions cannot produce the specified D-shaped
+  geometry
+- the intended physical MCP-AA axis in the hand frame cannot be determined from
+  the existing code/conventions
+- preserving the existing linkage physical orientation requires an
+  undocumented architectural assumption
+- satisfying the task requires redesigning the hand morphology model
+- satisfying the task requires adding a general-purpose geometry engine
+- the implementation task turns into a new research question
 
 Do not silently expand scope.
 
@@ -276,16 +430,13 @@ OUT OF SCOPE
 ============
 Do not:
 
-- implement linkage design-space bounds or feasible-design sampling
-- implement `OC`, `OA'`, `B'B`, or `BC` min/max constraints
-- implement optimization
-- implement Warp batching or GPU kernels
-- implement FCL collision checking
-- implement thumb opposition search
-- implement Newton rigid-body simulation
-- implement VBD or soft fingertip mechanics
-- implement symbolic derivation
-- implement velocity, acceleration, Jacobian, torque, or dynamics analysis
+- implement hand morphology optimization
+- implement actuator packaging/collision constraints
+- implement CMC-RO / CMC-RAA / MCP-FE thumb transform parameterization
+- redesign the finger linkage or its kinematics
+- add detailed XM335 CAD features
+- add simulator-specific actuator bodies
+- add mesh generation or mesh assets
 
 Also avoid unrelated cleanup, speculative improvements, and unsolicited
 follow-up work.

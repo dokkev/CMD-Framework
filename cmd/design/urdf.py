@@ -7,26 +7,27 @@ from pathlib import Path
 from typing import Iterable
 from xml.etree import ElementTree
 
-from ..hardware import Actuator, XM335Actuator
+from ..hardware import ACTUATOR_SHAFT_AXIS_XYZ, Actuator, XM335Actuator
 from .hand import HandDesignParameters, PlanarPlacement
 
 
 MM_TO_M = 1.0e-3
 PALM_LINK_NAME = "palm_link"
-MCP_AA_AXIS_XYZ = (0.0, 0.0, 1.0)
-MCP_AA_HOUSING_RPY_RAD = (0.0, 0.0, 0.0)
+MCP_AA_AXIS_XYZ = ACTUATOR_SHAFT_AXIS_XYZ
+MCP_AA_ACTUATOR_RPY_IN_HAND_RAD = (math.pi / 2.0, 0.0, 0.0)
+ACTUATOR_CYLINDER_RPY_RAD = (-math.pi / 2.0, 0.0, 0.0)
 
 # Existing finger/linkage morphology uses +X as its flexion axis and +Y as its
 # distal direction. The hand-level frame uses +X distal and +Y radial, so the
-# two conventions need an explicit fixed transform. For the current MCP-AA
-# package, the actuator housing frame is aligned with the hand frame. The
-# fixed Rz(-pi/2) transform below maps the child linkage-local frame into the
-# parent hand/MCP-FE shaft frame:
+# two conventions need an explicit fixed transform. The actuator frame is
+# mounted by Rx(+pi/2), mapping actuator +Y onto hand +Z while keeping +X distal.
+# The combined actuator-to-linkage rotation below preserves the prior physical
+# linkage orientation in the hand frame:
 #
 #     linkage +X -> hand -Y
 #     linkage +Y -> hand +X
 #     linkage +Z -> hand +Z
-LINKAGE_FRAME_RPY_IN_HAND_RAD = (0.0, 0.0, -math.pi / 2.0)
+LINKAGE_FRAME_RPY_IN_ACTUATOR_RAD = (0.0, -math.pi / 2.0, -math.pi / 2.0)
 
 
 def _format_number(value: float) -> str:
@@ -84,40 +85,51 @@ def _add_joint(
     return joint
 
 
-def _add_box_geometry(link: ElementTree.Element, actuator: Actuator) -> None:
-    """Add XM335-sized visual and collision boxes in metres.
+def _add_actuator_geometry(link: ElementTree.Element, actuator: Actuator) -> None:
+    """Add the exact box-plus-cylinder D-shaped body to visual and collision."""
 
-    The housing link frame is at the actuator body center. The actuator-local
-    dimensions are X=width, Y=height, and Z=depth.
-    """
-
-    box = actuator.box
-    size_m = (box.width_mm * MM_TO_M, box.height_mm * MM_TO_M, box.depth_mm * MM_TO_M)
+    geometry = actuator.geometry
+    box_size_mm = (
+        geometry.rear_extent_mm,
+        geometry.depth_mm,
+        geometry.width_mm,
+    )
+    box_origin_mm = (-geometry.rear_extent_mm / 2.0, 0.0, 0.0)
     for element_name in ("visual", "collision"):
-        element = ElementTree.SubElement(link, element_name)
+        box_element = ElementTree.SubElement(link, element_name)
         ElementTree.SubElement(
-            element,
+            box_element,
             "origin",
-            {"xyz": "0 0 0", "rpy": "0 0 0"},
+            {
+                "xyz": _format_xyz_m(box_origin_mm),
+                "rpy": "0 0 0",
+            },
         )
-        geometry = ElementTree.SubElement(element, "geometry")
-        ElementTree.SubElement(geometry, "box", {"size": _format_vector(size_m)})
+        box_geometry = ElementTree.SubElement(box_element, "geometry")
+        ElementTree.SubElement(
+            box_geometry,
+            "box",
+            {"size": _format_xyz_m(box_size_mm)},
+        )
 
-
-def _shaft_offset_from_body_center_mm(actuator: Actuator) -> float:
-    """Return the shaft center offset along actuator-local +Y."""
-
-    return actuator.shaft.center_from_bottom_mm - actuator.box.height_mm / 2.0
-
-
-def _validate_actuator_frame(actuator: Actuator) -> None:
-    if not isinstance(actuator, Actuator):
-        raise TypeError("actuator must be an Actuator instance")
-    if not all(
-        math.isclose(component, expected, rel_tol=0.0, abs_tol=1.0e-12)
-        for component, expected in zip(actuator.shaft.axis_xyz, (0.0, 0.0, 1.0))
-    ):
-        raise ValueError("hand URDF actuator compilation requires a +Z shaft axis")
+        cylinder_element = ElementTree.SubElement(link, element_name)
+        ElementTree.SubElement(
+            cylinder_element,
+            "origin",
+            {
+                "xyz": "0 0 0",
+                "rpy": _format_rpy(ACTUATOR_CYLINDER_RPY_RAD),
+            },
+        )
+        cylinder_geometry = ElementTree.SubElement(cylinder_element, "geometry")
+        ElementTree.SubElement(
+            cylinder_geometry,
+            "cylinder",
+            {
+                "radius": _format_number(geometry.radius_mm * MM_TO_M),
+                "length": _format_number(geometry.depth_mm * MM_TO_M),
+            },
+        )
 
 
 def _add_mcp_aa_branch(
@@ -127,19 +139,17 @@ def _add_mcp_aa_branch(
     placement: PlanarPlacement,
     actuator: Actuator,
 ) -> None:
-    """Add fixed XM335 housing, MCP-AA output, and linkage frame boundary."""
+    """Add shaft-centred XM335 actuator, MCP-AA output, and linkage frame."""
 
     housing_link = f"{finger_name}_mcp_aa_housing"
     output_link = f"{finger_name}_mcp_aa_output"
     linkage_link = f"{finger_name}_linkage_frame"
-    shaft_offset_mm = _shaft_offset_from_body_center_mm(actuator)
-
     housing = _add_link(robot, housing_link)
-    _add_box_geometry(housing, actuator)
+    _add_actuator_geometry(housing, actuator)
 
-    # The design placement is the fixed XM335 housing-frame position in the
-    # hand frame. The MCP-AA shaft/output position is derived by the following
-    # revolute origin inside that housing.
+    # PlanarPlacement is the MCP-AA shaft/joint-frame position. The actuator
+    # link frame has the same origin and is rotated to map its +Y shaft axis
+    # onto the established +Z hand-frame MCP-AA axis.
     _add_joint(
         robot,
         joint_name=f"{finger_name}_mcp_aa_housing_mount_joint",
@@ -147,7 +157,7 @@ def _add_mcp_aa_branch(
         parent_link=PALM_LINK_NAME,
         child_link=housing_link,
         xyz_mm=(placement.x_mm, placement.y_mm, 0.0),
-        rpy_rad=MCP_AA_HOUSING_RPY_RAD,
+        rpy_rad=MCP_AA_ACTUATOR_RPY_IN_HAND_RAD,
     )
 
     _add_link(robot, output_link)
@@ -157,13 +167,12 @@ def _add_mcp_aa_branch(
         joint_type="continuous",
         parent_link=housing_link,
         child_link=output_link,
-        xyz_mm=(0.0, shaft_offset_mm, 0.0),
+        xyz_mm=(0.0, 0.0, 0.0),
         axis_xyz=MCP_AA_AXIS_XYZ,
     )
 
-    # The output link is the hand/MCP-FE shaft frame for this opened tree. The
-    # fixed rotation makes the existing linkage-local frame explicit instead
-    # of silently assuming that the hand and linkage conventions are identical.
+    # This relative transform composes with the actuator mount to preserve the
+    # prior linkage orientation expressed in the hand frame.
     _add_link(robot, linkage_link)
     _add_joint(
         robot,
@@ -172,7 +181,7 @@ def _add_mcp_aa_branch(
         parent_link=output_link,
         child_link=linkage_link,
         xyz_mm=(0.0, 0.0, 0.0),
-        rpy_rad=LINKAGE_FRAME_RPY_IN_HAND_RAD,
+        rpy_rad=LINKAGE_FRAME_RPY_IN_ACTUATOR_RAD,
     )
 
 
@@ -205,7 +214,8 @@ def compile_hand_urdf(
         raise TypeError("parameters must be a HandDesignParameters instance")
     _validate_robot_name(robot_name)
     actuator = XM335Actuator() if actuator is None else actuator
-    _validate_actuator_frame(actuator)
+    if not isinstance(actuator, Actuator):
+        raise TypeError("actuator must be an Actuator instance")
 
     robot = ElementTree.Element("robot", {"name": robot_name})
     _add_link(robot, PALM_LINK_NAME)
@@ -260,8 +270,9 @@ def write_hand_urdf(
 
 
 __all__ = [
-    "LINKAGE_FRAME_RPY_IN_HAND_RAD",
-    "MCP_AA_HOUSING_RPY_RAD",
+    "ACTUATOR_CYLINDER_RPY_RAD",
+    "LINKAGE_FRAME_RPY_IN_ACTUATOR_RAD",
+    "MCP_AA_ACTUATOR_RPY_IN_HAND_RAD",
     "MCP_AA_AXIS_XYZ",
     "MM_TO_M",
     "PALM_LINK_NAME",

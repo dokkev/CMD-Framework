@@ -248,24 +248,23 @@ def save_joint_curves(
 ) -> None:
     """Plot the solved relative q2 and q3 angles against commanded q1."""
 
-    # Start at the fully extended reference and follow the sweep toward
-    # flexion, lifting each absolute angle by whole turns to avoid plot jumps
-    # at the solver's atan2 branch cut.
+    # Follow the sweep from extension toward flexion and lift each relative
+    # angle by whole turns to avoid jumps at the solver's atan2 branch cut.
     ordered = sorted(sweep_poses, key=lambda pose: pose.q1_rad, reverse=True)
-    theta2_values: list[float] = []
-    theta3_values: list[float] = []
+    q2_values: list[float] = []
+    q3_values: list[float] = []
     for pose in ordered:
-        theta2 = pose.q1_rad + pose.q2_rad
-        theta3 = theta2 + pose.q3_rad
-        if theta2_values:
-            theta2 += 2.0 * math.pi * round((theta2_values[-1] - theta2) / (2.0 * math.pi))
-            theta3 += 2.0 * math.pi * round((theta3_values[-1] - theta3) / (2.0 * math.pi))
-        theta2_values.append(theta2)
-        theta3_values.append(theta3)
+        q2 = pose.q2_rad
+        q3 = pose.q3_rad
+        if q2_values:
+            q2 += 2.0 * math.pi * round((q2_values[-1] - q2) / (2.0 * math.pi))
+            q3 += 2.0 * math.pi * round((q3_values[-1] - q3) / (2.0 * math.pi))
+        q2_values.append(q2)
+        q3_values.append(q3)
 
     q1_values = [pose.q1_rad for pose in reversed(ordered)]
-    q2_values = [theta2 - pose.q1_rad for pose, theta2 in zip(reversed(ordered), reversed(theta2_values))]
-    q3_values = [theta3 - theta2 for theta2, theta3 in zip(reversed(theta2_values), reversed(theta3_values))]
+    q2_values.reverse()
+    q3_values.reverse()
     figure, axis = plt.subplots(figsize=(7.5, 4.5), constrained_layout=True)
     try:
         axis.plot(q1_values, q2_values,
@@ -274,7 +273,7 @@ def save_joint_curves(
                   color="#071c9e", linewidth=2.4, label=r"$q_3$")
         axis.axhline(0.0, color="#8e959d", linewidth=0.8)
         axis.set(xlabel=r"Commanded $q_1$ [rad]",
-                 ylabel="Unwrapped relative joint angle [rad]",
+                 ylabel="Joint flexion change from extension [rad]",
                  title="Baseline linkage V0: coupled joint angles")
         axis.grid(True, color="#e0e2e6", linewidth=0.7)
         axis.legend(frameon=False)

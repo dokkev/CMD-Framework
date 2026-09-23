@@ -9,8 +9,8 @@ from .linkage_parameter import (
 )
 
 
-# Body proportions from the MotionGen prototype. Coupler lengths are derived
-# by FingerLinkage from this design's fully extended q1=q2=q3=0 reference.
+# Body proportions from the MotionGen prototype. At neutral extension,
+# O-A'-B'-B-C aligns; FingerLinkage derives both coupler lengths from that pose.
 BASELINE_LINKAGE_V0 = FingerLinkage(
     FingerLinkageParameters(
         main_chain=MainChainParameters(

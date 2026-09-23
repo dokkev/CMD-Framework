@@ -1,4 +1,4 @@
-"""3D visualization of the CLEAR XM335 actuator only."""
+"""3D visualization of the shaft-centred CLEAR XM335 actuator."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from matplotlib.patches import Patch
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 
-from ..hardware import ACTUATOR_WIDTH_AXIS_XYZ, Actuator, XM335Actuator
+from ..hardware import ACTUATOR_SHAFT_AXIS_XYZ, Actuator, XM335Actuator
 
 
 def _positive_finite(name: str, value: object) -> float:
@@ -27,16 +27,14 @@ def _positive_finite(name: str, value: object) -> float:
 
 @dataclass(frozen=True)
 class ActuatorVisualizer:
-    """Render only the actuator box, shaft axis, and actuator-local frame.
+    """Render the D-shaped body and canonical actuator frame.
 
-    The actuator shaft center is the visualization origin ``(0, 0, 0)``.
-    The actuator-local frame uses +X across the body width, +Y from bottom to
-    top, and +Z along the XM335 shaft axis. The box is centered in X and Z;
-    its center is at ``(0, -8, 0)`` for the project XM335 values.
+    The shaft center is the origin. Local +X points toward the rounded cap,
+    +Y is the shaft axis, and +Z is the lateral body-width direction.
     """
 
     actuator: Actuator = field(default_factory=XM335Actuator)
-    axis_marker_length_mm: float = 12.0
+    axis_marker_length_mm: float = 16.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.actuator, Actuator):
@@ -53,7 +51,7 @@ class ActuatorVisualizer:
         figure = plt.figure(figsize=(9.5, 8.0), constrained_layout=True)
         axis = figure.add_subplot(111, projection="3d")
 
-        self._plot_actuator_box(axis)
+        self._plot_d_extrusion(axis)
         self._plot_shaft_axis(axis)
         self._plot_actuator_frame(axis)
         self._configure_axis(axis)
@@ -74,115 +72,137 @@ class ActuatorVisualizer:
             plt.close(figure)
         return output_path
 
-    def _plot_actuator_box(self, axis: Axes3D) -> None:
-        box = self.actuator.box
-        x_min = -box.width_mm / 2.0
-        x_max = box.width_mm / 2.0
-        y_min = -self.actuator.shaft.center_from_bottom_mm
-        y_max = y_min + box.height_mm
-        z_min = -box.depth_mm / 2.0
-        z_max = box.depth_mm / 2.0
+    def _profile_xz(self) -> list[tuple[float, float]]:
+        geometry = self.actuator.geometry
+        radius = geometry.radius_mm
+        arc = [
+            (
+                radius * math.cos(-math.pi / 2.0 + math.pi * index / 32.0),
+                radius * math.sin(-math.pi / 2.0 + math.pi * index / 32.0),
+            )
+            for index in range(33)
+        ]
+        return [(-geometry.rear_extent_mm, -radius), *arc, (-geometry.rear_extent_mm, radius)]
 
-        vertices = (
-            (x_min, y_min, z_min),
-            (x_max, y_min, z_min),
-            (x_max, y_max, z_min),
-            (x_min, y_max, z_min),
-            (x_min, y_min, z_max),
-            (x_max, y_min, z_max),
-            (x_max, y_max, z_max),
-            (x_min, y_max, z_max),
-        )
-        faces = (
-            (vertices[0], vertices[1], vertices[2], vertices[3]),
-            (vertices[4], vertices[5], vertices[6], vertices[7]),
-            (vertices[0], vertices[1], vertices[5], vertices[4]),
-            (vertices[1], vertices[2], vertices[6], vertices[5]),
-            (vertices[2], vertices[3], vertices[7], vertices[6]),
-            (vertices[3], vertices[0], vertices[4], vertices[7]),
-        )
+    def _plot_d_extrusion(self, axis: Axes3D) -> None:
+        geometry = self.actuator.geometry
+        xz_profile = self._profile_xz()
+        y_min, y_max = -geometry.depth_mm / 2.0, geometry.depth_mm / 2.0
+
+        faces = [
+            [(x, y_min, z) for x, z in xz_profile],
+            [(x, y_max, z) for x, z in xz_profile],
+            [
+                (-geometry.rear_extent_mm, y_min, -geometry.radius_mm),
+                (-geometry.rear_extent_mm, y_max, -geometry.radius_mm),
+                (-geometry.rear_extent_mm, y_max, geometry.radius_mm),
+                (-geometry.rear_extent_mm, y_min, geometry.radius_mm),
+            ],
+            [
+                (-geometry.rear_extent_mm, y_min, -geometry.radius_mm),
+                (0.0, y_min, -geometry.radius_mm),
+                (0.0, y_max, -geometry.radius_mm),
+                (-geometry.rear_extent_mm, y_max, -geometry.radius_mm),
+            ],
+            [
+                (-geometry.rear_extent_mm, y_min, geometry.radius_mm),
+                (-geometry.rear_extent_mm, y_max, geometry.radius_mm),
+                (0.0, y_max, geometry.radius_mm),
+                (0.0, y_min, geometry.radius_mm),
+            ],
+        ]
+
+        def cylinder_point(y_mm: float, angle_rad: float) -> tuple[float, float, float]:
+            return (
+                geometry.radius_mm * math.cos(angle_rad),
+                y_mm,
+                geometry.radius_mm * math.sin(angle_rad),
+            )
+
+        for index in range(32):
+            angle_0 = -math.pi / 2.0 + math.pi * index / 32.0
+            angle_1 = -math.pi / 2.0 + math.pi * (index + 1) / 32.0
+            faces.append(
+                [
+                    cylinder_point(y_min, angle_0),
+                    cylinder_point(y_max, angle_0),
+                    cylinder_point(y_max, angle_1),
+                    cylinder_point(y_min, angle_1),
+                ]
+            )
+
         axis.add_collection3d(
             Poly3DCollection(
                 faces,
                 facecolor="#f4a261",
                 edgecolor="#b5651d",
-                linewidth=1.0,
-                alpha=0.38,
+                linewidth=0.65,
+                alpha=0.72,
             )
         )
 
     def _plot_shaft_axis(self, axis: Axes3D) -> None:
-        shaft_axis = self.actuator.shaft.axis_xyz
+        shaft_axis = ACTUATOR_SHAFT_AXIS_XYZ
         axis.quiver(
             0.0,
             0.0,
             0.0,
-            shaft_axis[0] * self.axis_marker_length_mm,
-            shaft_axis[1] * self.axis_marker_length_mm,
-            shaft_axis[2] * self.axis_marker_length_mm,
+            *(component * self.axis_marker_length_mm for component in shaft_axis),
             color="#d62828",
             arrow_length_ratio=0.14,
             linewidth=2.8,
         )
         axis.scatter([0.0], [0.0], [0.0], color="#d62828", s=58, depthshade=False)
-        axis.text(
-            shaft_axis[0] * self.axis_marker_length_mm + 0.8,
-            shaft_axis[1] * self.axis_marker_length_mm,
-            shaft_axis[2] * self.axis_marker_length_mm,
-            "shaft axis +Z",
-            color="#b21f2d",
-        )
+        axis.text(0.8, self.axis_marker_length_mm, 0.0, "shaft axis +Y")
 
     def _plot_actuator_frame(self, axis: Axes3D) -> None:
         axis_length = self.axis_marker_length_mm * 0.72
-        width_axis = ACTUATOR_WIDTH_AXIS_XYZ
-
-        axis.quiver(
-            0.0,
-            0.0,
-            0.0,
-            width_axis[0] * axis_length,
-            width_axis[1] * axis_length,
-            width_axis[2] * axis_length,
-            color="#d97706",
-            arrow_length_ratio=0.15,
-            linewidth=1.6,
-        )
-        axis.quiver(
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            axis_length,
-            0.0,
-            color="#2a9d8f",
-            arrow_length_ratio=0.15,
-            linewidth=1.6,
-        )
-        axis.text(axis_length + 0.8, 0.0, 0.0, "+X width")
-        axis.text(0.0, axis_length + 0.8, 0.0, "+Y height")
+        for direction, color, label in (
+            ((1.0, 0.0, 0.0), "#d97706", "+X longitudinal"),
+            ((0.0, 0.0, 1.0), "#2a9d8f", "+Z lateral width"),
+        ):
+            axis.quiver(
+                0.0,
+                0.0,
+                0.0,
+                *(component * axis_length for component in direction),
+                color=color,
+                arrow_length_ratio=0.15,
+                linewidth=1.8,
+            )
+            axis.text(
+                direction[0] * axis_length + 0.8,
+                direction[1] * axis_length + 0.8,
+                direction[2] * axis_length + 0.8,
+                label,
+            )
 
     def _configure_axis(self, axis: Axes3D) -> None:
-        box = self.actuator.box
-        y_min = -self.actuator.shaft.center_from_bottom_mm
-        y_max = y_min + box.height_mm
-        x_min = -box.width_mm / 2.0 - 2.0
-        x_max = box.width_mm / 2.0 + 2.0
-        z_extent = box.depth_mm / 2.0
-        y_margin = max(box.height_mm * 0.08, 2.0)
+        geometry = self.actuator.geometry
+        (x_min, x_max), (y_min, y_max), (z_min, z_max) = geometry.bounds_xyz_mm
+        padding_mm = 2.0
+        frame_marker_length = self.axis_marker_length_mm * 0.72
 
-        axis.set_title("3D XM335 actuator model")
-        axis.set_xlabel("X actuator width [mm]")
-        axis.set_ylabel("Y actuator height [mm]")
-        axis.set_zlabel("Z shaft axis [mm]")
-        axis.set_xlim(x_min, x_max)
-        axis.set_ylim(y_min - y_margin, y_max + y_margin)
-        axis.set_zlim(-z_extent - 2.0, z_extent + 2.0)
+        axis.set_title("XM335 D-shaped extrusion · shaft-centred frame")
+        axis.set_xlabel("X longitudinal [mm]")
+        axis.set_ylabel("Y shaft axis [mm]")
+        axis.set_zlabel("Z lateral width [mm]")
+        axis_limits = (
+            (x_min - padding_mm, max(x_max + padding_mm, frame_marker_length + 3.0)),
+            (y_min - padding_mm, max(y_max + padding_mm, self.axis_marker_length_mm + 4.0)),
+            (
+                min(z_min - padding_mm, -frame_marker_length - 3.0),
+                max(z_max + padding_mm, frame_marker_length + 3.0),
+            ),
+        )
+        axis.set_xlim(*axis_limits[0])
+        axis.set_ylim(*axis_limits[1])
+        axis.set_zlim(*axis_limits[2])
         axis.set_box_aspect(
             (
-                x_max - x_min,
-                y_max - y_min + 2.0 * y_margin,
-                2.0 * z_extent + 4.0,
+                axis_limits[0][1] - axis_limits[0][0],
+                axis_limits[1][1] - axis_limits[1][0],
+                axis_limits[2][1] - axis_limits[2][0],
             )
         )
         axis.view_init(elev=22.0, azim=-62.0)
@@ -192,10 +212,11 @@ class ActuatorVisualizer:
                 Patch(
                     facecolor="#f4a261",
                     edgecolor="#b5651d",
-                    alpha=0.38,
+                    alpha=0.72,
                     label=(
-                        f"XM335 box W{box.width_mm:g} × H{box.height_mm:g} "
-                        f"× D{box.depth_mm:g} mm (X=W, Y=H, Z=D)"
+                        f"D body R{geometry.radius_mm:g}, "
+                        f"rear {geometry.rear_extent_mm:g}, "
+                        f"depth {geometry.depth_mm:g} mm"
                     ),
                 ),
                 Line2D(
@@ -203,10 +224,7 @@ class ActuatorVisualizer:
                     [0],
                     color="#d62828",
                     linewidth=2.8,
-                    label=(
-                        "shaft axis / +Z "
-                        f"({self.actuator.shaft.center_from_bottom_mm:g} mm from bottom)"
-                    ),
+                    label="shaft center / axis +Y",
                 ),
             ],
             loc="upper left",

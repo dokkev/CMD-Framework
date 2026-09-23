@@ -19,7 +19,7 @@ class KinematicClosureError(ValueError):
 
 @dataclass(frozen=True)
 class LinkagePose:
-    """One posed planar linkage configuration in the YZ frame."""
+    """One posed YZ configuration; q angles are changes from full extension."""
 
     q1_rad: float
     q2_rad: float
@@ -36,17 +36,37 @@ class LinkagePose:
 
 @dataclass(frozen=True)
 class LinkageKinematics:
-    """Solve the two fixed-length coupling loops from a commanded ``q1``."""
+    """Solve the coupling loops from flexion measured at the extended pose.
+
+    ``q1``, ``q2``, and ``q3`` are angular changes from the neutral extended
+    configuration, not the absolute link orientations. The physical hinge at
+    ``A`` remains in the model; distal motion comes from both loop closures.
+    """
 
     linkage: FingerLinkage
     _loop_1_branch: int = field(init=False, repr=False)
     _loop_2_branch: int = field(init=False, repr=False)
+    _reference_theta1_rad: float = field(init=False, repr=False)
+    _reference_theta2_rad: float = field(init=False, repr=False)
+    _reference_theta3_rad: float = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.linkage, FingerLinkage):
             raise TypeError("linkage must be a FingerLinkage instance")
 
         reference = self.linkage.reference_positions
+        reference_theta1 = math.atan2(
+            reference.a.z_mm - reference.o.z_mm,
+            reference.a.y_mm - reference.o.y_mm,
+        )
+        reference_theta2 = math.atan2(
+            reference.b.z_mm - reference.a.z_mm,
+            reference.b.y_mm - reference.a.y_mm,
+        )
+        reference_theta3 = math.atan2(
+            reference.c.z_mm - reference.b.z_mm,
+            reference.c.y_mm - reference.b.y_mm,
+        )
         loop_1_branch = _reference_branch_sign(
             reference.a,
             reference.op,
@@ -61,14 +81,17 @@ class LinkageKinematics:
         )
         object.__setattr__(self, "_loop_1_branch", loop_1_branch)
         object.__setattr__(self, "_loop_2_branch", loop_2_branch)
+        object.__setattr__(self, "_reference_theta1_rad", reference_theta1)
+        object.__setattr__(self, "_reference_theta2_rad", reference_theta2)
+        object.__setattr__(self, "_reference_theta3_rad", reference_theta3)
 
     def solve(self, q1_rad: float) -> LinkagePose:
         """Return the deterministic closed-chain pose for ``q1_rad``.
 
-        The recovered absolute middle and distal angles use the principal
-        signed rotations returned by ``atan2``. ``q2_rad`` and ``q3_rad`` are
-        direct differences from those absolute angles; the commanded ``q1``
-        is not normalized.
+        The extended pose defines the zero of all three returned flexion
+        angles. ``q1_rad`` rotates the proximal body from its OA' reference;
+        ``q2_rad`` and ``q3_rad`` are principal relative joint-angle changes
+        from neutral, wrapped to ``[-pi, pi]``.
         """
 
         _require_finite_angle(q1_rad)
@@ -78,7 +101,7 @@ class LinkageKinematics:
         coupling = parameters.coupling
 
         o = reference.o
-        theta1 = q1_rad
+        theta1 = self._reference_theta1_rad + q1_rad
         a = _add(o, _rotate(AnchorYZ(main.proximal_length_mm, 0.0), theta1))
         ap = _add(o, _rotate(coupling.proximal_anchor, theta1))
 
@@ -98,7 +121,11 @@ class LinkageKinematics:
             "O'-B'",
         )
         theta2 = _signed_rotation(coupling.middle_anchor, _subtract(selected_bp, a))
-        q2_rad = theta2 - theta1
+        q2_rad = _wrap_angle(
+            theta2
+            - theta1
+            - (self._reference_theta2_rad - self._reference_theta1_rad)
+        )
         bp = _add(a, _rotate(coupling.middle_anchor, theta2))
         b = _add(a, _rotate(AnchorYZ(main.middle_length_mm, 0.0), theta2))
 
@@ -118,7 +145,11 @@ class LinkageKinematics:
             "A'-C'",
         )
         theta3 = _signed_rotation(coupling.distal_anchor, _subtract(selected_cp, b))
-        q3_rad = theta3 - theta2
+        q3_rad = _wrap_angle(
+            theta3
+            - theta2
+            - (self._reference_theta3_rad - self._reference_theta2_rad)
+        )
         cp = _add(b, _rotate(coupling.distal_anchor, theta3))
         c = _add(b, _rotate(AnchorYZ(main.distal_length_mm, 0.0), theta3))
 
@@ -273,6 +304,12 @@ def _dot(first: AnchorYZ, second: AnchorYZ) -> float:
 
 def _cross(first: AnchorYZ, second: AnchorYZ) -> float:
     return first.y_mm * second.z_mm - first.z_mm * second.y_mm
+
+
+def _wrap_angle(angle_rad: float) -> float:
+    """Return the principal scalar-angle difference in [-pi, pi]."""
+
+    return math.remainder(angle_rad, 2.0 * math.pi)
 
 
 def _require_finite_angle(q1_rad: object) -> None:

@@ -1,16 +1,8 @@
-"""Minimal solver-independent actuator representation.
+"""Solver-independent actuator geometry and mechanical parameters.
 
-The hardware model intentionally contains only the physical information needed
-for hand layout and later kinematic or Newton compilation:
-
-    actuator = rectangular box + shaft location/axis + mechanics
-
-It does not define keep-out regions, collision primitives, simulator bodies, or
-actuator transmission geometry.
-
-The actuator-local frame uses ``+X`` across the body width, ``+Y`` from the
-bottom toward the top of the body, and ``+Z`` along the shaft axis. The XM335
-shaft center is therefore measured along ``+Y`` from the bottom face.
+The canonical actuator frame is shaft-centred: +X points toward the rounded
+body cap, +Y is the shaft axis, and +Z is the lateral body-width direction.
+All dimensions are in millimetres.
 """
 
 from __future__ import annotations
@@ -21,9 +13,7 @@ from numbers import Real
 
 
 Vector3 = tuple[float, float, float]
-
-# The actuator width direction is a frame convention, not a design parameter.
-ACTUATOR_WIDTH_AXIS_XYZ: Vector3 = (1.0, 0.0, 0.0)
+ACTUATOR_SHAFT_AXIS_XYZ: Vector3 = (0.0, 1.0, 0.0)
 
 
 def _finite_real(name: str, value: object) -> float:
@@ -42,55 +32,54 @@ def _positive_real(name: str, value: object) -> float:
     return value
 
 
-def _axis_xyz(value: object) -> Vector3:
-    if not isinstance(value, tuple) or len(value) != 3:
-        raise TypeError("axis_xyz must be a length-3 tuple")
-
-    axis = tuple(
-        _finite_real(f"axis_xyz[{index}]", component)
-        for index, component in enumerate(value)
-    )
-    norm = math.sqrt(sum(component * component for component in axis))
-    if not math.isclose(norm, 1.0, rel_tol=1e-12, abs_tol=1e-12):
-        raise ValueError(f"axis_xyz must be a unit vector; got {value!r}")
-    return axis  # type: ignore[return-value]
-
-
 @dataclass(frozen=True)
-class RectangularBox:
-    """Rectangular actuator body dimensions, all in millimetres.
+class DShapedExtrusion:
+    """D-shaped XZ profile extruded along local Y, with dimensions in mm.
 
-    In the actuator-local frame, width is X, height is Y, and depth is Z.
+    The profile has a rectangular rear extent ``[-rear_extent_mm, 0]`` and a
+    rounded cap of radius ``radius_mm`` in ``x >= 0``. The shaft center is the
+    origin and the extrusion is centred about ``Y = 0``.
     """
 
-    width_mm: float
-    height_mm: float
+    radius_mm: float
+    rear_extent_mm: float
     depth_mm: float
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "width_mm", _positive_real("width_mm", self.width_mm))
-        object.__setattr__(self, "height_mm", _positive_real("height_mm", self.height_mm))
-        object.__setattr__(self, "depth_mm", _positive_real("depth_mm", self.depth_mm))
-
-
-@dataclass(frozen=True)
-class ShaftLocation:
-    """Actuator shaft location and unit axis in the actuator frame.
-
-    ``center_from_bottom_mm`` is measured along actuator-local +Y. The XM335
-    default shaft axis is +Z.
-    """
-
-    center_from_bottom_mm: float
-    axis_xyz: Vector3 = (0.0, 0.0, 1.0)
-
-    def __post_init__(self) -> None:
+        object.__setattr__(self, "radius_mm", _positive_real("radius_mm", self.radius_mm))
         object.__setattr__(
             self,
-            "center_from_bottom_mm",
-            _positive_real("center_from_bottom_mm", self.center_from_bottom_mm),
+            "rear_extent_mm",
+            _positive_real("rear_extent_mm", self.rear_extent_mm),
         )
-        object.__setattr__(self, "axis_xyz", _axis_xyz(self.axis_xyz))
+        object.__setattr__(self, "depth_mm", _positive_real("depth_mm", self.depth_mm))
+        if self.rear_extent_mm < self.radius_mm:
+            raise ValueError(
+                "rear_extent_mm must be at least radius_mm so the rear half "
+                "of the cylinder is contained in the rectangular portion"
+            )
+
+    @property
+    def longitudinal_extent_mm(self) -> float:
+        """Total X extent from the rear face to the rounded tip."""
+
+        return self.rear_extent_mm + self.radius_mm
+
+    @property
+    def width_mm(self) -> float:
+        """Full lateral Z width of the D-shaped profile."""
+
+        return 2.0 * self.radius_mm
+
+    @property
+    def bounds_xyz_mm(self) -> tuple[tuple[float, float], ...]:
+        """Return ``((xmin, xmax), (ymin, ymax), (zmin, zmax))`` in mm."""
+
+        return (
+            (-self.rear_extent_mm, self.radius_mm),
+            (-self.depth_mm / 2.0, self.depth_mm / 2.0),
+            (-self.radius_mm, self.radius_mm),
+        )
 
 
 @dataclass(frozen=True)
@@ -113,33 +102,28 @@ class MechanicalParameters:
 
 @dataclass(frozen=True)
 class Actuator:
-    """Minimal actuator value object: box, shaft, and mechanical parameters.
+    """Minimal actuator value object: body geometry and mechanics."""
 
-    The actuator frame is +X width, +Y bottom-to-top, and +Z shaft axis.
-    """
-
-    box: RectangularBox
-    shaft: ShaftLocation
+    geometry: DShapedExtrusion
     mechanics: MechanicalParameters
 
     def __post_init__(self) -> None:
-        if not isinstance(self.box, RectangularBox):
-            raise TypeError("box must be a RectangularBox instance")
-        if not isinstance(self.shaft, ShaftLocation):
-            raise TypeError("shaft must be a ShaftLocation instance")
+        if not isinstance(self.geometry, DShapedExtrusion):
+            raise TypeError("geometry must be a DShapedExtrusion instance")
         if not isinstance(self.mechanics, MechanicalParameters):
             raise TypeError("mechanics must be a MechanicalParameters instance")
-        if self.shaft.center_from_bottom_mm >= self.box.height_mm:
-            raise ValueError(
-                "shaft.center_from_bottom_mm must be below the top of the actuator box"
-            )
+
+    @property
+    def shaft_axis_xyz(self) -> Vector3:
+        """Return the canonical shaft axis in the shaft-centred actuator frame."""
+
+        return ACTUATOR_SHAFT_AXIS_XYZ
 
 
 __all__ = [
-    "ACTUATOR_WIDTH_AXIS_XYZ",
+    "ACTUATOR_SHAFT_AXIS_XYZ",
     "Actuator",
+    "DShapedExtrusion",
     "MechanicalParameters",
-    "RectangularBox",
-    "ShaftLocation",
     "Vector3",
 ]
