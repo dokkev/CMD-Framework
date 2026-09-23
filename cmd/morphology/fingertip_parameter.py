@@ -25,24 +25,22 @@ def _require_positive(name: str, value: object) -> None:
 
 @dataclass(frozen=True)
 class PadParameters:
-    """Fundamental compliant contact-envelope dimensions.
+    """Independent dimensions of the compliant fingertip pad."""
 
-    The lateral width is constant along the finger. ``tip_length_mm`` is the
-    longitudinal length of the rounded distal cap.
-    """
-
-    width_mm: float = 25.0
-    pad_straight_height_mm: float = 6.0
-    ellipse_height_mm: float = 10.0
-    body_length_mm: float = 25.0
+    vertical_pad_width_mm: float = 25.0
+    vertical_pad_height_mm: float = 6.0
+    elliptical_pad_width_mm: float = 25.0
+    elliptical_pad_height_mm: float = 10.0
+    pad_length_mm: float = 40.0
     tip_length_mm: float = 15.0
 
     def __post_init__(self) -> None:
         for name in (
-            "width_mm",
-            "pad_straight_height_mm",
-            "ellipse_height_mm",
-            "body_length_mm",
+            "vertical_pad_width_mm",
+            "vertical_pad_height_mm",
+            "elliptical_pad_width_mm",
+            "elliptical_pad_height_mm",
+            "pad_length_mm",
             "tip_length_mm",
         ):
             _require_positive(f"pad.{name}", getattr(self, name))
@@ -50,24 +48,21 @@ class PadParameters:
 
 @dataclass(frozen=True)
 class PhalanxParameters:
-    """Dimensions of the rigid T-shaped carrier.
+    """Independent dimensions of the rigid carrier and its stem."""
 
-    ``carrier_height_mm`` is the dorsal plate thickness. The stem extends
-    below its shoulder and ends ``carrier_extension_mm`` beyond the straight
-    body. The dorsal plate continues over the full rounded fingertip nose.
-    """
-
+    carrier_width_mm: float = 25.0
     carrier_height_mm: float = 6.0
     stem_width_mm: float = 8.0
     stem_height_mm: float = 5.0
-    carrier_extension_mm: float = 10.0
+    carrier_length_mm: float = 35.0
 
     def __post_init__(self) -> None:
         for name in (
+            "carrier_width_mm",
             "carrier_height_mm",
             "stem_width_mm",
             "stem_height_mm",
-            "carrier_extension_mm",
+            "carrier_length_mm",
         ):
             _require_positive(f"phalanx.{name}", getattr(self, name))
 
@@ -91,25 +86,60 @@ class FingertipParameters:
 
         pad = self.pad
         phalanx = self.phalanx
-        if phalanx.stem_width_mm >= pad.width_mm:
-            raise ValueError("phalanx.stem_width_mm must be smaller than pad.width_mm")
-
-        if phalanx.carrier_extension_mm >= pad.tip_length_mm:
+        straight_length_mm = pad.pad_length_mm - pad.tip_length_mm
+        if straight_length_mm <= 0.0:
             raise ValueError(
-                "phalanx.carrier_extension_mm must be smaller than pad.tip_length_mm"
+                "pad.tip_length_mm must be smaller than pad.pad_length_mm"
             )
 
-        end_half_width_mm = (pad.width_mm / 2.0) * math.sqrt(
-            1.0 - (phalanx.carrier_extension_mm / pad.tip_length_mm) ** 2
-        )
-        if phalanx.stem_width_mm / 2.0 >= end_half_width_mm:
-            raise ValueError("the stem must remain narrower than the dorsal plate at its distal end")
-
-        maximum_pad_depth_mm = pad.pad_straight_height_mm + pad.ellipse_height_mm
-        if phalanx.stem_height_mm >= maximum_pad_depth_mm:
+        if phalanx.carrier_length_mm <= straight_length_mm:
             raise ValueError(
-                "the rigid-core stem must fit within the maximum compliant pad "
-                f"depth of {maximum_pad_depth_mm:.16g} mm"
+                "phalanx.carrier_length_mm must extend beyond the straight pad body"
+            )
+        if phalanx.carrier_length_mm >= pad.pad_length_mm:
+            raise ValueError(
+                "phalanx.carrier_length_mm must be smaller than pad.pad_length_mm"
+            )
+
+        if phalanx.stem_width_mm >= phalanx.carrier_width_mm:
+            raise ValueError(
+                "phalanx.stem_width_mm must be smaller than phalanx.carrier_width_mm"
+            )
+        if phalanx.stem_width_mm >= pad.vertical_pad_width_mm:
+            raise ValueError(
+                "phalanx.stem_width_mm must be smaller than "
+                "pad.vertical_pad_width_mm"
+            )
+        if phalanx.stem_width_mm >= pad.elliptical_pad_width_mm:
+            raise ValueError(
+                "phalanx.stem_width_mm must be smaller than "
+                "pad.elliptical_pad_width_mm"
+            )
+
+        tip_half_width_mm = phalanx.carrier_width_mm / 2.0
+        stem_half_width_mm = phalanx.stem_width_mm / 2.0
+        ellipsoid_coordinate = (
+            (stem_half_width_mm / tip_half_width_mm) ** 2
+            + ((phalanx.carrier_length_mm - straight_length_mm) / pad.tip_length_mm) ** 2
+        )
+        if ellipsoid_coordinate >= 1.0:
+            raise ValueError(
+                "the distal rigid-core corner lies outside the half-ellipsoid "
+                f"envelope: q={ellipsoid_coordinate:.16g} must be < 1"
+            )
+
+        penetration_mm = max(
+            0.0,
+            phalanx.stem_height_mm - pad.vertical_pad_height_mm,
+        )
+        allowable_penetration_mm = pad.elliptical_pad_height_mm * math.sqrt(
+            1.0 - ellipsoid_coordinate
+        )
+        if penetration_mm >= allowable_penetration_mm:
+            raise ValueError(
+                "the distal rigid-core stem breaks through the half-ellipsoid "
+                "envelope: penetration must be less than "
+                f"{allowable_penetration_mm:.16g} mm"
             )
 
 

@@ -16,9 +16,20 @@ from mpl_toolkits.mplot3d.axes3d import Axes3D
 from ..morphology import Fingertip
 
 
+# Keep the carrier and compliant pad visually distinct in every view.
 CARRIER_COLOR = "#999c9f"
 PAD_COLOR = "#b8d5a8"
 OUTLINE_COLOR = "#50575b"
+
+# The 3D view keeps a cool gray carrier and green pad, with darker lines for
+# mesh and silhouette readability.
+CARRIER_3D_COLOR = "#7d8992"
+CARRIER_3D_EDGE_COLOR = "#263238"
+PAD_3D_UPPER_COLOR = "#c6e5be"
+PAD_3D_LOWER_COLOR = "#6fa878"
+PAD_3D_WALL_COLOR = "#98c99c"
+PAD_3D_MESH_COLOR = "#52755a"
+PAD_3D_EDGE_COLOR = "#2f5638"
 
 
 @dataclass(frozen=True)
@@ -55,8 +66,10 @@ class FingertipVisualizer:
         self._configure_3d_axis(axis)
         figure.suptitle("Fingertip morphology", fontsize=16)
         figure.legend(handles=[
-            Patch(facecolor=CARRIER_COLOR, edgecolor=OUTLINE_COLOR, label="Carrier / nail"),
-            Patch(facecolor=PAD_COLOR, edgecolor=OUTLINE_COLOR, label="Pad"),
+            Patch(facecolor=CARRIER_3D_COLOR, edgecolor=CARRIER_3D_EDGE_COLOR,
+                  label="Carrier / nail"),
+            Patch(facecolor=PAD_3D_UPPER_COLOR, edgecolor=PAD_3D_EDGE_COLOR,
+                  label="Pad (mesh + boundary)"),
         ], loc="upper center", bbox_to_anchor=(0.5, 0.965), ncol=2, frameon=False)
         return figure
 
@@ -67,7 +80,7 @@ class FingertipVisualizer:
         phalanx = f.parameters.phalanx
         x = np.linspace(-f.half_width_mm, f.half_width_mm, self.samples)
         y = np.unique(np.r_[np.linspace(0.0, f.total_length_mm, self.samples),
-                             f.parameters.pad.body_length_mm, f.carrier_length_mm])
+                             f.straight_length_mm, f.carrier_length_mm])
         if view == "end":
             lower = [f.lower_surface_z_mm(float(value), 0.0) for value in x]
             axis.fill_between(x, lower, 0.0, color=PAD_COLOR, ec=OUTLINE_COLOR, lw=1)
@@ -75,9 +88,12 @@ class FingertipVisualizer:
             title, xlabel, ylabel = "End view · XZ", "X [mm]", "Z [mm]"
         elif view == "side":
             # Include the centre explicitly, even for an even sample count.
-            x_samples = np.unique(np.r_[x, 0.0])
             lower, upper = [], []
             for value in y:
+                half_width = f.half_width_at_y_mm(float(value))
+                x_samples = np.unique(
+                    np.r_[np.linspace(-half_width, half_width, self.samples), 0.0]
+                )
                 bounds = [f.outer_envelope_z_bounds_mm(float(xx), float(value))
                           for xx in x_samples]
                 lower.append(min(pair[0] for pair in bounds))
@@ -123,8 +139,7 @@ class FingertipVisualizer:
         return output_path
 
     def _plot_outer_envelope(self, axis: Axes3D) -> None:
-        pad_color = PAD_COLOR
-        lower_color = PAD_COLOR
+        mesh_count = max(2, min(self.samples, 36))
 
         for surface in ("body", "nose"):
             x_grid, y_grid, lower_grid = self._surface_grid(surface, upper=False)
@@ -132,11 +147,14 @@ class FingertipVisualizer:
                 np.asarray(x_grid),
                 np.asarray(y_grid),
                 np.asarray(lower_grid),
-                color=lower_color,
-                alpha=1.0,
-                linewidth=0,
-                antialiased=False,
-                shade=False,
+                color=PAD_3D_LOWER_COLOR,
+                alpha=0.96,
+                edgecolor=PAD_3D_MESH_COLOR,
+                linewidth=0.35,
+                antialiased=True,
+                shade=True,
+                rcount=mesh_count,
+                ccount=mesh_count,
             )
 
             _, _, upper_grid = self._surface_grid(surface, upper=True)
@@ -144,19 +162,24 @@ class FingertipVisualizer:
                 np.asarray(x_grid),
                 np.asarray(y_grid),
                 np.asarray(upper_grid),
-                color=pad_color,
-                alpha=1.0,
-                linewidth=0,
-                antialiased=False,
-                shade=False,
+                color=PAD_3D_UPPER_COLOR,
+                alpha=0.72,
+                edgecolor=PAD_3D_MESH_COLOR,
+                linewidth=0.35,
+                antialiased=True,
+                shade=True,
+                rcount=mesh_count,
+                ccount=mesh_count,
             )
 
         self._plot_lateral_walls(axis)
+        self._plot_pad_boundaries(axis)
 
     def _plot_lateral_walls(self, axis: Axes3D) -> None:
+        mesh_count = max(2, min(self.samples, 36))
         body_y_values = self._linspace(
             0.0,
-            self.fingertip.parameters.pad.body_length_mm,
+            self.fingertip.straight_length_mm,
             self.samples,
         )
         for x_mm in (-self.fingertip.half_width_mm, self.fingertip.half_width_mm):
@@ -175,39 +198,131 @@ class FingertipVisualizer:
                         ],
                     ]
                 ),
-                color=PAD_COLOR,
-                alpha=1.0,
-                linewidth=0,
-                antialiased=False,
-                shade=False,
+                color=PAD_3D_WALL_COLOR,
+                alpha=0.94,
+                edgecolor=PAD_3D_MESH_COLOR,
+                linewidth=0.35,
+                antialiased=True,
+                shade=True,
+                rcount=2,
+                ccount=mesh_count,
             )
 
         nose_y_values = self._linspace(
-            self.fingertip.parameters.pad.body_length_mm,
+            self.fingertip.straight_length_mm,
             self.fingertip.total_length_mm,
             self.samples,
         )
-        for x_mm in (-self.fingertip.half_width_mm, self.fingertip.half_width_mm):
-            axis.plot_surface(
-                np.asarray([[x_mm] * len(nose_y_values)] * 2),
-                np.asarray([nose_y_values, nose_y_values]),
-                np.asarray(
+        half_widths = [
+            self.fingertip.half_width_at_y_mm(y_mm) for y_mm in nose_y_values
+        ]
+        axis.plot_surface(
+            np.asarray([-np.asarray(half_widths), np.asarray(half_widths)]),
+            np.asarray([nose_y_values, nose_y_values]),
+            np.asarray(
+                [
                     [
-                        [
-                            self.fingertip.lower_surface_z_mm(x_mm, y_mm)
-                            for y_mm in nose_y_values
-                        ],
-                        [
-                            self.fingertip.upper_surface_z_mm(x_mm, y_mm)
-                            for y_mm in nose_y_values
-                        ],
-                    ]
-                ),
-                color=PAD_COLOR,
-                alpha=1.0,
-                linewidth=0,
-                antialiased=False,
-                shade=False,
+                        self.fingertip.lower_surface_z_mm(width, y_mm)
+                        for width, y_mm in zip(half_widths, nose_y_values)
+                    ],
+                    [
+                        self.fingertip.upper_surface_z_mm(width, y_mm)
+                        for width, y_mm in zip(half_widths, nose_y_values)
+                    ],
+                ]
+            ),
+            color=PAD_3D_WALL_COLOR,
+            alpha=0.94,
+            edgecolor=PAD_3D_MESH_COLOR,
+            linewidth=0.35,
+            antialiased=True,
+            shade=True,
+            rcount=2,
+            ccount=mesh_count,
+        )
+
+    def _plot_pad_boundaries(self, axis: Axes3D) -> None:
+        """Overlay dark silhouette and region-seam lines on the pad."""
+
+        fingertip = self.fingertip
+        body_y_values = np.asarray(self._linspace(
+            0.0,
+            fingertip.straight_length_mm,
+            self.samples,
+        ))
+        for x_mm in (-fingertip.half_width_mm, fingertip.half_width_mm):
+            axis.plot(
+                np.full_like(body_y_values, x_mm),
+                body_y_values,
+                [fingertip.lower_surface_z_mm(x_mm, y_mm) for y_mm in body_y_values],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.15,
+                zorder=5,
+            )
+            axis.plot(
+                np.full_like(body_y_values, x_mm),
+                body_y_values,
+                [fingertip.upper_surface_z_mm(x_mm, y_mm) for y_mm in body_y_values],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.15,
+                zorder=5,
+            )
+
+        nose_y_values = np.asarray(self._linspace(
+            fingertip.straight_length_mm,
+            fingertip.total_length_mm,
+            self.samples,
+        ))
+        nose_half_widths = np.asarray([
+            fingertip.half_width_at_y_mm(y_mm) for y_mm in nose_y_values
+        ])
+        for sign in (-1.0, 1.0):
+            nose_x_values = sign * nose_half_widths
+            axis.plot(
+                nose_x_values,
+                nose_y_values,
+                [
+                    fingertip.lower_surface_z_mm(abs(x_mm), y_mm)
+                    for x_mm, y_mm in zip(nose_x_values, nose_y_values)
+                ],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.15,
+                zorder=5,
+            )
+            axis.plot(
+                nose_x_values,
+                nose_y_values,
+                [
+                    fingertip.upper_surface_z_mm(abs(x_mm), y_mm)
+                    for x_mm, y_mm in zip(nose_x_values, nose_y_values)
+                ],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.15,
+                zorder=5,
+            )
+
+        for y_mm in (0.0, fingertip.straight_length_mm, fingertip.total_length_mm):
+            half_width_mm = fingertip.half_width_at_y_mm(y_mm)
+            x_values = np.asarray(self._linspace(
+                -half_width_mm,
+                half_width_mm,
+                self.samples,
+            ))
+            axis.plot(
+                x_values,
+                np.full_like(x_values, y_mm),
+                [fingertip.lower_surface_z_mm(x_mm, y_mm) for x_mm in x_values],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.0,
+                zorder=5,
+            )
+            axis.plot(
+                x_values,
+                np.full_like(x_values, y_mm),
+                [fingertip.upper_surface_z_mm(x_mm, y_mm) for x_mm in x_values],
+                color=PAD_3D_EDGE_COLOR,
+                linewidth=1.0,
+                zorder=5,
             )
 
     def _plot_carrier(self, axis: Axes3D) -> None:
@@ -224,7 +339,8 @@ class FingertipVisualizer:
         y_values = sorted(set([
             0.0,
             stem_end,
-            *self._linspace(pad.body_length_mm, fingertip.dorsal_plate_length_mm, self.samples),
+            *self._linspace(fingertip.straight_length_mm,
+                            fingertip.dorsal_plate_length_mm, self.samples),
         ]))
         faces = []
         for y0, y1 in zip(y_values, y_values[1:]):
@@ -244,7 +360,7 @@ class FingertipVisualizer:
                 faces.append([(-w0, y0, 0.0), (-w1, y1, 0.0),
                               (w1, y1, 0.0), (w0, y0, 0.0)])
 
-        a = fingertip.half_width_mm
+        a = fingertip.tip_half_width_mm
         s = stem_half_width
         faces.append([(-a, 0.0, 0.0), (a, 0.0, 0.0),
                       (a, 0.0, plate_top), (-a, 0.0, plate_top)])
@@ -258,31 +374,40 @@ class FingertipVisualizer:
                           (s, y, 0.0), (-s, y, 0.0)])
 
         axis.add_collection3d(Poly3DCollection(
-            faces, facecolors=CARRIER_COLOR, edgecolors="none", alpha=1.0,
+            faces,
+            facecolors=CARRIER_3D_COLOR,
+            edgecolors=CARRIER_3D_EDGE_COLOR,
+            linewidths=0.55,
+            alpha=0.96,
         ))
 
     def _configure_3d_axis(self, axis: Axes3D) -> None:
         pad = self.fingertip.parameters.pad
         phalanx = self.fingertip.parameters.phalanx
-        lower_z_mm = -pad.pad_straight_height_mm - pad.ellipse_height_mm
+        lower_z_mm = -pad.vertical_pad_height_mm - pad.elliptical_pad_height_mm
         upper_z_mm = phalanx.carrier_height_mm
+        maximum_half_width_mm = max(
+            self.fingertip.half_width_mm,
+            self.fingertip.tip_half_width_mm,
+        )
 
         axis.set_title("3D view")
         axis.set_xlabel("X [mm]")
         axis.set_ylabel("Y [mm]")
         axis.set_zlabel("Z [mm]")
-        axis.set_xlim(-self.fingertip.half_width_mm * 1.15, self.fingertip.half_width_mm * 1.15)
+        axis.set_xlim(-maximum_half_width_mm * 1.15, maximum_half_width_mm * 1.15)
         axis.set_ylim(0.0, self.fingertip.total_length_mm)
         axis.set_zlim(lower_z_mm - 1.0, upper_z_mm + 1.0)
         axis.set_box_aspect(
             (
-                self.fingertip.half_width_mm * 2.3,
+                maximum_half_width_mm * 2.3,
                 self.fingertip.total_length_mm,
                 upper_z_mm - lower_z_mm + 2.0,
             )
         )
         axis.view_init(elev=23.0, azim=-62.0)
         axis.grid(True, alpha=0.25)
+
     def _surface_grid(
         self,
         surface: str,
@@ -291,12 +416,12 @@ class FingertipVisualizer:
         if surface == "body":
             y_values = self._linspace(
                 0.0,
-                self.fingertip.parameters.pad.body_length_mm,
+                self.fingertip.straight_length_mm,
                 self.samples,
             )
         elif surface == "nose":
             y_values = self._linspace(
-                self.fingertip.parameters.pad.body_length_mm,
+                self.fingertip.straight_length_mm,
                 self.fingertip.total_length_mm,
                 self.samples,
             )
