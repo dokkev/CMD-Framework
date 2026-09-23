@@ -13,6 +13,7 @@ from .linkage_parameter import (
     FingerLinkageParameters,
     MainChainParameters,
 )
+from .kinematics import KinematicClosureError, LinkageKinematics, LinkagePose
 
 __all__ = [
     "Fingertip",
@@ -25,4 +26,7 @@ __all__ = [
     "CouplingAnchorParameters",
     "MainChainParameters",
     "ReferencePositions",
+    "KinematicClosureError",
+    "LinkageKinematics",
+    "LinkagePose",
 ]
