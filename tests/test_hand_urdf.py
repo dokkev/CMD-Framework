@@ -5,19 +5,18 @@ import pytest
 
 from cmd.geometry import RigidTransform
 from cmd.design import compile_hand_urdf
-from cmd.morphology import HandMorphology, HandMorphologyParameters, HandPlanePoint
+from cmd.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
 
 
-def make_morphology() -> HandMorphology:
-    return HandMorphology(
-        HandMorphologyParameters(
+def make_layout() -> HandLayout:
+    return HandLayout(
+        HandLayoutParameters(
             middle_mcp_aa=HandPlanePoint(40.0, 5.0),
             ring_mcp_aa=HandPlanePoint(35.0, -5.0),
             little_mcp_aa=HandPlanePoint(25.0, -15.0),
             thumb_cmc_ro=HandPlanePoint(5.0, 30.0),
             theta_rad=0.25,
             ro_raa_distance_mm=35.0,
-            raa_mcp_fe_distance_mm=28.0,
             phi_rad=-0.2,
         )
     )
@@ -69,8 +68,8 @@ def _assert_transform_equal(actual: RigidTransform, expected: RigidTransform) ->
 
 
 def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
-    morphology = make_morphology()
-    root = ElementTree.fromstring(compile_hand_urdf(morphology))
+    layout = make_layout()
+    root = ElementTree.fromstring(compile_hand_urdf(layout))
     assert root.tag == "robot"
     assert root.attrib == {"name": "clear_hand"}
 
@@ -95,6 +94,7 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
             ("thumb_cmc_ro", None, "palm_link"),
             ("thumb_cmc_raa", "thumb_cmc_ro", "thumb_cmc_ro_output"),
             ("thumb_mcp_fe", "thumb_cmc_raa", "thumb_cmc_raa_output"),
+            ("thumb_ip_fe", "thumb_mcp_fe", "thumb_mcp_fe_output"),
         )
     )
 
@@ -116,11 +116,11 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
         parent_pose = (
             RigidTransform.identity()
             if parent_frame is None
-            else morphology.joint_transforms[parent_frame]
+            else layout.joint_transforms[parent_frame]
         )
         _assert_transform_equal(
             parent_pose @ mount_transform,
-            morphology.actuator_transforms[frame_name],
+            layout.actuator_transforms[frame_name],
         )
 
         revolute = joint_map[joint_name]
@@ -129,17 +129,17 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
         assert revolute.find("child").attrib["link"] == output_link
         actuator_to_joint = _parse_origin(revolute.find("origin"))
         _assert_transform_equal(
-            morphology.actuator_transforms[frame_name] @ actuator_to_joint,
-            morphology.joint_transforms[frame_name],
+            layout.actuator_transforms[frame_name] @ actuator_to_joint,
+            layout.joint_transforms[frame_name],
         )
         assert actuator_to_joint.translation_mm == pytest.approx((0.0, 0.0, 0.0), abs=1.0e-8)
         assert _parse_vector(revolute.find("axis").attrib["xyz"]) == pytest.approx(
-            morphology.joint_axes_local[frame_name]
+            layout.joint_axes_local[frame_name]
         )
         assert _rotate(
-            morphology.joint_transforms[frame_name].rotation_matrix,
+            layout.joint_transforms[frame_name].rotation_matrix,
             _parse_vector(revolute.find("axis").attrib["xyz"]),
-        ) == pytest.approx(morphology.joint_axes_hand[frame_name], abs=1.0e-10)
+        ) == pytest.approx(layout.joint_axes_hand[frame_name], abs=1.0e-10)
 
         actuator_xml = next(link for link in root.findall("link") if link.attrib["name"] == actuator_link)
         for element_name in ("visual", "collision"):
@@ -190,8 +190,8 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
     assert set(joint_map) == expected_joint_names
 
 
-def test_urdf_rejects_wrong_morphology_and_invalid_robot_name() -> None:
-    with pytest.raises(TypeError, match="HandMorphology"):
+def test_urdf_rejects_wrong_layout_and_invalid_robot_name() -> None:
+    with pytest.raises(TypeError, match="HandLayout"):
         compile_hand_urdf(object())
     with pytest.raises(ValueError, match="robot_name"):
-        compile_hand_urdf(make_morphology(), robot_name="clear hand")
+        compile_hand_urdf(make_layout(), robot_name="clear hand")

@@ -3,9 +3,9 @@ from dataclasses import fields
 
 import pytest
 
-from cmd.morphology import (
-    Fingertip,
-    FingertipParameters,
+from cmd.morphology import Fingertip, FingertipParameters
+from cmd.morphology.fingertip_parameter import (
+    FingertipFamilyParameters,
     PadParameters,
     PhalanxParameters,
 )
@@ -19,6 +19,7 @@ def test_default_parameters_construct_successfully() -> None:
     assert fingertip.total_length_mm == pytest.approx(40.0)
     assert fingertip.carrier_length_mm == pytest.approx(35.0)
     assert fingertip.straight_length_mm == pytest.approx(25.0)
+    assert fingertip.parameters.family.carrier_distal_inset_mm == pytest.approx(5.0)
 
 
 def test_parameter_fields_use_physical_names_and_no_stored_tip_duplicates() -> None:
@@ -27,7 +28,6 @@ def test_parameter_fields_use_physical_names_and_no_stored_tip_duplicates() -> N
         "vertical_pad_height_mm",
         "elliptical_pad_width_mm",
         "elliptical_pad_height_mm",
-        "pad_length_mm",
         "tip_length_mm",
     }
     assert {field.name for field in fields(PhalanxParameters)} == {
@@ -35,13 +35,12 @@ def test_parameter_fields_use_physical_names_and_no_stored_tip_duplicates() -> N
         "carrier_height_mm",
         "stem_width_mm",
         "stem_height_mm",
-        "carrier_length_mm",
     }
 
 
 def test_straight_body_center_and_edge_surface_values() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
 
     assert fingertip.lower_surface_z_mm(0.0, 0.0) == pytest.approx(
         -pad.vertical_pad_height_mm - pad.elliptical_pad_height_mm
@@ -60,7 +59,7 @@ def test_straight_body_center_and_edge_surface_values() -> None:
 
 def test_distal_surface_matches_straight_body_at_join() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
 
     for x_mm in (-12.5, -6.0, 0.0, 6.0, 12.5):
         assert fingertip.lower_surface_z_mm(x_mm, fingertip.straight_length_mm) == pytest.approx(
@@ -70,7 +69,7 @@ def test_distal_surface_matches_straight_body_at_join() -> None:
 
 def test_distal_half_ellipsoid_reaches_the_equator_at_the_tip() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
 
     assert fingertip.lower_surface_z_mm(0.0, fingertip.total_length_mm) == pytest.approx(
         -pad.vertical_pad_height_mm
@@ -85,7 +84,7 @@ def test_distal_half_ellipsoid_reaches_the_equator_at_the_tip() -> None:
 
 def test_distal_footprint_shrinks_with_the_half_ellipsoid() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
     samples = [
         fingertip.half_width_at_y_mm(
             fingertip.straight_length_mm + fraction * pad.tip_length_mm
@@ -101,7 +100,7 @@ def test_distal_footprint_shrinks_with_the_half_ellipsoid() -> None:
 
 def test_distal_lower_surface_uses_the_ellipsoid_equation() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
     y_mm = fingertip.straight_length_mm + 0.5 * pad.tip_length_mm
     expected_z_mm = (
         -pad.vertical_pad_height_mm
@@ -125,20 +124,29 @@ def test_surface_is_symmetric_about_the_centerline() -> None:
 def test_invalid_distal_carrier_penetration_is_rejected() -> None:
     with pytest.raises(ValueError, match="breaks through the half-ellipsoid"):
         FingertipParameters(
-            phalanx=PhalanxParameters(
-                stem_height_mm=8.0,
-                carrier_length_mm=39.0,
+            family=FingertipFamilyParameters(
+                phalanx=PhalanxParameters(
+                    stem_height_mm=8.0,
+                ),
+                carrier_distal_inset_mm=1.0,
             )
         )
 
 
 def test_invalid_stem_dimensions_are_rejected() -> None:
     with pytest.raises(ValueError, match="stem_width"):
-        FingertipParameters(phalanx=PhalanxParameters(stem_width_mm=25.0))
+        FingertipParameters(
+            family=FingertipFamilyParameters(
+                phalanx=PhalanxParameters(stem_width_mm=25.0)
+            )
+        )
 
     with pytest.raises(ValueError, match="outside the half-ellipsoid"):
         FingertipParameters(
-            phalanx=PhalanxParameters(stem_width_mm=20.0, carrier_length_mm=39.0),
+            family=FingertipFamilyParameters(
+                phalanx=PhalanxParameters(stem_width_mm=20.0),
+                carrier_distal_inset_mm=0.1,
+            )
         )
 
 
@@ -171,7 +179,7 @@ def test_queries_outside_geometry_domain_raise() -> None:
 
 def test_dorsal_nail_rounds_off_beyond_the_stem() -> None:
     fingertip = Fingertip()
-    pad = fingertip.parameters.pad
+    pad = fingertip.parameters.family.pad
     assert fingertip.dorsal_plate_half_width_at_y_mm(fingertip.straight_length_mm) == pytest.approx(12.5)
     assert fingertip.dorsal_plate_half_width_at_y_mm(fingertip.straight_length_mm + 0.6 * pad.tip_length_mm) == pytest.approx(10.0)
     assert fingertip.dorsal_plate_half_width_at_y_mm(fingertip.dorsal_plate_length_mm) == pytest.approx(0.0)
@@ -180,16 +188,32 @@ def test_dorsal_nail_rounds_off_beyond_the_stem() -> None:
 
 def test_tip_dimensions_are_derived_from_canonical_sources() -> None:
     parameters = FingertipParameters(
-        pad=PadParameters(elliptical_pad_height_mm=12.0),
-        phalanx=PhalanxParameters(carrier_width_mm=30.0),
+        family=FingertipFamilyParameters(
+            pad=PadParameters(elliptical_pad_height_mm=12.0),
+            phalanx=PhalanxParameters(carrier_width_mm=30.0),
+        ),
     )
     fingertip = Fingertip(parameters)
 
-    assert fingertip.tip_length_mm == pytest.approx(parameters.pad.tip_length_mm)
+    assert fingertip.tip_length_mm == pytest.approx(parameters.family.pad.tip_length_mm)
     assert fingertip.tip_half_width_mm == pytest.approx(15.0)
     assert fingertip.tip_height_mm == pytest.approx(12.0)
     assert fingertip.dorsal_plate_half_width_at_y_mm(fingertip.straight_length_mm) == pytest.approx(15.0)
     assert fingertip.lower_surface_z_mm(0.0, fingertip.straight_length_mm) == pytest.approx(-18.0)
+
+
+def test_digit_length_changes_only_the_proximal_straight_section() -> None:
+    family = FingertipFamilyParameters()
+    short = Fingertip(FingertipParameters(family=family, total_length_mm=40.0))
+    long = Fingertip(FingertipParameters(family=family, total_length_mm=60.0))
+
+    assert long.straight_length_mm - short.straight_length_mm == pytest.approx(20.0)
+    assert long.carrier_length_mm - short.carrier_length_mm == pytest.approx(20.0)
+    assert short.carrier_length_mm - short.straight_length_mm == pytest.approx(10.0)
+    assert long.carrier_length_mm - long.straight_length_mm == pytest.approx(10.0)
+    assert long.lower_surface_z_mm(0.0, long.straight_length_mm + 5.0) == pytest.approx(
+        short.lower_surface_z_mm(0.0, short.straight_length_mm + 5.0)
+    )
 
 
 def test_tip_y_and_z_are_not_independent_parameter_fields() -> None:

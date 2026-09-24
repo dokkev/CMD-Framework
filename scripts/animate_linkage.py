@@ -27,11 +27,11 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from cmd.morphology import (  # noqa: E402
     BASELINE_LINKAGE_V0,
-    AnchorYZ,
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
 )
+from cmd.morphology.linkage_parameter import AnchorYZ  # noqa: E402
 
 
 DEFAULT_FLEXION_RAD = 0.8

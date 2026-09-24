@@ -1,59 +1,33 @@
 """Concrete analytic morphology components."""
 
 from .fingertip import Fingertip
-from .fingertip_parameter import (
-    FingertipParameters,
-    PadParameters,
-    PhalanxParameters,
-)
-from .linkage import FingerLinkage, ReferencePositions
-from .linkage_parameter import (
-    AnchorYZ,
-    CouplingAnchorParameters,
-    FingerLinkageParameters,
-    MainChainParameters,
-)
+from .fingertip_parameter import FingertipFamilyParameters, FingertipParameters
+from .linkage import FingerLinkage
+from .linkage_parameter import FingerLinkageParameters
 from .linkage_kinematics import KinematicClosureError, LinkageKinematics, LinkagePose
 from .linkage_seed import BASELINE_LINKAGE_V0
-from .hand_parameter import HandMorphologyParameters, HandPlanePoint
-from .hand import (
-    FE_ACTUATOR_MOUNT,
-    HAND_X_LONGITUDINAL,
-    HAND_Y_FE_AXIS,
-    HAND_Z_DORSAL,
-    MCP_AA_ACTUATOR_MOUNT,
-    ORDINARY_MCP_AA_TO_MCP_FE,
-    THUMB_CMC_RAA_ACTUATOR_MOUNT,
-    THUMB_CMC_RO_ACTUATOR_MOUNT,
-    THUMB_MCP_FE_ACTUATOR_MOUNT,
-    HandMorphology,
+from .hand_parameter import (
+    FingertipLengths,
+    HandLayoutParameters,
+    HandMorphologyParameters,
+    HandPlanePoint,
 )
+from .hand import HandLayout, HandMorphology
 
 __all__ = [
     "Fingertip",
+    "FingertipFamilyParameters",
     "FingertipParameters",
+    "FingertipLengths",
     "FingerLinkage",
     "FingerLinkageParameters",
-    "PadParameters",
-    "PhalanxParameters",
-    "AnchorYZ",
-    "CouplingAnchorParameters",
-    "MainChainParameters",
-    "ReferencePositions",
-    "KinematicClosureError",
     "LinkageKinematics",
     "LinkagePose",
+    "KinematicClosureError",
     "BASELINE_LINKAGE_V0",
+    "HandLayout",
+    "HandLayoutParameters",
+    "HandMorphology",
     "HandMorphologyParameters",
     "HandPlanePoint",
-    "HandMorphology",
-    "HAND_X_LONGITUDINAL",
-    "HAND_Y_FE_AXIS",
-    "HAND_Z_DORSAL",
-    "ORDINARY_MCP_AA_TO_MCP_FE",
-    "MCP_AA_ACTUATOR_MOUNT",
-    "FE_ACTUATOR_MOUNT",
-    "THUMB_CMC_RO_ACTUATOR_MOUNT",
-    "THUMB_CMC_RAA_ACTUATOR_MOUNT",
-    "THUMB_MCP_FE_ACTUATOR_MOUNT",
 ]

@@ -24,9 +24,9 @@ ellipsoid shown in the CAD front/back views.
 The compliant outer envelope is represented separately from the rigid carrier:
 at a footprint point it spans between analytic lower and upper surfaces. The
 carrier has a plain T-shaped reference XZ section without bonding steps.
-The rigid carrier extends to its independently specified carrier length. The
-dorsal plate continues to the full fingertip length with an elliptical nose,
-forming the fingernail.
+The rigid carrier length is derived from the concrete fingertip total length
+and the family-wide distal inset. The dorsal plate continues to the full
+fingertip length with an elliptical nose, forming the fingernail.
 """
 
 from __future__ import annotations
@@ -64,32 +64,34 @@ class Fingertip:
     def half_width_mm(self) -> float:
         """Half-width of the straight vertical pad."""
 
-        return self.parameters.pad.vertical_pad_width_mm / 2.0
+        return self.parameters.family.pad.vertical_pad_width_mm / 2.0
 
     @property
     def elliptical_pad_half_width_mm(self) -> float:
         """Half-width of the compliant lower ellipse, in mm."""
 
-        return self.parameters.pad.elliptical_pad_width_mm / 2.0
+        return self.parameters.family.pad.elliptical_pad_width_mm / 2.0
 
     @property
     def total_length_mm(self) -> float:
-        """Total longitudinal length of the compliant pad."""
+        """Per-digit total fingertip length, in mm."""
 
-        return self.parameters.pad.pad_length_mm
+        return self.parameters.total_length_mm
 
     @property
     def straight_length_mm(self) -> float:
         """Length before the distal tip begins, in mm."""
 
-        pad = self.parameters.pad
-        return pad.pad_length_mm - pad.tip_length_mm
+        return self.total_length_mm - self.tip_length_mm
 
     @property
     def carrier_length_mm(self) -> float:
         """Total longitudinal length of the rigid carrier stem."""
 
-        return self.parameters.phalanx.carrier_length_mm
+        return (
+            self.total_length_mm
+            - self.parameters.family.carrier_distal_inset_mm
+        )
 
     @property
     def dorsal_plate_length_mm(self) -> float:
@@ -101,19 +103,19 @@ class Fingertip:
     def tip_length_mm(self) -> float:
         """Longitudinal semi-axis of the derived distal tip, in mm."""
 
-        return self.parameters.pad.tip_length_mm
+        return self.parameters.family.pad.tip_length_mm
 
     @property
     def tip_half_width_mm(self) -> float:
         """Derived transverse semi-axis from the carrier width, in mm."""
 
-        return self.parameters.phalanx.carrier_width_mm / 2.0
+        return self.parameters.family.phalanx.carrier_width_mm / 2.0
 
     @property
     def tip_height_mm(self) -> float:
         """Derived vertical semi-axis from the elliptical pad height, in mm."""
 
-        return self.parameters.pad.elliptical_pad_height_mm
+        return self.parameters.family.pad.elliptical_pad_height_mm
 
     def dorsal_plate_half_width_at_y_mm(self, y_mm: float) -> float:
         """Return the dorsal plate half-width at longitudinal coordinate ``y``."""
@@ -172,7 +174,7 @@ class Fingertip:
         y_mm = self._validate_y(y_mm)
         self._validate_x_in_footprint(x_mm, self.half_width_at_y_mm(y_mm))
 
-        pad = self.parameters.pad
+        pad = self.parameters.family.pad
         if y_mm <= self.straight_length_mm:
             return self._body_lower_surface_z_mm(x_mm)
         normalized_x = x_mm / self.tip_half_width_mm
@@ -226,7 +228,7 @@ class Fingertip:
         this reference section must not be extruded through the entire nail.
         """
 
-        phalanx = self.parameters.phalanx
+        phalanx = self.parameters.family.phalanx
         stem_half_width_mm = phalanx.stem_width_mm / 2.0
         return (
             (-self.tip_half_width_mm, 0.0),
@@ -253,7 +255,7 @@ class Fingertip:
         return y_mm
 
     def _body_lower_surface_z_mm(self, x_mm: float) -> float:
-        pad = self.parameters.pad
+        pad = self.parameters.family.pad
         if abs(x_mm) > self.elliptical_pad_half_width_mm:
             return -pad.vertical_pad_height_mm
 

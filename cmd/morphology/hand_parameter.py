@@ -1,10 +1,13 @@
-"""Independent design variables for the reference CLEAR Hand."""
+"""Independent design variables for CLEAR Hand layout and whole-hand design."""
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 from numbers import Real
+
+from .fingertip_parameter import FingertipFamilyParameters, FingertipParameters
+from .linkage_parameter import FingerLinkageParameters
 
 
 def _finite(name: str, value: object) -> float:
@@ -36,8 +39,23 @@ class HandPlanePoint:
 
 
 @dataclass(frozen=True)
-class HandMorphologyParameters:
-    """Independent hand-layout and low-dimensional thumb design variables.
+class FingertipLengths:
+    """Independent total fingertip lengths for each digit, in millimetres."""
+
+    index_mm: float
+    middle_mm: float
+    ring_mm: float
+    little_mm: float
+    thumb_mm: float
+
+    def __post_init__(self) -> None:
+        for name in ("index_mm", "middle_mm", "ring_mm", "little_mm", "thumb_mm"):
+            object.__setattr__(self, name, _positive(name, getattr(self, name)))
+
+
+@dataclass(frozen=True)
+class HandLayoutParameters:
+    """Independent placement variables for the hand reference-frame graph.
 
     The index MCP-AA is the fixed hand-frame origin. Ordinary MCP-FE positions
     and all downstream thumb positions are derived by transform composition.
@@ -52,7 +70,6 @@ class HandMorphologyParameters:
     thumb_cmc_ro: HandPlanePoint
     theta_rad: float
     ro_raa_distance_mm: float
-    raa_mcp_fe_distance_mm: float
     phi_rad: float
 
     def __post_init__(self) -> None:
@@ -70,12 +87,42 @@ class HandMorphologyParameters:
             "ro_raa_distance_mm",
             _positive("ro_raa_distance_mm", self.ro_raa_distance_mm),
         )
-        object.__setattr__(
-            self,
-            "raa_mcp_fe_distance_mm",
-            _positive("raa_mcp_fe_distance_mm", self.raa_mcp_fe_distance_mm),
-        )
         object.__setattr__(self, "phi_rad", _finite("phi_rad", self.phi_rad))
 
 
-__all__ = ["HandMorphologyParameters", "HandPlanePoint"]
+@dataclass(frozen=True)
+class HandMorphologyParameters:
+    """Optimizer-facing aggregate of shared fingertip, linkage, and layout.
+
+    Each ordinary finger shares one linkage definition and every digit shares
+    one fingertip family; only the five total fingertip lengths differ.
+    """
+
+    fingertip: FingertipFamilyParameters
+    fingertip_lengths: FingertipLengths
+    linkage: FingerLinkageParameters
+    layout: HandLayoutParameters
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.fingertip, FingertipFamilyParameters):
+            raise TypeError("fingertip must be a FingertipFamilyParameters instance")
+        if not isinstance(self.fingertip_lengths, FingertipLengths):
+            raise TypeError("fingertip_lengths must be a FingertipLengths instance")
+        if not isinstance(self.linkage, FingerLinkageParameters):
+            raise TypeError("linkage must be a FingerLinkageParameters instance")
+        if not isinstance(self.layout, HandLayoutParameters):
+            raise TypeError("layout must be a HandLayoutParameters instance")
+
+        for name in ("index", "middle", "ring", "little", "thumb"):
+            FingertipParameters(
+                family=self.fingertip,
+                total_length_mm=getattr(self.fingertip_lengths, f"{name}_mm"),
+            )
+
+
+__all__ = [
+    "FingertipLengths",
+    "HandLayoutParameters",
+    "HandMorphologyParameters",
+    "HandPlanePoint",
+]

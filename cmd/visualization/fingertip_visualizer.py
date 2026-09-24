@@ -77,7 +77,7 @@ class FingertipVisualizer:
         """Project the model envelope; carrier hides pad where they overlap."""
 
         f = self.fingertip
-        phalanx = f.parameters.phalanx
+        phalanx = f.parameters.family.phalanx
         x = np.linspace(-f.half_width_mm, f.half_width_mm, self.samples)
         y = np.unique(np.r_[np.linspace(0.0, f.total_length_mm, self.samples),
                              f.straight_length_mm, f.carrier_length_mm])
@@ -327,8 +327,8 @@ class FingertipVisualizer:
 
     def _plot_carrier(self, axis: Axes3D) -> None:
         fingertip = self.fingertip
-        pad = fingertip.parameters.pad
-        phalanx = fingertip.parameters.phalanx
+        pad = fingertip.parameters.family.pad
+        phalanx = fingertip.parameters.family.phalanx
         stem_end = fingertip.carrier_length_mm
         stem_half_width = phalanx.stem_width_mm / 2.0
         stem_bottom = -phalanx.stem_height_mm
@@ -382,8 +382,8 @@ class FingertipVisualizer:
         ))
 
     def _configure_3d_axis(self, axis: Axes3D) -> None:
-        pad = self.fingertip.parameters.pad
-        phalanx = self.fingertip.parameters.phalanx
+        pad = self.fingertip.parameters.family.pad
+        phalanx = self.fingertip.parameters.family.phalanx
         lower_z_mm = -pad.vertical_pad_height_mm - pad.elliptical_pad_height_mm
         upper_z_mm = phalanx.carrier_height_mm
         maximum_half_width_mm = max(

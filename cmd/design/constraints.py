@@ -14,7 +14,7 @@ from itertools import combinations
 
 from ..geometry import RigidTransform, Vector3
 from ..hardware import Actuator, XM335Actuator
-from ..morphology.hand import HandMorphology
+from ..morphology.hand import HandLayout
 
 
 _SEPARATION_TOLERANCE_MM = 1.0e-9
@@ -108,7 +108,7 @@ def _boxes_overlap_depth_mm(
 
 
 def check_actuator_packaging(
-    morphology: HandMorphology,
+    layout: HandLayout,
     actuator: Actuator | None = None,
 ) -> ActuatorPackagingResult:
     """Check transformed XM335 OBBs in the reference hand assembly.
@@ -117,15 +117,15 @@ def check_actuator_packaging(
     with finger links, fingertips, or external objects.
     """
 
-    if not isinstance(morphology, HandMorphology):
-        raise TypeError("morphology must be a HandMorphology instance")
+    if not isinstance(layout, HandLayout):
+        raise TypeError("layout must be a HandLayout instance")
     actuator = XM335Actuator() if actuator is None else actuator
     if not isinstance(actuator, Actuator):
         raise TypeError("actuator must be an Actuator instance")
 
     boxes = {
         name: _oriented_box(actuator, pose)
-        for name, pose in morphology.actuator_transforms.items()
+        for name, pose in layout.actuator_transforms.items()
     }
     violations: list[tuple[str, str]] = []
     overlap_depths: list[tuple[str, str, float]] = []

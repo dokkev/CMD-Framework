@@ -9,7 +9,7 @@ from xml.etree import ElementTree
 
 from ..geometry import RigidTransform
 from ..hardware import Actuator, XM335Actuator
-from ..morphology.hand import HAND_Z_DORSAL, HandMorphology
+from ..morphology.hand import HAND_Z_DORSAL, HandLayout
 
 
 MM_TO_M = 1.0e-3
@@ -129,7 +129,7 @@ def _add_actuator_geometry(link: ElementTree.Element, actuator: Actuator) -> Non
 
 def _add_actuated_joint(
     robot: ElementTree.Element,
-    morphology: HandMorphology,
+    layout: HandLayout,
     actuator: Actuator,
     *,
     joint_frame: str,
@@ -142,8 +142,8 @@ def _add_actuated_joint(
     output_link = f"{joint_frame}_output"
     _add_actuator_geometry(_add_link(robot, actuator_link), actuator)
 
-    joint_poses = morphology.joint_transforms
-    actuator_poses = morphology.actuator_transforms
+    joint_poses = layout.joint_transforms
+    actuator_poses = layout.actuator_transforms
     parent_pose = (
         RigidTransform.identity()
         if parent_joint_frame is None
@@ -168,14 +168,14 @@ def _add_actuated_joint(
         parent_link=actuator_link,
         child_link=output_link,
         origin=actuator_to_joint,
-        axis_xyz=morphology.joint_axes_local[joint_frame],
+        axis_xyz=layout.joint_axes_local[joint_frame],
     )
     return output_link
 
 
 def _add_ordinary_finger(
     robot: ElementTree.Element,
-    morphology: HandMorphology,
+    layout: HandLayout,
     actuator: Actuator,
     finger_name: str,
 ) -> None:
@@ -183,7 +183,7 @@ def _add_ordinary_finger(
     fe_frame = f"{finger_name}_mcp_fe"
     aa_output = _add_actuated_joint(
         robot,
-        morphology,
+        layout,
         actuator,
         joint_frame=aa_frame,
         parent_joint_frame=None,
@@ -191,7 +191,7 @@ def _add_ordinary_finger(
     )
     fe_output = _add_actuated_joint(
         robot,
-        morphology,
+        layout,
         actuator,
         joint_frame=fe_frame,
         parent_joint_frame=aa_frame,
@@ -211,15 +211,20 @@ def _add_ordinary_finger(
 
 def _add_thumb_chain(
     robot: ElementTree.Element,
-    morphology: HandMorphology,
+    layout: HandLayout,
     actuator: Actuator,
 ) -> None:
     parent_link = PALM_LINK_NAME
     parent_joint_frame: str | None = None
-    for joint_frame in ("thumb_cmc_ro", "thumb_cmc_raa", "thumb_mcp_fe"):
+    for joint_frame in (
+        "thumb_cmc_ro",
+        "thumb_cmc_raa",
+        "thumb_mcp_fe",
+        "thumb_ip_fe",
+    ):
         parent_link = _add_actuated_joint(
             robot,
-            morphology,
+            layout,
             actuator,
             joint_frame=joint_frame,
             parent_joint_frame=parent_joint_frame,
@@ -236,7 +241,7 @@ def _validate_robot_name(robot_name: str) -> None:
 
 
 def compile_hand_urdf(
-    morphology: HandMorphology,
+    layout: HandLayout,
     *,
     robot_name: str = "clear_hand",
     actuator: Actuator | None = None,
@@ -244,13 +249,13 @@ def compile_hand_urdf(
     """Serialize hand morphology frames and XM335 packaging as an opened tree.
 
     Each actuator mount and revolute-joint origin is composed from the
-    morphology's ``T_H_J`` and ``T_H_A`` poses. Lengths remain millimetres
+    layout's ``T_H_J`` and ``T_H_A`` poses. Lengths remain millimetres
     until the URDF XML boundary. Closed-loop linkage constraints and runtime
     joint states are not represented here.
     """
 
-    if not isinstance(morphology, HandMorphology):
-        raise TypeError("morphology must be a HandMorphology instance")
+    if not isinstance(layout, HandLayout):
+        raise TypeError("layout must be a HandLayout instance")
     _validate_robot_name(robot_name)
     actuator = XM335Actuator() if actuator is None else actuator
     if not isinstance(actuator, Actuator):
@@ -259,15 +264,15 @@ def compile_hand_urdf(
     robot = ElementTree.Element("robot", {"name": robot_name})
     _add_link(robot, PALM_LINK_NAME)
     for finger_name in ("index", "middle", "ring", "little"):
-        _add_ordinary_finger(robot, morphology, actuator, finger_name)
-    _add_thumb_chain(robot, morphology, actuator)
+        _add_ordinary_finger(robot, layout, actuator, finger_name)
+    _add_thumb_chain(robot, layout, actuator)
 
     ElementTree.indent(robot, space="  ")
     return ElementTree.tostring(robot, encoding="unicode") + "\n"
 
 
 def write_hand_urdf(
-    morphology: HandMorphology,
+    layout: HandLayout,
     output_path: str | Path,
     *,
     robot_name: str = "clear_hand",
@@ -278,7 +283,7 @@ def write_hand_urdf(
     output_path = Path(output_path)
     output_path.write_text(
         compile_hand_urdf(
-            morphology,
+            layout,
             robot_name=robot_name,
             actuator=actuator,
         ),

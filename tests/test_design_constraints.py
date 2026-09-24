@@ -4,40 +4,34 @@ import pytest
 
 from cmd.design import check_actuator_packaging
 from cmd.hardware import Actuator, DShapedExtrusion, MechanicalParameters
-from cmd.morphology import (
-    HandMorphology,
-    HandMorphologyParameters,
-    HandPlanePoint,
-)
+from cmd.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
 
 
-def make_morphology(
+def make_layout(
     *,
     middle=(200.0, 0.0),
     ring=(400.0, 0.0),
     little=(600.0, 0.0),
     thumb=(1000.0, 1000.0),
     ro_raa=100.0,
-    raa_mcp=100.0,
 ):
-    return HandMorphology(
-        HandMorphologyParameters(
+    return HandLayout(
+        HandLayoutParameters(
             middle_mcp_aa=HandPlanePoint(*middle),
             ring_mcp_aa=HandPlanePoint(*ring),
             little_mcp_aa=HandPlanePoint(*little),
             thumb_cmc_ro=HandPlanePoint(*thumb),
             theta_rad=0.0,
             ro_raa_distance_mm=ro_raa,
-            raa_mcp_fe_distance_mm=raa_mcp,
             phi_rad=0.0,
         )
     )
 
 
 def test_packaging_reports_overlapping_actuator_pairs() -> None:
-    morphology = make_morphology(middle=(10.0, 0.0))
+    layout = make_layout(middle=(10.0, 0.0))
 
-    result = check_actuator_packaging(morphology)
+    result = check_actuator_packaging(layout)
 
     assert not result.feasible
     assert ("index_mcp_aa", "middle_mcp_aa") in result.violated_actuator_pairs
@@ -49,7 +43,7 @@ def test_packaging_reports_overlapping_actuator_pairs() -> None:
 
 
 def test_packaging_accepts_a_separated_reference_assembly() -> None:
-    result = check_actuator_packaging(make_morphology())
+    result = check_actuator_packaging(make_layout())
 
     assert result.feasible
     assert result.violated_actuator_pairs == ()
@@ -57,21 +51,21 @@ def test_packaging_accepts_a_separated_reference_assembly() -> None:
 
 
 def test_packaging_uses_actuator_geometry_instead_of_duplicated_dimensions() -> None:
-    morphology = make_morphology(middle=(10.0, 0.0))
+    layout = make_layout(middle=(10.0, 0.0))
     compact_actuator = Actuator(
         geometry=DShapedExtrusion(radius_mm=1.0, rear_extent_mm=2.0, depth_mm=2.0),
         mechanics=MechanicalParameters(gear_ratio=1.0, max_output_torque_nm=1.0, mass_g=1.0),
     )
 
-    default_result = check_actuator_packaging(morphology)
-    compact_result = check_actuator_packaging(morphology, compact_actuator)
+    default_result = check_actuator_packaging(layout)
+    compact_result = check_actuator_packaging(layout, compact_actuator)
 
     assert ("index_mcp_aa", "middle_mcp_aa") in default_result.violated_actuator_pairs
     assert ("index_mcp_aa", "middle_mcp_aa") not in compact_result.violated_actuator_pairs
 
 
 def test_packaging_rejects_wrong_inputs() -> None:
-    with pytest.raises(TypeError, match="HandMorphology"):
+    with pytest.raises(TypeError, match="HandLayout"):
         check_actuator_packaging(object())
     with pytest.raises(TypeError, match="Actuator"):
-        check_actuator_packaging(make_morphology(), object())
+        check_actuator_packaging(make_layout(), object())

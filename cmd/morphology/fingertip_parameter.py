@@ -1,8 +1,4 @@
-"""Immutable physical parameters for the analytic fingertip morphology.
-
-The dimensions in this module are all in millimetres.  The parameter groups
-keep the compliant pad morphology separate from the plain T-shaped carrier.
-"""
+"""Shared fingertip-family geometry and concrete per-digit parameters."""
 
 from __future__ import annotations
 
@@ -25,13 +21,12 @@ def _require_positive(name: str, value: object) -> None:
 
 @dataclass(frozen=True)
 class PadParameters:
-    """Independent dimensions of the compliant fingertip pad."""
+    """Shared dimensions of the compliant fingertip pad, in millimetres."""
 
     vertical_pad_width_mm: float = 25.0
     vertical_pad_height_mm: float = 6.0
     elliptical_pad_width_mm: float = 25.0
     elliptical_pad_height_mm: float = 10.0
-    pad_length_mm: float = 40.0
     tip_length_mm: float = 15.0
 
     def __post_init__(self) -> None:
@@ -40,7 +35,6 @@ class PadParameters:
             "vertical_pad_height_mm",
             "elliptical_pad_width_mm",
             "elliptical_pad_height_mm",
-            "pad_length_mm",
             "tip_length_mm",
         ):
             _require_positive(f"pad.{name}", getattr(self, name))
@@ -48,13 +42,12 @@ class PadParameters:
 
 @dataclass(frozen=True)
 class PhalanxParameters:
-    """Independent dimensions of the rigid carrier and its stem."""
+    """Shared cross-section dimensions of the rigid carrier and its stem."""
 
     carrier_width_mm: float = 25.0
     carrier_height_mm: float = 6.0
     stem_width_mm: float = 8.0
     stem_height_mm: float = 5.0
-    carrier_length_mm: float = 35.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -62,43 +55,37 @@ class PhalanxParameters:
             "carrier_height_mm",
             "stem_width_mm",
             "stem_height_mm",
-            "carrier_length_mm",
         ):
             _require_positive(f"phalanx.{name}", getattr(self, name))
 
 
 @dataclass(frozen=True)
-class FingertipParameters:
-    """Complete immutable input set for one concrete fingertip.
+class FingertipFamilyParameters:
+    """Shared structural morphology for all five fingertips.
 
-    ``pad`` defines the contact envelope.  ``phalanx`` defines the internal
-    rigid T-shaped carrier, without a stepped bonding interface.
+    The carrier ends a fixed ``carrier_distal_inset_mm`` before each digit's
+    total fingertip length. This keeps the distal carrier/pad relationship
+    invariant as the proximal straight section changes length.
     """
 
     pad: PadParameters = field(default_factory=PadParameters)
     phalanx: PhalanxParameters = field(default_factory=PhalanxParameters)
+    carrier_distal_inset_mm: float = 5.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.pad, PadParameters):
             raise TypeError("pad must be a PadParameters instance")
         if not isinstance(self.phalanx, PhalanxParameters):
             raise TypeError("phalanx must be a PhalanxParameters instance")
+        _require_positive(
+            "carrier_distal_inset_mm", self.carrier_distal_inset_mm
+        )
 
         pad = self.pad
         phalanx = self.phalanx
-        straight_length_mm = pad.pad_length_mm - pad.tip_length_mm
-        if straight_length_mm <= 0.0:
+        if self.carrier_distal_inset_mm >= pad.tip_length_mm:
             raise ValueError(
-                "pad.tip_length_mm must be smaller than pad.pad_length_mm"
-            )
-
-        if phalanx.carrier_length_mm <= straight_length_mm:
-            raise ValueError(
-                "phalanx.carrier_length_mm must extend beyond the straight pad body"
-            )
-        if phalanx.carrier_length_mm >= pad.pad_length_mm:
-            raise ValueError(
-                "phalanx.carrier_length_mm must be smaller than pad.pad_length_mm"
+                "carrier_distal_inset_mm must be smaller than pad.tip_length_mm"
             )
 
         if phalanx.stem_width_mm >= phalanx.carrier_width_mm:
@@ -120,7 +107,11 @@ class FingertipParameters:
         stem_half_width_mm = phalanx.stem_width_mm / 2.0
         ellipsoid_coordinate = (
             (stem_half_width_mm / tip_half_width_mm) ** 2
-            + ((phalanx.carrier_length_mm - straight_length_mm) / pad.tip_length_mm) ** 2
+            + (
+                (pad.tip_length_mm - self.carrier_distal_inset_mm)
+                / pad.tip_length_mm
+            )
+            ** 2
         )
         if ellipsoid_coordinate >= 1.0:
             raise ValueError(
@@ -143,7 +134,25 @@ class FingertipParameters:
             )
 
 
+@dataclass(frozen=True)
+class FingertipParameters:
+    """Parameters for one concrete digit using a shared fingertip family."""
+
+    family: FingertipFamilyParameters = field(default_factory=FingertipFamilyParameters)
+    total_length_mm: float = 40.0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.family, FingertipFamilyParameters):
+            raise TypeError("family must be a FingertipFamilyParameters instance")
+        _require_positive("total_length_mm", self.total_length_mm)
+        if self.total_length_mm <= self.family.pad.tip_length_mm:
+            raise ValueError(
+                "total_length_mm must be greater than family.pad.tip_length_mm"
+            )
+
+
 __all__ = [
+    "FingertipFamilyParameters",
     "FingertipParameters",
     "PadParameters",
     "PhalanxParameters",

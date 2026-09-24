@@ -5,12 +5,12 @@ import math
 import pytest
 
 from cmd.morphology import (
-    AnchorYZ,
     BASELINE_LINKAGE_V0,
     FingerLinkage,
     KinematicClosureError,
     LinkageKinematics,
 )
+from cmd.morphology.linkage_parameter import AnchorYZ
 
 
 def make_linkage() -> FingerLinkage:

@@ -12,7 +12,10 @@ import math
 from dataclasses import dataclass
 
 from ..geometry import RigidTransform, Vector3
-from .hand_parameter import HandMorphologyParameters
+from .fingertip import Fingertip
+from .fingertip_parameter import FingertipParameters
+from .hand_parameter import HandLayoutParameters, HandMorphologyParameters
+from .linkage import FingerLinkage
 
 
 HAND_X_LONGITUDINAL: Vector3 = (1.0, 0.0, 0.0)
@@ -31,6 +34,12 @@ FE_ACTUATOR_MOUNT = RigidTransform.rotation_about_axis(
 THUMB_CMC_RO_ACTUATOR_MOUNT = FE_ACTUATOR_MOUNT
 THUMB_CMC_RAA_ACTUATOR_MOUNT = MCP_AA_ACTUATOR_MOUNT
 THUMB_MCP_FE_ACTUATOR_MOUNT = FE_ACTUATOR_MOUNT
+# IP-FE reuses the provisional FE-axis mount; CAD housing clocking remains
+# unconfirmed, like the other actuator mounts.
+THUMB_IP_FE_ACTUATOR_MOUNT = FE_ACTUATOR_MOUNT
+
+THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM = 39.5
+THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM = 35.5
 
 _JOINT_AXES_LOCAL: dict[str, Vector3] = {
     "index_mcp_aa": (0.0, 0.0, 1.0),
@@ -44,6 +53,7 @@ _JOINT_AXES_LOCAL: dict[str, Vector3] = {
     "thumb_cmc_ro": (0.0, 1.0, 0.0),
     "thumb_cmc_raa": (0.0, 0.0, 1.0),
     "thumb_mcp_fe": (0.0, 1.0, 0.0),
+    "thumb_ip_fe": (0.0, 1.0, 0.0),
 }
 
 _ACTUATOR_MOUNTS: dict[str, RigidTransform] = {
@@ -58,6 +68,7 @@ _ACTUATOR_MOUNTS: dict[str, RigidTransform] = {
     "thumb_cmc_ro": THUMB_CMC_RO_ACTUATOR_MOUNT,
     "thumb_cmc_raa": THUMB_CMC_RAA_ACTUATOR_MOUNT,
     "thumb_mcp_fe": THUMB_MCP_FE_ACTUATOR_MOUNT,
+    "thumb_ip_fe": THUMB_IP_FE_ACTUATOR_MOUNT,
 }
 
 
@@ -66,8 +77,8 @@ def _translation(x_mm: float, y_mm: float, z_mm: float) -> RigidTransform:
 
 
 @dataclass(frozen=True)
-class HandMorphology:
-    """Derive all reference joint and XM335 poses from independent parameters.
+class HandLayout:
+    """Derive the reference joint and XM335 poses from layout parameters.
 
     ``joint_transforms[name]`` is ``T_H_J``. ``actuator_transforms[name]`` is
     ``T_H_A = T_H_J @ T_J_A``. Joint-axis directions are separate from joint
@@ -75,11 +86,11 @@ class HandMorphology:
     the hand frame even though their physical axes differ.
     """
 
-    parameters: HandMorphologyParameters
+    parameters: HandLayoutParameters
 
     def __post_init__(self) -> None:
-        if not isinstance(self.parameters, HandMorphologyParameters):
-            raise TypeError("parameters must be HandMorphologyParameters")
+        if not isinstance(self.parameters, HandLayoutParameters):
+            raise TypeError("parameters must be HandLayoutParameters")
 
     @property
     def joint_transforms(self) -> dict[str, RigidTransform]:
@@ -93,8 +104,13 @@ class HandMorphology:
         thumb_cmc_raa = thumb_cmc_ro @ _translation(p.ro_raa_distance_mm, 0.0, 0.0)
         thumb_mcp_fe = (
             thumb_cmc_raa
-            @ _translation(p.raa_mcp_fe_distance_mm, 0.0, 0.0)
+            @ _translation(THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM, 0.0, 0.0)
             @ RigidTransform.rotation_about_axis(HAND_Z_DORSAL, p.phi_rad)
+        )
+        thumb_ip_fe = thumb_mcp_fe @ _translation(
+            THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM,
+            0.0,
+            0.0,
         )
 
         transforms = {
@@ -115,6 +131,7 @@ class HandMorphology:
                 "thumb_cmc_ro": thumb_cmc_ro,
                 "thumb_cmc_raa": thumb_cmc_raa,
                 "thumb_mcp_fe": thumb_mcp_fe,
+                "thumb_ip_fe": thumb_ip_fe,
             }
         )
         return transforms
@@ -152,15 +169,51 @@ class HandMorphology:
         }
 
 
+@dataclass(frozen=True)
+class HandMorphology:
+    """Materialize a whole hand from shared and per-digit parameters."""
+
+    parameters: HandMorphologyParameters
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.parameters, HandMorphologyParameters):
+            raise TypeError("parameters must be HandMorphologyParameters")
+
+    @property
+    def layout(self) -> HandLayout:
+        return HandLayout(self.parameters.layout)
+
+    @property
+    def linkage(self) -> FingerLinkage:
+        return FingerLinkage(self.parameters.linkage)
+
+    @property
+    def fingertips(self) -> dict[str, Fingertip]:
+        lengths = self.parameters.fingertip_lengths
+        return {
+            name: Fingertip(
+                FingertipParameters(
+                    family=self.parameters.fingertip,
+                    total_length_mm=getattr(lengths, f"{name}_mm"),
+                )
+            )
+            for name in ("index", "middle", "ring", "little", "thumb")
+        }
+
+
 __all__ = [
     "FE_ACTUATOR_MOUNT",
     "HAND_X_LONGITUDINAL",
     "HAND_Y_FE_AXIS",
     "HAND_Z_DORSAL",
+    "HandLayout",
     "HandMorphology",
     "MCP_AA_ACTUATOR_MOUNT",
     "ORDINARY_MCP_AA_TO_MCP_FE",
     "THUMB_CMC_RAA_ACTUATOR_MOUNT",
     "THUMB_CMC_RO_ACTUATOR_MOUNT",
+    "THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM",
+    "THUMB_IP_FE_ACTUATOR_MOUNT",
     "THUMB_MCP_FE_ACTUATOR_MOUNT",
+    "THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM",
 ]

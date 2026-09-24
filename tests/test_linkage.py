@@ -3,10 +3,12 @@ from dataclasses import FrozenInstanceError, fields
 import pytest
 
 from cmd.morphology import (
-    AnchorYZ,
-    CouplingAnchorParameters,
     FingerLinkage,
     FingerLinkageParameters,
+)
+from cmd.morphology.linkage_parameter import (
+    AnchorYZ,
+    CouplingAnchorParameters,
     MainChainParameters,
 )
 
