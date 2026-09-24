@@ -1,4 +1,4 @@
-"""Closed-form planar kinematics for the CLEAR finger linkage."""
+"""Closed-form kinematics for the CLEAR finger linkage."""
 
 from __future__ import annotations
 

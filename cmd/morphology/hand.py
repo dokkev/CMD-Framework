@@ -11,8 +11,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .hand_morphology_parameter import HandMorphologyParameters
-from .rigid_transform import RigidTransform, Vector3
+from ..geometry import RigidTransform, Vector3
+from .hand_parameter import HandMorphologyParameters
 
 
 HAND_X_LONGITUDINAL: Vector3 = (1.0, 0.0, 0.0)

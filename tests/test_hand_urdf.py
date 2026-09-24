@@ -3,8 +3,9 @@ from xml.etree import ElementTree
 
 import pytest
 
+from cmd.geometry import RigidTransform
 from cmd.design import compile_hand_urdf
-from cmd.morphology import HandMorphology, HandMorphologyParameters, HandPlanePoint, RigidTransform
+from cmd.morphology import HandMorphology, HandMorphologyParameters, HandPlanePoint
 
 
 def make_morphology() -> HandMorphology:

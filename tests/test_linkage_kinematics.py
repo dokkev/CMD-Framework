@@ -1,3 +1,5 @@
+"""Tests for closed-form finger linkage kinematics."""
+
 import math
 
 import pytest

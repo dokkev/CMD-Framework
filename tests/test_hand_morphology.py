@@ -3,6 +3,7 @@ import math
 
 import pytest
 
+from cmd.geometry import RigidTransform
 from cmd.morphology import (
     FE_ACTUATOR_MOUNT,
     HAND_X_LONGITUDINAL,
@@ -13,7 +14,6 @@ from cmd.morphology import (
     HandMorphology,
     HandMorphologyParameters,
     HandPlanePoint,
-    RigidTransform,
     THUMB_CMC_RAA_ACTUATOR_MOUNT,
     THUMB_CMC_RO_ACTUATOR_MOUNT,
     THUMB_MCP_FE_ACTUATOR_MOUNT,
@@ -40,44 +40,6 @@ def make_parameters(
         ro_raa_distance_mm=ro_raa,
         raa_mcp_fe_distance_mm=raa_mcp,
         phi_rad=phi,
-    )
-
-
-def test_rigid_transform_identity_composition_rotation_and_inverse() -> None:
-    identity = RigidTransform.identity()
-    translation = RigidTransform.from_translation((10.0, -2.0, 3.0))
-    rotation = RigidTransform.rotation_about_axis(HAND_Z_DORSAL, math.pi / 2.0)
-    parent_to_child = translation @ rotation
-
-    assert identity @ parent_to_child == parent_to_child
-    assert parent_to_child @ identity == parent_to_child
-    assert parent_to_child.transform_point((1.0, 0.0, 0.0)) == pytest.approx(
-        (10.0, -1.0, 3.0)
-    )
-    assert rotation.transform_vector(HAND_X_LONGITUDINAL) == pytest.approx(
-        HAND_Y_FE_AXIS
-    )
-    recovered = parent_to_child.inverse() @ parent_to_child
-    assert recovered.translation_mm == pytest.approx((0.0, 0.0, 0.0), abs=1.0e-12)
-    assert [value for row in recovered.rotation_matrix for value in row] == pytest.approx(
-        [value for row in identity.rotation_matrix for value in row],
-        abs=1.0e-12,
-    )
-
-
-def test_rigid_transform_composes_parent_child_transforms() -> None:
-    hand_from_parent = RigidTransform.from_translation((10.0, 0.0, 0.0))
-    parent_from_child = RigidTransform(
-        rotation_matrix=RigidTransform.rotation_about_axis(
-            HAND_Z_DORSAL,
-            math.pi / 2.0,
-        ).rotation_matrix,
-        translation_mm=(2.0, 0.0, 0.0),
-    )
-
-    hand_from_child = hand_from_parent @ parent_from_child
-    assert hand_from_child.transform_point((1.0, 0.0, 0.0)) == pytest.approx(
-        (12.0, 1.0, 0.0)
     )
 
 

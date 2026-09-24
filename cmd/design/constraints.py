@@ -12,9 +12,9 @@ import math
 from dataclasses import dataclass
 from itertools import combinations
 
+from ..geometry import RigidTransform, Vector3
 from ..hardware import Actuator, XM335Actuator
-from .hand_morphology import HandMorphology
-from .rigid_transform import RigidTransform, Vector3
+from ..morphology.hand import HandMorphology
 
 
 _SEPARATION_TOLERANCE_MM = 1.0e-9

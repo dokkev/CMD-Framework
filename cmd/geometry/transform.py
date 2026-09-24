@@ -1,4 +1,4 @@
-"""Small immutable SE(3) transforms for reference morphology geometry.
+"""Small immutable SE(3) transforms shared across geometry consumers.
 
 Transforms map coordinates from a child frame into a parent frame. Translation
 components are millimetres; rotations are active right-handed 3x3 matrices.

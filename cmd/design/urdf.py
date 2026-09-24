@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Iterable
 from xml.etree import ElementTree
 
+from ..geometry import RigidTransform
 from ..hardware import Actuator, XM335Actuator
-from ..morphology import HAND_Z_DORSAL, HandMorphology, RigidTransform
+from ..morphology.hand import HAND_Z_DORSAL, HandMorphology
 
 
 MM_TO_M = 1.0e-3

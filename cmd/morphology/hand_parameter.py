@@ -1,4 +1,4 @@
-"""Independent design variables for the reference CLEAR Hand morphology."""
+"""Independent design variables for the reference CLEAR Hand."""
 
 from __future__ import annotations
 

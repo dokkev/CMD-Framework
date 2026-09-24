@@ -1,11 +1,13 @@
+"""Tests for hand actuator packaging constraints."""
+
 import pytest
 
+from cmd.design import check_actuator_packaging
 from cmd.hardware import Actuator, DShapedExtrusion, MechanicalParameters
 from cmd.morphology import (
     HandMorphology,
     HandMorphologyParameters,
     HandPlanePoint,
-    check_actuator_packaging,
 )
 
 
