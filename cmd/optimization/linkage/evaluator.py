@@ -18,26 +18,29 @@ from cmd.morphology import (
 
 @dataclass(frozen=True)
 class LinkageSweepConfig:
-    """Flexion sweep extent and deterministic sample count."""
+    """Search-horizon extent and nominal uniform sample count.
 
-    max_flexion_rad: float = 0.8
+    The exact core-workspace endpoint may add one point to the nominal grid.
+    """
+
+    search_horizon_rad: float
     sample_count: int = 101
 
     def __post_init__(self) -> None:
         if (
-            isinstance(self.max_flexion_rad, bool)
-            or not isinstance(self.max_flexion_rad, Real)
-            or not math.isfinite(self.max_flexion_rad)
-            or self.max_flexion_rad <= 0.0
+            isinstance(self.search_horizon_rad, bool)
+            or not isinstance(self.search_horizon_rad, Real)
+            or not math.isfinite(self.search_horizon_rad)
+            or self.search_horizon_rad <= 0.0
         ):
-            raise ValueError("max_flexion_rad must be finite and positive")
+            raise ValueError("search_horizon_rad must be finite and positive")
         if (
             isinstance(self.sample_count, bool)
             or not isinstance(self.sample_count, int)
             or self.sample_count < 3
         ):
             raise ValueError("sample_count must be an integer of at least 3")
-        object.__setattr__(self, "max_flexion_rad", float(self.max_flexion_rad))
+        object.__setattr__(self, "search_horizon_rad", float(self.search_horizon_rad))
 
 
 @dataclass(frozen=True)
@@ -76,17 +79,39 @@ class LinkageEvaluation:
 
 @dataclass(frozen=True)
 class LinkageSweepEvaluator:
-    """Evaluate a candidate only through the canonical linkage kinematics."""
+    """Evaluate a candidate using only canonical linkage kinematics."""
 
-    config: LinkageSweepConfig = LinkageSweepConfig()
+    config: LinkageSweepConfig
+    core_input_workspace_rad: float
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.core_input_workspace_rad, bool)
+            or not isinstance(self.core_input_workspace_rad, Real)
+            or not math.isfinite(self.core_input_workspace_rad)
+            or not (
+                0.0
+                < self.core_input_workspace_rad
+                < self.config.search_horizon_rad
+            )
+        ):
+            raise ValueError(
+                "core_input_workspace_rad must satisfy "
+                "0 < core_input_workspace_rad < search_horizon_rad"
+            )
+        object.__setattr__(
+            self,
+            "core_input_workspace_rad",
+            float(self.core_input_workspace_rad),
+        )
 
     def evaluate(self, parameters: FingerLinkageParameters) -> LinkageEvaluation:
         if not isinstance(parameters, FingerLinkageParameters):
             raise TypeError("parameters must be FingerLinkageParameters")
 
-        input_flexion = tuple(
-            self.config.max_flexion_rad * index / (self.config.sample_count - 1)
-            for index in range(self.config.sample_count)
+        input_flexion = _requested_flexion_grid(
+            self.config,
+            self.core_input_workspace_rad,
         )
         q1_values = tuple(-value for value in input_flexion)
         try:
@@ -205,6 +230,44 @@ def _differentiate(x: tuple[float, ...], y: tuple[float, ...]) -> tuple[float, .
     return tuple(derivatives)
 
 
+def differentiate_flexion_samples(
+    input_flexion_rad: tuple[float, ...],
+    joint_flexion_rad: tuple[float, ...],
+) -> tuple[float, ...]:
+    """Return sampled ``d joint_flexion / d input_flexion`` ratios."""
+
+    return _differentiate(input_flexion_rad, joint_flexion_rad)
+
+
+def _requested_flexion_grid(
+    config: LinkageSweepConfig,
+    core_input_workspace_rad: float,
+) -> tuple[float, ...]:
+    uniform = [
+        config.search_horizon_rad * index / (config.sample_count - 1)
+        for index in range(config.sample_count)
+    ]
+    relative_tolerance = 1e-12
+    matching_interior_index = next(
+        (
+            index
+            for index in range(1, len(uniform) - 1)
+            if math.isclose(
+                uniform[index],
+                core_input_workspace_rad,
+                rel_tol=relative_tolerance,
+                abs_tol=0.0,
+            )
+        ),
+        None,
+    )
+    if matching_interior_index is None:
+        uniform.append(core_input_workspace_rad)
+    else:
+        uniform[matching_interior_index] = core_input_workspace_rad
+    return tuple(sorted(uniform))
+
+
 def _transmission_angle_and_quality(
     vertex: PointYZ,
     point_0: PointYZ,
@@ -231,5 +294,6 @@ __all__ = [
     "LinkageEvaluation",
     "LinkageSweepConfig",
     "LinkageSweepEvaluator",
+    "differentiate_flexion_samples",
     "unwrap_principal_angles",
 ]

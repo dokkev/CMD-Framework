@@ -2,1284 +2,1094 @@ CODEX TASK
 ==========
 
 Task:
-Add a solver-agnostic modular optimization layer to CMD-Framework and define
-the first reusable optimization problem for selecting a kinematically healthy
-CLEAR ordinary-finger linkage baseline.
+Refactor the current CLEAR Stage-0 linkage optimization so workspace is no
+longer represented only by a fixed full-sweep hard constraint.
 
-The optimization framework must support:
+Introduce a distinction between:
 
-    box-bounded design variables
-    equality constraints
-    inequality constraints
-    multiple objectives
+    core workspace
+        the minimum flexion interval over which linkage quality requirements
+        must be satisfied
 
-as independently composable modules.
+    search horizon
+        the larger flexion interval over which the optimizer measures how far
+        the candidate remains usable
 
-Do NOT add or choose an optimization algorithm in this task.
-Do NOT add pymoo, CMA-ES, scipy.optimize, or another solver dependency yet.
+and add usable workspace as a third optimization objective.
 
+The resulting Stage-0 multi-objective problem must be:
 
-OBJECTIVE
-=========
+    maximize usable workspace
 
-Build a small generic optimization abstraction that allows problems to be
-assembled like:
+    maximize worst-case transmission quality over the core workspace
 
-    variables
-        +
-    parameterization
-        +
-    evaluator
-        +
-    objectives
-        +
-    equality constraints
-        +
-    inequality constraints
+    minimize coordination-ratio variation over the core workspace
 
-without putting optimizer-specific concepts inside `cmd/morphology`.
+while keeping kinematic / transmission / motion-ratio requirements over the
+core workspace as hard constraints.
 
-Then implement a linkage-specific problem definition using the current
-`FingerLinkageParameters`, `FingerLinkage`, and `LinkageKinematics`.
-
-The first linkage problem should expose two objectives:
-
-    1. maximize worst-case transmission quality
-    2. minimize coupled-motion ratio variation
-
-while supporting modular hard constraints for:
-
-    full workspace kinematic validity
-    A' / B' dorsal placement
-    minimum transmission-angle margin
-    monotonic q2/q3 flexion
-    maximum q2/q3 motion ratio
-    minimum q2/q3 endpoint flexion
-
-The framework must remain usable later for fingertip morphology, hand layout,
-contact mechanics, or other CMD optimization problems.
+Do NOT add NSGA-II or another solver in this task.
+This task only changes the solver-independent optimization problem definition.
 
 
-ESTABLISHED REPOSITORY STATE
-============================
+CURRENT REPOSITORY STATE
+========================
 
-Work from the current repository state:
+Repository:
 
-    repository:
-        dokkev/CMD-Framework
+    dokkev/CMD-Framework
 
-    inspected commit:
-        66a391f20bc514f39893fb3244fe943d05a8116a
+Current inspected commit:
 
-Relevant existing structure:
+    7189d03b1debf1c4fa21b57419eefdbb0c63ad00
 
-    cmd/
-    ├── design/
-    │   ├── constraints.py
-    │   └── urdf.py
-    ├── morphology/
-    │   ├── linkage.py
-    │   ├── linkage_parameter.py
-    │   ├── linkage_kinematics.py
-    │   ├── linkage_seed.py
-    │   ├── hand.py
-    │   └── ...
-    └── visualization/
-
-There is currently no generic optimization package and no optimization-solver
-dependency in the repository.
-
-Do not move or redesign the existing `cmd/design/constraints.py` actuator
-packaging code in this task.
-
-
-CURRENT LINKAGE API
-===================
-
-`cmd/morphology/linkage_parameter.py` currently defines:
-
-    PointYZ
-
-    FingerLinkageParameters(
-        o_prime_from_o,
-        a_from_o,
-        a_prime_from_o,
-        b_from_a,
-        b_prime_from_a,
-        bc_length_mm,
-        c_prime_from_b,
-    )
-
-All inputs are direct YZ reference-pose translations.
-
-`cmd/morphology/linkage.py` derives:
-
-    O
-    O'
-    A
-    A'
-    B
-    B'
-    C
-    C'
-
-and:
-
-    |OA|
-    |AB|
-    |O'B'|
-    |A'C'|
-
-The fully extended reference requires:
-
-    BC || OC
-
-with the same distal direction.
-
-`cmd/morphology/linkage_kinematics.py` already solves the two closed loops
-using deterministic reference-branch selection.
-
-Do not replace that solver.
-
-Use it as the canonical source of linkage kinematics.
-
-
-FLEXION SIGN CONVENTION
-=======================
-
-The current repository already establishes the runtime convention in
-`scripts/animate_linkage.py`:
-
-    q1 = 0
-        fully extended reference
-
-    q1 < 0
-        flexion
-
-The existing default animation uses:
-
-    maximum flexion magnitude = 0.8 rad
-
-Do not reverse this convention.
-
-For optimization/evaluation, introduce a positive sweep coordinate:
-
-    s >= 0
-
-where:
-
-    q1 = -s
-
-and:
-
-    s in [0, s_max]
-
-This avoids sign confusion in optimization metrics.
-
-Define positive joint-flexion magnitudes from unwrapped relative joint angles:
-
-    f1(s) = s
-    f2(s) = -unwrap(q2(s))
-    f3(s) = -unwrap(q3(s))
-
-Therefore a normally flexing mechanism should have:
-
-    df2/ds >= 0
-    df3/ds >= 0
-
-
-ARCHITECTURE
-============
-
-Add:
+The current implementation already contains:
 
     cmd/optimization/
-    ├── __init__.py
-    ├── variable.py
-    ├── objective.py
-    ├── constraint.py
-    ├── problem.py
-    └── linkage/
-        ├── __init__.py
-        ├── parameterization.py
-        ├── evaluator.py
-        ├── objectives.py
-        ├── constraints.py
-        └── baseline.py
-
-Do not create more subpackages than this.
-
-Keep the generic optimization package independent from morphology-specific
-implementation details.
-
-`cmd/optimization/linkage/` may import from `cmd.morphology`.
-
-`cmd/morphology` must not import from `cmd.optimization`.
-
-
-GENERIC DESIGN VARIABLE API
-===========================
-
-In:
-
-    cmd/optimization/variable.py
-
-add a small immutable box-bounded scalar variable type conceptually equivalent
-to:
-
-    @dataclass(frozen=True)
-    class BoxVariable:
-        name: str
-        lower: float
-        upper: float
-
-Validation:
-
-    name must be non-empty
-    lower and upper must be finite
-    lower < upper
-
-Provide a deterministic method/property for evaluating box violation.
-
-Box bounds are part of the variable definition.
-
-Do not represent box bounds as ordinary domain-specific inequality objects.
-
-The optimization problem should still include box feasibility in its final
-`feasible` result.
-
-
-GENERIC OBJECTIVE API
-=====================
-
-In:
-
-    cmd/optimization/objective.py
-
-define an objective abstraction with:
-
-    name
-    sense
-    evaluate(context) -> float
-
-where:
-
-    sense = "min" or "max"
-
-Use one canonical convention.
-
-Raw objective values must preserve their physical meaning.
-
-Also provide a way for future solver adapters to obtain a minimization-form
-value:
-
-    minimization_value =
-        raw                         for "min"
-        -raw                        for "max"
-
-Do not force all domain objectives to manually negate themselves.
-
-Objectives may be independently composed into an optimization problem.
-
-
-GENERIC CONSTRAINT API
-======================
-
-In:
-
-    cmd/optimization/constraint.py
-
-support two explicit constraint categories.
-
-
-Equality constraint
--------------------
-
-Canonical mathematical convention:
-
-    h(x) = 0
-
-Interface conceptually:
-
-    name
-    tolerance
-    residual(context) -> tuple[float, ...]
-
-Feasible when every element satisfies:
-
-    |h_i| <= tolerance
-
-
-Inequality constraint
----------------------
-
-Canonical mathematical convention:
-
-    g(x) <= 0
-
-Interface conceptually:
-
-    name
-    residual(context) -> tuple[float, ...]
-
-Feasible when:
-
-    g_i <= 0
-
-Do not mix >= and <= conventions between constraint implementations.
-
-Vector-valued constraints must be supported.
-
-For example, one monotonicity constraint may return one residual per workspace
-sample instead of reducing the entire trajectory into one scalar.
-
-Provide structured diagnostic results containing at least:
-
-    constraint name
-    residual values
-    maximum violation
-    satisfied / unsatisfied
-
-
-GENERIC OPTIMIZATION PROBLEM
-============================
-
-In:
-
-    cmd/optimization/problem.py
-
-implement a solver-independent `OptimizationProblem`.
-
-It should own:
-
-    variables
-    parameterization
-    evaluator
-    objectives
-    equalities
-    inequalities
-
-Conceptual evaluation pipeline:
-
-    x
-      ↓
-    map positional vector to named variable values
-      ↓
-    check box bounds
-      ↓
-    parameterization.decode(...)
-      ↓
-    evaluator.evaluate(...)
-      ↓
-    objectives
-      ↓
-    equalities
-      ↓
-    inequalities
-      ↓
+        variable.py
+        objective.py
+        constraint.py
+        problem.py
+
+    cmd/optimization/linkage/
+        parameterization.py
+        evaluator.py
+        objectives.py
+        constraints.py
+        baseline.py
+
+and:
+
+    tests/test_optimization_problem.py
+    tests/test_linkage_optimization.py
+
+Do not redesign the generic optimization layer unnecessarily.
+
+Preserve:
+
+    BoxVariable
+    Objective
+    EqualityConstraint
+    InequalityConstraint
+    OptimizationProblem
     ProblemEvaluation
 
-`ProblemEvaluation` must provide enough diagnostic information to inspect a
-candidate without an optimizer.
+and the existing 12-dimensional linkage optimizer parameterization.
 
-At minimum expose:
 
-    raw objective values by name
-    minimization-form objective values
-    box violations
-    equality results
-    inequality results
-    feasible
-    domain evaluation/context
+MOTIVATION
+==========
 
-Do not flatten everything into anonymous F/G/H arrays inside the core API.
+The current evaluator treats:
 
-Future solver adapters can do that later.
+    q1 = -0.8 rad
 
-Evaluation order and output ordering must be deterministic.
+as the end of the entire required workspace.
 
+This creates an undesirable artifact.
 
-PARAMETERIZATION PROTOCOL
-=========================
+For example:
 
-The generic optimization layer may define a small protocol/interface such as:
+    candidate A:
+        excellent behavior until 0.78 rad
+        severe transmission degradation near 0.80 rad
 
-    variable_names
-    decode(named_values)
+    candidate B:
+        moderate quality
+        remains usable to 1.00 rad
 
-Do not require every morphology type to implement optimization methods.
+A fixed 0.8-rad full-workspace formulation does not represent this tradeoff
+well.
 
-The optimization parameterization is an adapter between a solver design vector
-and canonical morphology parameters.
+Stage 0 should instead expose:
 
+    how good the linkage is over a required core workspace
 
-LINKAGE OPTIMIZATION PARAMETERIZATION
-=====================================
+and separately:
 
-In:
+    how far that useful behavior extends.
 
-    cmd/optimization/linkage/parameterization.py
 
-implement a `LinkageBaselineParameterization`.
+STAGE-0 FORMULATION
+===================
 
-Do NOT expose the fully-extended relation as an equality constraint.
-
-Instead parameterize the optimization design space so it is satisfied
-identically.
-
-Use explicit fully-extended reference positions as optimization coordinates.
-
-Recommended optimization vector:
-
-    o_prime_from_o_y_mm
-    o_prime_from_o_z_mm
-
-    a_from_o_y_mm
-    a_from_o_z_mm
-
-    a_prime_from_o_y_mm
-    a_prime_from_o_z_mm
-
-    b_from_o_y_mm
-
-    b_prime_from_o_y_mm
-    b_prime_from_o_z_mm
-
-    bc_length_mm
-
-    c_prime_from_o_y_mm
-    c_prime_from_o_z_mm
-
-This is a 12-scalar latent optimization representation.
-
-Its coordinate references are intentionally explicit in the names.
-
-
-Decoder
--------
-
-Construct:
-
-    O = (0, 0)
-
-    O' = (
-        o_prime_from_o_y_mm,
-        o_prime_from_o_z_mm
-    )
-
-    A = (
-        a_from_o_y_mm,
-        a_from_o_z_mm
-    )
-
-    A' = (
-        a_prime_from_o_y_mm,
-        a_prime_from_o_z_mm
-    )
-
-    B = (
-        b_from_o_y_mm,
-        0
-    )
-
-    B' = (
-        b_prime_from_o_y_mm,
-        b_prime_from_o_z_mm
-    )
-
-    C = (
-        b_from_o_y_mm + bc_length_mm,
-        0
-    )
-
-    C' = (
-        c_prime_from_o_y_mm,
-        c_prime_from_o_z_mm
-    )
-
-Then convert these reference positions into the canonical morphology API:
-
-    o_prime_from_o = O' - O
-
-    a_from_o = A - O
-
-    a_prime_from_o = A' - O
-
-    b_from_a = B - A
-
-    b_prime_from_a = B' - A
-
-    bc_length_mm = bc_length_mm
-
-    c_prime_from_b = C' - B
-
-and return:
-
-    FingerLinkageParameters(...)
-
-This guarantees exactly:
-
-    B_z = 0
-    C_z = 0
-    BC along +Y
-    BC || OC
-
-without an equality constraint.
-
-
-Important
----------
-
-This 12-variable representation is an optimizer coordinate system only.
-
-Do NOT replace the canonical `FingerLinkageParameters` API with it.
-
-The morphology layer must remain optimizer-independent.
-
-
-Encoding / seed support
------------------------
-
-Provide an `encode(...)` or equivalent helper that maps an existing
-`FingerLinkage` reference geometry into the 12-scalar optimization vector.
-
-It should be usable with:
-
-    BASELINE_LINKAGE_V0
-
-The current V0 reference has only a tiny numerical residual from exact B_z=0
-because it preserves the pre-refactor geometry.
-
-Do not modify `BASELINE_LINKAGE_V0` merely to make the optimizer seed exact.
-
-Encoding may project the reference B position onto the exact fully-extended
-manifold used by the optimizer.
-
-Document and test that this projection is tiny rather than silently changing
-the canonical seed.
-
-
-LINKAGE SWEEP EVALUATOR
-=======================
-
-In:
-
-    cmd/optimization/linkage/evaluator.py
-
-add an immutable configuration such as:
-
-    LinkageSweepConfig(
-        max_flexion_rad,
-        sample_count,
-    )
-
-Requirements:
-
-    max_flexion_rad > 0
-    sample_count >= 3
-
-The current repository visualization uses:
-
-    max_flexion_rad = 0.8
-
-so this is a reasonable default sweep value for the evaluator.
-
-It is not a permanent mechanical joint limit.
-
-
-Sweep
------
-
-Generate:
-
-    s_i in [0, max_flexion_rad]
-
-and solve:
-
-    q1_i = -s_i
-
-using:
-
-    LinkageKinematics(linkage).solve(q1_i)
-
-Do not duplicate closed-loop kinematics in optimization code.
-
-
-Evaluation result
------------------
-
-Create a structured `LinkageEvaluation` containing at least:
-
-    parameters
-    linkage
-
-    input_flexion_rad
-    q1_rad
-
-    solved poses
-
-    unwrapped q2_rad
-    unwrapped q3_rad
-
-    q2_flexion_rad
-    q3_flexion_rad
-
-    dq2_flexion_dq1_flexion
-    dq3_flexion_dq1_flexion
-
-    transmission_angle_loop_1_rad
-    transmission_angle_loop_2_rad
-
-    transmission_quality_loop_1
-    transmission_quality_loop_2
-
-    complete_workspace
-    solved_sample_count
-    failure_index
-    failure_reason
-
-Use tuples rather than mutable lists in the final immutable result if practical.
-
-
-ANGLE UNWRAPPING
-================
-
-`LinkagePose.q2_rad` and `q3_rad` are principal relative-angle differences.
-
-Unwrap them continuously from extension toward flexion before computing motion
-ratios.
-
-The existing `scripts/animate_linkage.py` already contains simple continuity
-logic for q2/q3 plotting.
-
-Do not copy that code blindly into multiple places.
-
-Implement one clear local helper in the evaluator and test branch-cut
-continuity.
-
-
-KINEMATIC FAILURE
-=================
-
-Evolutionary optimizers will intentionally sample invalid geometry.
-
-An invalid candidate must not crash an optimization batch.
-
-The linkage evaluator must convert failures such as:
-
-    invalid FingerLinkage reference geometry
-    degenerate reference branch
-    KinematicClosureError during workspace sweep
-
-into a structured incomplete `LinkageEvaluation`.
-
-At minimum record:
-
-    complete_workspace = False
-    number of successfully solved samples
-    failure index
-    human-readable failure reason
-
-Do not swallow the reason.
-
-Do not change `LinkageKinematics` to make invalid geometry artificially valid.
-
-
-TRANSMISSION ANGLE
-==================
-
-Compute transmission conditioning directly from the posed geometry.
-
-
-Loop 1
-------
-
-At B', define the angle between:
-
-    B' -> A
-    B' -> O'
-
-Call this:
-
-    mu_1
-
-
-Loop 2
-------
-
-At C', define the angle between:
-
-    C' -> B
-    C' -> A'
-
-Call this:
-
-    mu_2
-
-
-Compute the full angle in [0, pi], preferably using a numerically robust form:
-
-    atan2(abs(cross(u, v)), dot(u, v))
-
-Define the singularity/transmission margin:
-
-    margin(mu) = min(mu, pi - mu)
-
-and transmission quality:
-
-    Q(mu) = sin(margin(mu))
-
-equivalently the normalized absolute cross-product magnitude.
-
-Properties:
-
-    90 deg -> Q = 1
-    0 / 180 deg -> Q = 0
-
-Do not use an arithmetic mean as the primary transmission objective.
-
-
-MOTION RATIO
-============
-
-Use the positive input flexion coordinate:
+Use positive input-flexion coordinate:
 
     s = -q1
 
-and positive relative output flexion:
+with:
 
-    f2 = -unwrap(q2)
-    f3 = -unwrap(q3)
+    s >= 0
 
-Compute:
+Define:
 
-    r2 = df2 / ds
-    r3 = df3 / ds
+    W_core
+        required/core workspace
 
-Use a stable finite-difference scheme with one-sided endpoint differences and
-centered interior differences.
+    W_search
+        search horizon
 
-No new numerical dependency is required for this.
+with:
+
+    0 < W_core < W_search
+
+Both must be configurable.
+
+Do NOT make either value a canonical morphology constant.
+
+Do NOT invent a permanent 0.8-rad or 1.2-rad physical joint limit.
+
+The caller chooses these values for each optimization study.
 
 
-OBJECTIVE 1 — WORST-CASE TRANSMISSION QUALITY
-=============================================
+OBJECTIVES
+==========
+
+The baseline linkage problem now has THREE objectives.
+
+
+Objective 1
+-----------
+
+    maximize usable workspace
+
+Define:
+
+    W_usable
+
+as the largest contiguous interval:
+
+    [0, W_usable]
+
+starting from the fully extended pose over which all pointwise workspace
+health criteria remain satisfied.
+
+The raw objective value must be expressed in radians.
+
+Do not normalize it to [0, 1] inside the domain objective.
+
+
+Objective 2
+-----------
+
+    maximize worst-case transmission quality
+
+Evaluate this only over:
+
+    [0, W_core]
+
+not over the entire search horizon.
+
+
+Objective 3
+-----------
+
+    minimize coordination-ratio variation
+
+Evaluate this only over:
+
+    [0, W_core]
+
+not over the entire search horizon.
+
+
+WHY CORE QUALITY AND WORKSPACE ARE SEPARATE
+===========================================
+
+Do not evaluate transmission quality over the entire usable workspace.
+
+That would strongly couple:
+
+    workspace extent
+
+and:
+
+    worst-case transmission quality
+
+because the usable-workspace boundary may itself be defined by the
+transmission threshold.
+
+Instead:
+
+    quality objectives
+        evaluate a fixed comparable core interval
+
+    workspace objective
+        measures how much farther the candidate remains usable
+
+This allows meaningful Pareto tradeoffs.
+
+
+SEARCH HORIZON
+==============
+
+Refactor the current:
+
+    LinkageSweepConfig.max_flexion_rad
+
+concept into an explicitly named search-horizon concept.
+
+Prefer:
+
+    search_horizon_rad
+
+The sweep still uses:
+
+    q1 = -s
+
+for:
+
+    s in [0, search_horizon_rad]
+
+The current historical 0.8-rad default may be retained only if needed for
+backward compatibility, but it must not be documented as a physical limit.
+
+The baseline optimization builder must explicitly distinguish:
+
+    core_workspace_rad
+    search_horizon_rad
+
+
+CORE SAMPLE MUST BE EXACT
+=========================
+
+Do not silently evaluate the core workspace at the nearest sampled point.
+
+The exact value:
+
+    s = core_workspace_rad
+
+must be evaluated.
+
+If the uniform search grid does not contain the core endpoint exactly, insert
+the core endpoint into the sampled flexion coordinates and keep the final
+sample sequence sorted and unique.
+
+Therefore:
+
+    sample_count
+
+may describe the nominal uniform grid size, while the actual requested sample
+count may contain one additional core point.
+
+Document this behavior clearly.
+
+
+NEW LINKAGE WORKSPACE MODULE
+============================
+
+Add:
+
+    cmd/optimization/linkage/workspace.py
+
+This module owns the definition of "usable workspace".
+
+Do not place these semantics inside the generic optimization package.
+
+
+WORKSPACE CRITERIA
+==================
+
+Add an immutable configuration type conceptually equivalent to:
+
+    LinkageWorkspaceCriteria
+
+containing:
+
+    minimum_transmission_margin_rad
+
+    q2_minimum_motion_ratio
+    q3_minimum_motion_ratio
+
+    q2_maximum_motion_ratio
+    q3_maximum_motion_ratio
+
+These thresholds define whether one sampled pose is mechanically usable.
+
+Validation must ensure all values are finite and physically meaningful.
+
+The same criteria object must be reused by:
+
+    usable-workspace evaluation
+
+and:
+
+    core-workspace hard constraints
+
+Do not duplicate the same threshold values in two unrelated configuration
+objects.
+
+
+USABLE WORKSPACE DEFINITION
+===========================
+
+A sample is usable only if:
+
+1. canonical linkage kinematics successfully solved that sample;
+
+2. both transmission-angle margins satisfy:
+
+       margin_1 >= minimum_transmission_margin_rad
+       margin_2 >= minimum_transmission_margin_rad
+
+3. q2 motion ratio satisfies:
+
+       q2_minimum_motion_ratio
+       <= dq2_flexion / ds
+       <= q2_maximum_motion_ratio
+
+4. q3 motion ratio satisfies:
+
+       q3_minimum_motion_ratio
+       <= dq3_flexion / ds
+       <= q3_maximum_motion_ratio
+
+
+The usable workspace is the longest CONTIGUOUS usable prefix beginning at:
+
+    s = 0
+
+Do not count disconnected usable regions after the first unusable point.
+
+
+For sampled coordinates:
+
+    s_0 = 0
+    s_1
+    ...
+    s_k
+    s_{k+1}
+
+if samples through s_k are usable and s_{k+1} is not:
+
+    W_usable = s_k
+
+This is intentionally a sampled approximation.
+
+Do not claim continuous exactness.
+
+
+CLOSURE WORKSPACE
+=================
+
+Also compute a separate diagnostic:
+
+    W_closure
+
+defined only by successful deterministic linkage kinematics.
+
+This allows results such as:
+
+    closure workspace = 1.05 rad
+    usable workspace  = 0.79 rad
+
+    usable limit:
+        transmission margin
+
+to be distinguished.
+
+Do not merge closure workspace and usable workspace.
+
+
+WORKSPACE DIAGNOSTICS
+=====================
+
+Add an immutable structured result such as:
+
+    LinkageWorkspaceEvaluation
+
+containing at least:
+
+    closure_workspace_rad
+    usable_workspace_rad
+
+    closure_sample_count
+    usable_sample_count
+
+    first_unusable_index
+
+    limiting_reasons
+
+`limiting_reasons` should identify why the first unusable sample failed.
+
+Supported reasons should distinguish at least:
+
+    kinematic_failure
+
+    transmission_loop_1
+    transmission_loop_2
+
+    q2_minimum_motion_ratio
+    q3_minimum_motion_ratio
+
+    q2_maximum_motion_ratio
+    q3_maximum_motion_ratio
+
+    search_horizon
+
+If several criteria fail at the same first unusable sample, preserve all
+relevant reasons in deterministic order.
+
+If the candidate remains usable through the entire search horizon:
+
+    usable_workspace_rad = search_horizon_rad
+
+and:
+
+    limiting_reasons = ("search_horizon",)
+
+or an equivalently explicit representation.
+
+
+WORKSPACE OBJECTIVE
+===================
 
 In:
 
     cmd/optimization/linkage/objectives.py
 
-implement:
+add:
+
+    UsableWorkspace
+
+or an equivalently clear class name.
+
+Sense:
+
+    max
+
+Its raw value is:
+
+    LinkageWorkspaceEvaluation.usable_workspace_rad
+
+The class may evaluate workspace through the reusable helper in
+`workspace.py`.
+
+Do not duplicate workspace logic inside the objective.
+
+
+CORE-WORKSPACE SLICING
+======================
+
+Add one shared helper for selecting evaluation samples within:
+
+    [0, core_workspace_rad]
+
+Do not duplicate index-selection logic across every objective and constraint.
+
+The helper must include the exact core endpoint.
+
+Use a small numerical tolerance only for floating-point comparison.
+
+
+TRANSMISSION OBJECTIVE UPDATE
+=============================
+
+Update:
 
     WorstCaseTransmissionQuality
 
-Sense:
+so it accepts/configures:
 
-    maximize
+    core_workspace_rad
 
-Definition:
+and computes:
 
-    Q_trans =
-        min over all workspace samples and both loops
-        of transmission_quality
+    min transmission quality
 
-That is:
+across both loops only for samples in:
 
-    Q_trans =
-        min(
-            Q(mu_1(s)),
-            Q(mu_2(s))
-        )
+    [0, core_workspace_rad]
 
-over the complete sweep.
-
-If the workspace evaluation is incomplete, return the defined worst raw
-quality:
-
-    0.0
-
-The kinematic-validity constraint will mark the candidate infeasible.
+Do not include samples beyond the core workspace.
 
 
-OBJECTIVE 2 — COORDINATION RATIO VARIATION
-==========================================
+COORDINATION OBJECTIVE UPDATE
+=============================
 
-Implement:
+Update:
 
     CoordinationRatioVariation
 
-Sense:
+so it evaluates:
 
-    minimize
+    dq2_flexion / ds
+    dq3_flexion / ds
 
-Use:
+only over the core workspace.
 
-    r2 = df2/ds
-    r3 = df3/ds
+Do not let poor behavior beyond the required core interval directly change the
+coordination-quality objective.
 
-Define:
+Behavior beyond the core interval belongs to the usable-workspace objective.
 
-    CV(r) = std(r) / (abs(mean(r)) + epsilon)
+
+CORE KINEMATIC CONSTRAINT
+=========================
+
+The current:
+
+    FullWorkspaceKinematicValidity
+
+must no longer mean:
+
+    every sample through search_horizon must solve.
+
+Replace or generalize it into something conceptually equivalent to:
+
+    CoreWorkspaceKinematicValidity(core_workspace_rad)
+
+It is feasible if deterministic linkage kinematics successfully solves every
+required sample through:
+
+    core_workspace_rad
+
+A candidate may fail after the core workspace and still be feasible.
+
+That failure should reduce:
+
+    UsableWorkspace
+
+instead of automatically making the candidate infeasible.
+
+
+EXAMPLE
+=======
+
+Suppose:
+
+    core workspace = 0.60 rad
+    search horizon = 1.20 rad
+
+Candidate A:
+
+    usable until 0.78 rad
+
+Candidate B:
+
+    usable until 1.02 rad
+
+If both satisfy every hard constraint through 0.60 rad:
+
+    both are feasible
+
+but:
+
+    workspace objective A = 0.78
+    workspace objective B = 1.02
+
+Their core transmission and coordination scores may still trade off.
+
+This behavior is REQUIRED.
+
+
+CORE TRANSMISSION CONSTRAINT
+============================
+
+Update:
+
+    MinimumTransmissionMargin
+
+so it can be evaluated over a specified workspace endpoint.
+
+For the baseline problem, apply it only over:
+
+    [0, core_workspace_rad]
+
+The same:
+
+    minimum_transmission_margin_rad
+
+used by `LinkageWorkspaceCriteria` must be passed here.
+
+Do not enforce this hard constraint through the full search horizon.
+
+
+CORE MOTION-RATIO CONSTRAINTS
+=============================
+
+Likewise update:
+
+    MonotonicFlexion
+    MaximumMotionRatio
+
+so the baseline problem applies them only through:
+
+    core_workspace_rad
+
+The same q2/q3 minimum and maximum ratios used by
+`LinkageWorkspaceCriteria` must be reused.
+
+Do not maintain duplicated independent values.
+
+
+ENDPOINT FLEXION
+================
+
+The existing:
+
+    MinimumEndpointFlexion
+
+must now refer to the CORE endpoint, not the search-horizon endpoint.
+
+Prefer making the requested input-flexion location explicit in the API.
+
+For example:
+
+    MinimumFlexionAtInput(
+        joint="q2",
+        input_flexion_rad=core_workspace_rad,
+        minimum_flexion_rad=...
+    )
+
+or generalize the existing class equivalently.
+
+Evaluate exactly at:
+
+    s = core_workspace_rad
+
+Do not use the last search-horizon sample.
+
+
+ANCHOR CONSTRAINT
+=================
+
+Keep:
+
+    MinimumAnchorDorsalOffset
+
+unchanged.
+
+It is a reference-geometry constraint and is independent of workspace extent.
+
+
+INCOMPLETE SWEEP RESIDUALS
+==========================
+
+Fix the current use of:
+
+    math.inf
+
+for missing samplewise constraint residuals.
+
+This is important before connecting the problem to NSGA-II.
+
+Currently an incomplete candidate may produce infinite residuals for:
+
+    MinimumTransmissionMargin
+    MonotonicFlexion
+    MaximumMotionRatio
+
+This destroys useful graded feasibility information.
+
+For samplewise constraints:
+
+    CoreWorkspaceKinematicValidity
+
+must own the kinematic-workspace infeasibility.
+
+Other samplewise constraints should evaluate all samples that actually exist
+inside the core interval.
+
+If a core sample is unavailable because kinematics already failed:
+
+    do not add +inf
+
+Pad missing fixed-size residual entries with a finite neutral residual:
+
+    0.0
+
+or use another clearly documented finite neutral representation.
+
+The candidate remains infeasible because:
+
+    CoreWorkspaceKinematicValidity > 0
+
+This preserves graded information such as:
+
+    candidate A solves 95% of the required core workspace
+    candidate B solves 20%
+
+rather than making both candidates effectively have infinite violation.
+
+Do NOT use NaN or infinity in inequality residual vectors.
+
+
+OBJECTIVE FAILURE VALUES
+========================
+
+Do not introduce NaN objective values.
+
+For incomplete CORE workspace:
+
+    WorstCaseTransmissionQuality
+        return 0.0
+
+For:
+
+    CoordinationRatioVariation
+
+retain the existing documented failure behavior only if the generic optimizer
+stack can safely accept it.
+
+Prefer a finite, explicitly documented worst-value representation before a
+solver adapter is added.
+
+Do not silently introduce arbitrary physical meaning to the penalty.
+
+If changing this cleanly requires solver-adapter policy, leave the current
+behavior and report it as an unresolved issue rather than inventing a hidden
+penalty.
+
+
+BASELINE CONFIGURATION
+======================
+
+Refactor:
+
+    LinkageBaselineConstraintConfig
+
+so the baseline builder has one source of truth for workspace thresholds.
+
+A clean conceptual arrangement is:
+
+    LinkageWorkspaceCriteria(
+        minimum_transmission_margin_rad=...,
+        q2_minimum_motion_ratio=...,
+        q3_minimum_motion_ratio=...,
+        q2_maximum_motion_ratio=...,
+        q3_maximum_motion_ratio=...,
+    )
 
 and:
 
-    J_coord = CV(r2) + CV(r3)
+    LinkageBaselineConstraintConfig(
+        core_workspace_rad=...,
+        minimum_anchor_dorsal_offset_mm=...,
+        q2_minimum_endpoint_flexion_rad=...,
+        q3_minimum_endpoint_flexion_rad=...,
+        workspace_criteria=...,
+    )
 
-Use a small numerical epsilon only to prevent division by zero.
+The exact dataclass arrangement may differ slightly if a cleaner API results,
+but:
 
-This objective prefers approximately constant coupled flexion ratios without
-requiring a manually invented target q2/q3 trajectory.
+    workspace health thresholds must have one canonical owner.
 
-Do not compare against an anatomical target trajectory in this task.
 
-If the full workspace is incomplete, return:
+BASELINE PROBLEM
+================
 
-    +inf
+The composed problem should now be conceptually:
 
-or another explicitly documented worst-value representation compatible with
-the generic problem API.
-
-
-LINKAGE INEQUALITY CONSTRAINTS
-==============================
-
-Implement these as independent composable classes in:
-
-    cmd/optimization/linkage/constraints.py
-
-
-1. FullWorkspaceKinematicValidity
----------------------------------
-
-Feasible only if every requested sweep sample was successfully solved on the
-deterministic reference assembly branch.
-
-A useful residual is based on solved fraction:
-
-    g =
-        1 - solved_sample_count / requested_sample_count
-
-Therefore:
-
-    g = 0
-        complete workspace
-
-    g > 0
-        incomplete workspace
-
-Use the generic convention:
-
-    g <= 0
-
-
-2. MinimumAnchorDorsalOffset
-----------------------------
-
-The design requirement is that, in the fully extended reference pose:
-
-    A' is dorsal of B
-    B' is dorsal of B
-
-For configurable required offset `d_min`:
-
-    A'.z - B.z >= d_min
-    B'.z - B.z >= d_min
-
-Return inequality residuals:
-
-    d_min - (A'.z - B.z)
-    d_min - (B'.z - B.z)
-
-Do not hard-code a permanent physical value for `d_min`.
-
-The caller/problem configuration chooses it.
-
-
-3. MinimumTransmissionMargin
-----------------------------
-
-For configurable:
-
-    mu_min
-
-require every sample in both loops to satisfy:
-
-    min(mu, pi - mu) >= mu_min
-
-Return one residual per loop per workspace sample:
-
-    mu_min - margin(mu)
-
-This is intentionally vector-valued.
-
-A starting study may use 30 degrees, but keep the value configurable.
-
-
-4. MonotonicFlexion
--------------------
-
-Make this reusable for q2 and q3.
-
-For each requested output:
-
-    r >= r_min
-
-where normally:
-
-    r_min = 0
-
-Return:
-
-    r_min - r
-
-for every workspace sample.
-
-Do not assume q2 or q3 themselves must be positive; use positive flexion
-magnitudes from the evaluator.
-
-
-5. MaximumMotionRatio
----------------------
-
-Reusable for q2 and q3.
-
-Require:
-
-    r <= r_max
-
-Return:
-
-    r - r_max
-
-for every sample.
-
-A starting study may use:
-
-    r_max = 3
-
-but keep it configurable.
-
-
-6. MinimumEndpointFlexion
--------------------------
-
-Reusable for q2 and q3.
-
-Require at maximum commanded flexion:
-
-    f_joint(s_max) >= f_min
-
-Return:
-
-    f_min - f_joint(s_max)
-
-Keep `f_min` configurable.
-
-For an initial 0.8-rad input sweep, values corresponding to the previously
-discussed screening ratios would be:
-
-    q2 minimum:
-        0.5 * 0.8 = 0.4 rad
-
-    q3 minimum:
-        0.25 * 0.8 = 0.2 rad
-
-These are provisional screening settings, not canonical morphology constants.
-
-
-EQUALITY CONSTRAINTS
-====================
-
-The generic framework must support equality constraints.
-
-However, the initial linkage baseline problem should have:
-
-    no equality constraints
-
-because the important fully-extended relation:
-
-    BC || OC
-
-is enforced exactly by the optimization parameterization.
-
-Do not add a redundant equality constraint for B_z = 0 or BC || OC.
-
-
-BOX CONSTRAINTS
-===============
-
-Support box bounds through `BoxVariable`.
-
-Do NOT invent canonical numeric linkage design-space bounds in this task.
-
-The physical search bounds for:
-
-    O'
-    A
-    A'
-    B
-    B'
-    BC
-    C'
-
-have not yet been finalized.
-
-The linkage baseline problem builder must therefore accept its variable bounds
-from the caller.
-
-Tests may use explicit test-only bounds that contain the current V0 seed.
-
-Do not commit arbitrary 20–40 mm search ranges as source-of-truth design bounds.
-
-
-BASELINE PROBLEM COMPOSITION
-============================
-
-In:
-
-    cmd/optimization/linkage/baseline.py
-
-provide a small convenience builder or configuration that assembles the
-linkage problem from the reusable modules.
-
-The intended composition is conceptually:
-
-    problem = OptimizationProblem(
-        variables=... caller supplied box variables ...,
+    OptimizationProblem(
+        variables=...,
 
         parameterization=LinkageBaselineParameterization(),
 
         evaluator=LinkageSweepEvaluator(
             LinkageSweepConfig(
-                max_flexion_rad=0.8,
-                sample_count=101,
+                search_horizon_rad=...,
+                sample_count=...,
+                core_workspace_rad=... or exact required sample equivalent,
             )
         ),
 
         objectives=(
-            WorstCaseTransmissionQuality(),
-            CoordinationRatioVariation(),
+            UsableWorkspace(...),
+            WorstCaseTransmissionQuality(core_workspace_rad=...),
+            CoordinationRatioVariation(core_workspace_rad=...),
         ),
 
         equalities=(),
 
         inequalities=(
-            FullWorkspaceKinematicValidity(),
+            CoreWorkspaceKinematicValidity(core_workspace_rad=...),
 
             MinimumAnchorDorsalOffset(...),
 
-            MinimumTransmissionMargin(...),
+            MinimumTransmissionMargin(
+                ...,
+                workspace_rad=core_workspace_rad,
+            ),
 
-            MonotonicFlexion("q2", ...),
-            MonotonicFlexion("q3", ...),
+            MonotonicFlexion(
+                "q2",
+                ...,
+                workspace_rad=core_workspace_rad,
+            ),
 
-            MaximumMotionRatio("q2", ...),
-            MaximumMotionRatio("q3", ...),
+            MonotonicFlexion(
+                "q3",
+                ...,
+                workspace_rad=core_workspace_rad,
+            ),
 
-            MinimumEndpointFlexion("q2", ...),
-            MinimumEndpointFlexion("q3", ...),
+            MaximumMotionRatio(
+                "q2",
+                ...,
+                workspace_rad=core_workspace_rad,
+            ),
+
+            MaximumMotionRatio(
+                "q3",
+                ...,
+                workspace_rad=core_workspace_rad,
+            ),
+
+            MinimumFlexionAtInput(
+                "q2",
+                input_flexion_rad=core_workspace_rad,
+                ...
+            ),
+
+            MinimumFlexionAtInput(
+                "q3",
+                input_flexion_rad=core_workspace_rad,
+                ...
+            ),
         ),
     )
 
-The exact numeric inequality thresholds other than the existing 0.8-rad sweep
-must be passed through a configuration object or builder arguments.
 
-Do not hide them as unexplained module constants.
+OBJECTIVE ORDER
+===============
 
+Use deterministic objective order:
 
-PROBLEM ASSEMBLY MUST REMAIN MODULAR
-====================================
+    1. usable_workspace
+    2. worst_case_transmission_quality
+    3. coordination_ratio_variation
 
-It must be possible to construct a different study without editing core code.
+Raw senses:
 
-For example, a caller should be able to omit smoothness or change constraints:
+    usable_workspace:
+        max
 
-    problem = OptimizationProblem(
-        ...,
-        objectives=(
-            WorstCaseTransmissionQuality(),
-        ),
-        inequalities=(
-            FullWorkspaceKinematicValidity(),
-            MinimumTransmissionMargin(...),
-        ),
-    )
+    worst_case_transmission_quality:
+        max
 
-Likewise adding a future objective must not require changing
-`OptimizationProblem`.
+    coordination_ratio_variation:
+        min
 
+Therefore minimization form will conceptually be:
 
-NO SOLVER IMPLEMENTATION YET
-============================
-
-Do not install or implement:
-
-    MO-CMA-ES
-    CMA-ES
-    NSGA-II
-    NSGA-III
-    pymoo
-    scipy.optimize
-
-in this task.
-
-The repository currently has no established optimization dependency or
-dependency manifest for these solvers.
-
-This task ends at a clean solver-independent problem representation.
-
-A future adapter should be able to transform:
-
-    objective minimization vector
-    inequality residual vector
-    equality residual vector
-    box bounds
-
-into whatever API MO-CMA-ES / pymoo / another solver requires.
+    [
+        -W_usable,
+        -Q_trans,
+        J_coord,
+    ]
 
 
-PUBLIC API
-==========
+NO FIXED PHYSICAL NUMBERS
+=========================
 
-Expose the useful generic components from:
+Do not introduce canonical values for:
 
-    cmd/optimization/__init__.py
+    core_workspace_rad
+    search_horizon_rad
 
-Keep domain-specific linkage exports primarily under:
+in morphology source-of-truth.
 
-    cmd.optimization.linkage
+These are optimization-study settings.
 
-Do not re-export every implementation detail at the package root.
+Tests may use convenient values such as:
 
-Do not modify `cmd/__init__.py`.
+    core = 0.4
+    horizon = 0.8
+
+or similar test-only values.
+
+Do not interpret those as design requirements.
 
 
 TESTS
 =====
 
-Add focused tests, preferably:
+Update:
 
-    tests/test_optimization_problem.py
     tests/test_linkage_optimization.py
 
-
-Generic framework tests
------------------------
-
-Verify:
-
-1. BoxVariable rejects invalid bounds.
-
-2. A vector is mapped to named variables deterministically.
-
-3. Box violations affect `ProblemEvaluation.feasible`.
-
-4. Equality convention is exactly:
-
-       h = 0
-
-   with configured tolerance.
-
-5. Inequality convention is exactly:
-
-       g <= 0
-
-6. Vector-valued constraints are preserved and evaluated correctly.
-
-7. Objective sense conversion produces:
-
-       min objective -> raw
-       max objective -> -raw
-
-   in the minimization-form vector.
-
-8. Objectives/constraints can be added or omitted without modifying the
-   problem class.
+and add focused tests for the new semantics.
 
 
-Linkage parameterization tests
-------------------------------
+Required tests
+--------------
+
+1. Search horizon vs core workspace
 
 Verify:
 
-1. Decoding always produces:
+    core_workspace_rad < search_horizon_rad
 
-       B.z = 0
-       C.z = 0
-       BC along +Y
-       BC || OC
+is accepted.
 
-2. Decoded `FingerLinkageParameters` use the canonical relative-coordinate
-   representation correctly.
+Reject:
 
-3. Encoding `BASELINE_LINKAGE_V0` and decoding it produces a geometry extremely
-   close to V0, with only the already-known tiny projection onto exact B_z=0.
-
-4. `BASELINE_LINKAGE_V0` itself is not modified.
+    core <= 0
+    search <= core
+    non-finite values.
 
 
-Linkage evaluator tests
------------------------
+2. Exact core sample
 
-Verify:
+Choose core and horizon values where the uniform grid would NOT naturally
+contain the core endpoint.
 
-1. Sweep uses:
+Verify the evaluator includes exactly:
 
-       q1 = -s
+    core_workspace_rad
 
-2. Zero flexion reproduces the reference pose.
-
-3. Current baseline can be evaluated over the existing intended flexion sweep.
-
-4. q2 and q3 are unwrapped continuously.
-
-5. positive flexion magnitudes are used.
-
-6. finite-difference motion ratios have the expected sample count.
-
-7. transmission angles are finite and in [0, pi].
-
-8. transmission qualities are in [0, 1].
-
-9. a deliberately invalid/unreachable candidate becomes a structured
-   incomplete evaluation rather than crashing the batch.
+in the requested sweep.
 
 
-Objective tests
----------------
+3. Closure workspace
+
+Construct or synthesize an evaluation where kinematics fails after a known
+sample.
 
 Verify:
 
-1. WorstCaseTransmissionQuality equals the minimum transmission quality across
-   both loops and all samples.
+    closure_workspace_rad
 
-2. CoordinationRatioVariation is non-negative.
-
-3. incomplete workspace receives the documented worst objective values.
+equals the final successfully solved sample.
 
 
-Constraint tests
-----------------
+4. Usable workspace limited by transmission
 
-Verify independently:
+Create an evaluation where:
 
-    FullWorkspaceKinematicValidity
-    MinimumAnchorDorsalOffset
-    MinimumTransmissionMargin
-    MonotonicFlexion
-    MaximumMotionRatio
-    MinimumEndpointFlexion
+    closure continues farther
 
-For each, include one passing and one violating synthetic or real evaluation
-where practical.
+but transmission margin first fails at a known sample.
+
+Verify:
+
+    closure_workspace_rad > usable_workspace_rad
+
+and:
+
+    limiting_reasons
+
+contains the correct transmission loop.
+
+
+5. Usable workspace limited by motion ratio
+
+Test minimum and maximum q2/q3 motion-ratio failures independently.
+
+
+6. Search-horizon limited
+
+For a candidate satisfying all criteria through the complete sweep:
+
+    usable_workspace_rad == search_horizon_rad
+
+and the limiting diagnostic identifies the horizon.
+
+
+7. Core-feasible but post-core failure
+
+This is critical.
+
+Construct a candidate/evaluation such that:
+
+    all requirements pass through W_core
+
+but:
+
+    transmission or kinematics fails after W_core
+
+Verify:
+
+    ProblemEvaluation.feasible is True
+
+and:
+
+    UsableWorkspace < search_horizon
+
+This is the central behavior change.
+
+
+8. Failure before core
+
+Construct a candidate/evaluation that becomes unusable before:
+
+    W_core
+
+Verify:
+
+    ProblemEvaluation.feasible is False.
+
+
+9. Transmission objective slicing
+
+Give an evaluation where transmission is excellent over the core workspace
+but terrible after the core.
+
+Verify:
+
+    WorstCaseTransmissionQuality
+
+uses only core samples.
+
+
+10. Coordination objective slicing
+
+Likewise verify post-core motion-ratio behavior does not change:
+
+    CoordinationRatioVariation
+
+
+11. Endpoint flexion location
+
+Verify q2/q3 minimum-flexion requirements are checked at:
+
+    core_workspace_rad
+
+not:
+
+    search_horizon_rad.
+
+
+12. No infinite inequality residuals
+
+For an incomplete kinematic sweep, verify every returned inequality residual is:
+
+    finite
+
+and:
+
+    not NaN
+
+The core kinematic-validity constraint must still report positive violation.
+
+
+13. Three-objective composition
+
+Verify the baseline problem objective names/order are exactly:
+
+    usable_workspace
+    worst_case_transmission_quality
+    coordination_ratio_variation
+
+
+14. Existing parameterization regression
+
+Retain all current tests ensuring:
+
+    12-dimensional latent linkage parameterization
+    exact B.z = 0
+    BC || OC
+    BASELINE_LINKAGE_V0 is not mutated
+    q1 = -s
+    deterministic reference branch
 
 
 REGRESSION
 ==========
 
-Do not break existing linkage behavior.
-
-Run at least:
+Run focused tests:
 
     pytest -q \
         tests/test_optimization_problem.py \
@@ -1287,31 +1097,34 @@ Run at least:
         tests/test_linkage.py \
         tests/test_linkage_kinematics.py
 
-Then run the full suite if the focused tests pass:
+Then run:
 
     pytest -q
+
+Do not claim test success unless actually executed.
 
 
 IMPLEMENTATION RULES
 ====================
 
-- Use current morphology and kinematics as the source of truth.
-- Do not duplicate linkage closure equations in optimization code.
-- Do not alter `FingerLinkageParameters`.
-- Do not alter the definition of the fully extended pose.
+- Keep Stage 0 entirely analytic.
+- Use the canonical `LinkageKinematics`.
+- Do not duplicate closed-loop equations.
+- Do not change `FingerLinkageParameters`.
 - Do not change `BASELINE_LINKAGE_V0`.
-- Do not reverse the q1 flexion sign convention.
-- Do not add arbitrary optimizer bounds.
-- Do not add a solver dependency.
-- Do not move existing hand actuator packaging constraints.
-- Do not use objectives as substitutes for hard feasibility requirements.
-- Prefer parameterization over equality constraints when an exact relationship
-  can be guaranteed structurally.
-- Keep all optimization thresholds explicit and configurable.
-- Keep diagnostic names stable and human-readable.
-- Keep the generic optimization core free of NumPy if practical; the current
-  task does not require adding a numerical dependency to the core.
-- Do not introduce subagents for this task.
+- Keep q1 < 0 as physical flexion.
+- Use positive s = -q1 for optimization metrics.
+- Keep optimizer-specific logic out of morphology.
+- Keep generic optimization code domain-neutral.
+- Keep linkage workspace semantics inside `cmd/optimization/linkage`.
+- Reuse one workspace-criteria configuration everywhere.
+- Do not use disconnected valid regions after the first workspace failure.
+- Do not add adaptive or binary-refined workspace boundaries yet.
+- The workspace value is grid-based in this task.
+- Dense/adaptive Pareto-candidate validation can be added later.
+- Do not add NSGA-II yet.
+- Do not add pymoo yet.
+- Do not use subagents.
 
 
 HARD STOPS
@@ -1319,16 +1132,21 @@ HARD STOPS
 
 Stop and report instead of guessing if:
 
-- current `LinkageKinematics` cannot evaluate the existing 0.8-rad flexion
-  sweep as expected by `scripts/animate_linkage.py`;
-- the current q1/q2/q3 sign convention differs from the convention documented
-  above;
-- preserving deterministic assembly-branch selection would require changing
-  morphology kinematics;
-- a solver package must be added to implement the generic problem abstraction;
-- physical box bounds are needed but are not present in the repository.
+- the existing linkage kinematics cannot distinguish post-core failure from
+  core failure;
 
-Do not invent missing physical bounds.
+- changing the sweep semantics requires modifying canonical morphology;
+
+- exact evaluation of the core endpoint cannot be added without duplicating
+  linkage kinematics;
+
+- a physical core workspace or search horizon must be chosen but is not
+  explicitly present in the repository;
+
+- a non-finite penalty is required by a future solver API that has not yet
+  been implemented.
+
+Do not invent missing physical requirements.
 
 
 OUT OF SCOPE
@@ -1336,34 +1154,33 @@ OUT OF SCOPE
 
 Do not:
 
-- run a large linkage optimization;
-- choose a final `BASELINE_LINKAGE_V1`;
-- add MO-CMA-ES yet;
-- optimize fingertip morphology;
+- add NSGA-II;
+- add pymoo;
+- run the final baseline optimization;
+- choose `BASELINE_LINKAGE_V1`;
 - optimize hand layout;
-- couple this problem to contact mechanics;
-- add actuator torque models;
-- add force transmission models beyond geometric transmission-angle quality;
-- add manufacturing constraints whose numeric limits have not been defined;
-- modify URDF or hand morphology;
-- rewrite the current linkage solver.
+- optimize fingertip geometry;
+- implement Stage 1;
+- implement Stage 2;
+- add adaptive workspace refinement;
+- add surrogate optimization;
+- change the morphology source-of-truth geometry.
 
 
 FINAL REPORT
 ============
 
-Report:
+Report only:
 
-1. New optimization package structure
-2. Generic variable/objective/constraint/problem APIs
-3. Exact linkage latent design vector
-4. Linkage sweep/evaluation metrics
-5. Implemented objectives
-6. Implemented inequality constraints
-7. How invalid candidates are handled
-8. Focused and full test results
-9. Objective/constraint values obtained when evaluating the projected
-   `BASELINE_LINKAGE_V0` seed
+1. Updated Stage-0 formulation
+2. Core-workspace vs search-horizon API
+3. Usable-workspace definition
+4. Workspace diagnostics
+5. Three objective definitions
+6. Which hard constraints now apply only to the core workspace
+7. How incomplete sweeps avoid infinite constraint residuals
+8. Focused test results
+9. Full test result
 10. Any unresolved issue
 
 STOP after completing the task.

@@ -1,4 +1,4 @@
-"""Composable hard feasibility constraints for linkage sweep evaluations."""
+"""Composable hard feasibility constraints for linkage core-workspace studies."""
 
 from __future__ import annotations
 
@@ -8,22 +8,58 @@ from numbers import Real
 from typing import Literal
 
 from .evaluator import LinkageEvaluation
+from .workspace import (
+    LinkageWorkspaceCriteria,
+    core_motion_ratios,
+    core_sample_indices,
+    evaluate_linkage_workspace,
+)
 
 
 JointName = Literal["q2", "q3"]
 
 
 @dataclass(frozen=True)
-class FullWorkspaceKinematicValidity:
-    """Require every requested flexion sample to close on the reference branch."""
+class CoreWorkspaceKinematicValidity:
+    """Require closure for every requested sample through the core endpoint."""
 
-    name: str = "full_workspace_kinematic_validity"
+    core_input_workspace_rad: float
+    name: str = "core_workspace_kinematic_validity"
+
+    def __post_init__(self) -> None:
+        _require_positive_finite(
+            "core_input_workspace_rad",
+            self.core_input_workspace_rad,
+        )
 
     def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        requested = context.requested_sample_count
-        if requested == 0:
-            return (1.0,)
-        return (1.0 - context.solved_sample_count / requested,)
+        indices = core_sample_indices(context, self.core_input_workspace_rad)
+        solved = sum(index < context.solved_sample_count for index in indices)
+        return (1.0 - solved / len(indices),)
+
+
+@dataclass(frozen=True)
+class MinimumUsableInputWorkspace:
+    """Require the mechanically usable contiguous q1 interval to be long enough."""
+
+    minimum_required_input_workspace_rad: float
+    criteria: LinkageWorkspaceCriteria
+    name: str = "minimum_usable_input_workspace"
+
+    def __post_init__(self) -> None:
+        _require_nonnegative_finite(
+            "minimum_required_input_workspace_rad",
+            self.minimum_required_input_workspace_rad,
+        )
+        if not isinstance(self.criteria, LinkageWorkspaceCriteria):
+            raise TypeError("criteria must be LinkageWorkspaceCriteria")
+
+    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
+        workspace = evaluate_linkage_workspace(context, self.criteria)
+        return (
+            self.minimum_required_input_workspace_rad
+            - workspace.usable_input_workspace_rad,
+        )
 
 
 @dataclass(frozen=True)
@@ -50,118 +86,129 @@ class MinimumAnchorDorsalOffset:
 
 @dataclass(frozen=True)
 class MinimumTransmissionMargin:
-    """Require every loop/sample margin from a singular angle to exceed a limit."""
+    """Require every available core-sample transmission margin to meet a limit."""
 
-    minimum_margin_rad: float
+    criteria: LinkageWorkspaceCriteria
+    core_input_workspace_rad: float
     name: str = "minimum_transmission_margin"
 
     def __post_init__(self) -> None:
-        if (
-            isinstance(self.minimum_margin_rad, bool)
-            or not isinstance(self.minimum_margin_rad, Real)
-            or not math.isfinite(self.minimum_margin_rad)
-            or not 0.0 <= self.minimum_margin_rad <= math.pi / 2.0
-        ):
-            raise ValueError("minimum_margin_rad must be finite and within [0, pi/2]")
+        if not isinstance(self.criteria, LinkageWorkspaceCriteria):
+            raise TypeError("criteria must be LinkageWorkspaceCriteria")
+        _require_positive_finite(
+            "core_input_workspace_rad",
+            self.core_input_workspace_rad,
+        )
 
     def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
+        indices = core_sample_indices(context, self.core_input_workspace_rad)
         residuals: list[float] = []
-        for index in range(context.requested_sample_count):
+        for index in indices:
             for angles in (
                 context.transmission_angle_loop_1_rad,
                 context.transmission_angle_loop_2_rad,
             ):
                 if index >= len(angles):
-                    residuals.append(math.inf)
+                    residuals.append(0.0)
                     continue
                 angle = angles[index]
                 margin = min(angle, math.pi - angle)
-                residuals.append(self.minimum_margin_rad - margin)
+                residuals.append(self.criteria.minimum_transmission_margin_rad - margin)
         return tuple(residuals)
 
 
 @dataclass(frozen=True)
 class MonotonicFlexion:
-    """Require one positive output-flexion magnitude to increase with input."""
+    """Require a joint's flexion to increase across the core workspace."""
 
     joint: JointName
-    minimum_motion_ratio: float = 0.0
+    criteria: LinkageWorkspaceCriteria
+    core_input_workspace_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.joint not in ("q2", "q3"):
-            raise ValueError("joint must be 'q2' or 'q3'")
-        _require_finite("minimum_motion_ratio", self.minimum_motion_ratio)
+        _validate_joint(self.joint)
+        if not isinstance(self.criteria, LinkageWorkspaceCriteria):
+            raise TypeError("criteria must be LinkageWorkspaceCriteria")
+        _require_positive_finite(
+            "core_input_workspace_rad",
+            self.core_input_workspace_rad,
+        )
         object.__setattr__(self, "name", f"monotonic_flexion_{self.joint}")
 
     def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        ratios = _available_motion_ratios(context, self.joint)
-        residuals = tuple(self.minimum_motion_ratio - ratio for ratio in ratios)
-        missing = context.requested_sample_count - len(residuals)
-        return residuals + (math.inf,) * max(0, missing)
+        indices = core_sample_indices(context, self.core_input_workspace_rad)
+        ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
+        minimum = getattr(self.criteria, f"{self.joint}_minimum_motion_ratio")
+        residuals = tuple(minimum - ratio for ratio in ratios)
+        return _pad_missing(residuals, len(indices))
 
 
 @dataclass(frozen=True)
 class MaximumMotionRatio:
-    """Bound one positive output/input flexion motion ratio from above."""
+    """Bound a joint's positive output/input flexion ratio in the core."""
 
     joint: JointName
-    maximum_motion_ratio: float
+    criteria: LinkageWorkspaceCriteria
+    core_input_workspace_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.joint not in ("q2", "q3"):
-            raise ValueError("joint must be 'q2' or 'q3'")
-        _require_nonnegative_finite(
-            "maximum_motion_ratio",
-            self.maximum_motion_ratio,
+        _validate_joint(self.joint)
+        if not isinstance(self.criteria, LinkageWorkspaceCriteria):
+            raise TypeError("criteria must be LinkageWorkspaceCriteria")
+        _require_positive_finite(
+            "core_input_workspace_rad",
+            self.core_input_workspace_rad,
         )
         object.__setattr__(self, "name", f"maximum_motion_ratio_{self.joint}")
 
     def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        ratios = _available_motion_ratios(context, self.joint)
-        residuals = tuple(
-            ratio - self.maximum_motion_ratio
-            for ratio in ratios
-        )
-        missing = context.requested_sample_count - len(residuals)
-        return residuals + (math.inf,) * max(0, missing)
+        indices = core_sample_indices(context, self.core_input_workspace_rad)
+        ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
+        maximum = getattr(self.criteria, f"{self.joint}_maximum_motion_ratio")
+        residuals = tuple(ratio - maximum for ratio in ratios)
+        return _pad_missing(residuals, len(indices))
 
 
 @dataclass(frozen=True)
-class MinimumEndpointFlexion:
-    """Require one output joint to reach a minimum flexion at the sweep endpoint."""
+class MinimumFlexionAtInput:
+    """Require one joint to reach its minimum at an exact input-flexion sample."""
 
     joint: JointName
+    input_flexion_rad: float
     minimum_flexion_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.joint not in ("q2", "q3"):
-            raise ValueError("joint must be 'q2' or 'q3'")
+        _validate_joint(self.joint)
+        _require_positive_finite("input_flexion_rad", self.input_flexion_rad)
         _require_nonnegative_finite("minimum_flexion_rad", self.minimum_flexion_rad)
-        object.__setattr__(self, "name", f"minimum_endpoint_flexion_{self.joint}")
+        object.__setattr__(self, "name", f"minimum_flexion_at_input_{self.joint}")
 
     def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        values = _joint_flexion(context, self.joint)
-        if not context.complete_workspace or not values:
-            return (math.inf,)
-        return (self.minimum_flexion_rad - values[-1],)
+        indices = core_sample_indices(context, self.input_flexion_rad)
+        endpoint_index = indices[-1]
+        values = (
+            context.q2_flexion_rad
+            if self.joint == "q2"
+            else context.q3_flexion_rad
+        )
+        if endpoint_index >= len(values):
+            return (0.0,)
+        return (self.minimum_flexion_rad - values[endpoint_index],)
 
 
-def _available_motion_ratios(
-    context: LinkageEvaluation,
-    joint: JointName,
+def _pad_missing(
+    residuals: tuple[float, ...],
+    requested_count: int,
 ) -> tuple[float, ...]:
-    return (
-        context.dq2_flexion_dq1_flexion
-        if joint == "q2"
-        else context.dq3_flexion_dq1_flexion
-    )
+    return residuals + (0.0,) * max(0, requested_count - len(residuals))
 
 
-def _joint_flexion(context: LinkageEvaluation, joint: JointName) -> tuple[float, ...]:
-    return context.q2_flexion_rad if joint == "q2" else context.q3_flexion_rad
+def _validate_joint(joint: JointName) -> None:
+    if joint not in ("q2", "q3"):
+        raise ValueError("joint must be 'q2' or 'q3'")
 
 
 def _require_finite(name: str, value: float) -> None:
@@ -179,11 +226,18 @@ def _require_nonnegative_finite(name: str, value: float) -> None:
         raise ValueError(f"{name} must be non-negative")
 
 
+def _require_positive_finite(name: str, value: float) -> None:
+    _require_finite(name, value)
+    if value <= 0.0:
+        raise ValueError(f"{name} must be positive")
+
+
 __all__ = [
-    "FullWorkspaceKinematicValidity",
+    "CoreWorkspaceKinematicValidity",
     "MaximumMotionRatio",
     "MinimumAnchorDorsalOffset",
-    "MinimumEndpointFlexion",
+    "MinimumFlexionAtInput",
     "MinimumTransmissionMargin",
+    "MinimumUsableInputWorkspace",
     "MonotonicFlexion",
 ]
