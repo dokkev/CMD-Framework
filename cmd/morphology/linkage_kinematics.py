@@ -1,4 +1,4 @@
-"""Closed-form kinematics for the CLEAR finger linkage."""
+"""Closed-form kinematics for the CLEAR planar finger linkage."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from numbers import Real
 
 from .linkage import FingerLinkage
-from .linkage_parameter import AnchorYZ
+from .linkage_parameter import PointYZ
 
 
 _GEOMETRIC_TOLERANCE = 1e-10
@@ -19,139 +19,105 @@ class KinematicClosureError(ValueError):
 
 @dataclass(frozen=True)
 class LinkagePose:
-    """One posed YZ configuration; q angles are changes from full extension."""
+    """One posed YZ configuration; q angles are changes from reference."""
 
     q1_rad: float
     q2_rad: float
     q3_rad: float
-    o: AnchorYZ
-    a: AnchorYZ
-    b: AnchorYZ
-    c: AnchorYZ
-    op: AnchorYZ
-    ap: AnchorYZ
-    bp: AnchorYZ
-    cp: AnchorYZ
+    o: PointYZ
+    a: PointYZ
+    b: PointYZ
+    c: PointYZ
+    op: PointYZ
+    ap: PointYZ
+    bp: PointYZ
+    cp: PointYZ
 
 
 @dataclass(frozen=True)
 class LinkageKinematics:
-    """Solve the coupling loops from flexion measured at the extended pose.
+    """Solve the two coupler loops from the fully extended reference pose.
 
-    ``q1``, ``q2``, and ``q3`` are angular changes from the neutral extended
-    configuration, not the absolute link orientations. The physical hinge at
-    ``A`` remains in the model; distal motion comes from both loop closures.
+    ``q1``, ``q2``, and ``q3`` are angular changes from the stored reference
+    configuration. Circle-intersection branches are fixed by the reference
+    assembly, so solutions do not depend on call order or motion history.
     """
 
     linkage: FingerLinkage
     _loop_1_branch: int = field(init=False, repr=False)
     _loop_2_branch: int = field(init=False, repr=False)
-    _reference_theta1_rad: float = field(init=False, repr=False)
-    _reference_theta2_rad: float = field(init=False, repr=False)
-    _reference_theta3_rad: float = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.linkage, FingerLinkage):
             raise TypeError("linkage must be a FingerLinkage instance")
 
         reference = self.linkage.reference_positions
-        reference_theta1 = math.atan2(
-            reference.a.z_mm - reference.o.z_mm,
-            reference.a.y_mm - reference.o.y_mm,
+        object.__setattr__(
+            self,
+            "_loop_1_branch",
+            _reference_branch_sign(reference.a, reference.op, reference.bp, "O'-B'"),
         )
-        reference_theta2 = math.atan2(
-            reference.b.z_mm - reference.a.z_mm,
-            reference.b.y_mm - reference.a.y_mm,
+        object.__setattr__(
+            self,
+            "_loop_2_branch",
+            _reference_branch_sign(reference.b, reference.ap, reference.cp, "A'-C'"),
         )
-        reference_theta3 = math.atan2(
-            reference.c.z_mm - reference.b.z_mm,
-            reference.c.y_mm - reference.b.y_mm,
-        )
-        loop_1_branch = _reference_branch_sign(
-            reference.a,
-            reference.op,
-            reference.bp,
-            "O'-B'",
-        )
-        loop_2_branch = _reference_branch_sign(
-            reference.b,
-            reference.ap,
-            reference.cp,
-            "A'-C'",
-        )
-        object.__setattr__(self, "_loop_1_branch", loop_1_branch)
-        object.__setattr__(self, "_loop_2_branch", loop_2_branch)
-        object.__setattr__(self, "_reference_theta1_rad", reference_theta1)
-        object.__setattr__(self, "_reference_theta2_rad", reference_theta2)
-        object.__setattr__(self, "_reference_theta3_rad", reference_theta3)
 
     def solve(self, q1_rad: float) -> LinkagePose:
-        """Return the deterministic closed-chain pose for ``q1_rad``.
-
-        The extended pose defines the zero of all three returned flexion
-        angles. ``q1_rad`` rotates the proximal body from its OA' reference;
-        ``q2_rad`` and ``q3_rad`` are principal relative joint-angle changes
-        from neutral, wrapped to ``[-pi, pi]``.
-        """
+        """Return the deterministic closed-chain pose for ``q1_rad``."""
 
         _require_finite_angle(q1_rad)
         reference = self.linkage.reference_positions
         parameters = self.linkage.parameters
-        main = parameters.main_chain
-        coupling = parameters.coupling
 
         o = reference.o
-        theta1 = self._reference_theta1_rad + q1_rad
-        a = _add(o, _rotate(AnchorYZ(main.proximal_length_mm, 0.0), theta1))
-        ap = _add(o, _rotate(coupling.proximal_anchor, theta1))
+        a = _add(o, _rotate(parameters.a_from_o, q1_rad))
+        ap = _add(o, _rotate(parameters.a_prime_from_o, q1_rad))
 
-        middle_anchor_radius = reference.a.distance_to(reference.bp)
         bp_candidates = _circle_intersections(
             a,
             reference.op,
-            middle_anchor_radius,
+            _length(parameters.b_prime_from_a),
             self.linkage.coupler_1_length_mm,
             "O'-B'",
         )
-        selected_bp = _select_branch(
+        bp = _select_branch(
             a,
             reference.op,
             bp_candidates,
             self._loop_1_branch,
             "O'-B'",
         )
-        theta2 = _signed_rotation(coupling.middle_anchor, _subtract(selected_bp, a))
-        q2_rad = _wrap_angle(
-            theta2
-            - theta1
-            - (self._reference_theta2_rad - self._reference_theta1_rad)
+        delta_middle = _signed_rotation(
+            parameters.b_prime_from_a,
+            _subtract(bp, a),
         )
-        bp = _add(a, _rotate(coupling.middle_anchor, theta2))
-        b = _add(a, _rotate(AnchorYZ(main.middle_length_mm, 0.0), theta2))
+        q2_rad = _wrap_angle(delta_middle - q1_rad)
+        b = _add(a, _rotate(parameters.b_from_a, delta_middle))
 
-        distal_anchor_radius = reference.b.distance_to(reference.cp)
         cp_candidates = _circle_intersections(
             b,
             ap,
-            distal_anchor_radius,
+            _length(parameters.c_prime_from_b),
             self.linkage.coupler_2_length_mm,
             "A'-C'",
         )
-        selected_cp = _select_branch(
+        cp = _select_branch(
             b,
             ap,
             cp_candidates,
             self._loop_2_branch,
             "A'-C'",
         )
-        theta3 = _signed_rotation(coupling.distal_anchor, _subtract(selected_cp, b))
-        q3_rad = _wrap_angle(
-            theta3
-            - theta2
-            - (self._reference_theta3_rad - self._reference_theta2_rad)
+        delta_distal = _signed_rotation(
+            parameters.c_prime_from_b,
+            _subtract(cp, b),
         )
-        cp = _add(b, _rotate(coupling.distal_anchor, theta3))
-        c = _add(b, _rotate(AnchorYZ(main.distal_length_mm, 0.0), theta3))
+        q3_rad = _wrap_angle(delta_distal - delta_middle)
+        c = _add(
+            b,
+            _rotate(PointYZ(parameters.bc_length_mm, 0.0), delta_distal),
+        )
 
         return LinkagePose(
             q1_rad=q1_rad,
@@ -169,16 +135,16 @@ class LinkageKinematics:
 
 
 def _circle_intersections(
-    center_0: AnchorYZ,
-    center_1: AnchorYZ,
+    center_0: PointYZ,
+    center_1: PointYZ,
     radius_0: float,
     radius_1: float,
     loop_name: str,
-) -> tuple[AnchorYZ, ...]:
+) -> tuple[PointYZ, ...]:
     """Return zero, one, or two intersections of two planar circles."""
 
     center_delta = _subtract(center_1, center_0)
-    center_distance = math.hypot(center_delta.y_mm, center_delta.z_mm)
+    center_distance = _length(center_delta)
     scale = max(1.0, center_distance, radius_0, radius_1)
     length_tolerance = _GEOMETRIC_TOLERANCE * scale
 
@@ -217,7 +183,7 @@ def _circle_intersections(
         center_delta.y_mm / center_distance,
         center_delta.z_mm / center_distance,
     )
-    midpoint = AnchorYZ(
+    midpoint = PointYZ(
         center_0.y_mm + along * unit[0],
         center_0.z_mm + along * unit[1],
     )
@@ -225,26 +191,22 @@ def _circle_intersections(
         return (midpoint,)
 
     perpendicular = (-unit[1], unit[0])
-    offset = AnchorYZ(height * perpendicular[0], height * perpendicular[1])
+    offset = PointYZ(height * perpendicular[0], height * perpendicular[1])
     return (_add(midpoint, offset), _subtract(midpoint, offset))
 
 
 def _reference_branch_sign(
-    center_0: AnchorYZ,
-    center_1: AnchorYZ,
-    reference_point: AnchorYZ,
+    center_0: PointYZ,
+    center_1: PointYZ,
+    reference_point: PointYZ,
     loop_name: str,
 ) -> int:
-    """Return the reference cross-product sign used to select an assembly branch."""
+    """Return the reference cross-product sign used to select a branch."""
 
     center_delta = _subtract(center_1, center_0)
     point_delta = _subtract(reference_point, center_0)
     cross = _cross(center_delta, point_delta)
-    scale = max(
-        1.0,
-        math.hypot(center_delta.y_mm, center_delta.z_mm)
-        * math.hypot(point_delta.y_mm, point_delta.z_mm),
-    )
+    scale = max(1.0, _length(center_delta) * _length(point_delta))
     if abs(cross) <= _GEOMETRIC_TOLERANCE * scale:
         raise KinematicClosureError(
             f"{loop_name} reference assembly branch is degenerate"
@@ -253,12 +215,12 @@ def _reference_branch_sign(
 
 
 def _select_branch(
-    center_0: AnchorYZ,
-    center_1: AnchorYZ,
-    candidates: tuple[AnchorYZ, ...],
+    center_0: PointYZ,
+    center_1: PointYZ,
+    candidates: tuple[PointYZ, ...],
     reference_sign: int,
     loop_name: str,
-) -> AnchorYZ:
+) -> PointYZ:
     if len(candidates) == 1:
         return candidates[0]
 
@@ -271,38 +233,40 @@ def _select_branch(
     )
 
 
-def _signed_rotation(local: AnchorYZ, world: AnchorYZ) -> float:
-    """Return the signed planar rotation from ``local`` to ``world``."""
+def _signed_rotation(reference: PointYZ, current: PointYZ) -> float:
+    """Return the signed change rotating a reference vector to its current pose."""
 
-    local_norm = math.hypot(local.y_mm, local.z_mm)
-    world_norm = math.hypot(world.y_mm, world.z_mm)
-    if local_norm <= _GEOMETRIC_TOLERANCE or world_norm <= _GEOMETRIC_TOLERANCE:
-        raise KinematicClosureError("cannot recover link orientation from a zero anchor vector")
-    return math.atan2(_cross(local, world), _dot(local, world))
+    if _length(reference) <= _GEOMETRIC_TOLERANCE or _length(current) <= _GEOMETRIC_TOLERANCE:
+        raise KinematicClosureError("cannot determine rotation from a zero-length vector")
+    return math.atan2(_cross(reference, current), _dot(reference, current))
 
 
-def _rotate(point: AnchorYZ, angle_rad: float) -> AnchorYZ:
+def _rotate(point: PointYZ, angle_rad: float) -> PointYZ:
     cosine = math.cos(angle_rad)
     sine = math.sin(angle_rad)
-    return AnchorYZ(
+    return PointYZ(
         cosine * point.y_mm - sine * point.z_mm,
         sine * point.y_mm + cosine * point.z_mm,
     )
 
 
-def _add(first: AnchorYZ, second: AnchorYZ) -> AnchorYZ:
-    return AnchorYZ(first.y_mm + second.y_mm, first.z_mm + second.z_mm)
+def _add(first: PointYZ, second: PointYZ) -> PointYZ:
+    return PointYZ(first.y_mm + second.y_mm, first.z_mm + second.z_mm)
 
 
-def _subtract(first: AnchorYZ, second: AnchorYZ) -> AnchorYZ:
-    return AnchorYZ(first.y_mm - second.y_mm, first.z_mm - second.z_mm)
+def _subtract(first: PointYZ, second: PointYZ) -> PointYZ:
+    return PointYZ(first.y_mm - second.y_mm, first.z_mm - second.z_mm)
 
 
-def _dot(first: AnchorYZ, second: AnchorYZ) -> float:
+def _length(point: PointYZ) -> float:
+    return math.hypot(point.y_mm, point.z_mm)
+
+
+def _dot(first: PointYZ, second: PointYZ) -> float:
     return first.y_mm * second.y_mm + first.z_mm * second.z_mm
 
 
-def _cross(first: AnchorYZ, second: AnchorYZ) -> float:
+def _cross(first: PointYZ, second: PointYZ) -> float:
     return first.y_mm * second.z_mm - first.z_mm * second.y_mm
 
 
@@ -312,7 +276,7 @@ def _wrap_angle(angle_rad: float) -> float:
     return math.remainder(angle_rad, 2.0 * math.pi)
 
 
-def _require_finite_angle(q1_rad: object) -> None:
+def _require_finite_angle(q1_rad: float) -> None:
     if (
         isinstance(q1_rad, bool)
         or not isinstance(q1_rad, Real)

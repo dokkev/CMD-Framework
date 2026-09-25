@@ -1,325 +1,728 @@
-제부터는 각 부품을 따로 parameterize하는 단계가 아니라, CLEAR Hand 전체 design vector를 코드에서 어떻게 표현할지를 정하면 돼.
-내가 보기엔 지금 제일 먼저 해야 할 건 현재 HandMorphology라는 이름의 의미를 좁히는 것이야. 지금 HandMorphology는 사실 전체 hand morphology가 아니라 joint layout / reference frame graph만 표현하고 있거든.
-나는 구조를 이렇게 잡는 게 제일 깔끔하다고 봐.
-HandMorphologyParameters        <- optimizer가 보는 전체 design
-│
-├── fingertip                  <- shared morphology
-│   ├── shared shape
-│   └── per-digit total length
-│
-├── linkage                    <- shared ordinary-finger linkage
-│
-└── layout                     <- MCP placement + thumb layout
+CODEX TASK
+==========
 
-            ↓ construct
+Task:
+Refactor the CLEAR finger linkage parameterization so the fully-extended
+reference geometry is specified directly by explicit 2D YZ translations from
+named reference points, instead of proximal/middle/distal link lengths plus
+local anchor coordinates and recovered reference rotations.
 
-HandMorphology                 <- derived physical hand
-│
-├── fingertips[5]
-├── linkage
-└── layout / joint transforms
-즉 현재의:
-HandMorphologyParameters
-HandMorphology
-는 각각
-HandLayoutParameters
-HandLayout
-로 바꾸고,
-진짜 전체 hand를 나타내는 이름을 HandMorphology*가 가져가는 것이 의미적으로 맞아.
-1. Hand-level aggregate
-예를 들면 최종적으로 optimizer-facing API는 이렇게.
-@dataclass(frozen=True)
-class HandMorphologyParameters:
-    fingertip: FingertipFamilyParameters
-    fingertip_lengths: FingertipLengths
-    linkage: FingerLinkageParameters
-    layout: HandLayoutParameters
-그리고:
-@dataclass(frozen=True)
-class FingertipLengths:
-    index_mm: float
-    middle_mm: float
-    ring_mm: float
-    little_mm: float
-    thumb_mm: float
-그러면 optimizer 입장에서는 정말 우리가 방금 정리한
-\[
-d=
-[d_\text{tip}, L_I,L_M,L_R,L_L,L_T,
- d_\text{linkage},d_\text{layout}]
-\]가 그대로 코드 구조로 드러남.
-이게 좋은 이유는 sharing relationship 자체가 type structure에 박힌다는 것이야.
-잘못해서:
-index_linkage
-middle_linkage
-ring_linkage
-같은 걸 만들 여지가 없어.
-2. Fingertip은 지금 parameterization을 한 번 손보는 게 좋음
-현재 코드를 보니까:
-PadParameters
-    pad_length_mm
-    tip_length_mm
 
-PhalanxParameters
-    carrier_length_mm
-로 되어 있어.
-그런데 이제 우리가 원하는 의미는:
-distal morphology는 모든 손가락이 같고, 손가락별로 전체 길이만 다르다.
+OBJECTIVE
+=========
 
-잖아.
-그러면 pad_length와 carrier_length를 각각 per-digit로 주는 것보다 한 개의 total length에서 둘 다 derive하는 게 훨씬 좋음.
-현재 기본값을 보면:
-pad length     = 40 mm
-carrier length = 35 mm
-tip length     = 15 mm
-즉 carrier가 distal tip 끝에서 5 mm 안쪽에서 끝나.
-이걸
-\[
-d_\text{carrier-inset}
-=
-L_\text{tip}-L_\text{carrier}
-\]로 정의하면 현재는:
-\[
-d_\text{carrier-inset}=5\text{ mm}
-\]이야.
-그러면 각 digit에 대해 total length \(L_i\)만 주고:
-\[
-L_{\text{pad},i}=L_i
-\]\[
-L_{\text{carrier},i}
-=
-L_i-d_\text{carrier-inset}
-\]로 만들면 돼.
-이 방식이 특히 예쁜 이유가 하나 있는데, 지금 fingertip validation에 들어가는:
-\[
-\frac{
-L_{\text{carrier}}-L_{\text{straight}}
-}{
-L_{\text{tip}}
-}
-\]에서
-\[
-L_{\text{straight}}=L_i-L_{\text{tip}}
-\]니까
-\[
-L_{\text{carrier}}-L_{\text{straight}}
-=
-(L_i-d)-(L_i-L_{\text{tip}})
-=
-L_{\text{tip}}-d
-\]가 돼.
-전체 길이 \(L_i\)가 사라짐.
-즉 손가락 길이를 늘려도 distal ellipsoid/carrier penetration morphology가 정확히 동일하게 유지돼.
-이게 우리가 말하는:
-같은 fingertip 구조인데 길이만 다르다
+Replace the current linkage design representation:
 
-를 수학적으로도 가장 깔끔하게 구현하는 방식이야.
-실제로 바뀌는 건 proximal straight section 길이뿐.
-그래서 fingertip parameter는 이렇게 생각할 수 있음
-Shared Fingertip Morphology
-├── carrier width
-├── carrier height
-├── stem width
-├── stem height
-├── vertical pad width
-├── vertical pad height
-├── elliptical pad width
-├── elliptical pad height
-├── tip length
-└── carrier distal inset
+    MainChainParameters
+    CouplingAnchorParameters
+    proximal / middle / distal body terminology
+    implicit recovery of reference body orientations
 
-Per-digit
-└── total length
-즉 기존의
-pad_length_mm
-carrier_length_mm
-를 independent shared parameter로 두지 않는 거지.
-carrier_distal_inset_mm가 shared morphology parameter가 되고.
-3. Linkage는 지금 구조 거의 그대로
-여기는 별로 손댈 게 없어.
-FingerLinkageParameters
-    main_chain
-    coupling
-하나가 전체 ordinary finger에 공유.
-그리고:
-FingerLinkage(parameters)
-하나만 construct.
-Hand-level object에서는:
-@property
-def linkage(self) -> FingerLinkage:
-    return FingerLinkage(self.parameters.linkage)
-정도로 끝.
-굳이:
-index_linkage
-middle_linkage
-ring_linkage
-little_linkage
-객체 네 개를 만들 필요도 없어. geometry definition은 하나니까.
-실제 pose를 계산할 때만 같은 linkage model을 각 finger transform에 attach하면 됨.
-4. 지금 HandMorphology는 HandLayout으로
-현재:
-HandMorphologyParameters
-HandMorphology
-가 하는 일은 정확히:
-MCP placement
-thumb axis placement
-joint transforms
-actuator transforms
-이니까 나는 이름을:
-HandLayoutParameters
-HandLayout
-로 바꾸는 걸 추천해.
-그러면 layout variable은:
-@dataclass(frozen=True)
-class HandLayoutParameters:
-    middle_mcp_aa: HandPlanePoint
-    ring_mcp_aa: HandPlanePoint
-    little_mcp_aa: HandPlanePoint
+with a direct reference-coordinate representation.
 
-    thumb_cmc_ro: HandPlanePoint
-    theta_rad: float
-    ro_raa_distance_mm: float
-    phi_rad: float
-딱 이것만 남음.
-현재 있는:
-raa_mcp_fe_distance_mm
-는 삭제.
-5. Fixed architecture는 HandLayout 내부 canonical constant
-여기에는 이제 확정된 값들이 들어감.
-ORDINARY_MCP_AA_TO_MCP_FE = T(23.5, 0.0, 16.75)
+The user-facing linkage inputs must make the reference origin of every point
+explicit.
 
-THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM = 39.5
-THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM = 35.5
-그리고 chain:
-thumb_cmc_ro = (
-    T(x, y, 0)
-    @ Rz(theta)
-)
+Canonical reference-pose ownership is:
 
-thumb_cmc_raa = (
-    thumb_cmc_ro
-    @ Tx(ro_raa_distance)
-)
+    O frame / O reference point:
+        O'
+        A
+        A'
 
-thumb_mcp_fe = (
-    thumb_cmc_raa
-    @ Tx(39.5)
-    @ Rz(phi)
-)
+    A reference point:
+        B
+        B'
 
-thumb_ip_fe = (
-    thumb_mcp_fe
-    @ Tx(35.5)
-)
-그래서 최종 joint graph에 이제:
-thumb_cmc_ro
-thumb_cmc_raa
-thumb_mcp_fe
-thumb_ip_fe
-까지 들어감.
-thumb_ip_fe에도 XM335가 붙으니까 actuator transforms / packaging도 자연스럽게 하나 더 생기고.
-6. 최종 HandMorphology
-그러면 진짜 전체 object는 꽤 단순해.
-개념적으로:
-@dataclass(frozen=True)
-class HandMorphology:
-    parameters: HandMorphologyParameters
+    B reference point:
+        C
+        C'
 
-    @property
-    def layout(self) -> HandLayout:
-        return HandLayout(self.parameters.layout)
+There are no user-specified reference rotation angles.
 
-    @property
-    def linkage(self) -> FingerLinkage:
-        return FingerLinkage(self.parameters.linkage)
+The fully-extended reference assembly is defined by:
 
-    @property
-    def fingertips(self) -> dict[str, Fingertip]:
-        ...
-예를 들면:
-hand.fingertips["index"]
-hand.fingertips["thumb"]
+    BC parallel to OC
 
-hand.linkage
+with BC pointing in the same distal direction as OC.
 
-hand.layout.joint_transforms
-hand.layout.actuator_transforms
-이렇게.
-즉 HandMorphology 자체는 뭔가 거대한 solver가 아니라 shared morphology pieces를 하나의 physical design으로 materialize하는 composition root 역할만 하면 돼.
-이게 꽤 중요해.
-7. Constraint도 자연스럽게 정리됨
-현재:
-check_actuator_packaging(morphology)
-는 실제로 layout만 필요하잖아.
-그래서 당장은:
-check_actuator_packaging(hand.layout)
-가 더 정확해.
-나중에 전체 constraint evaluator를 만들면:
-evaluate_design(hand)
-안에서:
-actuator packaging
-linkage validity
-fingertip validity
-finger spacing
-manufacturing clearance
-...
-를 종합하면 됨.
-지금부터 HandMorphology에 constraint logic까지 집어넣지는 않는 게 좋아.
-8. 코드 ownership은 이렇게
-현재 directory structure를 유지하면서 충분히 가능해.
-morphology/
-├── fingertip_parameter.py
-│   shared fingertip morphology
-│   concrete/per-digit length representation
-│
-├── fingertip.py
-│   concrete fingertip geometry
-│
-├── linkage_parameter.py
-├── linkage.py
-├── linkage_kinematics.py
-├── linkage_seed.py
-│
-├── hand_parameter.py
-│   HandLayoutParameters
-│   FingertipLengths
-│   HandMorphologyParameters   <- whole hand aggregate
-│
-└── hand.py
-    HandLayout
-    HandMorphology
-    fixed architectural transforms
-새 파일 안 만들어도 됨.
-지금 폴더를 다시 깔끔하게 만든 직후니까 나도 이게 좋아 보여.
-9. 구현 순서
-나는 한 번에 다 뜯지 않고 이 순서로 갈 것 같아.
-1. HandLayout 정리
-   - current HandMorphology rename
-   - raa_mcp_fe_distance_mm 제거
-   - fixed 39.5 mm 적용
-   - IP-FE 35.5 mm 추가
-   - thumb_ip_fe actuator까지 추가
-2. Fingertip length semantics 정리
-   - pad_length / carrier_length independent 구조 제거
-   - shared distal morphology + per-digit total length
-   - carrier_distal_inset 도입
-3. whole-hand aggregate 추가
-   - FingertipLengths
-   - top-level HandMorphologyParameters
-   - top-level HandMorphology
-4. consumer 변경
-   - packaging → hand.layout
-   - URDF → hand.layout
-   - 향후 optimizer → top-level HandMorphologyParameters
-이렇게 하는 게 가장 안전해.
-그리고 지금 이 설계에서 제일 중요한 결정은 fingertip length를 바꿀 때 무엇을 고정할지인데, 나는 강하게:
-\[
-\boxed{
-\text{tip geometry fixed}
-+
-\text{carrier distal inset fixed}
-+
-\text{straight section만 길이 변화}
-}
-\]를 추천해.
-이러면 “모든 fingertip은 같은 morphology이고 전체 길이만 다르다”는 말이 코드에서도 정말 정확하게 성립해.
+Do NOT require O-A'-B'-B-C collinearity.
+Do NOT require OA to be horizontal.
+Do NOT require OA' to be horizontal.
+Do NOT recover reference body angles by forcing coupling anchors onto a line.
+
+
+ESTABLISHED CONTEXT
+===================
+
+Repository:
+    https://github.com/dokkev/CMD-Framework
+
+Relevant files currently include:
+
+    cmd/morphology/linkage_parameter.py
+    cmd/morphology/linkage.py
+    cmd/morphology/linkage_kinematics.py
+    cmd/morphology/linkage_seed.py
+    cmd/morphology/__init__.py
+
+    tests/test_linkage.py
+    tests/test_linkage_kinematics.py
+
+    scripts/animate_linkage.py
+
+    docs/design/morphology_source_of_truth.md
+
+Canonical linkage plane:
+
+    X = lateral / revolute-axis direction
+    Y = distal
+    Z = dorsal
+
+The mechanism is represented in the YZ plane.
+
+O is the linkage reference origin:
+
+    O = (0, 0)
+
+All coordinates described below are reference-pose YZ translations.
+
+There is no hidden frame rotation associated with an input coordinate.
+
+For example:
+
+    a_from_o = (y, z)
+
+means exactly:
+
+    A_reference = O_reference + a_from_o
+
+and:
+
+    b_from_a = (y, z)
+
+means exactly:
+
+    B_reference = A_reference + b_from_a
+
+The translation is expressed directly in the canonical YZ coordinates of the
+fully-extended reference assembly.
+
+Runtime linkage motion may rotate these stored reference vectors. That does
+not mean a reference rotation is part of the user input.
+
+
+CANONICAL PARAMETERIZATION
+==========================
+
+Use one small planar coordinate type with neutral terminology.
+
+Prefer:
+
+    PointYZ
+
+or an equivalently small neutral name.
+
+Do not retain `AnchorYZ` if it is then used for main joints A, B, and C;
+these are not all coupling anchors.
+
+The user-facing linkage parameters should be conceptually equivalent to:
+
+    @dataclass(frozen=True)
+    class FingerLinkageParameters:
+        o_prime_from_o: PointYZ
+
+        a_from_o: PointYZ
+        a_prime_from_o: PointYZ
+
+        b_from_a: PointYZ
+        b_prime_from_a: PointYZ
+
+        bc_length_mm: float
+        c_prime_from_b: PointYZ
+
+The exact field spelling may be adjusted only if clarity improves, but every
+field must make its reference point unambiguous.
+
+Do not use generic fields such as:
+
+    proximal_anchor
+    middle_anchor
+    distal_anchor
+
+Do not introduce:
+
+    proximal_reference_angle
+    middle_reference_angle
+    distal_reference_angle
+
+No reference angle input is needed.
+
+
+REFERENCE GEOMETRY
+==================
+
+Construct the reference geometry only by translation.
+
+Canonical construction:
+
+    O = (0, 0)
+
+    O' = O + o_prime_from_o
+
+    A  = O + a_from_o
+    A' = O + a_prime_from_o
+
+    B  = A + b_from_a
+    B' = A + b_prime_from_a
+
+    C  = B + (bc_length_mm, 0)
+    C' = B + c_prime_from_b
+
+Because the linkage plane uses +Y as distal, the fixed reference BC vector is:
+
+    B->C = (bc_length_mm, 0)
+
+in YZ coordinates.
+
+Therefore C is not an arbitrary 2D design point.
+
+Only its positive distal translation from B is independently parameterized.
+
+Do not expose `c_from_b` as an unconstrained 2D parameter when its Z component
+is architecturally fixed to zero.
+
+
+FULLY-EXTENDED DEFINITION
+=========================
+
+The reference pose is "fully extended" when:
+
+    BC || OC
+
+and BC and OC point in the same direction.
+
+Implement this geometrically, not through coupling-anchor collinearity.
+
+Equivalent robust validation is:
+
+    cross_2d(BC, OC) ~= 0
+    dot(BC, OC) > 0
+
+using an appropriate small numerical tolerance.
+
+Because BC is constructed along canonical +Y, this condition implies that B
+and C lie on the O-C distal line in the reference pose.
+
+This is intentional.
+
+The following are NOT fully-extended requirements:
+
+    OA horizontal
+    AB horizontal
+    OA' horizontal
+    A'B' horizontal
+    O-A'-B'-B-C collinear
+    A' or B' lying on the O-B-C line
+
+Remove any existing validation or reference construction that assumes those
+conditions.
+
+
+POINT OWNERSHIP
+===============
+
+The physical interpretation must remain explicit.
+
+`a_from_o`
+    A relative to O.
+    A belongs to the first moving rigid body about O.
+
+`a_prime_from_o`
+    A' relative to O.
+    A' is a coupling point rigidly attached to the same O-based moving body.
+
+`b_from_a`
+    B relative to A.
+    B belongs to the next rigid body about A.
+
+`b_prime_from_a`
+    B' relative to A.
+    B' is rigidly attached to the same A-based moving body.
+
+`bc_length_mm`
+    Positive B->C distal length in the reference pose.
+
+`c_prime_from_b`
+    C' relative to B.
+    C' is rigidly attached to the B-based distal body.
+
+`o_prime_from_o`
+    Fixed base coupling point O' relative to O.
+
+The important distinction is:
+
+    the reference coordinate is specified relative to a named point,
+    not relative to an implicitly rotated "proximal/middle/distal frame".
+
+
+DERIVED GEOMETRY
+================
+
+The following must be derived, not independently parameterized:
+
+    |OA| = norm(a_from_o)
+
+    |AB| = norm(b_from_a)
+
+    |BC| = bc_length_mm
+
+    |O'B'| = distance(O', B')
+
+    |A'C'| = distance(A', C')
+
+Reference world positions:
+
+    O, O', A, A', B, B', C, C'
+
+must be derived by the translation chain above.
+
+If useful for current callers, `FingerLinkage` may expose derived properties
+such as:
+
+    oa_length_mm
+    ab_length_mm
+    bc_length_mm
+    coupler_1_length_mm
+    coupler_2_length_mm
+
+but these must not become duplicate stored design inputs.
+
+
+LINKAGE KINEMATICS
+==================
+
+Update `linkage_kinematics.py` to consume the new reference-vector
+representation directly.
+
+Do not reconstruct hidden reference angles.
+
+The stored vectors already describe the zero/reference configuration.
+
+For runtime motion, treat rotations as changes from that reference pose.
+
+For an input proximal rotation change `q1_rad`:
+
+    A(q1)  = O + R(q1) * a_from_o
+    A'(q1) = O + R(q1) * a_prime_from_o
+
+O' remains fixed.
+
+Loop 1
+------
+
+B' belongs to the rigid body rotating about A.
+
+Its fixed radius is:
+
+    r_AB' = norm(b_prime_from_a)
+
+Its fixed coupling distance to O' is:
+
+    L_O'B'
+
+Use the existing circle-intersection / assembly-branch approach to solve the
+current B' position.
+
+After selecting the correct B' solution:
+
+    delta_middle =
+        signed_rotation(
+            b_prime_from_a,
+            B'_current - A_current
+        )
+
+Then:
+
+    B_current =
+        A_current + R(delta_middle) * b_from_a
+
+The returned relative joint change should be:
+
+    q2_rad = wrap(delta_middle - q1_rad)
+
+so q2 = 0 in the reference pose.
+
+
+Loop 2
+------
+
+C' belongs to the rigid body rotating about B.
+
+Its fixed radius is:
+
+    r_BC' = norm(c_prime_from_b)
+
+Its fixed coupling distance to current A' is:
+
+    L_A'C'
+
+Use circle intersection again and preserve the reference assembly branch.
+
+After selecting C':
+
+    delta_distal =
+        signed_rotation(
+            c_prime_from_b,
+            C'_current - B_current
+        )
+
+Then:
+
+    C_current =
+        B_current
+        + R(delta_distal) * (bc_length_mm, 0)
+
+and:
+
+    q3_rad = wrap(delta_distal - delta_middle)
+
+so q3 = 0 in the reference pose.
+
+This should eliminate the current need for stored/recovered:
+
+    _reference_theta1_rad
+    _reference_theta2_rad
+    _reference_theta3_rad
+
+Do not preserve those merely for compatibility if the new representation makes
+them unnecessary.
+
+
+ASSEMBLY BRANCH
+===============
+
+Preserve deterministic branch selection.
+
+The reference branch for loop 1 is defined by:
+
+    centers:
+        A_reference
+        O'_reference
+
+    reference point:
+        B'_reference
+
+The reference branch for loop 2 is defined by:
+
+    centers:
+        B_reference
+        A'_reference
+
+    reference point:
+        C'_reference
+
+Reuse the current cross-product branch-sign concept where appropriate.
+
+Do not replace the deterministic branch logic with "choose nearest" or another
+configuration-history-dependent heuristic.
+
+
+BASELINE_LINKAGE_V0
+===================
+
+Rewrite `BASELINE_LINKAGE_V0` using the new explicit reference-coordinate
+parameterization.
+
+The existing seed should be geometrically preserved unless a new baseline
+geometry has been explicitly supplied.
+
+Do not invent a new linkage shape during this refactor.
+
+Before deleting the old parameterization, derive its current fully-extended
+reference positions and use those to construct the equivalent new relative
+coordinates:
+
+    o_prime_from_o = O' - O
+
+    a_from_o       = A  - O
+    a_prime_from_o = A' - O
+
+    b_from_a       = B  - A
+    b_prime_from_a = B' - A
+
+    bc_length_mm   = |BC|
+
+    c_prime_from_b = C' - B
+
+Add a regression test demonstrating that the rewritten baseline produces the
+same reference positions and coupler lengths within an appropriate numerical
+tolerance.
+
+Do not round the baseline into a different mechanism merely to make the seed
+values look cleaner.
+
+The design-space constraint that A' and B' should lie dorsally above B may be
+added later when the design-space bounds/constraints are implemented.
+
+Do not silently change the current seed to satisfy that future constraint.
+
+
+REQUIRED CODE CHANGES
+=====================
+
+1. `cmd/morphology/linkage_parameter.py`
+
+   - Remove `MainChainParameters`.
+   - Remove `CouplingAnchorParameters`.
+   - Replace `AnchorYZ` with a neutral planar point/offset type such as
+     `PointYZ`.
+   - Define `FingerLinkageParameters` directly from explicit reference-relative
+     coordinates.
+   - Make every reference point clear from the field name.
+   - Validate only local structural requirements needed to construct the model:
+       - all coordinates finite
+       - `bc_length_mm` finite and positive
+   - Do not put optimizer bounds or unrelated design-space constraints here.
+
+
+2. `cmd/morphology/linkage.py`
+
+   - Replace the current recovered-angle reference construction with direct
+     translation composition.
+   - Remove the O-A'-B'-B-C collinearity requirement.
+   - Implement the BC || OC fully-extended validation.
+   - Keep coupler lengths derived.
+   - Expose derived main-link lengths if they are useful to callers.
+   - Keep `ReferencePositions` or an equally clear small immutable result type.
+
+
+3. `cmd/morphology/linkage_kinematics.py`
+
+   - Rewrite the solver to rotate reference vectors by motion deltas from the
+     reference configuration.
+   - Remove recovered reference-angle state.
+   - Preserve deterministic circle-intersection branch selection.
+   - Preserve the meaning that q1, q2, q3 are changes from the reference pose.
+   - `solve(0)` must reproduce the stored reference geometry.
+
+
+4. `cmd/morphology/linkage_seed.py`
+
+   - Port `BASELINE_LINKAGE_V0` to the new parameter representation.
+   - Preserve the current baseline geometry numerically.
+   - Do not invent new design values.
+
+
+5. `cmd/morphology/__init__.py`
+
+   - Update exports.
+   - Remove obsolete public exports for deleted parameter classes.
+   - Export only the neutral new linkage parameter API required by callers.
+
+
+6. Callers
+
+   Update directly affected callers, including:
+
+       scripts/animate_linkage.py
+
+   and any visualization/test code using the old parameter groups.
+
+   Do not add compatibility wrappers unless a real external API requirement is
+   documented in the repository.
+
+
+7. Source of Truth
+
+   Update:
+
+       docs/design/morphology_source_of_truth.md
+
+   so the linkage section clearly states:
+
+       O is reference origin.
+
+       Relative reference inputs:
+           O' from O
+           A from O
+           A' from O
+           B from A
+           B' from A
+           C from B only through positive BC distal length
+           C' from B
+
+       Fully extended:
+           BC parallel to OC, same direction.
+
+       No coupling-anchor collinearity assumption.
+       No user-provided reference rotation angles.
+
+
+IMPLEMENTATION RULES
+====================
+
+- Keep the mechanism planar in canonical YZ.
+- X remains zero for all linkage points.
+- Use millimetres.
+- Keep data immutable.
+- Prefer direct geometry over inferred hidden conventions.
+- User-facing fields must communicate their reference point in the name.
+- Do not use proximal/middle/distal terminology for the parameterization.
+- Do not recover a reference rotation solely to interpret user input.
+- Runtime rotations are allowed and required in `linkage_kinematics.py`;
+  "no rotation" applies to how the reference geometry is specified by the
+  user.
+- Derived values must not be duplicated as independent inputs.
+- Keep the change local to linkage morphology/kinematics and directly affected
+  callers.
+- Do not redesign the whole-hand morphology in this task.
+
+
+VALIDATION
+==========
+
+Run focused tests for:
+
+    tests/test_linkage.py
+    tests/test_linkage_kinematics.py
+
+and other directly affected linkage tests only.
+
+Required behavioral checks:
+
+1. Reference construction
+
+       O = (0, 0)
+
+       O' = O + o_prime_from_o
+       A  = O + a_from_o
+       A' = O + a_prime_from_o
+
+       B  = A + b_from_a
+       B' = A + b_prime_from_a
+
+       C  = B + (bc_length_mm, 0)
+       C' = B + c_prime_from_b
+
+
+2. Fully-extended condition
+
+   Verify:
+
+       BC x OC ~= 0
+       BC dot OC > 0
+
+   and verify that a non-parallel reference configuration is rejected.
+
+
+3. No obsolete collinearity requirement
+
+   Add a valid reference linkage where:
+
+       OA is not horizontal
+       A' is not on O-B-C
+       B' is not on O-B-C
+
+   while:
+
+       BC || OC
+
+   and confirm construction succeeds.
+
+
+4. Derived lengths
+
+   Verify:
+
+       OA
+       AB
+       BC
+       O'B'
+       A'C'
+
+   are correctly derived.
+
+
+5. Zero pose
+
+   Verify:
+
+       LinkageKinematics(linkage).solve(0)
+
+   reproduces the reference positions and:
+
+       q1 = 0
+       q2 = 0
+       q3 = 0
+
+
+6. Motion
+
+   Verify nonzero q1 closes both coupling loops and preserves:
+
+       |OA|
+       |AB|
+       |BC|
+       |O'B'|
+       |A'C'|
+
+   within tolerance.
+
+
+7. Baseline regression
+
+   Verify the new `BASELINE_LINKAGE_V0` reproduces the pre-refactor baseline
+   reference positions and coupler lengths within tolerance.
+
+
+HARD STOPS
+==========
+
+Stop and report instead of guessing if:
+
+- preserving the current `BASELINE_LINKAGE_V0` geometry cannot be determined
+  from the existing implementation;
+- the current kinematics depends on an undocumented physical constraint beyond
+  the two coupling loops;
+- a caller requires old `MainChainParameters` /
+  `CouplingAnchorParameters` semantics for a reason not visible in the repo;
+- implementing the refactor would require changing the hand-level morphology,
+  actuator geometry, or unrelated fingertip model.
+
+Do not invent new baseline coordinates to get past a failure.
+
+
+OUT OF SCOPE
+============
+
+Do not:
+
+- optimize the linkage;
+- define design-space bounds;
+- enforce future manufacturability constraints;
+- redesign actuator packaging;
+- change hand layout;
+- change fingertip morphology;
+- add 3D linkage motion;
+- add a new general-purpose kinematics library;
+- require A' or B' to be above B as part of this refactor unless that constraint
+  already has an explicit canonical numeric definition elsewhere.
+
+The A'/B' dorsal-placement rule can be implemented later as a design-space
+constraint.
+
+
+FINAL REPORT
+============
+
+Report only:
+
+1. New linkage parameter API
+2. How reference positions are constructed
+3. How the kinematics solver changed
+4. How `BASELINE_LINKAGE_V0` was preserved
+5. Focused test results
+6. Any unresolved issue
+
+STOP after completing the task.

@@ -1,29 +1,21 @@
 """Named initial designs for CLEAR linkage studies."""
 
 from .linkage import FingerLinkage
-from .linkage_parameter import (
-    AnchorYZ,
-    CouplingAnchorParameters,
-    FingerLinkageParameters,
-    MainChainParameters,
-)
+from .linkage_parameter import FingerLinkageParameters, PointYZ
 
 
-# Body proportions from the MotionGen prototype. At neutral extension,
-# O-A'-B'-B-C aligns; FingerLinkage derives both coupler lengths from that pose.
+# These translations were derived from the pre-refactor BASELINE_LINKAGE_V0
+# reference positions. Keep their full precision so the seed geometry and
+# coupler lengths remain unchanged.
 BASELINE_LINKAGE_V0 = FingerLinkage(
     FingerLinkageParameters(
-        main_chain=MainChainParameters(
-            proximal_length_mm=35.36,
-            middle_length_mm=25.50,
-            distal_length_mm=20.00,
-        ),
-        coupling=CouplingAnchorParameters(
-            base_anchor=AnchorYZ(10.00, 10.00),
-            proximal_anchor=AnchorYZ(29.70, -4.24),
-            middle_anchor=AnchorYZ(5.88, -3.92),
-            distal_anchor=AnchorYZ(-10.00, 5.00),
-        ),
+        o_prime_from_o=PointYZ(10.0, 10.0),
+        a_from_o=PointYZ(35.005085389255939, 4.997358991597482),
+        a_prime_from_o=PointYZ(30.001126645511164, 0.0),
+        b_from_a=PointYZ(25.005787138053947, -4.996059407806905),
+        b_prime_from_a=PointYZ(4.998018646790356, -4.996059407806905),
+        bc_length_mm=20.0,
+        c_prime_from_b=PointYZ(-10.0, 5.0),
     )
 )
 

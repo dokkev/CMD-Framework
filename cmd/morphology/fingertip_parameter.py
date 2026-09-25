@@ -63,8 +63,9 @@ class PhalanxParameters:
 class FingertipFamilyParameters:
     """Shared structural morphology for all five fingertips.
 
-    The carrier ends a fixed ``carrier_distal_inset_mm`` before each digit's
-    total fingertip length. This keeps the distal carrier/pad relationship
+    The carrier ends a shared ``carrier_distal_inset_mm`` before each digit's
+    total fingertip length. Its default baseline is 5 mm; callers may vary it
+    for the fingertip family. This keeps the distal carrier/pad relationship
     invariant as the proximal straight section changes length.
     """
 

@@ -171,19 +171,9 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
         expected_joint_names.add(linkage_joint)
         assert joint_map[linkage_joint].find("parent").attrib["link"] == f"{finger}_mcp_fe_output"
         linkage_transform = _parse_origin(joint_map[linkage_joint].find("origin"))
-        expected_rotation = RigidTransform.rotation_about_axis((0.0, 0.0, 1.0), -math.pi / 2.0)
-        _assert_transform_equal(linkage_transform, expected_rotation)
-        assert linkage_transform.transform_vector((1.0, 0.0, 0.0)) == pytest.approx(
-            (0.0, -1.0, 0.0),
-            abs=1.0e-10,
-        )
-        assert linkage_transform.transform_vector((0.0, 1.0, 0.0)) == pytest.approx(
-            (1.0, 0.0, 0.0),
-            abs=1.0e-10,
-        )
-        assert linkage_transform.transform_vector((0.0, 0.0, 1.0)) == pytest.approx(
-            (0.0, 0.0, 1.0),
-            abs=1.0e-10,
+        _assert_transform_equal(
+            layout.joint_transforms[f"{finger}_mcp_fe"] @ linkage_transform,
+            layout.linkage_transforms[f"{finger}_linkage"],
         )
 
     assert link_names == expected_links

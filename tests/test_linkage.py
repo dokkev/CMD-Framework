@@ -1,164 +1,145 @@
-from dataclasses import FrozenInstanceError, fields
+from dataclasses import FrozenInstanceError, fields, replace
 
 import pytest
 
-from cmd.morphology import (
-    FingerLinkage,
-    FingerLinkageParameters,
-)
-from cmd.morphology.linkage_parameter import (
-    AnchorYZ,
-    CouplingAnchorParameters,
-    MainChainParameters,
-)
+from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, FingerLinkageParameters, PointYZ
 
 
-def make_parameters() -> FingerLinkageParameters:
+def make_parameters(*, b_from_a: PointYZ = PointYZ(30.0, -5.0)) -> FingerLinkageParameters:
     return FingerLinkageParameters(
-        main_chain=MainChainParameters(
-            proximal_length_mm=20.0,
-            middle_length_mm=15.0,
-            distal_length_mm=10.0,
-        ),
-        coupling=CouplingAnchorParameters(
-            base_anchor=AnchorYZ(y_mm=0.0, z_mm=3.0),
-            proximal_anchor=AnchorYZ(y_mm=3.0, z_mm=0.0),
-            middle_anchor=AnchorYZ(y_mm=4.0, z_mm=0.0),
-            distal_anchor=AnchorYZ(y_mm=5.0, z_mm=1.0),
-        ),
+        o_prime_from_o=PointYZ(0.0, 10.0),
+        a_from_o=PointYZ(10.0, 5.0),
+        a_prime_from_o=PointYZ(4.0, 9.0),
+        b_from_a=b_from_a,
+        b_prime_from_a=PointYZ(9.0, 8.0),
+        bc_length_mm=20.0,
+        c_prime_from_b=PointYZ(8.0, 6.0),
     )
 
 
-def test_reference_positions_use_the_owning_body_frames() -> None:
+def test_reference_positions_are_composed_from_named_point_translations() -> None:
     linkage = FingerLinkage(make_parameters())
     reference = linkage.reference_positions
 
-    assert reference.o == AnchorYZ(0.0, 0.0)
-    assert reference.a == AnchorYZ(20.0, 0.0)
-    assert reference.b == AnchorYZ(35.0, 0.0)
-    assert reference.c == AnchorYZ(45.0, 0.0)
+    assert reference.o == PointYZ(0.0, 0.0)
+    assert reference.op == PointYZ(0.0, 10.0)
+    assert reference.a == PointYZ(10.0, 5.0)
+    assert reference.ap == PointYZ(4.0, 9.0)
+    assert reference.b == PointYZ(40.0, 0.0)
+    assert reference.bp == PointYZ(19.0, 13.0)
+    assert reference.c == PointYZ(60.0, 0.0)
+    assert reference.cp == PointYZ(48.0, 6.0)
 
-    assert reference.op == AnchorYZ(0.0, 3.0)
-    assert reference.ap == AnchorYZ(3.0, 0.0)
-    assert reference.bp == AnchorYZ(24.0, 0.0)
-    assert reference.cp == AnchorYZ(40.0, 1.0)
 
-
-def test_coupler_lengths_are_derived_from_reference_positions() -> None:
+def test_fully_extended_checks_bc_parallel_to_oc_without_anchor_collinearity() -> None:
     linkage = FingerLinkage(make_parameters())
     reference = linkage.reference_positions
-
-    assert linkage.coupler_1_length_mm == pytest.approx(
-        reference.op.distance_to(reference.bp)
+    bc = PointYZ(linkage.parameters.bc_length_mm, 0.0)
+    oc = PointYZ(
+        reference.c.y_mm - reference.o.y_mm,
+        reference.c.z_mm - reference.o.z_mm,
     )
-    assert linkage.coupler_2_length_mm == pytest.approx(
-        reference.ap.distance_to(reference.cp)
-    )
-    assert linkage.coupler_1_length_mm == pytest.approx((24.0**2 + 3.0**2) ** 0.5)
-    assert linkage.coupler_2_length_mm == pytest.approx((37.0**2 + 1.0**2) ** 0.5)
+    cross_2d = bc.y_mm * oc.z_mm - bc.z_mm * oc.y_mm
+    dot_2d = bc.y_mm * oc.y_mm + bc.z_mm * oc.z_mm
 
+    assert cross_2d == pytest.approx(0.0, abs=1e-12)
+    assert dot_2d > 0.0
+    assert reference.a.z_mm != pytest.approx(0.0)
+    assert reference.ap.z_mm != pytest.approx(0.0)
+    assert reference.bp.z_mm != pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        make_parameters(b_from_a=PointYZ(30.0, -4.0)),
+        make_parameters(b_from_a=PointYZ(-70.0, -5.0)),
+    ],
+)
+def test_reference_rejects_bc_not_parallel_or_not_same_direction(parameters) -> None:
+    with pytest.raises(ValueError, match="BC parallel to OC"):
+        FingerLinkage(parameters)
+
+
+def test_main_link_and_coupler_lengths_are_derived() -> None:
+    linkage = FingerLinkage(make_parameters())
+
+    assert linkage.oa_length_mm == pytest.approx(125.0**0.5)
+    assert linkage.ab_length_mm == pytest.approx(925.0**0.5)
+    assert linkage.parameters.bc_length_mm == pytest.approx(20.0)
+    assert linkage.coupler_1_length_mm == pytest.approx(370.0**0.5)
+    assert linkage.coupler_2_length_mm == pytest.approx(1945.0**0.5)
     parameter_names = {field.name for field in fields(linkage.parameters)}
+    assert parameter_names == {
+        "o_prime_from_o",
+        "a_from_o",
+        "a_prime_from_o",
+        "b_from_a",
+        "b_prime_from_a",
+        "bc_length_mm",
+        "c_prime_from_b",
+    }
     assert "coupler_1_length_mm" not in parameter_names
     assert "coupler_2_length_mm" not in parameter_names
-
-
-def test_parameter_fields_are_only_independent_design_variables() -> None:
-    parameters = make_parameters()
-
-    assert {field.name for field in fields(parameters)} == {
-        "main_chain",
-        "coupling",
-    }
-    assert {field.name for field in fields(parameters.main_chain)} == {
-        "proximal_length_mm",
-        "middle_length_mm",
-        "distal_length_mm",
-    }
-    assert {field.name for field in fields(parameters.coupling)} == {
-        "base_anchor",
-        "proximal_anchor",
-        "middle_anchor",
-        "distal_anchor",
-    }
-
-    assert not hasattr(parameters, "q1")
-    assert not hasattr(parameters, "q2")
-    assert not hasattr(parameters, "q3")
-    assert not hasattr(parameters, "coupler_1_length_mm")
-    assert not hasattr(parameters, "coupler_2_length_mm")
 
 
 def test_planar_convention_has_no_independent_x_coordinate() -> None:
     linkage = FingerLinkage(make_parameters())
 
     assert linkage.flexion_axis_xyz == (1.0, 0.0, 0.0)
-    assert not hasattr(linkage.parameters.coupling.base_anchor, "x_mm")
+    assert not hasattr(linkage.parameters.a_from_o, "x_mm")
 
 
 def test_parameter_dataclasses_are_immutable() -> None:
     parameters = make_parameters()
 
     with pytest.raises(FrozenInstanceError):
-        parameters.main_chain = MainChainParameters(1.0, 1.0, 1.0)
-
+        parameters.a_from_o = PointYZ(1.0, 0.0)
     with pytest.raises(FrozenInstanceError):
-        parameters.coupling.base_anchor.y_mm = 1.0
+        parameters.a_from_o.y_mm = 1.0
 
 
 @pytest.mark.parametrize(
     "constructor",
-    [
-        lambda: MainChainParameters(0.0, 1.0, 1.0),
-        lambda: MainChainParameters(1.0, float("inf"), 1.0),
-        lambda: AnchorYZ(float("nan"), 0.0),
-    ],
+    [lambda: PointYZ(float("nan"), 0.0), lambda: PointYZ(0.0, float("inf"))],
 )
-def test_invalid_physical_or_anchor_values_are_rejected(constructor) -> None:
+def test_nonfinite_coordinates_are_rejected(constructor) -> None:
     with pytest.raises(ValueError):
         constructor()
 
 
-def test_zero_length_coupler_is_rejected_when_constructing_linkage() -> None:
-    parameters = FingerLinkageParameters(
-        main_chain=MainChainParameters(20.0, 15.0, 10.0),
-        coupling=CouplingAnchorParameters(
-            base_anchor=AnchorYZ(24.0, 0.0),
-            proximal_anchor=AnchorYZ(3.0, 0.0),
-            middle_anchor=AnchorYZ(4.0, 0.0),
-            distal_anchor=AnchorYZ(5.0, 1.0),
-        ),
-    )
-
-    with pytest.raises(ValueError, match="coupler 1"):
-        FingerLinkage(parameters)
+@pytest.mark.parametrize("bc_length_mm", [0.0, -1.0, float("inf"), float("nan")])
+def test_bc_length_must_be_finite_and_positive(bc_length_mm) -> None:
+    with pytest.raises(ValueError, match="bc_length_mm"):
+        replace(make_parameters(), bc_length_mm=bc_length_mm)
 
 
-def test_baseline_extended_reference_aligns_anchor_chain_not_main_chain() -> None:
-    from cmd.morphology import BASELINE_LINKAGE_V0
-
+def test_baseline_v0_preserves_pre_refactor_reference_geometry() -> None:
     reference = BASELINE_LINKAGE_V0.reference_positions
-    ordered = (reference.o, reference.ap, reference.bp, reference.b, reference.c)
+    expected = {
+        "o": PointYZ(0.0, 0.0),
+        "op": PointYZ(10.0, 10.0),
+        "a": PointYZ(35.005085389255939, 4.997358991597482),
+        "ap": PointYZ(30.001126645511164, 0.0),
+        "b": PointYZ(60.010872527309886, 0.001299583790577),
+        "bp": PointYZ(40.003104036046295, 0.001299583790577),
+        "c": PointYZ(80.010872527309886, 0.001299583790577),
+        "cp": PointYZ(50.010872527309886, 5.001299583790577),
+    }
 
-    assert all(point.z_mm == pytest.approx(0.0, abs=0.01) for point in ordered)
-    assert all(first.y_mm < second.y_mm for first, second in zip(ordered, ordered[1:]))
-    assert reference.a.z_mm != pytest.approx(0.0, abs=1e-3)
-    assert reference.b.z_mm != pytest.approx(reference.a.z_mm, abs=1e-3)
-    assert BASELINE_LINKAGE_V0.coupler_1_length_mm == pytest.approx(31.625, abs=0.01)
-    assert BASELINE_LINKAGE_V0.coupler_2_length_mm == pytest.approx(20.626, abs=0.01)
+    for name, expected_point in expected.items():
+        actual = getattr(reference, name)
+        assert actual.y_mm == pytest.approx(expected_point.y_mm, abs=1e-12)
+        assert actual.z_mm == pytest.approx(expected_point.z_mm, abs=1e-12)
 
-
-def test_reference_rejects_noncollinear_virtual_a_prime_b_prime_segment() -> None:
-    parameters = make_parameters()
-    invalid_coupling = CouplingAnchorParameters(
-        base_anchor=parameters.coupling.base_anchor,
-        proximal_anchor=AnchorYZ(3.0, 2.0),
-        middle_anchor=parameters.coupling.middle_anchor,
-        distal_anchor=parameters.coupling.distal_anchor,
+    assert BASELINE_LINKAGE_V0.oa_length_mm == pytest.approx(35.36, abs=1e-12)
+    assert BASELINE_LINKAGE_V0.ab_length_mm == pytest.approx(25.50, abs=1e-12)
+    assert BASELINE_LINKAGE_V0.parameters.bc_length_mm == pytest.approx(20.00)
+    assert BASELINE_LINKAGE_V0.coupler_1_length_mm == pytest.approx(
+        31.625310461889921,
+        abs=1e-12,
     )
-    invalid_parameters = FingerLinkageParameters(
-        main_chain=parameters.main_chain,
-        coupling=invalid_coupling,
+    assert BASELINE_LINKAGE_V0.coupler_2_length_mm == pytest.approx(
+        20.625298247079598,
+        abs=1e-12,
     )
-
-    with pytest.raises(ValueError, match="O-A'-B'-B-C"):
-        FingerLinkage(invalid_parameters)

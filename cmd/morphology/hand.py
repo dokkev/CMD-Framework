@@ -23,6 +23,10 @@ HAND_Y_FE_AXIS: Vector3 = (0.0, 1.0, 0.0)
 HAND_Z_DORSAL: Vector3 = (0.0, 0.0, 1.0)
 
 ORDINARY_MCP_AA_TO_MCP_FE = RigidTransform.from_translation((23.5, 0.0, 16.75))
+ORDINARY_MCP_FE_TO_LINKAGE = RigidTransform.rotation_about_axis(
+    HAND_Z_DORSAL,
+    -math.pi / 2.0,
+)
 
 # Mounts are expressed joint-to-actuator. The FE-style quarter-turn maps
 # actuator +Z onto joint +Y while retaining actuator +X along joint +X.
@@ -168,6 +172,18 @@ class HandLayout:
             for name, mount in _ACTUATOR_MOUNTS.items()
         }
 
+    @property
+    def linkage_transforms(self) -> dict[str, RigidTransform]:
+        """Derived ``T_H_L`` poses for each ordinary finger's linkage frame."""
+
+        joints = self.joint_transforms
+        return {
+            f"{finger}_linkage": (
+                joints[f"{finger}_mcp_fe"] @ ORDINARY_MCP_FE_TO_LINKAGE
+            )
+            for finger in ("index", "middle", "ring", "little")
+        }
+
 
 @dataclass(frozen=True)
 class HandMorphology:
@@ -210,6 +226,7 @@ __all__ = [
     "HandMorphology",
     "MCP_AA_ACTUATOR_MOUNT",
     "ORDINARY_MCP_AA_TO_MCP_FE",
+    "ORDINARY_MCP_FE_TO_LINKAGE",
     "THUMB_CMC_RAA_ACTUATOR_MOUNT",
     "THUMB_CMC_RO_ACTUATOR_MOUNT",
     "THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM",

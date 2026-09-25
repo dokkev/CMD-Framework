@@ -30,8 +30,8 @@ from cmd.morphology import (  # noqa: E402
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
+    PointYZ,
 )
-from cmd.morphology.linkage_parameter import AnchorYZ  # noqa: E402
 
 
 DEFAULT_FLEXION_RAD = 0.8
@@ -77,14 +77,14 @@ def solve_animation_poses(
     return poses
 
 
-def _set_line_data(line, points: Sequence[AnchorYZ]) -> None:
+def _set_line_data(line, points: Sequence[PointYZ]) -> None:
     line.set_data(
         [point.y_mm for point in points],
         [point.z_mm for point in points],
     )
 
 
-def _draw_ground_support(axis, point: AnchorYZ) -> None:
+def _draw_ground_support(axis, point: PointYZ) -> None:
     """Draw the fixed pivot support symbol below O or O'."""
 
     y_mm, z_mm = point.y_mm, point.z_mm

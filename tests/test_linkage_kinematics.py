@@ -7,113 +7,116 @@ import pytest
 from cmd.morphology import (
     BASELINE_LINKAGE_V0,
     FingerLinkage,
+    FingerLinkageParameters,
     KinematicClosureError,
     LinkageKinematics,
+    PointYZ,
 )
-from cmd.morphology.linkage_parameter import AnchorYZ
 
 
-def make_linkage() -> FingerLinkage:
-    return BASELINE_LINKAGE_V0
-
-
-def reference_link_angles(linkage: FingerLinkage) -> tuple[float, float, float]:
-    reference = linkage.reference_positions
-    theta1 = math.atan2(
-        reference.a.z_mm - reference.o.z_mm,
-        reference.a.y_mm - reference.o.y_mm,
+def make_noncollinear_linkage() -> FingerLinkage:
+    return FingerLinkage(
+        FingerLinkageParameters(
+            o_prime_from_o=PointYZ(0.0, 10.0),
+            a_from_o=PointYZ(10.0, 5.0),
+            a_prime_from_o=PointYZ(4.0, 9.0),
+            b_from_a=PointYZ(30.0, -5.0),
+            b_prime_from_a=PointYZ(9.0, 8.0),
+            bc_length_mm=20.0,
+            c_prime_from_b=PointYZ(8.0, 6.0),
+        )
     )
-    theta2 = math.atan2(
-        reference.b.z_mm - reference.a.z_mm,
-        reference.b.y_mm - reference.a.y_mm,
-    )
-    theta3 = math.atan2(
-        reference.c.z_mm - reference.b.z_mm,
-        reference.c.y_mm - reference.b.y_mm,
-    )
-    return theta1, theta2, theta3
 
 
-def rotate(point: AnchorYZ, angle_rad: float) -> AnchorYZ:
+def rotate(point: PointYZ, angle_rad: float) -> PointYZ:
     cosine = math.cos(angle_rad)
     sine = math.sin(angle_rad)
-    return AnchorYZ(
+    return PointYZ(
         cosine * point.y_mm - sine * point.z_mm,
         sine * point.y_mm + cosine * point.z_mm,
     )
 
 
-def translated(origin: AnchorYZ, local: AnchorYZ, angle_rad: float) -> AnchorYZ:
-    rotated = rotate(local, angle_rad)
-    return AnchorYZ(origin.y_mm + rotated.y_mm, origin.z_mm + rotated.z_mm)
+def translated(origin: PointYZ, offset: PointYZ, angle_rad: float) -> PointYZ:
+    rotated = rotate(offset, angle_rad)
+    return PointYZ(origin.y_mm + rotated.y_mm, origin.z_mm + rotated.z_mm)
 
 
-def assert_point_close(actual: AnchorYZ, expected: AnchorYZ) -> None:
-    assert actual.y_mm == pytest.approx(expected.y_mm)
-    assert actual.z_mm == pytest.approx(expected.z_mm)
+def assert_point_close(actual: PointYZ, expected: PointYZ) -> None:
+    assert actual.y_mm == pytest.approx(expected.y_mm, abs=1e-10)
+    assert actual.z_mm == pytest.approx(expected.z_mm, abs=1e-10)
 
 
-def test_zero_pose_reproduces_reference_configuration() -> None:
-    linkage = make_linkage()
+def assert_pose_matches_reference(pose, linkage: FingerLinkage) -> None:
+    reference = linkage.reference_positions
+    for name in ("o", "op", "a", "ap", "b", "bp", "c", "cp"):
+        assert_point_close(getattr(pose, name), getattr(reference, name))
+    assert pose.q1_rad == pytest.approx(0.0, abs=1e-12)
+    assert pose.q2_rad == pytest.approx(0.0, abs=1e-12)
+    assert pose.q3_rad == pytest.approx(0.0, abs=1e-12)
+
+
+def test_zero_pose_reproduces_baseline_reference_configuration() -> None:
+    linkage = BASELINE_LINKAGE_V0
+
     pose = LinkageKinematics(linkage).solve(0.0)
+
+    assert_pose_matches_reference(pose, linkage)
+
+
+def test_zero_pose_reproduces_noncollinear_reference_configuration() -> None:
+    linkage = make_noncollinear_linkage()
     reference = linkage.reference_positions
 
-    assert pose.q1_rad == pytest.approx(0.0)
-    assert pose.q2_rad == pytest.approx(0.0)
-    assert pose.q3_rad == pytest.approx(0.0)
-    for name in ("o", "a", "b", "c", "op", "ap", "bp", "cp"):
-        assert_point_close(getattr(pose, name), getattr(reference, name))
+    assert reference.a.z_mm != pytest.approx(0.0)
+    assert reference.ap.z_mm != pytest.approx(0.0)
+    assert reference.bp.z_mm != pytest.approx(0.0)
+    assert_pose_matches_reference(LinkageKinematics(linkage).solve(0.0), linkage)
 
 
-def test_nonzero_pose_preserves_main_chain_and_coupler_lengths() -> None:
-    linkage = make_linkage()
+def test_nonzero_pose_closes_both_loops_and_preserves_all_fixed_lengths() -> None:
+    linkage = BASELINE_LINKAGE_V0
     pose = LinkageKinematics(linkage).solve(-0.05)
     parameters = linkage.parameters
-    coupling = parameters.coupling
-    theta1_ref, theta2_ref, theta3_ref = reference_link_angles(linkage)
-    theta1 = theta1_ref + pose.q1_rad
-    theta2 = theta2_ref + pose.q1_rad + pose.q2_rad
-    theta3 = theta3_ref + pose.q1_rad + pose.q2_rad + pose.q3_rad
+    delta_middle = pose.q1_rad + pose.q2_rad
+    delta_distal = delta_middle + pose.q3_rad
 
-    assert pose.o.distance_to(pose.a) == pytest.approx(
-        parameters.main_chain.proximal_length_mm
-    )
-    assert pose.a.distance_to(pose.b) == pytest.approx(
-        parameters.main_chain.middle_length_mm
-    )
-    assert pose.b.distance_to(pose.c) == pytest.approx(
-        parameters.main_chain.distal_length_mm
-    )
+    assert pose.o.distance_to(pose.a) == pytest.approx(linkage.oa_length_mm)
+    assert pose.a.distance_to(pose.b) == pytest.approx(linkage.ab_length_mm)
+    assert pose.b.distance_to(pose.c) == pytest.approx(parameters.bc_length_mm)
     assert pose.op.distance_to(pose.bp) == pytest.approx(linkage.coupler_1_length_mm)
     assert pose.ap.distance_to(pose.cp) == pytest.approx(linkage.coupler_2_length_mm)
 
-    assert_point_close(
-        pose.ap,
-        translated(pose.o, coupling.proximal_anchor, theta1),
-    )
-    assert_point_close(
-        pose.bp,
-        translated(pose.a, coupling.middle_anchor, theta2),
-    )
+    assert_point_close(pose.a, translated(pose.o, parameters.a_from_o, pose.q1_rad))
+    assert_point_close(pose.ap, translated(pose.o, parameters.a_prime_from_o, pose.q1_rad))
+    assert_point_close(pose.b, translated(pose.a, parameters.b_from_a, delta_middle))
+    assert_point_close(pose.bp, translated(pose.a, parameters.b_prime_from_a, delta_middle))
     assert_point_close(
         pose.cp,
-        translated(pose.b, coupling.distal_anchor, theta3),
+        translated(pose.b, parameters.c_prime_from_b, delta_distal),
     )
-    assert math.atan2(
-        pose.ap.z_mm - pose.o.z_mm,
-        pose.ap.y_mm - pose.o.y_mm,
-    ) == pytest.approx(pose.q1_rad)
+    assert_point_close(
+        pose.c,
+        translated(pose.b, PointYZ(parameters.bc_length_mm, 0.0), delta_distal),
+    )
+
+    initial_a_prime = parameters.a_prime_from_o
+    posed_a_prime = PointYZ(pose.ap.y_mm - pose.o.y_mm, pose.ap.z_mm - pose.o.z_mm)
+    measured_q1 = math.atan2(
+        initial_a_prime.y_mm * posed_a_prime.z_mm
+        - initial_a_prime.z_mm * posed_a_prime.y_mm,
+        initial_a_prime.y_mm * posed_a_prime.y_mm
+        + initial_a_prime.z_mm * posed_a_prime.z_mm,
+    )
+    assert measured_q1 == pytest.approx(pose.q1_rad, abs=1e-10)
 
 
 def test_assembly_branch_selection_is_deterministic() -> None:
-    solver = LinkageKinematics(make_linkage())
+    solver = LinkageKinematics(BASELINE_LINKAGE_V0)
 
-    first = solver.solve(-0.05)
-    second = solver.solve(-0.05)
-
-    assert first == second
+    assert solver.solve(-0.05) == solver.solve(-0.05)
 
 
 def test_unreachable_closure_raises_explicit_failure() -> None:
     with pytest.raises(KinematicClosureError, match="closure"):
-        LinkageKinematics(make_linkage()).solve(0.1)
+        LinkageKinematics(BASELINE_LINKAGE_V0).solve(0.1)

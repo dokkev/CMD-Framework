@@ -165,7 +165,8 @@ where:
 All other fingertip structural parameters remain shared unless this document
 is explicitly revised.
 
-The carrier's distal inset is also shared and fixed:
+The carrier distal inset is a shared fingertip-family morphology parameter.
+Its current baseline value is 5 mm; it is not a fixed mechanical dimension:
 
 \[
 d_{\mathrm{carrier\ inset}} = 5\ \mathrm{mm}
@@ -180,35 +181,44 @@ L_{\mathrm{carrier},i}=L_i-d_{\mathrm{carrier\ inset}}
 
 Thus changing a digit's total length changes only the proximal straight
 section; the tip shape and carrier penetration into the distal tip remain
-identical across all five digits. These values are materialized by
-`FingertipParameters` and `Fingertip`, not independently optimized per digit.
+identical across all five digits when the shared family parameters are held
+constant. These values are materialized by `FingertipParameters` and
+`Fingertip`.
 
 ---
 
 # 4. Ordinary Finger Linkage Morphology
 
-Index, middle, ring, and little fingers use the same linkage morphology.
+Index, middle, ring, and little fingers share one linkage morphology, specified
+by `FingerLinkageParameters`. Its inputs are direct reference-pose translations
+in the canonical YZ plane; every point has `X = 0`. The reference origin is
+`O = (0, 0)`, and input translations have no hidden frame rotation:
 
-There is one shared:
+| Input | Meaning |
+| --- | --- |
+| `o_prime_from_o` | `O' = O + o_prime_from_o` |
+| `a_from_o` | `A = O + a_from_o` |
+| `a_prime_from_o` | `A' = O + a_prime_from_o` |
+| `b_from_a` | `B = A + b_from_a` |
+| `b_prime_from_a` | `B' = A + b_prime_from_a` |
+| `bc_length_mm` | `C = B + (bc_length_mm, 0)`; positive distal length |
+| `c_prime_from_b` | `C' = B + c_prime_from_b` |
 
-\[
-d_{\mathrm{linkage}}
-\]
+Every vector is a YZ translation in the fully extended reference coordinates,
+expressed relative to the named point in its field. There are no user-specified
+reference rotation angles. Runtime rotations act on these stored vectors as
+changes from the reference pose.
 
-for all four ordinary fingers.
+The fully extended reference is defined only by `BC` being parallel to `OC` and
+pointing in the same direction. Since `BC` is constructed along canonical
+`+Y`, `C` lies on the positive distal ray from `O`. `OA` and `OA'` need not be
+horizontal, and neither `A'` nor `B'` is required to lie on `O-B-C`. No
+coupling-anchor collinearity condition is imposed.
 
-The linkage morphology includes the independent parameters defined by
-`FingerLinkageParameters`, including:
-
-- proximal link geometry
-- middle link geometry
-- distal link geometry
-- coupling anchor locations
-
-Coupler lengths and reference closure geometry that can be deterministically
-computed from the fully extended configuration are derived quantities.
-
-Do not independently optimize the same linkage geometry for each finger.
+The main-chain lengths `|OA|` and `|AB|`, coupling lengths `|O'B'|` and
+`|A'C'|`, and all reference point positions are derived from these inputs.
+Do not independently optimize the shared linkage geometry for each ordinary
+finger.
 
 ---
 
@@ -294,6 +304,25 @@ For each ordinary finger `f`:
 
 This transform is fixed and is not part of the morphology design vector.
 
+## 6.1 Ordinary MCP-FE to Linkage Frame
+
+The ordinary-finger linkage frame is fixed relative to MCP-FE. It has zero
+translation and rotates about `+Z_H` by `-90°`:
+
+\[
+{}^{MCP-FE}T_L=R_z(-\pi/2)
+\]
+
+For each ordinary finger, `HandLayout.linkage_transforms` derives its hand-frame
+pose:
+
+\[
+{}^H T_L={}^H T_{MCP-FE}{}^{MCP-FE}T_L
+\]
+
+The canonical fixed transform is owned by `cmd/morphology/hand.py`, not by the
+URDF serializer.
+
 ---
 
 # 7. Thumb Morphology
@@ -303,7 +332,7 @@ XYZ joint positions.
 
 Reference chain:
 
-
+```text
 Hand
   |
   +-- CMC-RO
@@ -313,21 +342,18 @@ Hand
               +-- MCP-FE
                     |
                     +-- IP-FE
-7.1 Thumb Independent Design Variables
-The current thumb morphology design variables are:
-CMC-RO planar placement
-\[
-(x_T, y_T)
-\]CMC-RO orientation
-\[
-\theta
-\]CMC-RO to CMC-RAA inter-axis distance
-\[
-L_{RO\rightarrow RAA}
-\]MCP-FE orientation
-\[
-\phi
-\]Therefore the thumb design vector is:
+```
+
+## 7.1 Thumb Independent Design Variables
+
+The independent thumb layout variables are:
+
+- CMC-RO planar placement \((x_T,y_T)\)
+- CMC-RO orientation \(\theta\)
+- CMC-RO to CMC-RAA distance \(L_{RO\rightarrow RAA}\)
+- MCP-FE orientation \(\phi\)
+
+Therefore the thumb design vector is:
 \[
 d_{\mathrm{thumb}}
 =
@@ -338,51 +364,73 @@ y_T,
 L_{RO\rightarrow RAA},
 \phi
 ]
-\]7.2 CMC-RO
+\]
+
+## 7.2 CMC-RO
+
 At theta = 0, the CMC-RO reference frame is aligned with the hand frame.
 The reference transform is:
 \[
 {}^H T_{CMC-RO}
 =
 T(x_T,y_T,0)R_z(\theta)
-\]theta is a morphology parameter, not a runtime joint configuration.
-The CMC-RO physical revolute axis is local +Y.
-7.3 CMC-RO to CMC-RAA
+\]
+
+`theta` is a morphology parameter, not a runtime joint configuration. The
+CMC-RO physical revolute axis is local `+Y`.
+
+## 7.3 CMC-RO to CMC-RAA
+
 CMC-RAA is placed along the CMC-RO local +X direction.
 \[
 {}^{CMC-RO}T_{CMC-RAA}
 =
 T_x(L_{RO\rightarrow RAA})
-\]L_RO→RAA is an independent morphology variable.
-CMC-RAA is not assigned an independent global position.
-The CMC-RAA physical revolute axis is local +Z.
-7.4 CMC-RAA to MCP-FE
+\]
+
+`L_RO→RAA` is an independent morphology variable. CMC-RAA is not assigned an
+independent global position. Its physical revolute axis is local `+Z`.
+
+## 7.4 CMC-RAA to MCP-FE
+
 The CMC-RAA to MCP-FE planar translation distance is fixed:
 \[
 L_{RAA\rightarrow MCP-FE}
 =
 39.5\ \mathrm{mm}
-\]Therefore:
+\]
+
+Therefore:
 \[
 {}^{CMC-RAA}T_{MCP-FE}
 =
 T_x(39.5)R_z(\phi)
-\]39.5 mm is fixed architecture geometry and is not an optimization variable.
-phi remains an independent morphology angle.
-The MCP-FE physical revolute axis is local +Y.
-7.5 MCP-FE to IP-FE
+\]
+
+39.5 mm is fixed architecture geometry and is not an optimization variable.
+`phi` remains an independent morphology angle. The MCP-FE physical revolute
+axis is local `+Y`.
+
+## 7.5 MCP-FE to IP-FE
+
 The MCP-FE to IP-FE planar distance is fixed:
 \[
 L_{MCP-FE\rightarrow IP-FE}
 =
 35.5\ \mathrm{mm}
-\]Therefore:
+\]
+
+Therefore:
 \[
 {}^{MCP-FE}T_{IP-FE}
 =
 T_x(35.5)
-\]The IP-FE position is derived and must not be independently parameterized.
-8. Current Hand-Level Design Vector
+\]
+
+The IP-FE position is derived and must not be independently parameterized.
+
+# 8. Current Hand-Level Design Vector
+
 The current independent hand-layout variables are:
 \[
 d_{\mathrm{hand}}
@@ -396,172 +444,166 @@ x_T,y_T,
 L_{RO\rightarrow RAA},
 \phi
 ]
-\]Therefore the current hand-layout design space has:
-\[
-11
-\]independent scalar variables.
-This count excludes fingertip and linkage morphology variables.
-9. Fixed Mechanical Geometry
-The following values are architecture constants and must not appear as
-optimizer-controlled morphology parameters.
-Quantity	Value
-Ordinary MCP-AA → MCP-FE ΔX	23.5 mm
-Ordinary MCP-AA → MCP-FE ΔY	0 mm
-Ordinary MCP-AA → MCP-FE ΔZ	16.75 mm
-Thumb CMC-RAA → MCP-FE distance	39.5 mm
-Thumb MCP-FE → IP-FE distance	35.5 mm
+\]
 
+This is 11 scalar variables and excludes fingertip and linkage morphology.
 
-These values should have one canonical definition in code.
-Do not duplicate them across optimizer, URDF, visualization, and constraint
-modules.
-10. XM335 Geometry
-All relevant actuated joints use the XM335 actuator model.
-Canonical actuator geometry:
-- radius: 9.5 mm
-- body width: 19.0 mm
-- rear extent from shaft: 25.5 mm
-- total longitudinal extent: 35.0 mm
-- depth along shaft axis: 22.0 mm
-Local bounds:
+# 9. Fixed Mechanical Geometry
+
+These architecture constants are not optimizer-controlled parameters:
+
+| Quantity | Value |
+| --- | ---: |
+| Ordinary MCP-AA → MCP-FE ΔX | 23.5 mm |
+| Ordinary MCP-AA → MCP-FE ΔY | 0 mm |
+| Ordinary MCP-AA → MCP-FE ΔZ | 16.75 mm |
+| Ordinary MCP-FE → linkage frame | \(R_z(-\pi/2)\), zero translation |
+| Thumb CMC-RAA → MCP-FE distance | 39.5 mm |
+| Thumb MCP-FE → IP-FE distance | 35.5 mm |
+
+Each value has one canonical definition in morphology code. Do not duplicate
+them across optimizer, URDF, visualization, and constraint modules.
+
+# 10. XM335 Geometry
+
+All actuated joints use the XM335 actuator model. Canonical geometry:
+
+- Radius: 9.5 mm
+- Body width: 19.0 mm
+- Rear extent from shaft: 25.5 mm
+- Total longitudinal extent: 35.0 mm
+- Depth along shaft axis: 22.0 mm
+
+The shaft center is the actuator-local origin. Local bounds are:
+
 \[
-X_A \in [-9.5,\ 9.5]
-\]\[
-Y_A \in [-25.5,\ 9.5]
-\]\[
-Z_A \in [-11,\ 11]
-\]The shaft center is the actuator-local origin.
-Actuator size is a hard physical packaging constraint.
-11. Actuator Packaging
-Hand morphology must satisfy actuator packaging constraints.
-Actuator body positions are derived from joint poses:
+X_A\in[-9.5,9.5],\qquad
+Y_A\in[-25.5,9.5],\qquad
+Z_A\in[-11,11]
+\]
+
+Actuator size is a physical packaging constraint.
+
+# 11. Actuator Packaging
+
+Actuator body poses are derived from joint poses:
 \[
 {}^H T_A
 =
 {}^H T_J
 {}^J T_A
-\]The constraint evaluator must use transformed XM335 body geometry.
-Do not use arbitrary center-distance constraints when actuator geometry is
-available.
-The current implementation may use a conservative transformed OBB test.
-A conservative OBB collision test may produce false positives relative to the
-exact D-shaped actuator geometry, but it must be identified explicitly as an
-approximation.
+\]
+
+The constraint evaluator uses transformed XM335 body geometry, not arbitrary
+center-distance constraints. The current implementation uses a conservative
+transformed OBB test, which may produce false positives relative to the exact
+D-shaped actuator geometry. This approximation must be identified as such.
 Reference-pose packaging and swept-volume/runtime collision are separate
-problems.
-Current hand morphology constraints concern the reference design assembly.
-12. Independent vs Fixed vs Derived
-Independent design variables
-Fingertip
-- shared fingertip structural morphology parameters
-- one total fingertip length per digit
-Linkage
-- one shared ordinary-finger linkage morphology
-Hand
-- middle MCP-AA (x, y)
-- ring MCP-AA (x, y)
-- little MCP-AA (x, y)
-- thumb CMC-RO (x, y)
-- thumb theta
-- thumb CMC-RO → CMC-RAA distance
-- thumb phi
-Fixed architecture
-- index MCP-AA hand root
-- XM335 actuator geometry
-- ordinary MCP-AA → MCP-FE transform
-- thumb CMC-RAA → MCP-FE distance = 39.5 mm
-- thumb MCP-FE → IP-FE distance = 35.5 mm
-- joint-axis definitions
-- actuator mounting transforms once CAD clocking is finalized
-Derived quantities
-Examples include:
-- all ordinary MCP-FE poses
-- thumb CMC-RAA pose
-- thumb MCP-FE pose
-- thumb IP-FE pose
-- all actuator world/hand transforms
-- linkage coupler lengths derived from the reference geometry
-- final fingertip geometry
-- URDF origins and orientations
-- packaging geometry in the hand frame
-Derived quantities must not be duplicated as independent optimizer variables.
-13. Software Ownership
-Canonical ownership is:
-cmd/geometry/
-    shared geometry and rigid-transform primitives
+problems; current checks concern only the reference design assembly.
 
-cmd/morphology/
-    morphology parameters
-    morphology geometry
-    reference transform chains
-    linkage kinematics
-    `hand_parameter.py` owns `HandLayoutParameters`, `FingertipLengths`, and
-    the whole-hand `HandMorphologyParameters` aggregate
-    `hand.py` materializes `HandLayout` and the composed `HandMorphology`
+# 12. Independent vs Fixed vs Derived
 
-cmd/hardware/
-    actuator-local hardware geometry and mechanical properties
+## Independent design variables
 
-cmd/design/
-    morphology feasibility constraints
-    URDF / design serialization
+- **Fingertip:** one shared family morphology, including the shared
+  `carrier_distal_inset_mm` (baseline 5 mm), and one total length per digit.
+- **Linkage:** one shared ordinary-finger linkage morphology.
+- **Hand layout:** middle, ring, and little MCP-AA `(x, y)`; thumb CMC-RO
+  `(x, y)`; `theta`; CMC-RO to CMC-RAA distance; and `phi`.
 
-cmd/visualization/
-    visualization only
-cmd/morphology is the source of truth for morphology geometry.
-cmd/hardware is the source of truth for actuator-local geometry.
-cmd/design must consume these models rather than reconstructing geometry
-independently.
-14. Current Morphology Hierarchy
+## Fixed architecture
+
+- Index MCP-AA hand root and XM335 actuator geometry.
+- Ordinary MCP-AA to MCP-FE transform.
+- Ordinary MCP-FE to linkage-frame transform.
+- Thumb CMC-RAA to MCP-FE distance: 39.5 mm.
+- Thumb MCP-FE to IP-FE distance: 35.5 mm.
+- Joint-axis definitions.
+- Actuator mounting transforms once CAD clocking is finalized.
+
+## Derived quantities
+
+- Ordinary MCP-FE and linkage-frame poses.
+- Thumb CMC-RAA, MCP-FE, and IP-FE poses.
+- Hand-frame actuator poses.
+- Linkage coupler lengths derived from reference geometry.
+- Concrete fingertip geometry for each digit.
+- URDF origins/orientations and packaging geometry in the hand frame.
+
+Derived quantities are not independent optimizer variables.
+
+# 13. Software Ownership
+
+- `cmd/geometry`: shared geometry primitives and rigid transforms.
+- `cmd/morphology`: morphology parameters, geometry, reference transform
+  chains, and linkage kinematics.
+  - `hand_parameter.py` owns `HandLayoutParameters`, `FingertipLengths`, and
+    the whole-hand `HandMorphologyParameters` aggregate.
+  - `hand.py` materializes `HandLayout` and the composed `HandMorphology`.
+    `HandLayout.linkage_transforms` owns ordinary MCP-FE-to-linkage placement.
+- `cmd/hardware`: actuator-local geometry and mechanical properties.
+- `cmd/design`: consumes morphology for feasibility constraints and URDF
+  serialization; it does not reconstruct morphology transforms.
+- `cmd/visualization`: visualization only.
+
+`cmd/morphology` is the source of truth for morphology geometry, and
+`cmd/hardware` is the source of truth for actuator-local geometry.
+
+# 14. Current Morphology Hierarchy
+
+The hand-level design is composed from a shared fingertip family, one shared
+ordinary-finger linkage, and hand layout:
+
+```text
+HandMorphologyParameters
+├── fingertip: FingertipFamilyParameters
+│   ├── shared structural morphology
+│   ├── carrier_distal_inset_mm (shared; baseline 5 mm)
+│   └── FingertipLengths (index, middle, ring, little, thumb)
+├── linkage: FingerLinkageParameters (shared by ordinary fingers)
+└── layout: HandLayoutParameters
+    ├── index MCP-AA: fixed root
+    ├── middle/ring/little MCP-AA: x, y
+    └── thumb: CMC-RO placement/orientation and RO→RAA distance
+
+HandMorphology
+├── fingertips[5]
+├── linkage
+└── layout
+    ├── joint transforms
+    ├── actuator transforms
+    └── ordinary linkage-base transforms
+```
+
+The corresponding physical arrangement is:
+
+```text
 CLEAR Hand Morphology
-|
-+-- Fingertip Morphology
-|   |
-|   +-- shared structural morphology
-|   +-- index length
-|   +-- middle length
-|   +-- ring length
-|   +-- little length
-|   +-- thumb length
-|
-+-- Ordinary Finger Linkage Morphology
-|   |
-|   +-- one shared linkage design
-|
-+-- Hand Morphology
-    |
-    +-- index MCP-AA
-    |     fixed root
-    |
-    +-- middle MCP-AA
-    |     x, y
-    |
-    +-- ring MCP-AA
-    |     x, y
-    |
-    +-- little MCP-AA
-    |     x, y
-    |
-    +-- thumb CMC-RO
-          x, y
-          theta
-          |
-          +-- CMC-RAA
-                variable RO->RAA distance
-                |
-                +-- MCP-FE
-                      fixed 39.5 mm
-                      phi
-                      |
-                      +-- IP-FE
-                            fixed 35.5 mm
-15. Open / Not Yet Canonicalized
-The following should not be guessed silently:
-- exact actuator housing clocking about each revolute shaft axis
-- any future Z-direction hand-layout design variables
-- swept-volume actuator collision constraints
-- runtime hand joint kinematics
-- per-digit linkage variation
-- per-digit fingertip structural morphology variation
-These require an explicit design decision before becoming part of the canonical
-morphology model.
+├── Fingertip morphology
+│   ├── shared structural morphology
+│   └── per-digit total lengths: index, middle, ring, little, thumb
+├── Ordinary-finger linkage morphology
+│   └── one shared linkage design
+└── Hand layout
+    ├── index MCP-AA: fixed root
+    ├── middle/ring/little MCP-AA: x, y
+    └── thumb CMC-RO: x, y, theta
+        └── CMC-RAA: variable RO-to-RAA distance
+            └── MCP-FE: fixed 39.5 mm, orientation phi
+                └── IP-FE: fixed 35.5 mm
+```
+
+# 15. Open / Not Yet Canonicalized
+
+The following must not be guessed silently:
+
+- Exact actuator housing clocking about each revolute shaft axis.
+- The fixed transform attaching the distal linkage to each fingertip.
+- Future Z-direction hand-layout design variables.
+- Swept-volume actuator collision constraints.
+- Runtime hand joint kinematics.
+- Per-digit linkage variation.
+- Per-digit fingertip structural-morphology variation.
+
+These require explicit design decisions before they become part of the
+canonical morphology model.

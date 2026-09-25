@@ -9,17 +9,11 @@ from xml.etree import ElementTree
 
 from ..geometry import RigidTransform
 from ..hardware import Actuator, XM335Actuator
-from ..morphology.hand import HAND_Z_DORSAL, HandLayout
+from ..morphology.hand import HandLayout
 
 
 MM_TO_M = 1.0e-3
 PALM_LINK_NAME = "palm_link"
-LINKAGE_FRAME_IN_MCP_FE = RigidTransform.rotation_about_axis(
-    HAND_Z_DORSAL,
-    -math.pi / 2.0,
-)
-# This preserves the pre-existing linkage orientation in the hand frame:
-# linkage +X -> hand -Y, +Y -> hand +X, and +Z -> hand +Z.
 
 
 def _format_number(value: float) -> str:
@@ -198,6 +192,8 @@ def _add_ordinary_finger(
         parent_link=aa_output,
     )
     linkage_frame = f"{finger_name}_linkage_frame"
+    linkage_pose = layout.linkage_transforms[f"{finger_name}_linkage"]
+    mcp_fe_pose = layout.joint_transforms[fe_frame]
     _add_link(robot, linkage_frame)
     _add_joint(
         robot,
@@ -205,7 +201,7 @@ def _add_ordinary_finger(
         joint_type="fixed",
         parent_link=fe_output,
         child_link=linkage_frame,
-        origin=LINKAGE_FRAME_IN_MCP_FE,
+        origin=mcp_fe_pose.inverse() @ linkage_pose,
     )
 
 
@@ -293,7 +289,6 @@ def write_hand_urdf(
 
 
 __all__ = [
-    "LINKAGE_FRAME_IN_MCP_FE",
     "MM_TO_M",
     "PALM_LINK_NAME",
     "compile_hand_urdf",

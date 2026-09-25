@@ -21,6 +21,7 @@ from cmd.morphology.hand import (
     HAND_Z_DORSAL,
     MCP_AA_ACTUATOR_MOUNT,
     ORDINARY_MCP_AA_TO_MCP_FE,
+    ORDINARY_MCP_FE_TO_LINKAGE,
     THUMB_CMC_RAA_ACTUATOR_MOUNT,
     THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM,
     THUMB_CMC_RO_ACTUATOR_MOUNT,
@@ -104,6 +105,40 @@ def test_ordinary_placement_changes_propagate_without_fe_design_variables() -> N
     )
     assert first.joint_transforms["ring_mcp_aa"] == moved.joint_transforms["ring_mcp_aa"]
     assert first.joint_transforms["little_mcp_fe"] == moved.joint_transforms["little_mcp_fe"]
+
+
+def test_linkage_base_transforms_are_derived_from_each_mcp_fe_frame() -> None:
+    layout = HandLayout(make_layout_parameters())
+    joints = layout.joint_transforms
+    linkages = layout.linkage_transforms
+
+    assert set(linkages) == {
+        "index_linkage",
+        "middle_linkage",
+        "ring_linkage",
+        "little_linkage",
+    }
+    for finger in ("index", "middle", "ring", "little"):
+        relative = joints[f"{finger}_mcp_fe"].inverse() @ linkages[f"{finger}_linkage"]
+        assert relative.translation_mm == pytest.approx(
+            ORDINARY_MCP_FE_TO_LINKAGE.translation_mm
+        )
+        assert [value for row in relative.rotation_matrix for value in row] == pytest.approx(
+            [
+                value
+                for row in ORDINARY_MCP_FE_TO_LINKAGE.rotation_matrix
+                for value in row
+            ]
+        )
+        assert relative.transform_vector((1.0, 0.0, 0.0)) == pytest.approx(
+            (0.0, -1.0, 0.0)
+        )
+        assert relative.transform_vector((0.0, 1.0, 0.0)) == pytest.approx(
+            (1.0, 0.0, 0.0)
+        )
+        assert relative.transform_vector((0.0, 0.0, 1.0)) == pytest.approx(
+            (0.0, 0.0, 1.0)
+        )
 
 
 def test_thumb_fixed_chain_is_derived_from_the_low_dimensional_layout() -> None:

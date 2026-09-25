@@ -1,16 +1,4 @@
-"""Derived reference geometry for the CLEAR Hand flexion linkage.
-
-This module consumes the independent design variables from
-``linkage_parameter.py`` and derives the fully extended reference assembly.
-It owns no optimizer variables and does not solve configuration-dependent
-joint angles or posed positions. Future kinematics and simulation modules can
-consume these derived positions and fixed coupler lengths without redefining
-the mechanism geometry.
-
-The mechanism is planar in YZ, so every represented point has X = 0 by
-construction. All revolute flexion axes are +X, but no joint-angle solving is
-implemented here.
-"""
+"""Derived reference geometry for the planar CLEAR Hand finger linkage."""
 
 from __future__ import annotations
 
@@ -18,43 +6,33 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from .linkage_parameter import (
-    AnchorYZ,
-    FingerLinkageParameters,
-)
+from .linkage_parameter import FingerLinkageParameters, PointYZ
 
 
-_EXTENDED_COLLINEARITY_TOLERANCE_MM = 0.01
-_DIRECTION_TOLERANCE_MM = 1e-10
+_FULLY_EXTENDED_ANGULAR_TOLERANCE = 1.0e-4
 
 
 @dataclass(frozen=True)
 class ReferencePositions:
-    """Derived YZ positions of all eight points at neutral full extension.
+    """Derived YZ positions of all points in the reference assembly."""
 
-    Lowercase names mirror the mechanism notation: ``o``, ``a``, ``b``, and
-    ``c`` are the main-chain pivots, while ``op``, ``ap``, ``bp``, and ``cp``
-    are the corresponding primed coupling anchors. These are not independent
-    design variables.
-    """
-
-    o: AnchorYZ
-    a: AnchorYZ
-    b: AnchorYZ
-    c: AnchorYZ
-    op: AnchorYZ
-    ap: AnchorYZ
-    bp: AnchorYZ
-    cp: AnchorYZ
+    o: PointYZ
+    op: PointYZ
+    a: PointYZ
+    ap: PointYZ
+    b: PointYZ
+    bp: PointYZ
+    c: PointYZ
+    cp: PointYZ
 
 
 @dataclass(frozen=True)
 class FingerLinkage:
-    """Constructed derived reference geometry for one CLEAR linkage.
+    """Materialized planar linkage geometry for its fully extended pose.
 
-    The ``parameters`` field is the independent design input. The reference
-    pose places ``O-A'-B'-B-C`` on +Y; ``OA`` and ``AB`` need not be aligned.
-    Configuration-dependent values belong in the kinematics layer.
+    All points are composed from the reference translations in
+    :class:`FingerLinkageParameters`. The reference pose is accepted when
+    ``BC`` and ``OC`` are parallel and point in the same distal direction.
     """
 
     parameters: FingerLinkageParameters
@@ -66,106 +44,68 @@ class FingerLinkage:
             raise TypeError("parameters must be a FingerLinkageParameters instance")
 
         reference = self.reference_positions
-        virtual_a_prime_b_prime = AnchorYZ(
-            reference.bp.y_mm - reference.ap.y_mm,
-            reference.bp.z_mm - reference.ap.z_mm,
+        bc = PointYZ(self.parameters.bc_length_mm, 0.0)
+        oc = PointYZ(
+            reference.c.y_mm - reference.o.y_mm,
+            reference.c.z_mm - reference.o.z_mm,
         )
+        bc_length = math.hypot(bc.y_mm, bc.z_mm)
+        oc_length = math.hypot(oc.y_mm, oc.z_mm)
+        cross_2d = bc.y_mm * oc.z_mm - bc.z_mm * oc.y_mm
+        dot_2d = bc.y_mm * oc.y_mm + bc.z_mm * oc.z_mm
+        scale = bc_length * oc_length
+        if not all(math.isfinite(value) for value in (cross_2d, dot_2d, scale)):
+            raise ValueError("fully extended reference geometry must remain finite")
         if (
-            virtual_a_prime_b_prime.y_mm <= 0.0
-            or abs(virtual_a_prime_b_prime.z_mm)
-            > _EXTENDED_COLLINEARITY_TOLERANCE_MM
+            scale == 0.0
+            or abs(cross_2d) > _FULLY_EXTENDED_ANGULAR_TOLERANCE * scale
+            or dot_2d <= 0.0
         ):
             raise ValueError(
-                "the fully extended reference requires O-A'-B'-B-C "
-                "to be collinear and ordered along +Y; "
-                f"A'-B' residual is {virtual_a_prime_b_prime.z_mm:.6g} mm"
+                "fully extended reference requires BC parallel to OC and pointing "
+                "in the same direction"
             )
-        if self._coupler_1_length(reference) <= 0.0:
-            raise ValueError("coupler 1 must have a positive reference length")
-        if self._coupler_2_length(reference) <= 0.0:
-            raise ValueError("coupler 2 must have a positive reference length")
 
     @property
     def reference_positions(self) -> ReferencePositions:
-        """Derive positions with O-A'-B'-B-C aligned along canonical +Y."""
+        """Compose every reference point by translation from its named origin."""
 
-        main = self.parameters.main_chain
-        coupling = self.parameters.coupling
+        p = self.parameters
+        o = PointYZ(0.0, 0.0)
+        op = _add(o, p.o_prime_from_o)
+        a = _add(o, p.a_from_o)
+        ap = _add(o, p.a_prime_from_o)
+        b = _add(a, p.b_from_a)
+        bp = _add(a, p.b_prime_from_a)
+        c = _add(b, PointYZ(p.bc_length_mm, 0.0))
+        cp = _add(b, p.c_prime_from_b)
+        return ReferencePositions(o=o, op=op, a=a, ap=ap, b=b, bp=bp, c=c, cp=cp)
 
-        o = AnchorYZ(0.0, 0.0)
-        proximal_anchor_length = math.hypot(
-            coupling.proximal_anchor.y_mm,
-            coupling.proximal_anchor.z_mm,
-        )
-        middle_to_joint = AnchorYZ(
-            main.middle_length_mm - coupling.middle_anchor.y_mm,
-            -coupling.middle_anchor.z_mm,
-        )
-        middle_to_joint_length = math.hypot(
-            middle_to_joint.y_mm,
-            middle_to_joint.z_mm,
-        )
-        if proximal_anchor_length <= _DIRECTION_TOLERANCE_MM:
-            raise ValueError("the extended reference requires a nonzero OA' vector")
-        if middle_to_joint_length <= _DIRECTION_TOLERANCE_MM:
-            raise ValueError("the extended reference requires a nonzero B'B vector")
+    @property
+    def oa_length_mm(self) -> float:
+        """Return the derived ``|OA|`` length."""
 
-        # q1 is measured from OA' at full extension. Rotate the proximal body
-        # so its local OA' vector points along +Y; orient the middle body so
-        # its local B'B vector points along the same line. BC already uses the
-        # canonical +Y direction in the distal-body frame.
-        theta1 = -math.atan2(
-            coupling.proximal_anchor.z_mm,
-            coupling.proximal_anchor.y_mm,
-        )
-        theta2 = -math.atan2(middle_to_joint.z_mm, middle_to_joint.y_mm)
-        theta3 = 0.0
+        return self.reference_positions.o.distance_to(self.reference_positions.a)
 
-        a = self._rotate(AnchorYZ(main.proximal_length_mm, 0.0), theta1)
-        b = self._translate(
-            a=a,
-            local=self._rotate(AnchorYZ(main.middle_length_mm, 0.0), theta2),
-        )
-        c = self._translate(
-            a=b,
-            local=self._rotate(AnchorYZ(main.distal_length_mm, 0.0), theta3),
-        )
+    @property
+    def ab_length_mm(self) -> float:
+        """Return the derived ``|AB|`` length."""
 
-        op = coupling.base_anchor
-        ap = self._rotate(coupling.proximal_anchor, theta1)
-        bp = self._translate(
-            a=a,
-            local=self._rotate(coupling.middle_anchor, theta2),
-        )
-        cp = self._translate(
-            a=b,
-            local=self._rotate(coupling.distal_anchor, theta3),
-        )
-
-        return ReferencePositions(o=o, a=a, b=b, c=c, op=op, ap=ap, bp=bp, cp=cp)
+        return self.reference_positions.a.distance_to(self.reference_positions.b)
 
     @property
     def coupler_1_length_mm(self) -> float:
         """Return the derived fixed length of the O'-B' coupling rod."""
 
-        return self._coupler_1_length(self.reference_positions)
+        reference = self.reference_positions
+        return reference.op.distance_to(reference.bp)
 
     @property
     def coupler_2_length_mm(self) -> float:
         """Return the derived fixed length of the A'-C' coupling rod."""
 
-        return self._coupler_2_length(self.reference_positions)
-
-    @property
-    def total_main_chain_length_mm(self) -> float:
-        """Return the derived sum ``|OA| + |AB| + |BC|``."""
-
-        main = self.parameters.main_chain
-        return (
-            main.proximal_length_mm
-            + main.middle_length_mm
-            + main.distal_length_mm
-        )
+        reference = self.reference_positions
+        return reference.ap.distance_to(reference.cp)
 
     @property
     def flexion_axis_xyz(self) -> tuple[float, float, float]:
@@ -173,26 +113,9 @@ class FingerLinkage:
 
         return self.FLEXION_AXIS_XYZ
 
-    @staticmethod
-    def _translate(a: AnchorYZ, local: AnchorYZ) -> AnchorYZ:
-        return AnchorYZ(a.y_mm + local.y_mm, a.z_mm + local.z_mm)
 
-    @staticmethod
-    def _rotate(point: AnchorYZ, angle_rad: float) -> AnchorYZ:
-        cosine = math.cos(angle_rad)
-        sine = math.sin(angle_rad)
-        return AnchorYZ(
-            cosine * point.y_mm - sine * point.z_mm,
-            sine * point.y_mm + cosine * point.z_mm,
-        )
-
-    @staticmethod
-    def _coupler_1_length(reference: ReferencePositions) -> float:
-        return reference.op.distance_to(reference.bp)
-
-    @staticmethod
-    def _coupler_2_length(reference: ReferencePositions) -> float:
-        return reference.ap.distance_to(reference.cp)
+def _add(first: PointYZ, second: PointYZ) -> PointYZ:
+    return PointYZ(first.y_mm + second.y_mm, first.z_mm + second.z_mm)
 
 
 __all__ = ["FingerLinkage", "ReferencePositions"]

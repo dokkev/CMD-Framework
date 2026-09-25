@@ -3,7 +3,7 @@
 from .fingertip import Fingertip
 from .fingertip_parameter import FingertipFamilyParameters, FingertipParameters
 from .linkage import FingerLinkage
-from .linkage_parameter import FingerLinkageParameters
+from .linkage_parameter import FingerLinkageParameters, PointYZ
 from .linkage_kinematics import KinematicClosureError, LinkageKinematics, LinkagePose
 from .linkage_seed import BASELINE_LINKAGE_V0
 from .hand_parameter import (
@@ -21,6 +21,7 @@ __all__ = [
     "FingertipLengths",
     "FingerLinkage",
     "FingerLinkageParameters",
+    "PointYZ",
     "LinkageKinematics",
     "LinkagePose",
     "KinematicClosureError",
