@@ -131,10 +131,10 @@ def test_linkage_base_transforms_are_derived_from_each_mcp_fe_frame() -> None:
             ]
         )
         assert relative.transform_vector((1.0, 0.0, 0.0)) == pytest.approx(
-            (0.0, -1.0, 0.0)
+            (1.0, 0.0, 0.0)
         )
         assert relative.transform_vector((0.0, 1.0, 0.0)) == pytest.approx(
-            (1.0, 0.0, 0.0)
+            (0.0, 1.0, 0.0)
         )
         assert relative.transform_vector((0.0, 0.0, 1.0)) == pytest.approx(
             (0.0, 0.0, 1.0)

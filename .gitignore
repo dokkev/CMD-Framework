@@ -1,4 +1,4 @@
-.$cmd.drawio.bkp
 *.drawio.dtmp
+*.drawio.bkp
 __pycache__/
 *.py[cod]

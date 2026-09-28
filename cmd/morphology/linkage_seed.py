@@ -1,7 +1,7 @@
 """Named initial designs for CLEAR linkage studies."""
 
 from .linkage import FingerLinkage
-from .linkage_parameter import FingerLinkageParameters, PointYZ
+from .linkage_parameter import FingerLinkageParameters, PointXZ
 
 
 # These translations were derived from the pre-refactor BASELINE_LINKAGE_V0
@@ -9,13 +9,13 @@ from .linkage_parameter import FingerLinkageParameters, PointYZ
 # coupler lengths remain unchanged.
 BASELINE_LINKAGE_V0 = FingerLinkage(
     FingerLinkageParameters(
-        o_prime_from_o=PointYZ(10.0, 10.0),
-        a_from_o=PointYZ(35.005085389255939, 4.997358991597482),
-        a_prime_from_o=PointYZ(30.001126645511164, 0.0),
-        b_from_a=PointYZ(25.005787138053947, -4.996059407806905),
-        b_prime_from_a=PointYZ(4.998018646790356, -4.996059407806905),
+        o_prime_from_o=PointXZ(10.0, 10.0),
+        a_from_o=PointXZ(35.005085389255939, 4.997358991597482),
+        a_prime_from_o=PointXZ(30.001126645511164, 0.0),
+        b_from_a=PointXZ(25.005787138053947, -4.996059407806905),
+        b_prime_from_a=PointXZ(4.998018646790356, -4.996059407806905),
         bc_length_mm=20.0,
-        c_prime_from_b=PointYZ(-10.0, 5.0),
+        c_prime_from_b=PointXZ(-10.0, 5.0),
     )
 )
 

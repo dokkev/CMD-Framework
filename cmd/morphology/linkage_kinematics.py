@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from numbers import Real
 
 from .linkage import FingerLinkage
-from .linkage_parameter import PointYZ
+from .linkage_parameter import PointXZ
 
 
 _GEOMETRIC_TOLERANCE = 1e-10
@@ -19,19 +19,19 @@ class KinematicClosureError(ValueError):
 
 @dataclass(frozen=True)
 class LinkagePose:
-    """One posed YZ configuration; q angles are changes from reference."""
+    """One posed XZ configuration; q angles are changes from reference."""
 
     q1_rad: float
     q2_rad: float
     q3_rad: float
-    o: PointYZ
-    a: PointYZ
-    b: PointYZ
-    c: PointYZ
-    op: PointYZ
-    ap: PointYZ
-    bp: PointYZ
-    cp: PointYZ
+    o: PointXZ
+    a: PointXZ
+    b: PointXZ
+    c: PointXZ
+    op: PointXZ
+    ap: PointXZ
+    bp: PointXZ
+    cp: PointXZ
 
 
 @dataclass(frozen=True)
@@ -116,7 +116,7 @@ class LinkageKinematics:
         q3_rad = _wrap_angle(delta_distal - delta_middle)
         c = _add(
             b,
-            _rotate(PointYZ(parameters.bc_length_mm, 0.0), delta_distal),
+            _rotate(PointXZ(parameters.bc_length_mm, 0.0), delta_distal),
         )
 
         return LinkagePose(
@@ -135,12 +135,12 @@ class LinkageKinematics:
 
 
 def _circle_intersections(
-    center_0: PointYZ,
-    center_1: PointYZ,
+    center_0: PointXZ,
+    center_1: PointXZ,
     radius_0: float,
     radius_1: float,
     loop_name: str,
-) -> tuple[PointYZ, ...]:
+) -> tuple[PointXZ, ...]:
     """Return zero, one, or two intersections of two planar circles."""
 
     center_delta = _subtract(center_1, center_0)
@@ -180,25 +180,25 @@ def _circle_intersections(
     height = math.sqrt(max(0.0, height_squared))
 
     unit = (
-        center_delta.y_mm / center_distance,
+        center_delta.x_mm / center_distance,
         center_delta.z_mm / center_distance,
     )
-    midpoint = PointYZ(
-        center_0.y_mm + along * unit[0],
+    midpoint = PointXZ(
+        center_0.x_mm + along * unit[0],
         center_0.z_mm + along * unit[1],
     )
     if height <= math.sqrt(squared_tolerance):
         return (midpoint,)
 
     perpendicular = (-unit[1], unit[0])
-    offset = PointYZ(height * perpendicular[0], height * perpendicular[1])
+    offset = PointXZ(height * perpendicular[0], height * perpendicular[1])
     return (_add(midpoint, offset), _subtract(midpoint, offset))
 
 
 def _reference_branch_sign(
-    center_0: PointYZ,
-    center_1: PointYZ,
-    reference_point: PointYZ,
+    center_0: PointXZ,
+    center_1: PointXZ,
+    reference_point: PointXZ,
     loop_name: str,
 ) -> int:
     """Return the reference cross-product sign used to select a branch."""
@@ -215,12 +215,12 @@ def _reference_branch_sign(
 
 
 def _select_branch(
-    center_0: PointYZ,
-    center_1: PointYZ,
-    candidates: tuple[PointYZ, ...],
+    center_0: PointXZ,
+    center_1: PointXZ,
+    candidates: tuple[PointXZ, ...],
     reference_sign: int,
     loop_name: str,
-) -> PointYZ:
+) -> PointXZ:
     if len(candidates) == 1:
         return candidates[0]
 
@@ -233,7 +233,7 @@ def _select_branch(
     )
 
 
-def _signed_rotation(reference: PointYZ, current: PointYZ) -> float:
+def _signed_rotation(reference: PointXZ, current: PointXZ) -> float:
     """Return the signed change rotating a reference vector to its current pose."""
 
     if _length(reference) <= _GEOMETRIC_TOLERANCE or _length(current) <= _GEOMETRIC_TOLERANCE:
@@ -241,33 +241,34 @@ def _signed_rotation(reference: PointYZ, current: PointYZ) -> float:
     return math.atan2(_cross(reference, current), _dot(reference, current))
 
 
-def _rotate(point: PointYZ, angle_rad: float) -> PointYZ:
+def _rotate(point: PointXZ, angle_rad: float) -> PointXZ:
+    """Rotate a planar linkage vector using its canonical XZ convention."""
     cosine = math.cos(angle_rad)
     sine = math.sin(angle_rad)
-    return PointYZ(
-        cosine * point.y_mm - sine * point.z_mm,
-        sine * point.y_mm + cosine * point.z_mm,
+    return PointXZ(
+        cosine * point.x_mm - sine * point.z_mm,
+        sine * point.x_mm + cosine * point.z_mm,
     )
 
 
-def _add(first: PointYZ, second: PointYZ) -> PointYZ:
-    return PointYZ(first.y_mm + second.y_mm, first.z_mm + second.z_mm)
+def _add(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm + second.x_mm, first.z_mm + second.z_mm)
 
 
-def _subtract(first: PointYZ, second: PointYZ) -> PointYZ:
-    return PointYZ(first.y_mm - second.y_mm, first.z_mm - second.z_mm)
+def _subtract(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm - second.x_mm, first.z_mm - second.z_mm)
 
 
-def _length(point: PointYZ) -> float:
-    return math.hypot(point.y_mm, point.z_mm)
+def _length(point: PointXZ) -> float:
+    return math.hypot(point.x_mm, point.z_mm)
 
 
-def _dot(first: PointYZ, second: PointYZ) -> float:
-    return first.y_mm * second.y_mm + first.z_mm * second.z_mm
+def _dot(first: PointXZ, second: PointXZ) -> float:
+    return first.x_mm * second.x_mm + first.z_mm * second.z_mm
 
 
-def _cross(first: PointYZ, second: PointYZ) -> float:
-    return first.y_mm * second.z_mm - first.z_mm * second.y_mm
+def _cross(first: PointXZ, second: PointXZ) -> float:
+    return first.x_mm * second.z_mm - first.z_mm * second.x_mm
 
 
 def _wrap_angle(angle_rad: float) -> float:

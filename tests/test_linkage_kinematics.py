@@ -10,40 +10,40 @@ from cmd.morphology import (
     FingerLinkageParameters,
     KinematicClosureError,
     LinkageKinematics,
-    PointYZ,
+    PointXZ,
 )
 
 
 def make_noncollinear_linkage() -> FingerLinkage:
     return FingerLinkage(
         FingerLinkageParameters(
-            o_prime_from_o=PointYZ(0.0, 10.0),
-            a_from_o=PointYZ(10.0, 5.0),
-            a_prime_from_o=PointYZ(4.0, 9.0),
-            b_from_a=PointYZ(30.0, -5.0),
-            b_prime_from_a=PointYZ(9.0, 8.0),
+            o_prime_from_o=PointXZ(0.0, 10.0),
+            a_from_o=PointXZ(10.0, 5.0),
+            a_prime_from_o=PointXZ(4.0, 9.0),
+            b_from_a=PointXZ(30.0, -5.0),
+            b_prime_from_a=PointXZ(9.0, 8.0),
             bc_length_mm=20.0,
-            c_prime_from_b=PointYZ(8.0, 6.0),
+            c_prime_from_b=PointXZ(8.0, 6.0),
         )
     )
 
 
-def rotate(point: PointYZ, angle_rad: float) -> PointYZ:
+def rotate(point: PointXZ, angle_rad: float) -> PointXZ:
     cosine = math.cos(angle_rad)
     sine = math.sin(angle_rad)
-    return PointYZ(
-        cosine * point.y_mm - sine * point.z_mm,
-        sine * point.y_mm + cosine * point.z_mm,
+    return PointXZ(
+        cosine * point.x_mm - sine * point.z_mm,
+        sine * point.x_mm + cosine * point.z_mm,
     )
 
 
-def translated(origin: PointYZ, offset: PointYZ, angle_rad: float) -> PointYZ:
+def translated(origin: PointXZ, offset: PointXZ, angle_rad: float) -> PointXZ:
     rotated = rotate(offset, angle_rad)
-    return PointYZ(origin.y_mm + rotated.y_mm, origin.z_mm + rotated.z_mm)
+    return PointXZ(origin.x_mm + rotated.x_mm, origin.z_mm + rotated.z_mm)
 
 
-def assert_point_close(actual: PointYZ, expected: PointYZ) -> None:
-    assert actual.y_mm == pytest.approx(expected.y_mm, abs=1e-10)
+def assert_point_close(actual: PointXZ, expected: PointXZ) -> None:
+    assert actual.x_mm == pytest.approx(expected.x_mm, abs=1e-10)
     assert actual.z_mm == pytest.approx(expected.z_mm, abs=1e-10)
 
 
@@ -97,18 +97,28 @@ def test_nonzero_pose_closes_both_loops_and_preserves_all_fixed_lengths() -> Non
     )
     assert_point_close(
         pose.c,
-        translated(pose.b, PointYZ(parameters.bc_length_mm, 0.0), delta_distal),
+        translated(pose.b, PointXZ(parameters.bc_length_mm, 0.0), delta_distal),
     )
 
     initial_a_prime = parameters.a_prime_from_o
-    posed_a_prime = PointYZ(pose.ap.y_mm - pose.o.y_mm, pose.ap.z_mm - pose.o.z_mm)
+    posed_a_prime = PointXZ(pose.ap.x_mm - pose.o.x_mm, pose.ap.z_mm - pose.o.z_mm)
     measured_q1 = math.atan2(
-        initial_a_prime.y_mm * posed_a_prime.z_mm
-        - initial_a_prime.z_mm * posed_a_prime.y_mm,
-        initial_a_prime.y_mm * posed_a_prime.y_mm
+        initial_a_prime.x_mm * posed_a_prime.z_mm
+        - initial_a_prime.z_mm * posed_a_prime.x_mm,
+        initial_a_prime.x_mm * posed_a_prime.x_mm
         + initial_a_prime.z_mm * posed_a_prime.z_mm,
     )
     assert measured_q1 == pytest.approx(pose.q1_rad, abs=1e-10)
+
+
+def test_negative_q1_moves_proximal_link_in_flexion_direction() -> None:
+    linkage = BASELINE_LINKAGE_V0
+    solver = LinkageKinematics(linkage)
+    extended = solver.solve(0.0)
+    flexed = solver.solve(-0.05)
+
+    assert linkage.flexion_axis_xyz == (0.0, 1.0, 0.0)
+    assert flexed.a.z_mm < extended.a.z_mm
 
 
 def test_assembly_branch_selection_is_deterministic() -> None:

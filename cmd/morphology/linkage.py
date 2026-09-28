@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from .linkage_parameter import FingerLinkageParameters, PointYZ
+from .linkage_parameter import FingerLinkageParameters, PointXZ
 
 
 _FULLY_EXTENDED_ANGULAR_TOLERANCE = 1.0e-4
@@ -14,16 +14,16 @@ _FULLY_EXTENDED_ANGULAR_TOLERANCE = 1.0e-4
 
 @dataclass(frozen=True)
 class ReferencePositions:
-    """Derived YZ positions of all points in the reference assembly."""
+    """Derived XZ positions of all points in the reference assembly."""
 
-    o: PointYZ
-    op: PointYZ
-    a: PointYZ
-    ap: PointYZ
-    b: PointYZ
-    bp: PointYZ
-    c: PointYZ
-    cp: PointYZ
+    o: PointXZ
+    op: PointXZ
+    a: PointXZ
+    ap: PointXZ
+    b: PointXZ
+    bp: PointXZ
+    c: PointXZ
+    cp: PointXZ
 
 
 @dataclass(frozen=True)
@@ -37,22 +37,22 @@ class FingerLinkage:
 
     parameters: FingerLinkageParameters
 
-    FLEXION_AXIS_XYZ: ClassVar[tuple[float, float, float]] = (1.0, 0.0, 0.0)
+    FLEXION_AXIS_XYZ: ClassVar[tuple[float, float, float]] = (0.0, 1.0, 0.0)
 
     def __post_init__(self) -> None:
         if not isinstance(self.parameters, FingerLinkageParameters):
             raise TypeError("parameters must be a FingerLinkageParameters instance")
 
         reference = self.reference_positions
-        bc = PointYZ(self.parameters.bc_length_mm, 0.0)
-        oc = PointYZ(
-            reference.c.y_mm - reference.o.y_mm,
+        bc = PointXZ(self.parameters.bc_length_mm, 0.0)
+        oc = PointXZ(
+            reference.c.x_mm - reference.o.x_mm,
             reference.c.z_mm - reference.o.z_mm,
         )
-        bc_length = math.hypot(bc.y_mm, bc.z_mm)
-        oc_length = math.hypot(oc.y_mm, oc.z_mm)
-        cross_2d = bc.y_mm * oc.z_mm - bc.z_mm * oc.y_mm
-        dot_2d = bc.y_mm * oc.y_mm + bc.z_mm * oc.z_mm
+        bc_length = math.hypot(bc.x_mm, bc.z_mm)
+        oc_length = math.hypot(oc.x_mm, oc.z_mm)
+        cross_2d = bc.x_mm * oc.z_mm - bc.z_mm * oc.x_mm
+        dot_2d = bc.x_mm * oc.x_mm + bc.z_mm * oc.z_mm
         scale = bc_length * oc_length
         if not all(math.isfinite(value) for value in (cross_2d, dot_2d, scale)):
             raise ValueError("fully extended reference geometry must remain finite")
@@ -71,13 +71,13 @@ class FingerLinkage:
         """Compose every reference point by translation from its named origin."""
 
         p = self.parameters
-        o = PointYZ(0.0, 0.0)
+        o = PointXZ(0.0, 0.0)
         op = _add(o, p.o_prime_from_o)
         a = _add(o, p.a_from_o)
         ap = _add(o, p.a_prime_from_o)
         b = _add(a, p.b_from_a)
         bp = _add(a, p.b_prime_from_a)
-        c = _add(b, PointYZ(p.bc_length_mm, 0.0))
+        c = _add(b, PointXZ(p.bc_length_mm, 0.0))
         cp = _add(b, p.c_prime_from_b)
         return ReferencePositions(o=o, op=op, a=a, ap=ap, b=b, bp=bp, c=c, cp=cp)
 
@@ -109,13 +109,13 @@ class FingerLinkage:
 
     @property
     def flexion_axis_xyz(self) -> tuple[float, float, float]:
-        """Return the fixed +X flexion-axis convention, not a design variable."""
+        """Return the fixed +Y flexion-axis convention, not a design variable."""
 
         return self.FLEXION_AXIS_XYZ
 
 
-def _add(first: PointYZ, second: PointYZ) -> PointYZ:
-    return PointYZ(first.y_mm + second.y_mm, first.z_mm + second.z_mm)
+def _add(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm + second.x_mm, first.z_mm + second.z_mm)
 
 
 __all__ = ["FingerLinkage", "ReferencePositions"]

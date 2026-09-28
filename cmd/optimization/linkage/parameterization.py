@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Mapping
 
-from cmd.morphology import FingerLinkage, FingerLinkageParameters, PointYZ
+from cmd.morphology import FingerLinkage, FingerLinkageParameters, PointXZ
 
 
 @dataclass(frozen=True)
@@ -19,17 +19,17 @@ class LinkageBaselineParameterization:
     """
 
     VARIABLE_NAMES: ClassVar[tuple[str, ...]] = (
-        "o_prime_from_o_y_mm",
+        "o_prime_from_o_x_mm",
         "o_prime_from_o_z_mm",
-        "a_from_o_y_mm",
+        "a_from_o_x_mm",
         "a_from_o_z_mm",
-        "a_prime_from_o_y_mm",
+        "a_prime_from_o_x_mm",
         "a_prime_from_o_z_mm",
-        "b_from_o_y_mm",
-        "b_prime_from_o_y_mm",
+        "b_from_o_x_mm",
+        "b_prime_from_o_x_mm",
         "b_prime_from_o_z_mm",
         "bc_length_mm",
-        "c_prime_from_o_y_mm",
+        "c_prime_from_o_x_mm",
         "c_prime_from_o_z_mm",
     )
 
@@ -49,20 +49,20 @@ class LinkageBaselineParameterization:
             )
 
         value = named_values.__getitem__
-        o = PointYZ(0.0, 0.0)
-        op = PointYZ(value("o_prime_from_o_y_mm"), value("o_prime_from_o_z_mm"))
-        a = PointYZ(value("a_from_o_y_mm"), value("a_from_o_z_mm"))
-        ap = PointYZ(
-            value("a_prime_from_o_y_mm"),
+        o = PointXZ(0.0, 0.0)
+        op = PointXZ(value("o_prime_from_o_x_mm"), value("o_prime_from_o_z_mm"))
+        a = PointXZ(value("a_from_o_x_mm"), value("a_from_o_z_mm"))
+        ap = PointXZ(
+            value("a_prime_from_o_x_mm"),
             value("a_prime_from_o_z_mm"),
         )
-        b = PointYZ(value("b_from_o_y_mm"), 0.0)
-        bp = PointYZ(
-            value("b_prime_from_o_y_mm"),
+        b = PointXZ(value("b_from_o_x_mm"), 0.0)
+        bp = PointXZ(
+            value("b_prime_from_o_x_mm"),
             value("b_prime_from_o_z_mm"),
         )
-        cp = PointYZ(
-            value("c_prime_from_o_y_mm"),
+        cp = PointXZ(
+            value("c_prime_from_o_x_mm"),
             value("c_prime_from_o_z_mm"),
         )
 
@@ -83,17 +83,17 @@ class LinkageBaselineParameterization:
             raise TypeError("linkage must be a FingerLinkage instance")
         reference = linkage.reference_positions
         return (
-            reference.op.y_mm,
+            reference.op.x_mm,
             reference.op.z_mm,
-            reference.a.y_mm,
+            reference.a.x_mm,
             reference.a.z_mm,
-            reference.ap.y_mm,
+            reference.ap.x_mm,
             reference.ap.z_mm,
-            reference.b.y_mm,
-            reference.bp.y_mm,
+            reference.b.x_mm,
+            reference.bp.x_mm,
             reference.bp.z_mm,
             linkage.parameters.bc_length_mm,
-            reference.cp.y_mm,
+            reference.cp.x_mm,
             reference.cp.z_mm,
         )
 
@@ -110,8 +110,8 @@ class LinkageBaselineParameterization:
         )
 
 
-def _difference(first: PointYZ, second: PointYZ) -> PointYZ:
-    return PointYZ(first.y_mm - second.y_mm, first.z_mm - second.z_mm)
+def _difference(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm - second.x_mm, first.z_mm - second.z_mm)
 
 
 __all__ = ["LinkageBaselineParameterization"]

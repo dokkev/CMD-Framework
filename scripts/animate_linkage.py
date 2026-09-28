@@ -5,7 +5,8 @@ Run from the repository root with no arguments to save the default GIF:
 
     python3 scripts/animate_linkage.py
 
-The animation uses the YZ linkage frame and both reference-derived couplers.
+The animation uses the XZ linkage frame (+X distal, +Z dorsal) and both
+reference-derived couplers.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from cmd.morphology import (  # noqa: E402
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
-    PointYZ,
+    PointXZ,
 )
 
 
@@ -77,31 +78,31 @@ def solve_animation_poses(
     return poses
 
 
-def _set_line_data(line, points: Sequence[PointYZ]) -> None:
+def _set_line_data(line, points: Sequence[PointXZ]) -> None:
     line.set_data(
-        [point.y_mm for point in points],
+        [point.x_mm for point in points],
         [point.z_mm for point in points],
     )
 
 
-def _draw_ground_support(axis, point: PointYZ) -> None:
+def _draw_ground_support(axis, point: PointXZ) -> None:
     """Draw the fixed pivot support symbol below O or O'."""
 
-    y_mm, z_mm = point.y_mm, point.z_mm
+    x_mm, z_mm = point.x_mm, point.z_mm
     axis.add_patch(Polygon(
-        ((y_mm, z_mm - 0.15),
-         (y_mm - 1.2, z_mm - 1.1),
-         (y_mm + 1.2, z_mm - 1.1)),
+        ((x_mm, z_mm - 0.15),
+         (x_mm - 1.2, z_mm - 1.1),
+         (x_mm + 1.2, z_mm - 1.1)),
         closed=True, facecolor="white", edgecolor="black",
         linewidth=1.5, zorder=1,
     ))
     axis.plot(
-        (y_mm - 1.4, y_mm + 1.4), (z_mm - 1.1, z_mm - 1.1),
+        (x_mm - 1.4, x_mm + 1.4), (z_mm - 1.1, z_mm - 1.1),
         color="black", linewidth=1.5, zorder=1,
     )
     for offset_mm in (-1.1, -0.5, 0.1, 0.7, 1.3):
         axis.plot(
-            (y_mm + offset_mm, y_mm + offset_mm - 0.65),
+            (x_mm + offset_mm, x_mm + offset_mm - 0.65),
             (z_mm - 1.1, z_mm - 1.75),
             color="black", linewidth=1.1, zorder=1,
         )
@@ -123,12 +124,12 @@ def create_animation(
         for pose in poses
         for point in (pose.o, pose.a, pose.b, pose.c, pose.op, pose.ap, pose.bp, pose.cp)
     ]
-    y_values = [point.y_mm for point in all_points]
+    x_values = [point.x_mm for point in all_points]
     z_values = [point.z_mm for point in all_points]
-    y_limits = (min(y_values) - 4.0, max(y_values) + 4.0)
+    x_limits = (min(x_values) - 4.0, max(x_values) + 4.0)
     z_limits = (min(z_values) - 4.0, max(z_values) + 4.0)
     width = 12.5
-    height = max(4.0, width * (z_limits[1] - z_limits[0]) / (y_limits[1] - y_limits[0]))
+    height = max(4.0, width * (z_limits[1] - z_limits[0]) / (x_limits[1] - x_limits[0]))
     figure, axis = plt.subplots(figsize=(width, height))
     red, green, blue, black = "#ff1027", "#196b22", "#071c9e", "#111111"
 
@@ -175,8 +176,10 @@ def create_animation(
         for name, (text, color, offset) in label_styles.items()
     }
 
-    axis.set_xlim(*y_limits)
+    axis.set_xlim(*x_limits)
     axis.set_ylim(*z_limits)
+    axis.set_xlabel("X / distal [mm]")
+    axis.set_ylabel("Z / dorsal [mm]")
     axis.set_aspect("equal", adjustable="box")
     axis.xaxis.set_major_locator(MultipleLocator(5.0))
     axis.yaxis.set_major_locator(MultipleLocator(5.0))
@@ -190,7 +193,7 @@ def create_animation(
         spine.set_visible(False)
     _draw_ground_support(axis, poses[0].o)
     _draw_ground_support(axis, poses[0].op)
-    figure.subplots_adjust(left=0.025, right=0.99, bottom=0.04, top=0.98)
+    figure.subplots_adjust(left=0.08, right=0.99, bottom=0.14, top=0.98)
 
     def update(frame_index: int):
         pose = poses[frame_index]
@@ -201,8 +204,8 @@ def create_animation(
         _set_line_data(coupler_2, (pose.ap, pose.cp))
         for name, marker in markers.items():
             point = getattr(pose, name)
-            marker.set_data((point.y_mm,), (point.z_mm,))
-            labels[name].xy = (point.y_mm, point.z_mm)
+            marker.set_data((point.x_mm,), (point.z_mm,))
+            labels[name].xy = (point.x_mm, point.z_mm)
         return (
             proximal, middle, distal, coupler_1, coupler_2,
             *markers.values(),

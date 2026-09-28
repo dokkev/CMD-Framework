@@ -141,7 +141,7 @@ class MonotonicFlexion:
         ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
         minimum = getattr(self.criteria, f"{self.joint}_minimum_motion_ratio")
         residuals = tuple(minimum - ratio for ratio in ratios)
-        return _pad_missing(residuals, len(indices))
+        return _pad_missing(residuals, len(indices) - 1)
 
 
 @dataclass(frozen=True)
@@ -168,7 +168,7 @@ class MaximumMotionRatio:
         ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
         maximum = getattr(self.criteria, f"{self.joint}_maximum_motion_ratio")
         residuals = tuple(ratio - maximum for ratio in ratios)
-        return _pad_missing(residuals, len(indices))
+        return _pad_missing(residuals, len(indices) - 1)
 
 
 @dataclass(frozen=True)

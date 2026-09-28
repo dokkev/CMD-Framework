@@ -2,7 +2,7 @@ from dataclasses import replace
 import math
 import pytest
 
-from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, PointYZ
+from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, PointXZ
 from cmd.morphology.linkage_kinematics import KinematicClosureError, LinkageKinematics
 from cmd.optimization import BoxVariable
 from cmd.optimization.constraint import inequality_result
@@ -25,7 +25,10 @@ from cmd.optimization.linkage import (
     build_linkage_baseline_problem,
     evaluate_linkage_workspace,
 )
-from cmd.optimization.linkage.evaluator import unwrap_principal_angles
+from cmd.optimization.linkage.evaluator import (
+    differentiate_flexion_samples,
+    unwrap_principal_angles,
+)
 
 
 def baseline_seed() -> tuple[LinkageBaselineParameterization, tuple[float, ...]]:
@@ -117,8 +120,8 @@ def healthy_workspace_metrics(evaluation):
     count = evaluation.solved_sample_count
     return replace(
         evaluation,
-        dq2_flexion_dq1_flexion=(1.0,) * count,
-        dq3_flexion_dq1_flexion=(1.0,) * count,
+        dq2_flexion_dq1_flexion=(1.0,) * max(0, count - 1),
+        dq3_flexion_dq1_flexion=(1.0,) * max(0, count - 1),
         transmission_angle_loop_1_rad=(math.pi / 2.0,) * count,
         transmission_angle_loop_2_rad=(math.pi / 2.0,) * count,
     )
@@ -142,17 +145,17 @@ def patch_solver_to_fail_after(monkeypatch, success_limit: int) -> None:
 def test_parameterization_preserves_twelve_dimensional_exact_manifold() -> None:
     parameterization, encoded = baseline_seed()
     assert parameterization.variable_names == (
-        "o_prime_from_o_y_mm",
+        "o_prime_from_o_x_mm",
         "o_prime_from_o_z_mm",
-        "a_from_o_y_mm",
+        "a_from_o_x_mm",
         "a_from_o_z_mm",
-        "a_prime_from_o_y_mm",
+        "a_prime_from_o_x_mm",
         "a_prime_from_o_z_mm",
-        "b_from_o_y_mm",
-        "b_prime_from_o_y_mm",
+        "b_from_o_x_mm",
+        "b_prime_from_o_x_mm",
         "b_prime_from_o_z_mm",
         "bc_length_mm",
-        "c_prime_from_o_y_mm",
+        "c_prime_from_o_x_mm",
         "c_prime_from_o_z_mm",
     )
     parameters = parameterization.decode(
@@ -164,10 +167,10 @@ def test_parameterization_preserves_twelve_dimensional_exact_manifold() -> None:
     assert len(encoded) == 12
     assert reference.b.z_mm == 0.0
     assert reference.c.z_mm == 0.0
-    assert reference.c.y_mm - reference.b.y_mm == pytest.approx(
+    assert reference.c.x_mm - reference.b.x_mm == pytest.approx(
         parameters.bc_length_mm
     )
-    assert reference.c.y_mm > 0.0
+    assert reference.c.x_mm > 0.0
 
 
 def test_baseline_encoding_projects_only_tiny_b_z_residual_without_mutation() -> None:
@@ -300,8 +303,8 @@ def test_usable_workspace_reports_each_motion_ratio_limit(
         if joint == "q2"
         else "dq3_flexion_dq1_flexion"
     )
-    ratios = [1.0] * evaluation.solved_sample_count
-    ratios[2] = 0.25 if limit_kind == "minimum" else 2.0
+    ratios = [1.0] * (evaluation.solved_sample_count - 1)
+    ratios[1] = 0.25 if limit_kind == "minimum" else 2.0
     evaluation = replace(evaluation, **{ratio_field: tuple(ratios)})
 
     criteria_kwargs = {
@@ -325,8 +328,8 @@ def test_workspace_limiting_reasons_have_deterministic_order() -> None:
     q2_ratio = list(evaluation.dq2_flexion_dq1_flexion)
     q3_ratio = list(evaluation.dq3_flexion_dq1_flexion)
     loop_1[2] = loop_2[2] = 0.1
-    q2_ratio[2] = 0.25
-    q3_ratio[2] = 2.0
+    q2_ratio[1] = 0.25
+    q3_ratio[1] = 2.0
     evaluation = replace(
         evaluation,
         transmission_angle_loop_1_rad=tuple(loop_1),
@@ -421,16 +424,14 @@ def test_coordination_objective_ignores_post_core_motion() -> None:
     evaluation = baseline_evaluation(sample_count=5)
     core = 0.4
     core_indices = (0, 1, 2)
-    q2_flexion = list(evaluation.q2_flexion_rad)
-    q3_flexion = list(evaluation.q3_flexion_rad)
-    q2_flexion[3:] = (100.0, -100.0)
-    q3_flexion[3:] = (-200.0, 200.0)
+    q2_ratios = list(evaluation.dq2_flexion_dq1_flexion)
+    q3_ratios = list(evaluation.dq3_flexion_dq1_flexion)
+    q2_ratios[2:] = (1000.0, -1000.0)
+    q3_ratios[2:] = (-2000.0, 2000.0)
     changed_post_core = replace(
         evaluation,
-        q2_flexion_rad=tuple(q2_flexion),
-        q3_flexion_rad=tuple(q3_flexion),
-        dq2_flexion_dq1_flexion=(1000.0,) * 5,
-        dq3_flexion_dq1_flexion=(-1000.0,) * 5,
+        dq2_flexion_dq1_flexion=tuple(q2_ratios),
+        dq3_flexion_dq1_flexion=tuple(q3_ratios),
     )
     objective = CoordinationRatioVariation(core)
 
@@ -440,18 +441,52 @@ def test_coordination_objective_ignores_post_core_motion() -> None:
     )
 
 
+def test_post_core_motion_cannot_make_the_core_workspace_unusable(
+    monkeypatch,
+) -> None:
+    base = baseline_evaluation(sample_count=5)
+    q2_flexion = list(base.q2_flexion_rad)
+    q2_flexion[3] = q2_flexion[2] + 1000.0
+    q2_flexion[4] = q2_flexion[3]
+    candidate_evaluation = replace(
+        base,
+        q2_flexion_rad=tuple(q2_flexion),
+        dq2_flexion_dq1_flexion=differentiate_flexion_samples(
+            base.input_flexion_rad,
+            tuple(q2_flexion),
+        ),
+    )
+    criteria = permissive_criteria(q2_maximum_motion_ratio=100.0)
+    problem, encoded = baseline_problem(criteria=criteria)
+    monkeypatch.setattr(
+        LinkageSweepEvaluator,
+        "evaluate",
+        lambda self, parameters: candidate_evaluation,
+    )
+
+    result = problem.evaluate(encoded)
+    workspace = evaluate_linkage_workspace(candidate_evaluation, criteria)
+
+    assert result.feasible
+    assert result.inequality_results[0].satisfied
+    assert result.inequality_results[1].satisfied
+    assert workspace.usable_input_workspace_rad == pytest.approx(0.4)
+    assert workspace.first_unusable_index == 3
+    assert workspace.limiting_reasons == ("q2_maximum_motion_ratio",)
+
+
 def test_input_angle_range_and_distal_excursion_are_independent_metrics() -> None:
     evaluation = healthy_workspace_metrics(baseline_evaluation(sample_count=5))
     criteria = permissive_criteria()
     long_input_grid = (0.0, 0.2, 0.4, 0.6, 0.8)
     short_input_grid = (0.0, 0.1, 0.2, 0.3, 0.4)
     long_path = tuple(
-        PointYZ(y, 0.0)
-        for y in (0.0, 0.25, 0.5, 0.75, 1.0)
+        PointXZ(x, 0.0)
+        for x in (0.0, 0.25, 0.5, 0.75, 1.0)
     )
     short_path = tuple(
-        PointYZ(y, 0.0)
-        for y in (0.0, 0.5, 1.0, 1.5, 2.0)
+        PointXZ(x, 0.0)
+        for x in (0.0, 0.5, 1.0, 1.5, 2.0)
     )
 
     def candidate(input_grid, c_path):
@@ -488,11 +523,11 @@ def test_input_angle_range_and_distal_excursion_are_independent_metrics() -> Non
 def test_distal_excursion_and_path_length_use_the_usable_c_prefix() -> None:
     evaluation = healthy_workspace_metrics(baseline_evaluation(sample_count=5))
     c_path = (
-        PointYZ(0.0, 0.0),
-        PointYZ(1.0, 0.0),
-        PointYZ(1.0, 2.0),
-        PointYZ(3.0, 2.0),
-        PointYZ(4.0, 2.0),
+        PointXZ(0.0, 0.0),
+        PointXZ(1.0, 0.0),
+        PointXZ(1.0, 2.0),
+        PointXZ(3.0, 2.0),
+        PointXZ(4.0, 2.0),
     )
     evaluation = replace(
         evaluation,
@@ -516,8 +551,8 @@ def test_distal_excursion_and_path_length_use_the_usable_c_prefix() -> None:
     assert workspace.usable_input_workspace_rad == pytest.approx(0.4)
     assert workspace.distal_endpoint_excursion_mm == pytest.approx(math.sqrt(5.0))
     assert workspace.distal_path_length_mm == pytest.approx(3.0)
-    assert workspace.distal_y_excursion_mm == pytest.approx(1.0)
-    assert workspace.distal_z_excursion_mm == pytest.approx(2.0)
+    assert workspace.distal_x_excursion_mm == pytest.approx(1.0)
+    assert workspace.dorsal_z_excursion_mm == pytest.approx(2.0)
 
 
 def test_minimum_usable_input_workspace_passes_and_fails() -> None:

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import Literal
 
-from .evaluator import LinkageEvaluation, differentiate_flexion_samples
+from .evaluator import LinkageEvaluation
 
 
 _CORE_SAMPLE_RELATIVE_TOLERANCE = 1e-12
@@ -66,8 +66,8 @@ class LinkageWorkspaceEvaluation:
     usable_input_workspace_rad: float
     distal_endpoint_excursion_mm: float
     distal_path_length_mm: float
-    distal_y_excursion_mm: float
-    distal_z_excursion_mm: float
+    distal_x_excursion_mm: float
+    dorsal_z_excursion_mm: float
     closure_sample_count: int
     usable_sample_count: int
     first_unusable_index: int | None
@@ -124,23 +124,17 @@ def core_motion_ratios(
     core_input_workspace_rad: float,
     joint: Literal["q2", "q3"],
 ) -> tuple[float, ...]:
-    """Recompute motion ratios using only flexion samples inside the core."""
+    """Select canonical interval ratios ending at samples inside the core."""
 
     if joint not in ("q2", "q3"):
         raise ValueError("joint must be 'q2' or 'q3'")
+    indices = core_sample_indices(evaluation, core_input_workspace_rad)
     values = (
-        evaluation.q2_flexion_rad
+        evaluation.dq2_flexion_dq1_flexion
         if joint == "q2"
-        else evaluation.q3_flexion_rad
+        else evaluation.dq3_flexion_dq1_flexion
     )
-    indices = tuple(
-        index
-        for index in core_sample_indices(evaluation, core_input_workspace_rad)
-        if index < len(values)
-    )
-    input_flexion = tuple(evaluation.input_flexion_rad[index] for index in indices)
-    joint_flexion = tuple(values[index] for index in indices)
-    return differentiate_flexion_samples(input_flexion, joint_flexion)
+    return values[: len(indices) - 1]
 
 
 def evaluate_linkage_workspace(
@@ -155,8 +149,8 @@ def evaluate_linkage_workspace(
             usable_input_workspace_rad=0.0,
             distal_endpoint_excursion_mm=0.0,
             distal_path_length_mm=0.0,
-            distal_y_excursion_mm=0.0,
-            distal_z_excursion_mm=0.0,
+            distal_x_excursion_mm=0.0,
+            dorsal_z_excursion_mm=0.0,
             closure_sample_count=0,
             usable_sample_count=0,
             first_unusable_index=0,
@@ -194,16 +188,16 @@ def evaluate_linkage_workspace(
         start = usable_points[0]
         end = usable_points[-1]
         distal_endpoint_excursion = start.distance_to(end)
-        distal_y_excursion = end.y_mm - start.y_mm
-        distal_z_excursion = end.z_mm - start.z_mm
+        distal_x_excursion = end.x_mm - start.x_mm
+        dorsal_z_excursion = end.z_mm - start.z_mm
         distal_path_length = math.fsum(
             first.distance_to(second)
             for first, second in zip(usable_points, usable_points[1:])
         )
     else:
         distal_endpoint_excursion = 0.0
-        distal_y_excursion = 0.0
-        distal_z_excursion = 0.0
+        distal_x_excursion = 0.0
+        dorsal_z_excursion = 0.0
         distal_path_length = 0.0
 
     return LinkageWorkspaceEvaluation(
@@ -211,8 +205,8 @@ def evaluate_linkage_workspace(
         usable_input_workspace_rad=usable_input_workspace,
         distal_endpoint_excursion_mm=distal_endpoint_excursion,
         distal_path_length_mm=distal_path_length,
-        distal_y_excursion_mm=distal_y_excursion,
-        distal_z_excursion_mm=distal_z_excursion,
+        distal_x_excursion_mm=distal_x_excursion,
+        dorsal_z_excursion_mm=dorsal_z_excursion,
         closure_sample_count=closure_count,
         usable_sample_count=usable_count,
         first_unusable_index=first_unusable_index,
@@ -240,22 +234,24 @@ def _sample_limiting_reasons(
         if margin < criteria.minimum_transmission_margin_rad:
             reasons.append(reason)
 
-    for joint in ("q2", "q3"):
-        ratios = (
-            evaluation.dq2_flexion_dq1_flexion
-            if joint == "q2"
-            else evaluation.dq3_flexion_dq1_flexion
-        )
-        if index >= len(ratios):
-            reasons.append(f"{joint}_motion_ratio_unavailable")
-            continue
-        ratio = ratios[index]
-        minimum = getattr(criteria, f"{joint}_minimum_motion_ratio")
-        maximum = getattr(criteria, f"{joint}_maximum_motion_ratio")
-        if ratio < minimum:
-            reasons.append(f"{joint}_minimum_motion_ratio")
-        if ratio > maximum:
-            reasons.append(f"{joint}_maximum_motion_ratio")
+    if index > 0:
+        interval_index = index - 1
+        for joint in ("q2", "q3"):
+            ratios = (
+                evaluation.dq2_flexion_dq1_flexion
+                if joint == "q2"
+                else evaluation.dq3_flexion_dq1_flexion
+            )
+            if interval_index >= len(ratios):
+                reasons.append(f"{joint}_motion_ratio_unavailable")
+                continue
+            ratio = ratios[interval_index]
+            minimum = getattr(criteria, f"{joint}_minimum_motion_ratio")
+            maximum = getattr(criteria, f"{joint}_maximum_motion_ratio")
+            if ratio < minimum:
+                reasons.append(f"{joint}_minimum_motion_ratio")
+            if ratio > maximum:
+                reasons.append(f"{joint}_maximum_motion_ratio")
 
     return tuple(reasons)
 

@@ -23,40 +23,40 @@ def _require_positive(name: str, value: object) -> None:
 
 
 @dataclass(frozen=True)
-class PointYZ:
+class PointXZ:
     """A point or translation in canonical linkage-plane coordinates (mm)."""
 
-    y_mm: float
+    x_mm: float
     z_mm: float
 
     def __post_init__(self) -> None:
-        _require_finite("y_mm", self.y_mm)
+        _require_finite("x_mm", self.x_mm)
         _require_finite("z_mm", self.z_mm)
 
-    def distance_to(self, other: "PointYZ") -> float:
-        """Return the planar Euclidean distance to another YZ point."""
+    def distance_to(self, other: "PointXZ") -> float:
+        """Return the planar Euclidean distance to another XZ point."""
 
-        if not isinstance(other, PointYZ):
-            raise TypeError("other must be a PointYZ instance")
-        return math.hypot(self.y_mm - other.y_mm, self.z_mm - other.z_mm)
+        if not isinstance(other, PointXZ):
+            raise TypeError("other must be a PointXZ instance")
+        return math.hypot(self.x_mm - other.x_mm, self.z_mm - other.z_mm)
 
 
 @dataclass(frozen=True)
 class FingerLinkageParameters:
     """Reference-pose point translations for one planar CLEAR linkage.
 
-    Each vector is expressed directly in the canonical reference-pose YZ
+    Each vector is expressed directly in the canonical reference-pose XZ
     coordinates. Its name identifies the point from which it is translated;
     there are no implicit body frames or user-provided reference rotations.
     """
 
-    o_prime_from_o: PointYZ
-    a_from_o: PointYZ
-    a_prime_from_o: PointYZ
-    b_from_a: PointYZ
-    b_prime_from_a: PointYZ
+    o_prime_from_o: PointXZ
+    a_from_o: PointXZ
+    a_prime_from_o: PointXZ
+    b_from_a: PointXZ
+    b_prime_from_a: PointXZ
     bc_length_mm: float
-    c_prime_from_b: PointYZ
+    c_prime_from_b: PointXZ
 
     def __post_init__(self) -> None:
         for name in (
@@ -67,9 +67,9 @@ class FingerLinkageParameters:
             "b_prime_from_a",
             "c_prime_from_b",
         ):
-            if not isinstance(getattr(self, name), PointYZ):
-                raise TypeError(f"{name} must be a PointYZ instance")
+            if not isinstance(getattr(self, name), PointXZ):
+                raise TypeError(f"{name} must be a PointXZ instance")
         _require_positive("bc_length_mm", self.bc_length_mm)
 
 
-__all__ = ["FingerLinkageParameters", "PointYZ"]
+__all__ = ["FingerLinkageParameters", "PointXZ"]

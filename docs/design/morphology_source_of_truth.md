@@ -191,8 +191,9 @@ constant. These values are materialized by `FingertipParameters` and
 
 Index, middle, ring, and little fingers share one linkage morphology, specified
 by `FingerLinkageParameters`. Its inputs are direct reference-pose translations
-in the canonical YZ plane; every point has `X = 0`. The reference origin is
-`O = (0, 0)`, and input translations have no hidden frame rotation:
+in the canonical XZ plane; every point has `Y = 0`. The reference origin is
+`O = (0, 0)`, where the tuple components are `(X, Z)`, and input translations
+have no hidden frame rotation:
 
 | Input | Meaning |
 | --- | --- |
@@ -201,19 +202,23 @@ in the canonical YZ plane; every point has `X = 0`. The reference origin is
 | `a_prime_from_o` | `A' = O + a_prime_from_o` |
 | `b_from_a` | `B = A + b_from_a` |
 | `b_prime_from_a` | `B' = A + b_prime_from_a` |
-| `bc_length_mm` | `C = B + (bc_length_mm, 0)`; positive distal length |
+| `bc_length_mm` | `C = B + (bc_length_mm, 0)`; positive distal `+X` length |
 | `c_prime_from_b` | `C' = B + c_prime_from_b` |
 
-Every vector is a YZ translation in the fully extended reference coordinates,
+Every vector is an XZ translation in the fully extended reference coordinates,
 expressed relative to the named point in its field. There are no user-specified
 reference rotation angles. Runtime rotations act on these stored vectors as
 changes from the reference pose.
 
 The fully extended reference is defined only by `BC` being parallel to `OC` and
 pointing in the same direction. Since `BC` is constructed along canonical
-`+Y`, `C` lies on the positive distal ray from `O`. `OA` and `OA'` need not be
+`+X`, `C` lies on the positive distal ray from `O`. The linkage plane is the
+hand-frame XZ plane, and its physical flexion axis is canonical `+Y`; `q1 = 0`
+is fully extended and `q1 < 0` is flexion. `OA` and `OA'` need not be
 horizontal, and neither `A'` nor `B'` is required to lie on `O-B-C`. No
 coupling-anchor collinearity condition is imposed.
+
+The public planar point type is `PointXZ(x_mm, z_mm)`. It has no Y coordinate.
 
 The main-chain lengths `|OA|` and `|AB|`, coupling lengths `|O'B'|` and
 `|A'C'|`, and all reference point positions are derived from these inputs.
@@ -306,12 +311,15 @@ This transform is fixed and is not part of the morphology design vector.
 
 ## 6.1 Ordinary MCP-FE to Linkage Frame
 
-The ordinary-finger linkage frame is fixed relative to MCP-FE. It has zero
-translation and rotates about `+Z_H` by `-90°`:
+The ordinary-finger linkage frame is aligned with MCP-FE and has zero relative
+translation and identity relative rotation:
 
 \[
-{}^{MCP-FE}T_L=R_z(-\pi/2)
+{}^{MCP-FE}T_L=I
 \]
+
+Thus linkage-frame `+X`, `+Y`, and `+Z` remain aligned with the corresponding
+MCP-FE/hand-frame axes.
 
 For each ordinary finger, `HandLayout.linkage_transforms` derives its hand-frame
 pose:
@@ -457,7 +465,7 @@ These architecture constants are not optimizer-controlled parameters:
 | Ordinary MCP-AA → MCP-FE ΔX | 23.5 mm |
 | Ordinary MCP-AA → MCP-FE ΔY | 0 mm |
 | Ordinary MCP-AA → MCP-FE ΔZ | 16.75 mm |
-| Ordinary MCP-FE → linkage frame | \(R_z(-\pi/2)\), zero translation |
+| Ordinary MCP-FE → linkage frame | identity rotation, zero translation |
 | Thumb CMC-RAA → MCP-FE distance | 39.5 mm |
 | Thumb MCP-FE → IP-FE distance | 35.5 mm |
 

@@ -12,7 +12,7 @@ from cmd.morphology import (
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
-    PointYZ,
+    PointXZ,
 )
 
 
@@ -50,6 +50,8 @@ class LinkageEvaluation:
     Workspace-valued pose and metric tuples contain only successfully solved
     samples, in order from extension toward flexion. Input sweep coordinates
     always contain the full requested grid, including any failed samples.
+    Motion-ratio tuples contain one value per solved interval; item ``i`` is
+    the ratio over samples ``i`` to ``i + 1``.
     """
 
     parameters: FingerLinkageParameters
@@ -188,8 +190,14 @@ class LinkageSweepEvaluator:
             unwrapped_q3_rad=q3_unwrapped,
             q2_flexion_rad=q2_flexion,
             q3_flexion_rad=q3_flexion,
-            dq2_flexion_dq1_flexion=_differentiate(solved_s, q2_flexion),
-            dq3_flexion_dq1_flexion=_differentiate(solved_s, q3_flexion),
+            dq2_flexion_dq1_flexion=differentiate_flexion_samples(
+                solved_s,
+                q2_flexion,
+            ),
+            dq3_flexion_dq1_flexion=differentiate_flexion_samples(
+                solved_s,
+                q3_flexion,
+            ),
             transmission_angle_loop_1_rad=tuple(angles_1),
             transmission_angle_loop_2_rad=tuple(angles_2),
             transmission_quality_loop_1=tuple(quality_1),
@@ -213,30 +221,19 @@ def unwrap_principal_angles(angles: tuple[float, ...]) -> tuple[float, ...]:
     return tuple(unwrapped)
 
 
-def _differentiate(x: tuple[float, ...], y: tuple[float, ...]) -> tuple[float, ...]:
-    """Use one-sided endpoint and centered interior finite differences."""
-
-    if len(x) != len(y):
-        raise ValueError("finite-difference coordinates must have equal lengths")
-    if len(x) < 2:
-        return ()
-
-    derivatives = [(y[1] - y[0]) / (x[1] - x[0])]
-    derivatives.extend(
-        (y[index + 1] - y[index - 1]) / (x[index + 1] - x[index - 1])
-        for index in range(1, len(x) - 1)
-    )
-    derivatives.append((y[-1] - y[-2]) / (x[-1] - x[-2]))
-    return tuple(derivatives)
-
-
 def differentiate_flexion_samples(
     input_flexion_rad: tuple[float, ...],
     joint_flexion_rad: tuple[float, ...],
 ) -> tuple[float, ...]:
-    """Return sampled ``d joint_flexion / d input_flexion`` ratios."""
+    """Return causal ratios for each interval ending at sample ``i > 0``."""
 
-    return _differentiate(input_flexion_rad, joint_flexion_rad)
+    if len(input_flexion_rad) != len(joint_flexion_rad):
+        raise ValueError("finite-difference coordinates must have equal lengths")
+    return tuple(
+        (joint_flexion_rad[index] - joint_flexion_rad[index - 1])
+        / (input_flexion_rad[index] - input_flexion_rad[index - 1])
+        for index in range(1, len(input_flexion_rad))
+    )
 
 
 def _requested_flexion_grid(
@@ -269,21 +266,21 @@ def _requested_flexion_grid(
 
 
 def _transmission_angle_and_quality(
-    vertex: PointYZ,
-    point_0: PointYZ,
-    point_1: PointYZ,
+    vertex: PointXZ,
+    point_0: PointXZ,
+    point_1: PointXZ,
 ) -> tuple[float, float]:
-    vector_0 = PointYZ(point_0.y_mm - vertex.y_mm, point_0.z_mm - vertex.z_mm)
-    vector_1 = PointYZ(point_1.y_mm - vertex.y_mm, point_1.z_mm - vertex.z_mm)
-    norm_0 = math.hypot(vector_0.y_mm, vector_0.z_mm)
-    norm_1 = math.hypot(vector_1.y_mm, vector_1.z_mm)
+    vector_0 = PointXZ(point_0.x_mm - vertex.x_mm, point_0.z_mm - vertex.z_mm)
+    vector_1 = PointXZ(point_1.x_mm - vertex.x_mm, point_1.z_mm - vertex.z_mm)
+    norm_0 = math.hypot(vector_0.x_mm, vector_0.z_mm)
+    norm_1 = math.hypot(vector_1.x_mm, vector_1.z_mm)
     if norm_0 == 0.0 or norm_1 == 0.0:
         return 0.0, 0.0
 
-    unit_0 = PointYZ(vector_0.y_mm / norm_0, vector_0.z_mm / norm_0)
-    unit_1 = PointYZ(vector_1.y_mm / norm_1, vector_1.z_mm / norm_1)
-    cross = unit_0.y_mm * unit_1.z_mm - unit_0.z_mm * unit_1.y_mm
-    dot = unit_0.y_mm * unit_1.y_mm + unit_0.z_mm * unit_1.z_mm
+    unit_0 = PointXZ(vector_0.x_mm / norm_0, vector_0.z_mm / norm_0)
+    unit_1 = PointXZ(vector_1.x_mm / norm_1, vector_1.z_mm / norm_1)
+    cross = unit_0.x_mm * unit_1.z_mm - unit_0.z_mm * unit_1.x_mm
+    dot = unit_0.x_mm * unit_1.x_mm + unit_0.z_mm * unit_1.z_mm
     angle = math.atan2(abs(cross), dot)
     margin = min(angle, math.pi - angle)
     quality = min(1.0, max(0.0, math.sin(margin)))
