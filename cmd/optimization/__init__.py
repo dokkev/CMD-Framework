@@ -1,6 +1,7 @@
 """Generic solver-independent optimization problem components."""
 
 from .constraint import (
+    ConstraintResidualNaNError,
     ConstraintResult,
     EqualityConstraint,
     FunctionalEqualityConstraint,
@@ -13,6 +14,7 @@ from .variable import BoxVariable
 
 __all__ = [
     "BoxVariable",
+    "ConstraintResidualNaNError",
     "ConstraintResult",
     "EqualityConstraint",
     "Evaluator",

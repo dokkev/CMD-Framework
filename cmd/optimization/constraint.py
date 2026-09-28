@@ -12,6 +12,17 @@ ContextT = TypeVar("ContextT", contravariant=True)
 ConstraintKind = Literal["equality", "inequality"]
 
 
+class ConstraintResidualNaNError(ValueError):
+    """Identify a NaN residual at the constraint boundary that produced it."""
+
+    def __init__(self, constraint_name: str, residual_index: int) -> None:
+        self.constraint_name = constraint_name
+        self.residual_index = residual_index
+        super().__init__(
+            f"constraint {constraint_name!r} residual {residual_index} must not be NaN"
+        )
+
+
 class EqualityConstraint(Protocol[ContextT]):
     """An equality residual vector with convention ``h(x) = 0``."""
 
@@ -118,12 +129,12 @@ def inequality_result(
 
 def _residual_values(values: Iterable[float], name: str) -> tuple[float, ...]:
     residuals: list[float] = []
-    for value in values:
+    for index, value in enumerate(values):
         if isinstance(value, bool) or not isinstance(value, Real):
             raise TypeError(f"constraint {name!r} residuals must be real scalars")
         residual = float(value)
         if math.isnan(residual):
-            raise ValueError(f"constraint {name!r} residuals must not contain NaN")
+            raise ConstraintResidualNaNError(name, index)
         residuals.append(residual)
     return tuple(residuals)
 
@@ -145,6 +156,7 @@ def _validate_tolerance(tolerance: float) -> float:
 
 
 __all__ = [
+    "ConstraintResidualNaNError",
     "ConstraintResult",
     "EqualityConstraint",
     "FunctionalEqualityConstraint",

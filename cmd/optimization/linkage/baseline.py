@@ -76,6 +76,15 @@ def build_linkage_baseline_problem(
 ) -> OptimizationProblem[FingerLinkageParameters, LinkageEvaluation]:
     """Compose Stage-0 objectives and core-only hard linkage constraints."""
 
+    bc_variable = next(
+        (variable for variable in variables if variable.name == "bc_length_mm"),
+        None,
+    )
+    if bc_variable is None:
+        raise ValueError("Stage-0 variables must include bc_length_mm")
+    if bc_variable.lower <= 0.0:
+        raise ValueError("bc_length_mm lower bound must be greater than zero")
+
     core = constraint_config.core_input_workspace_rad
     if core >= sweep_config.search_horizon_rad:
         raise ValueError("core_input_workspace_rad must be below search_horizon_rad")
