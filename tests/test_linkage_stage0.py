@@ -9,16 +9,14 @@ import numpy as np
 import pytest
 
 from cmd.morphology import BASELINE_LINKAGE_V0, LinkageMotionEvaluator
-from cmd.morphology.linkage_motion import evaluate_linkage_workspace
+from cmd.morphology.linkage import evaluate_linkage_workspace
 from cmd.optimization import BoxVariable
 from cmd.optimization.linkage import (
     LinkageBaselineParameterization,
     LinkageStage0Config,
-    build_linkage_stage0_problem,
-)
-from cmd.optimization.linkage.stage0 import (
     LinkageStage0Evaluation,
     Stage0Evaluator,
+    build_linkage_stage0_problem,
     run_linkage_stage0,
 )
 from cmd.optimization.solvers.pymoo import NSGA2Config, NSGA2RunResult, PymooProblemAdapter
@@ -153,11 +151,13 @@ def test_incomplete_core_uses_finite_solver_transport_and_finite_constraints(mon
         dq2_flexion_dq1_flexion=(), dq3_flexion_dq1_flexion=(),
         transmission_angle_loop_1_rad=(), transmission_angle_loop_2_rad=(),
         transmission_quality_loop_1=(), transmission_quality_loop_2=(),
-        complete_workspace=False, solved_sample_count=0, failure_index=0,
+        complete_sweep=False, solved_sample_count=0, failure_index=0,
         failure_reason="synthetic incomplete core",
     )
     incomplete = LinkageStage0Evaluation(
-        motion, evaluate_linkage_workspace(motion, _config().workspace_criteria)
+        motion,
+        evaluate_linkage_workspace(motion, _config().workspace_criteria),
+        complete.core_sample_count,
     )
     monkeypatch.setattr(Stage0Evaluator, "evaluate", lambda self, _: incomplete)
     adapter = PymooProblemAdapter(problem, seed, nonfinite_objective_penalty=1.0e10)

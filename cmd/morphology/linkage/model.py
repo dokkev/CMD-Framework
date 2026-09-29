@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar
 
-from .linkage_parameter import FingerLinkageParameters, PointXZ
+from . import FingerLinkageParameters, PointXZ
 
 
 _FULLY_EXTENDED_ANGULAR_TOLERANCE = 1.0e-4

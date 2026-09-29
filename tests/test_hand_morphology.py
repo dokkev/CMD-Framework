@@ -14,7 +14,7 @@ from cmd.morphology import (
     HandMorphologyParameters,
     HandPlanePoint,
 )
-from cmd.morphology.hand import (
+from cmd.morphology.hand_layout import (
     FE_ACTUATOR_MOUNT,
     HAND_X_LONGITUDINAL,
     HAND_Y_FE_AXIS,

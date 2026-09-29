@@ -1,7 +1,6 @@
 """Named initial designs for CLEAR linkage studies."""
 
-from .linkage import FingerLinkage
-from .linkage_parameter import FingerLinkageParameters, PointXZ
+from . import FingerLinkage, FingerLinkageParameters, PointXZ
 
 
 # These translations were derived from the pre-refactor BASELINE_LINKAGE_V0

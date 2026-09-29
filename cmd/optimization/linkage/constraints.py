@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 from numbers import Real
 from typing import TYPE_CHECKING, Literal
 
-from cmd.morphology.linkage_motion import LinkageWorkspaceCriteria
+from cmd.morphology.linkage import LinkageWorkspaceCriteria
 
 if TYPE_CHECKING:
-    from .stage0 import LinkageStage0Evaluation
+    from . import LinkageStage0Evaluation
 
 
 JointName = Literal["q2", "q3"]
@@ -20,21 +20,11 @@ JointName = Literal["q2", "q3"]
 class CoreWorkspaceKinematicValidity:
     """Require closure for every requested sample through the core endpoint."""
 
-    core_input_workspace_rad: float
     name: str = "core_workspace_kinematic_validity"
 
-    def __post_init__(self) -> None:
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
-
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
-        from .stage0 import core_sample_indices
-
-        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
-        solved = sum(index < context.motion.solved_sample_count for index in indices)
-        return (1.0 - solved / len(indices),)
+        solved = min(context.motion.solved_sample_count, context.core_sample_count)
+        return (1.0 - solved / context.core_sample_count,)
 
 
 @dataclass(frozen=True)
@@ -49,6 +39,7 @@ class MinimumUsableInputWorkspace:
             "minimum_required_input_workspace_rad",
             self.minimum_required_input_workspace_rad,
         )
+
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
         return (
             self.minimum_required_input_workspace_rad
@@ -83,24 +74,16 @@ class MinimumTransmissionMargin:
     """Require every available core-sample transmission margin to meet a limit."""
 
     criteria: LinkageWorkspaceCriteria
-    core_input_workspace_rad: float
     name: str = "minimum_transmission_margin"
 
     def __post_init__(self) -> None:
         if not isinstance(self.criteria, LinkageWorkspaceCriteria):
             raise TypeError("criteria must be LinkageWorkspaceCriteria")
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
 
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
-        from .stage0 import core_sample_indices
-
         motion = context.motion
-        indices = core_sample_indices(motion, self.core_input_workspace_rad)
         residuals: list[float] = []
-        for index in indices:
+        for index in range(context.core_sample_count):
             for angles in (
                 motion.transmission_angle_loop_1_rad,
                 motion.transmission_angle_loop_2_rad,
@@ -120,27 +103,19 @@ class MonotonicFlexion:
 
     joint: JointName
     criteria: LinkageWorkspaceCriteria
-    core_input_workspace_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
         _validate_joint(self.joint)
         if not isinstance(self.criteria, LinkageWorkspaceCriteria):
             raise TypeError("criteria must be LinkageWorkspaceCriteria")
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
         object.__setattr__(self, "name", f"monotonic_flexion_{self.joint}")
 
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
-        from .stage0 import core_motion_ratios, core_sample_indices
-
-        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
-        ratios = core_motion_ratios(context.motion, self.core_input_workspace_rad, self.joint)
+        ratios = context.core_motion_ratios(self.joint)
         minimum = getattr(self.criteria, f"{self.joint}_minimum_motion_ratio")
         residuals = tuple(minimum - ratio for ratio in ratios)
-        return _pad_missing(residuals, len(indices) - 1)
+        return _pad_missing(residuals, context.core_sample_count - 1)
 
 
 @dataclass(frozen=True)
@@ -149,49 +124,36 @@ class MaximumMotionRatio:
 
     joint: JointName
     criteria: LinkageWorkspaceCriteria
-    core_input_workspace_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
         _validate_joint(self.joint)
         if not isinstance(self.criteria, LinkageWorkspaceCriteria):
             raise TypeError("criteria must be LinkageWorkspaceCriteria")
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
         object.__setattr__(self, "name", f"maximum_motion_ratio_{self.joint}")
 
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
-        from .stage0 import core_motion_ratios, core_sample_indices
-
-        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
-        ratios = core_motion_ratios(context.motion, self.core_input_workspace_rad, self.joint)
+        ratios = context.core_motion_ratios(self.joint)
         maximum = getattr(self.criteria, f"{self.joint}_maximum_motion_ratio")
         residuals = tuple(ratio - maximum for ratio in ratios)
-        return _pad_missing(residuals, len(indices) - 1)
+        return _pad_missing(residuals, context.core_sample_count - 1)
 
 
 @dataclass(frozen=True)
-class MinimumFlexionAtInput:
-    """Require one joint to reach its minimum at an exact input-flexion sample."""
+class MinimumFlexionAtCore:
+    """Require one joint to reach its minimum at the Stage-0 core endpoint."""
 
     joint: JointName
-    input_flexion_rad: float
     minimum_flexion_rad: float
     name: str = field(init=False)
 
     def __post_init__(self) -> None:
         _validate_joint(self.joint)
-        _require_positive_finite("input_flexion_rad", self.input_flexion_rad)
         _require_nonnegative_finite("minimum_flexion_rad", self.minimum_flexion_rad)
         object.__setattr__(self, "name", f"minimum_flexion_at_input_{self.joint}")
 
     def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
-        from .stage0 import core_sample_indices
-
-        indices = core_sample_indices(context.motion, self.input_flexion_rad)
-        endpoint_index = indices[-1]
+        endpoint_index = context.core_sample_count - 1
         values = (
             context.motion.q2_flexion_rad
             if self.joint == "q2"
@@ -229,17 +191,11 @@ def _require_nonnegative_finite(name: str, value: float) -> None:
         raise ValueError(f"{name} must be non-negative")
 
 
-def _require_positive_finite(name: str, value: float) -> None:
-    _require_finite(name, value)
-    if value <= 0.0:
-        raise ValueError(f"{name} must be positive")
-
-
 __all__ = [
     "CoreWorkspaceKinematicValidity",
     "MaximumMotionRatio",
     "MinimumAnchorDorsalOffset",
-    "MinimumFlexionAtInput",
+    "MinimumFlexionAtCore",
     "MinimumTransmissionMargin",
     "MinimumUsableInputWorkspace",
     "MonotonicFlexion",

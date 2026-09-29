@@ -6,8 +6,8 @@ import math
 from dataclasses import dataclass
 from numbers import Real
 
-from .fingertip_parameter import FingertipFamilyParameters, FingertipParameters
-from .linkage_parameter import FingerLinkageParameters
+from ..pad import FingertipFamilyParameters, FingertipParameters
+from ..linkage import FingerLinkageParameters
 
 
 def _finite(name: str, value: object) -> float:

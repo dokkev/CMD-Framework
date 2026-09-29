@@ -9,7 +9,7 @@ from xml.etree import ElementTree
 
 from ..geometry import RigidTransform
 from ..hardware import Actuator, XM335Actuator
-from ..morphology.hand import HandLayout
+from ..morphology.hand_layout import HandLayout
 
 
 MM_TO_M = 1.0e-3

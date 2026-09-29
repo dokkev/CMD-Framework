@@ -17,10 +17,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.morphology.linkage_motion import LinkageWorkspaceCriteria  # noqa: E402
+from cmd.morphology.linkage import LinkageWorkspaceCriteria  # noqa: E402
 from cmd.optimization import BoxVariable  # noqa: E402
-from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization  # noqa: E402
-from cmd.optimization.linkage.stage0 import LinkageStage0Config, LinkageStage0Result, run_linkage_stage0  # noqa: E402
+from cmd.optimization.linkage import (  # noqa: E402
+    LinkageBaselineParameterization,
+    LinkageStage0Config,
+    LinkageStage0Result,
+    run_linkage_stage0,
+)
 from cmd.optimization.linkage.study import LinkageStage0Study  # noqa: E402
 from cmd.optimization.solvers.pymoo import NSGA2Config  # noqa: E402
 from scripts.optimize.linkage_report import (  # noqa: E402

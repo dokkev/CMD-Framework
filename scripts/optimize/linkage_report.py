@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from cmd.optimization import ProblemEvaluation
-from cmd.optimization.linkage.stage0 import LinkageStage0Evaluation, LinkageStage0Result
+from cmd.optimization.linkage import LinkageStage0Evaluation, LinkageStage0Result
 
 
 _REASON_ORDER = (

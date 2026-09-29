@@ -4,7 +4,7 @@ from dataclasses import fields
 import pytest
 
 from cmd.morphology import Fingertip, FingertipParameters
-from cmd.morphology.fingertip_parameter import (
+from cmd.morphology.pad import (
     FingertipFamilyParameters,
     PadParameters,
     PhalanxParameters,

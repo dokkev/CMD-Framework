@@ -7,8 +7,7 @@ from dataclasses import dataclass
 from cmd.optimization import BoxVariable
 from cmd.optimization.solvers.pymoo import NSGA2Config
 
-from .parameterization import LinkageBaselineParameterization
-from .stage0 import LinkageStage0Config
+from . import LinkageBaselineParameterization, LinkageStage0Config
 
 
 @dataclass(frozen=True)

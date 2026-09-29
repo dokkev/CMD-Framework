@@ -12,10 +12,9 @@ import math
 from dataclasses import dataclass
 
 from ..geometry import RigidTransform, Vector3
-from .fingertip import Fingertip
-from .fingertip_parameter import FingertipParameters
-from .hand_parameter import HandLayoutParameters, HandMorphologyParameters
-from .linkage import FingerLinkage
+from ..linkage import FingerLinkage
+from ..pad import Fingertip, FingertipParameters
+from . import HandLayoutParameters, HandMorphologyParameters
 
 
 HAND_X_LONGITUDINAL: Vector3 = (1.0, 0.0, 0.0)

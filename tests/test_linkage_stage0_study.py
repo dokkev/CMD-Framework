@@ -4,8 +4,7 @@ import pytest
 
 from cmd.morphology import BASELINE_LINKAGE_V0, LinkageWorkspaceCriteria
 from cmd.optimization import BoxVariable
-from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization
-from cmd.optimization.linkage.stage0 import LinkageStage0Config
+from cmd.optimization.linkage import LinkageBaselineParameterization, LinkageStage0Config
 from cmd.optimization.linkage.study import LinkageStage0Study
 from cmd.optimization.solvers.pymoo import NSGA2Config
 from scripts.optimize.optimize_linkages import (

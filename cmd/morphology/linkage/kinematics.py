@@ -6,8 +6,7 @@ import math
 from dataclasses import dataclass, field
 from numbers import Real
 
-from .linkage import FingerLinkage
-from .linkage_parameter import PointXZ
+from . import FingerLinkage, PointXZ
 
 
 _GEOMETRIC_TOLERANCE = 1e-10

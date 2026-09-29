@@ -6,29 +6,29 @@ from cmd.morphology import (
     BASELINE_LINKAGE_V0, FingerLinkage, LinkageMotionEvaluator, LinkageWorkspaceCriteria,
     PointXZ, evaluate_linkage_workspace,
 )
-from cmd.morphology.linkage_kinematics import KinematicClosureError, LinkageKinematics
-from cmd.morphology.linkage_motion import differentiate_flexion_samples, unwrap_principal_angles
+from cmd.morphology.linkage import (
+    KinematicClosureError,
+    LinkageKinematics,
+    differentiate_flexion_samples,
+    unwrap_principal_angles,
+)
 from cmd.optimization import BoxVariable
 from cmd.optimization.constraint import inequality_result
-from cmd.optimization.linkage.constraints import (
+from cmd.optimization.linkage import (
+    CoordinationRatioVariation,
     CoreWorkspaceKinematicValidity,
+    DistalEndpointExcursion,
+    LinkageBaselineParameterization,
+    LinkageStage0Config,
+    LinkageStage0Evaluation,
     MaximumMotionRatio,
     MinimumAnchorDorsalOffset,
-    MinimumFlexionAtInput,
+    MinimumFlexionAtCore,
     MinimumTransmissionMargin,
     MinimumUsableInputWorkspace,
     MonotonicFlexion,
-)
-from cmd.optimization.linkage.objectives import (
-    CoordinationRatioVariation,
-    DistalEndpointExcursion,
-    WorstCaseTransmissionQuality,
-)
-from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization
-from cmd.optimization.linkage.stage0 import (
-    LinkageStage0Config,
-    LinkageStage0Evaluation,
     Stage0Evaluator,
+    WorstCaseTransmissionQuality,
     build_linkage_stage0_problem,
     stage0_input_samples,
 )
@@ -133,9 +133,16 @@ def healthy_workspace_metrics(evaluation):
     )
 
 
-def stage0_context(motion, criteria=None):
+def stage0_context(motion, criteria=None, core_input_workspace_rad=0.4):
     criteria = criteria or permissive_criteria()
-    return LinkageStage0Evaluation(motion, evaluate_linkage_workspace(motion, criteria))
+    core_sample_count = sum(
+        sample <= core_input_workspace_rad for sample in motion.input_flexion_rad
+    )
+    return LinkageStage0Evaluation(
+        motion,
+        evaluate_linkage_workspace(motion, criteria),
+        core_sample_count,
+    )
 
 
 def patch_solver_to_fail_after(monkeypatch, success_limit: int) -> None:
@@ -243,7 +250,7 @@ def test_core_endpoint_is_inserted_exactly_when_uniform_grid_misses_it() -> None
 def test_baseline_sweep_uses_positive_s_and_canonical_reference_branch() -> None:
     evaluation = baseline_evaluation(sample_count=5)
 
-    assert evaluation.complete_workspace
+    assert evaluation.complete_sweep
     assert evaluation.input_flexion_rad[0] == 0.0
     assert evaluation.input_flexion_rad[-1] == 0.8
     assert evaluation.q1_rad == pytest.approx(
@@ -399,7 +406,7 @@ def test_baseline_problem_is_core_feasible_when_closure_fails_post_core(monkeypa
     problem, encoded = baseline_problem(criteria=criteria)
     result = problem.evaluate(encoded)
 
-    assert not result.domain_evaluation.motion.complete_workspace
+    assert not result.domain_evaluation.motion.complete_sweep
     assert result.domain_evaluation.motion.solved_sample_count == 3
     assert result.feasible
     assert result.raw_objective_values["distal_endpoint_excursion_mm"] > 0.0
@@ -428,7 +435,7 @@ def test_transmission_objective_only_uses_core_quality_samples() -> None:
     )
 
     assert core_indices == (0, 1, 2)
-    assert WorstCaseTransmissionQuality(0.4).evaluate(stage0_context(evaluation)) == pytest.approx(0.7)
+    assert WorstCaseTransmissionQuality().evaluate(stage0_context(evaluation)) == pytest.approx(0.7)
 
 
 def test_coordination_objective_ignores_post_core_motion() -> None:
@@ -444,7 +451,7 @@ def test_coordination_objective_ignores_post_core_motion() -> None:
         dq2_flexion_dq1_flexion=tuple(q2_ratios),
         dq3_flexion_dq1_flexion=tuple(q3_ratios),
     )
-    objective = CoordinationRatioVariation(core)
+    objective = CoordinationRatioVariation()
 
     assert core_indices == (0, 1, 2)
     assert objective.evaluate(stage0_context(evaluation)) == pytest.approx(
@@ -607,11 +614,10 @@ def test_core_endpoint_flexion_constraint_does_not_use_search_endpoint(joint) ->
     horizon_flexion = flexion[-1]
     threshold = (core_flexion + horizon_flexion) / 2.0
 
-    residual = MinimumFlexionAtInput(
+    residual = MinimumFlexionAtCore(
         joint,
-        input_flexion_rad=0.4,
         minimum_flexion_rad=threshold,
-    ).residual(stage0_context(evaluation))
+    ).residual(stage0_context(evaluation, core_input_workspace_rad=0.4))
 
     assert residual == pytest.approx((threshold - core_flexion,))
     assert residual[0] != pytest.approx(threshold - horizon_flexion)
@@ -665,4 +671,4 @@ def test_incomplete_core_coordination_objective_retains_documented_inf() -> None
     evaluation = baseline_evaluation(sample_count=5)
     incomplete = replace(evaluation, solved_sample_count=2, poses=evaluation.poses[:2])
 
-    assert CoordinationRatioVariation(0.4).evaluate(stage0_context(incomplete)) == math.inf
+    assert CoordinationRatioVariation().evaluate(stage0_context(incomplete)) == math.inf

@@ -14,7 +14,7 @@ from itertools import combinations
 
 from ..geometry import RigidTransform, Vector3
 from ..hardware import Actuator, XM335Actuator
-from ..morphology.hand import HandLayout
+from ..morphology.hand_layout import HandLayout
 
 
 _SEPARATION_TOLERANCE_MM = 1.0e-9

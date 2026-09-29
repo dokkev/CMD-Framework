@@ -6,34 +6,32 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from numbers import Real
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from cmd.morphology.linkage_motion import (
+from cmd.morphology.linkage import (
+    BASELINE_LINKAGE_V0,
+    FingerLinkageParameters,
     LinkageMotionEvaluation,
     LinkageMotionEvaluator,
     LinkageWorkspaceCriteria,
     LinkageWorkspaceEvaluation,
     evaluate_linkage_workspace,
 )
-from cmd.morphology.linkage_parameter import FingerLinkageParameters
-from cmd.morphology.linkage_seed import BASELINE_LINKAGE_V0
 from cmd.optimization import BoxVariable, OptimizationProblem
 
-from .constraints import (
+from . import (
     CoreWorkspaceKinematicValidity,
+    CoordinationRatioVariation,
+    DistalEndpointExcursion,
+    LinkageBaselineParameterization,
     MaximumMotionRatio,
     MinimumAnchorDorsalOffset,
-    MinimumFlexionAtInput,
+    MinimumFlexionAtCore,
     MinimumTransmissionMargin,
     MinimumUsableInputWorkspace,
     MonotonicFlexion,
-)
-from .objectives import (
-    CoordinationRatioVariation,
-    DistalEndpointExcursion,
     WorstCaseTransmissionQuality,
 )
-from .parameterization import LinkageBaselineParameterization
 
 if TYPE_CHECKING:
     from cmd.optimization.solvers.pymoo import NSGA2Config, NSGA2RunResult
@@ -95,10 +93,32 @@ class LinkageStage0Config:
 
 @dataclass(frozen=True)
 class LinkageStage0Evaluation:
-    """One Stage-0 evaluation with motion and its derived workspace cached."""
+    """Motion, workspace, and core interval view for one Stage-0 candidate."""
 
     motion: LinkageMotionEvaluation
     workspace: LinkageWorkspaceEvaluation
+    core_sample_count: int
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.core_sample_count, bool)
+            or not isinstance(self.core_sample_count, int)
+            or not 1 <= self.core_sample_count <= self.motion.requested_sample_count
+        ):
+            raise ValueError("core_sample_count must index a non-empty prefix of the motion sweep")
+
+    @property
+    def core_complete(self) -> bool:
+        return self.motion.solved_sample_count >= self.core_sample_count
+
+    def core_motion_ratios(self, joint: Literal["q2", "q3"]) -> tuple[float, ...]:
+        if joint == "q2":
+            ratios = self.motion.dq2_flexion_dq1_flexion
+        elif joint == "q3":
+            ratios = self.motion.dq3_flexion_dq1_flexion
+        else:
+            raise ValueError("joint must be 'q2' or 'q3'")
+        return ratios[: self.core_sample_count - 1]
 
 
 @dataclass(frozen=True)
@@ -111,7 +131,10 @@ class Stage0Evaluator:
         samples = stage0_input_samples(self.config)
         motion = LinkageMotionEvaluator(samples).evaluate(parameters)
         workspace = evaluate_linkage_workspace(motion, self.config.workspace_criteria)
-        return LinkageStage0Evaluation(motion, workspace)
+        core_sample_count = sum(
+            sample <= self.config.core_input_workspace_rad for sample in samples
+        )
+        return LinkageStage0Evaluation(motion, workspace, core_sample_count)
 
 
 @dataclass(frozen=True)
@@ -147,45 +170,6 @@ def stage0_input_samples(config: LinkageStage0Config) -> tuple[float, ...]:
     return tuple(sorted(uniform))
 
 
-def core_sample_indices(
-    motion: LinkageMotionEvaluation, core_input_workspace_rad: float
-) -> tuple[int, ...]:
-    """Return motion samples from extension through the exact Stage-0 core."""
-    core = _positive_finite("core_input_workspace_rad", core_input_workspace_rad)
-    if not motion.input_flexion_rad or core >= motion.input_flexion_rad[-1]:
-        raise ValueError("core_input_workspace_rad must be below the search horizon")
-    core_index = next(
-        (
-            index
-            for index, sample in enumerate(motion.input_flexion_rad)
-            if math.isclose(sample, core, rel_tol=1e-12, abs_tol=0.0)
-        ),
-        None,
-    )
-    if core_index is None:
-        raise ValueError("the exact core input endpoint is absent from the requested sweep")
-    return tuple(range(core_index + 1))
-
-
-def core_workspace_is_complete(
-    motion: LinkageMotionEvaluation, core_input_workspace_rad: float
-) -> bool:
-    indices = core_sample_indices(motion, core_input_workspace_rad)
-    return bool(indices) and indices[-1] < motion.solved_sample_count
-
-
-def core_motion_ratios(
-    motion: LinkageMotionEvaluation,
-    core_input_workspace_rad: float,
-    joint: str,
-) -> tuple[float, ...]:
-    if joint not in ("q2", "q3"):
-        raise ValueError("joint must be 'q2' or 'q3'")
-    indices = core_sample_indices(motion, core_input_workspace_rad)
-    ratios = getattr(motion, f"d{joint}_flexion_dq1_flexion")
-    return ratios[: len(indices) - 1]
-
-
 def build_linkage_stage0_problem(
     variables: Sequence[BoxVariable], config: LinkageStage0Config
 ) -> OptimizationProblem[FingerLinkageParameters, LinkageStage0Evaluation]:
@@ -195,33 +179,28 @@ def build_linkage_stage0_problem(
         raise ValueError("Stage-0 variables must include bc_length_mm")
     if bc_variable.lower <= 0.0:
         raise ValueError("bc_length_mm lower bound must be greater than zero")
-    core = config.core_input_workspace_rad
     criteria = config.workspace_criteria
     return OptimizationProblem(
         variables=variables,
         parameterization=LinkageBaselineParameterization(),
         evaluator=Stage0Evaluator(config),
         objectives=(
-            WorstCaseTransmissionQuality(core),
-            CoordinationRatioVariation(core),
+            WorstCaseTransmissionQuality(),
+            CoordinationRatioVariation(),
             DistalEndpointExcursion(),
         ),
         equalities=(),
         inequalities=(
-            CoreWorkspaceKinematicValidity(core),
+            CoreWorkspaceKinematicValidity(),
             MinimumUsableInputWorkspace(config.minimum_required_input_workspace_rad),
             MinimumAnchorDorsalOffset(config.minimum_anchor_dorsal_offset_mm),
-            MinimumTransmissionMargin(criteria, core),
-            MonotonicFlexion("q2", criteria, core),
-            MonotonicFlexion("q3", criteria, core),
-            MaximumMotionRatio("q2", criteria, core),
-            MaximumMotionRatio("q3", criteria, core),
-            MinimumFlexionAtInput(
-                "q2", core, config.q2_minimum_endpoint_flexion_rad
-            ),
-            MinimumFlexionAtInput(
-                "q3", core, config.q3_minimum_endpoint_flexion_rad
-            ),
+            MinimumTransmissionMargin(criteria),
+            MonotonicFlexion("q2", criteria),
+            MonotonicFlexion("q3", criteria),
+            MaximumMotionRatio("q2", criteria),
+            MaximumMotionRatio("q3", criteria),
+            MinimumFlexionAtCore("q2", config.q2_minimum_endpoint_flexion_rad),
+            MinimumFlexionAtCore("q3", config.q3_minimum_endpoint_flexion_rad),
         ),
     )
 
@@ -288,7 +267,6 @@ def _require_nonnegative_finite(name: str, value: float) -> None:
 
 __all__ = [
     "LinkageStage0Config", "LinkageStage0Evaluation", "LinkageStage0Result",
-    "Stage0Evaluator", "build_linkage_stage0_problem", "core_motion_ratios",
-    "core_sample_indices", "core_workspace_is_complete", "run_linkage_stage0",
+    "Stage0Evaluator", "build_linkage_stage0_problem", "run_linkage_stage0",
     "stage0_input_samples",
 ]

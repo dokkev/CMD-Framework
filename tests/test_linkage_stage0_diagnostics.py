@@ -8,8 +8,8 @@ from cmd.morphology import (
     evaluate_linkage_workspace,
 )
 from cmd.optimization import BoxVariable
-from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization
-from cmd.optimization.linkage.stage0 import (
+from cmd.optimization.linkage import (
+    LinkageBaselineParameterization,
     LinkageStage0Config,
     LinkageStage0Evaluation,
     LinkageStage0Result,
@@ -83,7 +83,7 @@ def _synthetic_result() -> LinkageStage0Result:
         transmission_angle_loop_2_rad=(),
         transmission_quality_loop_1=(),
         transmission_quality_loop_2=(),
-        complete_workspace=False,
+        complete_sweep=False,
         solved_sample_count=0,
         failure_index=0,
         failure_reason="synthetic circle closure failure",

@@ -7,10 +7,8 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import TYPE_CHECKING
 
-from cmd.morphology.linkage_motion import LinkageWorkspaceCriteria
-
 if TYPE_CHECKING:
-    from .stage0 import LinkageStage0Evaluation
+    from . import LinkageStage0Evaluation
 
 
 @dataclass(frozen=True)
@@ -26,32 +24,22 @@ class DistalEndpointExcursion:
 
 @dataclass(frozen=True)
 class WorstCaseTransmissionQuality:
-    """Maximize worst transmission quality over a fixed core interval."""
+    """Maximize worst transmission quality over the Stage-0 core interval."""
 
-    core_input_workspace_rad: float
     name: str = "worst_case_transmission_quality"
     sense: str = "max"
 
-    def __post_init__(self) -> None:
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
-
     def evaluate(self, context: LinkageStage0Evaluation) -> float:
-        from .stage0 import core_sample_indices, core_workspace_is_complete
-
         motion = context.motion
-        if not core_workspace_is_complete(motion, self.core_input_workspace_rad):
+        if not context.core_complete:
             return 0.0
-        indices = core_sample_indices(motion, self.core_input_workspace_rad)
         qualities = tuple(
             values[index]
             for values in (
                 motion.transmission_quality_loop_1,
                 motion.transmission_quality_loop_2,
             )
-            for index in indices
+            for index in range(context.core_sample_count)
         )
         return min(qualities, default=0.0)
 
@@ -65,28 +53,21 @@ class CoordinationRatioVariation:
     objective is used with that solver.
     """
 
-    core_input_workspace_rad: float
     epsilon: float = 1e-9
     name: str = "coordination_ratio_variation"
     sense: str = "min"
 
     def __post_init__(self) -> None:
-        _require_positive_finite(
-            "core_input_workspace_rad",
-            self.core_input_workspace_rad,
-        )
         _require_positive_finite("epsilon", self.epsilon)
 
     def evaluate(self, context: LinkageStage0Evaluation) -> float:
-        from .stage0 import core_motion_ratios, core_workspace_is_complete
-
-        if not core_workspace_is_complete(context.motion, self.core_input_workspace_rad):
+        if not context.core_complete:
             return math.inf
         return _coefficient_of_variation(
-            core_motion_ratios(context.motion, self.core_input_workspace_rad, "q2"),
+            context.core_motion_ratios("q2"),
             self.epsilon,
         ) + _coefficient_of_variation(
-            core_motion_ratios(context.motion, self.core_input_workspace_rad, "q3"),
+            context.core_motion_ratios("q3"),
             self.epsilon,
         )
 

@@ -11,9 +11,14 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import Literal
 
-from .linkage import FingerLinkage
-from .linkage_kinematics import KinematicClosureError, LinkageKinematics, LinkagePose
-from .linkage_parameter import FingerLinkageParameters, PointXZ
+from . import (
+    FingerLinkage,
+    FingerLinkageParameters,
+    KinematicClosureError,
+    LinkageKinematics,
+    LinkagePose,
+    PointXZ,
+)
 
 
 @dataclass(frozen=True)
@@ -35,7 +40,7 @@ class LinkageMotionEvaluation:
     transmission_angle_loop_2_rad: tuple[float, ...]
     transmission_quality_loop_1: tuple[float, ...]
     transmission_quality_loop_2: tuple[float, ...]
-    complete_workspace: bool
+    complete_sweep: bool
     solved_sample_count: int
     failure_index: int | None
     failure_reason: str | None
@@ -137,7 +142,7 @@ def _finish_motion(
         transmission_angle_loop_2_rad=tuple(angle_2),
         transmission_quality_loop_1=tuple(quality_1),
         transmission_quality_loop_2=tuple(quality_2),
-        complete_workspace=len(poses) == len(input_flexion),
+        complete_sweep=len(poses) == len(input_flexion),
         solved_sample_count=len(poses),
         failure_index=failure_index,
         failure_reason=failure_reason,
