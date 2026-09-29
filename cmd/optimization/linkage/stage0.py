@@ -1,56 +1,245 @@
-"""Caller-bounded Stage-0 linkage runs and standard-library result export."""
+"""Stage-0 linkage formulation composed over reusable morphology motion."""
 
 from __future__ import annotations
 
-import csv
-import json
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from numbers import Real
+from typing import TYPE_CHECKING
 
-from cmd.morphology import BASELINE_LINKAGE_V0
-from cmd.optimization import BoxVariable, OptimizationProblem, ProblemEvaluation
-from cmd.optimization.solvers.pymoo import NSGA2Config, NSGA2RunResult, run_nsga2
+from cmd.morphology.linkage_motion import (
+    LinkageMotionEvaluation,
+    LinkageMotionEvaluator,
+    LinkageWorkspaceCriteria,
+    LinkageWorkspaceEvaluation,
+    evaluate_linkage_workspace,
+)
+from cmd.morphology.linkage_parameter import FingerLinkageParameters
+from cmd.morphology.linkage_seed import BASELINE_LINKAGE_V0
+from cmd.optimization import BoxVariable, OptimizationProblem
 
-from .baseline import LinkageBaselineConstraintConfig, build_linkage_baseline_problem
-from .evaluator import LinkageEvaluation, LinkageSweepConfig
+from .constraints import (
+    CoreWorkspaceKinematicValidity,
+    MaximumMotionRatio,
+    MinimumAnchorDorsalOffset,
+    MinimumFlexionAtInput,
+    MinimumTransmissionMargin,
+    MinimumUsableInputWorkspace,
+    MonotonicFlexion,
+)
+from .objectives import (
+    CoordinationRatioVariation,
+    DistalEndpointExcursion,
+    WorstCaseTransmissionQuality,
+)
 from .parameterization import LinkageBaselineParameterization
-from .workspace import evaluate_linkage_workspace
+
+if TYPE_CHECKING:
+    from cmd.optimization.solvers.pymoo import NSGA2Config, NSGA2RunResult
+
+
+@dataclass(frozen=True)
+class LinkageStage0Config:
+    """Stage-0-specific sampling, workspace, and feasibility settings."""
+
+    core_input_workspace_rad: float
+    minimum_required_input_workspace_rad: float
+    search_horizon_rad: float
+    sample_count: int
+    minimum_anchor_dorsal_offset_mm: float
+    q2_minimum_endpoint_flexion_rad: float
+    q3_minimum_endpoint_flexion_rad: float
+    workspace_criteria: LinkageWorkspaceCriteria
+
+    def __post_init__(self) -> None:
+        for name in (
+            "core_input_workspace_rad",
+            "minimum_required_input_workspace_rad",
+            "search_horizon_rad",
+        ):
+            _require_positive_finite(name, getattr(self, name))
+        if self.core_input_workspace_rad >= self.search_horizon_rad:
+            raise ValueError("core_input_workspace_rad must be below search_horizon_rad")
+        if self.minimum_required_input_workspace_rad < self.core_input_workspace_rad:
+            raise ValueError(
+                "minimum_required_input_workspace_rad must be at least the core input workspace"
+            )
+        if self.minimum_required_input_workspace_rad > self.search_horizon_rad:
+            raise ValueError(
+                "minimum_required_input_workspace_rad must not exceed search_horizon_rad"
+            )
+        if isinstance(self.sample_count, bool) or not isinstance(self.sample_count, int) or self.sample_count < 3:
+            raise ValueError("sample_count must be an integer of at least 3")
+        _require_nonnegative_finite(
+            "minimum_anchor_dorsal_offset_mm", self.minimum_anchor_dorsal_offset_mm
+        )
+        _require_nonnegative_finite(
+            "q2_minimum_endpoint_flexion_rad", self.q2_minimum_endpoint_flexion_rad
+        )
+        _require_nonnegative_finite(
+            "q3_minimum_endpoint_flexion_rad", self.q3_minimum_endpoint_flexion_rad
+        )
+        if not isinstance(self.workspace_criteria, LinkageWorkspaceCriteria):
+            raise TypeError("workspace_criteria must be LinkageWorkspaceCriteria")
+        for name in (
+            "core_input_workspace_rad",
+            "minimum_required_input_workspace_rad",
+            "search_horizon_rad",
+            "minimum_anchor_dorsal_offset_mm",
+            "q2_minimum_endpoint_flexion_rad",
+            "q3_minimum_endpoint_flexion_rad",
+        ):
+            object.__setattr__(self, name, float(getattr(self, name)))
+
+
+@dataclass(frozen=True)
+class LinkageStage0Evaluation:
+    """One Stage-0 evaluation with motion and its derived workspace cached."""
+
+    motion: LinkageMotionEvaluation
+    workspace: LinkageWorkspaceEvaluation
+
+
+@dataclass(frozen=True)
+class Stage0Evaluator:
+    """Apply Stage-0 sample semantics, then evaluate motion and workspace once."""
+
+    config: LinkageStage0Config
+
+    def evaluate(self, parameters: FingerLinkageParameters) -> LinkageStage0Evaluation:
+        samples = stage0_input_samples(self.config)
+        motion = LinkageMotionEvaluator(samples).evaluate(parameters)
+        workspace = evaluate_linkage_workspace(motion, self.config.workspace_criteria)
+        return LinkageStage0Evaluation(motion, workspace)
 
 
 @dataclass(frozen=True)
 class LinkageStage0Result:
-    """Stage-0 configuration, composed problem, and evaluated NSGA-II output."""
+    """Stage-0 configuration, composed problem, and NSGA-II result."""
 
-    problem: OptimizationProblem
-    constraint_config: LinkageBaselineConstraintConfig
-    sweep_config: LinkageSweepConfig
+    problem: OptimizationProblem[FingerLinkageParameters, LinkageStage0Evaluation]
+    stage0_config: LinkageStage0Config
     solver_result: NSGA2RunResult
     study_name: str | None
     include_baseline_seed: bool
 
 
+def stage0_input_samples(config: LinkageStage0Config) -> tuple[float, ...]:
+    """Create the Stage-0 horizon grid with its exact core endpoint included."""
+    uniform = [
+        config.search_horizon_rad * index / (config.sample_count - 1)
+        for index in range(config.sample_count)
+    ]
+    core = config.core_input_workspace_rad
+    match = next(
+        (
+            index
+            for index in range(1, len(uniform) - 1)
+            if math.isclose(uniform[index], core, rel_tol=1e-12, abs_tol=0.0)
+        ),
+        None,
+    )
+    if match is None:
+        uniform.append(core)
+    else:
+        uniform[match] = core
+    return tuple(sorted(uniform))
+
+
+def core_sample_indices(
+    motion: LinkageMotionEvaluation, core_input_workspace_rad: float
+) -> tuple[int, ...]:
+    """Return motion samples from extension through the exact Stage-0 core."""
+    core = _positive_finite("core_input_workspace_rad", core_input_workspace_rad)
+    if not motion.input_flexion_rad or core >= motion.input_flexion_rad[-1]:
+        raise ValueError("core_input_workspace_rad must be below the search horizon")
+    core_index = next(
+        (
+            index
+            for index, sample in enumerate(motion.input_flexion_rad)
+            if math.isclose(sample, core, rel_tol=1e-12, abs_tol=0.0)
+        ),
+        None,
+    )
+    if core_index is None:
+        raise ValueError("the exact core input endpoint is absent from the requested sweep")
+    return tuple(range(core_index + 1))
+
+
+def core_workspace_is_complete(
+    motion: LinkageMotionEvaluation, core_input_workspace_rad: float
+) -> bool:
+    indices = core_sample_indices(motion, core_input_workspace_rad)
+    return bool(indices) and indices[-1] < motion.solved_sample_count
+
+
+def core_motion_ratios(
+    motion: LinkageMotionEvaluation,
+    core_input_workspace_rad: float,
+    joint: str,
+) -> tuple[float, ...]:
+    if joint not in ("q2", "q3"):
+        raise ValueError("joint must be 'q2' or 'q3'")
+    indices = core_sample_indices(motion, core_input_workspace_rad)
+    ratios = getattr(motion, f"d{joint}_flexion_dq1_flexion")
+    return ratios[: len(indices) - 1]
+
+
+def build_linkage_stage0_problem(
+    variables: Sequence[BoxVariable], config: LinkageStage0Config
+) -> OptimizationProblem[FingerLinkageParameters, LinkageStage0Evaluation]:
+    """Compose the fixed Stage-0 objective/constraint formulation."""
+    bc_variable = next((v for v in variables if v.name == "bc_length_mm"), None)
+    if bc_variable is None:
+        raise ValueError("Stage-0 variables must include bc_length_mm")
+    if bc_variable.lower <= 0.0:
+        raise ValueError("bc_length_mm lower bound must be greater than zero")
+    core = config.core_input_workspace_rad
+    criteria = config.workspace_criteria
+    return OptimizationProblem(
+        variables=variables,
+        parameterization=LinkageBaselineParameterization(),
+        evaluator=Stage0Evaluator(config),
+        objectives=(
+            WorstCaseTransmissionQuality(core),
+            CoordinationRatioVariation(core),
+            DistalEndpointExcursion(),
+        ),
+        equalities=(),
+        inequalities=(
+            CoreWorkspaceKinematicValidity(core),
+            MinimumUsableInputWorkspace(config.minimum_required_input_workspace_rad),
+            MinimumAnchorDorsalOffset(config.minimum_anchor_dorsal_offset_mm),
+            MinimumTransmissionMargin(criteria, core),
+            MonotonicFlexion("q2", criteria, core),
+            MonotonicFlexion("q3", criteria, core),
+            MaximumMotionRatio("q2", criteria, core),
+            MaximumMotionRatio("q3", criteria, core),
+            MinimumFlexionAtInput(
+                "q2", core, config.q2_minimum_endpoint_flexion_rad
+            ),
+            MinimumFlexionAtInput(
+                "q3", core, config.q3_minimum_endpoint_flexion_rad
+            ),
+        ),
+    )
+
+
 def run_linkage_stage0(
     variables: Sequence[BoxVariable],
-    constraint_config: LinkageBaselineConstraintConfig,
-    sweep_config: LinkageSweepConfig,
+    stage0_config: LinkageStage0Config,
     solver_config: NSGA2Config,
     *,
     include_baseline_seed: bool = True,
     study_name: str | None = None,
 ) -> LinkageStage0Result:
-    """Build and run the existing Stage-0 formulation within caller bounds."""
-
+    """Run the Stage-0 problem through the existing pymoo NSGA-II adapter."""
     if not isinstance(include_baseline_seed, bool):
         raise ValueError("include_baseline_seed must be a bool")
     if study_name is not None and (not isinstance(study_name, str) or not study_name.strip()):
         raise ValueError("study_name must be None or a non-empty string")
-    problem = build_linkage_baseline_problem(
-        variables,
-        constraint_config,
-        sweep_config,
-    )
+    problem = build_linkage_stage0_problem(variables, stage0_config)
     prototype_x = LinkageBaselineParameterization().encode(BASELINE_LINKAGE_V0)
     initial_designs: tuple[tuple[float, ...], ...] = ()
     if include_baseline_seed:
@@ -62,241 +251,44 @@ def run_linkage_stage0(
                     f"[{variable.lower}, {variable.upper}]"
                 )
         initial_designs = (prototype_x,)
-
-    solver_result = run_nsga2(
-        problem,
-        prototype_x,
-        solver_config,
-        initial_designs=initial_designs,
-    )
+    solver_result = run_nsga2(problem, prototype_x, solver_config, initial_designs=initial_designs)
     return LinkageStage0Result(
-        problem=problem,
-        constraint_config=constraint_config,
-        sweep_config=sweep_config,
-        solver_result=solver_result,
-        study_name=study_name,
-        include_baseline_seed=include_baseline_seed,
+        problem, stage0_config, solver_result, study_name, include_baseline_seed
     )
 
 
-def export_linkage_stage0_results(
-    result: LinkageStage0Result,
-    output_directory: str | Path,
-    *,
-    source_git_commit: str | None = None,
-) -> tuple[Path, Path, Path]:
-    """Write run metadata, Pareto candidates, and final population as JSON/CSV."""
+def run_nsga2(*args: object, **kwargs: object) -> NSGA2RunResult:
+    """Lazy bridge so importing Stage-0 composition does not import pymoo."""
+    from cmd.optimization.solvers.pymoo import run_nsga2 as execute
 
-    if not isinstance(result, LinkageStage0Result):
-        raise TypeError("result must be a LinkageStage0Result")
-    output = Path(output_directory)
-    output.mkdir(parents=True, exist_ok=True)
-    run_path = output / "run.json"
-    pareto_path = output / "pareto.csv"
-    population_path = output / "final_population.csv"
-
-    problem = result.problem
-    solver = result.solver_result
-    constraints = tuple(
-        ("equality", constraint.name) for constraint in problem.equalities
-    ) + tuple(("inequality", constraint.name) for constraint in problem.inequalities)
-    metadata = {
-        "solver": "pymoo_nsga2",
-        "study_name": result.study_name,
-        "include_baseline_seed": result.include_baseline_seed,
-        "initialization": {
-            "baseline_seed_included": result.include_baseline_seed,
-            "remaining_population_method": "lhs",
-        },
-        "source_git_commit": source_git_commit,
-        "pymoo_version": solver.pymoo_version,
-        "population_size": solver.config.population_size,
-        "generations": solver.config.generations,
-        "seed": solver.config.seed,
-        "eliminate_duplicates": solver.config.eliminate_duplicates,
-        "nonfinite_objective_penalty": solver.config.nonfinite_objective_penalty,
-        "termination": solver.termination,
-        "generation_count": solver.generation_count,
-        "evaluation_count": solver.evaluation_count,
-        "search_horizon_rad": result.sweep_config.search_horizon_rad,
-        "sample_count": result.sweep_config.sample_count,
-        "core_input_workspace_rad": result.constraint_config.core_input_workspace_rad,
-        "minimum_required_input_workspace_rad": (
-            result.constraint_config.minimum_required_input_workspace_rad
-        ),
-        "minimum_anchor_dorsal_offset_mm": (
-            result.constraint_config.minimum_anchor_dorsal_offset_mm
-        ),
-        "q2_minimum_endpoint_flexion_rad": (
-            result.constraint_config.q2_minimum_endpoint_flexion_rad
-        ),
-        "q3_minimum_endpoint_flexion_rad": (
-            result.constraint_config.q3_minimum_endpoint_flexion_rad
-        ),
-        "workspace_criteria": {
-            "minimum_transmission_margin_rad": (
-                result.constraint_config.workspace_criteria.minimum_transmission_margin_rad
-            ),
-            "q2_minimum_motion_ratio": (
-                result.constraint_config.workspace_criteria.q2_minimum_motion_ratio
-            ),
-            "q3_minimum_motion_ratio": (
-                result.constraint_config.workspace_criteria.q3_minimum_motion_ratio
-            ),
-            "q2_maximum_motion_ratio": (
-                result.constraint_config.workspace_criteria.q2_maximum_motion_ratio
-            ),
-            "q3_maximum_motion_ratio": (
-                result.constraint_config.workspace_criteria.q3_maximum_motion_ratio
-            ),
-        },
-        "variables": [
-            {"name": variable.name, "lower": variable.lower, "upper": variable.upper}
-            for variable in problem.variables
-        ],
-        "bounds_note": "Caller-supplied search bounds; physical validity is not implied.",
-        "objectives": [
-            {"name": objective.name, "sense": objective.sense}
-            for objective in problem.objectives
-        ],
-        "constraints": [
-            {"kind": kind, "name": name} for kind, name in constraints
-        ],
-        "pareto_candidate_count": len(solver.pareto_candidates),
-        "final_population_candidate_count": len(solver.final_population),
-        "feasible_final_population_candidate_count": sum(
-            evaluation.feasible for evaluation in solver.final_population
-        ),
-    }
-    with run_path.open("w", newline="", encoding="utf-8") as stream:
-        json.dump(metadata, stream, indent=2, allow_nan=False)
-        stream.write("\n")
-
-    constraint_columns = tuple(
-        f"constraint_{name}_max_violation" for _, name in constraints
-    )
-    fieldnames = (
-        "candidate_id",
-        *(variable.name for variable in problem.variables),
-        *(objective.name for objective in problem.objectives),
-        "closure_input_workspace_rad",
-        "usable_input_workspace_rad",
-        "distal_path_length_mm",
-        "distal_x_excursion_mm",
-        "dorsal_z_excursion_mm",
-        "first_unusable_index",
-        "limiting_reasons",
-        "kinematic_failure_reason",
-        "feasible",
-        "overall_max_constraint_violation",
-        "overall_sum_positive_constraint_violation",
-        *constraint_columns,
-    )
-    _write_candidate_csv(
-        pareto_path,
-        fieldnames,
-        "pareto",
-        solver.pareto_candidates,
-        result,
-        constraints,
-    )
-    _write_candidate_csv(
-        population_path,
-        fieldnames,
-        "final",
-        solver.final_population,
-        result,
-        constraints,
-    )
-    return run_path, pareto_path, population_path
+    return execute(*args, **kwargs)
 
 
-def _write_candidate_csv(
-    path: Path,
-    fieldnames: tuple[str, ...],
-    candidate_prefix: str,
-    evaluations: tuple[ProblemEvaluation, ...],
-    result: LinkageStage0Result,
-    constraints: tuple[tuple[str, str], ...],
-) -> None:
-    with path.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fieldnames, extrasaction="raise")
-        writer.writeheader()
-        for index, evaluation in enumerate(evaluations, start=1):
-            writer.writerow(
-                _candidate_row(
-                    f"{candidate_prefix}_{index:04d}",
-                    evaluation,
-                    result,
-                    constraints,
-                )
-            )
+def _require_finite(name: str, value: float) -> None:
+    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
 
 
-def _candidate_row(
-    candidate_id: str,
-    evaluation: ProblemEvaluation,
-    result: LinkageStage0Result,
-    constraints: tuple[tuple[str, str], ...],
-) -> dict[str, object]:
-    domain = evaluation.domain_evaluation
-    if not isinstance(domain, LinkageEvaluation):
-        raise TypeError("Stage-0 candidate domain_evaluation must be LinkageEvaluation")
-    workspace = evaluate_linkage_workspace(
-        domain,
-        result.constraint_config.workspace_criteria,
-    )
-    box_violations = list(evaluation.box_violations.values())
-    equality_violations = [
-        item.maximum_violation for item in evaluation.equality_results
-    ]
-    inequality_violations = [
-        item.maximum_violation for item in evaluation.inequality_results
-    ]
-    all_maximum_violations = (
-        box_violations + equality_violations + inequality_violations
-    )
-    positive_violation_magnitudes = (
-        box_violations
-        + equality_violations
-        + [
-            max(residual, 0.0)
-            for item in evaluation.inequality_results
-            for residual in item.residuals
-        ]
-    )
-    row: dict[str, object] = {
-        "candidate_id": candidate_id,
-        **evaluation.variable_values,
-        **evaluation.raw_objective_values,
-        "closure_input_workspace_rad": workspace.closure_input_workspace_rad,
-        "usable_input_workspace_rad": workspace.usable_input_workspace_rad,
-        "distal_path_length_mm": workspace.distal_path_length_mm,
-        "distal_x_excursion_mm": workspace.distal_x_excursion_mm,
-        "dorsal_z_excursion_mm": workspace.dorsal_z_excursion_mm,
-        "first_unusable_index": (
-            "" if workspace.first_unusable_index is None else workspace.first_unusable_index
-        ),
-        "limiting_reasons": ";".join(workspace.limiting_reasons),
-        "kinematic_failure_reason": domain.failure_reason or "",
-        "feasible": evaluation.feasible,
-        "overall_max_constraint_violation": max(all_maximum_violations, default=0.0),
-        "overall_sum_positive_constraint_violation": math.fsum(
-            value for value in positive_violation_magnitudes if value > 0.0
-        ),
-    }
-    named_results = {
-        ("equality", item.name): item for item in evaluation.equality_results
-    }
-    for item in evaluation.inequality_results:
-        named_results[("inequality", item.name)] = item
-    for kind, name in constraints:
-        row[f"constraint_{name}_max_violation"] = named_results[(kind, name)].maximum_violation
-    return row
+def _positive_finite(name: str, value: float) -> float:
+    _require_finite(name, value)
+    if value <= 0.0:
+        raise ValueError(f"{name} must be positive")
+    return float(value)
+
+
+def _require_positive_finite(name: str, value: float) -> None:
+    _positive_finite(name, value)
+
+
+def _require_nonnegative_finite(name: str, value: float) -> None:
+    _require_finite(name, value)
+    if value < 0.0:
+        raise ValueError(f"{name} must be non-negative")
 
 
 __all__ = [
-    "LinkageStage0Result",
-    "export_linkage_stage0_results",
-    "run_linkage_stage0",
+    "LinkageStage0Config", "LinkageStage0Evaluation", "LinkageStage0Result",
+    "Stage0Evaluator", "build_linkage_stage0_problem", "core_motion_ratios",
+    "core_sample_indices", "core_workspace_is_complete", "run_linkage_stage0",
+    "stage0_input_samples",
 ]

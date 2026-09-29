@@ -1183,3 +1183,317 @@ Report only:
     normalization scales were invented
 
 STOP after completing the task.
+Stage 1/2까지 생각하면 지금 한 번 정리하고 가는 게 좋겠어.
+가장 먼저 보이는 문제는 이거야:
+cmd/optimization/linkage/
+    evaluator.py
+    workspace.py
+    objectives.py
+    constraints.py
+    baseline.py
+    stage0.py
+    study.py
+    diagnostics.py
+여기에 study.py만 392줄, stage0.py도 300줄 가까이 되고, diagnostics + runner까지 합치면 optimization experiment plumbing이 실제 linkage logic보다 더 커지기 시작했어.
+더 중요한 건 파일 개수보다 dependency 방향이야.
+지금 가장 큰 architectural smell
+현재 cmd/optimization/linkage/__init__.py가 거의 모든 걸 import하고 있어.
+그중:
+stage0.py
+    -> pymoo
+
+study.py
+    -> NSGA2Config -> pymoo
+를 끌고 들어오니까,
+from cmd.optimization.linkage import LinkageSweepEvaluator
+같이 그냥 linkage evaluator 하나 쓰려고 해도 package import 단계에서 pymoo까지 따라 들어와.
+Stage 1/2에서 linkage kinematics만 쓰고 싶은데:
+Stage 1 geometry/contact evaluator
+        ↓
+cmd.optimization.linkage
+        ↓
+pymoo
+가 되는 건 dependency가 거꾸로야.
+이건 지금 고치는 게 맞아.
+내가 원하는 boundary
+Stage 0/1/2 모두 공통으로 필요한 건 사실 optimizer가 아니라:
+\[
+\boxed{
+\text{linkage parameters}
+\rightarrow
+\text{sampled linkage motion}
+}
+\]이거야.
+즉 가장 중요한 reusable primitive는 지금의:
+LinkageEvaluation
+LinkageSweepEvaluator
+이 둘이야.
+얘들은 optimization 밑에 있으면 안 된다고 봐.
+예를 들어:
+cmd/morphology/
+    linkage_parameter.py
+    linkage.py
+    linkage_kinematics.py
+    linkage_motion.py
+정도로 만들고:
+linkage_kinematics.py
+    q1 하나 solve
+
+linkage_motion.py
+    q1 sample sequence 전체 evaluate
+    unwrap q2/q3
+    motion ratio
+    transmission angle/quality
+로 나누는 게 자연스러워.
+그러면 앞으로:
+Stage 0
+    LinkageMotionEvaluation
+      ↓
+    kinematic objectives
+
+Stage 1
+    LinkageMotionEvaluation
+      +
+    hand geometry
+      +
+    collision/contact opportunity
+
+Stage 2
+    LinkageMotionEvaluation
+      +
+    geometry
+      +
+    contact mechanics
+모두 같은 lower-level result를 재사용할 수 있어.
+그리고 지금 evaluator에 Stage-0 개념이 섞여 있음
+현재:
+LinkageSweepEvaluator(
+    config,
+    core_input_workspace_rad=core,
+)
+잖아.
+근데 core_input_workspace_rad는 Stage 0 optimization formulation의 개념이지 linkage kinematics의 개념이 아니야.
+현재 evaluator가 exact core point를 grid에 삽입하기 때문에 재사용성이 떨어져.
+이걸:
+LinkageSweepEvaluator(
+    input_flexion_rad=(...)
+)
+정도로 바꾸는 걸 추천해.
+또는:
+evaluate_linkage_motion(
+    parameters,
+    input_flexion_rad,
+)
+이어도 되고.
+Stage 0에서만:
+samples = make_uniform_samples(
+    search_horizon,
+    sample_count,
+    include=(core_workspace,),
+)
+해서 넘기면 됨.
+이게 훨씬 깔끔해.
+즉 reusable layer는 core가 뭔지도 몰라야 해.
+workspace.py도 두 종류가 섞여 있어
+현재 여기에는:
+evaluate_linkage_workspace()
+LinkageWorkspaceCriteria
+라는 꽤 reusable한 부분과,
+core_sample_indices()
+core_workspace_is_complete()
+core_motion_ratios()
+라는 Stage-0-specific 부분이 같이 들어 있음.
+이것도 나누는 게 좋아.
+예를 들면:
+cmd/morphology/linkage_motion.py
+    LinkageMotionEvaluation
+    evaluate linkage motion
+
+    LinkageWorkspaceCriteria
+    LinkageWorkspaceEvaluation
+    evaluate_linkage_workspace
+그리고:
+cmd/optimization/linkage/stage0.py
+    core_sample_indices
+    core_motion_ratios
+    core completeness
+정도.
+core workspace라는 단어 자체가 optimization study에만 남게 되는 거지.
+Stage 0에는 얇은 wrapper 하나만 두면 됨
+지금 OptimizationProblem의 context가 바로 LinkageEvaluation인데, 사실 Stage 0에서는 workspace를 여러 번 다시 계산하고 있어.
+예를 들어:
+DistalEndpointExcursion
+    -> evaluate_linkage_workspace()
+
+MinimumUsableInputWorkspace
+    -> evaluate_linkage_workspace()
+
+export
+    -> evaluate_linkage_workspace()
+
+diagnostics
+    -> evaluate_linkage_workspace()
+싸긴 하지만 구조적으로 약간 지저분해.
+나는 작은 composite context 하나를 두는 게 제일 예쁠 것 같아.
+@dataclass(frozen=True)
+class LinkageStage0Evaluation:
+    motion: LinkageMotionEvaluation
+    workspace: LinkageWorkspaceEvaluation
+그리고:
+FingerLinkageParameters
+        ↓
+Stage0Evaluator
+        ├─ evaluate linkage motion
+        └─ evaluate usable workspace
+        ↓
+LinkageStage0Evaluation
+이렇게 딱 한 번 계산.
+그러면 objective/constraint는:
+context.motion
+context.workspace
+만 보면 돼.
+그리고 이 구조가 Stage 1/2랑도 예쁘게 연결돼.
+@dataclass
+class Stage1Evaluation:
+    linkage_motion: LinkageMotionEvaluation
+    ...
+같이.
+baseline.py와 stage0.py도 사실 겹침
+지금:
+baseline.py
+    problem composition
+
+stage0.py
+    run + result + export
+인데 baseline이라는 이름도 이제 좀 애매해.
+V0 seed가 baseline이지, Stage-0 formulation 전체가 baseline은 아니잖아.
+나는 둘을 정리해서:
+cmd/optimization/linkage/stage0.py
+안에:
+LinkageStage0Config
+LinkageStage0Evaluation
+Stage0Evaluator
+build_linkage_stage0_problem()
+run_linkage_stage0()
+정도만 두고 싶어.
+그러면 baseline.py 자체는 없어져도 됨.
+BASELINE_LINKAGE_V0는 morphology seed로만 남고.
+그리고 study.py는 확실히 과함
+이 부분은 네 감각이 맞아 ㅋㅋ
+현재 study.py 392줄 중 대부분이:
+JSON key validation
+null validation
+number validation
+save/load
+template
+strict schema checking
+이야.
+연구 코드에서 이 정도 schema machinery가 지금 필요한지는 의문이야.
+특히 이미:
+BoxVariable
+LinkageBaselineConstraintConfig
+LinkageSweepConfig
+LinkageWorkspaceCriteria
+NSGA2Config
+가 각각 validation을 하고 있는데 JSON layer에서 상당 부분을 다시 검증함.
+나는 study concept 자체는 유지해도 된다고 봐. 실험 재현성에는 유용함.
+다만 훨씬 얇게:
+@dataclass(frozen=True)
+class LinkageStage0Study:
+    name: str
+    variables: tuple[BoxVariable, ...]
+    stage0: LinkageStage0Config
+    solver: NSGA2Config
+정도만 library에 두고,
+JSON parsing/template은:
+scripts/optimize/optimize_linkages.py
+쪽으로 밀어도 됨.
+혹은 study.py를 유지하더라도:
+study_from_dict
+study_to_dict
+load
+save
+정도만 남기고 template/schema ceremony는 줄일 수 있어.
+392줄까지 갈 필요는 없어 보여.
+diagnostics.py도 core API는 아님
+153줄짜리 diagnostics는 유용한데, Stage 1/2 reusable library abstraction은 아니야.
+현재:
+from .stage0 import LinkageStage0Result
+까지 물고 있으니까 완전히 Stage-0 reporting code임.
+그래서 이걸 package root에서:
+from cmd.optimization.linkage import summarize_linkage_stage0
+로 public export할 이유는 별로 없어.
+나는:
+scripts/optimize/
+    optimize_linkages.py
+    linkage_report.py
+정도로 experiment tooling에 두거나,
+그냥 script 내부 helper로 둬도 괜찮다고 봐.
+특히 __init__.py는 확 줄이자
+현재 30개 가까운 symbol을 re-export하는데, 이게 package coupling을 크게 만들어.
+나는 cmd/optimization/linkage/__init__.py에서 많아야:
+LinkageBaselineParameterization
+build_linkage_stage0_problem
+LinkageStage0Config
+정도만 export하거나, 심지어 거의 비워도 괜찮다고 봐.
+Reusable linkage motion은 애초에 optimization package 밖으로 옮기고.
+모듈러하게 만드는 가장 쉬운 방법은 public API를 많이 만드는 게 아니라 dependency surface를 줄이는 거야.
+내가 추천하는 최종 구조
+과하게 새 abstraction을 만들지 않고 이 정도:
+cmd/
+├── morphology/
+│   ├── linkage_parameter.py
+│   ├── linkage.py
+│   ├── linkage_kinematics.py
+│   └── linkage_motion.py          # reusable Stage 0/1/2
+│
+├── optimization/
+│   ├── variable.py
+│   ├── objective.py
+│   ├── constraint.py
+│   ├── problem.py
+│   │
+│   ├── solvers/
+│   │   └── pymoo.py
+│   │
+│   └── linkage/
+│       ├── parameterization.py
+│       ├── objectives.py
+│       ├── constraints.py
+│       └── stage0.py              # Stage-0 composition only
+│
+scripts/
+└── optimize/
+    └── optimize_linkages.py       # JSON / study / report / export
+study.py, diagnostics.py, baseline.py는 없어져도 된다고 생각해.
+물론 JSON parser를 script 밖에 두고 싶다면 study.py 하나 정도는 남겨도 됨. 중요한 건 domain/reusable path에 넣지 않는 것.
+제일 중요한 dependency는 이렇게
+morphology
+    ↓
+linkage motion / kinematics
+    ↓
+Stage-0 / Stage-1 / Stage-2 evaluation
+    ↓
+OptimizationProblem
+    ↓
+solver adapter
+    ↓
+pymoo
+절대로:
+Stage 1
+    ↓
+optimization.linkage
+    ↓
+pymoo
+가 되면 안 돼.
+그래서 지금 refactor priority
+1. LinkageSweepEvaluator/LinkageEvaluation을 optimization 밖으로 이동
+2. evaluator에서 core_input_workspace_rad 제거하고 explicit sample input으로 변경
+3. reusable workspace 계산과 Stage-0 core_* 계산 분리
+4. LinkageStage0Evaluation(motion, workspace) 도입해서 workspace 한 번만 계산
+5. baseline.py + stage0.py 정리
+6. study.py 대폭 축소 또는 script layer로 이동
+7. diagnostics/export를 core API에서 제거
+8. cmd.optimization.linkage.__init__ 거의 비우기
+나는 특히 1~4는 지금 하는 게 맞고, 5~8은 code cleanup 성격이야.
+지금 구현 자체가 잘못된 건 아니야. 오히려 기능 요구를 하나씩 잘 구현하다 보니 experiment infrastructure가 domain layer 안으로 조금씩 침투한 상태야. Stage 1 들어가기 전에 지금 한 번 dependency를 곧게 펴면 이후가 훨씬 편해질 거야.

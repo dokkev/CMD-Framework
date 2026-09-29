@@ -5,30 +5,23 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from numbers import Real
+from typing import TYPE_CHECKING
 
-from .evaluator import LinkageEvaluation
-from .workspace import (
-    LinkageWorkspaceCriteria,
-    core_motion_ratios,
-    core_sample_indices,
-    core_workspace_is_complete,
-    evaluate_linkage_workspace,
-)
+from cmd.morphology.linkage_motion import LinkageWorkspaceCriteria
+
+if TYPE_CHECKING:
+    from .stage0 import LinkageStage0Evaluation
 
 
 @dataclass(frozen=True)
 class DistalEndpointExcursion:
-    """Maximize sampled point-C endpoint displacement over usable motion."""
+    """Maximize usable point-C distal-link proxy displacement."""
 
-    criteria: LinkageWorkspaceCriteria
     name: str = "distal_endpoint_excursion_mm"
     sense: str = "max"
 
-    def evaluate(self, context: LinkageEvaluation) -> float:
-        return evaluate_linkage_workspace(
-            context,
-            self.criteria,
-        ).distal_endpoint_excursion_mm
+    def evaluate(self, context: LinkageStage0Evaluation) -> float:
+        return context.workspace.distal_endpoint_excursion_mm
 
 
 @dataclass(frozen=True)
@@ -45,15 +38,18 @@ class WorstCaseTransmissionQuality:
             self.core_input_workspace_rad,
         )
 
-    def evaluate(self, context: LinkageEvaluation) -> float:
-        if not core_workspace_is_complete(context, self.core_input_workspace_rad):
+    def evaluate(self, context: LinkageStage0Evaluation) -> float:
+        from .stage0 import core_sample_indices, core_workspace_is_complete
+
+        motion = context.motion
+        if not core_workspace_is_complete(motion, self.core_input_workspace_rad):
             return 0.0
-        indices = core_sample_indices(context, self.core_input_workspace_rad)
+        indices = core_sample_indices(motion, self.core_input_workspace_rad)
         qualities = tuple(
             values[index]
             for values in (
-                context.transmission_quality_loop_1,
-                context.transmission_quality_loop_2,
+                motion.transmission_quality_loop_1,
+                motion.transmission_quality_loop_2,
             )
             for index in indices
         )
@@ -81,14 +77,16 @@ class CoordinationRatioVariation:
         )
         _require_positive_finite("epsilon", self.epsilon)
 
-    def evaluate(self, context: LinkageEvaluation) -> float:
-        if not core_workspace_is_complete(context, self.core_input_workspace_rad):
+    def evaluate(self, context: LinkageStage0Evaluation) -> float:
+        from .stage0 import core_motion_ratios, core_workspace_is_complete
+
+        if not core_workspace_is_complete(context.motion, self.core_input_workspace_rad):
             return math.inf
         return _coefficient_of_variation(
-            core_motion_ratios(context, self.core_input_workspace_rad, "q2"),
+            core_motion_ratios(context.motion, self.core_input_workspace_rad, "q2"),
             self.epsilon,
         ) + _coefficient_of_variation(
-            core_motion_ratios(context, self.core_input_workspace_rad, "q3"),
+            core_motion_ratios(context.motion, self.core_input_workspace_rad, "q3"),
             self.epsilon,
         )
 

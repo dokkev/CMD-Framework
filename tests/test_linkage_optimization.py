@@ -2,32 +2,35 @@ from dataclasses import replace
 import math
 import pytest
 
-from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, PointXZ
+from cmd.morphology import (
+    BASELINE_LINKAGE_V0, FingerLinkage, LinkageMotionEvaluator, LinkageWorkspaceCriteria,
+    PointXZ, evaluate_linkage_workspace,
+)
 from cmd.morphology.linkage_kinematics import KinematicClosureError, LinkageKinematics
+from cmd.morphology.linkage_motion import differentiate_flexion_samples, unwrap_principal_angles
 from cmd.optimization import BoxVariable
 from cmd.optimization.constraint import inequality_result
-from cmd.optimization.linkage import (
+from cmd.optimization.linkage.constraints import (
     CoreWorkspaceKinematicValidity,
-    CoordinationRatioVariation,
-    DistalEndpointExcursion,
-    LinkageBaselineConstraintConfig,
-    LinkageBaselineParameterization,
-    LinkageSweepConfig,
-    LinkageSweepEvaluator,
-    LinkageWorkspaceCriteria,
     MaximumMotionRatio,
     MinimumAnchorDorsalOffset,
     MinimumFlexionAtInput,
     MinimumTransmissionMargin,
     MinimumUsableInputWorkspace,
     MonotonicFlexion,
-    WorstCaseTransmissionQuality,
-    build_linkage_baseline_problem,
-    evaluate_linkage_workspace,
 )
-from cmd.optimization.linkage.evaluator import (
-    differentiate_flexion_samples,
-    unwrap_principal_angles,
+from cmd.optimization.linkage.objectives import (
+    CoordinationRatioVariation,
+    DistalEndpointExcursion,
+    WorstCaseTransmissionQuality,
+)
+from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization
+from cmd.optimization.linkage.stage0 import (
+    LinkageStage0Config,
+    LinkageStage0Evaluation,
+    Stage0Evaluator,
+    build_linkage_stage0_problem,
+    stage0_input_samples,
 )
 
 
@@ -46,11 +49,12 @@ def baseline_evaluation(
     parameters = parameterization.decode(
         dict(zip(parameterization.variable_names, encoded))
     )
-    evaluator = LinkageSweepEvaluator(
-        LinkageSweepConfig(search_horizon_rad, sample_count),
+    config = baseline_constraint_config(
         core_input_workspace_rad=core_input_workspace_rad,
+        search_horizon_rad=search_horizon_rad,
+        sample_count=sample_count,
     )
-    return evaluator.evaluate(parameters)
+    return LinkageMotionEvaluator(stage0_input_samples(config)).evaluate(parameters)
 
 
 def permissive_criteria(
@@ -75,14 +79,18 @@ def baseline_constraint_config(
     core_input_workspace_rad: float = 0.4,
     minimum_required_input_workspace_rad: float | None = None,
     criteria: LinkageWorkspaceCriteria | None = None,
-) -> LinkageBaselineConstraintConfig:
-    return LinkageBaselineConstraintConfig(
+    search_horizon_rad: float = 0.8,
+    sample_count: int = 5,
+) -> LinkageStage0Config:
+    return LinkageStage0Config(
         core_input_workspace_rad=core_input_workspace_rad,
         minimum_required_input_workspace_rad=(
             core_input_workspace_rad
             if minimum_required_input_workspace_rad is None
             else minimum_required_input_workspace_rad
         ),
+        search_horizon_rad=search_horizon_rad,
+        sample_count=sample_count,
         minimum_anchor_dorsal_offset_mm=0.0,
         q2_minimum_endpoint_flexion_rad=0.0,
         q3_minimum_endpoint_flexion_rad=0.0,
@@ -107,12 +115,10 @@ def baseline_problem(
         core_input_workspace_rad=core_input_workspace_rad,
         minimum_required_input_workspace_rad=minimum_required_input_workspace_rad,
         criteria=criteria,
+        search_horizon_rad=search_horizon_rad,
+        sample_count=sample_count,
     )
-    problem = build_linkage_baseline_problem(
-        variables,
-        config,
-        LinkageSweepConfig(search_horizon_rad, sample_count),
-    )
+    problem = build_linkage_stage0_problem(variables, config)
     return problem, encoded
 
 
@@ -125,6 +131,11 @@ def healthy_workspace_metrics(evaluation):
         transmission_angle_loop_1_rad=(math.pi / 2.0,) * count,
         transmission_angle_loop_2_rad=(math.pi / 2.0,) * count,
     )
+
+
+def stage0_context(motion, criteria=None):
+    criteria = criteria or permissive_criteria()
+    return LinkageStage0Evaluation(motion, evaluate_linkage_workspace(motion, criteria))
 
 
 def patch_solver_to_fail_after(monkeypatch, success_limit: int) -> None:
@@ -192,7 +203,7 @@ def test_baseline_encoding_projects_only_tiny_b_z_residual_without_mutation() ->
 @pytest.mark.parametrize("value", [0.0, -0.1, math.nan, math.inf])
 def test_search_horizon_must_be_finite_and_positive(value) -> None:
     with pytest.raises(ValueError):
-        LinkageSweepConfig(value)
+        baseline_constraint_config(search_horizon_rad=value)
 
 
 @pytest.mark.parametrize("value", [0.0, -0.1, math.nan, math.inf])
@@ -388,8 +399,8 @@ def test_baseline_problem_is_core_feasible_when_closure_fails_post_core(monkeypa
     problem, encoded = baseline_problem(criteria=criteria)
     result = problem.evaluate(encoded)
 
-    assert not result.domain_evaluation.complete_workspace
-    assert result.domain_evaluation.solved_sample_count == 3
+    assert not result.domain_evaluation.motion.complete_workspace
+    assert result.domain_evaluation.motion.solved_sample_count == 3
     assert result.feasible
     assert result.raw_objective_values["distal_endpoint_excursion_mm"] > 0.0
     assert result.inequality_results[0].satisfied
@@ -417,7 +428,7 @@ def test_transmission_objective_only_uses_core_quality_samples() -> None:
     )
 
     assert core_indices == (0, 1, 2)
-    assert WorstCaseTransmissionQuality(0.4).evaluate(evaluation) == pytest.approx(0.7)
+    assert WorstCaseTransmissionQuality(0.4).evaluate(stage0_context(evaluation)) == pytest.approx(0.7)
 
 
 def test_coordination_objective_ignores_post_core_motion() -> None:
@@ -436,8 +447,8 @@ def test_coordination_objective_ignores_post_core_motion() -> None:
     objective = CoordinationRatioVariation(core)
 
     assert core_indices == (0, 1, 2)
-    assert objective.evaluate(evaluation) == pytest.approx(
-        objective.evaluate(changed_post_core)
+    assert objective.evaluate(stage0_context(evaluation)) == pytest.approx(
+        objective.evaluate(stage0_context(changed_post_core))
     )
 
 
@@ -459,13 +470,13 @@ def test_post_core_motion_cannot_make_the_core_workspace_unusable(
     criteria = permissive_criteria(q2_maximum_motion_ratio=100.0)
     problem, encoded = baseline_problem(criteria=criteria)
     monkeypatch.setattr(
-        LinkageSweepEvaluator,
+        LinkageMotionEvaluator,
         "evaluate",
         lambda self, parameters: candidate_evaluation,
     )
 
     result = problem.evaluate(encoded)
-    workspace = evaluate_linkage_workspace(candidate_evaluation, criteria)
+    workspace = result.domain_evaluation.workspace
 
     assert result.feasible
     assert result.inequality_results[0].satisfied
@@ -511,13 +522,15 @@ def test_input_angle_range_and_distal_excursion_are_independent_metrics() -> Non
         smaller_q1_range,
         criteria,
     )
-    objective = DistalEndpointExcursion(criteria)
+    objective = DistalEndpointExcursion()
 
     assert range_workspace.usable_input_workspace_rad == pytest.approx(0.8)
     assert displacement_workspace.usable_input_workspace_rad == pytest.approx(0.4)
     assert range_workspace.distal_endpoint_excursion_mm == pytest.approx(1.0)
     assert displacement_workspace.distal_endpoint_excursion_mm == pytest.approx(2.0)
-    assert objective.evaluate(larger_q1_range) < objective.evaluate(smaller_q1_range)
+    assert objective.evaluate(stage0_context(larger_q1_range, criteria)) < objective.evaluate(
+        stage0_context(smaller_q1_range, criteria)
+    )
 
 
 def test_distal_excursion_and_path_length_use_the_usable_c_prefix() -> None:
@@ -559,12 +572,12 @@ def test_minimum_usable_input_workspace_passes_and_fails() -> None:
     evaluation = healthy_workspace_metrics(baseline_evaluation(sample_count=5))
     criteria = permissive_criteria()
     passing = inequality_result(
-        MinimumUsableInputWorkspace(0.6, criteria),
-        evaluation,
+        MinimumUsableInputWorkspace(0.6),
+        stage0_context(evaluation, criteria),
     )
     failing = inequality_result(
-        MinimumUsableInputWorkspace(0.9, criteria),
-        evaluation,
+        MinimumUsableInputWorkspace(0.9),
+        stage0_context(evaluation, criteria),
     )
 
     assert passing.satisfied
@@ -598,7 +611,7 @@ def test_core_endpoint_flexion_constraint_does_not_use_search_endpoint(joint) ->
         joint,
         input_flexion_rad=0.4,
         minimum_flexion_rad=threshold,
-    ).residual(evaluation)
+    ).residual(stage0_context(evaluation))
 
     assert residual == pytest.approx((threshold - core_flexion,))
     assert residual[0] != pytest.approx(threshold - horizon_flexion)
@@ -633,7 +646,6 @@ def test_baseline_problem_has_three_objectives_and_one_shared_criteria_object() 
     assert problem.objectives[0].sense == "max"
     assert problem.objectives[1].sense == "min"
     assert problem.objectives[2].sense == "max"
-    assert problem.objectives[2].criteria is criteria
     assert problem.equalities == ()
     assert all(
         constraint.criteria is criteria
@@ -641,7 +653,6 @@ def test_baseline_problem_has_three_objectives_and_one_shared_criteria_object() 
         if isinstance(
             constraint,
             (
-                MinimumUsableInputWorkspace,
                 MinimumTransmissionMargin,
                 MonotonicFlexion,
                 MaximumMotionRatio,
@@ -654,4 +665,4 @@ def test_incomplete_core_coordination_objective_retains_documented_inf() -> None
     evaluation = baseline_evaluation(sample_count=5)
     incomplete = replace(evaluation, solved_sample_count=2, poses=evaluation.poses[:2])
 
-    assert CoordinationRatioVariation(0.4).evaluate(incomplete) == math.inf
+    assert CoordinationRatioVariation(0.4).evaluate(stage0_context(incomplete)) == math.inf

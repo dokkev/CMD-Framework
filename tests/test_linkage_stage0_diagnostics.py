@@ -2,19 +2,21 @@ import json
 import math
 from dataclasses import replace
 
-from cmd.morphology import BASELINE_LINKAGE_V0
-from cmd.optimization import BoxVariable
-from cmd.optimization.linkage import (
-    LinkageBaselineConstraintConfig,
-    LinkageBaselineParameterization,
-    LinkageStage0Result,
-    LinkageSweepConfig,
-    LinkageSweepEvaluator,
+from cmd.morphology import (
+    BASELINE_LINKAGE_V0,
     LinkageWorkspaceCriteria,
-    build_linkage_baseline_problem,
-    summarize_linkage_stage0,
+    evaluate_linkage_workspace,
+)
+from cmd.optimization import BoxVariable
+from cmd.optimization.linkage.parameterization import LinkageBaselineParameterization
+from cmd.optimization.linkage.stage0 import (
+    LinkageStage0Config,
+    LinkageStage0Evaluation,
+    LinkageStage0Result,
+    build_linkage_stage0_problem,
 )
 from cmd.optimization.solvers.pymoo import NSGA2Config, NSGA2RunResult
+from scripts.optimize.linkage_report import summarize_linkage_stage0
 
 
 def _synthetic_result() -> LinkageStage0Result:
@@ -32,16 +34,17 @@ def _synthetic_result() -> LinkageStage0Result:
         q2_maximum_motion_ratio=100.0,
         q3_maximum_motion_ratio=100.0,
     )
-    constraint_config = LinkageBaselineConstraintConfig(
+    stage0_config = LinkageStage0Config(
         core_input_workspace_rad=0.4,
         minimum_required_input_workspace_rad=0.4,
+        search_horizon_rad=0.8,
+        sample_count=5,
         minimum_anchor_dorsal_offset_mm=0.0,
         q2_minimum_endpoint_flexion_rad=0.0,
         q3_minimum_endpoint_flexion_rad=0.0,
         workspace_criteria=criteria,
     )
-    sweep_config = LinkageSweepConfig(search_horizon_rad=0.8, sample_count=5)
-    problem = build_linkage_baseline_problem(variables, constraint_config, sweep_config)
+    problem = build_linkage_stage0_problem(variables, stage0_config)
     base = problem.evaluate(seed)
 
     passing_constraints = tuple(
@@ -67,8 +70,8 @@ def _synthetic_result() -> LinkageStage0Result:
     violating_two = with_anchor_violation(passing, 2.0)
     violating_four = with_anchor_violation(passing, 4.0)
     domain = violating_two.domain_evaluation
-    incomplete_domain = replace(
-        domain,
+    incomplete_motion = replace(
+        domain.motion,
         poses=(),
         unwrapped_q2_rad=(),
         unwrapped_q3_rad=(),
@@ -84,6 +87,11 @@ def _synthetic_result() -> LinkageStage0Result:
         solved_sample_count=0,
         failure_index=0,
         failure_reason="synthetic circle closure failure",
+    )
+    incomplete_domain = replace(
+        domain,
+        motion=incomplete_motion,
+        workspace=evaluate_linkage_workspace(incomplete_motion, stage0_config.workspace_criteria),
     )
     incomplete = replace(
         violating_two,
@@ -113,8 +121,7 @@ def _synthetic_result() -> LinkageStage0Result:
     )
     return LinkageStage0Result(
         problem=problem,
-        constraint_config=constraint_config,
-        sweep_config=sweep_config,
+        stage0_config=stage0_config,
         solver_result=solver_result,
         study_name="diagnostics_test",
         include_baseline_seed=True,

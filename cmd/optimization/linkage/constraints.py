@@ -5,15 +5,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from numbers import Real
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from .evaluator import LinkageEvaluation
-from .workspace import (
-    LinkageWorkspaceCriteria,
-    core_motion_ratios,
-    core_sample_indices,
-    evaluate_linkage_workspace,
-)
+from cmd.morphology.linkage_motion import LinkageWorkspaceCriteria
+
+if TYPE_CHECKING:
+    from .stage0 import LinkageStage0Evaluation
 
 
 JointName = Literal["q2", "q3"]
@@ -32,9 +29,11 @@ class CoreWorkspaceKinematicValidity:
             self.core_input_workspace_rad,
         )
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        indices = core_sample_indices(context, self.core_input_workspace_rad)
-        solved = sum(index < context.solved_sample_count for index in indices)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        from .stage0 import core_sample_indices
+
+        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
+        solved = sum(index < context.motion.solved_sample_count for index in indices)
         return (1.0 - solved / len(indices),)
 
 
@@ -43,7 +42,6 @@ class MinimumUsableInputWorkspace:
     """Require the mechanically usable contiguous q1 interval to be long enough."""
 
     minimum_required_input_workspace_rad: float
-    criteria: LinkageWorkspaceCriteria
     name: str = "minimum_usable_input_workspace"
 
     def __post_init__(self) -> None:
@@ -51,14 +49,10 @@ class MinimumUsableInputWorkspace:
             "minimum_required_input_workspace_rad",
             self.minimum_required_input_workspace_rad,
         )
-        if not isinstance(self.criteria, LinkageWorkspaceCriteria):
-            raise TypeError("criteria must be LinkageWorkspaceCriteria")
-
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        workspace = evaluate_linkage_workspace(context, self.criteria)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
         return (
             self.minimum_required_input_workspace_rad
-            - workspace.usable_input_workspace_rad,
+            - context.workspace.usable_input_workspace_rad,
         )
 
 
@@ -72,8 +66,8 @@ class MinimumAnchorDorsalOffset:
     def __post_init__(self) -> None:
         _require_nonnegative_finite("minimum_offset_mm", self.minimum_offset_mm)
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        parameters = context.parameters
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        parameters = context.motion.parameters
         a_z = parameters.a_from_o.z_mm
         b_z = a_z + parameters.b_from_a.z_mm
         a_prime_z = parameters.a_prime_from_o.z_mm
@@ -100,13 +94,16 @@ class MinimumTransmissionMargin:
             self.core_input_workspace_rad,
         )
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        indices = core_sample_indices(context, self.core_input_workspace_rad)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        from .stage0 import core_sample_indices
+
+        motion = context.motion
+        indices = core_sample_indices(motion, self.core_input_workspace_rad)
         residuals: list[float] = []
         for index in indices:
             for angles in (
-                context.transmission_angle_loop_1_rad,
-                context.transmission_angle_loop_2_rad,
+                motion.transmission_angle_loop_1_rad,
+                motion.transmission_angle_loop_2_rad,
             ):
                 if index >= len(angles):
                     residuals.append(0.0)
@@ -136,9 +133,11 @@ class MonotonicFlexion:
         )
         object.__setattr__(self, "name", f"monotonic_flexion_{self.joint}")
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        indices = core_sample_indices(context, self.core_input_workspace_rad)
-        ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        from .stage0 import core_motion_ratios, core_sample_indices
+
+        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
+        ratios = core_motion_ratios(context.motion, self.core_input_workspace_rad, self.joint)
         minimum = getattr(self.criteria, f"{self.joint}_minimum_motion_ratio")
         residuals = tuple(minimum - ratio for ratio in ratios)
         return _pad_missing(residuals, len(indices) - 1)
@@ -163,9 +162,11 @@ class MaximumMotionRatio:
         )
         object.__setattr__(self, "name", f"maximum_motion_ratio_{self.joint}")
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        indices = core_sample_indices(context, self.core_input_workspace_rad)
-        ratios = core_motion_ratios(context, self.core_input_workspace_rad, self.joint)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        from .stage0 import core_motion_ratios, core_sample_indices
+
+        indices = core_sample_indices(context.motion, self.core_input_workspace_rad)
+        ratios = core_motion_ratios(context.motion, self.core_input_workspace_rad, self.joint)
         maximum = getattr(self.criteria, f"{self.joint}_maximum_motion_ratio")
         residuals = tuple(ratio - maximum for ratio in ratios)
         return _pad_missing(residuals, len(indices) - 1)
@@ -186,13 +187,15 @@ class MinimumFlexionAtInput:
         _require_nonnegative_finite("minimum_flexion_rad", self.minimum_flexion_rad)
         object.__setattr__(self, "name", f"minimum_flexion_at_input_{self.joint}")
 
-    def residual(self, context: LinkageEvaluation) -> tuple[float, ...]:
-        indices = core_sample_indices(context, self.input_flexion_rad)
+    def residual(self, context: LinkageStage0Evaluation) -> tuple[float, ...]:
+        from .stage0 import core_sample_indices
+
+        indices = core_sample_indices(context.motion, self.input_flexion_rad)
         endpoint_index = indices[-1]
         values = (
-            context.q2_flexion_rad
+            context.motion.q2_flexion_rad
             if self.joint == "q2"
-            else context.q3_flexion_rad
+            else context.motion.q3_flexion_rad
         )
         if endpoint_index >= len(values):
             return (0.0,)
