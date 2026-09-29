@@ -121,6 +121,29 @@ def test_stage0_seed_is_projected_and_rejected_if_outside_caller_bounds(monkeypa
     assert parameterization.encode(BASELINE_LINKAGE_V0) == pytest.approx(seed)
 
 
+def test_stage0_can_exclude_baseline_seed_and_records_the_choice(monkeypatch) -> None:
+    _, _, variables = _seed_and_test_bounds()
+    captured = {}
+
+    def capture_run(problem, prototype_x, config, initial_designs=()):
+        captured["initial_designs"] = tuple(initial_designs)
+        return NSGA2RunResult(config, "test", "test termination", 0, 0, (), ())
+
+    monkeypatch.setattr("cmd.optimization.linkage.stage0.run_nsga2", capture_run)
+    result = run_linkage_stage0(
+        variables,
+        _constraint_config(),
+        _sweep_config(),
+        NSGA2Config(population_size=4, generations=1, seed=3),
+        include_baseline_seed=False,
+        study_name="test_without_seed",
+    )
+
+    assert captured["initial_designs"] == ()
+    assert result.study_name == "test_without_seed"
+    assert result.include_baseline_seed is False
+
+
 def test_incomplete_core_uses_finite_solver_transport_and_finite_constraints(monkeypatch) -> None:
     parameterization, seed, variables = _seed_and_test_bounds()
     problem = build_linkage_baseline_problem(variables, _constraint_config(), _sweep_config())
@@ -172,7 +195,23 @@ def test_tiny_stage0_run_and_export_support_empty_feasible_pareto_set(tmp_path) 
     assert not result.solver_result.pareto_candidates
     assert all(not item.feasible for item in result.solver_result.final_population)
 
-    run_path, pareto_path, population_path = export_linkage_stage0_results(result, tmp_path)
+    first_candidate = result.solver_result.final_population[0]
+    failed_domain = replace(
+        first_candidate.domain_evaluation,
+        failure_reason="synthetic closure diagnostic",
+    )
+    first_candidate = replace(first_candidate, domain_evaluation=failed_domain)
+    solver_result = replace(
+        result.solver_result,
+        final_population=(first_candidate, *result.solver_result.final_population[1:]),
+    )
+    result = replace(result, solver_result=solver_result)
+
+    run_path, pareto_path, population_path = export_linkage_stage0_results(
+        result,
+        tmp_path,
+        source_git_commit="test-commit",
+    )
     metadata = json.loads(run_path.read_text(encoding="utf-8"))
     with pareto_path.open(newline="", encoding="utf-8") as stream:
         pareto_rows = list(csv.DictReader(stream))
@@ -182,6 +221,13 @@ def test_tiny_stage0_run_and_export_support_empty_feasible_pareto_set(tmp_path) 
         final_rows = list(csv.DictReader(stream))
 
     assert metadata["solver"] == "pymoo_nsga2"
+    assert metadata["study_name"] is None
+    assert metadata["include_baseline_seed"] is True
+    assert metadata["initialization"] == {
+        "baseline_seed_included": True,
+        "remaining_population_method": "lhs",
+    }
+    assert metadata["source_git_commit"] == "test-commit"
     assert metadata["pymoo_version"]
     assert metadata["pareto_candidate_count"] == 0
     assert metadata["final_population_candidate_count"] == 6
@@ -191,6 +237,8 @@ def test_tiny_stage0_run_and_export_support_empty_feasible_pareto_set(tmp_path) 
     assert pareto_rows == []
     assert len(final_rows) == 6
     assert "overall_max_constraint_violation" in final_rows[0]
+    assert "kinematic_failure_reason" in final_rows[0]
+    assert final_rows[0]["kinematic_failure_reason"] == "synthetic closure diagnostic"
     for row, evaluation in zip(final_rows, result.solver_result.final_population):
         expected_sum = math.fsum(
             [*evaluation.box_violations.values()]

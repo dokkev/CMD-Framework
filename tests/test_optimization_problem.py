@@ -71,6 +71,13 @@ def test_positional_vector_maps_to_named_values_in_declared_order() -> None:
     assert result.minimization_objective_values == {"weighted_sum": -1.25}
 
 
+def test_nan_objective_remains_a_fail_fast_evaluation_error() -> None:
+    objective = FunctionalObjective("invalid", "min", lambda context: float("nan"))
+
+    with pytest.raises(ValueError, match="objective result must not be NaN"):
+        make_problem(objectives=(objective,)).evaluate((0.25, 0.5))
+
+
 def test_box_violations_are_reported_and_make_problem_infeasible() -> None:
     result = make_problem().evaluate((2.0, 0.5))
 

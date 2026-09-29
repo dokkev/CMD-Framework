@@ -27,6 +27,8 @@ class LinkageStage0Result:
     constraint_config: LinkageBaselineConstraintConfig
     sweep_config: LinkageSweepConfig
     solver_result: NSGA2RunResult
+    study_name: str | None
+    include_baseline_seed: bool
 
 
 def run_linkage_stage0(
@@ -36,11 +38,14 @@ def run_linkage_stage0(
     solver_config: NSGA2Config,
     *,
     include_baseline_seed: bool = True,
+    study_name: str | None = None,
 ) -> LinkageStage0Result:
     """Build and run the existing Stage-0 formulation within caller bounds."""
 
     if not isinstance(include_baseline_seed, bool):
         raise ValueError("include_baseline_seed must be a bool")
+    if study_name is not None and (not isinstance(study_name, str) or not study_name.strip()):
+        raise ValueError("study_name must be None or a non-empty string")
     problem = build_linkage_baseline_problem(
         variables,
         constraint_config,
@@ -69,12 +74,16 @@ def run_linkage_stage0(
         constraint_config=constraint_config,
         sweep_config=sweep_config,
         solver_result=solver_result,
+        study_name=study_name,
+        include_baseline_seed=include_baseline_seed,
     )
 
 
 def export_linkage_stage0_results(
     result: LinkageStage0Result,
     output_directory: str | Path,
+    *,
+    source_git_commit: str | None = None,
 ) -> tuple[Path, Path, Path]:
     """Write run metadata, Pareto candidates, and final population as JSON/CSV."""
 
@@ -93,6 +102,13 @@ def export_linkage_stage0_results(
     ) + tuple(("inequality", constraint.name) for constraint in problem.inequalities)
     metadata = {
         "solver": "pymoo_nsga2",
+        "study_name": result.study_name,
+        "include_baseline_seed": result.include_baseline_seed,
+        "initialization": {
+            "baseline_seed_included": result.include_baseline_seed,
+            "remaining_population_method": "lhs",
+        },
+        "source_git_commit": source_git_commit,
         "pymoo_version": solver.pymoo_version,
         "population_size": solver.config.population_size,
         "generations": solver.config.generations,
@@ -170,6 +186,7 @@ def export_linkage_stage0_results(
         "dorsal_z_excursion_mm",
         "first_unusable_index",
         "limiting_reasons",
+        "kinematic_failure_reason",
         "feasible",
         "overall_max_constraint_violation",
         "overall_sum_positive_constraint_violation",
@@ -261,6 +278,7 @@ def _candidate_row(
             "" if workspace.first_unusable_index is None else workspace.first_unusable_index
         ),
         "limiting_reasons": ";".join(workspace.limiting_reasons),
+        "kinematic_failure_reason": domain.failure_reason or "",
         "feasible": evaluation.feasible,
         "overall_max_constraint_violation": max(all_maximum_violations, default=0.0),
         "overall_sum_positive_constraint_violation": math.fsum(

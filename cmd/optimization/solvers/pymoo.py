@@ -67,7 +67,7 @@ class NSGA2Config:
 
 
 class PymooProblemAdapter(ElementwiseProblem):
-    """Map one CMD ``OptimizationProblem`` into pymoo's elementwise contract."""
+    """Map CMD evaluations to pymoo; NaN fails upstream, while infinities in F are penalized."""
 
     def __init__(
         self,
@@ -165,6 +165,8 @@ class PymooProblemAdapter(ElementwiseProblem):
             design_vector,
         )
 
+        # TODO: Any future normalization belongs only in this solver adapter;
+        # preserve the raw domain residuals in ProblemEvaluation and exports.
         constraint_values: list[float] = []
         for result in evaluation.inequality_results:
             constraint_values.extend(

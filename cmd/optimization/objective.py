@@ -42,7 +42,7 @@ class FunctionalObjective(Generic[ContextT]):
 
 
 def minimization_value(raw_value: float, sense: ObjectiveSense) -> float:
-    """Convert a raw objective to minimization form without changing its raw value."""
+    """Convert an objective to minimization form, rejecting NaN but preserving infinity."""
 
     if sense not in ("min", "max"):
         raise ValueError("objective sense must be 'min' or 'max'")
