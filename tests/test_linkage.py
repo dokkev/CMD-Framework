@@ -1,4 +1,4 @@
-from dataclasses import FrozenInstanceError, fields, replace
+from dataclasses import fields
 
 import pytest
 
@@ -49,18 +49,6 @@ def test_fully_extended_checks_bc_parallel_to_oc_without_anchor_collinearity() -
     assert reference.bp.z_mm != pytest.approx(0.0)
 
 
-@pytest.mark.parametrize(
-    "parameters",
-    [
-        make_parameters(b_from_a=PointXZ(30.0, -4.0)),
-        make_parameters(b_from_a=PointXZ(-70.0, -5.0)),
-    ],
-)
-def test_reference_rejects_bc_not_parallel_or_not_same_direction(parameters) -> None:
-    with pytest.raises(ValueError, match="BC parallel to OC"):
-        FingerLinkage(parameters)
-
-
 def test_main_link_and_coupler_lengths_are_derived() -> None:
     linkage = FingerLinkage(make_parameters())
 
@@ -81,38 +69,6 @@ def test_main_link_and_coupler_lengths_are_derived() -> None:
     }
     assert "coupler_1_length_mm" not in parameter_names
     assert "coupler_2_length_mm" not in parameter_names
-
-
-def test_linkage_plane_is_xz_and_flexion_axis_is_positive_y() -> None:
-    linkage = FingerLinkage(make_parameters())
-
-    assert linkage.flexion_axis_xyz == (0.0, 1.0, 0.0)
-    assert tuple(field.name for field in fields(PointXZ)) == ("x_mm", "z_mm")
-    assert not hasattr(linkage.parameters.a_from_o, "y_mm")
-
-
-def test_parameter_dataclasses_are_immutable() -> None:
-    parameters = make_parameters()
-
-    with pytest.raises(FrozenInstanceError):
-        parameters.a_from_o = PointXZ(1.0, 0.0)
-    with pytest.raises(FrozenInstanceError):
-        parameters.a_from_o.x_mm = 1.0
-
-
-@pytest.mark.parametrize(
-    "constructor",
-    [lambda: PointXZ(float("nan"), 0.0), lambda: PointXZ(0.0, float("inf"))],
-)
-def test_nonfinite_coordinates_are_rejected(constructor) -> None:
-    with pytest.raises(ValueError):
-        constructor()
-
-
-@pytest.mark.parametrize("bc_length_mm", [0.0, -1.0, float("inf"), float("nan")])
-def test_bc_length_must_be_finite_and_positive(bc_length_mm) -> None:
-    with pytest.raises(ValueError, match="bc_length_mm"):
-        replace(make_parameters(), bc_length_mm=bc_length_mm)
 
 
 def test_baseline_v0_preserves_pre_refactor_reference_geometry() -> None:

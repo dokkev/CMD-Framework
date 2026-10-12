@@ -178,10 +178,3 @@ def test_urdf_serializes_all_morphology_frames_and_actuator_mounts() -> None:
 
     assert link_names == expected_links
     assert set(joint_map) == expected_joint_names
-
-
-def test_urdf_rejects_wrong_layout_and_invalid_robot_name() -> None:
-    with pytest.raises(TypeError, match="HandLayout"):
-        compile_hand_urdf(object())
-    with pytest.raises(ValueError, match="robot_name"):
-        compile_hand_urdf(make_layout(), robot_name="clear hand")

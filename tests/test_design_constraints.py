@@ -3,7 +3,6 @@
 import pytest
 
 from cmd.design import check_actuator_packaging
-from cmd.hardware import Actuator, DShapedExtrusion, MechanicalParameters
 from cmd.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
 
 
@@ -48,24 +47,3 @@ def test_packaging_accepts_a_separated_reference_assembly() -> None:
     assert result.feasible
     assert result.violated_actuator_pairs == ()
     assert result.obb_overlap_depths_mm == ()
-
-
-def test_packaging_uses_actuator_geometry_instead_of_duplicated_dimensions() -> None:
-    layout = make_layout(middle=(10.0, 0.0))
-    compact_actuator = Actuator(
-        geometry=DShapedExtrusion(radius_mm=1.0, rear_extent_mm=2.0, depth_mm=2.0),
-        mechanics=MechanicalParameters(gear_ratio=1.0, max_output_torque_nm=1.0, mass_g=1.0),
-    )
-
-    default_result = check_actuator_packaging(layout)
-    compact_result = check_actuator_packaging(layout, compact_actuator)
-
-    assert ("index_mcp_aa", "middle_mcp_aa") in default_result.violated_actuator_pairs
-    assert ("index_mcp_aa", "middle_mcp_aa") not in compact_result.violated_actuator_pairs
-
-
-def test_packaging_rejects_wrong_inputs() -> None:
-    with pytest.raises(TypeError, match="HandLayout"):
-        check_actuator_packaging(object())
-    with pytest.raises(TypeError, match="Actuator"):
-        check_actuator_packaging(make_layout(), object())

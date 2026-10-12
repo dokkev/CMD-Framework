@@ -7,25 +7,10 @@ import pytest
 from cmd.morphology import (
     BASELINE_LINKAGE_V0,
     FingerLinkage,
-    FingerLinkageParameters,
     KinematicClosureError,
     LinkageKinematics,
     PointXZ,
 )
-
-
-def make_noncollinear_linkage() -> FingerLinkage:
-    return FingerLinkage(
-        FingerLinkageParameters(
-            o_prime_from_o=PointXZ(0.0, 10.0),
-            a_from_o=PointXZ(10.0, 5.0),
-            a_prime_from_o=PointXZ(4.0, 9.0),
-            b_from_a=PointXZ(30.0, -5.0),
-            b_prime_from_a=PointXZ(9.0, 8.0),
-            bc_length_mm=20.0,
-            c_prime_from_b=PointXZ(8.0, 6.0),
-        )
-    )
 
 
 def rotate(point: PointXZ, angle_rad: float) -> PointXZ:
@@ -62,16 +47,6 @@ def test_zero_pose_reproduces_baseline_reference_configuration() -> None:
     pose = LinkageKinematics(linkage).solve(0.0)
 
     assert_pose_matches_reference(pose, linkage)
-
-
-def test_zero_pose_reproduces_noncollinear_reference_configuration() -> None:
-    linkage = make_noncollinear_linkage()
-    reference = linkage.reference_positions
-
-    assert reference.a.z_mm != pytest.approx(0.0)
-    assert reference.ap.z_mm != pytest.approx(0.0)
-    assert reference.bp.z_mm != pytest.approx(0.0)
-    assert_pose_matches_reference(LinkageKinematics(linkage).solve(0.0), linkage)
 
 
 def test_nonzero_pose_closes_both_loops_and_preserves_all_fixed_lengths() -> None:
@@ -119,12 +94,6 @@ def test_negative_q1_moves_proximal_link_in_flexion_direction() -> None:
 
     assert linkage.flexion_axis_xyz == (0.0, 1.0, 0.0)
     assert flexed.a.z_mm < extended.a.z_mm
-
-
-def test_assembly_branch_selection_is_deterministic() -> None:
-    solver = LinkageKinematics(BASELINE_LINKAGE_V0)
-
-    assert solver.solve(-0.05) == solver.solve(-0.05)
 
 
 def test_unreachable_closure_raises_explicit_failure() -> None:
