@@ -3,6 +3,7 @@
 from .pad import Fingertip, FingertipFamilyParameters, FingertipParameters
 from .linkage import (
     BASELINE_LINKAGE_V0,
+    SELECTED_LINKAGE_V1,
     FingerLinkage,
     FingerLinkageParameters,
     KinematicClosureError,
@@ -41,6 +42,7 @@ __all__ = [
     "LinkageWorkspaceEvaluation",
     "evaluate_linkage_workspace",
     "BASELINE_LINKAGE_V0",
+    "SELECTED_LINKAGE_V1",
     "HandLayout",
     "HandLayoutParameters",
     "HandMorphology",

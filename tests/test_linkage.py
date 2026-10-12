@@ -86,3 +86,13 @@ def test_baseline_v0_reference_geometry() -> None:
     assert BASELINE_LINKAGE_V0.ab_length_mm == pytest.approx((31.0**2 + 20.0**2) ** 0.5)
     assert BASELINE_LINKAGE_V0.coupler_1_length_mm == pytest.approx((38.6**2 + 15.0**2) ** 0.5)
     assert BASELINE_LINKAGE_V0.coupler_2_length_mm == pytest.approx((20.9**2 + 7.3**2) ** 0.5)
+
+
+def test_selected_v1_is_the_verified_stage0_choice() -> None:
+    from cmd.morphology import SELECTED_LINKAGE_V1
+
+    reference = SELECTED_LINKAGE_V1.reference_positions
+    for point in (reference.ap, reference.bp, reference.b, reference.c):
+        assert point.z_mm == pytest.approx(0.0, abs=1e-12)
+    assert reference.c == PointXZ(107.5, 0.0)
+    assert SELECTED_LINKAGE_V1 != BASELINE_LINKAGE_V0

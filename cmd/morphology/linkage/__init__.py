@@ -13,7 +13,7 @@ from .motion import (
     evaluate_linkage_workspace,
     unwrap_principal_angles,
 )
-from .seed import BASELINE_LINKAGE_V0
+from .seed import BASELINE_LINKAGE_V0, SELECTED_LINKAGE_V1
 
 __all__ = [
     "BASELINE_LINKAGE_V0",
@@ -28,6 +28,7 @@ __all__ = [
     "LinkageWorkspaceEvaluation",
     "PointXZ",
     "ReferencePositions",
+    "SELECTED_LINKAGE_V1",
     "WorkspaceReason",
     "differentiate_flexion_samples",
     "evaluate_linkage_workspace",
