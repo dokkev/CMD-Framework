@@ -328,8 +328,8 @@ pose:
 {}^H T_L={}^H T_{MCP-FE}{}^{MCP-FE}T_L
 \]
 
-The canonical fixed transform is owned by `cmd/morphology/hand.py`, not by the
-URDF serializer.
+The canonical fixed transform (`ORDINARY_MCP_FE_TO_LINKAGE`) is owned by
+`cmd/morphology/hand_layout/model.py`, not by the URDF serializer.
 
 ---
 
@@ -545,13 +545,22 @@ Derived quantities are not independent optimizer variables.
 - `cmd/geometry`: shared geometry primitives and rigid transforms.
 - `cmd/morphology`: morphology parameters, geometry, reference transform
   chains, and linkage kinematics.
-  - `hand_parameter.py` owns `HandLayoutParameters`, `FingertipLengths`, and
-    the whole-hand `HandMorphologyParameters` aggregate.
-  - `hand.py` materializes `HandLayout` and the composed `HandMorphology`.
-    `HandLayout.linkage_transforms` owns ordinary MCP-FE-to-linkage placement.
+  - `pad/`: `FingertipFamilyParameters`, `FingertipParameters` and the
+    `Fingertip` surface model.
+  - `linkage/`: `FingerLinkageParameters`, the reference `FingerLinkage`, its
+    closed-form kinematics, sampled motion and workspace diagnostics, and the
+    named designs `BASELINE_LINKAGE_V0` and `SELECTED_LINKAGE_V1`.
+  - `hand_layout/parameters.py` owns `HandLayoutParameters`,
+    `FingertipLengths`, and the whole-hand `HandMorphologyParameters`
+    aggregate.
+  - `hand_layout/model.py` materializes `HandLayout` and the composed
+    `HandMorphology`. `HandLayout.linkage_transforms` owns ordinary
+    MCP-FE-to-linkage placement.
 - `cmd/hardware`: actuator-local geometry and mechanical properties.
 - `cmd/design`: consumes morphology for feasibility constraints and URDF
   serialization; it does not reconstruct morphology transforms.
+- `cmd/optimization/stage0`: the ordinary-finger linkage optimization
+  (see `docs/optimization/stage0.md`).
 - `cmd/visualization`: visualization only.
 
 `cmd/morphology` is the source of truth for morphology geometry, and
@@ -566,13 +575,14 @@ ordinary-finger linkage, and hand layout:
 HandMorphologyParameters
 ├── fingertip: FingertipFamilyParameters
 │   ├── shared structural morphology
-│   ├── carrier_distal_inset_mm (shared; baseline 5 mm)
-│   └── FingertipLengths (index, middle, ring, little, thumb)
+│   └── carrier_distal_inset_mm (shared; baseline 5 mm)
+├── fingertip_lengths: FingertipLengths (index, middle, ring, little, thumb)
 ├── linkage: FingerLinkageParameters (shared by ordinary fingers)
 └── layout: HandLayoutParameters
     ├── index MCP-AA: fixed root
     ├── middle/ring/little MCP-AA: x, y
-    └── thumb: CMC-RO placement/orientation and RO→RAA distance
+    └── thumb: CMC-RO placement (x, y) and orientation theta,
+        RO→RAA distance, MCP-FE orientation phi
 
 HandMorphology
 ├── fingertips[5]
