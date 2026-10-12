@@ -1,16 +1,39 @@
-"""Solver-independent Stage-0 evaluation: two objectives and three constraint groups.
+"""Solver-independent Stage-0 evaluation: three objectives and fixed-shape constraints.
 
-Objectives (measured over the core input workspace):
+q1, q2 and q3 are the MCP, PIP and DIP flexion angles. Each design is swept to
+its motion limit: the last sample of the contiguous healthy range (closure,
+transmission margin and motion-ratio bounds), at most the search horizon.
 
-- worst-case transmission quality of both coupler loops (maximize);
-- summed coefficient of variation of the q2 and q3 motion ratios (minimize).
+Objectives, measured at the grasp pose (the grasp pose whose pad best faces
+OA') or over extension up to it:
+
+- worst-case transmission quality of both coupler loops from extension to the
+  grasp pose (maximize);
+- facing error: the angle between the pad direction B->C and A'->O at the
+  grasp pose, i.e. how far the pad is from facing back along the proximal
+  segment OA' (minimize). Lengths need not match and the pad need not be
+  aligned end to end with OA';
+- grasp MCP angle: the MCP flexion at the grasp pose (minimize: the earlier the
+  pad faces OA', the better).
+
+A grasp pose is a sample from extension to the motion limit where both pad
+ends B and C lie on the palmar side of OA' at least ``minimum_grasp_gap_mm``
+away and in front of it (each projects onto OA' between O and A').
 
 Constraint groups use ``g <= 0`` and keep a fixed residual count per study:
 
-- ``workspace_health``: closure, transmission margin, and motion-ratio bounds
-  at every sample through the required input workspace;
-- ``minimum_flexion_at_core_q2`` / ``_q3``: joint flexion at the core endpoint;
-- ``minimum_anchor_dorsal_offset``: A' and B' above B in the reference pose.
+- ``usable_motion``: the healthy range reaches ``minimum_motion_range_rad``
+  and spans at least one sample step;
+- ``extended_length``: ``|OC|`` at ``q = 0`` within the configured range;
+- ``minimum_pin_spacing``: bearing pins sharing a rigid link (A-A' on the
+  proximal, A-B' on the middle, B-C' on the distal link) at least the
+  configured centre distance apart;
+- ``grasp_pose``: some pose within the motion range is a grasp pose
+  (residual: the smallest, over those poses, of the summed gap shortfalls and
+  projection overshoots of B and C, in mm).
+
+The summed coefficient of variation of the q2 and q3 motion ratios
+(``ratio_variation``) is kept as a diagnostic.
 
 Point-C excursion is deliberately a diagnostic, not an objective: it rewards
 link size and does not imply grasp quality.
@@ -25,9 +48,10 @@ from types import MappingProxyType
 
 from cmd.morphology.linkage import (
     FingerLinkageParameters,
+    PointXZ,
     LinkageMotionEvaluation,
+    LinkagePose,
     LinkageMotionEvaluator,
-    LinkageWorkspaceCriteria,
     LinkageWorkspaceEvaluation,
     evaluate_linkage_workspace,
 )
@@ -46,6 +70,8 @@ class Stage0Evaluation:
     workspace: LinkageWorkspaceEvaluation
     worst_transmission_quality: float
     ratio_variation: float
+    grasp: Grasp | None
+    """Grasp pose with the smallest facing error, if any sample is a grasp pose."""
     constraints: Mapping[str, tuple[float, ...]]
 
     @property
@@ -59,6 +85,26 @@ class Stage0Evaluation:
     def max_violation(self, group: str) -> float:
         return max(0.0, *self.constraints[group])
 
+    @property
+    def limit_index(self) -> int:
+        """Index of the last healthy sample (the motion limit); -1 if none."""
+
+        return self.workspace.usable_sample_count - 1
+
+    @property
+    def motion_range_rad(self) -> float:
+        """MCP flexion at the motion limit."""
+
+        return self.workspace.usable_input_workspace_rad
+
+    @property
+    def facing_error_rad(self) -> float:
+        return self.grasp.facing_error_rad if self.grasp else math.inf
+
+    @property
+    def grasp_mcp_rad(self) -> float:
+        return self.motion.input_flexion_rad[self.grasp.index] if self.grasp else math.inf
+
 
 class Stage0Evaluator:
     """Evaluate designs on the study's fixed input-flexion sample grid."""
@@ -66,131 +112,173 @@ class Stage0Evaluator:
     def __init__(self, config: Stage0Config) -> None:
         self.config = config
         self.samples = input_samples(config)
-        self.core_count = self.samples.index(config.core_input_workspace_rad) + 1
-        self.required_count = self.samples.index(config.required_input_workspace_rad) + 1
         self._motion = LinkageMotionEvaluator(self.samples)
 
     @property
     def constraint_count(self) -> int:
-        # Closure fraction, 2 loops per sample, 2 joints per interval, 2 flexion, 2 anchors.
-        return 1 + 2 * self.required_count + 2 * (self.required_count - 1) + 4
+        # Usable motion, 2 extended-length bounds, 3 pin spacings, grasp pose.
+        return 7
 
     def __call__(self, parameters: FingerLinkageParameters) -> Stage0Evaluation:
         config = self.config
         motion = self._motion.evaluate(parameters)
-        core_complete = motion.solved_sample_count >= self.core_count
+        workspace = evaluate_linkage_workspace(motion, config.criteria)
+        last = workspace.usable_sample_count - 1
+        usable = last >= 1
+        grasp = find_grasp(motion, last, config.minimum_grasp_gap_mm) if usable else None
+        violations = [
+            grasp_violation_mm(pose, config.minimum_grasp_gap_mm)
+            for pose in motion.poses[: last + 1]
+        ]
         return Stage0Evaluation(
             motion=motion,
-            workspace=evaluate_linkage_workspace(motion, config.criteria),
+            workspace=workspace,
             worst_transmission_quality=(
-                worst_transmission_quality(motion, self.core_count) if core_complete else 0.0
+                worst_transmission_quality(motion, grasp.index) if grasp else 0.0
             ),
-            ratio_variation=(
-                ratio_variation(motion, self.core_count) if core_complete else math.inf
-            ),
+            ratio_variation=ratio_variation(motion, last) if usable else math.inf,
+            grasp=grasp,
             constraints=MappingProxyType({
-                "workspace_health": workspace_health_residuals(
-                    motion, config.criteria, self.required_count
+                "usable_motion": (
+                    max(self.samples[1], config.minimum_motion_range_rad)
+                    - workspace.usable_input_workspace_rad,
                 ),
-                "minimum_flexion_at_core_q2": endpoint_flexion_residual(
-                    motion.q2_flexion_rad, self.core_count,
-                    config.q2_minimum_endpoint_flexion_rad,
+                "extended_length": extended_length_residuals(
+                    parameters, config.extended_length_bounds_mm
                 ),
-                "minimum_flexion_at_core_q3": endpoint_flexion_residual(
-                    motion.q3_flexion_rad, self.core_count,
-                    config.q3_minimum_endpoint_flexion_rad,
+                "minimum_pin_spacing": pin_spacing_residuals(
+                    parameters, config.minimum_pin_spacing_mm
                 ),
-                "minimum_anchor_dorsal_offset": anchor_dorsal_offset_residuals(
-                    parameters, config.minimum_anchor_dorsal_offset_mm
-                ),
+                "grasp_pose": (min(violations, default=config.minimum_grasp_gap_mm),),
             }),
         )
 
 
 def input_samples(config: Stage0Config) -> tuple[float, ...]:
-    """Create the uniform horizon grid with exact core and required endpoints.
-
-    An endpoint within 1% of a grid step replaces that uniform sample instead
-    of being inserted beside it, so finite-difference intervals cannot collapse.
-    """
+    """Uniform MCP samples from extension to the search horizon."""
 
     count = config.sample_count
-    step = config.search_horizon_rad / (count - 1)
-    samples = [config.search_horizon_rad * index / (count - 1) for index in range(count)]
-    endpoints: list[float] = []
-    for endpoint in (config.core_input_workspace_rad, config.required_input_workspace_rad):
-        if endpoint in endpoints:
-            continue
-        nearest = min(
-            (index for index in range(1, len(samples)) if samples[index] not in endpoints),
-            key=lambda index: abs(samples[index] - endpoint),
-        )
-        if abs(samples[nearest] - endpoint) <= 0.01 * step:
-            samples[nearest] = endpoint
-        else:
-            samples.append(endpoint)
-            samples.sort()
-        endpoints.append(endpoint)
-    return tuple(samples)
+    return tuple(config.search_horizon_rad * index / (count - 1) for index in range(count))
 
 
-def worst_transmission_quality(motion: LinkageMotionEvaluation, core_count: int) -> float:
+def pad_rotation_rad(motion: LinkageMotionEvaluation) -> tuple[float, ...]:
+    """Pad (BC) rotation from +X toward flexion, ``q1 + q2 + q3``, per solved sample."""
+
+    return tuple(
+        q1 + q2 + q3
+        for q1, q2, q3 in zip(motion.input_flexion_rad, motion.q2_flexion_rad, motion.q3_flexion_rad)
+    )
+
+
+def worst_transmission_quality(motion: LinkageMotionEvaluation, last: int) -> float:
     return min(
-        *motion.transmission_quality_loop_1[:core_count],
-        *motion.transmission_quality_loop_2[:core_count],
+        *motion.transmission_quality_loop_1[: last + 1],
+        *motion.transmission_quality_loop_2[: last + 1],
     )
 
 
-def ratio_variation(motion: LinkageMotionEvaluation, core_count: int) -> float:
+def ratio_variation(motion: LinkageMotionEvaluation, last: int) -> float:
     return _coefficient_of_variation(
-        motion.dq2_flexion_dq1_flexion[: core_count - 1]
-    ) + _coefficient_of_variation(motion.dq3_flexion_dq1_flexion[: core_count - 1])
+        motion.dq2_flexion_dq1_flexion[:last]
+    ) + _coefficient_of_variation(motion.dq3_flexion_dq1_flexion[:last])
 
 
-def workspace_health_residuals(
-    motion: LinkageMotionEvaluation,
-    criteria: LinkageWorkspaceCriteria,
-    required_count: int,
-) -> tuple[float, ...]:
-    """Fixed-shape residuals; unsolved samples count only through the closure fraction."""
+@dataclass(frozen=True)
+class Grasp:
+    """The grasp pose within the motion range whose pad best faces OA'."""
 
-    solved = min(motion.solved_sample_count, required_count)
-    residuals = [1.0 - solved / required_count]
-    for angles in (motion.transmission_angle_loop_1_rad, motion.transmission_angle_loop_2_rad):
-        residuals.extend(
-            criteria.transmission_shortfall_rad(angles[index]) if index < solved else 0.0
-            for index in range(required_count)
-        )
-    for joint in ("q2", "q3"):
-        ratios = getattr(motion, f"d{joint}_flexion_dq1_flexion")
-        residuals.extend(
-            criteria.motion_ratio_violation(joint, ratios[interval])
-            if interval < solved - 1
-            else 0.0
-            for interval in range(required_count - 1)
-        )
-    return tuple(residuals)
+    index: int
+    facing_error_rad: float
+    gap_mm: float
+    """Smaller palmar distance of B and C from line OA'."""
+    b_along_mm: float
+    c_along_mm: float
+    """B and C projected onto OA', measured from O (0 at O, |OA'| at A')."""
 
 
-def endpoint_flexion_residual(
-    flexion_rad: tuple[float, ...], core_count: int, minimum_rad: float
-) -> tuple[float]:
-    if core_count > len(flexion_rad):
-        return (0.0,)
-    return (minimum_rad - flexion_rad[core_count - 1],)
+def facing_error_rad(pose: LinkagePose) -> float:
+    """Angle between B->C and A'->O; zero when the pad faces back along OA'."""
+
+    bc = (pose.c.x_mm - pose.b.x_mm, pose.c.z_mm - pose.b.z_mm)
+    apo = (pose.o.x_mm - pose.ap.x_mm, pose.o.z_mm - pose.ap.z_mm)
+    cross = bc[0] * apo[1] - bc[1] * apo[0]
+    dot = bc[0] * apo[0] + bc[1] * apo[1]
+    return abs(math.atan2(cross, dot))
 
 
-def anchor_dorsal_offset_residuals(
-    parameters: FingerLinkageParameters, minimum_offset_mm: float
-) -> tuple[float, float]:
-    a_z = parameters.a_from_o.z_mm
-    b_z = a_z + parameters.b_from_a.z_mm
-    a_prime_z = parameters.a_prime_from_o.z_mm
-    b_prime_z = a_z + parameters.b_prime_from_a.z_mm
-    return (
-        minimum_offset_mm - (a_prime_z - b_z),
-        minimum_offset_mm - (b_prime_z - b_z),
+def pad_offsets_from_oa_mm(
+    pose: LinkagePose,
+) -> tuple[tuple[float, float], tuple[float, float], float]:
+    """B and C relative to OA' as (along from O, palmar gap) pairs, plus ``|OA'|``."""
+
+    ux, uz = pose.ap.x_mm - pose.o.x_mm, pose.ap.z_mm - pose.o.z_mm
+    length = math.hypot(ux, uz)
+    ux, uz = ux / length, uz / length
+
+    def offset(point: PointXZ) -> tuple[float, float]:
+        px, pz = point.x_mm - pose.o.x_mm, point.z_mm - pose.o.z_mm
+        # The palmar normal of OA' is OA' turned toward flexion: (u_z, -u_x).
+        return px * ux + pz * uz, px * uz - pz * ux
+
+    return offset(pose.b), offset(pose.c), length
+
+
+def grasp_violation_mm(pose: LinkagePose, minimum_gap_mm: float) -> float:
+    """Summed gap shortfall and projection overshoot of B and C; zero for a grasp pose."""
+
+    b, c, length = pad_offsets_from_oa_mm(pose)
+    return math.fsum(
+        max(0.0, minimum_gap_mm - gap) + max(0.0, -along) + max(0.0, along - length)
+        for along, gap in (b, c)
     )
+
+
+def find_grasp(
+    motion: LinkageMotionEvaluation, last: int, minimum_gap_mm: float
+) -> Grasp | None:
+    """Grasp pose in ``0..last`` with the smallest facing error, if any (earliest on ties)."""
+
+    best = None
+    for index, pose in enumerate(motion.poses[: last + 1]):
+        if grasp_violation_mm(pose, minimum_gap_mm) > 0.0:
+            continue
+        error = facing_error_rad(pose)
+        if best is None or error < best.facing_error_rad:
+            (b_along, b_gap), (c_along, c_gap), _ = pad_offsets_from_oa_mm(pose)
+            best = Grasp(index, error, min(b_gap, c_gap), b_along, c_along)
+    return best
+
+
+def extended_length_mm(parameters: FingerLinkageParameters) -> float:
+    """Return ``|OC|`` in the fully extended reference pose (``C = B + (bc, 0)``)."""
+
+    a, b = parameters.a_from_o, parameters.b_from_a
+    return math.hypot(a.x_mm + b.x_mm + parameters.bc_length_mm, a.z_mm + b.z_mm)
+
+
+def extended_length_residuals(
+    parameters: FingerLinkageParameters, bounds_mm: tuple[float, float]
+) -> tuple[float, float]:
+    length = extended_length_mm(parameters)
+    shortest, longest = bounds_mm
+    return (shortest - length, length - longest)
+
+
+def pin_spacings_mm(parameters: FingerLinkageParameters) -> tuple[float, float, float]:
+    """Centre distances |AA'|, |AB'|, |BC'| of pins sharing one rigid link."""
+
+    a, ap = parameters.a_from_o, parameters.ap_from_o
+    return (
+        math.hypot(ap.x_mm - a.x_mm, ap.z_mm - a.z_mm),
+        math.hypot(parameters.bp_from_a.x_mm, parameters.bp_from_a.z_mm),
+        math.hypot(parameters.cp_from_b.x_mm, parameters.cp_from_b.z_mm),
+    )
+
+
+def pin_spacing_residuals(
+    parameters: FingerLinkageParameters, minimum_mm: float
+) -> tuple[float, float, float]:
+    return tuple(minimum_mm - spacing for spacing in pin_spacings_mm(parameters))
 
 
 def _coefficient_of_variation(values: tuple[float, ...]) -> float:
@@ -204,10 +292,17 @@ def _coefficient_of_variation(values: tuple[float, ...]) -> float:
 __all__ = [
     "Stage0Evaluation",
     "Stage0Evaluator",
-    "anchor_dorsal_offset_residuals",
-    "endpoint_flexion_residual",
+    "extended_length_mm",
+    "extended_length_residuals",
     "input_samples",
+    "Grasp",
+    "facing_error_rad",
+    "find_grasp",
+    "grasp_violation_mm",
+    "pad_offsets_from_oa_mm",
+    "pad_rotation_rad",
+    "pin_spacing_residuals",
+    "pin_spacings_mm",
     "ratio_variation",
-    "workspace_health_residuals",
     "worst_transmission_quality",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -16,24 +17,24 @@ from .design import VARIABLE_NAMES
 class Stage0Config:
     """Search bounds, motion requirements, and solver settings.
 
-    Input flexion workspaces nest as ``core <= required <= horizon``:
+    The MCP input sweeps ``[0, search_horizon_rad]`` on ``sample_count``
+    uniform samples. No MCP angle is prescribed: each design is evaluated from
+    extension to its own motion limit, the end of its contiguous healthy range
+    under ``criteria``, which must reach at least ``minimum_motion_range_rad``.
 
-    - core: q2/q3 must reach their minimum flexion at its end, and both
-      objectives are measured over it.
-    - required: every sample through it must close with healthy
-      transmission and motion ratios.
-    - horizon: the sweep continues to here for usable-workspace diagnostics.
+    Every design variable is searched on a ``resolution_mm`` grid; bounds are
+    tightened inward to the nearest grid values.
     """
 
     bounds: Mapping[str, tuple[float, float]]
-    core_input_workspace_rad: float
-    required_input_workspace_rad: float
     search_horizon_rad: float
     sample_count: int
     criteria: LinkageWorkspaceCriteria
-    q2_minimum_endpoint_flexion_rad: float
-    q3_minimum_endpoint_flexion_rad: float
-    minimum_anchor_dorsal_offset_mm: float
+    extended_length_bounds_mm: tuple[float, float]
+    minimum_pin_spacing_mm: float
+    minimum_grasp_gap_mm: float
+    minimum_motion_range_rad: float = 0.0
+    resolution_mm: float = 0.1
     population_size: int = 100
     generations: int = 200
     seed: int = 0
@@ -53,32 +54,38 @@ class Stage0Config:
             raise ValueError("bc_length_mm lower bound must be greater than zero")
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
 
+        object.__setattr__(
+            self, "search_horizon_rad", require_positive("search_horizon_rad", self.search_horizon_rad)
+        )
         for name in (
-            "core_input_workspace_rad",
-            "required_input_workspace_rad",
-            "search_horizon_rad",
-        ):
-            object.__setattr__(self, name, require_positive(name, getattr(self, name)))
-        if not (
-            self.core_input_workspace_rad
-            <= self.required_input_workspace_rad
-            <= self.search_horizon_rad
-        ):
-            raise ValueError("input workspaces must satisfy core <= required <= horizon")
-        if self.core_input_workspace_rad == self.search_horizon_rad:
-            raise ValueError("core_input_workspace_rad must be below search_horizon_rad")
-        for name in (
-            "q2_minimum_endpoint_flexion_rad",
-            "q3_minimum_endpoint_flexion_rad",
-            "minimum_anchor_dorsal_offset_mm",
+            "minimum_pin_spacing_mm",
+            "minimum_grasp_gap_mm",
+            "minimum_motion_range_rad",
         ):
             object.__setattr__(self, name, require_nonnegative(name, getattr(self, name)))
+        object.__setattr__(
+            self,
+            "extended_length_bounds_mm",
+            _positive_range("extended_length_bounds_mm", self.extended_length_bounds_mm),
+        )
+        object.__setattr__(
+            self, "resolution_mm", require_positive("resolution_mm", self.resolution_mm)
+        )
+        for name, (lower, upper) in self.bounds.items():
+            if math.floor(upper / self.resolution_mm + 1e-9) < math.ceil(
+                lower / self.resolution_mm - 1e-9
+            ):
+                raise ValueError(f"{name} bounds contain no {self.resolution_mm} mm grid value")
         if not isinstance(self.criteria, LinkageWorkspaceCriteria):
             raise TypeError("criteria must be LinkageWorkspaceCriteria")
         _require_int("sample_count", self.sample_count, minimum=3)
+        if self.minimum_motion_range_rad > self.search_horizon_rad:
+            raise ValueError("minimum_motion_range_rad must not exceed search_horizon_rad")
         _require_int("population_size", self.population_size, minimum=2)
         _require_int("generations", self.generations, minimum=1)
         _require_int("seed", self.seed, minimum=0)
+        if not isinstance(self.include_baseline_seed, bool):
+            raise ValueError("include_baseline_seed must be a bool")
 
     @property
     def lower(self) -> tuple[float, ...]:
@@ -87,6 +94,15 @@ class Stage0Config:
     @property
     def upper(self) -> tuple[float, ...]:
         return tuple(upper for _, upper in self.bounds.values())
+
+
+def _positive_range(name: str, bounds: tuple[float, float]) -> tuple[float, float]:
+    lower, upper = bounds
+    lower = require_positive(f"{name} lower", lower)
+    upper = require_finite(f"{name} upper", upper)
+    if lower >= upper:
+        raise ValueError(f"{name} lower must be below upper")
+    return (lower, upper)
 
 
 def _require_int(name: str, value: object, *, minimum: int) -> None:

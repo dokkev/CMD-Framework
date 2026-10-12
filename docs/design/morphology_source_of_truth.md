@@ -197,22 +197,22 @@ have no hidden frame rotation:
 
 | Input | Meaning |
 | --- | --- |
-| `o_prime_from_o` | `O' = O + o_prime_from_o` |
+| `op_from_o` | `O' = O + op_from_o` |
 | `a_from_o` | `A = O + a_from_o` |
-| `a_prime_from_o` | `A' = O + a_prime_from_o` |
+| `ap_from_o` | `A' = O + ap_from_o` |
 | `b_from_a` | `B = A + b_from_a` |
-| `b_prime_from_a` | `B' = A + b_prime_from_a` |
+| `bp_from_a` | `B' = A + bp_from_a` |
 | `bc_length_mm` | `C = B + (bc_length_mm, 0)`; positive distal `+X` length |
-| `c_prime_from_b` | `C' = B + c_prime_from_b` |
+| `cp_from_b` | `C' = B + cp_from_b` |
 
 Every vector is an XZ translation in the fully extended reference coordinates,
 expressed relative to the named point in its field. There are no user-specified
 reference rotation angles. Runtime rotations act on these stored vectors as
 changes from the reference pose.
 
-The fully extended reference is defined only by `BC` being parallel to `OC` and
-pointing in the same direction. Since `BC` is constructed along canonical
-`+X`, `C` lies on the positive distal ray from `O`. The linkage plane is the
+The fully extended reference is defined only by `BC` being parallel to the
+canonical `+X` axis, which holds by construction. `B` and `C` may sit at any
+`Z`, and `OC` need not be parallel to `BC`. The linkage plane is the
 hand-frame XZ plane, and its physical flexion axis is canonical `+Y`; `q1 = 0`
 is fully extended and `q1 < 0` is flexion. `OA` and `OA'` need not be
 horizontal, and neither `A'` nor `B'` is required to lie on `O-B-C`. No

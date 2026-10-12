@@ -71,11 +71,11 @@ class LinkageKinematics:
 
         o = reference.o
         a = _add(o, _rotate(parameters.a_from_o, q1_rad))
-        ap = _add(o, _rotate(parameters.a_prime_from_o, q1_rad))
+        ap = _add(o, _rotate(parameters.ap_from_o, q1_rad))
 
         bp, delta_middle = _solve_dyad(
             a,
-            parameters.b_prime_from_a,
+            parameters.bp_from_a,
             reference.op,
             self.linkage.coupler_1_length_mm,
             self._loop_1_branch,
@@ -86,7 +86,7 @@ class LinkageKinematics:
 
         cp, delta_distal = _solve_dyad(
             b,
-            parameters.c_prime_from_b,
+            parameters.cp_from_b,
             ap,
             self.linkage.coupler_2_length_mm,
             self._loop_2_branch,

@@ -7,6 +7,7 @@ Each run writes ``run.json`` and ``pareto.csv`` to a new ``outputs/stage0/run_NN
 
 from __future__ import annotations
 
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -15,8 +16,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.morphology.linkage import BASELINE_LINKAGE_V0, LinkageWorkspaceCriteria  # noqa: E402
-from cmd.optimization.stage0 import Stage0Config, bounds_around  # noqa: E402
+from cmd.morphology.linkage import LinkageWorkspaceCriteria  # noqa: E402
+from cmd.optimization.stage0 import Stage0Config  # noqa: E402
 from cmd.optimization.stage0.run import run_stage0, save_stage0_result  # noqa: E402
 
 
@@ -24,11 +25,24 @@ OUTPUT_ROOT = REPOSITORY_ROOT / "outputs" / "stage0"
 
 # TODO: replace these placeholder values with the CLEAR Hand design requirements.
 CONFIG = Stage0Config(
-    bounds=bounds_around(BASELINE_LINKAGE_V0, half_width_mm=5.0),
-    core_input_workspace_rad=0.6,
-    required_input_workspace_rad=0.9,
+    bounds={
+        "op_from_o_x_mm": (14.5, 30.0),
+        "op_from_o_z_mm": (3.8, 27.5),
+        # Only the O' bounds are physical; the rest are wide enough not to bind
+        # and rely on the length and pin-spacing constraints.
+        "a_from_o_x_mm": (20.0, 50.0),
+        "a_from_o_z_mm": (-10.0, 30.0),
+        "ap_from_o_x_mm": (15.0, 45.0),
+        "b_from_a_x_mm": (10.0, 40.0),
+        "bp_from_a_x_mm": (-10.0, 20.0),
+        "bc_length_mm": (20.0, 35.0),
+        "cp_from_b_x_mm": (-25.0, 5.0),
+        "cp_from_b_z_mm": (-10.0, 20.0),
+    },
+    # Designs are swept to their own motion limit, at most this MCP flexion;
+    # 0.05 rad samples catch late PIP/DIP stalls that a coarser grid misses.
     search_horizon_rad=1.5,
-    sample_count=11,
+    sample_count=31,
     criteria=LinkageWorkspaceCriteria(
         minimum_transmission_margin_rad=0.3,
         q2_minimum_motion_ratio=0.1,
@@ -36,10 +50,12 @@ CONFIG = Stage0Config(
         q2_maximum_motion_ratio=3.0,
         q3_maximum_motion_ratio=3.0,
     ),
-    q2_minimum_endpoint_flexion_rad=0.3,
-    q3_minimum_endpoint_flexion_rad=0.3,
-    minimum_anchor_dorsal_offset_mm=0.0,
-    population_size=100,
+    extended_length_bounds_mm=(80.0, 110.0),
+    # MR63 (3x6x2.5) bearings in aluminium: 6 mm OD + 3 mm web between pockets.
+    minimum_pin_spacing_mm=9.0,
+    # At the grasp pose the pad faces OA' from at least this palmar gap (link thickness).
+    minimum_grasp_gap_mm=15.0,
+    population_size=200,
     generations=200,
     seed=0,
 )
@@ -57,7 +73,8 @@ def main() -> int:
         print(
             f"  {index}: worst transmission quality "
             f"{evaluation.worst_transmission_quality:.3f}, "
-            f"ratio variation {evaluation.ratio_variation:.3f}"
+            f"facing error {math.degrees(evaluation.facing_error_rad):.1f} deg, "
+            f"grasp at MCP {math.degrees(evaluation.grasp_mcp_rad):.0f} deg"
         )
     print(f"Output: {output}")
     return 0

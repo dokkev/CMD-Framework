@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, LinkageWorkspaceCriteria
+from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, LinkageWorkspaceCriteria, PointXZ
 from cmd.morphology.linkage import KinematicClosureError, LinkageKinematics
 from cmd.optimization.stage0 import (
     VARIABLE_NAMES,
@@ -17,7 +17,12 @@ from cmd.optimization.stage0 import (
     encode,
     input_samples,
 )
-from cmd.optimization.stage0.evaluate import workspace_health_residuals
+from cmd.optimization.stage0.evaluate import (
+    extended_length_mm,
+    facing_error_rad,
+    grasp_violation_mm,
+    pad_offsets_from_oa_mm,
+)
 
 
 def permissive_criteria(**overrides) -> LinkageWorkspaceCriteria:
@@ -35,14 +40,13 @@ def make_config(**overrides) -> Stage0Config:
     # TEST FIXTURE ONLY: artificial V0-centred bounds, not physical design limits.
     values = dict(
         bounds=bounds_around(BASELINE_LINKAGE_V0, 1.0),
-        core_input_workspace_rad=0.4,
-        required_input_workspace_rad=0.4,
-        search_horizon_rad=0.8,
-        sample_count=5,
+        # V0's pad comes in front of OA' (a grasp pose) from about 1.0 rad MCP.
+        search_horizon_rad=1.6,
+        sample_count=9,
         criteria=permissive_criteria(),
-        q2_minimum_endpoint_flexion_rad=0.0,
-        q3_minimum_endpoint_flexion_rad=0.0,
-        minimum_anchor_dorsal_offset_mm=0.0,
+        extended_length_bounds_mm=(80.0, 110.0),
+        minimum_pin_spacing_mm=0.0,
+        minimum_grasp_gap_mm=0.0,
         population_size=6,
         generations=2,
         seed=11,
@@ -71,112 +75,152 @@ def fail_closure_after(monkeypatch, success_limit: int) -> None:
 # Design vector -------------------------------------------------------------
 
 
-def test_decoded_designs_place_b_and_c_on_the_distal_ray() -> None:
-    reference = FingerLinkage(decode(baseline_x())).reference_positions
+def test_decoded_designs_align_ap_bp_b_and_c_on_the_x_axis() -> None:
+    x = baseline_x()
+    reference = FingerLinkage(decode(x)).reference_positions
 
-    assert len(VARIABLE_NAMES) == 12
-    assert reference.b.z_mm == 0.0
-    assert reference.c.z_mm == 0.0
-    assert reference.c.x_mm - reference.b.x_mm == pytest.approx(20.0)
+    assert len(x) == len(VARIABLE_NAMES) == 10
+    for point in (reference.ap, reference.bp, reference.b, reference.c):
+        assert point.z_mm == pytest.approx(0.0, abs=1e-12)
+    assert decode(x) == BASELINE_LINKAGE_V0.parameters
+    assert encode(FingerLinkage(decode(x))) == x
 
 
 # Sample grid ---------------------------------------------------------------
 
 
-def test_core_and_required_endpoints_are_exact_samples() -> None:
-    assert input_samples(make_config(core_input_workspace_rad=0.35)) == pytest.approx(
-        (0.0, 0.2, 0.35, 0.4, 0.6, 0.8)
-    )
-    config = make_config(core_input_workspace_rad=0.401, required_input_workspace_rad=0.7)
-    # 0.401 replaces the nearby 0.4 sample instead of creating a 0.001 rad interval.
-    assert input_samples(config) == pytest.approx((0.0, 0.2, 0.401, 0.6, 0.7, 0.8))
-    at_horizon = make_config(required_input_workspace_rad=0.8)
-    assert input_samples(at_horizon) == pytest.approx((0.0, 0.2, 0.4, 0.6, 0.8))
+def test_input_samples_are_uniform_up_to_the_horizon() -> None:
+    assert input_samples(make_config()) == pytest.approx(tuple(0.2 * i for i in range(9)))
 
 
 # Evaluation ----------------------------------------------------------------
 
 
+def with_motion(monkeypatch, evaluator, **changes):
+    """Make ``evaluator`` see its V0 motion with ``changes`` applied."""
+
+    motion = replace(evaluator(decode(baseline_x())).motion, **changes)
+    monkeypatch.setattr(type(evaluator._motion), "evaluate", lambda self, parameters: motion)
+    return motion
+
+
 def test_baseline_is_feasible_with_fixed_constraint_shape() -> None:
-    evaluator = Stage0Evaluator(make_config(required_input_workspace_rad=0.6))
+    evaluator = Stage0Evaluator(make_config())
     evaluation = evaluator(decode(baseline_x()))
 
     assert evaluation.feasible
     assert tuple(evaluation.constraints) == (
-        "workspace_health",
-        "minimum_flexion_at_core_q2",
-        "minimum_flexion_at_core_q3",
-        "minimum_anchor_dorsal_offset",
+        "usable_motion",
+        "extended_length",
+        "minimum_pin_spacing",
+        "grasp_pose",
     )
-    assert len(evaluation.g) == evaluator.constraint_count == 1 + 2 * 4 + 2 * 3 + 4
+    assert len(evaluation.g) == evaluator.constraint_count == 7
+    # V0's DIP starts to unflex (negative motion ratio) just before 1.6 rad.
+    assert evaluation.limit_index == 7
     assert 0.0 < evaluation.worst_transmission_quality <= 1.0
     assert math.isfinite(evaluation.ratio_variation)
+    # V0 grasp poses: 32.5, 13.6 and 0.5 deg facing error at 1.0, 1.2 and 1.4 rad.
+    assert evaluation.grasp.index == 7
+    assert evaluation.facing_error_rad == pytest.approx(math.radians(0.5), abs=math.radians(0.1))
+    assert evaluation.grasp_mcp_rad == pytest.approx(1.4)
+    motion = evaluation.motion
+    assert evaluation.worst_transmission_quality == min(
+        *motion.transmission_quality_loop_1[:8], *motion.transmission_quality_loop_2[:8]
+    )
 
 
-def test_closure_failure_before_required_endpoint_is_infeasible(monkeypatch) -> None:
-    fail_closure_after(monkeypatch, success_limit=2)
+def test_facing_error_gap_and_pad_position_of_a_pose() -> None:
+    pose = Stage0Evaluator(make_config())(decode(baseline_x())).motion.poses[0]
+    # O-A' along +X (30 mm); a 20 mm pad 15 mm on the palmar side, pointing back.
+    facing = replace(
+        pose,
+        o=PointXZ(0.0, 0.0), ap=PointXZ(30.0, 0.0), b=PointXZ(25.0, -15.0), c=PointXZ(5.0, -15.0),
+    )
+    tilted = replace(facing, c=PointXZ(5.0, -15.0 - 20.0 * math.tan(math.radians(10.0))))
+    behind_o = replace(facing, b=PointXZ(5.0, -15.0), c=PointXZ(-15.0, -15.0))
+
+    assert facing_error_rad(facing) == pytest.approx(0.0)
+    assert facing_error_rad(tilted) == pytest.approx(math.radians(10.0))
+    b, c, length = pad_offsets_from_oa_mm(facing)
+    assert (b, c, length) == (pytest.approx((25.0, 15.0)), pytest.approx((5.0, 15.0)), pytest.approx(30.0))
+    assert grasp_violation_mm(facing, 15.0) == 0.0
+    # Too close: each end 5 mm short of the gap. Slid back past O: C 15 mm behind O.
+    assert grasp_violation_mm(facing, 20.0) == pytest.approx(10.0)
+    assert grasp_violation_mm(behind_o, 15.0) == pytest.approx(15.0)
+
+
+def test_no_grasp_pose_is_infeasible_with_a_graded_residual() -> None:
+    evaluator = Stage0Evaluator(make_config(minimum_grasp_gap_mm=1000.0))
+    evaluation = evaluator(decode(baseline_x()))
+    violations = [grasp_violation_mm(pose, 1000.0) for pose in evaluation.motion.poses]
+
+    assert evaluation.grasp is None
+    assert evaluation.facing_error_rad == evaluation.grasp_mcp_rad == math.inf
+    assert evaluation.max_violation("grasp_pose") == pytest.approx(min(violations))
+
+
+def test_motion_limit_ends_before_the_first_unhealthy_sample(monkeypatch) -> None:
+    evaluator = Stage0Evaluator(
+        make_config(criteria=permissive_criteria(minimum_transmission_margin_rad=0.2))
+    )
+    reference = evaluator(decode(baseline_x()))
+    angles = list(reference.motion.transmission_angle_loop_2_rad)
+    angles[7] = 0.1
+    motion = with_motion(monkeypatch, evaluator, transmission_angle_loop_2_rad=tuple(angles))
+    evaluation = evaluator(decode(baseline_x()))
+
+    assert evaluation.limit_index == 6
+    assert evaluation.feasible
+    # Only samples 5 and 6 remain as grasp poses; 6 faces OA' better.
+    assert evaluation.grasp.index == 6
+    assert evaluation.facing_error_rad == pytest.approx(facing_error_rad(motion.poses[6]))
+    assert evaluation.worst_transmission_quality == min(
+        *motion.transmission_quality_loop_1[:7], *motion.transmission_quality_loop_2[:7]
+    )
+
+
+def test_no_usable_motion_is_infeasible_with_finite_residuals(monkeypatch) -> None:
+    fail_closure_after(monkeypatch, success_limit=1)
     evaluator = Stage0Evaluator(make_config())
     evaluation = evaluator(decode(baseline_x()))
 
+    assert evaluation.limit_index == 0
     assert not evaluation.feasible
-    assert evaluation.max_violation("workspace_health") == pytest.approx(1 / 3)
+    assert evaluation.max_violation("usable_motion") == pytest.approx(0.2)
     assert len(evaluation.g) == evaluator.constraint_count
     assert all(math.isfinite(value) for value in evaluation.g)
     assert evaluation.worst_transmission_quality == 0.0
-    assert evaluation.ratio_variation == math.inf
+    assert evaluation.ratio_variation == evaluation.facing_error_rad == math.inf
 
 
-def test_workspace_health_checks_every_sample_through_required_endpoint() -> None:
-    evaluator = Stage0Evaluator(make_config())
-    motion = evaluator(decode(baseline_x())).motion
-    angles = list(motion.transmission_angle_loop_2_rad)
-    angles[3] = 0.1
-    motion = replace(motion, transmission_angle_loop_2_rad=tuple(angles))
-    criteria = permissive_criteria(minimum_transmission_margin_rad=0.2)
+def test_minimum_motion_range_requires_healthy_motion_up_to_it(monkeypatch) -> None:
+    fail_closure_after(monkeypatch, success_limit=3)
+    evaluation = Stage0Evaluator(make_config(minimum_motion_range_rad=0.7))(decode(baseline_x()))
 
-    assert max(workspace_health_residuals(motion, criteria, required_count=3)) <= 0.0
-    assert max(workspace_health_residuals(motion, criteria, required_count=4)) == pytest.approx(0.1)
+    assert evaluation.limit_index == 2
+    assert evaluation.max_violation("usable_motion") == pytest.approx(0.7 - 0.4)
 
 
-@pytest.mark.parametrize("ratio,violation", [(0.25, 0.25), (2.0, 0.5)])
-def test_workspace_health_bounds_motion_ratio_from_both_sides(ratio, violation) -> None:
-    motion = Stage0Evaluator(make_config())(decode(baseline_x())).motion
-    ratios = [1.0] * len(motion.dq3_flexion_dq1_flexion)
-    ratios[1] = ratio
-    motion = replace(motion, dq3_flexion_dq1_flexion=tuple(ratios))
-    criteria = permissive_criteria(q3_minimum_motion_ratio=0.5, q3_maximum_motion_ratio=1.5)
-
-    assert max(workspace_health_residuals(motion, criteria, required_count=3)) == pytest.approx(violation)
-
-
-def test_objectives_ignore_motion_after_core(monkeypatch) -> None:
-    config = make_config(required_input_workspace_rad=0.8)
-    evaluator = Stage0Evaluator(config)
-    reference = evaluator(decode(baseline_x()))
-    motion = reference.motion
-    changed = replace(
-        motion,
-        dq2_flexion_dq1_flexion=motion.dq2_flexion_dq1_flexion[:2] + (50.0, -50.0),
-        transmission_quality_loop_1=motion.transmission_quality_loop_1[:3] + (0.0, 0.0),
-    )
-    monkeypatch.setattr(type(evaluator._motion), "evaluate", lambda self, parameters: changed)
-    evaluation = evaluator(decode(baseline_x()))
-
-    assert evaluation.worst_transmission_quality == reference.worst_transmission_quality
-    assert evaluation.ratio_variation == reference.ratio_variation
-    assert not evaluation.feasible
-
-
-def test_endpoint_flexion_and_anchor_offset_constraints() -> None:
-    reference = Stage0Evaluator(make_config())(decode(baseline_x()))
-    core_q3 = reference.motion.q3_flexion_rad[2]
+def test_extended_length_constraint() -> None:
     evaluation = Stage0Evaluator(
-        make_config(q3_minimum_endpoint_flexion_rad=core_q3 + 0.1, minimum_anchor_dorsal_offset_mm=1000.0)
+        make_config(
+            extended_length_bounds_mm=(extended_length_mm(BASELINE_LINKAGE_V0.parameters) + 4.5, 200.0),
+        )
     )(decode(baseline_x()))
 
-    assert evaluation.max_violation("minimum_flexion_at_core_q3") == pytest.approx(0.1)
-    assert evaluation.max_violation("minimum_flexion_at_core_q2") == 0.0
-    assert evaluation.max_violation("minimum_anchor_dorsal_offset") > 900.0
+    assert evaluation.max_violation("extended_length") == pytest.approx(4.5)
+
+
+def test_pin_spacing_constraint_uses_pins_on_the_same_link() -> None:
+    # V0: AA' = (-1.5, -20.0), AB' = (7.8, -20.0), BC' = (-11.6, 7.3).
+    spacings = (math.hypot(1.5, 20.0), math.hypot(7.8, 20.0), math.hypot(11.6, 7.3))
+    evaluation = Stage0Evaluator(make_config(minimum_pin_spacing_mm=14.0))(decode(baseline_x()))
+
+    assert evaluation.constraints["minimum_pin_spacing"] == pytest.approx(
+        tuple(14.0 - spacing for spacing in spacings)
+    )
+    assert evaluation.max_violation("minimum_pin_spacing") == pytest.approx(14.0 - min(spacings))
 
 
 # NSGA-II run ---------------------------------------------------------------
@@ -193,5 +237,6 @@ def test_tiny_run_returns_feasible_pareto_and_saves_it(tmp_path) -> None:
     metadata = json.loads((output / "run.json").read_text(encoding="utf-8"))
     rows = (output / "pareto.csv").read_text(encoding="utf-8").splitlines()
     assert metadata["pareto_count"] == len(result.pareto) == len(rows) - 1
-    assert metadata["config"]["bounds"]["bc_length_mm"] == pytest.approx([19.0, 21.0])
+    assert metadata["config"]["bounds"]["bc_length_mm"] == pytest.approx([19.4, 21.4])
+    assert all(round(value, 1) == value for candidate in result.pareto for value in candidate.x)
     assert metadata["source_git_commit"] == "test"

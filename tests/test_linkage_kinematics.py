@@ -63,25 +63,25 @@ def test_nonzero_pose_closes_both_loops_and_preserves_all_fixed_lengths() -> Non
     assert pose.ap.distance_to(pose.cp) == pytest.approx(linkage.coupler_2_length_mm)
 
     assert_point_close(pose.a, translated(pose.o, parameters.a_from_o, pose.q1_rad))
-    assert_point_close(pose.ap, translated(pose.o, parameters.a_prime_from_o, pose.q1_rad))
+    assert_point_close(pose.ap, translated(pose.o, parameters.ap_from_o, pose.q1_rad))
     assert_point_close(pose.b, translated(pose.a, parameters.b_from_a, delta_middle))
-    assert_point_close(pose.bp, translated(pose.a, parameters.b_prime_from_a, delta_middle))
+    assert_point_close(pose.bp, translated(pose.a, parameters.bp_from_a, delta_middle))
     assert_point_close(
         pose.cp,
-        translated(pose.b, parameters.c_prime_from_b, delta_distal),
+        translated(pose.b, parameters.cp_from_b, delta_distal),
     )
     assert_point_close(
         pose.c,
         translated(pose.b, PointXZ(parameters.bc_length_mm, 0.0), delta_distal),
     )
 
-    initial_a_prime = parameters.a_prime_from_o
-    posed_a_prime = PointXZ(pose.ap.x_mm - pose.o.x_mm, pose.ap.z_mm - pose.o.z_mm)
+    initial_ap = parameters.ap_from_o
+    posed_ap = PointXZ(pose.ap.x_mm - pose.o.x_mm, pose.ap.z_mm - pose.o.z_mm)
     measured_q1 = math.atan2(
-        initial_a_prime.x_mm * posed_a_prime.z_mm
-        - initial_a_prime.z_mm * posed_a_prime.x_mm,
-        initial_a_prime.x_mm * posed_a_prime.x_mm
-        + initial_a_prime.z_mm * posed_a_prime.z_mm,
+        initial_ap.x_mm * posed_ap.z_mm
+        - initial_ap.z_mm * posed_ap.x_mm,
+        initial_ap.x_mm * posed_ap.x_mm
+        + initial_ap.z_mm * posed_ap.z_mm,
     )
     assert measured_q1 == pytest.approx(pose.q1_rad, abs=1e-10)
 
@@ -98,4 +98,4 @@ def test_negative_q1_moves_proximal_link_in_flexion_direction() -> None:
 
 def test_unreachable_closure_raises_explicit_failure() -> None:
     with pytest.raises(KinematicClosureError, match="closure"):
-        LinkageKinematics(BASELINE_LINKAGE_V0).solve(0.1)
+        LinkageKinematics(BASELINE_LINKAGE_V0).solve(-2.0)

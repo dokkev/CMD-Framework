@@ -36,22 +36,22 @@ class FingerLinkageParameters:
     there are no implicit body frames or user-provided reference rotations.
     """
 
-    o_prime_from_o: PointXZ
+    op_from_o: PointXZ
     a_from_o: PointXZ
-    a_prime_from_o: PointXZ
+    ap_from_o: PointXZ
     b_from_a: PointXZ
-    b_prime_from_a: PointXZ
+    bp_from_a: PointXZ
     bc_length_mm: float
-    c_prime_from_b: PointXZ
+    cp_from_b: PointXZ
 
     def __post_init__(self) -> None:
         for name in (
-            "o_prime_from_o",
+            "op_from_o",
             "a_from_o",
-            "a_prime_from_o",
+            "ap_from_o",
             "b_from_a",
-            "b_prime_from_a",
-            "c_prime_from_b",
+            "bp_from_a",
+            "cp_from_b",
         ):
             if not isinstance(getattr(self, name), PointXZ):
                 raise TypeError(f"{name} must be a PointXZ instance")

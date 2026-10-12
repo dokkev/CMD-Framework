@@ -17,11 +17,14 @@ from cmd.morphology.linkage import (
 
 
 SAMPLES = (0.0, 0.2, 0.4, 0.6, 0.8)
+# V0 geometry with O' at (10, 10): it closes over the whole SAMPLES sweep, so
+# these tests exercise motion diagnostics independently of the current seed.
+SWEEP_PARAMETERS = replace(BASELINE_LINKAGE_V0.parameters, op_from_o=PointXZ(10.0, 10.0))
 
 
 def baseline_evaluation(*, sample_count: int = 5):
     assert sample_count == len(SAMPLES)
-    return LinkageMotionEvaluator(SAMPLES).evaluate(BASELINE_LINKAGE_V0.parameters)
+    return LinkageMotionEvaluator(SAMPLES).evaluate(SWEEP_PARAMETERS)
 
 
 def permissive_criteria(

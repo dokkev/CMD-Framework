@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import ClassVar
 
 from . import FingerLinkageParameters, PointXZ
-
-
-_FULLY_EXTENDED_ANGULAR_TOLERANCE = 1.0e-4
 
 
 @dataclass(frozen=True)
@@ -31,8 +27,9 @@ class FingerLinkage:
     """Materialized planar linkage geometry for its fully extended pose.
 
     All points are composed from the reference translations in
-    :class:`FingerLinkageParameters`. The reference pose is accepted when
-    ``BC`` and ``OC`` are parallel and point in the same distal direction.
+    :class:`FingerLinkageParameters`. In the fully extended reference pose
+    ``BC`` points along ``+X`` (``C = B + (bc_length_mm, 0)``); ``B`` and ``C``
+    may sit at any ``z``, and ``OC`` need not be parallel to ``BC``.
     """
 
     parameters: FingerLinkageParameters
@@ -43,42 +40,19 @@ class FingerLinkage:
         if not isinstance(self.parameters, FingerLinkageParameters):
             raise TypeError("parameters must be a FingerLinkageParameters instance")
 
-        reference = self.reference_positions
-        bc = PointXZ(self.parameters.bc_length_mm, 0.0)
-        oc = PointXZ(
-            reference.c.x_mm - reference.o.x_mm,
-            reference.c.z_mm - reference.o.z_mm,
-        )
-        bc_length = math.hypot(bc.x_mm, bc.z_mm)
-        oc_length = math.hypot(oc.x_mm, oc.z_mm)
-        cross_2d = bc.x_mm * oc.z_mm - bc.z_mm * oc.x_mm
-        dot_2d = bc.x_mm * oc.x_mm + bc.z_mm * oc.z_mm
-        scale = bc_length * oc_length
-        if not all(math.isfinite(value) for value in (cross_2d, dot_2d, scale)):
-            raise ValueError("fully extended reference geometry must remain finite")
-        if (
-            scale == 0.0
-            or abs(cross_2d) > _FULLY_EXTENDED_ANGULAR_TOLERANCE * scale
-            or dot_2d <= 0.0
-        ):
-            raise ValueError(
-                "fully extended reference requires BC parallel to OC and pointing "
-                "in the same direction"
-            )
-
     @property
     def reference_positions(self) -> ReferencePositions:
         """Compose every reference point by translation from its named origin."""
 
         p = self.parameters
         o = PointXZ(0.0, 0.0)
-        op = _add(o, p.o_prime_from_o)
+        op = _add(o, p.op_from_o)
         a = _add(o, p.a_from_o)
-        ap = _add(o, p.a_prime_from_o)
+        ap = _add(o, p.ap_from_o)
         b = _add(a, p.b_from_a)
-        bp = _add(a, p.b_prime_from_a)
+        bp = _add(a, p.bp_from_a)
         c = _add(b, PointXZ(p.bc_length_mm, 0.0))
-        cp = _add(b, p.c_prime_from_b)
+        cp = _add(b, p.cp_from_b)
         return ReferencePositions(o=o, op=op, a=a, ap=ap, b=b, bp=bp, c=c, cp=cp)
 
     @property

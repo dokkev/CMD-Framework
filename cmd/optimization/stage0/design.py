@@ -1,8 +1,13 @@
-"""Stage-0 design vector: twelve absolute reference coordinates in the XZ plane.
+"""Stage-0 design vector: the FingerLinkageParameters fields, flattened.
 
-B and C are placed on the distal O-C ray (``z = 0``), which satisfies the
-fully extended reference condition by construction. Encoding a linkage whose
-B lies slightly off that ray projects B onto it.
+Each variable is one component of a ``FingerLinkageParameters`` translation,
+so search bounds read in the same frames as the morphology inputs (e.g. C'
+relative to B). In the fully extended pose Stage-0 places A', B', B and C on
+``z = 0`` (``FingerLinkage`` builds ``C = B + (bc_length_mm, 0)``), so OA',
+B'B and BC all lie along +X. The ``z`` components of ``ap_from_o`` (0) and of
+``b_from_a`` and ``bp_from_a`` (both ``-a_from_o.z``) are therefore derived
+rather than searched; encoding a linkage that is not aligned this way projects
+A', B' and B onto ``z = 0``.
 """
 
 from __future__ import annotations
@@ -13,50 +18,48 @@ from cmd.morphology.linkage import FingerLinkage, FingerLinkageParameters, Point
 
 
 VARIABLE_NAMES: tuple[str, ...] = (
-    "o_prime_from_o_x_mm",
-    "o_prime_from_o_z_mm",
+    "op_from_o_x_mm",
+    "op_from_o_z_mm",
     "a_from_o_x_mm",
     "a_from_o_z_mm",
-    "a_prime_from_o_x_mm",
-    "a_prime_from_o_z_mm",
-    "b_from_o_x_mm",
-    "b_prime_from_o_x_mm",
-    "b_prime_from_o_z_mm",
+    "ap_from_o_x_mm",
+    "b_from_a_x_mm",
+    "bp_from_a_x_mm",
     "bc_length_mm",
-    "c_prime_from_o_x_mm",
-    "c_prime_from_o_z_mm",
+    "cp_from_b_x_mm",
+    "cp_from_b_z_mm",
 )
 
 
 def decode(x: Sequence[float]) -> FingerLinkageParameters:
-    """Map an ordered design vector to canonical relative linkage inputs."""
+    """Map an ordered design vector to linkage inputs with A', B', B, C on ``z = 0``."""
 
     if len(x) != len(VARIABLE_NAMES):
         raise ValueError(f"design vector has {len(x)} values; expected {len(VARIABLE_NAMES)}")
-    op_x, op_z, a_x, a_z, ap_x, ap_z, b_x, bp_x, bp_z, bc, cp_x, cp_z = (float(v) for v in x)
+    op_x, op_z, a_x, a_z, ap_x, b_x, bp_x, bc, cp_x, cp_z = (float(v) for v in x)
     return FingerLinkageParameters(
-        o_prime_from_o=PointXZ(op_x, op_z),
+        op_from_o=PointXZ(op_x, op_z),
         a_from_o=PointXZ(a_x, a_z),
-        a_prime_from_o=PointXZ(ap_x, ap_z),
-        b_from_a=PointXZ(b_x - a_x, -a_z),
-        b_prime_from_a=PointXZ(bp_x - a_x, bp_z - a_z),
+        ap_from_o=PointXZ(ap_x, 0.0),
+        b_from_a=PointXZ(b_x, -a_z),
+        bp_from_a=PointXZ(bp_x, -a_z),
         bc_length_mm=bc,
-        c_prime_from_b=PointXZ(cp_x - b_x, cp_z),
+        cp_from_b=PointXZ(cp_x, cp_z),
     )
 
 
 def encode(linkage: FingerLinkage) -> tuple[float, ...]:
-    """Return the design vector of a linkage, projecting B onto ``z = 0``."""
+    """Return the design vector of a linkage, dropping the derived ``z`` components."""
 
-    r = linkage.reference_positions
+    p = linkage.parameters
     return (
-        r.op.x_mm, r.op.z_mm,
-        r.a.x_mm, r.a.z_mm,
-        r.ap.x_mm, r.ap.z_mm,
-        r.b.x_mm,
-        r.bp.x_mm, r.bp.z_mm,
-        linkage.parameters.bc_length_mm,
-        r.cp.x_mm, r.cp.z_mm,
+        p.op_from_o.x_mm, p.op_from_o.z_mm,
+        p.a_from_o.x_mm, p.a_from_o.z_mm,
+        p.ap_from_o.x_mm,
+        p.b_from_a.x_mm,
+        p.bp_from_a.x_mm,
+        p.bc_length_mm,
+        p.cp_from_b.x_mm, p.cp_from_b.z_mm,
     )
 
 
