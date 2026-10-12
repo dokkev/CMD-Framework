@@ -44,7 +44,8 @@ CONFIG = Stage0Config(
     search_horizon_rad=1.5,
     sample_count=31,
     criteria=LinkageWorkspaceCriteria(
-        minimum_transmission_margin_rad=0.3,
+        # Initial hard minimum; 40 deg is the stricter comparison level.
+        minimum_transmission_margin_rad=math.radians(30.0),
         q2_minimum_motion_ratio=0.1,
         q3_minimum_motion_ratio=0.1,
         q2_maximum_motion_ratio=3.0,
@@ -55,6 +56,9 @@ CONFIG = Stage0Config(
     minimum_pin_spacing_mm=9.0,
     # At the grasp pose the pad faces OA' from at least this palmar gap (link thickness).
     minimum_grasp_gap_mm=15.0,
+    # Safe operating range: grasp MCP + 20 deg must keep both loops closing with
+    # healthy transmission and no q2/q3 reversal.
+    minimum_post_grasp_travel_rad=math.radians(20.0),
     population_size=200,
     generations=200,
     seed=0,

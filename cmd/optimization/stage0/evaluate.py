@@ -26,17 +26,21 @@ Constraint groups use ``g <= 0`` and keep a fixed residual count per study:
   and spans at least one sample step;
 - ``extended_length``: ``|OC|`` at ``q = 0`` within the configured range;
 - ``minimum_pin_spacing``: bearing pins sharing a rigid link (A-A' on the
-  proximal, A-B' on the middle, B-C' on the distal link) at least the
+  proximal, A-B' and B-B' on the middle, B-C' on the distal link) at least the
   configured centre distance apart;
 - ``grasp_pose``: some pose within the motion range is a grasp pose
   (residual: the smallest, over those poses, of the summed gap shortfalls and
   projection overshoots of B and C, in mm).
 
-Diagnostics: the summed coefficient of variation of the q2 and q3 motion
-ratios (``ratio_variation``), and the post-grasp travel, how much further the
-MCP can flex past the grasp pose before a coupler loop nears a singularity
-(either transmission margin below ``criteria.minimum_transmission_margin_rad``
-or a loop no longer closing), capped at the search horizon.
+The post-grasp travel is how much further the MCP can flex past the grasp
+pose while the motion stays safe: both loops close, both transmission margins
+stay at or above ``criteria.minimum_transmission_margin_rad`` and neither
+q2 nor q3 reverses (motion ratio > 0), capped at the search horizon. The grasp
+pose plus this travel is the safe operating limit; a mechanical stopper belongs
+beyond the required safe range and before the first failure.
+
+The summed coefficient of variation of the q2 and q3 motion ratios
+(``ratio_variation``) is kept as a diagnostic.
 
 Point-C excursion is deliberately a diagnostic, not an objective: it rewards
 link size and does not imply grasp quality.
@@ -127,8 +131,9 @@ class Stage0Evaluator:
 
     @property
     def constraint_count(self) -> int:
-        # Usable motion, 2 extended-length bounds, 3 pin spacings, grasp pose.
-        return 7
+        # Usable motion, 2 extended-length bounds, 4 pin spacings, grasp pose,
+        # post-grasp safety.
+        return 9
 
     def __call__(self, parameters: FingerLinkageParameters) -> Stage0Evaluation:
         config = self.config
@@ -162,6 +167,14 @@ class Stage0Evaluator:
                     parameters, config.minimum_pin_spacing_mm
                 ),
                 "grasp_pose": (min(violations, default=config.minimum_grasp_gap_mm),),
+                "post_grasp_safety": (
+                    config.minimum_post_grasp_travel_rad
+                    - (
+                        post_grasp_travel_rad(motion, grasp.index, config.criteria)
+                        if grasp
+                        else 0.0
+                    ),
+                ),
             }),
         )
 
@@ -248,14 +261,23 @@ def grasp_violation_mm(pose: LinkagePose, minimum_gap_mm: float) -> float:
 def post_grasp_travel_rad(
     motion: LinkageMotionEvaluation, grasp_index: int, criteria: LinkageWorkspaceCriteria
 ) -> float:
-    """MCP flexion from the grasp pose to the last sample before a loop nears singularity."""
+    """MCP flexion from the grasp pose to the last sample of contiguous safe motion.
+
+    A sample is safe when both loops close, both transmission margins meet the
+    criteria, and q2 and q3 kept flexing (ratio > 0) over the interval into it.
+    """
 
     safe = grasp_index
     for index in range(grasp_index + 1, motion.solved_sample_count):
-        if any(
+        unsafe_transmission = any(
             criteria.transmission_shortfall_rad(angles[index]) > 0.0
             for angles in (motion.transmission_angle_loop_1_rad, motion.transmission_angle_loop_2_rad)
-        ):
+        )
+        reversing = (
+            motion.dq2_flexion_dq1_flexion[index - 1] <= 0.0
+            or motion.dq3_flexion_dq1_flexion[index - 1] <= 0.0
+        )
+        if unsafe_transmission or reversing:
             break
         safe = index
     return motion.input_flexion_rad[safe] - motion.input_flexion_rad[grasp_index]
@@ -292,20 +314,22 @@ def extended_length_residuals(
     return (shortest - length, length - longest)
 
 
-def pin_spacings_mm(parameters: FingerLinkageParameters) -> tuple[float, float, float]:
-    """Centre distances |AA'|, |AB'|, |BC'| of pins sharing one rigid link."""
+def pin_spacings_mm(parameters: FingerLinkageParameters) -> tuple[float, float, float, float]:
+    """Centre distances |AA'|, |AB'|, |BB'|, |BC'| of pins sharing one rigid link."""
 
     a, ap = parameters.a_from_o, parameters.ap_from_o
+    b, bp = parameters.b_from_a, parameters.bp_from_a
     return (
         math.hypot(ap.x_mm - a.x_mm, ap.z_mm - a.z_mm),
-        math.hypot(parameters.bp_from_a.x_mm, parameters.bp_from_a.z_mm),
+        math.hypot(bp.x_mm, bp.z_mm),
+        math.hypot(bp.x_mm - b.x_mm, bp.z_mm - b.z_mm),
         math.hypot(parameters.cp_from_b.x_mm, parameters.cp_from_b.z_mm),
     )
 
 
 def pin_spacing_residuals(
     parameters: FingerLinkageParameters, minimum_mm: float
-) -> tuple[float, float, float]:
+) -> tuple[float, float, float, float]:
     return tuple(minimum_mm - spacing for spacing in pin_spacings_mm(parameters))
 
 

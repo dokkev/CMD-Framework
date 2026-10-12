@@ -114,8 +114,9 @@ def test_baseline_is_feasible_with_fixed_constraint_shape() -> None:
         "extended_length",
         "minimum_pin_spacing",
         "grasp_pose",
+        "post_grasp_safety",
     )
-    assert len(evaluation.g) == evaluator.constraint_count == 7
+    assert len(evaluation.g) == evaluator.constraint_count == 9
     # V0's DIP starts to unflex (negative motion ratio) just before 1.6 rad.
     assert evaluation.limit_index == 7
     assert 0.0 < evaluation.worst_transmission_quality <= 1.0
@@ -124,8 +125,8 @@ def test_baseline_is_feasible_with_fixed_constraint_shape() -> None:
     assert evaluation.grasp.index == 7
     assert evaluation.facing_error_rad == pytest.approx(math.radians(0.5), abs=math.radians(0.1))
     assert evaluation.grasp_mcp_rad == pytest.approx(1.4)
-    # Both loops stay non-singular through the 1.6 rad horizon.
-    assert evaluation.post_grasp_travel_rad == pytest.approx(0.2)
+    # V0's DIP reverses (ratio -0.18) right after the grasp, so no safe travel.
+    assert evaluation.post_grasp_travel_rad == 0.0
     motion = evaluation.motion
     assert evaluation.worst_transmission_quality == min(
         *motion.transmission_quality_loop_1[:8], *motion.transmission_quality_loop_2[:8]
@@ -184,6 +185,21 @@ def test_motion_limit_ends_before_the_first_unhealthy_sample(monkeypatch) -> Non
     )
 
 
+def test_post_grasp_safety_requires_safe_travel_past_the_grasp(monkeypatch) -> None:
+    evaluator = Stage0Evaluator(make_config(minimum_post_grasp_travel_rad=0.4))
+    reference = evaluator(decode(baseline_x()))
+    assert reference.max_violation("post_grasp_safety") == pytest.approx(0.4)
+
+    # Make q3 keep flexing after the grasp (index 7): the 1.4 -> 1.6 rad interval is safe.
+    ratios = list(reference.motion.dq3_flexion_dq1_flexion)
+    ratios[7] = 0.5
+    with_motion(monkeypatch, evaluator, dq3_flexion_dq1_flexion=tuple(ratios))
+    evaluation = evaluator(decode(baseline_x()))
+
+    assert evaluation.post_grasp_travel_rad == pytest.approx(0.2)
+    assert evaluation.max_violation("post_grasp_safety") == pytest.approx(0.2)
+
+
 def test_no_usable_motion_is_infeasible_with_finite_residuals(monkeypatch) -> None:
     fail_closure_after(monkeypatch, success_limit=1)
     evaluator = Stage0Evaluator(make_config())
@@ -217,8 +233,8 @@ def test_extended_length_constraint() -> None:
 
 
 def test_pin_spacing_constraint_uses_pins_on_the_same_link() -> None:
-    # V0: AA' = (-1.5, -20.0), AB' = (7.8, -20.0), BC' = (-11.6, 7.3).
-    spacings = (math.hypot(1.5, 20.0), math.hypot(7.8, 20.0), math.hypot(11.6, 7.3))
+    # V0: AA' = (-1.5, -20.0), AB' = (7.8, -20.0), BB' = (-23.2, 0.0), BC' = (-11.6, 7.3).
+    spacings = (math.hypot(1.5, 20.0), math.hypot(7.8, 20.0), 23.2, math.hypot(11.6, 7.3))
     evaluation = Stage0Evaluator(make_config(minimum_pin_spacing_mm=14.0))(decode(baseline_x()))
 
     assert evaluation.constraints["minimum_pin_spacing"] == pytest.approx(

@@ -154,11 +154,11 @@ def save_stage0_result(
         writer.writerow((
             "candidate", *VARIABLE_NAMES,
             "worst_transmission_quality", "ratio_variation", "facing_error_deg",
-            "grasp_mcp_deg", "post_grasp_travel_deg", "mcp_at_limit_deg",
+            "grasp_mcp_deg", "post_grasp_travel_deg", "safe_mcp_limit_deg", "mcp_at_limit_deg",
             "grasp_pip_deg", "grasp_dip_deg", "grasp_gap_mm",
             "grasp_b_along_oa_mm", "grasp_c_along_oa_mm",
             "extended_length_mm", "pin_spacing_a_ap_mm", "pin_spacing_a_bp_mm",
-            "pin_spacing_b_cp_mm",
+            "pin_spacing_b_bp_mm", "pin_spacing_b_cp_mm",
             "usable_input_workspace_rad", "distal_endpoint_excursion_mm", "limiting_reasons",
         ))
         for index, candidate in enumerate(result.pareto, start=1):
@@ -170,6 +170,7 @@ def save_stage0_result(
                 math.degrees(grasp.facing_error_rad),
                 math.degrees(evaluation.grasp_mcp_rad),
                 math.degrees(evaluation.post_grasp_travel_rad),
+                math.degrees(evaluation.grasp_mcp_rad + evaluation.post_grasp_travel_rad),
                 math.degrees(evaluation.motion_range_rad),
                 math.degrees(motion.q2_flexion_rad[grasp.index]),
                 math.degrees(motion.q3_flexion_rad[grasp.index]),

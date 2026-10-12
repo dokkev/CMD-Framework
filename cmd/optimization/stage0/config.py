@@ -33,6 +33,7 @@ class Stage0Config:
     extended_length_bounds_mm: tuple[float, float]
     minimum_pin_spacing_mm: float
     minimum_grasp_gap_mm: float
+    minimum_post_grasp_travel_rad: float = 0.0
     minimum_motion_range_rad: float = 0.0
     resolution_mm: float = 0.1
     population_size: int = 100
@@ -60,6 +61,7 @@ class Stage0Config:
         for name in (
             "minimum_pin_spacing_mm",
             "minimum_grasp_gap_mm",
+            "minimum_post_grasp_travel_rad",
             "minimum_motion_range_rad",
         ):
             object.__setattr__(self, name, require_nonnegative(name, getattr(self, name)))
