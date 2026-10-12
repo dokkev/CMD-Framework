@@ -5,6 +5,7 @@ from .parameters import (
     FingertipParameters,
     PadParameters,
     PhalanxParameters,
+    stem_corner_pad_thickness_mm,
 )
 from .model import Fingertip
 
@@ -14,4 +15,5 @@ __all__ = [
     "FingertipParameters",
     "PadParameters",
     "PhalanxParameters",
+    "stem_corner_pad_thickness_mm",
 ]

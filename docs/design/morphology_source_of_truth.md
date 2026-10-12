@@ -130,12 +130,51 @@ z = -h - c\sqrt{1 - (y/a)^2 - ((x - L_s)/b)^2}
 `dorsal_plate_half_width_at_x_mm(x)`, `lower_surface_z_mm(x, y)`,
 `upper_surface_z_mm(x, y)` and `is_inside_pad_footprint(x, y)`.
 
-Because the axes match the linkage plane, the fingertip attaches to the distal
-link with a translation and a lateral offset only:
+The distal-joint rotation axis (R.A.) runs along `Y_tip` through the carrier:
+
+- height: the fingertip-family parameter `rotation_axis_offset_mm`
+  (\(o_{RA}\), provisional default 2 mm) is the signed height above the
+  carrier shoulder plane, so \(z_{RA} = o_{RA}\); it must satisfy
+  \(-h_s < o_{RA} < h_l\) so the axis lies in the rigid carrier
+- distance to the pad tip: \(l_{ep}\) always equals the linkage
+  `bc_length_mm`, which is its single source of truth, so
+  \(x_{RA} = L - l_{BC}\) and the linkage point `C` lands on the pad tip
+
+`HandMorphologyParameters` requires \(l_{BC} > d_{\mathrm{carrier\ inset}}\)
+and \(L_i > l_{BC}\) for every digit, so the R.A. lies within every carrier.
+The R.A.-to-carrier-end distance \(l_{ext} = l_{BC} - d_{\mathrm{carrier\ inset}}\)
+is derived. Because \(l_{ep}\) is measured from the tip, changing a digit's
+length moves only the proximal section, not the axis relative to the tip.
+The coupler pin `C'` may sit outside the carrier envelope.
+
+The pad depth below the axis, \(d_{pad} = o_{RA} + h_{fp} + h_{ep}\)
+(`pad_depth_below_rotation_axis_mm`), is the offset between the linkage `BC`
+line and the lowest pad point; contact evaluation must use the pad surface,
+not `B` and `C`.
+
+The fingertip family also requires a minimum compliant pad thickness
+`minimum_pad_thickness_mm` (\(t_{min}\), currently 3 mm): in the straight-body
+cross-section, the distance from a stem bottom corner to the nearest point of
+the pad boundary (lower half-ellipse, flat step, side wall) must be at least
+\(t_{min}\). The default geometry gives 8.5 mm.
+
+The fingertip attaches by placing its R.A. on the distal joint axis: `B` for
+ordinary fingers, the IP-FE axis for the thumb. The joint frame has its
+origin on the axis, `+X` along the distal link (`B -> C`), `+Y` along the
+axis and `+Z` dorsal, so the attachment is a translation plus an optional
+lateral offset along the axis:
 
 \[
-{}^H T_{\mathrm{tip}} = {}^H T_L\, {}^L T_{BC}(q)\, {}^{BC} T_{\mathrm{tip}}
+{}^H T_{\mathrm{tip}} = {}^H T_L\, {}^L T_{BC}(q)\, {}^{BC} T_{\mathrm{tip}},
+\qquad
+{}^{BC} T_{\mathrm{tip}} = \mathrm{Trans}(-x_{RA},\ \delta_y,\ -z_{RA})
 \]
+
+`distal_link_transform(pose)` gives \({}^L T_{BC}\) and
+`fingertip_attachment(fingertip, lateral_offset_mm)` gives
+\({}^{BC} T_{\mathrm{tip}}\). `HandMorphology.fingertip_transforms` composes
+the reference-pose \({}^H T_{\mathrm{tip}}\) for all five digits. The lateral
+offsets are currently 0 for both ordinary fingers and the thumb.
 
 ---
 

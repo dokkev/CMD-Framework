@@ -30,6 +30,10 @@ carrier has a plain T-shaped reference YZ section without bonding steps.
 The rigid carrier length is derived from the concrete fingertip total length
 and the family-wide distal inset. The dorsal plate continues to the full
 fingertip length with an elliptical nose, forming the fingernail.
+
+The distal joint rotation axis (R.A.) runs along ``Y`` through the carrier at
+height ``rotation_axis_z_mm``. Its distance to the tip comes from the linkage
+(``bc_length_mm``), and the fingertip is attached to its digit by that axis.
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from . import FingertipParameters
+from . import FingertipParameters, stem_corner_pad_thickness_mm
 from ..._validation import require_finite
 
 
@@ -111,6 +115,39 @@ class Fingertip:
         """Derived vertical semi-axis from the elliptical pad height, in mm."""
 
         return self.parameters.family.pad.elliptical_pad_height_mm
+
+    @property
+    def rotation_axis_z_mm(self) -> float:
+        """Height of the distal-joint rotation axis, which runs along ``Y``."""
+
+        return self.parameters.family.rotation_axis_offset_mm
+
+    @property
+    def pad_depth_below_rotation_axis_mm(self) -> float:
+        """Distance ``d_pad`` from the rotation axis down to the lowest pad point."""
+
+        pad = self.parameters.family.pad
+        return (
+            self.rotation_axis_z_mm
+            + pad.vertical_pad_height_mm
+            + pad.elliptical_pad_height_mm
+        )
+
+    @property
+    def stem_corner_pad_thickness_mm(self) -> float:
+        """Pad thickness ``t`` at a stem bottom corner in the straight body."""
+
+        family = self.parameters.family
+        return stem_corner_pad_thickness_mm(family.pad, family.phalanx)
+
+    def rotation_axis_mm(self, rotation_axis_to_tip_mm: float) -> tuple[float, float, float]:
+        """Return the rotation-axis point that lies ``rotation_axis_to_tip_mm`` from the tip."""
+
+        return (
+            self.total_length_mm - rotation_axis_to_tip_mm,
+            0.0,
+            self.rotation_axis_z_mm,
+        )
 
     def dorsal_plate_half_width_at_x_mm(self, x_mm: float) -> float:
         """Return the dorsal plate half-width at longitudinal coordinate ``x``."""

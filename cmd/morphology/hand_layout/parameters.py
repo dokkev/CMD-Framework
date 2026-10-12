@@ -96,11 +96,21 @@ class HandMorphologyParameters:
         if not isinstance(self.layout, HandLayoutParameters):
             raise TypeError("layout must be a HandLayoutParameters instance")
 
-        for name in ("index", "middle", "ring", "little", "thumb"):
-            FingertipParameters(
-                family=self.fingertip,
-                total_length_mm=getattr(self.fingertip_lengths, f"{name}_mm"),
+        # The fingertip rotation axis sits bc_length_mm from the tip, so it
+        # must fall within every carrier.
+        bc_mm = self.linkage.bc_length_mm
+        if bc_mm <= self.fingertip.carrier_distal_inset_mm:
+            raise ValueError(
+                "linkage.bc_length_mm must exceed fingertip.carrier_distal_inset_mm "
+                "so the rotation axis lies within the carrier"
             )
+        for name in ("index", "middle", "ring", "little", "thumb"):
+            length_mm = getattr(self.fingertip_lengths, f"{name}_mm")
+            FingertipParameters(family=self.fingertip, total_length_mm=length_mm)
+            if length_mm <= bc_mm:
+                raise ValueError(
+                    f"fingertip_lengths.{name}_mm must exceed linkage.bc_length_mm"
+                )
 
 
 __all__ = [

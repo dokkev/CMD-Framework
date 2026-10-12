@@ -1,10 +1,12 @@
 import math
+from dataclasses import replace
 
 import pytest
 
 from cmd.geometry import RigidTransform
 from cmd.morphology import (
     BASELINE_LINKAGE_V0,
+    SELECTED_LINKAGE_V1,
     FingertipFamilyParameters,
     FingertipLengths,
     HandLayout,
@@ -20,7 +22,9 @@ from cmd.morphology.hand_layout import (
     ORDINARY_MCP_AA_TO_MCP_FE,
     THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM,
     THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM,
+    distal_link_transform,
 )
+from cmd.morphology.linkage import LinkageKinematics
 
 
 def make_layout_parameters(
@@ -142,3 +146,51 @@ def test_whole_hand_materializes_one_shared_linkage_and_five_tips() -> None:
     assert all(tip.parameters.family is parameters.fingertip for tip in hand.fingertips.values())
     assert "layout" in HandMorphologyParameters.__dataclass_fields__
     assert "fingertip_lengths" in HandMorphologyParameters.__dataclass_fields__
+
+
+def test_fingertip_rotation_axis_lands_on_the_dip_and_ip_joints() -> None:
+    parameters = make_parameters()
+    hand = HandMorphology(parameters)
+    tips = hand.fingertip_transforms
+    reference = hand.linkage.reference_positions
+
+    for finger in ("index", "middle", "ring", "little"):
+        b_in_hand = hand.layout.linkage_transforms[f"{finger}_linkage"].transform_point(
+            (reference.b.x_mm, 0.0, reference.b.z_mm)
+        )
+        axis = hand.fingertips[finger].rotation_axis_mm(parameters.linkage.bc_length_mm)
+        assert tips[finger].transform_point(axis) == pytest.approx(b_in_hand)
+        assert tips[finger].rotation_matrix == hand.layout.linkage_transforms[
+            f"{finger}_linkage"
+        ].rotation_matrix
+    thumb_ip = hand.layout.joint_transforms["thumb_ip_fe"]
+    thumb_axis = hand.fingertips["thumb"].rotation_axis_mm(parameters.linkage.bc_length_mm)
+    assert tips["thumb"].transform_point(thumb_axis) == pytest.approx(thumb_ip.translation_mm)
+
+    # With l_ep = BC, the linkage C point lands on the fingertip's pad tip.
+    c_in_hand = hand.layout.linkage_transforms["index_linkage"].transform_point(
+        (reference.c.x_mm, 0.0, reference.c.z_mm)
+    )
+    tip_end = (hand.fingertips["index"].total_length_mm, 0.0, hand.fingertips["index"].rotation_axis_z_mm)
+    assert tips["index"].transform_point(tip_end) == pytest.approx(c_in_hand)
+
+
+def test_rotation_axis_must_fall_within_every_carrier() -> None:
+    with pytest.raises(ValueError, match="little_mm must exceed linkage.bc_length_mm"):
+        replace(
+            make_parameters(),
+            fingertip_lengths=FingertipLengths(40.0, 41.0, 42.0, 20.0, 44.0),
+        )
+
+
+def test_distal_link_transform_follows_flexion_about_the_dip_axis() -> None:
+    linkage = SELECTED_LINKAGE_V1
+    pose = LinkageKinematics(linkage).solve(0.6)
+    frame = distal_link_transform(pose)
+
+    assert frame.transform_point((0.0, 0.0, 0.0)) == pytest.approx((pose.b.x_mm, 0.0, pose.b.z_mm))
+    assert frame.transform_point((linkage.parameters.bc_length_mm, 0.0, 0.0)) == pytest.approx(
+        (pose.c.x_mm, 0.0, pose.c.z_mm)
+    )
+    assert frame.transform_vector((0.0, 1.0, 0.0)) == pytest.approx((0.0, 1.0, 0.0))
+    assert frame.transform_vector((0.0, 0.0, 1.0))[2] > 0.0

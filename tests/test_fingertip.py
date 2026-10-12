@@ -6,6 +6,9 @@ import pytest
 from cmd.morphology import Fingertip, FingertipParameters
 from cmd.morphology.pad import (
     FingertipFamilyParameters,
+    PadParameters,
+    PhalanxParameters,
+    stem_corner_pad_thickness_mm,
 )
 
 
@@ -102,3 +105,32 @@ def test_digit_length_changes_only_the_proximal_straight_section() -> None:
     assert long.lower_surface_z_mm(long.straight_length_mm + 5.0, 0.0) == pytest.approx(
         short.lower_surface_z_mm(short.straight_length_mm + 5.0, 0.0)
     )
+
+
+def test_rotation_axis_keeps_its_place_relative_to_the_tip() -> None:
+    family = FingertipFamilyParameters(rotation_axis_offset_mm=2.0)
+    short = Fingertip(FingertipParameters(family=family, total_length_mm=40.0))
+    long = Fingertip(FingertipParameters(family=family, total_length_mm=60.0))
+
+    assert short.rotation_axis_mm(20.0) == pytest.approx((20.0, 0.0, 2.0))
+    assert long.rotation_axis_mm(20.0) == pytest.approx((40.0, 0.0, 2.0))
+    assert short.pad_depth_below_rotation_axis_mm == pytest.approx(2.0 + 6.0 + 10.0)
+    for offset_mm in (-5.0, 6.0):
+        with pytest.raises(ValueError, match="rotation_axis_offset_mm"):
+            FingertipFamilyParameters(rotation_axis_offset_mm=offset_mm)
+
+
+def test_stem_corner_pad_thickness_is_the_distance_to_the_pad_boundary() -> None:
+    # A round pad centred on the shoulder plane: the corner-to-arc distance is
+    # the radius minus the corner's distance from the centre.
+    pad = PadParameters(
+        vertical_pad_width_mm=20.0, vertical_pad_height_mm=1e-9,
+        elliptical_pad_width_mm=20.0, elliptical_pad_height_mm=10.0,
+    )
+    phalanx = PhalanxParameters(stem_width_mm=6.0, stem_height_mm=4.0, carrier_width_mm=20.0)
+    assert stem_corner_pad_thickness_mm(pad, phalanx) == pytest.approx(
+        10.0 - 5.0, abs=1e-3
+    )
+    assert Fingertip().stem_corner_pad_thickness_mm >= 3.0
+    with pytest.raises(ValueError, match="minimum_pad_thickness_mm"):
+        FingertipFamilyParameters(minimum_pad_thickness_mm=9.0)

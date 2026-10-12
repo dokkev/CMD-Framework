@@ -12,7 +12,7 @@ import math
 from dataclasses import dataclass
 
 from ...geometry import RigidTransform, Vector3
-from ..linkage import FingerLinkage
+from ..linkage import FingerLinkage, LinkagePose, ReferencePositions
 from ..pad import Fingertip, FingertipParameters
 from . import HandLayoutParameters, HandMorphologyParameters
 
@@ -37,6 +37,12 @@ THUMB_MCP_FE_ACTUATOR_MOUNT = FE_ACTUATOR_MOUNT
 # IP-FE reuses the provisional FE-axis mount; CAD housing clocking remains
 # unconfirmed, like the other actuator mounts.
 THUMB_IP_FE_ACTUATOR_MOUNT = FE_ACTUATOR_MOUNT
+
+# Each fingertip's rotation axis lies on its distal joint: B for ordinary
+# fingers, the IP-FE axis for the thumb. A lateral offset shifts the fingertip
+# along that axis; both digits use the fingertip centreline for now.
+ORDINARY_FINGERTIP_LATERAL_OFFSET_MM = 0.0
+THUMB_FINGERTIP_LATERAL_OFFSET_MM = 0.0
 
 THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM = 39.5
 THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM = 35.5
@@ -74,6 +80,35 @@ _ACTUATOR_MOUNTS: dict[str, RigidTransform] = {
 
 def _translation(x_mm: float, y_mm: float, z_mm: float) -> RigidTransform:
     return RigidTransform.from_translation((x_mm, y_mm, z_mm))
+
+
+def distal_link_transform(pose: LinkagePose | ReferencePositions) -> RigidTransform:
+    """Return ``T_L_BC``: origin at the DIP axis ``B``, ``+X`` along ``B -> C``.
+
+    Flexion turns ``B -> C`` toward ``-Z``, which is a positive rotation about
+    the ``+Y`` flexion axis.
+    """
+
+    angle_rad = math.atan2(-(pose.c.z_mm - pose.b.z_mm), pose.c.x_mm - pose.b.x_mm)
+    return _translation(pose.b.x_mm, 0.0, pose.b.z_mm) @ RigidTransform.rotation_about_axis(
+        HAND_Y_FE_AXIS, angle_rad
+    )
+
+
+def fingertip_attachment(
+    fingertip: Fingertip,
+    rotation_axis_to_tip_mm: float,
+    lateral_offset_mm: float = 0.0,
+) -> RigidTransform:
+    """Return ``T_RA_tip``, which places the fingertip's rotation axis on the joint.
+
+    The joint frame has its origin on the rotation axis, ``+X`` distal along the
+    link, ``+Y`` along the axis and ``+Z`` dorsal, so only a translation is needed.
+    ``rotation_axis_to_tip_mm`` is the linkage ``bc_length_mm``.
+    """
+
+    x_mm, _, z_mm = fingertip.rotation_axis_mm(rotation_axis_to_tip_mm)
+    return _translation(-x_mm, lateral_offset_mm, -z_mm)
 
 
 @dataclass(frozen=True)
@@ -212,6 +247,34 @@ class HandMorphology:
             for name in ("index", "middle", "ring", "little", "thumb")
         }
 
+    @property
+    def fingertip_transforms(self) -> dict[str, RigidTransform]:
+        """Reference-pose ``T_H_tip`` for every digit.
+
+        Ordinary fingers compose ``T_H_L @ T_L_BC @ T_BC_tip`` from the fully
+        extended linkage; the thumb reuses the fingertip and its ``BC`` length
+        at its IP-FE joint frame.
+        """
+
+        layout = self.layout
+        bc_mm = self.parameters.linkage.bc_length_mm
+        distal = distal_link_transform(self.linkage.reference_positions)
+        fingertips = self.fingertips
+        transforms = {
+            finger: (
+                layout.linkage_transforms[f"{finger}_linkage"]
+                @ distal
+                @ fingertip_attachment(
+                    fingertips[finger], bc_mm, ORDINARY_FINGERTIP_LATERAL_OFFSET_MM
+                )
+            )
+            for finger in ("index", "middle", "ring", "little")
+        }
+        transforms["thumb"] = layout.joint_transforms["thumb_ip_fe"] @ fingertip_attachment(
+            fingertips["thumb"], bc_mm, THUMB_FINGERTIP_LATERAL_OFFSET_MM
+        )
+        return transforms
+
 
 __all__ = [
     "FE_ACTUATOR_MOUNT",
@@ -221,12 +284,16 @@ __all__ = [
     "HandLayout",
     "HandMorphology",
     "MCP_AA_ACTUATOR_MOUNT",
+    "ORDINARY_FINGERTIP_LATERAL_OFFSET_MM",
     "ORDINARY_MCP_AA_TO_MCP_FE",
     "ORDINARY_MCP_FE_TO_LINKAGE",
     "THUMB_CMC_RAA_ACTUATOR_MOUNT",
     "THUMB_CMC_RO_ACTUATOR_MOUNT",
     "THUMB_CMC_RAA_TO_MCP_FE_DISTANCE_MM",
+    "THUMB_FINGERTIP_LATERAL_OFFSET_MM",
     "THUMB_IP_FE_ACTUATOR_MOUNT",
     "THUMB_MCP_FE_ACTUATOR_MOUNT",
     "THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM",
+    "distal_link_transform",
+    "fingertip_attachment",
 ]
