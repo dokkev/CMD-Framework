@@ -108,6 +108,37 @@ The hand frame must never be redefined to match the actuator-local frame.
 
 ---
 
+## 2.4 Fingertip Local Frame
+
+The fingertip frame shares the hand and linkage axis convention:
+
+- origin: proximal end of the carrier, on its centreline, at the carrier
+  shoulder plane `z = 0`
+- `+X_tip`: distal (longitudinal); the fingertip occupies `0 <= x <= L`
+- `+Y_tip`: lateral, parallel to the flexion axis
+- `+Z_tip`: dorsal; the contact pad faces `-Z_tip`
+
+The frame is right-handed and the geometry is symmetric in `y`. With
+straight-body length \(L_s\) and nose semi-axes \(a\) (lateral), \(b\)
+(longitudinal), \(c\) (vertical), the distal pad surface is
+
+\[
+z = -h - c\sqrt{1 - (y/a)^2 - ((x - L_s)/b)^2}
+\]
+
+`Fingertip` queries take `(x, y)` in this frame: `half_width_at_x_mm(x)`,
+`dorsal_plate_half_width_at_x_mm(x)`, `lower_surface_z_mm(x, y)`,
+`upper_surface_z_mm(x, y)` and `is_inside_pad_footprint(x, y)`.
+
+Because the axes match the linkage plane, the fingertip attaches to the distal
+link with a translation and a lateral offset only:
+
+\[
+{}^H T_{\mathrm{tip}} = {}^H T_L\, {}^L T_{BC}(q)\, {}^{BC} T_{\mathrm{tip}}
+\]
+
+---
+
 # 3. Fingertip Morphology
 
 All five fingertips use the same **structural morphology**.
