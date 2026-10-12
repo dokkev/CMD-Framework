@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from numbers import Real
 from typing import Literal
 
 from . import (
@@ -19,6 +18,7 @@ from . import (
     LinkagePose,
     PointXZ,
 )
+from ..._validation import require_finite
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ class LinkageMotionEvaluator:
     input_flexion_rad: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        samples = tuple(_finite("input_flexion_rad sample", value) for value in self.input_flexion_rad)
+        samples = tuple(require_finite("input_flexion_rad sample", value) for value in self.input_flexion_rad)
         if not samples:
             raise ValueError("input_flexion_rad must contain at least one sample")
         if any(value < 0.0 for value in samples):
@@ -190,8 +190,7 @@ def _transmission_angle_and_quality(
 WorkspaceReason = Literal[
     "kinematic_failure", "transmission_loop_1", "transmission_loop_2",
     "q2_minimum_motion_ratio", "q3_minimum_motion_ratio",
-    "q2_maximum_motion_ratio", "q3_maximum_motion_ratio",
-    "q2_motion_ratio_unavailable", "q3_motion_ratio_unavailable", "search_horizon",
+    "q2_maximum_motion_ratio", "q3_maximum_motion_ratio", "search_horizon",
 ]
 
 
@@ -206,12 +205,12 @@ class LinkageWorkspaceCriteria:
     q3_maximum_motion_ratio: float
 
     def __post_init__(self) -> None:
-        margin = _finite("minimum_transmission_margin_rad", self.minimum_transmission_margin_rad)
+        margin = require_finite("minimum_transmission_margin_rad", self.minimum_transmission_margin_rad)
         if not 0.0 <= margin <= math.pi / 2.0:
             raise ValueError("minimum_transmission_margin_rad must be in [0, pi/2]")
         for joint in ("q2", "q3"):
-            lower = _finite(f"{joint}_minimum_motion_ratio", getattr(self, f"{joint}_minimum_motion_ratio"))
-            upper = _finite(f"{joint}_maximum_motion_ratio", getattr(self, f"{joint}_maximum_motion_ratio"))
+            lower = require_finite(f"{joint}_minimum_motion_ratio", getattr(self, f"{joint}_minimum_motion_ratio"))
+            upper = require_finite(f"{joint}_maximum_motion_ratio", getattr(self, f"{joint}_maximum_motion_ratio"))
             if lower < 0.0:
                 raise ValueError(f"{joint}_minimum_motion_ratio must be non-negative")
             if upper < lower:
@@ -221,6 +220,19 @@ class LinkageWorkspaceCriteria:
             "q3_minimum_motion_ratio", "q2_maximum_motion_ratio", "q3_maximum_motion_ratio",
         ):
             object.__setattr__(self, name, float(getattr(self, name)))
+
+    def transmission_shortfall_rad(self, transmission_angle_rad: float) -> float:
+        """Return how far a transmission margin falls below its limit (``<= 0`` passes)."""
+
+        margin = min(transmission_angle_rad, math.pi - transmission_angle_rad)
+        return self.minimum_transmission_margin_rad - margin
+
+    def motion_ratio_violation(self, joint: Literal["q2", "q3"], ratio: float) -> float:
+        """Return the distance outside a joint's motion-ratio bounds (``<= 0`` passes)."""
+
+        lower = getattr(self, f"{joint}_minimum_motion_ratio")
+        upper = getattr(self, f"{joint}_maximum_motion_ratio")
+        return max(lower - ratio, ratio - upper)
 
 
 @dataclass(frozen=True)
@@ -286,29 +298,15 @@ def _sample_limiting_reasons(
         (motion.transmission_angle_loop_1_rad, "transmission_loop_1"),
         (motion.transmission_angle_loop_2_rad, "transmission_loop_2"),
     ):
-        if index >= len(angles):
-            reasons.append(reason)
-        elif min(angles[index], math.pi - angles[index]) < criteria.minimum_transmission_margin_rad:
+        if criteria.transmission_shortfall_rad(angles[index]) > 0.0:
             reasons.append(reason)
     if index > 0:
         for joint in ("q2", "q3"):
-            ratios = getattr(motion, f"d{joint}_flexion_dq1_flexion")
-            interval = index - 1
-            if interval >= len(ratios):
-                reasons.append(f"{joint}_motion_ratio_unavailable")
-                continue
-            ratio = ratios[interval]
-            if ratio < getattr(criteria, f"{joint}_minimum_motion_ratio"):
-                reasons.append(f"{joint}_minimum_motion_ratio")
-            if ratio > getattr(criteria, f"{joint}_maximum_motion_ratio"):
-                reasons.append(f"{joint}_maximum_motion_ratio")
+            ratio = getattr(motion, f"d{joint}_flexion_dq1_flexion")[index - 1]
+            if criteria.motion_ratio_violation(joint, ratio) > 0.0:
+                below = ratio < getattr(criteria, f"{joint}_minimum_motion_ratio")
+                reasons.append(f"{joint}_{'minimum' if below else 'maximum'}_motion_ratio")
     return tuple(reasons)
-
-
-def _finite(name: str, value: float) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
-        raise ValueError(f"{name} must be finite")
-    return float(value)
 
 
 __all__ = [

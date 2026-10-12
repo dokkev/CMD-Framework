@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from numbers import Real
 from typing import Sequence
+
+from .._validation import require_finite
 
 
 Vector3 = tuple[float, float, float]
@@ -21,19 +22,10 @@ IDENTITY_ROTATION: Rotation3 = (
 )
 
 
-def _finite_float(name: str, value: object) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real):
-        raise ValueError(f"{name} must be finite; got {value!r}")
-    value = float(value)
-    if not math.isfinite(value):
-        raise ValueError(f"{name} must be finite; got {value!r}")
-    return value
-
-
 def _vector3(name: str, values: object) -> Vector3:
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes)) or len(values) != 3:
         raise ValueError(f"{name} must contain exactly 3 values")
-    return tuple(_finite_float(f"{name}[{i}]", value) for i, value in enumerate(values))  # type: ignore[return-value]
+    return tuple(require_finite(f"{name}[{i}]", value) for i, value in enumerate(values))  # type: ignore[return-value]
 
 
 def _rotation3(values: object) -> Rotation3:
@@ -106,7 +98,7 @@ class RigidTransform:
         if axis_norm <= 1.0e-12:
             raise ValueError("axis_xyz must have non-zero length")
         x, y, z = (component / axis_norm for component in axis)
-        angle = _finite_float("angle_rad", angle_rad)
+        angle = require_finite("angle_rad", angle_rad)
         cosine = math.cos(angle)
         sine = math.sin(angle)
         one_minus_cosine = 1.0 - cosine

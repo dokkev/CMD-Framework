@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..geometry import RigidTransform, Vector3
+from ...geometry import RigidTransform, Vector3
 from ..linkage import FingerLinkage
 from ..pad import Fingertip, FingertipParameters
 from . import HandLayoutParameters, HandMorphologyParameters

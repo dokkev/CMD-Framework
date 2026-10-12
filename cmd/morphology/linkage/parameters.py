@@ -4,22 +4,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from numbers import Real
 
-
-def _require_finite(name: str, value: object) -> None:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, Real)
-        or not math.isfinite(value)
-    ):
-        raise ValueError(f"{name} must be a finite value in mm; got {value!r}")
-
-
-def _require_positive(name: str, value: object) -> None:
-    _require_finite(name, value)
-    if value <= 0:
-        raise ValueError(f"{name} must be positive; got {value!r}")
+from ..._validation import require_finite, require_positive
 
 
 @dataclass(frozen=True)
@@ -30,8 +16,8 @@ class PointXZ:
     z_mm: float
 
     def __post_init__(self) -> None:
-        _require_finite("x_mm", self.x_mm)
-        _require_finite("z_mm", self.z_mm)
+        require_finite("x_mm", self.x_mm)
+        require_finite("z_mm", self.z_mm)
 
     def distance_to(self, other: "PointXZ") -> float:
         """Return the planar Euclidean distance to another XZ point."""
@@ -69,7 +55,7 @@ class FingerLinkageParameters:
         ):
             if not isinstance(getattr(self, name), PointXZ):
                 raise TypeError(f"{name} must be a PointXZ instance")
-        _require_positive("bc_length_mm", self.bc_length_mm)
+        require_positive("bc_length_mm", self.bc_length_mm)
 
 
 __all__ = ["FingerLinkageParameters", "PointXZ"]

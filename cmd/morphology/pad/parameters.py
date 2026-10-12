@@ -4,19 +4,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from numbers import Real
 
-
-def _require_positive(name: str, value: object) -> None:
-    """Require one finite, strictly positive physical length."""
-
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, Real)
-        or not math.isfinite(value)
-        or value <= 0
-    ):
-        raise ValueError(f"{name} must be a finite, positive length in mm; got {value!r}")
+from ..._validation import require_positive
 
 
 @dataclass(frozen=True)
@@ -37,7 +26,7 @@ class PadParameters:
             "elliptical_pad_height_mm",
             "tip_length_mm",
         ):
-            _require_positive(f"pad.{name}", getattr(self, name))
+            require_positive(f"pad.{name}", getattr(self, name))
 
 
 @dataclass(frozen=True)
@@ -56,7 +45,7 @@ class PhalanxParameters:
             "stem_width_mm",
             "stem_height_mm",
         ):
-            _require_positive(f"phalanx.{name}", getattr(self, name))
+            require_positive(f"phalanx.{name}", getattr(self, name))
 
 
 @dataclass(frozen=True)
@@ -78,7 +67,7 @@ class FingertipFamilyParameters:
             raise TypeError("pad must be a PadParameters instance")
         if not isinstance(self.phalanx, PhalanxParameters):
             raise TypeError("phalanx must be a PhalanxParameters instance")
-        _require_positive(
+        require_positive(
             "carrier_distal_inset_mm", self.carrier_distal_inset_mm
         )
 
@@ -145,7 +134,7 @@ class FingertipParameters:
     def __post_init__(self) -> None:
         if not isinstance(self.family, FingertipFamilyParameters):
             raise TypeError("family must be a FingertipFamilyParameters instance")
-        _require_positive("total_length_mm", self.total_length_mm)
+        require_positive("total_length_mm", self.total_length_mm)
         if self.total_length_mm <= self.family.pad.tip_length_mm:
             raise ValueError(
                 "total_length_mm must be greater than family.pad.tip_length_mm"

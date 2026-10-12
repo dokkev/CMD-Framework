@@ -2,28 +2,11 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-from numbers import Real
 
 from ..pad import FingertipFamilyParameters, FingertipParameters
 from ..linkage import FingerLinkageParameters
-
-
-def _finite(name: str, value: object) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real):
-        raise ValueError(f"{name} must be finite; got {value!r}")
-    value = float(value)
-    if not math.isfinite(value):
-        raise ValueError(f"{name} must be finite; got {value!r}")
-    return value
-
-
-def _positive(name: str, value: object) -> float:
-    value = _finite(name, value)
-    if value <= 0.0:
-        raise ValueError(f"{name} must be positive; got {value!r}")
-    return value
+from ..._validation import require_finite, require_positive
 
 
 @dataclass(frozen=True)
@@ -34,8 +17,8 @@ class HandPlanePoint:
     y_mm: float
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "x_mm", _finite("x_mm", self.x_mm))
-        object.__setattr__(self, "y_mm", _finite("y_mm", self.y_mm))
+        object.__setattr__(self, "x_mm", require_finite("x_mm", self.x_mm))
+        object.__setattr__(self, "y_mm", require_finite("y_mm", self.y_mm))
 
 
 @dataclass(frozen=True)
@@ -50,7 +33,7 @@ class FingertipLengths:
 
     def __post_init__(self) -> None:
         for name in ("index_mm", "middle_mm", "ring_mm", "little_mm", "thumb_mm"):
-            object.__setattr__(self, name, _positive(name, getattr(self, name)))
+            object.__setattr__(self, name, require_positive(name, getattr(self, name)))
 
 
 @dataclass(frozen=True)
@@ -81,13 +64,13 @@ class HandLayoutParameters:
         ):
             if not isinstance(getattr(self, name), HandPlanePoint):
                 raise TypeError(f"{name} must be a HandPlanePoint")
-        object.__setattr__(self, "theta_rad", _finite("theta_rad", self.theta_rad))
+        object.__setattr__(self, "theta_rad", require_finite("theta_rad", self.theta_rad))
         object.__setattr__(
             self,
             "ro_raa_distance_mm",
-            _positive("ro_raa_distance_mm", self.ro_raa_distance_mm),
+            require_positive("ro_raa_distance_mm", self.ro_raa_distance_mm),
         )
-        object.__setattr__(self, "phi_rad", _finite("phi_rad", self.phi_rad))
+        object.__setattr__(self, "phi_rad", require_finite("phi_rad", self.phi_rad))
 
 
 @dataclass(frozen=True)

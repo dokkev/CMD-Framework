@@ -14,15 +14,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 
 from ..hardware import ACTUATOR_SHAFT_AXIS_XYZ, Actuator, XM335Actuator
-
-
-def _positive_finite(name: str, value: object) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be a positive finite value in mm")
-    value = float(value)
-    if not math.isfinite(value) or value <= 0.0:
-        raise ValueError(f"{name} must be a positive finite value in mm")
-    return value
+from .._validation import require_positive
 
 
 @dataclass(frozen=True)
@@ -42,7 +34,7 @@ class ActuatorVisualizer:
         object.__setattr__(
             self,
             "axis_marker_length_mm",
-            _positive_finite("axis_marker_length_mm", self.axis_marker_length_mm),
+            require_positive("axis_marker_length_mm", self.axis_marker_length_mm),
         )
 
     def create_figure(self) -> Figure:

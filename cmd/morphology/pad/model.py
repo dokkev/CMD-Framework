@@ -35,19 +35,11 @@ import math
 from dataclasses import dataclass, field
 
 from . import FingertipParameters
+from ..._validation import require_finite
 
 
 PointXZ = tuple[float, float]
 _QUERY_TOLERANCE_MM = 1e-12
-
-
-def _require_finite_query(name: str, value: float) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be a finite coordinate in mm; got {value!r}")
-    value = float(value)
-    if not math.isfinite(value):
-        raise ValueError(f"{name} must be a finite coordinate in mm; got {value!r}")
-    return value
 
 
 @dataclass(frozen=True)
@@ -170,7 +162,7 @@ class Fingertip:
         domain or outside the available cross-sectional footprint.
         """
 
-        x_mm = _require_finite_query("x_mm", x_mm)
+        x_mm = require_finite("x_mm", x_mm)
         y_mm = self._validate_y(y_mm)
         self._validate_x_in_footprint(x_mm, self.half_width_at_y_mm(y_mm))
 
@@ -194,7 +186,7 @@ class Fingertip:
         ``z = 0``. The curved distal surface only changes the lower boundary.
         """
 
-        x_mm = _require_finite_query("x_mm", x_mm)
+        x_mm = require_finite("x_mm", x_mm)
         y_mm = self._validate_y(y_mm)
         self._validate_x_in_footprint(x_mm, self.half_width_at_y_mm(y_mm))
         return 0.0
@@ -207,7 +199,7 @@ class Fingertip:
         footprint simply produces ``False``.
         """
 
-        x_mm = _require_finite_query("x_mm", x_mm)
+        x_mm = require_finite("x_mm", x_mm)
         y_mm = self._validate_y(y_mm)
         return abs(x_mm) <= self.half_width_at_y_mm(y_mm) + _QUERY_TOLERANCE_MM
 
@@ -242,7 +234,7 @@ class Fingertip:
         )
 
     def _validate_y(self, y_mm: float) -> float:
-        y_mm = _require_finite_query("y_mm", y_mm)
+        y_mm = require_finite("y_mm", y_mm)
         if y_mm < -_QUERY_TOLERANCE_MM or y_mm > self.total_length_mm + _QUERY_TOLERANCE_MM:
             raise ValueError(
                 f"y_mm={y_mm} is outside the fingertip domain "

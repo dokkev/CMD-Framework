@@ -73,44 +73,24 @@ class LinkageKinematics:
         a = _add(o, _rotate(parameters.a_from_o, q1_rad))
         ap = _add(o, _rotate(parameters.a_prime_from_o, q1_rad))
 
-        bp_candidates = _circle_intersections(
+        bp, delta_middle = _solve_dyad(
             a,
+            parameters.b_prime_from_a,
             reference.op,
-            _length(parameters.b_prime_from_a),
             self.linkage.coupler_1_length_mm,
-            "O'-B'",
-        )
-        bp = _select_branch(
-            a,
-            reference.op,
-            bp_candidates,
             self._loop_1_branch,
             "O'-B'",
-        )
-        delta_middle = _signed_rotation(
-            parameters.b_prime_from_a,
-            _subtract(bp, a),
         )
         q2_rad = _wrap_angle(delta_middle - q1_rad)
         b = _add(a, _rotate(parameters.b_from_a, delta_middle))
 
-        cp_candidates = _circle_intersections(
+        cp, delta_distal = _solve_dyad(
             b,
+            parameters.c_prime_from_b,
             ap,
-            _length(parameters.c_prime_from_b),
             self.linkage.coupler_2_length_mm,
-            "A'-C'",
-        )
-        cp = _select_branch(
-            b,
-            ap,
-            cp_candidates,
             self._loop_2_branch,
             "A'-C'",
-        )
-        delta_distal = _signed_rotation(
-            parameters.c_prime_from_b,
-            _subtract(cp, b),
         )
         q3_rad = _wrap_angle(delta_distal - delta_middle)
         c = _add(
@@ -131,6 +111,31 @@ class LinkageKinematics:
             bp=bp,
             cp=cp,
         )
+
+
+def _solve_dyad(
+    pivot: PointXZ,
+    reference_arm: PointXZ,
+    coupler_anchor: PointXZ,
+    coupler_length_mm: float,
+    branch_sign: int,
+    loop_name: str,
+) -> tuple[PointXZ, float]:
+    """Close one rotating-arm/coupler loop on its reference branch.
+
+    Returns the coupler joint on the arm and the arm's rotation from its
+    reference direction.
+    """
+
+    candidates = _circle_intersections(
+        pivot,
+        coupler_anchor,
+        _length(reference_arm),
+        coupler_length_mm,
+        loop_name,
+    )
+    joint = _select_branch(pivot, coupler_anchor, candidates, branch_sign, loop_name)
+    return joint, _signed_rotation(reference_arm, _subtract(joint, pivot))
 
 
 def _circle_intersections(
