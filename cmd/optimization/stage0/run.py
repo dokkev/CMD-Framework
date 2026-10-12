@@ -154,7 +154,7 @@ def save_stage0_result(
         writer.writerow((
             "candidate", *VARIABLE_NAMES,
             "worst_transmission_quality", "ratio_variation", "facing_error_deg",
-            "grasp_mcp_deg", "mcp_at_limit_deg",
+            "grasp_mcp_deg", "post_grasp_travel_deg", "mcp_at_limit_deg",
             "grasp_pip_deg", "grasp_dip_deg", "grasp_gap_mm",
             "grasp_b_along_oa_mm", "grasp_c_along_oa_mm",
             "extended_length_mm", "pin_spacing_a_ap_mm", "pin_spacing_a_bp_mm",
@@ -169,6 +169,7 @@ def save_stage0_result(
                 evaluation.worst_transmission_quality, evaluation.ratio_variation,
                 math.degrees(grasp.facing_error_rad),
                 math.degrees(evaluation.grasp_mcp_rad),
+                math.degrees(evaluation.post_grasp_travel_rad),
                 math.degrees(evaluation.motion_range_rad),
                 math.degrees(motion.q2_flexion_rad[grasp.index]),
                 math.degrees(motion.q3_flexion_rad[grasp.index]),

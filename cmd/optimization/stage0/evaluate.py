@@ -32,8 +32,11 @@ Constraint groups use ``g <= 0`` and keep a fixed residual count per study:
   (residual: the smallest, over those poses, of the summed gap shortfalls and
   projection overshoots of B and C, in mm).
 
-The summed coefficient of variation of the q2 and q3 motion ratios
-(``ratio_variation``) is kept as a diagnostic.
+Diagnostics: the summed coefficient of variation of the q2 and q3 motion
+ratios (``ratio_variation``), and the post-grasp travel, how much further the
+MCP can flex past the grasp pose before a coupler loop nears a singularity
+(either transmission margin below ``criteria.minimum_transmission_margin_rad``
+or a loop no longer closing), capped at the search horizon.
 
 Point-C excursion is deliberately a diagnostic, not an objective: it rewards
 link size and does not imply grasp quality.
@@ -48,11 +51,12 @@ from types import MappingProxyType
 
 from cmd.morphology.linkage import (
     FingerLinkageParameters,
-    PointXZ,
     LinkageMotionEvaluation,
-    LinkagePose,
     LinkageMotionEvaluator,
+    LinkagePose,
+    LinkageWorkspaceCriteria,
     LinkageWorkspaceEvaluation,
+    PointXZ,
     evaluate_linkage_workspace,
 )
 
@@ -72,6 +76,7 @@ class Stage0Evaluation:
     ratio_variation: float
     grasp: Grasp | None
     """Grasp pose with the smallest facing error, if any sample is a grasp pose."""
+    criteria: LinkageWorkspaceCriteria
     constraints: Mapping[str, tuple[float, ...]]
 
     @property
@@ -104,6 +109,12 @@ class Stage0Evaluation:
     @property
     def grasp_mcp_rad(self) -> float:
         return self.motion.input_flexion_rad[self.grasp.index] if self.grasp else math.inf
+
+    @property
+    def post_grasp_travel_rad(self) -> float:
+        if self.grasp is None:
+            return 0.0
+        return post_grasp_travel_rad(self.motion, self.grasp.index, self.criteria)
 
 
 class Stage0Evaluator:
@@ -138,6 +149,7 @@ class Stage0Evaluator:
             ),
             ratio_variation=ratio_variation(motion, last) if usable else math.inf,
             grasp=grasp,
+            criteria=config.criteria,
             constraints=MappingProxyType({
                 "usable_motion": (
                     max(self.samples[1], config.minimum_motion_range_rad)
@@ -233,6 +245,22 @@ def grasp_violation_mm(pose: LinkagePose, minimum_gap_mm: float) -> float:
     )
 
 
+def post_grasp_travel_rad(
+    motion: LinkageMotionEvaluation, grasp_index: int, criteria: LinkageWorkspaceCriteria
+) -> float:
+    """MCP flexion from the grasp pose to the last sample before a loop nears singularity."""
+
+    safe = grasp_index
+    for index in range(grasp_index + 1, motion.solved_sample_count):
+        if any(
+            criteria.transmission_shortfall_rad(angles[index]) > 0.0
+            for angles in (motion.transmission_angle_loop_1_rad, motion.transmission_angle_loop_2_rad)
+        ):
+            break
+        safe = index
+    return motion.input_flexion_rad[safe] - motion.input_flexion_rad[grasp_index]
+
+
 def find_grasp(
     motion: LinkageMotionEvaluation, last: int, minimum_gap_mm: float
 ) -> Grasp | None:
@@ -303,6 +331,7 @@ __all__ = [
     "pad_rotation_rad",
     "pin_spacing_residuals",
     "pin_spacings_mm",
+    "post_grasp_travel_rad",
     "ratio_variation",
     "worst_transmission_quality",
 ]

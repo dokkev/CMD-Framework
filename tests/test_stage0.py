@@ -124,6 +124,8 @@ def test_baseline_is_feasible_with_fixed_constraint_shape() -> None:
     assert evaluation.grasp.index == 7
     assert evaluation.facing_error_rad == pytest.approx(math.radians(0.5), abs=math.radians(0.1))
     assert evaluation.grasp_mcp_rad == pytest.approx(1.4)
+    # Both loops stay non-singular through the 1.6 rad horizon.
+    assert evaluation.post_grasp_travel_rad == pytest.approx(0.2)
     motion = evaluation.motion
     assert evaluation.worst_transmission_quality == min(
         *motion.transmission_quality_loop_1[:8], *motion.transmission_quality_loop_2[:8]
@@ -172,8 +174,10 @@ def test_motion_limit_ends_before_the_first_unhealthy_sample(monkeypatch) -> Non
 
     assert evaluation.limit_index == 6
     assert evaluation.feasible
-    # Only samples 5 and 6 remain as grasp poses; 6 faces OA' better.
+    # Only samples 5 and 6 remain as grasp poses; 6 faces OA' better. Sample 7
+    # is the near-singular one, so there is no travel past the grasp.
     assert evaluation.grasp.index == 6
+    assert evaluation.post_grasp_travel_rad == 0.0
     assert evaluation.facing_error_rad == pytest.approx(facing_error_rad(motion.poses[6]))
     assert evaluation.worst_transmission_quality == min(
         *motion.transmission_quality_loop_1[:7], *motion.transmission_quality_loop_2[:7]

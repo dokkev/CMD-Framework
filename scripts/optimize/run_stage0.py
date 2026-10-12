@@ -74,7 +74,8 @@ def main() -> int:
             f"  {index}: worst transmission quality "
             f"{evaluation.worst_transmission_quality:.3f}, "
             f"facing error {math.degrees(evaluation.facing_error_rad):.1f} deg, "
-            f"grasp at MCP {math.degrees(evaluation.grasp_mcp_rad):.0f} deg"
+            f"grasp at MCP {math.degrees(evaluation.grasp_mcp_rad):.0f} deg, "
+            f"post-grasp travel {math.degrees(evaluation.post_grasp_travel_rad):.0f} deg"
         )
     print(f"Output: {output}")
     return 0
