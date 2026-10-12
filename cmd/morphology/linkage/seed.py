@@ -21,7 +21,7 @@ BASELINE_LINKAGE_V0 = FingerLinkage(
 
 
 # Stage-0 selection (keep BASELINE_LINKAGE_V0 as the comparison reference).
-# scripts/optimize/run_stage0.py at commit 9f39617 with seed 1: Pareto
+# scripts/optimize/run_stage0.py at commit b7a495e with seed 1: Pareto
 # candidate #122, chosen from the verified shortlist as the best transmission
 # quality with a facing error of at most 5 deg.
 #   worst transmission quality 0.692 (min margin 43 deg over the safe range)
