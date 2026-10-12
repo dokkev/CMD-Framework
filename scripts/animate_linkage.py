@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Animate baseline linkage V0 and plot its coupled joint-angle curves.
+"""Animate a finger linkage and plot its coupled joint-angle curves.
 
-Run from the repository root with no arguments to save the default GIF:
+Run from the repository root with no arguments to animate baseline V0:
 
     python3 scripts/animate_linkage.py
+
+or animate one Stage-0 Pareto candidate (outputs go next to the CSV):
+
+    python3 scripts/animate_linkage.py --pareto outputs/stage0/run_002/pareto.csv --candidate 153
 
 The animation uses the XZ linkage frame (+X distal, +Z dorsal) and both
 reference-derived couplers.
@@ -12,6 +16,7 @@ reference-derived couplers.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import sys
 from pathlib import Path
@@ -28,11 +33,13 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from cmd.morphology import (  # noqa: E402
     BASELINE_LINKAGE_V0,
+    FingerLinkage,
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
     PointXZ,
 )
+from cmd.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
 
 
 DEFAULT_FLEXION_RAD = 0.8
@@ -41,6 +48,16 @@ DEFAULT_FPS = 24
 DEFAULT_DPI = 120
 DEFAULT_OUTPUT = Path("output/linkage_flexion_extension.gif")
 DEFAULT_CURVE_OUTPUT = Path("output/linkage_v0_q2_q3.png")
+
+
+def load_pareto_candidate(csv_path: Path, candidate: int) -> FingerLinkage:
+    """Return the linkage of one numbered row of a Stage-0 ``pareto.csv``."""
+
+    with csv_path.open(encoding="utf-8", newline="") as stream:
+        for row in csv.DictReader(stream):
+            if int(row["candidate"]) == candidate:
+                return FingerLinkage(decode([float(row[name]) for name in VARIABLE_NAMES]))
+    raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
 def build_q1_sequence(
@@ -248,6 +265,7 @@ def save_joint_curves(
     sweep_poses: Sequence[LinkagePose],
     output_path: Path,
     dpi: int,
+    title: str = "Baseline linkage V0: coupled joint angles",
 ) -> None:
     """Plot the solved relative q2 and q3 angles against commanded q1."""
 
@@ -277,7 +295,7 @@ def save_joint_curves(
         axis.axhline(0.0, color="#8e959d", linewidth=0.8)
         axis.set(xlabel=r"Commanded $q_1$ [rad]",
                  ylabel="Joint flexion change from extension [rad]",
-                 title="Baseline linkage V0: coupled joint angles")
+                 title=title)
         axis.grid(True, color="#e0e2e6", linewidth=0.7)
         axis.legend(frameon=False)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,19 +306,24 @@ def save_joint_curves(
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Animate baseline linkage V0 and plot q2/q3 versus q1."
+        description="Animate a finger linkage and plot q2/q3 versus q1."
     )
+    parser.add_argument(
+        "--pareto", type=Path,
+        help="Stage-0 pareto.csv to read a candidate from (default: baseline V0)",
+    )
+    parser.add_argument("--candidate", type=int, help="candidate number in --pareto")
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="GIF or MP4 output path (default: output/linkage_flexion_extension.gif)",
+        help="GIF or MP4 output path (default: output/linkage_flexion_extension.gif, "
+        "or candidate_N.gif next to --pareto)",
     )
     parser.add_argument(
         "--curve-output",
         type=Path,
-        default=DEFAULT_CURVE_OUTPUT,
-        help="joint-angle plot path (default: output/linkage_v0_q2_q3.png)",
+        help="joint-angle plot path (default: output/linkage_v0_q2_q3.png, "
+        "or candidate_N_q2_q3.png next to --pareto)",
     )
     parser.add_argument(
         "--flexion-rad",
@@ -329,15 +352,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     if isinstance(args.fps, bool) or args.fps <= 0:
         raise ValueError("fps must be a positive integer")
 
+    if (args.pareto is None) != (args.candidate is None):
+        raise ValueError("--pareto and --candidate must be given together")
+    if args.pareto is None:
+        linkage, title = BASELINE_LINKAGE_V0, "Baseline linkage V0: coupled joint angles"
+        output = args.output or DEFAULT_OUTPUT
+        curve_output = args.curve_output or DEFAULT_CURVE_OUTPUT
+    else:
+        linkage = load_pareto_candidate(args.pareto, args.candidate)
+        title = f"Stage-0 candidate #{args.candidate}: coupled joint angles"
+        output = args.output or args.pareto.parent / f"candidate_{args.candidate}.gif"
+        curve_output = args.curve_output or (
+            args.pareto.parent / f"candidate_{args.candidate}_q2_q3.png"
+        )
+
     q1_values = build_q1_sequence(args.flexion_rad, args.frames)
-    solver = LinkageKinematics(BASELINE_LINKAGE_V0)
+    solver = LinkageKinematics(linkage)
     poses = solve_animation_poses(solver, q1_values)
     figure, animation = create_animation(poses, fps=args.fps)
     try:
-        save_animation(animation, args.output, fps=args.fps, dpi=args.dpi)
-        save_joint_curves(poses[:args.frames], args.curve_output, dpi=args.dpi)
-        print(f"saved {len(poses)} frames to {args.output}")
-        print(f"saved q2/q3 sweep to {args.curve_output}")
+        save_animation(animation, output, fps=args.fps, dpi=args.dpi)
+        save_joint_curves(poses[:args.frames], curve_output, dpi=args.dpi, title=title)
+        print(f"saved {len(poses)} frames to {output}")
+        print(f"saved q2/q3 sweep to {curve_output}")
         if args.show:
             plt.show()
     finally:
