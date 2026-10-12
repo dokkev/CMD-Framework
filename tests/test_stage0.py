@@ -243,6 +243,29 @@ def test_pin_spacing_constraint_uses_pins_on_the_same_link() -> None:
     assert evaluation.max_violation("minimum_pin_spacing") == pytest.approx(14.0 - min(spacings))
 
 
+# Dense verification --------------------------------------------------------
+
+
+def test_verify_candidate_checks_the_safe_range_on_a_fine_grid() -> None:
+    from cmd.optimization.stage0.verify import verify_candidate
+
+    config = make_config()
+    passed = verify_candidate(decode(baseline_x()), config, grasp_mcp_rad=1.4)
+    # V0's DIP starts to unflex just past 1.4 rad; its loops stay non-singular
+    # (margin >= 0 with permissive criteria) and closed through the horizon.
+    assert passed.passed
+    assert passed.safe_limit_rad == pytest.approx(1.4)
+    assert passed.min_margin_rad > 0.0
+    assert 1.4 < passed.first_reversal_rad < 1.6
+    assert passed.first_singular_rad == pytest.approx(passed.closes_to_rad)
+
+    too_far = verify_candidate(
+        decode(baseline_x()), replace(config, minimum_post_grasp_travel_rad=0.1), grasp_mcp_rad=1.4
+    )
+    assert not too_far.passed
+    assert too_far.max_backoff_rad > math.radians(0.1)
+
+
 # NSGA-II run ---------------------------------------------------------------
 
 
