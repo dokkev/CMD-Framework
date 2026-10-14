@@ -3,17 +3,24 @@
 
     python scripts/animate_finger.py --mcp-deg 60 --pip-deg 75
 
+or one candidate of a finger study (the output goes next to its CSV):
+
+    python scripts/animate_finger.py --pareto outputs/finger/run_001/pareto.csv --candidate 1
+
 The finger first flexes the PIP (the DIP follows through the crossed
 four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
 on the proximal link (rear body toward O), and the fingertip side silhouette
-on the distal link from B to C. The coupler turns red where it comes closer
+on the distal link from B to C. The PIP servo sits at A' and drives A'-B; the
+middle link A-B' turns red where it comes closer
 than the body clearance to the PIP servo.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import json
 import math
 import sys
 from pathlib import Path
@@ -36,12 +43,25 @@ from cmd.morphology.linkage import (  # noqa: E402
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import BODY_CLEARANCE_MM  # noqa: E402
+from cmd.morphology.linkage.packaging import BODY_CLEARANCE_MM, ServoFootprint  # noqa: E402
+from cmd.optimization.finger import VARIABLE_NAMES, decode  # noqa: E402
 
 Outline = list[tuple[float, float]]
 
 RED, BLACK, BLUE, GRAY = "#ff1027", "#111111", "#071c9e", "#7a7a7a"
 SERVO_COLOR, PAD_COLOR, CARRIER_COLOR = "#c9ced6", "#b8d5a8", "#999c9f"
+
+
+def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float]:
+    """Return a study candidate's linkage and its curl PIP angle in degrees."""
+
+    config = json.loads((csv_path.parent / "run.json").read_text(encoding="utf-8"))["config"]
+    with csv_path.open(encoding="utf-8", newline="") as stream:
+        for row in csv.DictReader(stream):
+            if int(row["candidate"]) == candidate:
+                x = [float(row[name]) for name in VARIABLE_NAMES]
+                return FingerLinkage(decode(x, config["bc_length_mm"])), float(row["curl_pip_deg"])
+    raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
 def build_trajectory(mcp_rad: float, pip_rad: float, frames: int) -> list[tuple[float, float]]:
@@ -92,8 +112,8 @@ def place_on_distal(outline: Outline, pose: FingerPose, axis_z_mm: float) -> Out
              pose.b.z_mm + sine * x + cosine * (z - axis_z_mm)) for x, z in outline]
 
 
-def coupler_clearance_mm(linkage: FingerLinkage, q_pip_rad: float) -> float:
-    return servo_clearance(linkage, pip_samples_rad=(q_pip_rad,)).coupler_mm
+def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float) -> float:
+    return servo_clearance(linkage, pip_samples_rad=(q_pip_rad,)).link_mm
 
 
 def create_animation(
@@ -103,13 +123,14 @@ def create_animation(
     fingertip = Fingertip(FingertipParameters(total_length_mm=linkage.parameters.bc_length_mm))
     pad, carrier = fingertip_outlines(fingertip)
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
-    clearances = [coupler_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
+    clearances = [link_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
+    servo = ServoFootprint.of(linkage, actuator).outline
 
     frames = []
     for pose in poses:
-        rear_angle = math.atan2(-pose.a.z_mm, -pose.a.x_mm)  # from A back toward O
+        cosine, sine = math.cos(-pose.q_mcp_rad), math.sin(-pose.q_mcp_rad)
         frames.append((
-            servo_outline(pose.a, rear_angle, actuator),
+            [(cosine * x - sine * z, sine * x + cosine * z) for x, z in servo],
             place_on_distal(pad, pose, fingertip.rotation_axis_z_mm),
             place_on_distal(carrier, pose, fingertip.rotation_axis_z_mm),
         ))
@@ -177,7 +198,7 @@ def create_animation(
         middle.set_data(*xy((pose.a, pose.bp)))
         distal.set_data(*xy((pose.bp, pose.b, pose.c, pose.bp)))
         coupler.set_data(*xy((pose.ap, pose.b)))
-        coupler.set_color(RED if clearances[index] < 0.0 else GRAY)
+        middle.set_color(RED if clearances[index] < 0.0 else BLACK)
         for name, marker in markers.items():
             point = getattr(pose, name)
             marker.set_data((point.x_mm,), (point.z_mm,))
@@ -185,8 +206,9 @@ def create_animation(
         status.set_text(
             f"MCP {math.degrees(pose.q_mcp_rad):5.1f}°  PIP {math.degrees(pose.q_pip_rad):5.1f}°"
             f"  DIP {math.degrees(pose.q_dip_rad):5.1f}°\n"
-            f"transmission margin {math.degrees(pose.transmission_margin_rad):4.0f}°"
-            f"  coupler-servo clearance {clearances[index] + BODY_CLEARANCE_MM:5.1f} mm"
+            f"transmission at B' {math.degrees(pose.margin_at_bp_rad):3.0f}°"
+            f"  input limit at B {math.degrees(pose.margin_at_b_rad):3.0f}°"
+            f"  link-servo clearance {clearances[index] + BODY_CLEARANCE_MM:5.1f} mm"
         )
         return (pip_servo, pad_patch, carrier_patch, proximal, middle, distal, coupler,
                 *markers.values(), *labels.values(), status)
@@ -199,22 +221,36 @@ def create_animation(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--pareto", type=Path, help="finger study pareto.csv")
+    parser.add_argument("--candidate", type=int, help="candidate number in --pareto")
     parser.add_argument("--mcp-deg", type=float, default=60.0)
-    parser.add_argument("--pip-deg", type=float, default=75.0)
+    parser.add_argument("--pip-deg", type=float,
+                        help="PIP flexion (default: 75, or the candidate's curl pose)")
     parser.add_argument("--frames", type=int, default=61, help="frames per ramp (default: 61)")
     parser.add_argument("--fps", type=int, default=24)
     parser.add_argument("--dpi", type=int, default=110)
-    parser.add_argument("--output", type=Path, default=Path("output/finger_2dof.gif"))
+    parser.add_argument("--output", type=Path,
+                        help="GIF path (default: output/finger_2dof.gif, or candidate_N.gif "
+                        "next to --pareto)")
     parser.add_argument("--show", action="store_true")
     args = parser.parse_args(argv)
 
-    trajectory = build_trajectory(math.radians(args.mcp_deg), math.radians(args.pip_deg),
-                                  args.frames)
-    figure, animation = create_animation(SKETCH_LINKAGE, trajectory, args.fps)
+    if (args.pareto is None) != (args.candidate is None):
+        raise ValueError("--pareto and --candidate must be given together")
+    if args.pareto is None:
+        linkage, pip_deg = SKETCH_LINKAGE, 75.0
+        output = args.output or Path("output/finger_2dof.gif")
+    else:
+        linkage, pip_deg = load_candidate(args.pareto, args.candidate)
+        output = args.output or args.pareto.parent / f"candidate_{args.candidate}.gif"
+    pip_deg = args.pip_deg if args.pip_deg is not None else pip_deg
+
+    trajectory = build_trajectory(math.radians(args.mcp_deg), math.radians(pip_deg), args.frames)
+    figure, animation = create_animation(linkage, trajectory, args.fps)
     try:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        animation.save(args.output, writer=PillowWriter(fps=args.fps), dpi=args.dpi)
-        print(f"saved {len(trajectory)} frames to {args.output}")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        animation.save(output, writer=PillowWriter(fps=args.fps), dpi=args.dpi)
+        print(f"saved {len(trajectory)} frames to {output}")
         if args.show:
             plt.show()
     finally:

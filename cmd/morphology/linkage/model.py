@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import Sequence
+
+import numpy as np
 
 from ..._validation import require_finite
 from . import FingerLinkageParameters, PointXZ
@@ -37,20 +40,45 @@ class FingerPose:
     c: PointXZ
 
     @property
-    def transmission_angle_rad(self) -> float:
-        """Angle at ``B`` between the coupler ``B->A'`` and the distal link ``B->B'``.
+    def margin_at_b_rad(self) -> float:
+        """Margin from 0 or pi of the angle at ``B`` between ``B->A'`` and ``B->B'``.
 
-        The four-bar reaches a dead point when it is 0 or pi.
+        It is the transmission margin when the PIP servo drives ``A-B'``.
         """
 
-        return _angle_between(_subtract(self.ap, self.b), _subtract(self.bp, self.b))
+        return _margin(_angle_between(_subtract(self.ap, self.b), _subtract(self.bp, self.b)))
 
     @property
-    def transmission_margin_rad(self) -> float:
-        """Distance of the transmission angle from the nearest dead point."""
+    def margin_at_bp_rad(self) -> float:
+        """Margin from 0 or pi of the angle at ``B'`` between ``B'->A`` and ``B'->B``.
 
-        angle = self.transmission_angle_rad
-        return min(angle, math.pi - angle)
+        It is the transmission margin when the PIP servo drives ``A'-B``.
+        """
+
+        return _margin(_angle_between(_subtract(self.a, self.bp), _subtract(self.b, self.bp)))
+
+
+@dataclass(frozen=True)
+class PipSweep:
+    """The four-bar solved over increasing PIP samples, in the proximal-link frame.
+
+    Arrays cover the samples up to the first one that fails to close;
+    ``q_dip_rad`` is unwrapped along the sweep. Points are ``(n, 2)`` XZ arrays.
+    """
+
+    q_pip_rad: np.ndarray
+    q_dip_rad: np.ndarray
+    bp: np.ndarray
+    b: np.ndarray
+    c: np.ndarray
+    margin_at_b_rad: np.ndarray
+    margin_at_bp_rad: np.ndarray
+
+    @property
+    def total_flexion_rad(self) -> np.ndarray:
+        """Distal-link rotation relative to the proximal link, ``q_pip + q_dip``."""
+
+        return self.q_pip_rad + self.q_dip_rad
 
 
 @dataclass(frozen=True)
@@ -133,6 +161,59 @@ class FingerLinkage:
             c=turn(c),
         )
 
+    def sweep_pip(self, q_pip_rad: Sequence[float]) -> PipSweep:
+        """Solve the four-bar at increasing PIP samples starting from extension.
+
+        The vectorized counterpart of :meth:`solve` for the proximal-link frame.
+        """
+
+        q = np.asarray(q_pip_rad, dtype=float)
+        a, ap = _array(self.a), _array(self.ap)
+        bp_ref, b_ref = _array(self.bp), _array(self.b)
+        arm = bp_ref - a
+        cosine, sine = np.cos(-q), np.sin(-q)
+        bp = a + np.stack((cosine * arm[0] - sine * arm[1], sine * arm[0] + cosine * arm[1]), axis=1)
+
+        distal = np.linalg.norm(b_ref - bp_ref)
+        coupler = np.linalg.norm(b_ref - ap)
+        delta = ap - bp
+        distance = np.linalg.norm(delta, axis=1)
+        along = (distal ** 2 - coupler ** 2 + distance ** 2) / (2.0 * distance)
+        height_squared = distal ** 2 - along ** 2
+        tolerance = _TOLERANCE * max(1.0, distal ** 2)
+        failed = np.flatnonzero(height_squared < -tolerance)
+        count = int(failed[0]) if failed.size else len(q)
+
+        unit = delta[:count] / distance[:count, None]
+        height = np.sqrt(np.maximum(height_squared[:count], 0.0))
+        perpendicular = np.stack((-unit[:, 1], unit[:, 0]), axis=1)
+        b = bp[:count] + along[:count, None] * unit + self._branch * height[:, None] * perpendicular
+
+        reference = b_ref - bp_ref
+        current = b - bp[:count]
+        distal_rad = np.unwrap(np.arctan2(
+            reference[0] * current[:, 1] - reference[1] * current[:, 0],
+            reference[0] * current[:, 0] + reference[1] * current[:, 1],
+        ))
+        bc = _array(self.c) - b_ref
+        c = b + np.stack((np.cos(distal_rad) * bc[0] - np.sin(distal_rad) * bc[1],
+                          np.sin(distal_rad) * bc[0] + np.cos(distal_rad) * bc[1]), axis=1)
+
+        def margin(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+            angle = np.abs(np.arctan2(first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0],
+                                      np.sum(first * second, axis=1)))
+            return np.minimum(angle, math.pi - angle)
+
+        return PipSweep(
+            q_pip_rad=q[:count],
+            q_dip_rad=-(distal_rad + q[:count]),
+            bp=bp[:count],
+            b=b,
+            c=c,
+            margin_at_b_rad=margin(ap - b, bp[:count] - b),
+            margin_at_bp_rad=margin(a - bp[:count], b - bp[:count]),
+        )
+
     def _close(self, bp: PointXZ) -> PointXZ:
         """Return ``B`` on the reference branch, given the posed ``B'``."""
 
@@ -166,6 +247,10 @@ def _circle_intersections(
     return (_add(middle, offset), _subtract(middle, offset))
 
 
+def _array(point: PointXZ) -> np.ndarray:
+    return np.array((point.x_mm, point.z_mm))
+
+
 def _segments_intersect(p0: PointXZ, p1: PointXZ, q0: PointXZ, q1: PointXZ) -> bool:
     """Whether the open segments ``p0-p1`` and ``q0-q1`` properly cross."""
 
@@ -178,6 +263,10 @@ def _segments_intersect(p0: PointXZ, p1: PointXZ, q0: PointXZ, q1: PointXZ) -> b
 
 def _signed_rotation(reference: PointXZ, current: PointXZ) -> float:
     return math.atan2(_cross(reference, current), _dot(reference, current))
+
+
+def _margin(angle_rad: float) -> float:
+    return min(angle_rad, math.pi - angle_rad)
 
 
 def _angle_between(first: PointXZ, second: PointXZ) -> float:
@@ -209,4 +298,4 @@ def _cross(first: PointXZ, second: PointXZ) -> float:
     return first.x_mm * second.z_mm - first.z_mm * second.x_mm
 
 
-__all__ = ["FingerLinkage", "FingerPose", "KinematicClosureError"]
+__all__ = ["FingerLinkage", "FingerPose", "KinematicClosureError", "PipSweep"]

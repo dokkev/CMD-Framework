@@ -10,6 +10,7 @@ from cmd.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
+from cmd.morphology.linkage.packaging import ServoFootprint
 
 SKETCH = SKETCH_LINKAGE.parameters
 
@@ -61,15 +62,32 @@ def test_open_four_bar_is_rejected() -> None:
         FingerLinkage(open_bar)
 
 
-def test_transmission_margin_measures_the_distance_from_a_dead_point() -> None:
-    pose = FingerLinkage(SKETCH).solve(0.0, 0.0)
-    to_ap = (60.0 - 100.0, 19.3)
-    to_bp = (80.0 - 100.0, 19.3)
-    angle = abs(math.atan2(to_ap[0] * to_bp[1] - to_ap[1] * to_bp[0],
-                           to_ap[0] * to_bp[0] + to_ap[1] * to_bp[1]))
+def angle(first: tuple[float, float], second: tuple[float, float]) -> float:
+    return abs(math.atan2(first[0] * second[1] - first[1] * second[0],
+                          first[0] * second[0] + first[1] * second[1]))
 
-    assert pose.transmission_angle_rad == pytest.approx(angle)
-    assert pose.transmission_margin_rad == pytest.approx(min(angle, math.pi - angle))
+
+def test_margins_measure_the_distance_from_a_dead_point() -> None:
+    pose = FingerLinkage(SKETCH).solve(0.0, 0.0)
+    at_b = angle((60.0 - 100.0, 19.3), (80.0 - 100.0, 19.3))
+    at_bp = angle((40.0 - 80.0, -19.3), (100.0 - 80.0, -19.3))
+
+    assert pose.margin_at_b_rad == pytest.approx(min(at_b, math.pi - at_b))
+    assert pose.margin_at_bp_rad == pytest.approx(min(at_bp, math.pi - at_bp))
+
+
+def test_sweep_matches_the_pose_solver() -> None:
+    linkage = FingerLinkage(SKETCH)
+    q = [math.radians(degrees) for degrees in range(0, 100, 7)]
+    sweep = linkage.sweep_pip(q)
+
+    for index, q_pip in enumerate(q):
+        pose = linkage.solve(0.0, q_pip)
+        assert sweep.b[index] == pytest.approx((pose.b.x_mm, pose.b.z_mm))
+        assert sweep.c[index] == pytest.approx((pose.c.x_mm, pose.c.z_mm))
+        assert sweep.q_dip_rad[index] == pytest.approx(pose.q_dip_rad)
+        assert sweep.margin_at_b_rad[index] == pytest.approx(pose.margin_at_b_rad)
+        assert sweep.margin_at_bp_rad[index] == pytest.approx(pose.margin_at_bp_rad)
 
 
 def test_unreachable_pip_raises() -> None:
@@ -83,26 +101,30 @@ def test_unreachable_pip_raises() -> None:
             linkage.solve(0.0, math.radians(degrees))
 
 
-def test_servo_clearance_of_the_sketch() -> None:
+def test_servo_at_a_prime_lies_back_parallel_to_oa() -> None:
     clearance = servo_clearance(FingerLinkage(SKETCH))
+    footprint = ServoFootprint.of(FingerLinkage(SKETCH))
 
-    # OA = 40 mm against 25.5 mm rear + 9.5 mm MCP servo radius + 1 mm.
-    assert clearance.mcp_servo_mm == pytest.approx(40.0 - 25.5 - 9.5 - 1.0)
-    # A' = (60, 19.3) is outside the servo cap around A = (40, 0).
-    assert clearance.ap_pin_mm == pytest.approx(math.hypot(20.0, 19.3) - 9.5 - 4.5)
+    # The rear body spans x in [60 - 25.5, 60] and z in [19.3 - 9.5, 19.3 + 9.5];
+    # its corner nearest O is (34.5, 9.8).
+    assert clearance.mcp_servo_mm == pytest.approx(math.hypot(34.5, 9.8) - 9.5 - 1.0)
+    assert footprint.lowest_z_mm == pytest.approx(19.3 - 9.5)
+    # The PIP pin A clears the shaft disk around A'.
+    assert clearance.pin_mm == pytest.approx(math.hypot(20.0, 19.3) - 9.5 - 4.5)
 
 
-def test_short_proximal_link_and_buried_pin_are_infeasible() -> None:
-    short = FingerLinkageParameters(
-        a_x_mm=30.0, b_x_mm=90.0, ap=PointXZ(50.0, 19.3), bp=PointXZ(70.0, 19.3),
+def test_servo_near_o_and_buried_pin_are_infeasible() -> None:
+    near_o = FingerLinkageParameters(
+        a_x_mm=40.0, b_x_mm=90.0, ap=PointXZ(30.0, 5.0), bp=PointXZ(70.0, 19.3),
         bc_length_mm=40.0,
     )
-    assert servo_clearance(FingerLinkage(short)).mcp_servo_mm < 0.0
+    # The rear body reaches back to x = 4.5 mm, inside the MCP servo disk.
+    assert servo_clearance(FingerLinkage(near_o)).mcp_servo_mm == pytest.approx(4.5 - 9.5 - 1.0)
 
     buried = FingerLinkageParameters(
         a_x_mm=40.0, b_x_mm=100.0, ap=PointXZ(30.0, 8.0), bp=PointXZ(80.0, 19.3),
         bc_length_mm=40.0,
     )
     clearance = servo_clearance(FingerLinkage(buried))
-    assert clearance.ap_pin_mm < 0.0
+    assert clearance.pin_mm < 0.0
     assert not clearance.feasible
