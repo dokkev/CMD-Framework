@@ -16,11 +16,11 @@ def test_default_parameters_construct_successfully() -> None:
     fingertip = Fingertip()
 
     assert fingertip.parameters == FingertipParameters()
-    assert fingertip.half_width_mm == pytest.approx(12.5)
-    assert fingertip.total_length_mm == pytest.approx(40.0)
-    assert fingertip.carrier_length_mm == pytest.approx(35.0)
-    assert fingertip.straight_length_mm == pytest.approx(25.0)
-    assert fingertip.parameters.family.carrier_distal_inset_mm == pytest.approx(5.0)
+    assert fingertip.half_width_mm == pytest.approx(8.0)
+    assert fingertip.total_length_mm == pytest.approx(24.0)
+    assert fingertip.carrier_length_mm == pytest.approx(21.0)
+    assert fingertip.straight_length_mm == pytest.approx(16.0)
+    assert fingertip.parameters.family.carrier_distal_inset_mm == pytest.approx(3.0)
 
 
 def test_straight_body_center_and_edge_surface_values() -> None:
@@ -46,7 +46,7 @@ def test_distal_surface_matches_straight_body_at_join() -> None:
     fingertip = Fingertip()
     pad = fingertip.parameters.family.pad
 
-    for y_mm in (-12.5, -6.0, 0.0, 6.0, 12.5):
+    for y_mm in (-8.0, -4.0, 0.0, 4.0, 8.0):
         assert fingertip.lower_surface_z_mm(fingertip.straight_length_mm, y_mm) == pytest.approx(
             fingertip.lower_surface_z_mm(fingertip.straight_length_mm - 1e-9, y_mm)
         )
@@ -85,7 +85,7 @@ def test_distal_surface_is_the_ellipsoid_along_x_with_lateral_y() -> None:
 
 def test_surface_is_symmetric_about_the_centerline() -> None:
     fingertip = Fingertip()
-    for x_mm, y_mm in ((0.0, 4.0), (25.0, 4.0), (30.0, 3.0), (39.0, 0.3)):
+    for x_mm, y_mm in ((0.0, 4.0), (16.0, 4.0), (19.0, 3.0), (23.5, 0.3)):
         assert fingertip.lower_surface_z_mm(x_mm, y_mm) == pytest.approx(
             fingertip.lower_surface_z_mm(x_mm, -y_mm)
         )
@@ -100,8 +100,8 @@ def test_digit_length_changes_only_the_proximal_straight_section() -> None:
 
     assert long.straight_length_mm - short.straight_length_mm == pytest.approx(20.0)
     assert long.carrier_length_mm - short.carrier_length_mm == pytest.approx(20.0)
-    assert short.carrier_length_mm - short.straight_length_mm == pytest.approx(10.0)
-    assert long.carrier_length_mm - long.straight_length_mm == pytest.approx(10.0)
+    assert short.carrier_length_mm - short.straight_length_mm == pytest.approx(5.0)
+    assert long.carrier_length_mm - long.straight_length_mm == pytest.approx(5.0)
     assert long.lower_surface_z_mm(long.straight_length_mm + 5.0, 0.0) == pytest.approx(
         short.lower_surface_z_mm(short.straight_length_mm + 5.0, 0.0)
     )
@@ -114,8 +114,8 @@ def test_rotation_axis_keeps_its_place_relative_to_the_tip() -> None:
 
     assert short.rotation_axis_mm(20.0) == pytest.approx((20.0, 0.0, 2.0))
     assert long.rotation_axis_mm(20.0) == pytest.approx((40.0, 0.0, 2.0))
-    assert short.pad_depth_below_rotation_axis_mm == pytest.approx(2.0 + 6.0 + 10.0)
-    for offset_mm in (-5.0, 6.0):
+    assert short.pad_depth_below_rotation_axis_mm == pytest.approx(2.0 + 3.0 + 7.0)
+    for offset_mm in (-6.0, 4.0):
         with pytest.raises(ValueError, match="rotation_axis_offset_mm"):
             FingertipFamilyParameters(rotation_axis_offset_mm=offset_mm)
 

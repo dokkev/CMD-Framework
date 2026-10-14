@@ -22,21 +22,6 @@ class HandPlanePoint:
 
 
 @dataclass(frozen=True)
-class FingertipLengths:
-    """Independent total fingertip lengths for each digit, in millimetres."""
-
-    index_mm: float
-    middle_mm: float
-    ring_mm: float
-    little_mm: float
-    thumb_mm: float
-
-    def __post_init__(self) -> None:
-        for name in ("index_mm", "middle_mm", "ring_mm", "little_mm", "thumb_mm"):
-            object.__setattr__(self, name, require_positive(name, getattr(self, name)))
-
-
-@dataclass(frozen=True)
 class HandLayoutParameters:
     """Independent placement variables for the hand reference-frame graph.
 
@@ -77,44 +62,29 @@ class HandLayoutParameters:
 class HandMorphologyParameters:
     """Optimizer-facing aggregate of shared fingertip, linkage, and layout.
 
-    Each ordinary finger shares one linkage definition and every digit shares
-    one fingertip family; only the five total fingertip lengths differ.
+    Each ordinary finger shares one linkage definition and all five digits
+    share one fingertip. Its total length is the linkage ``bc_length_mm``, so
+    the rotation axis on ``B`` sits at the carrier's proximal end and ``C``
+    lands on the pad tip.
     """
 
     fingertip: FingertipFamilyParameters
-    fingertip_lengths: FingertipLengths
     linkage: FingerLinkageParameters
     layout: HandLayoutParameters
 
     def __post_init__(self) -> None:
         if not isinstance(self.fingertip, FingertipFamilyParameters):
             raise TypeError("fingertip must be a FingertipFamilyParameters instance")
-        if not isinstance(self.fingertip_lengths, FingertipLengths):
-            raise TypeError("fingertip_lengths must be a FingertipLengths instance")
         if not isinstance(self.linkage, FingerLinkageParameters):
             raise TypeError("linkage must be a FingerLinkageParameters instance")
         if not isinstance(self.layout, HandLayoutParameters):
             raise TypeError("layout must be a HandLayoutParameters instance")
 
-        # The fingertip rotation axis sits bc_length_mm from the tip, so it
-        # must fall within every carrier.
-        bc_mm = self.linkage.bc_length_mm
-        if bc_mm <= self.fingertip.carrier_distal_inset_mm:
-            raise ValueError(
-                "linkage.bc_length_mm must exceed fingertip.carrier_distal_inset_mm "
-                "so the rotation axis lies within the carrier"
-            )
-        for name in ("index", "middle", "ring", "little", "thumb"):
-            length_mm = getattr(self.fingertip_lengths, f"{name}_mm")
-            FingertipParameters(family=self.fingertip, total_length_mm=length_mm)
-            if length_mm <= bc_mm:
-                raise ValueError(
-                    f"fingertip_lengths.{name}_mm must exceed linkage.bc_length_mm"
-                )
+        # The fingertip length is the BC length; check it suits the family.
+        FingertipParameters(family=self.fingertip, total_length_mm=self.linkage.bc_length_mm)
 
 
 __all__ = [
-    "FingertipLengths",
     "HandLayoutParameters",
     "HandMorphologyParameters",
     "HandPlanePoint",

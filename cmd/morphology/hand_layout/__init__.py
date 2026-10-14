@@ -1,7 +1,6 @@
 """Hand layout parameters and derived reference-frame morphology."""
 
 from .parameters import (
-    FingertipLengths,
     HandLayoutParameters,
     HandMorphologyParameters,
     HandPlanePoint,
@@ -30,7 +29,6 @@ from .model import (
 
 __all__ = [
     "FE_ACTUATOR_MOUNT",
-    "FingertipLengths",
     "HAND_X_LONGITUDINAL",
     "HAND_Y_FE_AXIS",
     "HAND_Z_DORSAL",

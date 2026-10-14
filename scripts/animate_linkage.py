@@ -5,12 +5,18 @@ Run from the repository root with no arguments to animate baseline V0:
 
     python3 scripts/animate_linkage.py
 
+animate the selected linkage V1:
+
+    python3 scripts/animate_linkage.py --linkage v1 --flexion-rad 1.26
+
 or animate one Stage-0 Pareto candidate (outputs go next to the CSV):
 
     python3 scripts/animate_linkage.py --pareto outputs/stage0/run_002/pareto.csv --candidate 153
 
 The animation uses the XZ linkage frame (+X distal, +Z dorsal) and both
-reference-derived couplers.
+reference-derived couplers. The fingertip side silhouette (carrier and pad)
+is drawn on the distal link with its rotation axis on ``B`` and its tip at
+``C``; ``--no-fingertip`` hides it.
 """
 
 from __future__ import annotations
@@ -33,12 +39,16 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from cmd.morphology import (  # noqa: E402
     BASELINE_LINKAGE_V0,
+    SELECTED_LINKAGE_V1,
     FingerLinkage,
+    Fingertip,
+    FingertipParameters,
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
     PointXZ,
 )
+from cmd.morphology.hand_layout import distal_link_transform, fingertip_attachment  # noqa: E402
 from cmd.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
 
 
@@ -46,8 +56,7 @@ DEFAULT_FLEXION_RAD = 0.8
 DEFAULT_FRAMES_PER_HALF_CYCLE = 151
 DEFAULT_FPS = 24
 DEFAULT_DPI = 120
-DEFAULT_OUTPUT = Path("output/linkage_flexion_extension.gif")
-DEFAULT_CURVE_OUTPUT = Path("output/linkage_v0_q2_q3.png")
+LINKAGES = {"v0": BASELINE_LINKAGE_V0, "v1": SELECTED_LINKAGE_V1}
 
 
 def load_pareto_candidate(csv_path: Path, candidate: int) -> FingerLinkage:
@@ -95,6 +104,44 @@ def solve_animation_poses(
     return poses
 
 
+def fingertip_silhouettes(
+    fingertip: Fingertip,
+) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    """Return the ``(x, z)`` side outlines of the pad and the carrier.
+
+    The pad spans from the shoulder plane down to its centreline lower
+    surface, its deepest point at every ``x``.
+    """
+
+    length = fingertip.total_length_mm
+    phalanx = fingertip.parameters.family.phalanx
+    x_values = [length * index / 200 for index in range(201)]
+    pad = [(0.0, 0.0)] + [(x, fingertip.lower_surface_z_mm(x, 0.0)) for x in x_values]
+    pad.append((length, 0.0))
+    carrier = [
+        (0.0, -phalanx.stem_height_mm),
+        (fingertip.carrier_length_mm, -phalanx.stem_height_mm),
+        (fingertip.carrier_length_mm, 0.0),
+        (fingertip.dorsal_plate_length_mm, 0.0),
+        (fingertip.dorsal_plate_length_mm, phalanx.carrier_height_mm),
+        (0.0, phalanx.carrier_height_mm),
+    ]
+    return pad, carrier
+
+
+def posed_outline(
+    pose: LinkagePose,
+    fingertip: Fingertip,
+    bc_length_mm: float,
+    outline: Sequence[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    """Map a fingertip-frame ``(x, z)`` outline into the posed linkage frame."""
+
+    transform = distal_link_transform(pose) @ fingertip_attachment(fingertip, bc_length_mm)
+    points = (transform.transform_point((x, 0.0, z)) for x, z in outline)
+    return [(x, z) for x, _, z in points]
+
+
 def _set_line_data(line, points: Sequence[PointXZ]) -> None:
     line.set_data(
         [point.x_mm for point in points],
@@ -128,27 +175,52 @@ def _draw_ground_support(axis, point: PointXZ) -> None:
 def create_animation(
     poses: Sequence[LinkagePose],
     fps: int = DEFAULT_FPS,
+    fingertip: Fingertip | None = None,
+    bc_length_mm: float | None = None,
 ) -> tuple[plt.Figure, FuncAnimation]:
-    """Create a 2D Matplotlib animation from solved linkage poses."""
+    """Create a 2D Matplotlib animation from solved linkage poses.
+
+    When ``fingertip`` is given, its side silhouette rides on the distal link
+    with its rotation axis on ``B``, ``bc_length_mm`` from the tip.
+    """
 
     if not poses:
         raise ValueError("poses must contain at least one frame")
     if isinstance(fps, bool) or fps <= 0:
         raise ValueError("fps must be a positive integer")
 
+    tip_outlines: list[tuple[list[tuple[float, float]], list[tuple[float, float]]]] = []
+    if fingertip is not None:
+        pad, carrier = fingertip_silhouettes(fingertip)
+        tip_outlines = [
+            (posed_outline(pose, fingertip, bc_length_mm, pad),
+             posed_outline(pose, fingertip, bc_length_mm, carrier))
+            for pose in poses
+        ]
+
     all_points = [
-        point
+        (point.x_mm, point.z_mm)
         for pose in poses
         for point in (pose.o, pose.a, pose.b, pose.c, pose.op, pose.ap, pose.bp, pose.cp)
     ]
-    x_values = [point.x_mm for point in all_points]
-    z_values = [point.z_mm for point in all_points]
+    all_points += [point for outlines in tip_outlines for outline in outlines for point in outline]
+    x_values = [x for x, _ in all_points]
+    z_values = [z for _, z in all_points]
     x_limits = (min(x_values) - 4.0, max(x_values) + 4.0)
     z_limits = (min(z_values) - 4.0, max(z_values) + 4.0)
     width = 12.5
     height = max(4.0, width * (z_limits[1] - z_limits[0]) / (x_limits[1] - x_limits[0]))
     figure, axis = plt.subplots(figsize=(width, height))
     red, green, blue, black = "#ff1027", "#196b22", "#071c9e", "#111111"
+
+    # The fingertip sits behind the linkage so pins stay visible.
+    pad_patch = Polygon([(0.0, 0.0)], closed=True, facecolor="#b8d5a8",
+                        edgecolor="#50575b", linewidth=1.0, alpha=0.85, zorder=0.5)
+    carrier_patch = Polygon([(0.0, 0.0)], closed=True, facecolor="#999c9f",
+                            edgecolor="#50575b", linewidth=1.0, alpha=0.85, zorder=0.6)
+    tip_artists = (pad_patch, carrier_patch) if tip_outlines else ()
+    for patch in tip_artists:
+        axis.add_patch(patch)
 
     # Colored triangles show the three rigid bodies; black lines are couplers.
     proximal, = axis.plot([], [], color=red, linewidth=3.2, zorder=2)
@@ -223,7 +295,11 @@ def create_animation(
             point = getattr(pose, name)
             marker.set_data((point.x_mm,), (point.z_mm,))
             labels[name].xy = (point.x_mm, point.z_mm)
+        if tip_outlines:
+            pad_patch.set_xy(tip_outlines[frame_index][0])
+            carrier_patch.set_xy(tip_outlines[frame_index][1])
         return (
+            *tip_artists,
             proximal, middle, distal, coupler_1, coupler_2,
             *markers.values(),
             *labels.values(),
@@ -309,20 +385,24 @@ def build_argument_parser() -> argparse.ArgumentParser:
         description="Animate a finger linkage and plot q2/q3 versus q1."
     )
     parser.add_argument(
+        "--linkage", choices=sorted(LINKAGES), default="v0",
+        help="named linkage to animate when --pareto is not given (default: v0)",
+    )
+    parser.add_argument(
         "--pareto", type=Path,
-        help="Stage-0 pareto.csv to read a candidate from (default: baseline V0)",
+        help="Stage-0 pareto.csv to read a candidate from instead of --linkage",
     )
     parser.add_argument("--candidate", type=int, help="candidate number in --pareto")
     parser.add_argument(
         "--output",
         type=Path,
-        help="GIF or MP4 output path (default: output/linkage_flexion_extension.gif, "
+        help="GIF or MP4 output path (default: output/linkage_<name>_flexion_extension.gif, "
         "or candidate_N.gif next to --pareto)",
     )
     parser.add_argument(
         "--curve-output",
         type=Path,
-        help="joint-angle plot path (default: output/linkage_v0_q2_q3.png, "
+        help="joint-angle plot path (default: output/linkage_<name>_q2_q3.png, "
         "or candidate_N_q2_q3.png next to --pareto)",
     )
     parser.add_argument(
@@ -342,6 +422,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--fps", type=int, default=DEFAULT_FPS,
         help="animation playback rate in frames per second (default: 24)",
     )
+    parser.add_argument("--no-fingertip", action="store_true", help="hide the fingertip")
     parser.add_argument("--dpi", type=int, default=DEFAULT_DPI)
     parser.add_argument("--show", action="store_true", help="open the Matplotlib window")
     return parser
@@ -355,9 +436,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (args.pareto is None) != (args.candidate is None):
         raise ValueError("--pareto and --candidate must be given together")
     if args.pareto is None:
-        linkage, title = BASELINE_LINKAGE_V0, "Baseline linkage V0: coupled joint angles"
-        output = args.output or DEFAULT_OUTPUT
-        curve_output = args.curve_output or DEFAULT_CURVE_OUTPUT
+        linkage = LINKAGES[args.linkage]
+        title = f"Linkage {args.linkage.upper()}: coupled joint angles"
+        output = args.output or Path(f"output/linkage_{args.linkage}_flexion_extension.gif")
+        curve_output = args.curve_output or Path(f"output/linkage_{args.linkage}_q2_q3.png")
     else:
         linkage = load_pareto_candidate(args.pareto, args.candidate)
         title = f"Stage-0 candidate #{args.candidate}: coupled joint angles"
@@ -369,7 +451,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     q1_values = build_q1_sequence(args.flexion_rad, args.frames)
     solver = LinkageKinematics(linkage)
     poses = solve_animation_poses(solver, q1_values)
-    figure, animation = create_animation(poses, fps=args.fps)
+    fingertip = None
+    if not args.no_fingertip:
+        # The fingertip is as long as BC: axis on B, pad tip on C.
+        fingertip = Fingertip(FingertipParameters(total_length_mm=linkage.parameters.bc_length_mm))
+    figure, animation = create_animation(
+        poses, fps=args.fps, fingertip=fingertip,
+        bc_length_mm=linkage.parameters.bc_length_mm,
+    )
     try:
         save_animation(animation, output, fps=args.fps, dpi=args.dpi)
         save_joint_curves(poses[:args.frames], curve_output, dpi=args.dpi, title=title)

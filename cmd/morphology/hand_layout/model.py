@@ -235,17 +235,15 @@ class HandMorphology:
         return FingerLinkage(self.parameters.linkage)
 
     @property
-    def fingertips(self) -> dict[str, Fingertip]:
-        lengths = self.parameters.fingertip_lengths
-        return {
-            name: Fingertip(
-                FingertipParameters(
-                    family=self.parameters.fingertip,
-                    total_length_mm=getattr(lengths, f"{name}_mm"),
-                )
+    def fingertip(self) -> Fingertip:
+        """The fingertip shared by all five digits, as long as the linkage BC."""
+
+        return Fingertip(
+            FingertipParameters(
+                family=self.parameters.fingertip,
+                total_length_mm=self.parameters.linkage.bc_length_mm,
             )
-            for name in ("index", "middle", "ring", "little", "thumb")
-        }
+        )
 
     @property
     def fingertip_transforms(self) -> dict[str, RigidTransform]:
@@ -259,19 +257,19 @@ class HandMorphology:
         layout = self.layout
         bc_mm = self.parameters.linkage.bc_length_mm
         distal = distal_link_transform(self.linkage.reference_positions)
-        fingertips = self.fingertips
+        fingertip = self.fingertip
         transforms = {
             finger: (
                 layout.linkage_transforms[f"{finger}_linkage"]
                 @ distal
                 @ fingertip_attachment(
-                    fingertips[finger], bc_mm, ORDINARY_FINGERTIP_LATERAL_OFFSET_MM
+                    fingertip, bc_mm, ORDINARY_FINGERTIP_LATERAL_OFFSET_MM
                 )
             )
             for finger in ("index", "middle", "ring", "little")
         }
         transforms["thumb"] = layout.joint_transforms["thumb_ip_fe"] @ fingertip_attachment(
-            fingertips["thumb"], bc_mm, THUMB_FINGERTIP_LATERAL_OFFSET_MM
+            fingertip, bc_mm, THUMB_FINGERTIP_LATERAL_OFFSET_MM
         )
         return transforms
 

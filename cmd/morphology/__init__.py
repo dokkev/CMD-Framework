@@ -17,7 +17,6 @@ from .linkage import (
     evaluate_linkage_workspace,
 )
 from .hand_layout import (
-    FingertipLengths,
     HandLayout,
     HandLayoutParameters,
     HandMorphology,
@@ -29,7 +28,6 @@ __all__ = [
     "Fingertip",
     "FingertipFamilyParameters",
     "FingertipParameters",
-    "FingertipLengths",
     "FingerLinkage",
     "FingerLinkageParameters",
     "PointXZ",

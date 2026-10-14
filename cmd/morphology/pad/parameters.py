@@ -12,11 +12,11 @@ from ..._validation import require_finite, require_positive
 class PadParameters:
     """Shared dimensions of the compliant fingertip pad, in millimetres."""
 
-    vertical_pad_width_mm: float = 25.0
-    vertical_pad_height_mm: float = 6.0
-    elliptical_pad_width_mm: float = 25.0
-    elliptical_pad_height_mm: float = 10.0
-    tip_length_mm: float = 15.0
+    vertical_pad_width_mm: float = 16.0
+    vertical_pad_height_mm: float = 3.0
+    elliptical_pad_width_mm: float = 16.0
+    elliptical_pad_height_mm: float = 7.0
+    tip_length_mm: float = 8.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -33,10 +33,10 @@ class PadParameters:
 class PhalanxParameters:
     """Shared cross-section dimensions of the rigid carrier and its stem."""
 
-    carrier_width_mm: float = 25.0
-    carrier_height_mm: float = 6.0
-    stem_width_mm: float = 8.0
-    stem_height_mm: float = 5.0
+    carrier_width_mm: float = 16.0
+    carrier_height_mm: float = 4.0
+    stem_width_mm: float = 6.0
+    stem_height_mm: float = 6.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -52,8 +52,11 @@ class PhalanxParameters:
 class FingertipFamilyParameters:
     """Shared structural morphology for all five fingertips.
 
+    The defaults approximate a human index distal segment: about 16 mm wide
+    and 14 mm thick (4 mm carrier plate, 3 + 7 mm pad).
+
     The carrier ends a shared ``carrier_distal_inset_mm`` before each digit's
-    total fingertip length. Its default baseline is 5 mm; callers may vary it
+    total fingertip length. Its default baseline is 3 mm; callers may vary it
     for the fingertip family. This keeps the distal carrier/pad relationship
     invariant as the proximal straight section changes length.
 
@@ -70,8 +73,8 @@ class FingertipFamilyParameters:
 
     pad: PadParameters = field(default_factory=PadParameters)
     phalanx: PhalanxParameters = field(default_factory=PhalanxParameters)
-    carrier_distal_inset_mm: float = 5.0
-    rotation_axis_offset_mm: float = 2.0
+    carrier_distal_inset_mm: float = 3.0
+    rotation_axis_offset_mm: float = -1.0
     minimum_pad_thickness_mm: float = 3.0
 
     def __post_init__(self) -> None:
@@ -192,10 +195,14 @@ def stem_corner_pad_thickness_mm(pad: PadParameters, phalanx: PhalanxParameters)
 
 @dataclass(frozen=True)
 class FingertipParameters:
-    """Parameters for one concrete digit using a shared fingertip family."""
+    """Parameters for one concrete fingertip using a shared fingertip family.
+
+    In a hand the total length is the linkage ``bc_length_mm``; the standalone
+    default is a human index distal segment length.
+    """
 
     family: FingertipFamilyParameters = field(default_factory=FingertipFamilyParameters)
-    total_length_mm: float = 40.0
+    total_length_mm: float = 24.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.family, FingertipFamilyParameters):

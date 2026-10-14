@@ -30,7 +30,6 @@ Conceptually:
 d =
 [
 d_{\mathrm{fingertip}},
-d_{\mathrm{tip\ length}},
 d_{\mathrm{linkage}},
 d_{\mathrm{hand}}
 ]
@@ -133,19 +132,17 @@ z = -h - c\sqrt{1 - (y/a)^2 - ((x - L_s)/b)^2}
 The distal-joint rotation axis (R.A.) runs along `Y_tip` through the carrier:
 
 - height: the fingertip-family parameter `rotation_axis_offset_mm`
-  (\(o_{RA}\), provisional default 2 mm) is the signed height above the
+  (\(o_{RA}\), provisional default −1 mm) is the signed height above the
   carrier shoulder plane, so \(z_{RA} = o_{RA}\); it must satisfy
   \(-h_s < o_{RA} < h_l\) so the axis lies in the rigid carrier
 - distance to the pad tip: \(l_{ep}\) always equals the linkage
-  `bc_length_mm`, which is its single source of truth, so
-  \(x_{RA} = L - l_{BC}\) and the linkage point `C` lands on the pad tip
+  `bc_length_mm`, which is its single source of truth
+- the fingertip total length also equals it, \(L = l_{ep} = l_{BC}\), so the
+  R.A. sits at the carrier's proximal end (\(x_{RA} = 0\)) and the linkage
+  point `C` lands on the pad tip
 
-`HandMorphologyParameters` requires \(l_{BC} > d_{\mathrm{carrier\ inset}}\)
-and \(L_i > l_{BC}\) for every digit, so the R.A. lies within every carrier.
 The R.A.-to-carrier-end distance \(l_{ext} = l_{BC} - d_{\mathrm{carrier\ inset}}\)
-is derived. Because \(l_{ep}\) is measured from the tip, changing a digit's
-length moves only the proximal section, not the axis relative to the tip.
-The coupler pin `C'` may sit outside the carrier envelope.
+is derived. The coupler pin `C'` may sit outside the carrier envelope.
 
 The pad depth below the axis, \(d_{pad} = o_{RA} + h_{fp} + h_{ep}\)
 (`pad_depth_below_rotation_axis_mm`), is the offset between the linkage `BC`
@@ -156,7 +153,7 @@ The fingertip family also requires a minimum compliant pad thickness
 `minimum_pad_thickness_mm` (\(t_{min}\), currently 3 mm): in the straight-body
 cross-section, the distance from a stem bottom corner to the nearest point of
 the pad boundary (lower half-ellipse, flat step, side wall) must be at least
-\(t_{min}\). The default geometry gives 8.5 mm.
+\(t_{min}\). The default geometry gives 3.16 mm.
 
 The fingertip attaches by placing its R.A. on the distal joint axis: `B` for
 ordinary fingers, the IP-FE axis for the thumb. The joint frame has its
@@ -171,7 +168,7 @@ lateral offset along the axis:
 \]
 
 `distal_link_transform(pose)` gives \({}^L T_{BC}\) and
-`fingertip_attachment(fingertip, lateral_offset_mm)` gives
+`fingertip_attachment(fingertip, bc_length_mm, lateral_offset_mm)` gives
 \({}^{BC} T_{\mathrm{tip}}\). `HandMorphology.fingertip_transforms` composes
 the reference-pose \({}^H T_{\mathrm{tip}}\) for all five digits. The lateral
 offsets are currently 0 for both ordinary fingers and the thumb.
@@ -180,7 +177,8 @@ offsets are currently 0 for both ordinary fingers and the thumb.
 
 # 3. Fingertip Morphology
 
-All five fingertips use the same **structural morphology**.
+All five digits use the same fingertip: one **structural morphology** and one
+length.
 
 The fingertip morphology family is shared across:
 
@@ -201,59 +199,52 @@ Shared parameters describe properties such as:
 
 The shared independent structural parameters are owned by
 `FingertipFamilyParameters`. A concrete `FingertipParameters` combines that
-family with one digit's total length.
+family with a total length, which in a hand is the linkage BC length.
+
+The default family approximates a human index distal segment (DIP breadth
+about 14–15 mm, distal segment about 24 mm long):
+
+| Parameter | Value |
+| --- | --- |
+| pad / carrier width \(w_{fp} = w_{ep} = w_l\) | 16 mm |
+| carrier plate height \(h_l\) | 4 mm |
+| stem width × height \(w_s \times h_s\) | 6 × 6 mm |
+| vertical pad height \(h_{fp}\) | 3 mm |
+| elliptical pad height \(h_{ep}\) | 7 mm |
+| distal nose length \(b\) | 8 mm |
+| carrier distal inset | 3 mm |
+| R.A. offset \(o_{RA}\) | −1 mm (centre of the 10 mm rigid depth) |
+| minimum pad thickness \(t_{min}\) | 3 mm |
+
+The total thickness is 14 mm. A standalone `FingertipParameters` defaults to
+a 24 mm length.
 
 ---
 
-## 3.1 Per-Digit Fingertip Length
+## 3.1 Fingertip Length
 
-The structural morphology is shared, but total fingertip length may vary by
-digit.
-
-Per-digit fingertip length is independently variable:
+The fingertip length is not an independent variable. Every digit's fingertip
+is as long as the shared ordinary-finger linkage BC:
 
 \[
-L_{\mathrm{tip}}
-=
-[
-L_I,
-L_M,
-L_R,
-L_L,
-L_T
-]
+L = l_{BC}
 \]
 
-where:
-
-- `L_I`: index fingertip length
-- `L_M`: middle fingertip length
-- `L_R`: ring fingertip length
-- `L_L`: little fingertip length
-- `L_T`: thumb fingertip length
-
-All other fingertip structural parameters remain shared unless this document
-is explicitly revised.
+The thumb reuses the same fingertip and length. `HandMorphologyParameters`
+checks that \(l_{BC}\) suits the fingertip family (for example, it must
+exceed the distal nose length).
 
 The carrier distal inset is a shared fingertip-family morphology parameter.
-Its current baseline value is 5 mm; it is not a fixed mechanical dimension:
+Its current baseline value is 3 mm; it is not a fixed mechanical dimension:
 
 \[
-d_{\mathrm{carrier\ inset}} = 5\ \mathrm{mm}
+L_{\mathrm{pad}}=L, \qquad
+L_{\mathrm{carrier}}=L-d_{\mathrm{carrier\ inset}}
 \]
 
-For each digit with total length \(L_i\):
-
-\[
-L_{\mathrm{pad},i}=L_i, \qquad
-L_{\mathrm{carrier},i}=L_i-d_{\mathrm{carrier\ inset}}
-\]
-
-Thus changing a digit's total length changes only the proximal straight
-section; the tip shape and carrier penetration into the distal tip remain
-identical across all five digits when the shared family parameters are held
-constant. These values are materialized by `FingertipParameters` and
-`Fingertip`.
+Changing the length changes only the proximal straight section; the tip shape
+and carrier penetration into the distal tip stay fixed. These values are
+materialized by `FingertipParameters` and `Fingertip`.
 
 ---
 
@@ -584,7 +575,8 @@ problems; current checks concern only the reference design assembly.
 ## Independent design variables
 
 - **Fingertip:** one shared family morphology, including the shared
-  `carrier_distal_inset_mm` (baseline 5 mm), and one total length per digit.
+  `carrier_distal_inset_mm` (baseline 3 mm) and the R.A. offset. Its length is
+  the linkage BC length, not a separate variable.
 - **Linkage:** one shared ordinary-finger linkage morphology.
 - **Hand layout:** middle, ring, and little MCP-AA `(x, y)`; thumb CMC-RO
   `(x, y)`; `theta`; CMC-RO to CMC-RAA distance; and `phi`.
@@ -605,7 +597,8 @@ problems; current checks concern only the reference design assembly.
 - Thumb CMC-RAA, MCP-FE, and IP-FE poses.
 - Hand-frame actuator poses.
 - Linkage coupler lengths derived from reference geometry.
-- Concrete fingertip geometry for each digit.
+- Concrete fingertip geometry (length = linkage BC) and its attachment
+  transforms.
 - URDF origins/orientations and packaging geometry in the hand frame.
 
 Derived quantities are not independent optimizer variables.
@@ -620,12 +613,12 @@ Derived quantities are not independent optimizer variables.
   - `linkage/`: `FingerLinkageParameters`, the reference `FingerLinkage`, its
     closed-form kinematics, sampled motion and workspace diagnostics, and the
     named designs `BASELINE_LINKAGE_V0` and `SELECTED_LINKAGE_V1`.
-  - `hand_layout/parameters.py` owns `HandLayoutParameters`,
-    `FingertipLengths`, and the whole-hand `HandMorphologyParameters`
-    aggregate.
+  - `hand_layout/parameters.py` owns `HandLayoutParameters` and the
+    whole-hand `HandMorphologyParameters` aggregate.
   - `hand_layout/model.py` materializes `HandLayout` and the composed
     `HandMorphology`. `HandLayout.linkage_transforms` owns ordinary
-    MCP-FE-to-linkage placement.
+    MCP-FE-to-linkage placement; `distal_link_transform` and
+    `fingertip_attachment` own fingertip placement.
 - `cmd/hardware`: actuator-local geometry and mechanical properties.
 - `cmd/design`: consumes morphology for feasibility constraints and URDF
   serialization; it does not reconstruct morphology transforms.
@@ -645,9 +638,11 @@ ordinary-finger linkage, and hand layout:
 HandMorphologyParameters
 ├── fingertip: FingertipFamilyParameters
 │   ├── shared structural morphology
-│   └── carrier_distal_inset_mm (shared; baseline 5 mm)
-├── fingertip_lengths: FingertipLengths (index, middle, ring, little, thumb)
-├── linkage: FingerLinkageParameters (shared by ordinary fingers)
+│   ├── carrier_distal_inset_mm (shared; baseline 3 mm)
+│   ├── rotation_axis_offset_mm (o_RA)
+│   └── minimum_pad_thickness_mm (t_min)
+├── linkage: FingerLinkageParameters (shared by ordinary fingers;
+│            bc_length_mm is also the fingertip length)
 └── layout: HandLayoutParameters
     ├── index MCP-AA: fixed root
     ├── middle/ring/little MCP-AA: x, y
@@ -655,7 +650,8 @@ HandMorphologyParameters
         RO→RAA distance, MCP-FE orientation phi
 
 HandMorphology
-├── fingertips[5]
+├── fingertip (shared, length = BC)
+├── fingertip_transforms[5]
 ├── linkage
 └── layout
     ├── joint transforms
@@ -669,7 +665,7 @@ The corresponding physical arrangement is:
 CLEAR Hand Morphology
 ├── Fingertip morphology
 │   ├── shared structural morphology
-│   └── per-digit total lengths: index, middle, ring, little, thumb
+│   └── length = linkage BC, shared by all five digits
 ├── Ordinary-finger linkage morphology
 │   └── one shared linkage design
 └── Hand layout
@@ -686,7 +682,7 @@ CLEAR Hand Morphology
 The following must not be guessed silently:
 
 - Exact actuator housing clocking about each revolute shaft axis.
-- The fixed transform attaching the distal linkage to each fingertip.
+- Non-zero lateral fingertip offsets along the distal joint axis.
 - Future Z-direction hand-layout design variables.
 - Swept-volume actuator collision constraints.
 - Runtime hand joint kinematics.
