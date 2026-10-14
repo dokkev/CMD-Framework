@@ -2,7 +2,7 @@ from dataclasses import fields
 
 import pytest
 
-from cmd.morphology import BASELINE_LINKAGE_V0, FingerLinkage, FingerLinkageParameters, PointXZ
+from cmd.experimental.linkage import BASELINE_LINKAGE_V0, FingerLinkage, FingerLinkageParameters, PointXZ
 
 
 def make_parameters(*, b_from_a: PointXZ = PointXZ(30.0, -5.0)) -> FingerLinkageParameters:
@@ -89,7 +89,7 @@ def test_baseline_v0_reference_geometry() -> None:
 
 
 def test_selected_v1_is_the_verified_stage0_choice() -> None:
-    from cmd.morphology import SELECTED_LINKAGE_V1
+    from cmd.experimental.linkage import SELECTED_LINKAGE_V1
 
     reference = SELECTED_LINKAGE_V1.reference_positions
     for point in (reference.ap, reference.bp, reference.b, reference.c):

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from cmd._validation import require_finite, require_nonnegative, require_positive
-from cmd.morphology.linkage import LinkageWorkspaceCriteria
+from cmd.experimental.linkage import LinkageWorkspaceCriteria
 
 from .design import VARIABLE_NAMES
 

@@ -250,6 +250,12 @@ materialized by `FingertipParameters` and `Fingertip`.
 
 # 4. Ordinary Finger Linkage Morphology
 
+> **Legacy.** The 3-joint, 1-DoF kinematically coupled FE finger is no longer
+> the planned architecture; a 2-DoF FE finger replaces it. The linkage code
+> now lives in `cmd/experimental/linkage` and its Stage-0 study in
+> `cmd/experimental/stage0`. The hand model still borrows its `BC` length and
+> distal-link frame for the fingertip until the 2-DoF finger defines them.
+
 Index, middle, ring, and little fingers share one linkage morphology, specified
 by `FingerLinkageParameters`. Its inputs are direct reference-pose translations
 in the canonical XZ plane; every point has `Y = 0`. The reference origin is
@@ -606,13 +612,10 @@ Derived quantities are not independent optimizer variables.
 # 13. Software Ownership
 
 - `cmd/geometry`: shared geometry primitives and rigid transforms.
-- `cmd/morphology`: morphology parameters, geometry, reference transform
-  chains, and linkage kinematics.
+- `cmd/morphology`: morphology parameters, geometry and reference transform
+  chains.
   - `pad/`: `FingertipFamilyParameters`, `FingertipParameters` and the
     `Fingertip` surface model.
-  - `linkage/`: `FingerLinkageParameters`, the reference `FingerLinkage`, its
-    closed-form kinematics, sampled motion and workspace diagnostics, and the
-    named designs `BASELINE_LINKAGE_V0` and `SELECTED_LINKAGE_V1`.
   - `hand_layout/parameters.py` owns `HandLayoutParameters` and the
     whole-hand `HandMorphologyParameters` aggregate.
   - `hand_layout/model.py` materializes `HandLayout` and the composed
@@ -622,8 +625,12 @@ Derived quantities are not independent optimizer variables.
 - `cmd/hardware`: actuator-local geometry and mechanical properties.
 - `cmd/design`: consumes morphology for feasibility constraints and URDF
   serialization; it does not reconstruct morphology transforms.
-- `cmd/optimization/stage0`: the ordinary-finger linkage optimization
-  (see `docs/optimization/stage0.md`).
+- `cmd/experimental`: legacy components outside the canonical model.
+  - `linkage/`: `FingerLinkageParameters`, the reference `FingerLinkage`, its
+    closed-form kinematics, sampled motion and workspace diagnostics, and the
+    named designs `BASELINE_LINKAGE_V0` and `SELECTED_LINKAGE_V1`.
+  - `stage0/`: the ordinary-finger linkage optimization
+    (see `docs/optimization/stage0.md`).
 - `cmd/visualization`: visualization only.
 
 `cmd/morphology` is the source of truth for morphology geometry, and

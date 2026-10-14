@@ -37,19 +37,18 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.morphology import (  # noqa: E402
+from cmd.experimental.linkage import (  # noqa: E402
     BASELINE_LINKAGE_V0,
     SELECTED_LINKAGE_V1,
     FingerLinkage,
-    Fingertip,
-    FingertipParameters,
     KinematicClosureError,
     LinkageKinematics,
     LinkagePose,
     PointXZ,
 )
+from cmd.morphology import Fingertip, FingertipParameters  # noqa: E402
 from cmd.morphology.hand_layout import distal_link_transform, fingertip_attachment  # noqa: E402
-from cmd.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
+from cmd.experimental.stage0 import VARIABLE_NAMES, decode  # noqa: E402
 
 
 DEFAULT_FLEXION_RAD = 0.8

@@ -5,11 +5,9 @@ import math
 
 import pytest
 
-from cmd.morphology import (
+from cmd.experimental.linkage import (
     BASELINE_LINKAGE_V0, LinkageMotionEvaluator, LinkageWorkspaceCriteria, PointXZ,
     evaluate_linkage_workspace,
-)
-from cmd.morphology.linkage import (
     KinematicClosureError,
     LinkageKinematics,
     unwrap_principal_angles,

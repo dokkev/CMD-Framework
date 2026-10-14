@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..pad import FingertipFamilyParameters, FingertipParameters
-from ..linkage import FingerLinkageParameters
+from ...experimental.linkage import FingerLinkageParameters
 from ..._validation import require_finite, require_positive
 
 

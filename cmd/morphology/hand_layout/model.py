@@ -12,7 +12,7 @@ import math
 from dataclasses import dataclass
 
 from ...geometry import RigidTransform, Vector3
-from ..linkage import FingerLinkage, LinkagePose, ReferencePositions
+from ...experimental.linkage import FingerLinkage, LinkagePose, ReferencePositions
 from ..pad import Fingertip, FingertipParameters
 from . import HandLayoutParameters, HandMorphologyParameters
 

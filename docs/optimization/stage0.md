@@ -1,5 +1,8 @@
 # Stage-0: Linkage Optimization for the Ordinary Fingers
 
+> **Legacy.** The 1-DoF coupled linkage is no longer the planned finger
+> architecture. This study is kept for reference in `cmd/experimental`.
+
 Stage-0 searches the 1-DoF coupled linkage shared by the index, middle, ring
 and little fingers. It is a **linkage-only kinematic** study: one actuator
 drives the MCP, two coupler loops drive the PIP and DIP, and Stage-0 looks for
@@ -15,7 +18,7 @@ and that stay safe for at least 20° of MCP flexion past that grasp pose.
 Fingertip geometry, palm/housing interference, actuator torque and contact
 forces are out of scope here (see [Next stages](#next-stages)).
 
-Code: [`cmd/optimization/stage0/`](../../cmd/optimization/stage0/).
+Code: [`cmd/experimental/stage0/`](../../cmd/experimental/stage0/).
 Linkage model and conventions: [morphology source of truth](../design/morphology_source_of_truth.md), §4.
 
 ---
@@ -138,7 +141,7 @@ Pareto score alone does not pick the design. Candidates go through:
 1. **Screening** on `pareto.csv`: grasp MCP ≤ 60°, facing error ≤ 10°
    (post-grasp safety ≥ 20° and margin ≥ 30° are already enforced).
 2. **Dense verification**
-   ([`verify.py`](../../cmd/optimization/stage0/verify.py)): the sweep is
+   ([`verify.py`](../../cmd/experimental/stage0/verify.py)): the sweep is
    repeated on a 0.05° grid. The safe range must keep margins ≥ 30°, close, and
    let q2/q3 fall back by at most 0.1° (a DIP that stalls at its peak backs off
    by about 0.01°). Past the safe limit the first near-singular pose (margin
@@ -209,7 +212,7 @@ FingerLinkageParameters(
 | Pin spacings | A–A' 20.1, A–B' 20.8, B–B' 32.3, B–C' 15.5 mm |
 
 `BASELINE_LINKAGE_V0` (the optimizer seed) is kept as the comparison reference.
-Both live in [`seed.py`](../../cmd/morphology/linkage/seed.py).
+Both live in [`seed.py`](../../cmd/experimental/linkage/seed.py).
 
 ## 10. Design decisions
 

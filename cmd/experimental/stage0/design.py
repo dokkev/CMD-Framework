@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from cmd.morphology.linkage import FingerLinkage, FingerLinkageParameters, PointXZ
+from cmd.experimental.linkage import FingerLinkage, FingerLinkageParameters, PointXZ
 
 
 VARIABLE_NAMES: tuple[str, ...] = (

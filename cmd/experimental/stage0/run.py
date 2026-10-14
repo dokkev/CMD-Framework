@@ -18,7 +18,7 @@ from pymoo.operators.repair.rounding import RoundingRepair
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
 
-from cmd.morphology.linkage import BASELINE_LINKAGE_V0
+from cmd.experimental.linkage import BASELINE_LINKAGE_V0
 
 from .config import Stage0Config
 from .design import VARIABLE_NAMES, decode, encode

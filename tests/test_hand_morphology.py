@@ -4,9 +4,8 @@ from dataclasses import replace
 import pytest
 
 from cmd.geometry import RigidTransform
+from cmd.experimental.linkage import BASELINE_LINKAGE_V0, SELECTED_LINKAGE_V1
 from cmd.morphology import (
-    BASELINE_LINKAGE_V0,
-    SELECTED_LINKAGE_V1,
     FingertipFamilyParameters,
     HandLayout,
     HandLayoutParameters,
@@ -23,7 +22,7 @@ from cmd.morphology.hand_layout import (
     THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM,
     distal_link_transform,
 )
-from cmd.morphology.linkage import LinkageKinematics
+from cmd.experimental.linkage import LinkageKinematics
 
 
 def make_layout_parameters(

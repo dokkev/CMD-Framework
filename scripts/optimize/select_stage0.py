@@ -5,7 +5,7 @@
 
 Each run's Pareto candidates are screened on their grasp MCP angle and facing
 error, then re-checked on a fine MCP grid (see
-:func:`cmd.optimization.stage0.verify.verify_candidate`). Candidates are
+:func:`cmd.experimental.stage0.verify.verify_candidate`). Candidates are
 reported best transmission quality first, with the window between the safe
 limit and the first near-singular pose where a mechanical stopper may go.
 """
@@ -23,9 +23,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.morphology.linkage import LinkageWorkspaceCriteria  # noqa: E402
-from cmd.optimization.stage0 import VARIABLE_NAMES, Stage0Config, decode  # noqa: E402
-from cmd.optimization.stage0.verify import verify_candidate  # noqa: E402
+from cmd.experimental.linkage import LinkageWorkspaceCriteria  # noqa: E402
+from cmd.experimental.stage0 import VARIABLE_NAMES, Stage0Config, decode  # noqa: E402
+from cmd.experimental.stage0.verify import verify_candidate  # noqa: E402
 
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "outputs" / "stage0" / "shortlist.csv"

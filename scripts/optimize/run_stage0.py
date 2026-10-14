@@ -16,9 +16,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.morphology.linkage import LinkageWorkspaceCriteria  # noqa: E402
-from cmd.optimization.stage0 import Stage0Config  # noqa: E402
-from cmd.optimization.stage0.run import run_stage0, save_stage0_result  # noqa: E402
+from cmd.experimental.linkage import LinkageWorkspaceCriteria  # noqa: E402
+from cmd.experimental.stage0 import Stage0Config  # noqa: E402
+from cmd.experimental.stage0.run import run_stage0, save_stage0_result  # noqa: E402
 
 
 OUTPUT_ROOT = REPOSITORY_ROOT / "outputs" / "stage0"

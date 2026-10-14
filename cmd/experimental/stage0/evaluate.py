@@ -53,7 +53,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from cmd.morphology.linkage import (
+from cmd.experimental.linkage import (
     FingerLinkageParameters,
     LinkageMotionEvaluation,
     LinkageMotionEvaluator,

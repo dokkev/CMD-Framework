@@ -1,6 +1,6 @@
 """Stage-0: NSGA-II search for initial ordinary-finger linkage parameters.
 
-The pymoo runner lives in :mod:`cmd.optimization.stage0.run` and is not
+The pymoo runner lives in :mod:`cmd.experimental.stage0.run` and is not
 imported here, so configuration and evaluation work without pymoo.
 """
 

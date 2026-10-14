@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from cmd.morphology.linkage import FingerLinkageParameters, LinkageMotionEvaluator
+from cmd.experimental.linkage import FingerLinkageParameters, LinkageMotionEvaluator
 
 from .config import Stage0Config
 
