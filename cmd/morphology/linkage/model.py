@@ -1,0 +1,212 @@
+"""Geometry and closed-form kinematics of the 2-DoF polycentric finger.
+
+The MCP (``O``) and PIP (``A``) are actuated. The DIP (``B'``) is passive:
+the crossed four-bar ``A-B'-B-A'`` on the proximal link couples it to the
+PIP alone, so ``q_dip`` is a function of ``q_pip`` and the MCP only turns the
+whole finger. Flexion angles are positive and turn ``+X`` toward ``-Z``.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+from ..._validation import require_finite
+from . import FingerLinkageParameters, PointXZ
+
+
+_TOLERANCE = 1e-10
+
+
+class KinematicClosureError(ValueError):
+    """Raised when the four-bar cannot close at a requested pose."""
+
+
+@dataclass(frozen=True)
+class FingerPose:
+    """One solved pose; joint angles are flexion from the reference pose."""
+
+    q_mcp_rad: float
+    q_pip_rad: float
+    q_dip_rad: float
+    o: PointXZ
+    a: PointXZ
+    ap: PointXZ
+    bp: PointXZ
+    b: PointXZ
+    c: PointXZ
+
+    @property
+    def transmission_angle_rad(self) -> float:
+        """Angle at ``B`` between the coupler ``B->A'`` and the distal link ``B->B'``.
+
+        The four-bar reaches a dead point when it is 0 or pi.
+        """
+
+        return _angle_between(_subtract(self.ap, self.b), _subtract(self.bp, self.b))
+
+    @property
+    def transmission_margin_rad(self) -> float:
+        """Distance of the transmission angle from the nearest dead point."""
+
+        angle = self.transmission_angle_rad
+        return min(angle, math.pi - angle)
+
+
+@dataclass(frozen=True)
+class FingerLinkage:
+    """Reference geometry and pose solver for one finger linkage.
+
+    The four-bar must be crossed in the reference pose: the middle link
+    ``A-B'`` and the coupler ``A'-B`` intersect, so the DIP flexes with the
+    PIP. The assembly branch of ``B`` is fixed by the reference pose.
+    """
+
+    parameters: FingerLinkageParameters
+    _branch: int = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.parameters, FingerLinkageParameters):
+            raise TypeError("parameters must be a FingerLinkageParameters instance")
+        if not self.is_crossed:
+            raise ValueError("the four-bar A-B'-B-A' must be crossed: A-B' and A'-B must intersect")
+        side = _cross(_subtract(self.ap, self.bp), _subtract(self.b, self.bp))
+        if abs(side) <= _TOLERANCE:
+            raise ValueError("the reference four-bar is at a dead point")
+        object.__setattr__(self, "_branch", 1 if side > 0.0 else -1)
+
+    @property
+    def o(self) -> PointXZ:
+        return PointXZ(0.0, 0.0)
+
+    @property
+    def a(self) -> PointXZ:
+        return PointXZ(self.parameters.a_x_mm, 0.0)
+
+    @property
+    def ap(self) -> PointXZ:
+        return self.parameters.ap
+
+    @property
+    def bp(self) -> PointXZ:
+        return self.parameters.bp
+
+    @property
+    def b(self) -> PointXZ:
+        return PointXZ(self.parameters.b_x_mm, 0.0)
+
+    @property
+    def c(self) -> PointXZ:
+        return PointXZ(self.parameters.b_x_mm + self.parameters.bc_length_mm, 0.0)
+
+    @property
+    def is_crossed(self) -> bool:
+        """Whether the middle link ``A-B'`` and the coupler ``A'-B`` intersect."""
+
+        return _segments_intersect(self.a, self.bp, self.ap, self.b)
+
+    def solve(self, q_mcp_rad: float, q_pip_rad: float) -> FingerPose:
+        """Return the pose for the two actuated flexion angles."""
+
+        q_mcp_rad = require_finite("q_mcp_rad", q_mcp_rad)
+        q_pip_rad = require_finite("q_pip_rad", q_pip_rad)
+
+        # Close the four-bar in the proximal-link frame, which is the
+        # reference frame, then turn the whole finger about O.
+        bp = _add(self.a, _rotate(_subtract(self.bp, self.a), -q_pip_rad))
+        b = self._close(bp)
+        distal_rad = _signed_rotation(_subtract(self.b, self.bp), _subtract(b, bp))
+        c = _add(b, _rotate(_subtract(self.c, self.b), distal_rad))
+
+        def turn(point: PointXZ) -> PointXZ:
+            return _rotate(point, -q_mcp_rad)
+
+        return FingerPose(
+            q_mcp_rad=q_mcp_rad,
+            q_pip_rad=q_pip_rad,
+            q_dip_rad=math.remainder(-(distal_rad + q_pip_rad), 2.0 * math.pi),
+            o=self.o,
+            a=turn(self.a),
+            ap=turn(self.ap),
+            bp=turn(bp),
+            b=turn(b),
+            c=turn(c),
+        )
+
+    def _close(self, bp: PointXZ) -> PointXZ:
+        """Return ``B`` on the reference branch, given the posed ``B'``."""
+
+        candidates = _circle_intersections(
+            bp, self.ap, self.bp.distance_to(self.b), self.ap.distance_to(self.b)
+        )
+        for candidate in candidates:
+            side = _cross(_subtract(self.ap, bp), _subtract(candidate, bp))
+            if len(candidates) == 1 or side * self._branch > 0.0:
+                return candidate
+        raise KinematicClosureError("no closure on the reference assembly branch")
+
+
+def _circle_intersections(
+    center_0: PointXZ, center_1: PointXZ, radius_0: float, radius_1: float
+) -> tuple[PointXZ, ...]:
+    delta = _subtract(center_1, center_0)
+    distance = _length(delta)
+    tolerance = _TOLERANCE * max(1.0, distance, radius_0, radius_1)
+    if distance <= tolerance:
+        raise KinematicClosureError("the four-bar closure circles are concentric")
+    if distance > radius_0 + radius_1 + tolerance or distance < abs(radius_0 - radius_1) - tolerance:
+        raise KinematicClosureError("the four-bar cannot close")
+    along = (radius_0 ** 2 - radius_1 ** 2 + distance ** 2) / (2.0 * distance)
+    height = math.sqrt(max(0.0, radius_0 ** 2 - along ** 2))
+    unit = (delta.x_mm / distance, delta.z_mm / distance)
+    middle = PointXZ(center_0.x_mm + along * unit[0], center_0.z_mm + along * unit[1])
+    if height <= tolerance:
+        return (middle,)
+    offset = PointXZ(-unit[1] * height, unit[0] * height)
+    return (_add(middle, offset), _subtract(middle, offset))
+
+
+def _segments_intersect(p0: PointXZ, p1: PointXZ, q0: PointXZ, q1: PointXZ) -> bool:
+    """Whether the open segments ``p0-p1`` and ``q0-q1`` properly cross."""
+
+    d1 = _cross(_subtract(p1, p0), _subtract(q0, p0))
+    d2 = _cross(_subtract(p1, p0), _subtract(q1, p0))
+    d3 = _cross(_subtract(q1, q0), _subtract(p0, q0))
+    d4 = _cross(_subtract(q1, q0), _subtract(p1, q0))
+    return d1 * d2 < 0.0 and d3 * d4 < 0.0
+
+
+def _signed_rotation(reference: PointXZ, current: PointXZ) -> float:
+    return math.atan2(_cross(reference, current), _dot(reference, current))
+
+
+def _angle_between(first: PointXZ, second: PointXZ) -> float:
+    return abs(_signed_rotation(first, second))
+
+
+def _rotate(point: PointXZ, angle_rad: float) -> PointXZ:
+    cosine, sine = math.cos(angle_rad), math.sin(angle_rad)
+    return PointXZ(cosine * point.x_mm - sine * point.z_mm, sine * point.x_mm + cosine * point.z_mm)
+
+
+def _add(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm + second.x_mm, first.z_mm + second.z_mm)
+
+
+def _subtract(first: PointXZ, second: PointXZ) -> PointXZ:
+    return PointXZ(first.x_mm - second.x_mm, first.z_mm - second.z_mm)
+
+
+def _length(point: PointXZ) -> float:
+    return math.hypot(point.x_mm, point.z_mm)
+
+
+def _dot(first: PointXZ, second: PointXZ) -> float:
+    return first.x_mm * second.x_mm + first.z_mm * second.z_mm
+
+
+def _cross(first: PointXZ, second: PointXZ) -> float:
+    return first.x_mm * second.z_mm - first.z_mm * second.x_mm
+
+
+__all__ = ["FingerLinkage", "FingerPose", "KinematicClosureError"]
