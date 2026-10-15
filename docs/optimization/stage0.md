@@ -1,258 +1,214 @@
-# Stage-0: Linkage Optimization for the Ordinary Fingers
+# CoDe Hand — Stage-0: Linkage Seed Generation
 
-> **Legacy.** The 1-DoF coupled linkage is no longer the planned finger
-> architecture. This study is kept for reference in `cmd/experimental`.
+> **상태:** 설계 Master Document (2026-10-15)  
+> **역할:** Stage-1의 초기값으로 사용할 다양한 linkage seed 생성  
+> **원칙:** Stage-0에서 최종 hand design을 결정하지 않는다.
 
-Stage-0 searches the 1-DoF coupled linkage shared by the index, middle, ring
-and little fingers. It is a **linkage-only kinematic** study: one actuator
-drives the MCP, two coupler loops drive the PIP and DIP, and Stage-0 looks for
-morphologies that
+## 1. 목적과 범위
 
-1. move healthily (no singularity, no joint reversal) over a useful MCP range,
-2. bring the distal pad to face the proximal phalanx with room for an object
-   (a grasp pose), as early in the MCP flexion as possible, and
-3. transmit force well on the way there,
+Stage-0은 **기구학적으로 유효하고 서로 다른 장점을 가진 finger linkage 후보들을 생성하는 seed generator**다. 특정 contact interface나 hand-level opposition task에 최적화된 최종 손가락을 선정하는 단계가 아니다.
 
-and that stay safe for at least 20° of MCP flexion past that grasp pose.
+**포함**
+- Linkage kinematics, transmission, flexion capability
+- OA/BC structural length
+- 기본 servo/housing 및 mechanism packaging
+- Pareto frontier와 대표 seed 추출
 
-Fingertip geometry, palm/housing interference, actuator torque and contact
-forces are out of scope here (see [Next stages](#next-stages)).
+**제외 (Stage-1 이후)**
+- Proximal/distal contact interface의 형상, 두께, 길이, mounting
+- Pad–pad collision, contact mechanics 및 contact coverage
+- Hand layout, thumb/finger opposition motion
+- Contact morphology optimization 또는 co-design
 
-Code: [`cmd/experimental/stage0/`](../../cmd/experimental/stage0/).
-Linkage model and conventions: [morphology source of truth](../design/morphology_source_of_truth.md), §4.
+Stage-1에서는 Stage-0 seed를 **초기값으로 재사용하며 linkage를 다시 최적화할 수도 있다.**
 
----
+## 2. 설계변수와 기준 형상
 
-## 1. Linkage and notation
+기존 extension 기준의 XZ 평면 좌표와 linkage 정의를 유지한다. `OA`는 proximal structural segment, `BC`는 distal structural segment이며, extension에서 `BC`와 `OA`는 같은 방향으로 평행하다.
 
-Points are in the canonical XZ plane (+X distal, +Z dorsal) of the fully
-extended reference pose, with the MCP joint O at the origin.
+\[
+\boldsymbol\xi=[A_x,BC,B_x,B_z,A'_x,A'_z,B'_x,B'_z,\alpha_{\mathrm{servo}}]^{\mathsf T}.
+\]
 
-| Body | Points | Role |
-| --- | --- | --- |
-| ground | O, O' | O: MCP axis (actuated); O': coupler 1 ground pivot |
-| proximal link | O, A, A' | rotates by q1 (MCP) |
-| middle link | A, B, B' | rotates about A by q2 (PIP) |
-| distal link (pad) | B, C, C' | rotates about B by q3 (DIP); BC is the pad |
-| coupler 1 | O'–B' | closes loop 1, sets q2 |
-| coupler 2 | A'–C' | closes loop 2, sets q3 |
+| 설계변수 | 현재 탐색 범위 | 비고 |
+|---|---|---|
+| `A_x = OA` | 5–120 mm | Proximal 길이. 사실상 unbound; servo 간섭 제약이 결정 |
+| `BC` | 30–50 mm | Distal 길이 (middle + distal phalanx) |
+| `B_x` | 40–100 mm | Extension 기준 |
+| `B_z` | −10–10 mm | Extension 기준 |
+| `A'_x` | 20–100 mm | |
+| `A'_z` | 0–20 mm | OA 기준면 제약의 closed form으로 탐색 시 `>= 9.5 mm`로 축소 |
+| `B'_x` | −50–200 mm | 사실상 unbound |
+| `B'_z` | −60–80 mm | 사실상 unbound |
+| Servo tilt | 0–45° | |
 
-Flexion angles q1, q2, q3 are positive in flexion and measured from the
-reference pose. The pad rotation from +X is q1 + q2 + q3.
+현재 0.1 격자: 거리·좌표 **0.1 mm**, 각도 **0.1°**. 기존 구현의 변수 정의와 이산화 방식을 재사용한다.
 
-## 2. Design vector
+구현: `cmd/optimization/stage0` (config, design, evaluate, run), 실행 `scripts/optimize/run_stage0.py`, 검증 `scripts/optimize/select_stage0.py`, 시각화 `scripts/optimize/plot_stage0_pareto.py`, `scripts/animate_finger.py`. 범위와 하드웨어는 `run_stage0.py`의 `CONFIG`(bounds, `Packaging`)가 기준이다.
 
-Ten components of `FingerLinkageParameters`, searched on a **0.1 mm grid**:
+Extension에서 `O=(0,0)`, `C=(B_x+BC,B_z)`이면:
 
-| Variable | Bounds [mm] | Note |
-| --- | --- | --- |
-| `op_from_o_x_mm` | 14.5 – 30.0 | physical (actuator/palm packaging) |
-| `op_from_o_z_mm` | 3.8 – 27.5 | physical |
-| `a_from_o_x_mm` | 20 – 50 | |
-| `a_from_o_z_mm` | −10 – 30 | A at most 30 mm dorsal |
-| `ap_from_o_x_mm` | 15 – 45 | |
-| `b_from_a_x_mm` | 10 – 40 | |
-| `bp_from_a_x_mm` | −10 – 20 | |
-| `bc_length_mm` | 20 – 35 | pad length |
-| `cp_from_b_x_mm` | −25 – 5 | |
-| `cp_from_b_z_mm` | −10 – 20 | |
+\[
+80\le |OC|_{\mathrm{extension}}=\sqrt{(B_x+BC)^2+B_z^2}\le100\quad[\mathrm{mm}].
+\]
 
-Only the O' bounds (and the A height limit) are physical. The others are wide
-enough not to bind; the design space is shaped by the constraints instead.
+`BC >= 30`인 현재 범위에서는 이 제약으로 `B_x <= 70 mm`를 해석적으로 얻을 수 있다. 기존 bounds를 즉시 변경할 필요는 없으며, 필요하면 단순 탐색 pruning에 활용한다.
 
-**Derived, not searched.** In the reference pose Stage-0 places A', B', B and C
-on z = 0, so OA', B'B and BC all lie along +X:
+## 3. Pareto Objectives — 3개
+
+\[
+\boxed{
+\min_{\boldsymbol\xi}
+\begin{bmatrix}
+ k_{\max}(\boldsymbol\xi)\\
+ -(OA+BC)\\
+ 180^\circ-\phi_{\mathrm{safe,max}}(\boldsymbol\xi)
+\end{bmatrix}
+}
+\]
+
+| Objective | 최적화 방향 | 의미 |
+|---|---|---|
+| **1. Transmission** | `k_max` 최소 | 최악의 angular transmission ratio 개선 |
+| **2. Structural length** | `OA + BC` 최대 | Proximal/distal contact-support **capacity** 확보 |
+| **3. Full curl** | `φ_safe,max` 최대 | Extension에서 180°에 가능한 한 가깝게 굽힘 |
+
+### 3.1 Transmission
+
+\[
+k=\frac{d\phi_{\mathrm{distal}}}{d\theta_{\mathrm{servo}}},\qquad
+k_{\max}=\max_{q\in\mathcal Q_{\mathrm{safe}}(\boldsymbol\xi)}|k(q)|.
+\]
+
+- `φ_distal`은 proximal에 대한 distal의 연속적인 상대 방향각이다. Extension에서 0°, 반대 방향으로 접히면 180°가 된다.
+- 이상적인 **순수 distal moment**에 대해 `|τ_servo| = |k| |M_distal|`이다. Fingertip force 성능과 동일시하지 않는다.
+- **별도의 최소 flexion 하한을 도입하지 않으므로**, 각 후보의 실제 safe motion interval에서 `k_max`를 계산하고 그 평가 범위를 반드시 함께 기록한다. 서로 다른 구간의 `k_max`를 직접 비교할 때 생기는 편향은 결과 해석에서 명시한다.
+
+### 3.2 Structural length
+
+\[
+f_2=-(OA+BC).
+\]
+
+RCM joint 주변보다 contact interface를 설치하기 유리한 **두 structural segment의 총 길이**를 최대화한다. 실제 pad usable length, mounting margin, pad geometry를 Stage-0에 추가하지 않는다.
+
+논문에서 objective를 직관적으로 표현하기 위한 형태다. `|OC|`가 상한에 붙는 경우 기존의 `|AB|` 최소화와 거의 같은 방향이다.
+
+### 3.3 Full curl
+
+\[
+\phi_{\mathrm{safe,max}}=
+\max\{\phi\in[0^\circ,180^\circ]\mid
+\text{extension부터 해당 자세까지 연속적으로 안전하게 도달 가능}\},
+\]
+
+\[
+f_3=180^\circ-\phi_{\mathrm{safe,max}}.
+\]
+
+- `180°`는 **선호하는 목표**이며 hard constraint가 아니다.
+- 최소 굽힘으로 **`φ_safe,max >= 150°`를 hard constraint**로 둔다. 거의 굽지 못하는 후보가 짧은 평가 구간 덕분에 작은 `k_max`를 얻어 transmission best가 되는 것을 막는다. 그 이상 필요한 굽힘 범위는 Stage-1에서 판단한다.
+- `φ_safe,max`는 동일한 kinematic branch에서 특이점, 역행 금지, 기본 mechanism collision 조건을 만족하는 최대 굽힘각이다.
+- 기존처럼 servo total travel 상한은 두지 않는다. 실제 필요한 회전량은 diagnostic으로 기록한다.
+
+## 4. Constraints
+
+### 4.1 유지할 기구학·형상 제약
+
+- Extension 기준 자세에서 closed-loop가 성립하고 특이점이 없을 것
+- 평가 범위에서 continuous branch closure 유지
+- **B′ transmission-angle margin ≥ 30°** (일직선 정렬의 양방향 모두 회피)
+- DIP 및 구동 링크(`A'–B`)의 역행 금지 — 기존 판정 방식 재사용
+- **`φ_safe,max >= 150°`** (OA–BC 최소 굽힘)
+- Extension `|OC| = 80–100 mm` (최대 손가락 길이 10 cm)
+- **`BC <= OA`** (`bc_to_oa_ratio_max = 1`): 접었을 때 손끝이 O 뒤로 크게 넘어가지 않도록 하는 단순 대리 제약. 정확한 `C_x >= O_x`는 4.3에서 보류
+- 같은 강체의 pivot 간격 `|A–B'|`, `|B'–B| >= 6.5 mm` (두 bushing housing이 맞닿는 거리)
+- 기존 변수 bounds 및 이미 유도된 해석적 feasibility 조건
+
+### 4.2 유지할 기본 packaging
+
+| 검사 | 현재 기준 |
+|---|---|
+| 두 servo 몸체 | clearance ≥ 1 mm, 기존 MCP −10°~0° sweep |
+| A housing (Ø6.5) – PIP servo | ≥ 1 mm |
+| B′ housing – PIP servo | ≥ 1 mm, 평가 motion 전 범위 |
+| PIP servo 하단의 OA 기준면 침범 | 기존 `z >= 0` 유지 |
+
+- Pin bushing은 McMaster **2706T72** (3 mm shaft, OD 4.5 mm, 길이 5 mm, flange Ø7.5 × 0.75), housing 벽은 **알루미늄 가공 1.0 mm**: housing Ø6.5. 치수는 모두 `Packaging`에서 바꾼다.
+- 실제 Y-layer가 분리된 부품은 XZ 투영 교차만으로 collision 판정하지 않는다.
+- 기존 **middle link–servo** 간섭은 별도 층이라는 전제하에 report-only 상태를 유지한다.
+- **Servo 회전량 hard upper bound는 없음.**
+- 선택한 fingertip/contact pad의 외곽 형상이 필요한 **fingertip–MCP servo 간섭** 검사는 Stage-1에서 수행한다. Mechanism 자체의 간섭 검사는 Stage-0에 남긴다.
+
+### 4.3 Exact curl에 종속된 기존 제약 — 재검토 대상
+
+기존의 `φ = 180°` hard constraint를 완화하므로, 아래 검사를 **그대로 강제해서는 안 된다.**
+
+| 기존 조건 | 현재 방침 |
+|---|---|
+| `q_PIP + q_DIP = 180°` | Hard constraint 제거 → Objective 3 |
+| `−10° ~ curl + 10°` 범위 닫힘 | Extension 쪽 여유는 유지 가능한지 확인; `curl+10°`는 endpoint 정의 후 재검토 |
+| Curl gap: OA선–BC선 ≥ 20 mm | 비평행 상태에서 기존 infinite-line distance는 부적절. **Stage-0에서 삭제**, contact interface와 함께 Stage-1에서 정의 |
+| Curl에서 `MCP=0`, `C_x >= O_x` | Candidate-specific endpoint로 재정의하기 전에는 **미적용** |
+
+미적용 항목을 코드에서 조용히 삭제하지 말고, Stage-0 결과/설정에 **보류 이유**를 남긴다. Contact interface와 연결된 구체적인 clearance 요구는 Stage-1로 넘긴다.
+
+## 5. 평가와 Seed Selection
+
+### Candidate Evaluation
+
+1. 설계변수로 linkage를 구성하고 extension feasibility를 검사한다.
+2. 의도한 굽힘 방향으로 **동일한 closed-loop branch**를 추적한다.
+3. 기구학·기본 packaging 제약을 만족하는 `φ_safe,max`를 180°까지 탐색한다.
+4. 해당 safe interval에서 `k_max`를 평가하고 `OA + BC`, `e_curl`을 계산한다.
+5. Feasibility, constraint margin, servo travel을 기록한다.
+
+### Exported Seeds
+
+**각 Pareto objective의 best candidate를 반드시 포함한다.**
+
+- **Best transmission:** 최소 `k_max`
+- **Best length:** 최대 `OA + BC`
+- **Best curl:** 최대 `φ_safe,max`
+- **Balanced:** 검증된 frontier에서 각 objective를 `[0, 1]`로 정규화했을 때 ideal point에 가장 가까운 후보 (세 objective의 절충)
+- **Intermediate seeds:** 서로 다른 trade-off를 대표하는 non-dominated 후보
+
+세 best candidate가 같으면 중복을 제거한다. 가능하면 전체 feasible non-dominated frontier도 보존한다.
+
+기존 `k_max <= 1.05 × k_best` 규칙은 **대표 설계 하나를 표시하는 옵션**으로만 남기며, 다른 seed를 버리는 필터로 사용하지 않는다.
+
+### 저장할 정보
+
+- Design vector `ξ` 및 geometry
+- `k_max`와 **그 평가 motion interval**
+- `OA`, `BC`, `OA + BC`
+- `φ_safe,max`, `e_curl`
+- Servo travel
+- Transmission-angle / packaging 최소 여유
+- Feasibility 및 제약 판정 결과
+
+## 6. Stage-1과의 연결
 
 ```text
-ap_from_o.z = 0,   b_from_a.z = bp_from_a.z = -a_from_o.z,   C = B + (bc_length_mm, 0)
+Stage-0: Linkage Seed Generation
+   └─ Pareto best (transmission / length / curl)
+   └─ Diverse intermediate feasible seeds
+                     ↓
+Stage-1: Contact-Aware Hand Optimization
+   └─ Contact interface geometry 입력
+   └─ Hand layout + opposition motion 평가
+   └─ 필요한 경우 linkage parameters 재최적화
+                     ↓
+Future: Contact Morphology–Mechanism Co-Design
 ```
 
-The last relation is the morphology's definition of the fully extended pose.
-Fixing the heights lost almost no transmission quality while simplifying the
-link shapes and making the search easier.
+Stage-0 결과가 Stage-1의 linkage geometry를 **고정하지는 않는다**. 기존 linkage model, kinematics, 결과를 재사용하되 Stage-0에 미리 pad 관련 데이터 모델이나 optimizer를 만들지 않는다.
 
-## 3. Motion evaluation
+## 7. 남은 정의 (지금은 범위를 확장하지 않음)
 
-* The MCP is swept from 0 to the **search horizon 1.5 rad (86°)** on
-  **31 uniform samples** (0.05 rad). Both loops are solved in closed form on the
-  reference assembly branch.
-* A sample is **healthy** when both loops close, both transmission margins are
-  at least **30°**, and the PIP and DIP motion ratios dq/dq1 lie in
-  **[0.1, 3]** (monotonic flexion without runaway).
-* The **motion limit** is the last sample of the contiguous healthy range. No
-  MCP angle is prescribed; every design is evaluated up to its own limit.
+1. `φ_safe,max`의 탐색 종료 조건과 수치 tolerance (특이점·역행·충돌 경계).
+2. 후보마다 다른 motion interval에서 측정되는 `k_max`의 비교 및 보고 방식.
+3. 기존 `C_x` 조건 중 pad와 무관하게 필요한 **순수 mechanism safety** 조건이 있는지.
+4. 현재 servo collision sweep과 각도 샘플링 설정의 유효성.
 
-The **transmission margin** of a loop is min(μ, 180° − μ), where μ is the angle
-between the coupler and the output arm at the coupler joint (B' for loop 1, C'
-for loop 2). It reaches 0 exactly at the loop's dead point, which is the only
-kind of singularity this chain has: the actuator drives OA directly.
-Transmission quality is sin(margin) ∈ [0, 1].
-
-## 4. Grasp pose
-
-A sample within the motion limit is a **grasp pose** when both pad ends B and C
-
-* lie on the palmar side of the proximal segment OA', at least
-  **15 mm** from its line (link thickness), and
-* project onto OA' between O and A' (the pad is in front of the proximal
-  phalanx, not slid back past the MCP).
-
-The pad need not be the same length as OA' or aligned end to end with it.
-Among grasp poses, Stage-0 uses the one whose pad best faces OA'.
-
-## 5. Objectives
-
-NSGA-II minimizes the following (maximized ones are negated):
-
-| # | Objective | Sense |
-| --- | --- | --- |
-| 1 | Worst transmission quality of both loops from extension to the grasp pose | max |
-| 2 | Facing error: angle between B→C and A'→O at the grasp pose | min |
-| 3 | MCP angle of the grasp pose (the earlier the pad faces OA', the better) | min |
-
-Designs without a grasp pose score infinity on objectives 2 and 3 (sent to the
-solver as 1e12); they are also infeasible.
-
-## 6. Constraints (g ≤ 0, fixed residual count)
-
-| Group | Requirement |
-| --- | --- |
-| `usable_motion` | the healthy range spans at least one sample (optionally `minimum_motion_range_rad`) |
-| `extended_length` | \|OC\| at q = 0 in **[80, 110] mm** |
-| `minimum_pin_spacing` | bearing pins sharing a rigid link at least **9 mm** apart: A–A' (proximal), A–B' and B–B' (middle), B–C' (distal). MR63 (3×6×2.5) in aluminium: 6 mm OD + 3 mm web. Pins on different links sit on different Y layers and are not checked. |
-| `grasp_pose` | some sample is a grasp pose (graded by the summed gap shortfall and projection overshoot of B and C) |
-| `post_grasp_safety` | from the grasp pose to **grasp + 20°**, both loops close, both margins stay ≥ 30° and neither q2 nor q3 reverses (dq/dq1 > 0) |
-
-The grasp pose plus the post-grasp travel is the **safe operating limit**.
-A mechanical stopper is a last-resort guard placed past this limit and before
-the first near-singular pose; it does not replace the safe range.
-
-## 7. Solver
-
-* pymoo NSGA-II over integer grid steps (SBX η = 15, p = 0.9; PM η = 20; both
-  rounded), population **200**, **200** generations, LHS initial population
-  plus the `BASELINE_LINKAGE_V0` seed.
-* One run takes about 1.5 minutes.
-
-## 8. Selection workflow
-
-Pareto score alone does not pick the design. Candidates go through:
-
-1. **Screening** on `pareto.csv`: grasp MCP ≤ 60°, facing error ≤ 10°
-   (post-grasp safety ≥ 20° and margin ≥ 30° are already enforced).
-2. **Dense verification**
-   ([`verify.py`](../../cmd/experimental/stage0/verify.py)): the sweep is
-   repeated on a 0.05° grid. The safe range must keep margins ≥ 30°, close, and
-   let q2/q3 fall back by at most 0.1° (a DIP that stalls at its peak backs off
-   by about 0.01°). Past the safe limit the first near-singular pose (margin
-   shortfall or no closure) is reported as the upper bound for the stopper.
-   This step rejected 6 of 29 screened candidates in one run, so the coarse
-   grid alone is not enough.
-3. **Comparison** of the verified shortlist: transmission quality versus facing
-   error, grasp MCP, grasp gap and stopper window. 40° margin is the stricter
-   comparison level.
-
-Robustness: three runs with seeds 0, 1 and 2 gave best verified qualities of
-0.705, 0.703 and 0.702, and their top designs fell in the same region of the
-design space.
-
-## 9. Selected design: `SELECTED_LINKAGE_V1`
-
-Run with seed 1, Pareto candidate #122 (code at commit `b7a495e`): the best
-transmission quality among verified candidates with a facing error ≤ 5°.
-
-Design vector (0.1 mm grid):
-
-| Variable | Value [mm] |
-| --- | --- |
-| `op_from_o_x_mm` | 27.0 |
-| `op_from_o_z_mm` | 5.3 |
-| `a_from_o_x_mm` | 38.3 |
-| `a_from_o_z_mm` | 19.4 |
-| `ap_from_o_x_mm` | 32.7 |
-| `b_from_a_x_mm` | 40.0 |
-| `bp_from_a_x_mm` | 7.7 |
-| `bc_length_mm` | 29.2 |
-| `cp_from_b_x_mm` | −13.4 |
-| `cp_from_b_z_mm` | 7.8 |
-
-Equivalent `FingerLinkageParameters` (the derived z components filled in):
-
-```python
-FingerLinkageParameters(
-    op_from_o=PointXZ(27.0, 5.3),
-    a_from_o=PointXZ(38.3, 19.4),
-    ap_from_o=PointXZ(32.7, 0.0),
-    b_from_a=PointXZ(40.0, -19.4),
-    bp_from_a=PointXZ(7.7, -19.4),
-    bc_length_mm=29.2,
-    cp_from_b=PointXZ(-13.4, 7.8),
-)
-```
-
-| Reference point | Position [mm] |
-| --- | --- |
-| O' | (27.0, 5.3) |
-| A, A' | (38.3, 19.4), (32.7, 0) |
-| B', B | (46.0, 0), (78.3, 0) |
-| C', C | (64.9, 7.8), (107.5, 0) |
-
-| Derived length | Value [mm] |
-| --- | --- |
-| \|OA\|, \|AB\|, \|BC\| | 42.9, 44.5, 29.2 |
-| Coupler 1 \|O'B'\|, coupler 2 \|A'C'\| | 19.7, 33.1 |
-| Extended length \|OC\| | 107.5 |
-
-| Property | Value |
-| --- | --- |
-| Worst transmission quality | 0.692 (min margin 43° over the safe range) |
-| Grasp pose | MCP 52°, PIP 75°, DIP 101°, facing error 3.9°, gap 24.3 mm |
-| Safe operating range | MCP 0–72° |
-| First near-singular pose | MCP 79.1° → stopper between 72° and 79° |
-| Pin spacings | A–A' 20.1, A–B' 20.8, B–B' 32.3, B–C' 15.5 mm |
-
-`BASELINE_LINKAGE_V0` (the optimizer seed) is kept as the comparison reference.
-Both live in [`seed.py`](../../cmd/experimental/linkage/seed.py).
-
-## 10. Design decisions
-
-| Decision | Reason |
-| --- | --- |
-| No prescribed MCP range; designs run to their own motion limit | A fixed range forced late PIP/DIP stalls; the grasp angle is an outcome. |
-| Grasp facing OA' instead of a target pad angle or a parallelogram | Orientation alone let the pad slide past the MCP or collapse onto the proximal phalanx; the pad must face OA' from in front, with a gap. |
-| Facing error minimized, no tolerance | The trade-off against quality and grasp angle is read off the Pareto front. |
-| Grasp MCP angle as an objective | The pad should face OA' as early as possible. |
-| Post-grasp safety as a hard constraint, not an objective | A fourth objective spread the front too thin. Requiring 20° instead of 10° cost about 5 % quality but doubles the distance to the dead point. |
-| Margin 30° hard, 40° for comparison | 40–50° is a load- and friction-dependent rule of thumb; the final figure follows actuator torque, friction and link compliance. |
-| No PIP/DIP ratio constraint | The goal is useful grasp coordination with few actuators, not a copy of human joint coupling. PIP/DIP angles, motion ratios and the S-shape of the curves stay as diagnostics. |
-| Point-C excursion is a diagnostic only | It rewards link size and does not imply grasp quality. |
-| A', B', B, C fixed on z = 0 | Little quality loss and simpler link shapes. |
-
-## 11. Running
-
-```bash
-# Optimize (edit CONFIG in the script first); writes outputs/stage0/run_NNN/
-python scripts/optimize/run_stage0.py
-
-# Screen and verify one or more runs into outputs/stage0/shortlist.csv
-python scripts/optimize/select_stage0.py outputs/stage0/run_004 outputs/stage0/run_005
-
-# Animate a Pareto candidate next to its pareto.csv
-python scripts/animate_linkage.py --pareto outputs/stage0/run_005/pareto.csv --candidate 122 --flexion-rad 1.257
-```
-
-`run.json` records the configuration, pymoo version and source commit;
-`pareto.csv` records each feasible Pareto design with its objectives, grasp
-pose (MCP/PIP/DIP, gap, pad position along OA'), post-grasp travel, safe MCP
-limit, pin spacings and workspace diagnostics.
-
-## Next stages
-
-1. **Finger-level geometric evaluation (Stage-1).** Attach the fingertip
-   morphology to the distal link, define a simple palm/housing envelope, check
-   swept collisions over the safe range, and measure grasp geometry (object
-   size held between pad and proximal phalanx, contact normals). Contact force
-   from the MCP actuator torque can be added as a diagnostic.
-   Needs: fingertip attachment on BC, palm/housing envelope, target objects.
-2. **Final design selection** across the verified Pareto candidates with the
-   Stage-1 results, then per-digit checks with each finger's fingertip length.
+**Stage-0 성공 기준:** 최종 hand-level 성능을 결정하는 것이 아니라, Stage-1이 활용할 수 있는 **유효하고 다양하며 재현 가능한 linkage seeds**를 생성하는 것.

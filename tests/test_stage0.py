@@ -1,287 +1,199 @@
-"""Stage-0 design vector, configuration, evaluation, and NSGA-II run."""
-
-from dataclasses import replace
-import json
 import math
 
 import pytest
 
-from cmd.experimental.linkage import (
-    BASELINE_LINKAGE_V0, FingerLinkage, KinematicClosureError, LinkageKinematics,
-    LinkageWorkspaceCriteria, PointXZ,
-)
-from cmd.experimental.stage0 import (
+from cmd.morphology.linkage import FingerLinkage
+from cmd.optimization.stage0 import (
+    CONSTRAINT_NAMES,
     VARIABLE_NAMES,
-    Stage0Config,
-    Stage0Evaluator,
-    bounds_around,
+    FingerStudyConfig,
     decode,
     encode,
-    input_samples,
-)
-from cmd.experimental.stage0.evaluate import (
-    extended_length_mm,
-    facing_error_rad,
-    grasp_violation_mm,
-    pad_offsets_from_oa_mm,
+    evaluate,
 )
 
-
-def permissive_criteria(**overrides) -> LinkageWorkspaceCriteria:
-    values = dict(
-        minimum_transmission_margin_rad=0.0,
-        q2_minimum_motion_ratio=0.0,
-        q3_minimum_motion_ratio=0.0,
-        q2_maximum_motion_ratio=100.0,
-        q3_maximum_motion_ratio=100.0,
-    )
-    return LinkageWorkspaceCriteria(**(values | overrides))
+BOUNDS = {name: (0.0, 200.0) for name in VARIABLE_NAMES}
+CONFIG = FingerStudyConfig(bounds=BOUNDS)
+CROSSED = (40.0, 70.0, 0.0, 52.0, 15.0, 62.0, 15.0, 0.0)
+# A feasible Stage-0 design (BC 30 mm) that curls to 180 deg safely.
+GOOD = (36.0, 79.3, 10.0, 41.6, 12.6, 63.3, 17.4, 41.9, 30.0)
+GOOD_CONFIG = FingerStudyConfig(bounds=BOUNDS, extended_length_bounds_mm=(90.0, 110.0))
 
 
-def make_config(**overrides) -> Stage0Config:
-    # TEST FIXTURE ONLY: artificial V0-centred bounds, not physical design limits.
-    values = dict(
-        bounds=bounds_around(BASELINE_LINKAGE_V0, 1.0),
-        # V0's pad comes in front of OA' (a grasp pose) from about 1.0 rad MCP.
-        search_horizon_rad=1.6,
-        sample_count=9,
-        criteria=permissive_criteria(),
-        extended_length_bounds_mm=(80.0, 110.0),
-        minimum_pin_spacing_mm=0.0,
-        minimum_grasp_gap_mm=0.0,
-        population_size=6,
-        generations=2,
-        seed=11,
-    )
-    return Stage0Config(**(values | overrides))
+def test_design_vector_round_trips() -> None:
+    assert encode(FingerLinkage(decode((*CROSSED, 24.0)))) == (*CROSSED, 24.0)
 
 
-def baseline_x() -> tuple[float, ...]:
-    return encode(BASELINE_LINKAGE_V0)
+def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
+    from cmd.optimization.stage0.run import objectives
 
-
-def fail_closure_after(monkeypatch, success_limit: int) -> None:
-    original_solve = LinkageKinematics.solve
-    counts: dict[int, int] = {}
-
-    def solve(self, q1_rad):
-        solved = counts.get(id(self), 0)
-        if solved >= success_limit:
-            raise KinematicClosureError("synthetic closure failure")
-        counts[id(self)] = solved + 1
-        return original_solve(self, q1_rad)
-
-    monkeypatch.setattr(LinkageKinematics, "solve", solve)
-
-
-# Design vector -------------------------------------------------------------
-
-
-def test_decoded_designs_align_ap_bp_b_and_c_on_the_x_axis() -> None:
-    x = baseline_x()
-    reference = FingerLinkage(decode(x)).reference_positions
-
-    assert len(x) == len(VARIABLE_NAMES) == 10
-    for point in (reference.ap, reference.bp, reference.b, reference.c):
-        assert point.z_mm == pytest.approx(0.0, abs=1e-12)
-    assert decode(x) == BASELINE_LINKAGE_V0.parameters
-    assert encode(FingerLinkage(decode(x))) == x
-
-
-# Sample grid ---------------------------------------------------------------
-
-
-def test_input_samples_are_uniform_up_to_the_horizon() -> None:
-    assert input_samples(make_config()) == pytest.approx(tuple(0.2 * i for i in range(9)))
-
-
-# Evaluation ----------------------------------------------------------------
-
-
-def with_motion(monkeypatch, evaluator, **changes):
-    """Make ``evaluator`` see its V0 motion with ``changes`` applied."""
-
-    motion = replace(evaluator(decode(baseline_x())).motion, **changes)
-    monkeypatch.setattr(type(evaluator._motion), "evaluate", lambda self, parameters: motion)
-    return motion
-
-
-def test_baseline_is_feasible_with_fixed_constraint_shape() -> None:
-    evaluator = Stage0Evaluator(make_config())
-    evaluation = evaluator(decode(baseline_x()))
+    evaluation = evaluate(decode(GOOD), GOOD_CONFIG)
 
     assert evaluation.feasible
-    assert tuple(evaluation.constraints) == (
-        "usable_motion",
-        "extended_length",
-        "minimum_pin_spacing",
-        "grasp_pose",
-        "post_grasp_safety",
-    )
-    assert len(evaluation.g) == evaluator.constraint_count == 9
-    # V0's DIP starts to unflex (negative motion ratio) just before 1.6 rad.
-    assert evaluation.limit_index == 7
-    assert 0.0 < evaluation.worst_transmission_quality <= 1.0
-    assert math.isfinite(evaluation.ratio_variation)
-    # V0 grasp poses: 32.5, 13.6 and 0.5 deg facing error at 1.0, 1.2 and 1.4 rad.
-    assert evaluation.grasp.index == 7
-    assert evaluation.facing_error_rad == pytest.approx(math.radians(0.5), abs=math.radians(0.1))
-    assert evaluation.grasp_mcp_rad == pytest.approx(1.4)
-    # V0's DIP reverses (ratio -0.18) right after the grasp, so no safe travel.
-    assert evaluation.post_grasp_travel_rad == 0.0
-    motion = evaluation.motion
-    assert evaluation.worst_transmission_quality == min(
-        *motion.transmission_quality_loop_1[:8], *motion.transmission_quality_loop_2[:8]
-    )
+    assert evaluation.stop_reason == "curl"
+    assert evaluation.phi_safe_rad == math.pi
+    assert evaluation.usable_pip_rad == pytest.approx(evaluation.curl_pip_rad)
+    assert evaluation.curl_pip_rad + evaluation.curl_dip_rad == pytest.approx(math.pi, abs=1e-3)
+    assert objectives(evaluation, GOOD_CONFIG) == pytest.approx(
+        (evaluation.torque_ratio_max, -(36.0 + 30.0), 0.0), abs=0.01)
 
 
-def test_facing_error_gap_and_pad_position_of_a_pose() -> None:
-    pose = Stage0Evaluator(make_config())(decode(baseline_x())).motion.poses[0]
-    # O-A' along +X (30 mm); a 20 mm pad 15 mm on the palmar side, pointing back.
-    facing = replace(
-        pose,
-        o=PointXZ(0.0, 0.0), ap=PointXZ(30.0, 0.0), b=PointXZ(25.0, -15.0), c=PointXZ(5.0, -15.0),
-    )
-    tilted = replace(facing, c=PointXZ(5.0, -15.0 - 20.0 * math.tan(math.radians(10.0))))
-    behind_o = replace(facing, b=PointXZ(5.0, -15.0), c=PointXZ(-15.0, -15.0))
+def test_safe_range_stops_a_stopper_margin_before_the_first_unsafe_pose() -> None:
+    strict = FingerStudyConfig(bounds=BOUNDS, extended_length_bounds_mm=(90.0, 110.0),
+                               minimum_transmission_margin_rad=math.radians(50.0))
+    evaluation = evaluate(decode(GOOD), strict)
+    sweep = FingerLinkage(decode(GOOD)).sweep_pip([math.radians(d) for d in range(0, 181)])
+    first = next(i for i, m in enumerate(sweep.margin_at_bp_rad) if m < math.radians(50.0))
+    usable = math.radians(first) - math.radians(10.0)
 
-    assert facing_error_rad(facing) == pytest.approx(0.0)
-    assert facing_error_rad(tilted) == pytest.approx(math.radians(10.0))
-    b, c, length = pad_offsets_from_oa_mm(facing)
-    assert (b, c, length) == (pytest.approx((25.0, 15.0)), pytest.approx((5.0, 15.0)), pytest.approx(30.0))
-    assert grasp_violation_mm(facing, 15.0) == 0.0
-    # Too close: each end 5 mm short of the gap. Slid back past O: C 15 mm behind O.
-    assert grasp_violation_mm(facing, 20.0) == pytest.approx(10.0)
-    assert grasp_violation_mm(behind_o, 15.0) == pytest.approx(15.0)
+    assert evaluation.stop_reason == "transmission"
+    assert evaluation.usable_pip_rad == pytest.approx(max(usable, 0.0))
+    assert evaluation.constraints["minimum_flexion_deg"] == pytest.approx(
+        120.0 - math.degrees(evaluation.phi_safe_rad))
 
 
-def test_no_grasp_pose_is_infeasible_with_a_graded_residual() -> None:
-    evaluator = Stage0Evaluator(make_config(minimum_grasp_gap_mm=1000.0))
-    evaluation = evaluator(decode(baseline_x()))
-    violations = [grasp_violation_mm(pose, 1000.0) for pose in evaluation.motion.poses]
+def test_open_four_bar_is_evaluated_and_its_dip_direction_decides() -> None:
+    # This open four-bar extends the DIP as the PIP flexes.
+    open_bar = (40.0, 70.0, 0.0, 62.0, 15.0, 52.0, 15.0, 0.0)
+    evaluation = evaluate(decode((*open_bar, 24.0)), CONFIG)
 
-    assert evaluation.grasp is None
-    assert evaluation.facing_error_rad == evaluation.grasp_mcp_rad == math.inf
-    assert evaluation.max_violation("grasp_pose") == pytest.approx(min(violations))
-
-
-def test_motion_limit_ends_before_the_first_unhealthy_sample(monkeypatch) -> None:
-    evaluator = Stage0Evaluator(
-        make_config(criteria=permissive_criteria(minimum_transmission_margin_rad=0.2))
-    )
-    reference = evaluator(decode(baseline_x()))
-    angles = list(reference.motion.transmission_angle_loop_2_rad)
-    angles[7] = 0.1
-    motion = with_motion(monkeypatch, evaluator, transmission_angle_loop_2_rad=tuple(angles))
-    evaluation = evaluator(decode(baseline_x()))
-
-    assert evaluation.limit_index == 6
-    assert evaluation.feasible
-    # Only samples 5 and 6 remain as grasp poses; 6 faces OA' better. Sample 7
-    # is the near-singular one, so there is no travel past the grasp.
-    assert evaluation.grasp.index == 6
-    assert evaluation.post_grasp_travel_rad == 0.0
-    assert evaluation.facing_error_rad == pytest.approx(facing_error_rad(motion.poses[6]))
-    assert evaluation.worst_transmission_quality == min(
-        *motion.transmission_quality_loop_1[:7], *motion.transmission_quality_loop_2[:7]
-    )
-
-
-def test_post_grasp_safety_requires_safe_travel_past_the_grasp(monkeypatch) -> None:
-    evaluator = Stage0Evaluator(make_config(minimum_post_grasp_travel_rad=0.4))
-    reference = evaluator(decode(baseline_x()))
-    assert reference.max_violation("post_grasp_safety") == pytest.approx(0.4)
-
-    # Make q3 keep flexing after the grasp (index 7): the 1.4 -> 1.6 rad interval is safe.
-    ratios = list(reference.motion.dq3_flexion_dq1_flexion)
-    ratios[7] = 0.5
-    with_motion(monkeypatch, evaluator, dq3_flexion_dq1_flexion=tuple(ratios))
-    evaluation = evaluator(decode(baseline_x()))
-
-    assert evaluation.post_grasp_travel_rad == pytest.approx(0.2)
-    assert evaluation.max_violation("post_grasp_safety") == pytest.approx(0.2)
-
-
-def test_no_usable_motion_is_infeasible_with_finite_residuals(monkeypatch) -> None:
-    fail_closure_after(monkeypatch, success_limit=1)
-    evaluator = Stage0Evaluator(make_config())
-    evaluation = evaluator(decode(baseline_x()))
-
-    assert evaluation.limit_index == 0
+    assert evaluation.constraints["valid_reference"] == 0.0
+    assert set(evaluation.constraints) == set(CONSTRAINT_NAMES)
     assert not evaluation.feasible
-    assert evaluation.max_violation("usable_motion") == pytest.approx(0.2)
-    assert len(evaluation.g) == evaluator.constraint_count
-    assert all(math.isfinite(value) for value in evaluation.g)
-    assert evaluation.worst_transmission_quality == 0.0
-    assert evaluation.ratio_variation == evaluation.facing_error_rad == math.inf
 
 
-def test_minimum_motion_range_requires_healthy_motion_up_to_it(monkeypatch) -> None:
-    fail_closure_after(monkeypatch, success_limit=3)
-    evaluation = Stage0Evaluator(make_config(minimum_motion_range_rad=0.7))(decode(baseline_x()))
+def test_link_clearance_is_reported_but_optional() -> None:
+    off = evaluate(decode(GOOD), GOOD_CONFIG)
+    on = evaluate(decode(GOOD), FingerStudyConfig(
+        bounds=BOUNDS, extended_length_bounds_mm=(90.0, 110.0), link_clearance=True))
 
-    assert evaluation.limit_index == 2
-    assert evaluation.max_violation("usable_motion") == pytest.approx(0.7 - 0.4)
-
-
-def test_extended_length_constraint() -> None:
-    evaluation = Stage0Evaluator(
-        make_config(
-            extended_length_bounds_mm=(extended_length_mm(BASELINE_LINKAGE_V0.parameters) + 4.5, 200.0),
-        )
-    )(decode(baseline_x()))
-
-    assert evaluation.max_violation("extended_length") == pytest.approx(4.5)
+    assert off.constraints["link_mm"] == 0.0
+    assert on.constraints["link_mm"] == pytest.approx(-on.link_clearance_mm)
+    assert off.link_clearance_mm == pytest.approx(on.link_clearance_mm)
 
 
-def test_pin_spacing_constraint_uses_pins_on_the_same_link() -> None:
-    # V0: AA' = (-1.5, -20.0), AB' = (7.8, -20.0), BB' = (-23.2, 0.0), BC' = (-11.6, 7.3).
-    spacings = (math.hypot(1.5, 20.0), math.hypot(7.8, 20.0), 23.2, math.hypot(11.6, 7.3))
-    evaluation = Stage0Evaluator(make_config(minimum_pin_spacing_mm=14.0))(decode(baseline_x()))
+def test_transmission_is_the_angle_at_b_prime_from_hyperextension_to_the_usable_end() -> None:
+    parameters = decode(GOOD)
+    evaluation = evaluate(parameters, GOOD_CONFIG)
+    end = math.degrees(evaluation.usable_pip_rad)
+    sweep = FingerLinkage(parameters).sweep_pip(
+        [math.radians(d) for d in range(-10, 181) if d <= end + 1e-9])
 
-    assert evaluation.constraints["minimum_pin_spacing"] == pytest.approx(
-        tuple(14.0 - spacing for spacing in spacings)
-    )
-    assert evaluation.max_violation("minimum_pin_spacing") == pytest.approx(14.0 - min(spacings))
-
-
-# Dense verification --------------------------------------------------------
+    assert evaluation.worst_transmission_quality == pytest.approx(
+        math.sin(sweep.margin_at_bp_rad.min()))
 
 
-def test_verify_candidate_checks_the_safe_range_on_a_fine_grid() -> None:
-    from cmd.experimental.stage0.verify import verify_candidate
-
-    config = make_config()
-    passed = verify_candidate(decode(baseline_x()), config, grasp_mcp_rad=1.4)
-    # V0's DIP starts to unflex just past 1.4 rad; its loops stay non-singular
-    # (margin >= 0 with permissive criteria) and closed through the horizon.
-    assert passed.passed
-    assert passed.safe_limit_rad == pytest.approx(1.4)
-    assert passed.min_margin_rad > 0.0
-    assert 1.4 < passed.first_reversal_rad < 1.6
-    assert passed.first_singular_rad == pytest.approx(passed.closes_to_rad)
-
-    too_far = verify_candidate(
-        decode(baseline_x()), replace(config, minimum_post_grasp_travel_rad=0.1), grasp_mcp_rad=1.4
-    )
-    assert not too_far.passed
-    assert too_far.max_backoff_rad > math.radians(0.1)
+def test_oa_interface_keeps_the_servo_dorsal_of_oa() -> None:
+    # The servo on A' = (52, 15) reaches down to z = 15 - 9.5.
+    assert evaluate(decode((*CROSSED, 24.0)), CONFIG).constraints["oa_interface_mm"] == pytest.approx(
+        -(15.0 - 9.5))
+    padded = FingerStudyConfig(bounds=BOUNDS, oa_interface_clearance_mm=8.0)
+    assert evaluate(decode((*CROSSED, 24.0)), padded).constraints["oa_interface_mm"] == pytest.approx(2.5)
 
 
-# NSGA-II run ---------------------------------------------------------------
+def test_bc_may_sit_off_the_oa_line_and_ab_is_a_distance() -> None:
+    lowered = (40.0, 70.0, -4.0, 52.0, 15.0, 62.0, 15.0, 0.0)
+    linkage = FingerLinkage(decode((*lowered, 24.0)))
+    evaluation = evaluate(decode((*lowered, 24.0)), CONFIG)
+
+    assert (linkage.b.z_mm, linkage.c.z_mm) == (-4.0, -4.0)
+    assert evaluation.ab_mm == pytest.approx(math.hypot(30.0, 4.0))
 
 
-def test_tiny_run_returns_feasible_pareto_and_saves_it(tmp_path) -> None:
-    from cmd.experimental.stage0.run import run_stage0, save_stage0_result
+def test_extended_length_is_the_distance_oc() -> None:
+    lowered = decode((40.0, 70.0, -10.0, 52.0, 15.0, 62.0, 15.0, 0.0, 24.0))
+    oc = math.hypot(70.0 + 24.0, -10.0)
+    config = FingerStudyConfig(bounds=BOUNDS, extended_length_bounds_mm=(90.0, 94.0))
 
-    result = run_stage0(make_config())
+    assert evaluate(lowered, config).constraints["extended_length_mm"] == pytest.approx(oc - 94.0)
 
-    assert result.pareto
-    assert all(candidate.evaluation.feasible for candidate in result.pareto)
-    output = save_stage0_result(result, tmp_path / "run", source_git_commit="test")
-    metadata = json.loads((output / "run.json").read_text(encoding="utf-8"))
-    rows = (output / "pareto.csv").read_text(encoding="utf-8").splitlines()
-    assert metadata["pareto_count"] == len(result.pareto) == len(rows) - 1
-    assert metadata["config"]["bounds"]["bc_length_mm"] == pytest.approx([19.4, 21.4])
-    assert all(round(value, 1) == value for candidate in result.pareto for value in candidate.x)
-    assert metadata["source_git_commit"] == "test"
+
+def test_fingertip_mcp_clearance_is_held_unless_enabled() -> None:
+    # Over its usable range this short finger keeps the fingertip 3.8 mm
+    # (beyond the 1 mm body clearance) off the MCP servo.
+    short = (32.8, 75.0, 9.5, 39.3, 13.5, 57.2, 18.8, 11.9)
+    enforced = FingerStudyConfig(bounds=BOUNDS, enforce_fingertip_mcp=True)
+
+    assert evaluate(decode((*short, 24.0)), CONFIG).constraints["fingertip_mcp_mm"] == 0.0
+    assert evaluate(decode((*short, 24.0)), enforced).constraints["fingertip_mcp_mm"] == pytest.approx(
+        -3.8, abs=0.05)
+
+
+def test_bc_is_no_longer_than_oa_times_the_ratio() -> None:
+    longer = decode((*GOOD[:-1], 40.0))  # OA 36
+    assert evaluate(decode(GOOD), GOOD_CONFIG).constraints["bc_to_oa"] == pytest.approx(30.0 - 36.0)
+    assert evaluate(longer, GOOD_CONFIG).constraints["bc_to_oa"] == pytest.approx(4.0)
+    free = FingerStudyConfig(bounds=BOUNDS, extended_length_bounds_mm=(90.0, 110.0),
+                             bc_to_oa_ratio_max=None)
+    assert evaluate(longer, free).constraints["bc_to_oa"] == 0.0
+
+
+def test_static_failures_skip_the_sweep() -> None:
+    from cmd.optimization.stage0.evaluate import MOTION_CONSTRAINTS, UNSWEPT
+
+    too_long = (60.0, 100.0, 0.0, 72.0, 15.0, 82.0, 15.0, 0.0)
+    evaluation = evaluate(decode((*too_long, 24.0)), CONFIG)
+
+    assert evaluation.constraints["extended_length_mm"] > 0.0
+    assert all(evaluation.constraints[name] == UNSWEPT for name in MOTION_CONSTRAINTS)
+
+
+def test_search_bounds_close_the_oa_interface_constraint() -> None:
+    # Valid while the servo only tilts dorsally, by at most 90 deg.
+    bounds = {**BOUNDS, "servo_tilt_deg": (0.0, 45.0)}
+    config = FingerStudyConfig(bounds=bounds, oa_interface_clearance_mm=2.0)
+    radius = config.packaging.pip_servo.radius_mm
+
+    assert config.search_bounds["ap_z_mm"] == (radius + 2.0, BOUNDS["ap_z_mm"][1])
+    assert config.bounds["ap_z_mm"] == BOUNDS["ap_z_mm"]
+    assert FingerStudyConfig(bounds=BOUNDS).search_bounds["ap_z_mm"] == BOUNDS["ap_z_mm"]
+
+
+def test_servo_lever_matches_a_finite_difference_of_virtual_work() -> None:
+    from cmd.optimization.stage0.evaluate import servo_lever
+
+    parameters = decode((*CROSSED, 24.0))
+    linkage = FingerLinkage(parameters)
+    q = [math.radians(d) for d in range(0, 61)]
+    sweep = linkage.sweep_pip(q)
+    lever, ratio, travel = servo_lever(parameters, sweep, slice(None))
+
+    # Recompute r at the tip C at one pose from two nearby poses.
+    def state(q_pip):
+        pose = linkage.solve(0.0, q_pip)
+        theta = math.atan2(pose.b.z_mm - parameters.ap.z_mm, pose.b.x_mm - parameters.ap.x_mm)
+        return pose, theta
+    (p0, t0), (p1, t1) = state(math.radians(30.0)), state(math.radians(30.01))
+    u = ((p0.c.x_mm - p0.b.x_mm) / 24.0, (p0.c.z_mm - p0.b.z_mm) / 24.0)
+    n = (u[1], -u[0])
+    r_c = abs(n[0] * (p1.c.x_mm - p0.c.x_mm) + n[1] * (p1.c.z_mm - p0.c.z_mm)) / abs(t1 - t0)
+
+    assert lever >= r_c * 0.999
+    assert 0.0 < travel < 2.0 * math.pi
+    # On average the distal link turns (its whole rotation) / (servo travel) per servo radian.
+    phi = sweep.total_flexion_rad
+    assert ratio >= abs(phi[-1] - phi[0]) / travel * 0.999
+    assert math.isfinite(evaluate(decode(GOOD), GOOD_CONFIG).lever_max_mm)
+
+
+def test_curl_tip_ahead_of_o_is_held_unless_enabled() -> None:
+    evaluation = evaluate(decode(GOOD), GOOD_CONFIG)
+    tip = evaluation.curl_tip_x_mm
+    config = FingerStudyConfig(bounds=BOUNDS, extended_length_bounds_mm=(90.0, 110.0),
+                               curl_tip_min_x_mm=tip + 3.0, enforce_curl_tip=True)
+
+    assert evaluation.constraints["curl_tip_x_mm"] == 0.0
+    assert evaluate(decode(GOOD), config).constraints["curl_tip_x_mm"] == pytest.approx(3.0)
+
+
+def test_reference_point_b_makes_length_and_curl_tip_independent_of_bc() -> None:
+    lengths = []
+    tips = []
+    for bc in (24.0, 34.0):
+        config = FingerStudyConfig(bounds=BOUNDS, reference_point="B",
+                                   extended_length_bounds_mm=(0.0, 100.0))
+        evaluation = evaluate(decode((*GOOD[:-1], bc)), config)
+        lengths.append(evaluation.constraints["extended_length_mm"])
+        tips.append(evaluation.curl_tip_x_mm)
+    assert lengths[0] == pytest.approx(lengths[1])
+    assert tips[0] == pytest.approx(tips[1])

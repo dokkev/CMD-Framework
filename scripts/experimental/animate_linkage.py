@@ -3,15 +3,15 @@
 
 Run from the repository root with no arguments to animate baseline V0:
 
-    python3 scripts/animate_linkage.py
+    python3 scripts/experimental/animate_linkage.py
 
 animate the selected linkage V1:
 
-    python3 scripts/animate_linkage.py --linkage v1 --flexion-rad 1.26
+    python3 scripts/experimental/animate_linkage.py --linkage v1 --flexion-rad 1.26
 
 or animate one Stage-0 Pareto candidate (outputs go next to the CSV):
 
-    python3 scripts/animate_linkage.py --pareto outputs/stage0/run_002/pareto.csv --candidate 153
+    python3 scripts/experimental/animate_linkage.py --pareto outputs/experimental_stage0/run_002/pareto.csv --candidate 153
 
 The animation uses the XZ linkage frame (+X distal, +Z dorsal) and both
 reference-derived couplers. The fingertip side silhouette (carrier and pad)
@@ -33,7 +33,7 @@ from matplotlib.animation import FFMpegWriter, FuncAnimation, PillowWriter
 from matplotlib.patches import Polygon
 from matplotlib.ticker import MultipleLocator
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 

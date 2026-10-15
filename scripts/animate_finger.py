@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Animate the 2-DoF polycentric finger with its servos and fingertip.
+"""Animate the 2-DoF polycentric finger with its servos.
 
     python scripts/animate_finger.py --mcp-deg 60 --pip-deg 75
 
 or one candidate of a finger study (the output goes next to its CSV):
 
-    python scripts/animate_finger.py --pareto outputs/finger/run_001/pareto.csv --candidate 1
+    python scripts/animate_finger.py --pareto outputs/stage0/run_001/pareto.csv --candidate 1
 
 The finger first flexes the PIP (the DIP follows through the four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
-on the proximal link (rear body toward O), and the fingertip side silhouette
-on the distal link from B to C. The PIP servo sits at A' and drives A'-B; the
-middle link A-B' turns red where it comes closer
-than the body clearance to the PIP servo.
+on the proximal link (rear body toward O), and the distal link B-C (Stage-0
+has no fingertip). The PIP servo sits at A' and drives A'-B; the middle link
+A-B' turns red where it comes closer than the body clearance to the PIP servo.
 """
 
 from __future__ import annotations
@@ -33,11 +32,9 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from cmd.hardware import XM335Actuator  # noqa: E402
-from cmd.morphology import Fingertip, FingertipParameters  # noqa: E402
 from cmd.morphology.linkage import (  # noqa: E402
     SKETCH_LINKAGE,
     FingerLinkage,
-    FingerPose,
     PointXZ,
     servo_clearance,
 )
@@ -46,22 +43,22 @@ from cmd.morphology.linkage.packaging import (  # noqa: E402
     HOUSING_RADIUS_MM,
     Packaging,
 )
-from cmd.optimization.finger import VARIABLE_NAMES, decode  # noqa: E402
+from cmd.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
 
 Outline = list[tuple[float, float]]
 
 RED, BLACK, BLUE, GRAY = "#ff1027", "#111111", "#071c9e", "#7a7a7a"
-SERVO_COLOR, PAD_COLOR, CARRIER_COLOR = "#c9ced6", "#b8d5a8", "#999c9f"
+SERVO_COLOR = "#c9ced6"
 
 
 def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float]:
-    """Return a study candidate's linkage and its curl PIP angle in degrees."""
+    """Return a Stage-0 candidate's linkage and the PIP flexion at the end of its usable range."""
 
     with csv_path.open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
                 x = [float(row[name]) for name in VARIABLE_NAMES]
-                return FingerLinkage(decode(x)), float(row["curl_pip_deg"])
+                return FingerLinkage(decode(x)), float(row["usable_pip_deg"])
     raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
@@ -86,33 +83,6 @@ def servo_outline(shaft: PointXZ, rear_angle_rad: float, actuator: XM335Actuator
             for x, z in local]
 
 
-def fingertip_outlines(fingertip: Fingertip) -> tuple[Outline, Outline]:
-    """Pad and carrier side outlines in the fingertip frame."""
-
-    length = fingertip.total_length_mm
-    phalanx = fingertip.parameters.family.phalanx
-    xs = [length * index / 100 for index in range(101)]
-    pad = [(0.0, 0.0)] + [(x, fingertip.lower_surface_z_mm(x, 0.0)) for x in xs] + [(length, 0.0)]
-    carrier = [
-        (0.0, -phalanx.stem_height_mm), (fingertip.carrier_length_mm, -phalanx.stem_height_mm),
-        (fingertip.carrier_length_mm, 0.0), (length, 0.0),
-        (length, phalanx.carrier_height_mm), (0.0, phalanx.carrier_height_mm),
-    ]
-    return pad, carrier
-
-
-def place_on_distal(outline: Outline, pose: FingerPose, axis_z_mm: float) -> Outline:
-    """Map fingertip-frame points onto the distal link: origin B, +X toward C.
-
-    The ``B-C`` line runs through the fingertip at height ``axis_z_mm``.
-    """
-
-    angle = math.atan2(pose.c.z_mm - pose.b.z_mm, pose.c.x_mm - pose.b.x_mm)
-    cosine, sine = math.cos(angle), math.sin(angle)
-    return [(pose.b.x_mm + cosine * x - sine * (z - axis_z_mm),
-             pose.b.z_mm + sine * x + cosine * (z - axis_z_mm)) for x, z in outline]
-
-
 def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float) -> float:
     return servo_clearance(linkage, pip_samples_rad=(q_pip_rad,)).link_mm
 
@@ -121,8 +91,6 @@ def create_animation(
     linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int
 ) -> tuple[plt.Figure, FuncAnimation]:
     actuator = XM335Actuator()
-    fingertip = Fingertip(FingertipParameters(total_length_mm=linkage.parameters.bc_length_mm))
-    pad, carrier = fingertip_outlines(fingertip)
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     clearances = [link_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
     servo = Packaging().pip_footprint(linkage).outline
@@ -130,14 +98,10 @@ def create_animation(
     frames = []
     for pose in poses:
         cosine, sine = math.cos(-pose.q_mcp_rad), math.sin(-pose.q_mcp_rad)
-        frames.append((
-            [(cosine * x - sine * z, sine * x + cosine * z) for x, z in servo],
-            place_on_distal(pad, pose, fingertip.rotation_axis_z_mm),
-            place_on_distal(carrier, pose, fingertip.rotation_axis_z_mm),
-        ))
+        frames.append([(cosine * x - sine * z, sine * x + cosine * z) for x, z in servo])
     mcp_servo = servo_outline(PointXZ(0.0, 0.0), math.pi / 2, actuator)
 
-    points = [xz for frame in frames for outline in frame for xz in outline] + mcp_servo
+    points = [xz for frame in frames for xz in frame] + mcp_servo
     points += [(p.x_mm, p.z_mm) for pose in poses for p in (pose.ap, pose.bp, pose.b, pose.c)]
     xs, zs = [x for x, _ in points], [z for _, z in points]
     x_limits, z_limits = (min(xs) - 5, max(xs) + 5), (min(zs) - 5, max(zs) + 5)
@@ -147,14 +111,9 @@ def create_animation(
 
     axis.add_patch(Polygon(mcp_servo, closed=True, facecolor=SERVO_COLOR,
                            edgecolor="#6b7280", linewidth=1.0, zorder=0.4))
-    pip_servo = Polygon(frames[0][0], closed=True, facecolor=SERVO_COLOR,
+    pip_servo = Polygon(frames[0], closed=True, facecolor=SERVO_COLOR,
                         edgecolor="#6b7280", linewidth=1.0, zorder=0.4)
-    pad_patch = Polygon(frames[0][1], closed=True, facecolor=PAD_COLOR,
-                        edgecolor="#50575b", linewidth=0.8, alpha=0.85, zorder=0.5)
-    carrier_patch = Polygon(frames[0][2], closed=True, facecolor=CARRIER_COLOR,
-                            edgecolor="#50575b", linewidth=0.8, alpha=0.85, zorder=0.6)
-    for patch in (pip_servo, pad_patch, carrier_patch):
-        axis.add_patch(patch)
+    axis.add_patch(pip_servo)
     # Dashed: the pin bushing housings.
     rings = {
         name: Circle((0.0, 0.0), radius, fill=False, linestyle="--", linewidth=1.0,
@@ -201,13 +160,10 @@ def create_animation(
 
     def update(index: int):
         pose = poses[index]
-        servo, pad_outline, carrier_outline = frames[index]
-        pip_servo.set_xy(servo)
+        pip_servo.set_xy(frames[index])
         for name, ring in rings.items():
             point = getattr(pose, name)
             ring.center = (point.x_mm, point.z_mm)
-        pad_patch.set_xy(pad_outline)
-        carrier_patch.set_xy(carrier_outline)
         proximal.set_data(*xy((pose.o, pose.a, pose.ap, pose.o)))
         middle.set_data(*xy((pose.a, pose.bp)))
         distal.set_data(*xy((pose.bp, pose.b, pose.c, pose.bp)))
@@ -225,7 +181,7 @@ def create_animation(
             f"  input limit at B {math.degrees(pose.margin_at_b_rad):3.0f}°"
             f"  link-servo clearance {clearances[index] + BODY_CLEARANCE_MM:5.1f} mm"
         )
-        return (pip_servo, pad_patch, carrier_patch, *rings.values(),
+        return (pip_servo, *rings.values(),
                 proximal, middle, distal, coupler,
                 *markers.values(), *labels.values(), status)
 
@@ -241,7 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--candidate", type=int, help="candidate number in --pareto")
     parser.add_argument("--mcp-deg", type=float, default=60.0)
     parser.add_argument("--pip-deg", type=float,
-                        help="PIP flexion (default: 75, or the candidate's curl pose)")
+                        help="PIP flexion (default: 75, or the end of the candidate's usable range)")
     parser.add_argument("--frames", type=int, default=61, help="frames per ramp (default: 61)")
     parser.add_argument("--fps", type=int, default=24)
     parser.add_argument("--dpi", type=int, default=110)

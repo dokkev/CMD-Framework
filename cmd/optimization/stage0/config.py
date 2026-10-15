@@ -41,8 +41,13 @@ class FingerStudyConfig:
     (the tip; they then depend on ``BC``) or ``"B"`` (independent of ``BC``)."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 100.0)
     """Bounds on ``|O ref|`` (``|OC|`` or ``|OB|``) in the fully extended pose."""
-    curl_gap_mm: float = 20.0
-    """Least distance between the ``OA`` and ``BC`` lines at the curl pose."""
+    bc_to_oa_ratio_max: float | None = 1.0
+    """Most ``BC / OA``: the distal link is no longer than this times the proximal
+    one, so the curled tip does not reach far behind ``O``; ``None``: unbounded."""
+    enforce_curl_tip: bool = False
+    enforce_fingertip_mcp: bool = False
+    """Held Stage-0 constraints, reported but enforced only when enabled (Stage-1
+    defines them with the contact interfaces)."""
     curl_tip_min_x_mm: float = 0.0
     """Least ``x`` of the reference point at the curl pose with the MCP at 0: it
     stays ahead of ``O``."""
@@ -56,10 +61,8 @@ class FingerStudyConfig:
     """First objective: ``"transmission"`` (max worst transmission quality),
     ``"lever"`` (min worst PIP servo torque per unit pad force) or
     ``"torque_ratio"`` (min worst servo torque per unit distal-link moment)."""
-    minimize_ab: bool = False
-    """Add ``|AB|`` as a second objective (a Pareto study); otherwise single-objective."""
-    keep_candidates: int = 50
-    """Single-objective runs keep this many best feasible designs of the final population."""
+    minimum_flexion_rad: float = math.radians(120.0)
+    """Least ``phi_safe_max``: the distal link must turn at least this far, safely."""
     servo_travel_max_rad: float | None = None
     """Most PIP servo rotation from extension to the curl pose; ``None``: unbounded."""
     oa_interface_clearance_mm: float = 0.0
@@ -85,7 +88,6 @@ class FingerStudyConfig:
             require_positive(name, getattr(self, name))
         require_nonnegative("range_margin_rad", self.range_margin_rad)
         require_nonnegative("dip_backoff_tolerance_rad", self.dip_backoff_tolerance_rad)
-        require_finite("curl_gap_mm", self.curl_gap_mm)
         require_finite("curl_tip_min_x_mm", self.curl_tip_min_x_mm)
         if self.reference_point not in ("C", "B"):
             raise ValueError("reference_point must be 'C' or 'B'")
@@ -95,6 +97,9 @@ class FingerStudyConfig:
         if self.servo_travel_max_rad is not None:
             require_positive("servo_travel_max_rad", self.servo_travel_max_rad)
         require_nonnegative("mcp_flexion_max_rad", self.mcp_flexion_max_rad)
+        require_nonnegative("minimum_flexion_rad", self.minimum_flexion_rad)
+        if self.bc_to_oa_ratio_max is not None:
+            require_positive("bc_to_oa_ratio_max", self.bc_to_oa_ratio_max)
         lower, upper = self.extended_length_bounds_mm
         if lower > upper:
             raise ValueError("extended_length_bounds_mm lower bound exceeds its upper bound")

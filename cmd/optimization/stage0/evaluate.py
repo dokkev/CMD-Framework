@@ -1,28 +1,32 @@
-"""Evaluate one 2-DoF finger design against the study requirements.
-
-The PIP is swept in ``pip_step_rad`` steps. The curl pose is the PIP angle
-where the distal link has turned 180 deg relative to the proximal link
-(``q_pip + q_dip = pi``, ``BC`` antiparallel to ``OA``); there the ``BC``
-line must sit at least ``curl_gap_mm`` palmar of the ``OA`` line (the two
-contact interfaces). The fingertip's side silhouette, carried by ``BC``, must
-clear the MCP servo over the range and MCP flexion. The evaluated range is extension
-to curl widened by ``range_margin_rad`` at both ends; over it the linkage
-must close, keep the transmission margin, and turn the DIP and the driven
-link one way. Objectives, in priority order of the study (the curl
-requirement is a constraint):
-
-1. per ``config.objective``: maximize the worst transmission quality
-   ``sin(margin)`` over the range (``"transmission"``), minimize the worst
-   lever ``r`` over the workspace (``"lever"``), or minimize the worst torque
-   ratio ``k`` over the workspace (``"torque_ratio"``); see :func:`servo_lever`;
-2. minimize the distance ``AB`` in the extended pose.
+"""Evaluate one Stage-0 linkage design (see ``docs/optimization/stage0.md``).
 
 The PIP servo sits on ``A'`` and drives the coupler ``A'-B``, dorsal of the
-``OA`` contact interface. The transmission margin is the four-bar's output
-angle at ``B'`` (between ``B'->A`` and ``B'->B``), and the driven coupler
-must turn one way over the range (no limit position).
+``OA`` contact interface. ``phi = q_pip + q_dip`` is the distal link's
+rotation relative to the proximal link (180 deg: ``BC`` antiparallel to ``OA``).
 
-Constraints are ``g <= 0``. Angles are in degrees and lengths in mm.
+**Safe motion.** From extension the PIP is swept in ``pip_step_rad`` steps. The
+motion is safe while (a) the four-bar closes, (b) the transmission margin at
+``B'`` (between ``B'->A`` and ``B'->B``) stays at least
+``minimum_transmission_margin_rad``, (c) the DIP and (d) the driven coupler
+``A'-B`` keep turning one way, and (e) the ``B'`` bushing housing clears the
+PIP servo body. The usable range ends ``range_margin_rad`` (of PIP) before the
+first unsafe sample, leaving room for a stopper, or at ``phi = 180 deg``,
+whichever comes first; ``phi_safe_max`` is ``phi`` there. The same conditions
+must hold ``range_margin_rad`` into hyperextension.
+
+**Objectives** (all minimized; no weights):
+
+1. ``k_max``, the worst torque ratio ``k = d(phi)/d(theta_servo)`` over the
+   usable range (or, per ``config.objective``, the worst lever or the negated
+   worst transmission quality);
+2. ``-(OA + BC)``, the structural length of the two contact segments;
+3. ``180 deg - phi_safe_max``.
+
+**Constraints** (``g <= 0``; degrees and mm): the static geometry and
+packaging checks, hyperextension safety and ``phi_safe_max >=
+minimum_flexion_rad``. The curl-tip position and the fingertip to MCP servo
+clearance are held (reported, enforced only when enabled in the config) until
+their Stage-1 definitions; the OA-BC curl gap is left to Stage-1.
 """
 
 from __future__ import annotations
@@ -49,28 +53,26 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pin_spacing_mm",
     "extended_length_mm",
     "oa_interface_mm",
+    "bc_to_oa",
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
 MOTION_CONSTRAINTS: tuple[str, ...] = (
-    "curl_reached_deg",
-    "range_closure_deg",
-    "transmission_deg",
-    "dip_backoff_deg",
-    "input_backoff_deg",
-    "dip_pin_mm",
+    "hyperextension_deg",
+    "minimum_flexion_deg",
     "link_mm",
-    "curl_gap_mm",
-    "fingertip_mcp_mm",
     "servo_travel_deg",
     "curl_tip_x_mm",
+    "fingertip_mcp_mm",
 )
-"""Constraints that need the PIP sweep."""
+"""Constraints that need the PIP sweep (the last two are held unless enabled)."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
 """Violation assigned to every other constraint of an invalid reference design."""
 UNSWEPT = 1.0e2
 """Violation assigned to the motion constraints of a design that already fails a
 static one: such designs rank behind every design that passes them."""
+STOP_REASONS = ("closure", "transmission", "dip_backoff", "input_backoff", "dip_pin")
+"""The unsafe conditions (a)-(e), in the order they are reported."""
 
 
 @dataclass(frozen=True)
@@ -81,26 +83,45 @@ class FingerEvaluation:
     constraints: Mapping[str, float]
     worst_transmission_quality: float
     ab_mm: float
+    phi_safe_rad: float = 0.0
+    """Distal rotation at the end of the usable range (at most pi)."""
+    usable_pip_rad: float = 0.0
+    """PIP flexion at the end of the usable range."""
+    stop_reason: str = ""
+    """``"curl"`` when ``phi`` reached 180 deg first, else the first unsafe condition
+    (``"closure"``, ``"transmission"``, ``"dip_backoff"``, ``"input_backoff"``,
+    ``"dip_pin"``) or ``"horizon"``."""
     curl_pip_rad: float = math.nan
     curl_dip_rad: float = math.nan
-    curl_gap_mm: float = math.nan
     curl_tip_x_mm: float = math.nan
     """``x`` of the reference point (``C`` or ``B``) at the curl pose with the MCP at 0."""
     min_margin_rad: float = math.nan
-    """Smallest transmission margin over the evaluated range."""
+    """Smallest transmission margin from hyperextension to the end of the usable range."""
     link_clearance_mm: float = math.nan
-    """Undriven straight link to the PIP servo over the safe range (negative: interference)."""
+    """Undriven straight link to the PIP servo over the usable range (negative: interference)."""
     servo_lowest_z_mm: float = math.nan
     """Most palmar point of the PIP servo; below 0 it protrudes past the ``OA`` line."""
     closes_to_rad: float = math.nan
     lever_max_mm: float = math.nan
-    """Worst PIP servo torque per unit pad force over the workspace (N mm / N)."""
+    """Worst PIP servo torque per unit pad force over the usable range (N mm / N)."""
     torque_ratio_max: float = math.nan
-    """Worst ``k = d(phi_distal)/d(theta_servo)`` over the workspace: servo torque
+    """Worst ``k = d(phi_distal)/d(theta_servo)`` over the usable range: servo torque
     per unit moment on the distal link. Independent of where along ``BC`` a
     contact lands."""
     servo_travel_rad: float = math.nan
-    """PIP servo rotation from extension to the curl pose."""
+    """PIP servo rotation over the usable range."""
+
+    @property
+    def structural_length_mm(self) -> float:
+        """``OA + BC``, the two contact-supporting segments."""
+
+        return self.parameters.a_x_mm + self.parameters.bc_length_mm
+
+    @property
+    def curl_shortfall_deg(self) -> float:
+        """``180 deg - phi_safe_max``."""
+
+        return 180.0 - math.degrees(self.phi_safe_rad)
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -140,41 +161,55 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
         return FingerEvaluation(parameters, MappingProxyType(constraints), 0.0, ab_mm,
                                 servo_lowest_z_mm=footprint.lowest_z_mm)
 
-    sweep = linkage.sweep_pip(config.pip_samples_rad)
+    step = config.pip_step_rad
+    requested = config.pip_samples_rad
+    sweep = linkage.sweep_pip(requested)
+    margin_steps = int(round(config.range_margin_rad / step))
+    back = linkage.sweep_pip([-index * step for index in range(margin_steps + 1)])
+    n_back = len(back.q_pip_rad) - 1  # hyperextension samples that close, besides 0
+
+    # Joined, in increasing PIP: closed hyperextension samples, then the flexion sweep.
+    def joined(name: str) -> np.ndarray:
+        return np.concatenate((getattr(back, name)[:0:-1], getattr(sweep, name)))
+
+    unsafe = _unsafe_conditions(
+        parameters, footprint, joined("margin_at_bp_rad"), joined("q_dip_rad"),
+        joined("b"), joined("bp"), n_back, config,
+    )
+    any_unsafe = np.any(np.stack(list(unsafe.values())), axis=0)
+
+    # Hyperextension: every requested sample closes and is safe.
+    hyper_violation = math.degrees(step) * (
+        (margin_steps - n_back) + int(np.count_nonzero(any_unsafe[:n_back]))
+    )
+
+    # Flexion: the first unsafe sample, or the first one that does not close.
     q = sweep.q_pip_rad
     total = sweep.total_flexion_rad
-    closes_to = float(q[-1])
-
+    forward_unsafe = any_unsafe[n_back:]
+    candidates = []
+    if forward_unsafe.any():
+        first = int(np.flatnonzero(forward_unsafe)[0])
+        reason = next(name for name in STOP_REASONS if unsafe[name][n_back + first])
+        candidates.append((float(q[first]) - config.range_margin_rad, reason))
+    if len(q) < len(requested):
+        candidates.append((float(requested[len(q)]) - config.range_margin_rad, "closure"))
     reached = np.flatnonzero(total >= math.pi)
-    if reached.size:
-        i = int(reached[0])
-        curl = _refine_curl(linkage, float(q[i - 1]), float(q[i]))
-        curl_shortfall = 0.0
-        safe_end = curl + config.range_margin_rad
-    else:
-        curl = math.nan
-        curl_shortfall = math.degrees(math.pi - float(total.max()))
-        safe_end = closes_to
-    safe = q <= safe_end + 1e-12
+    curl = math.nan
+    if reached.size and reached[0] > 0:
+        curl = _refine_curl(linkage, float(q[reached[0] - 1]), float(q[reached[0]]))
+        candidates.append((curl, "curl"))
+    candidates.append((float(q[-1]), "horizon"))
+    usable_end, stop_reason = min(candidates, key=lambda item: item[0])
+    usable_end = max(usable_end, 0.0)
+    # The curl pose is refined to phi = 180 deg; the grid interpolation would fall just short.
+    phi_safe = math.pi if stop_reason == "curl" else min(float(np.interp(usable_end, q, total)), math.pi)
 
-    # Sweep from extension into hyperextension and join it, in increasing PIP
-    # order, to the flexion side up to the safe end.
-    steps = int(round(config.range_margin_rad / config.pip_step_rad))
-    back = linkage.sweep_pip([-index * config.pip_step_rad for index in range(steps + 1)])
-    extension_shortfall = config.range_margin_rad + float(back.q_pip_rad[-1])
-
-    def joined(name: str) -> np.ndarray:
-        return np.concatenate((getattr(back, name)[:0:-1], getattr(sweep, name)[safe]))
-
-    margin = joined("margin_at_bp_rad")
-    q_dip = joined("q_dip_rad")
-    backoff = float(np.max(np.maximum.accumulate(q_dip) - q_dip))
-    b_range, bp_range = joined("b"), joined("bp")
-    # The driven coupler A'-B must turn one way.
-    to_b = b_range - np.array((parameters.ap.x_mm, parameters.ap.z_mm))
-    turn = np.unwrap(np.arctan2(to_b[:, 1], to_b[:, 0]))
-    turn = turn * (1.0 if turn[-1] >= turn[0] else -1.0)
-    input_backoff = float(np.max(np.maximum.accumulate(turn) - turn))
+    usable = q <= usable_end + 1e-12
+    lever, ratio, travel = servo_lever(parameters, sweep, usable)
+    usable_joined = np.concatenate((np.ones(n_back, dtype=bool), usable))
+    margin = joined("margin_at_bp_rad")[usable_joined]
+    bp_range = joined("bp")[usable_joined]
 
     clearance = packaging.body_clearance_mm
     a = np.array((linkage.a.x_mm, 0.0))
@@ -182,57 +217,79 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
     link = footprint.distance_to_segments(np.broadcast_to(a, bp_range.shape), bp_range)
     link_clearance = float(link.min()) - clearance
 
-    workspace = q <= (curl if reached.size else closes_to) + 1e-12
-    lever, ratio, travel = servo_lever(parameters, sweep, workspace)
-
-    curl_dip = curl_gap = curl_tip_x = math.nan
-    gap_violation = tip_violation = 0.0
-    if reached.size:
+    curl_dip = curl_tip_x = math.nan
+    tip_violation = 0.0
+    if stop_reason == "curl":
         pose = linkage.solve(0.0, curl)
         curl_dip = pose.q_dip_rad
-        # BC is antiparallel to OA here: the gap is the distance between the two lines.
-        curl_gap = -0.5 * (pose.b.z_mm + pose.c.z_mm)
-        gap_violation = config.curl_gap_mm - curl_gap
-        # Fully flexed with the MCP at 0, the reference point (C or B) stays ahead of O.
         curl_tip_x = (pose.c if config.reference_point == "C" else pose.b).x_mm
         tip_violation = config.curl_tip_min_x_mm - curl_tip_x
+    fingertip_violation = 0.0
+    if config.enforce_fingertip_mcp:
+        fingertip_violation = -(_fingertip_mcp_gap_mm(linkage, sweep, usable, config) - clearance)
 
     constraints = {
         **static,
-        "curl_reached_deg": curl_shortfall,
-        "range_closure_deg": math.degrees(max(
-            safe_end - closes_to if reached.size else 0.0, extension_shortfall
-        )),
-        "transmission_deg": math.degrees(config.minimum_transmission_margin_rad - float(margin.min())),
-        "dip_backoff_deg": math.degrees(backoff - config.dip_backoff_tolerance_rad),
-        "input_backoff_deg": math.degrees(input_backoff - config.dip_backoff_tolerance_rad),
-        # The DIP pin B' moves past the servo; its housing clears the body throughout.
-        "dip_pin_mm": -(float(footprint.distance_to_segments(bp_range, bp_range).min())
-                        - packaging.housing_radius_mm - clearance),
+        "hyperextension_deg": hyper_violation,
+        "minimum_flexion_deg": math.degrees(config.minimum_flexion_rad - phi_safe),
         "link_mm": -link_clearance if config.link_clearance else 0.0,
-        "curl_gap_mm": gap_violation,
-        "fingertip_mcp_mm": -(_fingertip_mcp_gap_mm(linkage, sweep, safe, config) - clearance),
         "servo_travel_deg": (math.degrees(travel - config.servo_travel_max_rad)
                              if config.servo_travel_max_rad is not None else 0.0),
-        "curl_tip_x_mm": tip_violation,
+        # Held until their Stage-1 definitions; enforced only when enabled.
+        "curl_tip_x_mm": tip_violation if config.enforce_curl_tip else 0.0,
+        "fingertip_mcp_mm": fingertip_violation,
     }
     return FingerEvaluation(
         parameters=parameters,
         constraints=MappingProxyType(constraints),
         worst_transmission_quality=float(np.sin(margin).min()),
         ab_mm=ab_mm,
-        curl_pip_rad=curl,
+        phi_safe_rad=phi_safe,
+        usable_pip_rad=usable_end,
+        stop_reason=stop_reason,
+        curl_pip_rad=curl if stop_reason == "curl" else math.nan,
         curl_dip_rad=curl_dip,
-        curl_gap_mm=curl_gap,
         curl_tip_x_mm=curl_tip_x,
         min_margin_rad=float(margin.min()),
         link_clearance_mm=link_clearance,
         servo_lowest_z_mm=footprint.lowest_z_mm,
-        closes_to_rad=closes_to,
+        closes_to_rad=float(q[-1]),
         lever_max_mm=lever,
         torque_ratio_max=ratio,
         servo_travel_rad=travel,
     )
+
+
+def _unsafe_conditions(
+    parameters: FingerLinkageParameters,
+    footprint: ServoFootprint,
+    margin: np.ndarray,
+    q_dip: np.ndarray,
+    b: np.ndarray,
+    bp: np.ndarray,
+    extension_index: int,
+    config: FingerStudyConfig,
+) -> dict[str, np.ndarray]:
+    """Per-sample unsafe flags (b)-(e) along the joined sweep; (a) is the sweep's end.
+
+    Backoffs are measured from the start of the sweep (deepest hyperextension).
+    The driven coupler's direction is the one it turns in leaving extension.
+    """
+
+    tolerance = config.dip_backoff_tolerance_rad
+    to_b = b - np.array((parameters.ap.x_mm, parameters.ap.z_mm))
+    turn = np.unwrap(np.arctan2(to_b[:, 1], to_b[:, 0]))
+    i = min(extension_index, len(turn) - 2)
+    turn = turn * (1.0 if turn[i + 1] >= turn[i] else -1.0)
+    housing = footprint.distance_to_segments(bp, bp)
+    packaging = config.packaging
+    return {
+        "closure": np.zeros(len(margin), dtype=bool),
+        "transmission": margin < config.minimum_transmission_margin_rad,
+        "dip_backoff": np.maximum.accumulate(q_dip) - q_dip > tolerance,
+        "input_backoff": np.maximum.accumulate(turn) - turn > tolerance,
+        "dip_pin": housing < packaging.housing_radius_mm + packaging.body_clearance_mm,
+    }
 
 
 def servo_lever(
@@ -296,6 +353,9 @@ def _static_constraints(
         "extended_length_mm": max(length_low - length, length - length_high),
         # The PIP servo stays dorsal of the OA contact interface.
         "oa_interface_mm": config.oa_interface_clearance_mm - footprint.lowest_z_mm,
+        # BC no longer than OA (times the ratio): the curled tip stays near O.
+        "bc_to_oa": (parameters.bc_length_mm - config.bc_to_oa_ratio_max * parameters.a_x_mm
+                     if config.bc_to_oa_ratio_max is not None else 0.0),
     }
 
 
@@ -367,6 +427,7 @@ __all__ = [
     "INVALID",
     "MOTION_CONSTRAINTS",
     "STATIC_CONSTRAINTS",
+    "STOP_REASONS",
     "UNSWEPT",
     "evaluate",
     "servo_lever",

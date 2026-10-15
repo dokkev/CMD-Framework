@@ -28,10 +28,10 @@ from .evaluate import CONSTRAINT_NAMES, INVALID, FingerEvaluation, evaluate
 
 
 class FingerProblem(ElementwiseProblem):
-    """Minimize objective 1, and ``AB`` if ``config.minimize_ab``, subject to ``G <= 0``.
+    """Minimize ``(objective 1, -(OA + BC), 180 deg - phi_safe_max)`` subject to ``G <= 0``.
 
-    Objective 1 is ``-worst transmission quality``, the worst lever ``r`` (mm)
-    or the worst torque ratio ``k``, per ``config.objective``.
+    Objective 1 is the worst torque ratio ``k`` (default), the worst lever ``r``
+    (mm) or ``-worst transmission quality``, per ``config.objective``.
 
     pymoo searches integer grid steps; ``to_mm`` maps them to design values.
     """
@@ -40,7 +40,7 @@ class FingerProblem(ElementwiseProblem):
         self.config = config
         super().__init__(
             n_var=len(VARIABLE_NAMES),
-            n_obj=2 if config.minimize_ab else 1,
+            n_obj=3,
             n_ieq_constr=len(CONSTRAINT_NAMES),
             xl=np.ceil(np.asarray(config.lower) / config.resolution_mm - 1e-9),
             xu=np.floor(np.asarray(config.upper) / config.resolution_mm + 1e-9),
@@ -56,11 +56,21 @@ class FingerProblem(ElementwiseProblem):
         try:
             evaluation = evaluate(decode(self.to_mm(x)), self.config)
         except ValueError:  # B not beyond A: no linkage to evaluate
-            out["F"] = np.array((INVALID, INVALID)[: self.n_obj])
+            out["F"] = np.full(3, INVALID)
             out["G"] = np.full(len(CONSTRAINT_NAMES), INVALID)
             return
-        out["F"] = np.array((objective_1(evaluation, self.config), evaluation.ab_mm)[: self.n_obj])
+        out["F"] = np.asarray(objectives(evaluation, self.config))
         out["G"] = np.asarray(evaluation.g)
+
+
+def objectives(evaluation: FingerEvaluation, config: FingerStudyConfig) -> tuple[float, float, float]:
+    """The three objectives to minimize."""
+
+    return (
+        objective_1(evaluation, config),
+        -evaluation.structural_length_mm,
+        evaluation.curl_shortfall_deg,
+    )
 
 
 def objective_1(evaluation: FingerEvaluation, config: FingerStudyConfig) -> float:
@@ -114,7 +124,7 @@ def run_study(
         seed=config.seed,
         verbose=False,
     )
-    final = result.opt if config.minimize_ab else result.pop
+    final = result.opt
     pareto: list[FingerCandidate] = []
     seen: set[tuple[float, ...]] = set()
     if final is not None:
@@ -127,8 +137,6 @@ def run_study(
             if evaluation.feasible:
                 pareto.append(FingerCandidate(x, evaluation))
     pareto.sort(key=lambda candidate: objective_1(candidate.evaluation, config))
-    if not config.minimize_ab:
-        pareto = pareto[: config.keep_candidates]
     return FingerStudyResult(config, tuple(pareto), int(result.algorithm.evaluator.n_eval))
 
 
@@ -155,19 +163,22 @@ def save_result(
     with (output / "pareto.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream)
         writer.writerow((
-            "candidate", *VARIABLE_NAMES, "worst_transmission_quality", "ab_mm",
-            "curl_pip_deg", "curl_dip_deg", "curl_gap_mm", "min_margin_deg", "closes_to_deg",
-            "link_clearance_mm", "servo_lowest_z_mm", "lever_max_mm", "torque_ratio_max",
-            "servo_travel_deg",
+            "candidate", *VARIABLE_NAMES,
+            "torque_ratio_max", "structural_length_mm", "phi_safe_deg", "usable_pip_deg",
+            "stop_reason", "worst_transmission_quality", "min_margin_deg", "lever_max_mm",
+            "servo_travel_deg", "ab_mm", "curl_pip_deg", "curl_dip_deg",
+            "curl_tip_x_mm", "closes_to_deg", "link_clearance_mm", "servo_lowest_z_mm",
         ))
         for index, candidate in enumerate(result.pareto, start=1):
             e = candidate.evaluation
             writer.writerow((
-                index, *candidate.x, e.worst_transmission_quality, e.ab_mm,
-                math.degrees(e.curl_pip_rad), math.degrees(e.curl_dip_rad), e.curl_gap_mm,
-                math.degrees(e.min_margin_rad), math.degrees(e.closes_to_rad),
-                e.link_clearance_mm, e.servo_lowest_z_mm, e.lever_max_mm, e.torque_ratio_max,
-                math.degrees(e.servo_travel_rad),
+                index, *candidate.x,
+                e.torque_ratio_max, e.structural_length_mm, math.degrees(e.phi_safe_rad),
+                math.degrees(e.usable_pip_rad), e.stop_reason, e.worst_transmission_quality,
+                math.degrees(e.min_margin_rad), e.lever_max_mm, math.degrees(e.servo_travel_rad),
+                e.ab_mm, math.degrees(e.curl_pip_rad), math.degrees(e.curl_dip_rad),
+                e.curl_tip_x_mm, math.degrees(e.closes_to_rad), e.link_clearance_mm,
+                e.servo_lowest_z_mm,
             ))
     return output
 
@@ -194,6 +205,7 @@ __all__ = [
     "FingerCandidate",
     "FingerProblem",
     "FingerStudyResult",
+    "objectives",
     "load_config",
     "run_study",
     "save_result",
