@@ -30,23 +30,38 @@ class FingerStudyConfig:
     """
 
     bounds: Mapping[str, tuple[float, float]]
-    bc_length_mm: float = 24.0
     pip_step_rad: float = math.radians(1.0)
     pip_horizon_rad: float = math.pi
     range_margin_rad: float = math.radians(10.0)
     minimum_transmission_margin_rad: float = math.radians(30.0)
     dip_backoff_tolerance_rad: float = math.radians(0.1)
     packaging: Packaging = field(default_factory=Packaging)
+    reference_point: str = "C"
+    """Point of the distal link the length and curl-tip constraints use: ``"C"``
+    (the tip; they then depend on ``BC``) or ``"B"`` (independent of ``BC``)."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 100.0)
-    """Bounds on ``|OC|`` in the fully extended pose."""
+    """Bounds on ``|O ref|`` (``|OC|`` or ``|OB|``) in the fully extended pose."""
     curl_gap_mm: float = 20.0
     """Least distance between the ``OA`` and ``BC`` lines at the curl pose."""
+    curl_tip_min_x_mm: float = 0.0
+    """Least ``x`` of the reference point at the curl pose with the MCP at 0: it
+    stays ahead of ``O``."""
     mcp_flexion_max_rad: float = math.radians(90.0)
     """MCP flexion up to which the fingertip must clear the MCP servo."""
     link_clearance: bool = False
     """Require the straight middle link ``A-B'`` to clear the PIP servo at ``A'``
     in the plane. Off: its plates straddle the servo in other layers; the
     planar clearance is still reported."""
+    objective: str = "torque_ratio"
+    """First objective: ``"transmission"`` (max worst transmission quality),
+    ``"lever"`` (min worst PIP servo torque per unit pad force) or
+    ``"torque_ratio"`` (min worst servo torque per unit distal-link moment)."""
+    minimize_ab: bool = False
+    """Add ``|AB|`` as a second objective (a Pareto study); otherwise single-objective."""
+    keep_candidates: int = 50
+    """Single-objective runs keep this many best feasible designs of the final population."""
+    servo_travel_max_rad: float | None = None
+    """Most PIP servo rotation from extension to the curl pose; ``None``: unbounded."""
     oa_interface_clearance_mm: float = 0.0
     """Least distance of the PIP servo dorsal of the ``OA`` line, keeping the
     proximal contact interface free (a contact pad thickness, later)."""
@@ -65,13 +80,20 @@ class FingerStudyConfig:
                 raise ValueError(f"{name} lower bound exceeds its upper bound")
             bounds[name] = (lower, upper)
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
-        for name in ("bc_length_mm", "pip_step_rad", "pip_horizon_rad",
+        for name in ("pip_step_rad", "pip_horizon_rad",
                      "minimum_transmission_margin_rad", "resolution_mm"):
             require_positive(name, getattr(self, name))
         require_nonnegative("range_margin_rad", self.range_margin_rad)
         require_nonnegative("dip_backoff_tolerance_rad", self.dip_backoff_tolerance_rad)
         require_finite("curl_gap_mm", self.curl_gap_mm)
+        require_finite("curl_tip_min_x_mm", self.curl_tip_min_x_mm)
+        if self.reference_point not in ("C", "B"):
+            raise ValueError("reference_point must be 'C' or 'B'")
         require_finite("oa_interface_clearance_mm", self.oa_interface_clearance_mm)
+        if self.objective not in ("transmission", "lever", "torque_ratio"):
+            raise ValueError("objective must be 'transmission', 'lever' or 'torque_ratio'")
+        if self.servo_travel_max_rad is not None:
+            require_positive("servo_travel_max_rad", self.servo_travel_max_rad)
         require_nonnegative("mcp_flexion_max_rad", self.mcp_flexion_max_rad)
         lower, upper = self.extended_length_bounds_mm
         if lower > upper:

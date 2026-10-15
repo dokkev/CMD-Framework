@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import math
 import sys
 from pathlib import Path
@@ -58,12 +57,11 @@ SERVO_COLOR, PAD_COLOR, CARRIER_COLOR = "#c9ced6", "#b8d5a8", "#999c9f"
 def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float]:
     """Return a study candidate's linkage and its curl PIP angle in degrees."""
 
-    config = json.loads((csv_path.parent / "run.json").read_text(encoding="utf-8"))["config"]
     with csv_path.open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
                 x = [float(row[name]) for name in VARIABLE_NAMES]
-                return FingerLinkage(decode(x, config["bc_length_mm"])), float(row["curl_pip_deg"])
+                return FingerLinkage(decode(x)), float(row["curl_pip_deg"])
     raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 

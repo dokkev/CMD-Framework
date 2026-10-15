@@ -11,7 +11,7 @@ from cmd.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import Packaging
+from cmd.morphology.linkage.packaging import HOUSING_RADIUS_MM, Packaging
 
 SKETCH = SKETCH_LINKAGE.parameters
 
@@ -124,7 +124,7 @@ def test_servo_at_a_prime_lies_back_parallel_to_oa() -> None:
     assert footprint.lowest_z_mm == pytest.approx(19.3 - 9.5)
     # A = (40, 0) lies 9.8 mm below the rear body; the 8 mm housing and 1 mm
     # clearance take 5 mm of that.
-    assert clearance.pin_mm == pytest.approx(9.8 - 4.0 - 1.0)
+    assert clearance.pin_mm == pytest.approx(9.8 - HOUSING_RADIUS_MM - 1.0)
 
 
 def test_servo_near_o_and_buried_pin_are_infeasible() -> None:
@@ -151,7 +151,7 @@ def test_a_housing_must_clear_the_servo_body_which_may_tilt_up() -> None:
         a_x_mm=40.0, b_x_mm=90.0, ap=PointXZ(60.0, 8.0), bp=PointXZ(80.0, 10.0),
         bc_length_mm=40.0,
     )
-    assert servo_clearance(FingerLinkage(flat)).pin_mm == pytest.approx(0.0 - 4.0 - 1.0)
+    assert servo_clearance(FingerLinkage(flat)).pin_mm == pytest.approx(0.0 - HOUSING_RADIUS_MM - 1.0)
 
     # Tilted 45 deg up, the rear body's palmar edge runs from A' - 9.5 * (sin, cos)
     # back along (-cos, sin); A falls well below it.
@@ -164,7 +164,7 @@ def test_a_housing_must_clear_the_servo_body_which_may_tilt_up() -> None:
     to_a = (40.0 - edge_start[0], 0.0 - edge_start[1])
     normal = (-math.sin(tilt), -math.cos(tilt))
     expected = to_a[0] * normal[0] + to_a[1] * normal[1]
-    assert servo_clearance(tilted).pin_mm == pytest.approx(expected - 4.0 - 1.0)
+    assert servo_clearance(tilted).pin_mm == pytest.approx(expected - HOUSING_RADIUS_MM - 1.0)
 
 
 def test_dip_pin_housing_is_checked_along_its_path() -> None:
@@ -174,7 +174,7 @@ def test_dip_pin_housing_is_checked_along_its_path() -> None:
     sweep = linkage.sweep_pip(q)
     nearest = min(footprint.distance_to_point(point) for point in sweep.bp)
 
-    assert servo_clearance(linkage, pip_samples_rad=q).dip_pin_mm == pytest.approx(nearest - 4.0 - 1.0)
+    assert servo_clearance(linkage, pip_samples_rad=q).dip_pin_mm == pytest.approx(nearest - HOUSING_RADIUS_MM - 1.0)
 
 
 def test_mcp_hyperextension_turns_the_pip_servo_toward_the_mcp_servo() -> None:

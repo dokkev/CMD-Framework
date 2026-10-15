@@ -28,11 +28,11 @@ from . import FingerLinkage
 
 
 BUSHING_INNER_DIAMETER_MM = 3.0
-BUSHING_OUTER_DIAMETER_MM = 5.0
-"""Pin bushing, 3 mm bore. 5 mm is the smallest OD of McMaster's made-to-order
-metric oil-embedded bronze sleeve bearings (OD >= ID + 2 mm); set it to the
-chosen part."""
-HOUSING_WALL_MM = 1.5
+BUSHING_OUTER_DIAMETER_MM = 4.5
+"""Pin bushing: McMaster 2706T72, high-load dry-running flanged sleeve bearing,
+3 mm shaft, 4.5 mm OD, 5 mm long, 7.5 x 0.75 mm flange."""
+HOUSING_WALL_MM = 1.0
+"""Housing wall around a bushing, machined aluminium."""
 BODY_CLEARANCE_MM = 1.0
 """Servo to servo, servo to bushing housing, and servo to moving parts."""
 DEFAULT_PIP_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))

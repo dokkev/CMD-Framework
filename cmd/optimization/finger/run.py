@@ -7,6 +7,7 @@ import json
 import math
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pymoo
@@ -27,7 +28,10 @@ from .evaluate import CONSTRAINT_NAMES, INVALID, FingerEvaluation, evaluate
 
 
 class FingerProblem(ElementwiseProblem):
-    """Minimize ``(-worst transmission quality, AB)`` subject to ``G <= 0``.
+    """Minimize objective 1, and ``AB`` if ``config.minimize_ab``, subject to ``G <= 0``.
+
+    Objective 1 is ``-worst transmission quality``, the worst lever ``r`` (mm)
+    or the worst torque ratio ``k``, per ``config.objective``.
 
     pymoo searches integer grid steps; ``to_mm`` maps them to design values.
     """
@@ -36,7 +40,7 @@ class FingerProblem(ElementwiseProblem):
         self.config = config
         super().__init__(
             n_var=len(VARIABLE_NAMES),
-            n_obj=2,
+            n_obj=2 if config.minimize_ab else 1,
             n_ieq_constr=len(CONSTRAINT_NAMES),
             xl=np.ceil(np.asarray(config.lower) / config.resolution_mm - 1e-9),
             xu=np.floor(np.asarray(config.upper) / config.resolution_mm + 1e-9),
@@ -45,15 +49,29 @@ class FingerProblem(ElementwiseProblem):
     def to_mm(self, steps) -> tuple[float, ...]:
         return tuple(round(float(step) * self.config.resolution_mm, 9) for step in steps)
 
+    def to_steps(self, values_mm) -> np.ndarray:
+        return np.round(np.asarray(values_mm, dtype=float) / self.config.resolution_mm)
+
     def _evaluate(self, x, out, *args, **kwargs) -> None:
         try:
-            evaluation = evaluate(decode(self.to_mm(x), self.config.bc_length_mm), self.config)
+            evaluation = evaluate(decode(self.to_mm(x)), self.config)
         except ValueError:  # B not beyond A: no linkage to evaluate
-            out["F"] = np.array((0.0, INVALID))
+            out["F"] = np.array((INVALID, INVALID)[: self.n_obj])
             out["G"] = np.full(len(CONSTRAINT_NAMES), INVALID)
             return
-        out["F"] = np.array((-evaluation.worst_transmission_quality, evaluation.ab_mm))
+        out["F"] = np.array((objective_1(evaluation, self.config), evaluation.ab_mm)[: self.n_obj])
         out["G"] = np.asarray(evaluation.g)
+
+
+def objective_1(evaluation: FingerEvaluation, config: FingerStudyConfig) -> float:
+    """The first objective to minimize; unswept designs get a large finite value."""
+
+    value = {
+        "transmission": -evaluation.worst_transmission_quality,
+        "lever": evaluation.lever_max_mm,
+        "torque_ratio": evaluation.torque_ratio_max,
+    }[config.objective]
+    return value if math.isfinite(value) else INVALID
 
 
 @dataclass(frozen=True)
@@ -69,17 +87,26 @@ class FingerStudyResult:
     evaluation_count: int
 
 
-def run_study(config: FingerStudyConfig) -> FingerStudyResult:
-    """Run NSGA-II on the resolution grid from a Latin hypercube start."""
+def run_study(
+    config: FingerStudyConfig, initial_designs: Sequence[Sequence[float]] = ()
+) -> FingerStudyResult:
+    """Run NSGA-II on the resolution grid from a Latin hypercube start, plus any
+    ``initial_designs`` (design vectors in mm and degrees) to warm-start from.
+
+    A Pareto study keeps the feasible Pareto set; a single-objective study keeps
+    the ``keep_candidates`` best distinct feasible designs of the final population.
+    """
 
     problem = FingerProblem(config)
-    lhs = LHS().do(problem, config.population_size,
+    seeds = np.array([problem.to_steps(x) for x in initial_designs]).reshape(-1, problem.n_var)
+    seeds = np.clip(seeds, problem.xl, problem.xu)
+    lhs = LHS().do(problem, config.population_size - len(seeds),
                    random_state=np.random.default_rng(config.seed)).get("X")
     result = minimize(
         problem,
         NSGA2(
             pop_size=config.population_size,
-            sampling=np.round(lhs),
+            sampling=np.vstack((seeds, np.round(lhs))),
             crossover=SBX(prob=0.9, eta=15, vtype=float, repair=RoundingRepair()),
             mutation=PM(eta=20, vtype=float, repair=RoundingRepair()),
         ),
@@ -87,14 +114,21 @@ def run_study(config: FingerStudyConfig) -> FingerStudyResult:
         seed=config.seed,
         verbose=False,
     )
+    final = result.opt if config.minimize_ab else result.pop
     pareto: list[FingerCandidate] = []
-    if result.opt is not None:
-        for steps in np.atleast_2d(result.opt.get("X")):
+    seen: set[tuple[float, ...]] = set()
+    if final is not None:
+        for steps in np.atleast_2d(final.get("X")):
             x = problem.to_mm(steps)
-            evaluation = evaluate(decode(x, config.bc_length_mm), config)
+            if x in seen:
+                continue
+            seen.add(x)
+            evaluation = evaluate(decode(x), config)
             if evaluation.feasible:
                 pareto.append(FingerCandidate(x, evaluation))
-    pareto.sort(key=lambda candidate: -candidate.evaluation.worst_transmission_quality)
+    pareto.sort(key=lambda candidate: objective_1(candidate.evaluation, config))
+    if not config.minimize_ab:
+        pareto = pareto[: config.keep_candidates]
     return FingerStudyResult(config, tuple(pareto), int(result.algorithm.evaluator.n_eval))
 
 
@@ -123,7 +157,8 @@ def save_result(
         writer.writerow((
             "candidate", *VARIABLE_NAMES, "worst_transmission_quality", "ab_mm",
             "curl_pip_deg", "curl_dip_deg", "curl_gap_mm", "min_margin_deg", "closes_to_deg",
-            "link_clearance_mm", "servo_lowest_z_mm",
+            "link_clearance_mm", "servo_lowest_z_mm", "lever_max_mm", "torque_ratio_max",
+            "servo_travel_deg",
         ))
         for index, candidate in enumerate(result.pareto, start=1):
             e = candidate.evaluation
@@ -131,7 +166,8 @@ def save_result(
                 index, *candidate.x, e.worst_transmission_quality, e.ab_mm,
                 math.degrees(e.curl_pip_rad), math.degrees(e.curl_dip_rad), e.curl_gap_mm,
                 math.degrees(e.min_margin_rad), math.degrees(e.closes_to_rad),
-                e.link_clearance_mm, e.servo_lowest_z_mm,
+                e.link_clearance_mm, e.servo_lowest_z_mm, e.lever_max_mm, e.torque_ratio_max,
+                math.degrees(e.servo_travel_rad),
             ))
     return output
 

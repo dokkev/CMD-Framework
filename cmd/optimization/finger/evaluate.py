@@ -11,7 +11,10 @@ must close, keep the transmission margin, and turn the DIP and the driven
 link one way. Objectives, in priority order of the study (the curl
 requirement is a constraint):
 
-1. maximize the worst transmission quality ``sin(margin)`` over the range;
+1. per ``config.objective``: maximize the worst transmission quality
+   ``sin(margin)`` over the range (``"transmission"``), minimize the worst
+   lever ``r`` over the workspace (``"lever"``), or minimize the worst torque
+   ratio ``k`` over the workspace (``"torque_ratio"``); see :func:`servo_lever`;
 2. minimize the distance ``AB`` in the extended pose.
 
 The PIP servo sits on ``A'`` and drives the coupler ``A'-B``, dorsal of the
@@ -58,6 +61,8 @@ MOTION_CONSTRAINTS: tuple[str, ...] = (
     "link_mm",
     "curl_gap_mm",
     "fingertip_mcp_mm",
+    "servo_travel_deg",
+    "curl_tip_x_mm",
 )
 """Constraints that need the PIP sweep."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
@@ -79,6 +84,8 @@ class FingerEvaluation:
     curl_pip_rad: float = math.nan
     curl_dip_rad: float = math.nan
     curl_gap_mm: float = math.nan
+    curl_tip_x_mm: float = math.nan
+    """``x`` of the reference point (``C`` or ``B``) at the curl pose with the MCP at 0."""
     min_margin_rad: float = math.nan
     """Smallest transmission margin over the evaluated range."""
     link_clearance_mm: float = math.nan
@@ -86,6 +93,14 @@ class FingerEvaluation:
     servo_lowest_z_mm: float = math.nan
     """Most palmar point of the PIP servo; below 0 it protrudes past the ``OA`` line."""
     closes_to_rad: float = math.nan
+    lever_max_mm: float = math.nan
+    """Worst PIP servo torque per unit pad force over the workspace (N mm / N)."""
+    torque_ratio_max: float = math.nan
+    """Worst ``k = d(phi_distal)/d(theta_servo)`` over the workspace: servo torque
+    per unit moment on the distal link. Independent of where along ``BC`` a
+    contact lands."""
+    servo_travel_rad: float = math.nan
+    """PIP servo rotation from extension to the curl pose."""
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -167,14 +182,20 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
     link = footprint.distance_to_segments(np.broadcast_to(a, bp_range.shape), bp_range)
     link_clearance = float(link.min()) - clearance
 
-    curl_dip = curl_gap = math.nan
-    gap_violation = 0.0
+    workspace = q <= (curl if reached.size else closes_to) + 1e-12
+    lever, ratio, travel = servo_lever(parameters, sweep, workspace)
+
+    curl_dip = curl_gap = curl_tip_x = math.nan
+    gap_violation = tip_violation = 0.0
     if reached.size:
         pose = linkage.solve(0.0, curl)
         curl_dip = pose.q_dip_rad
         # BC is antiparallel to OA here: the gap is the distance between the two lines.
         curl_gap = -0.5 * (pose.b.z_mm + pose.c.z_mm)
         gap_violation = config.curl_gap_mm - curl_gap
+        # Fully flexed with the MCP at 0, the reference point (C or B) stays ahead of O.
+        curl_tip_x = (pose.c if config.reference_point == "C" else pose.b).x_mm
+        tip_violation = config.curl_tip_min_x_mm - curl_tip_x
 
     constraints = {
         **static,
@@ -191,6 +212,9 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
         "link_mm": -link_clearance if config.link_clearance else 0.0,
         "curl_gap_mm": gap_violation,
         "fingertip_mcp_mm": -(_fingertip_mcp_gap_mm(linkage, sweep, safe, config) - clearance),
+        "servo_travel_deg": (math.degrees(travel - config.servo_travel_max_rad)
+                             if config.servo_travel_max_rad is not None else 0.0),
+        "curl_tip_x_mm": tip_violation,
     }
     return FingerEvaluation(
         parameters=parameters,
@@ -200,11 +224,48 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
         curl_pip_rad=curl,
         curl_dip_rad=curl_dip,
         curl_gap_mm=curl_gap,
+        curl_tip_x_mm=curl_tip_x,
         min_margin_rad=float(margin.min()),
         link_clearance_mm=link_clearance,
         servo_lowest_z_mm=footprint.lowest_z_mm,
         closes_to_rad=closes_to,
+        lever_max_mm=lever,
+        torque_ratio_max=ratio,
+        servo_travel_rad=travel,
     )
+
+
+def servo_lever(
+    parameters: FingerLinkageParameters, sweep: PipSweep, workspace: np.ndarray
+) -> tuple[float, float, float]:
+    """Worst lever ``r``, worst torque ratio ``k`` and the servo travel over the workspace.
+
+    A pad force ``F`` along the palmar normal ``n`` of ``BC`` at a contact
+    point ``p`` on ``BC`` loads the PIP servo, which turns the coupler
+    ``A'-B`` by ``theta``, with ``tau = F * |n . dp/dtheta|`` (virtual work, MCP
+    held). ``r = |n . dp/dtheta|`` is linear along ``BC``, so its worst is at
+    ``B`` or ``C``. It factors as ``r = k * d``: the linkage's torque ratio
+    ``k = d(phi)/d(theta)``, with ``phi = q_pip + q_dip`` the distal link's
+    rotation, times the contact's distance ``d`` along ``BC`` from the
+    instantaneous centre. Returns ``(max r in mm, max k, |theta(end) - theta(start)|)``.
+    """
+
+    q = sweep.q_pip_rad[workspace]
+    if len(q) < 3:
+        return math.inf, math.inf, 0.0
+    b, c = sweep.b[workspace], sweep.c[workspace]
+    to_b = b - np.array((parameters.ap.x_mm, parameters.ap.z_mm))
+    theta = np.unwrap(np.arctan2(to_b[:, 1], to_b[:, 0]))
+    dtheta = np.gradient(theta, q)
+    bc = (c - b) / np.linalg.norm(c - b, axis=1)[:, None]
+    normal = np.stack((bc[:, 1], -bc[:, 0]), axis=1)  # palmar side of BC
+    levers = [np.abs(np.sum(normal * np.gradient(point, q, axis=0), axis=1))
+              for point in (b, c)]
+    phi = sweep.total_flexion_rad[workspace]
+    with np.errstate(divide="ignore"):
+        lever = np.max(np.maximum(*levers) / np.abs(dtheta))
+        ratio = np.max(np.abs(np.gradient(phi, q) / dtheta))
+    return float(lever), float(ratio), float(abs(theta[-1] - theta[0]))
 
 
 def _static_constraints(
@@ -217,7 +278,8 @@ def _static_constraints(
     parameters = linkage.parameters
     a = np.array((linkage.a.x_mm, 0.0))
     spacing = min(linkage.a.distance_to(linkage.bp), linkage.bp.distance_to(linkage.b))
-    length = math.hypot(parameters.b_x_mm + parameters.bc_length_mm, parameters.b_z_mm)
+    reach = parameters.bc_length_mm if config.reference_point == "C" else 0.0
+    length = math.hypot(parameters.b_x_mm + reach, parameters.b_z_mm)
     length_low, length_high = config.extended_length_bounds_mm
     # From MCP hyperextension to extension; flexion only turns the PIP servo
     # away from the MCP servo's dorsal rear body.
@@ -307,4 +369,5 @@ __all__ = [
     "STATIC_CONSTRAINTS",
     "UNSWEPT",
     "evaluate",
+    "servo_lever",
 ]
