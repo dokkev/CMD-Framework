@@ -1,4 +1,5 @@
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -10,7 +11,7 @@ from cmd.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import ServoFootprint
+from cmd.morphology.linkage.packaging import Packaging
 
 SKETCH = SKETCH_LINKAGE.parameters
 
@@ -53,13 +54,24 @@ def test_flexion_turns_the_finger_palmar() -> None:
     assert pose.c.z_mm < 0.0
 
 
-def test_open_four_bar_is_rejected() -> None:
-    open_bar = FingerLinkageParameters(
+def test_open_four_bar_is_allowed_and_may_cross_as_it_flexes() -> None:
+    open_bar = FingerLinkage(FingerLinkageParameters(
         a_x_mm=40.0, b_x_mm=100.0, ap=PointXZ(80.0, 19.3), bp=PointXZ(60.0, 19.3),
         bc_length_mm=40.0,
+    ))
+    assert not open_bar.is_crossed
+    assert not open_bar.solve(0.0, 0.0).is_crossed
+    assert FingerLinkage(SKETCH).is_crossed
+
+
+def test_dead_point_reference_is_rejected() -> None:
+    # B' on the line A'-B: the four-bar has no unique branch.
+    dead = FingerLinkageParameters(
+        a_x_mm=40.0, b_x_mm=100.0, ap=PointXZ(60.0, 20.0), bp=PointXZ(80.0, 10.0),
+        bc_length_mm=40.0,
     )
-    with pytest.raises(ValueError, match="crossed"):
-        FingerLinkage(open_bar)
+    with pytest.raises(ValueError, match="dead point"):
+        FingerLinkage(dead)
 
 
 def angle(first: tuple[float, float], second: tuple[float, float]) -> float:
@@ -103,14 +115,16 @@ def test_unreachable_pip_raises() -> None:
 
 def test_servo_at_a_prime_lies_back_parallel_to_oa() -> None:
     clearance = servo_clearance(FingerLinkage(SKETCH))
-    footprint = ServoFootprint.of(FingerLinkage(SKETCH))
+    footprint = Packaging().pip_footprint(FingerLinkage(SKETCH))
 
     # The rear body spans x in [60 - 25.5, 60] and z in [19.3 - 9.5, 19.3 + 9.5];
-    # its corner nearest O is (34.5, 9.8).
-    assert clearance.mcp_servo_mm == pytest.approx(math.hypot(34.5, 9.8) - 9.5 - 1.0)
+    # the MCP servo body spans x in [-9.5, 9.5] up to z = 25.5: the gap is
+    # between its +X face and the rear face, 34.5 - 9.5.
+    assert clearance.mcp_servo_mm == pytest.approx(34.5 - 9.5 - 1.0)
     assert footprint.lowest_z_mm == pytest.approx(19.3 - 9.5)
-    # The PIP pin A clears the shaft disk around A'.
-    assert clearance.pin_mm == pytest.approx(math.hypot(20.0, 19.3) - 9.5 - 4.5)
+    # A = (40, 0) lies 9.8 mm below the rear body; the 8 mm housing and 1 mm
+    # clearance take 5 mm of that.
+    assert clearance.pin_mm == pytest.approx(9.8 - 4.0 - 1.0)
 
 
 def test_servo_near_o_and_buried_pin_are_infeasible() -> None:
@@ -118,8 +132,8 @@ def test_servo_near_o_and_buried_pin_are_infeasible() -> None:
         a_x_mm=40.0, b_x_mm=90.0, ap=PointXZ(30.0, 5.0), bp=PointXZ(70.0, 19.3),
         bc_length_mm=40.0,
     )
-    # The rear body reaches back to x = 4.5 mm, inside the MCP servo disk.
-    assert servo_clearance(FingerLinkage(near_o)).mcp_servo_mm == pytest.approx(4.5 - 9.5 - 1.0)
+    # The rear body reaches back to x = 4.5 mm, into the MCP servo body.
+    assert servo_clearance(FingerLinkage(near_o)).mcp_servo_mm == pytest.approx(-1.0)
 
     buried = FingerLinkageParameters(
         a_x_mm=40.0, b_x_mm=100.0, ap=PointXZ(30.0, 8.0), bp=PointXZ(80.0, 19.3),
@@ -128,3 +142,44 @@ def test_servo_near_o_and_buried_pin_are_infeasible() -> None:
     clearance = servo_clearance(FingerLinkage(buried))
     assert clearance.pin_mm < 0.0
     assert not clearance.feasible
+
+
+def test_a_housing_must_clear_the_servo_body_which_may_tilt_up() -> None:
+    # A' = (60, 8): the untilted rear body spans x in [34.5, 60], z in [-1.5, 17.5]
+    # and covers A = (40, 0).
+    flat = FingerLinkageParameters(
+        a_x_mm=40.0, b_x_mm=90.0, ap=PointXZ(60.0, 8.0), bp=PointXZ(80.0, 10.0),
+        bc_length_mm=40.0,
+    )
+    assert servo_clearance(FingerLinkage(flat)).pin_mm == pytest.approx(0.0 - 4.0 - 1.0)
+
+    # Tilted 45 deg up, the rear body's palmar edge runs from A' - 9.5 * (sin, cos)
+    # back along (-cos, sin); A falls well below it.
+    tilt = math.radians(45.0)
+    tilted = FingerLinkage(replace(flat, pip_servo_tilt_rad=tilt))
+    footprint = Packaging().pip_footprint(tilted)
+    assert footprint.rear == pytest.approx((-math.cos(tilt), math.sin(tilt)))
+    edge_start = (60.0 - 9.5 * math.sin(tilt), 8.0 - 9.5 * math.cos(tilt))
+    # Distance from A to the palmar edge line through edge_start along the rear direction.
+    to_a = (40.0 - edge_start[0], 0.0 - edge_start[1])
+    normal = (-math.sin(tilt), -math.cos(tilt))
+    expected = to_a[0] * normal[0] + to_a[1] * normal[1]
+    assert servo_clearance(tilted).pin_mm == pytest.approx(expected - 4.0 - 1.0)
+
+
+def test_dip_pin_housing_is_checked_along_its_path() -> None:
+    linkage = FingerLinkage(SKETCH)
+    q = [math.radians(d) for d in range(0, 91)]
+    footprint = Packaging().pip_footprint(linkage)
+    sweep = linkage.sweep_pip(q)
+    nearest = min(footprint.distance_to_point(point) for point in sweep.bp)
+
+    assert servo_clearance(linkage, pip_samples_rad=q).dip_pin_mm == pytest.approx(nearest - 4.0 - 1.0)
+
+
+def test_mcp_hyperextension_turns_the_pip_servo_toward_the_mcp_servo() -> None:
+    packaging = Packaging()
+    footprint = packaging.pip_footprint(FingerLinkage(SKETCH))
+    at_rest = packaging.mcp_servo_gap_mm(footprint, (0.0,))
+    hyperextended = packaging.mcp_servo_gap_mm(footprint, (math.radians(-10.0),))
+    assert hyperextended < at_rest

@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +17,9 @@ from pymoo.operators.mutation.pm import PM
 from pymoo.operators.repair.rounding import RoundingRepair
 from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
+
+from cmd.hardware import DShapedExtrusion
+from cmd.morphology.linkage.packaging import Packaging
 
 from .config import FingerStudyConfig
 from .design import VARIABLE_NAMES, decode
@@ -104,6 +107,8 @@ def save_result(
     output.mkdir(parents=True, exist_ok=False)
     config = {f.name: getattr(result.config, f.name) for f in fields(result.config)}
     config["bounds"] = dict(result.config.bounds)
+    config["search_bounds"] = dict(result.config.search_bounds)
+    config["packaging"] = asdict(result.config.packaging)
     metadata = {
         "config": config,
         "pymoo_version": pymoo.__version__,
@@ -137,6 +142,14 @@ def load_config(run_directory: str | Path) -> FingerStudyConfig:
     values = json.loads((Path(run_directory) / "run.json").read_text(encoding="utf-8"))["config"]
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
     values["extended_length_bounds_mm"] = tuple(values["extended_length_bounds_mm"])
+    if "packaging" in values:
+        packaging = values["packaging"]
+        values["packaging"] = Packaging(**{
+            **packaging,
+            "pip_servo": DShapedExtrusion(**packaging["pip_servo"]),
+            "mcp_servo": DShapedExtrusion(**packaging["mcp_servo"]),
+            "mcp_servo_rear": tuple(packaging["mcp_servo_rear"]),
+        })
     known = {f.name for f in fields(FingerStudyConfig)}
     return FingerStudyConfig(**{name: value for name, value in values.items() if name in known})
 

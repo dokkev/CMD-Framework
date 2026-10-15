@@ -7,8 +7,7 @@ or one candidate of a finger study (the output goes next to its CSV):
 
     python scripts/animate_finger.py --pareto outputs/finger/run_001/pareto.csv --candidate 1
 
-The finger first flexes the PIP (the DIP follows through the crossed
-four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
+The finger first flexes the PIP (the DIP follows through the four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
 on the proximal link (rear body toward O), and the fingertip side silhouette
 on the distal link from B to C. The PIP servo sits at A' and drives A'-B; the
@@ -28,7 +27,7 @@ from typing import Sequence
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
-from matplotlib.patches import Polygon
+from matplotlib.patches import Circle, Polygon
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
@@ -43,7 +42,11 @@ from cmd.morphology.linkage import (  # noqa: E402
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import BODY_CLEARANCE_MM, ServoFootprint  # noqa: E402
+from cmd.morphology.linkage.packaging import (  # noqa: E402
+    BODY_CLEARANCE_MM,
+    HOUSING_RADIUS_MM,
+    Packaging,
+)
 from cmd.optimization.finger import VARIABLE_NAMES, decode  # noqa: E402
 
 Outline = list[tuple[float, float]]
@@ -124,7 +127,7 @@ def create_animation(
     pad, carrier = fingertip_outlines(fingertip)
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     clearances = [link_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
-    servo = ServoFootprint.of(linkage, actuator).outline
+    servo = Packaging().pip_footprint(linkage).outline
 
     frames = []
     for pose in poses:
@@ -154,6 +157,16 @@ def create_animation(
                             edgecolor="#50575b", linewidth=0.8, alpha=0.85, zorder=0.6)
     for patch in (pip_servo, pad_patch, carrier_patch):
         axis.add_patch(patch)
+    # Dashed: the pin bushing housings.
+    rings = {
+        name: Circle((0.0, 0.0), radius, fill=False, linestyle="--", linewidth=1.0,
+                     edgecolor=color, zorder=4)
+        for name, radius, color in (("a", HOUSING_RADIUS_MM, RED),
+                                    ("bp", HOUSING_RADIUS_MM, BLUE),
+                                    ("b", HOUSING_RADIUS_MM, BLUE))
+    }
+    for ring in rings.values():
+        axis.add_patch(ring)
 
     proximal, = axis.plot([], [], color=RED, linewidth=3.0, zorder=2)
     middle, = axis.plot([], [], color=BLACK, linewidth=3.0, zorder=3)
@@ -192,6 +205,9 @@ def create_animation(
         pose = poses[index]
         servo, pad_outline, carrier_outline = frames[index]
         pip_servo.set_xy(servo)
+        for name, ring in rings.items():
+            point = getattr(pose, name)
+            ring.center = (point.x_mm, point.z_mm)
         pad_patch.set_xy(pad_outline)
         carrier_patch.set_xy(carrier_outline)
         proximal.set_data(*xy((pose.o, pose.a, pose.ap, pose.o)))
@@ -206,11 +222,13 @@ def create_animation(
         status.set_text(
             f"MCP {math.degrees(pose.q_mcp_rad):5.1f}°  PIP {math.degrees(pose.q_pip_rad):5.1f}°"
             f"  DIP {math.degrees(pose.q_dip_rad):5.1f}°\n"
+            f"{'crossed' if pose.is_crossed else 'open':7s} "
             f"transmission at B' {math.degrees(pose.margin_at_bp_rad):3.0f}°"
             f"  input limit at B {math.degrees(pose.margin_at_b_rad):3.0f}°"
             f"  link-servo clearance {clearances[index] + BODY_CLEARANCE_MM:5.1f} mm"
         )
-        return (pip_servo, pad_patch, carrier_patch, proximal, middle, distal, coupler,
+        return (pip_servo, pad_patch, carrier_patch, *rings.values(),
+                proximal, middle, distal, coupler,
                 *markers.values(), *labels.values(), status)
 
     animation = FuncAnimation(figure, update, frames=len(poses),

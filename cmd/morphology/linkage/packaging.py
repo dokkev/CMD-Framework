@@ -1,81 +1,182 @@
-"""Clearance between the linkage and the PIP servo on the proximal link.
+"""Planar packaging of the finger: servos, pin housings and their clearances.
 
-The PIP XM335 rides on the proximal link with its shaft (along ``Y``) on
+The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 ``A'`` and drives the coupler ``A'-B``; sitting dorsal of ``OA``, it leaves
 the proximal contact interface free. Its rear body lies back along the link,
-parallel to ``OA`` (``-X``). In the linkage plane the footprint is the
-D-shaped section: a disk of the actuator radius around ``A'`` and a
-rectangle reaching ``rear_extent_mm`` back from it. All checks are planar and in the proximal-link (reference) frame,
-where the servo does not move. Each margin is in mm, feasible when >= 0.
+along ``-X`` tilted dorsally by the design's ``pip_servo_tilt_rad``. The PIP
+pivot ``A`` hangs off the servo body on a bracket, in the same plane, so its
+bushing housing must clear the body. The MCP servo's shaft is on ``O``.
+
+Each servo's section in the linkage plane is a D shape: a disk of the
+actuator radius around the shaft and a rectangle reaching ``rear_extent_mm``
+back from it. :class:`Packaging` holds every hardware dimension these checks
+use, so another servo or bushing is a different ``Packaging``. All checks are
+planar, in the proximal-link (reference) frame. Margins are in mm, feasible
+when >= 0.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Sequence
 
 import numpy as np
 
-from ...hardware import XM335Actuator
+from ...hardware import DShapedExtrusion, XM335Actuator
 from . import FingerLinkage
 
 
-PIN_CLEARANCE_MM = 4.5
-"""Pin centre to servo surface: MR63 bearing radius 3 mm plus a 1.5 mm wall."""
+BUSHING_INNER_DIAMETER_MM = 3.0
+BUSHING_OUTER_DIAMETER_MM = 5.0
+"""Pin bushing, 3 mm bore. 5 mm is the smallest OD of McMaster's made-to-order
+metric oil-embedded bronze sleeve bearings (OD >= ID + 2 mm); set it to the
+chosen part."""
+HOUSING_WALL_MM = 1.5
 BODY_CLEARANCE_MM = 1.0
-"""Servo to servo, and servo to moving link."""
+"""Servo to servo, servo to bushing housing, and servo to moving parts."""
 DEFAULT_PIP_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
+
+
+def _xm335() -> DShapedExtrusion:
+    return XM335Actuator().geometry
+
+
+@dataclass(frozen=True)
+class Packaging:
+    """Hardware dimensions of the finger's planar packaging.
+
+    ``mcp_servo_rear`` is the unit direction of the MCP servo's rear body in
+    the linkage frame at zero MCP flexion (``+Z``: standing dorsally).
+    """
+
+    pip_servo: DShapedExtrusion = field(default_factory=_xm335)
+    mcp_servo: DShapedExtrusion = field(default_factory=_xm335)
+    mcp_servo_rear: tuple[float, float] = (0.0, 1.0)
+    bushing_outer_diameter_mm: float = BUSHING_OUTER_DIAMETER_MM
+    housing_wall_mm: float = HOUSING_WALL_MM
+    body_clearance_mm: float = BODY_CLEARANCE_MM
+
+    def __post_init__(self) -> None:
+        length = math.hypot(*self.mcp_servo_rear)
+        if length <= 0.0:
+            raise ValueError("mcp_servo_rear must be a non-zero direction")
+        object.__setattr__(
+            self, "mcp_servo_rear", (self.mcp_servo_rear[0] / length, self.mcp_servo_rear[1] / length)
+        )
+
+    @property
+    def housing_radius_mm(self) -> float:
+        """Outer radius of a bushing housing."""
+
+        return self.bushing_outer_diameter_mm / 2.0 + self.housing_wall_mm
+
+    @property
+    def pin_spacing_mm(self) -> float:
+        """Least centre distance of two pins on one rigid body: their housings touch."""
+
+        return 2.0 * self.housing_radius_mm
+
+    def pip_footprint(self, linkage: FingerLinkage) -> "ServoFootprint":
+        """The PIP servo on ``A'``, rear body along ``-X`` tilted dorsally."""
+
+        tilt = linkage.parameters.pip_servo_tilt_rad
+        return ServoFootprint(
+            (linkage.ap.x_mm, linkage.ap.z_mm),
+            (-math.cos(tilt), math.sin(tilt)),
+            self.pip_servo.radius_mm,
+            self.pip_servo.rear_extent_mm,
+        )
+
+    def mcp_footprint(self, mcp_flexion_rad: float = 0.0) -> "ServoFootprint":
+        """The MCP servo on ``O`` as seen from the proximal link at an MCP flexion.
+
+        MCP flexion ``q`` turns the hand-fixed MCP servo by ``+q`` about ``O``
+        in the proximal-link frame.
+        """
+
+        footprint = ServoFootprint(
+            (0.0, 0.0), self.mcp_servo_rear, self.mcp_servo.radius_mm, self.mcp_servo.rear_extent_mm
+        )
+        return footprint.turned(mcp_flexion_rad)
+
+    def mcp_servo_gap_mm(self, pip_servo: "ServoFootprint", mcp_samples_rad: Sequence[float]) -> float:
+        """Least gap between the PIP and MCP servo bodies over the MCP flexion samples."""
+
+        mcp = self.mcp_footprint()
+        # Turning the MCP servo by +q is turning the PIP servo by -q about O.
+        pip_outline, mcp_outline = pip_servo.outline, mcp.outline
+        pip_edges = [turn_points(pip_outline, -q) for q in mcp_samples_rad]
+        mcp_edges = [turn_points(mcp_outline, q) for q in mcp_samples_rad]
+        start = np.concatenate(pip_edges)
+        end = np.concatenate([np.roll(edge, -1, axis=0) for edge in pip_edges])
+        to_mcp = float(mcp.distance_to_segments(start, end).min())
+        start = np.concatenate(mcp_edges)
+        end = np.concatenate([np.roll(edge, -1, axis=0) for edge in mcp_edges])
+        return min(to_mcp, float(pip_servo.distance_to_segments(start, end).min()))
+
+
+HOUSING_RADIUS_MM = Packaging().housing_radius_mm
+"""Outer radius of a bushing housing with the default packaging (8 mm diameter)."""
+PIN_SPACING_MM = Packaging().pin_spacing_mm
+
 
 @dataclass(frozen=True)
 class ServoClearance:
     """Signed clearance margins of one linkage design (mm, >= 0 is feasible)."""
 
     mcp_servo_mm: float
-    """PIP servo beyond the MCP servo's shaft disk."""
+    """PIP servo beyond the MCP servo body over the MCP angles, less the body clearance."""
     pin_mm: float
-    """The PIP pin ``A`` beyond the servo's shaft disk, less the pin clearance.
-    The rear body is to be routed clear of it."""
+    """The PIP bushing housing at ``A`` beyond the servo body, less the body clearance."""
+    dip_pin_mm: float
+    """The DIP bushing housing at ``B'`` beyond the servo body over the PIP samples,
+    less the body clearance."""
     link_mm: float
-    """The middle link ``A-B'`` beyond the servo over the PIP samples."""
+    """The middle link ``A-B'`` beyond the servo over the PIP samples. Reported
+    only: its plates straddle the servo in other layers."""
 
     @property
     def feasible(self) -> bool:
-        return min(self.mcp_servo_mm, self.pin_mm, self.link_mm) >= 0.0
+        return min(self.mcp_servo_mm, self.pin_mm, self.dip_pin_mm, self.link_mm) >= 0.0
 
 
 def servo_clearance(
     linkage: FingerLinkage,
-    actuator: XM335Actuator | None = None,
+    packaging: Packaging | None = None,
     pip_samples_rad: Sequence[float] = DEFAULT_PIP_SAMPLES_RAD,
+    mcp_samples_rad: Sequence[float] = (0.0,),
 ) -> ServoClearance:
     """Return the servo clearance margins over the increasing PIP samples.
 
-    The link is checked up to the last sample that closes. The MCP servo is
-    taken as the disk of its radius around ``O``; its rear body points away
-    from the finger and the finger only flexes away from it.
+    The pins and link are checked up to the last sample that closes. The PIP
+    servo is checked against the MCP servo body at each MCP flexion sample;
+    extension (negative flexion) brings it toward the MCP servo's rear body.
     """
 
-    footprint = ServoFootprint.of(linkage, actuator)
+    packaging = packaging or Packaging()
+    footprint = packaging.pip_footprint(linkage)
     sweep = linkage.sweep_pip(pip_samples_rad)
     a = np.array((linkage.a.x_mm, linkage.a.z_mm))
-    ap = np.array((linkage.ap.x_mm, linkage.ap.z_mm))
+    clearance = packaging.body_clearance_mm
+    housing = packaging.housing_radius_mm
     link = footprint.distance_to_segments(np.broadcast_to(a, sweep.bp.shape), sweep.bp)
+    dip = footprint.distance_to_segments(sweep.bp, sweep.bp)
     return ServoClearance(
-        mcp_servo_mm=footprint.distance_to_point(np.zeros(2))
-        - footprint.radius_mm - BODY_CLEARANCE_MM,
-        pin_mm=float(np.linalg.norm(ap - a)) - footprint.radius_mm - PIN_CLEARANCE_MM,
-        link_mm=(float(link.min()) if link.size else math.inf) - BODY_CLEARANCE_MM,
+        mcp_servo_mm=packaging.mcp_servo_gap_mm(footprint, mcp_samples_rad) - clearance,
+        pin_mm=footprint.distance_to_point(a) - housing - clearance,
+        dip_pin_mm=(float(dip.min()) if dip.size else math.inf) - housing - clearance,
+        link_mm=(float(link.min()) if link.size else math.inf) - clearance,
     )
 
 
 @dataclass(frozen=True)
 class ServoFootprint:
-    """The PIP servo section in the proximal-link frame.
+    """A servo's D-shaped section in the linkage plane.
 
-    A disk of ``radius_mm`` around the shaft ``pivot`` (``A'``) and the rectangle reaching
-    ``rear_extent_mm`` from it along the unit ``rear`` direction, ``radius_mm``
-    to either side.
+    A disk of ``radius_mm`` around the shaft ``pivot`` and the rectangle
+    reaching ``rear_extent_mm`` from it along the unit ``rear`` direction,
+    ``radius_mm`` to either side.
     """
 
     pivot: tuple[float, float]
@@ -83,17 +184,11 @@ class ServoFootprint:
     radius_mm: float
     rear_extent_mm: float
 
-    @classmethod
-    def of(
-        cls, linkage: FingerLinkage, actuator: XM335Actuator | None = None
-    ) -> "ServoFootprint":
-        geometry = (actuator or XM335Actuator()).geometry
-        return cls(
-            (linkage.ap.x_mm, linkage.ap.z_mm),
-            (-1.0, 0.0),
-            geometry.radius_mm,
-            geometry.rear_extent_mm,
-        )
+    @property
+    def reach_mm(self) -> float:
+        """Radius of the circle around the shaft that contains the footprint."""
+
+        return math.hypot(self.radius_mm, self.rear_extent_mm)
 
     @property
     def outline(self) -> np.ndarray:
@@ -112,6 +207,29 @@ class ServoFootprint:
 
         return float(self.outline[:, 1].min())
 
+    def turned(self, angle_rad: float) -> "ServoFootprint":
+        """This footprint turned by ``angle_rad`` about the origin ``O``."""
+
+        cosine, sine = math.cos(angle_rad), math.sin(angle_rad)
+        x, z = self.pivot
+        rx, rz = self.rear
+        return ServoFootprint(
+            (cosine * x - sine * z, sine * x + cosine * z),
+            (cosine * rx - sine * rz, sine * rx + cosine * rz),
+            self.radius_mm,
+            self.rear_extent_mm,
+        )
+
+    def distance_to_footprint(self, other: "ServoFootprint") -> float:
+        """Gap between two footprints (0 when they touch or overlap)."""
+
+        def edges(footprint: "ServoFootprint") -> tuple[np.ndarray, np.ndarray]:
+            outline = footprint.outline
+            return outline, np.roll(outline, -1, axis=0)
+
+        return min(float(self.distance_to_segments(*edges(other)).min()),
+                   float(other.distance_to_segments(*edges(self)).min()))
+
     def distance_to_point(self, point: np.ndarray) -> float:
         return float(self.distance_to_segments(point[None], point[None])[0])
 
@@ -120,11 +238,11 @@ class ServoFootprint:
 
         start, end = self._to_local(start), self._to_local(end)
         r, rear = self.radius_mm, self.rear_extent_mm
-        disk = np.maximum(_point_segment_distance(np.zeros(2), start, end) - r, 0.0)
+        disk = np.maximum(point_segment_distance(np.zeros(2), start, end) - r, 0.0)
         corners = np.array(((-rear, -r), (0.0, -r), (0.0, r), (-rear, r)))
         to_box = np.minimum(self._box_distance(start), self._box_distance(end))
         for k in range(4):
-            to_box = np.minimum(to_box, _point_segment_distance(corners[k], start, end))
+            to_box = np.minimum(to_box, point_segment_distance(corners[k], start, end))
             crosses = _segments_cross(start, end, corners[k], corners[(k + 1) % 4])
             to_box = np.where(crosses, 0.0, to_box)
         return np.minimum(disk, to_box)
@@ -149,13 +267,25 @@ class ServoFootprint:
         return np.hypot(dx, dz)
 
 
-def _point_segment_distance(point: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
+def turn_points(points: np.ndarray, angle_rad: float) -> np.ndarray:
+    """Points ``(n, 2)`` turned by ``angle_rad`` about the origin ``O``."""
+
+    cosine, sine = math.cos(angle_rad), math.sin(angle_rad)
+    return np.stack((cosine * points[:, 0] - sine * points[:, 1],
+                     sine * points[:, 0] + cosine * points[:, 1]), axis=1)
+
+
+
+def point_segment_distance(point: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
+    """Distance from ``point`` to each segment ``start[i]-end[i]``."""
+
     direction = end - start
     length_squared = np.sum(direction * direction, axis=1)
     safe = np.where(length_squared > 0.0, length_squared, 1.0)
     t = np.where(length_squared > 0.0, np.sum((point - start) * direction, axis=1) / safe, 0.0)
     nearest = start + np.clip(t, 0.0, 1.0)[:, None] * direction
     return np.linalg.norm(point - nearest, axis=1)
+
 
 
 def _segments_cross(start: np.ndarray, end: np.ndarray, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
@@ -169,9 +299,16 @@ def _segments_cross(start: np.ndarray, end: np.ndarray, q0: np.ndarray, q1: np.n
 
 __all__ = [
     "BODY_CLEARANCE_MM",
+    "BUSHING_INNER_DIAMETER_MM",
+    "BUSHING_OUTER_DIAMETER_MM",
     "DEFAULT_PIP_SAMPLES_RAD",
-    "PIN_CLEARANCE_MM",
+    "HOUSING_RADIUS_MM",
+    "HOUSING_WALL_MM",
+    "PIN_SPACING_MM",
+    "Packaging",
     "ServoClearance",
     "ServoFootprint",
+    "point_segment_distance",
+    "turn_points",
     "servo_clearance",
 ]

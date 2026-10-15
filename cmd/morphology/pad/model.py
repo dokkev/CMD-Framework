@@ -252,6 +252,21 @@ class Fingertip:
 
         return self.lower_surface_z_mm(x_mm, y_mm), self.upper_surface_z_mm(x_mm, y_mm)
 
+    def side_silhouette_mm(self, samples: int = 24) -> tuple[tuple[float, float], ...]:
+        """Closed ``(x, z)`` side outline of the whole fingertip (carrier top to pad).
+
+        The top edge is the dorsal plate; the bottom follows the pad's centreline
+        lower surface, its deepest point at every ``x``.
+        """
+
+        length = self.total_length_mm
+        top = self.parameters.family.phalanx.carrier_height_mm
+        bottom = tuple(
+            (x, self.lower_surface_z_mm(x, 0.0))
+            for x in (length * (samples - index) / samples for index in range(samples + 1))
+        )
+        return ((0.0, top), (length, top)) + bottom
+
     @property
     def carrier_cross_section(self) -> tuple[PointYZ, ...]:
         """Return the plain T-shaped ``(y, z)`` carrier section in the straight body.

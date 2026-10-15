@@ -21,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+from cmd.morphology.linkage.packaging import Packaging  # noqa: E402
 from cmd.optimization.finger import FingerStudyConfig  # noqa: E402
 from cmd.optimization.finger.run import run_study, save_result  # noqa: E402
 
@@ -29,28 +30,35 @@ OUTPUT_ROOT = REPOSITORY_ROOT / "outputs" / "finger"
 
 CONFIG = FingerStudyConfig(
     bounds={
-        # OA >= 36 mm keeps the PIP servo clear of the MCP servo.
-        "a_x_mm": (36.0, 60.0),
-        "b_x_mm": (55.0, 90.0),
+        # OA is free; the servo clearance constraints keep the two servos apart.
+        "a_x_mm": (20.0, 60.0),
+        "b_x_mm": (40.0, 100.0),
+        # BC stays parallel to OA but may sit above or below it.
+        "b_z_mm": (-10.0, 10.0),
         "ap_x_mm": (20.0, 100.0),
-        # A' and B' sit dorsal of the pad line, at most 20 mm (finger thickness).
+        # A' sits dorsal of OA, at most 20 mm.
         "ap_z_mm": (0.0, 20.0),
-        "bp_x_mm": (40.0, 110.0),
-        "bp_z_mm": (0.0, 20.0),
+        "bp_x_mm": (20.0, 120.0),
+        "bp_z_mm": (-20.0, 40.0),
+        # The PIP servo body may tilt dorsally, at most 45 deg.
+        "servo_tilt_deg": (0.0, 45.0),
     },
     # Human index distal segment; also the fingertip length.
     bc_length_mm=24.0,
     # Evaluate 10 deg into hyperextension and 10 deg past the curl pose (stoppers).
     range_margin_rad=math.radians(10.0),
     minimum_transmission_margin_rad=math.radians(30.0),
-    minimum_pin_spacing_mm=9.0,
-    extended_length_bounds_mm=(90.0, 110.0),
-    # OA-to-BC line distance at the curl pose (the contact interfaces); override
+    # XM335 servos at MCP (O) and PIP (A'), 3 x 5 mm pin bushings in 1.5 mm
+    # walls, 1 mm clearances; pass other hardware here.
+    packaging=Packaging(),
+    # |OC| in the fully extended pose.
+    extended_length_bounds_mm=(90.0, 100.0),
+    # Least OA-to-BC line distance at the curl pose (the contact interfaces); override
     # with --curl-gap-mm.
-    curl_gap_mm=10.0,
-    curl_gap_tolerance_mm=0.5,
-    # The undriven link may pass through the PIP servo footprint for now; a
-    # curved link is to route around it.
+    curl_gap_mm=20.0,
+    # The fingertip must clear the MCP servo up to this MCP flexion.
+    mcp_flexion_max_rad=math.radians(90.0),
+    # The middle link's plates straddle the PIP servo in other layers.
     link_clearance=False,
     # The PIP servo at A' sits dorsal of the OA contact interface.
     oa_interface_clearance_mm=0.0,
@@ -66,10 +74,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=CONFIG.seed)
     parser.add_argument("--oa-interface-mm", type=float, default=CONFIG.oa_interface_clearance_mm,
                         help="PIP servo clearance dorsal of OA")
+    parser.add_argument("--population", type=int, default=CONFIG.population_size)
+    parser.add_argument("--generations", type=int, default=CONFIG.generations)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     args = parser.parse_args(argv)
     config = dataclasses.replace(
         CONFIG, curl_gap_mm=args.curl_gap_mm, seed=args.seed,
+        population_size=args.population, generations=args.generations,
         oa_interface_clearance_mm=args.oa_interface_mm,
     )
 

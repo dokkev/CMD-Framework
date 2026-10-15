@@ -1,7 +1,7 @@
 """Geometry and closed-form kinematics of the 2-DoF polycentric finger.
 
 The MCP (``O``) and PIP (``A``) are actuated. The DIP (``B'``) is passive:
-the crossed four-bar ``A-B'-B-A'`` on the proximal link couples it to the
+the four-bar ``A-B'-B-A'`` on the proximal link couples it to the
 PIP alone, so ``q_dip`` is a function of ``q_pip`` and the MCP only turns the
 whole finger. Flexion angles are positive and turn ``+X`` toward ``-Z``.
 """
@@ -38,6 +38,12 @@ class FingerPose:
     bp: PointXZ
     b: PointXZ
     c: PointXZ
+
+    @property
+    def is_crossed(self) -> bool:
+        """Whether the middle link ``A-B'`` and the coupler ``A'-B`` intersect."""
+
+        return _segments_intersect(self.a, self.bp, self.ap, self.b)
 
     @property
     def margin_at_b_rad(self) -> float:
@@ -85,9 +91,12 @@ class PipSweep:
 class FingerLinkage:
     """Reference geometry and pose solver for one finger linkage.
 
-    The four-bar must be crossed in the reference pose: the middle link
-    ``A-B'`` and the coupler ``A'-B`` intersect, so the DIP flexes with the
-    PIP. The assembly branch of ``B`` is fixed by the reference pose.
+    The assembly branch of ``B`` is fixed by the reference pose, which must
+    not be a dead point. The four-bar may be open or crossed there (the middle
+    link ``A-B'`` and the coupler ``A'-B`` intersecting); like a polycentric
+    knee it may start open and cross as it flexes, without changing branch.
+    Whether the DIP flexes with the PIP is a property of the motion, checked
+    by the caller.
     """
 
     parameters: FingerLinkageParameters
@@ -96,8 +105,6 @@ class FingerLinkage:
     def __post_init__(self) -> None:
         if not isinstance(self.parameters, FingerLinkageParameters):
             raise TypeError("parameters must be a FingerLinkageParameters instance")
-        if not self.is_crossed:
-            raise ValueError("the four-bar A-B'-B-A' must be crossed: A-B' and A'-B must intersect")
         side = _cross(_subtract(self.ap, self.bp), _subtract(self.b, self.bp))
         if abs(side) <= _TOLERANCE:
             raise ValueError("the reference four-bar is at a dead point")
@@ -121,11 +128,11 @@ class FingerLinkage:
 
     @property
     def b(self) -> PointXZ:
-        return PointXZ(self.parameters.b_x_mm, 0.0)
+        return PointXZ(self.parameters.b_x_mm, self.parameters.b_z_mm)
 
     @property
     def c(self) -> PointXZ:
-        return PointXZ(self.parameters.b_x_mm + self.parameters.bc_length_mm, 0.0)
+        return PointXZ(self.parameters.b_x_mm + self.parameters.bc_length_mm, self.parameters.b_z_mm)
 
     @property
     def is_crossed(self) -> bool:
