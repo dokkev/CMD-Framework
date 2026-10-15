@@ -3,7 +3,7 @@ from dataclasses import replace
 
 import pytest
 
-from cmd.morphology.linkage import (
+from core.morphology.linkage import (
     FingerLinkage,
     FingerLinkageParameters,
     KinematicClosureError,
@@ -11,7 +11,7 @@ from cmd.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import HOUSING_RADIUS_MM, Packaging
+from core.morphology.linkage.packaging import HOUSING_RADIUS_MM, Packaging
 
 SKETCH = SKETCH_LINKAGE.parameters
 

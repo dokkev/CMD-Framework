@@ -1,7 +1,7 @@
 
 import pytest
 
-from cmd.hardware import (
+from core.hardware import (
     ACTUATOR_SHAFT_AXIS_XYZ,
     XM335Actuator,
 )

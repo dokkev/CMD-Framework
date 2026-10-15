@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from cmd.experimental.linkage import (
+from core.experimental.linkage import (
     BASELINE_LINKAGE_V0,
     FingerLinkage,
     KinematicClosureError,

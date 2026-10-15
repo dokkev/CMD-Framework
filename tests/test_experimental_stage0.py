@@ -6,11 +6,11 @@ import math
 
 import pytest
 
-from cmd.experimental.linkage import (
+from core.experimental.linkage import (
     BASELINE_LINKAGE_V0, FingerLinkage, KinematicClosureError, LinkageKinematics,
     LinkageWorkspaceCriteria, PointXZ,
 )
-from cmd.experimental.stage0 import (
+from core.experimental.stage0 import (
     VARIABLE_NAMES,
     Stage0Config,
     Stage0Evaluator,
@@ -19,7 +19,7 @@ from cmd.experimental.stage0 import (
     encode,
     input_samples,
 )
-from cmd.experimental.stage0.evaluate import (
+from core.experimental.stage0.evaluate import (
     extended_length_mm,
     facing_error_rad,
     grasp_violation_mm,
@@ -249,7 +249,7 @@ def test_pin_spacing_constraint_uses_pins_on_the_same_link() -> None:
 
 
 def test_verify_candidate_checks_the_safe_range_on_a_fine_grid() -> None:
-    from cmd.experimental.stage0.verify import verify_candidate
+    from core.experimental.stage0.verify import verify_candidate
 
     config = make_config()
     passed = verify_candidate(decode(baseline_x()), config, grasp_mcp_rad=1.4)
@@ -272,7 +272,7 @@ def test_verify_candidate_checks_the_safe_range_on_a_fine_grid() -> None:
 
 
 def test_tiny_run_returns_feasible_pareto_and_saves_it(tmp_path) -> None:
-    from cmd.experimental.stage0.run import run_stage0, save_stage0_result
+    from core.experimental.stage0.run import run_stage0, save_stage0_result
 
     result = run_stage0(make_config())
 

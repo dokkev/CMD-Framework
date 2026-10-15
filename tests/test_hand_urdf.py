@@ -3,9 +3,9 @@ from xml.etree import ElementTree
 
 import pytest
 
-from cmd.geometry import RigidTransform
-from cmd.design import compile_hand_urdf
-from cmd.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
+from core.geometry import RigidTransform
+from core.design import compile_hand_urdf
+from core.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
 
 
 def make_layout() -> HandLayout:

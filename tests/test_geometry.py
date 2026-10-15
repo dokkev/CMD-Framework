@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from cmd.geometry import RigidTransform
+from core.geometry import RigidTransform
 
 
 def test_rigid_transform_identity_composition_rotation_and_inverse() -> None:

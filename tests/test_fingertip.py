@@ -3,8 +3,8 @@ import math
 
 import pytest
 
-from cmd.morphology import Fingertip, FingertipParameters
-from cmd.morphology.pad import (
+from core.morphology import Fingertip, FingertipParameters
+from core.morphology.pad import (
     FingertipFamilyParameters,
     PadParameters,
     PhalanxParameters,
@@ -134,3 +134,37 @@ def test_stem_corner_pad_thickness_is_the_distance_to_the_pad_boundary() -> None
     assert Fingertip().stem_corner_pad_thickness_mm >= 3.0
     with pytest.raises(ValueError, match="minimum_pad_thickness_mm"):
         FingertipFamilyParameters(minimum_pad_thickness_mm=9.0)
+
+
+def test_every_pad_kind_shares_the_pad_interface(tmp_path) -> None:
+    import numpy as np
+    import trimesh
+
+    from core.morphology.hand_layout import fingertip_attachment
+    from core.morphology.pad import MeshPad, Pad, RectangularPad
+
+    block = RectangularPad(length_mm=24.0, width_mm=16.0, thickness_mm=10.0, rotation_axis_z_mm=-1.0)
+    box = trimesh.creation.box(extents=(24.0, 16.0, 10.0))
+    box.apply_translation((12.0, 0.0, -5.0))
+    path = tmp_path / "pad.stl"
+    box.export(path)
+    mesh = MeshPad.from_file(path, rotation_axis_z_mm=-1.0)
+    pads = (Fingertip(), block, mesh)
+
+    for pad in pads:
+        assert isinstance(pad, Pad)
+        assert pad.length_mm == pytest.approx(24.0)
+        assert pad.rotation_axis_mm(20.0) == pytest.approx((4.0, 0.0, pad.rotation_axis_z_mm))
+        assert fingertip_attachment(pad, 20.0) is not None
+    for pad in (block, mesh):
+        outline = np.array(pad.side_silhouette_mm(8))
+        assert pad.lowest_z_mm == pytest.approx(-10.0)
+        assert outline[:, 0].min() == pytest.approx(0.0)
+        assert outline[:, 1].max() == pytest.approx(0.0)
+
+
+def test_mesh_pad_must_start_at_the_proximal_end() -> None:
+    from core.morphology.pad import MeshPad
+
+    with pytest.raises(ValueError, match="x = 0"):
+        MeshPad([(1.0, 0.0, 0.0), (2.0, 0.0, 0.0), (1.0, 1.0, 0.0)], [(0, 1, 2)])

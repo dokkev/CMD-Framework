@@ -3,9 +3,9 @@ from dataclasses import replace
 
 import pytest
 
-from cmd.geometry import RigidTransform
-from cmd.experimental.linkage import BASELINE_LINKAGE_V0, SELECTED_LINKAGE_V1
-from cmd.morphology import (
+from core.geometry import RigidTransform
+from core.experimental.linkage import BASELINE_LINKAGE_V0, SELECTED_LINKAGE_V1
+from core.morphology import (
     FingertipFamilyParameters,
     HandLayout,
     HandLayoutParameters,
@@ -13,7 +13,7 @@ from cmd.morphology import (
     HandMorphologyParameters,
     HandPlanePoint,
 )
-from cmd.morphology.hand_layout import (
+from core.morphology.hand_layout import (
     HAND_X_LONGITUDINAL,
     HAND_Y_FE_AXIS,
     HAND_Z_DORSAL,
@@ -22,7 +22,7 @@ from cmd.morphology.hand_layout import (
     THUMB_MCP_FE_TO_IP_FE_DISTANCE_MM,
     distal_link_transform,
 )
-from cmd.experimental.linkage import LinkageKinematics
+from core.experimental.linkage import LinkageKinematics
 
 
 def make_layout_parameters(

@@ -2,8 +2,8 @@ import math
 
 import pytest
 
-from cmd.morphology.linkage import FingerLinkage
-from cmd.optimization.stage0 import (
+from core.morphology.linkage import FingerLinkage
+from core.optimization.stage0 import (
     CONSTRAINT_NAMES,
     VARIABLE_NAMES,
     FingerStudyConfig,
@@ -25,7 +25,7 @@ def test_design_vector_round_trips() -> None:
 
 
 def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
-    from cmd.optimization.stage0.run import objectives
+    from core.optimization.stage0.run import objectives
 
     evaluation = evaluate(decode(GOOD), GOOD_CONFIG)
 
@@ -129,7 +129,7 @@ def test_bc_is_no_longer_than_oa_times_the_ratio() -> None:
 
 
 def test_static_failures_skip_the_sweep() -> None:
-    from cmd.optimization.stage0.evaluate import MOTION_CONSTRAINTS, UNSWEPT
+    from core.optimization.stage0.evaluate import MOTION_CONSTRAINTS, UNSWEPT
 
     too_long = (60.0, 100.0, 0.0, 72.0, 15.0, 82.0, 15.0, 0.0)
     evaluation = evaluate(decode((*too_long, 24.0)), CONFIG)
@@ -150,7 +150,7 @@ def test_search_bounds_close_the_oa_interface_constraint() -> None:
 
 
 def test_servo_lever_matches_a_finite_difference_of_virtual_work() -> None:
-    from cmd.optimization.stage0.evaluate import servo_lever
+    from core.optimization.stage0.evaluate import servo_lever
 
     parameters = decode((*CROSSED, 24.0))
     linkage = FingerLinkage(parameters)

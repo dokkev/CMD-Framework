@@ -2,8 +2,8 @@
 
 import pytest
 
-from cmd.design import check_actuator_packaging
-from cmd.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
+from core.design import check_actuator_packaging
+from core.morphology import HandLayout, HandLayoutParameters, HandPlanePoint
 
 
 def make_layout(

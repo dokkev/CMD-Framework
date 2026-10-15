@@ -5,7 +5,7 @@
 
 or one candidate of a finger study (the output goes next to its CSV):
 
-    python scripts/animate_finger.py --pareto outputs/stage0/run_001/pareto.csv --candidate 1
+    python scripts/animate_finger.py --pareto output/stage0/run_001/pareto.csv --candidate 1
 
 The finger first flexes the PIP (the DIP follows through the four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
@@ -31,19 +31,19 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from cmd.hardware import XM335Actuator  # noqa: E402
-from cmd.morphology.linkage import (  # noqa: E402
+from core.hardware import XM335Actuator  # noqa: E402
+from core.morphology.linkage import (  # noqa: E402
     SKETCH_LINKAGE,
     FingerLinkage,
     PointXZ,
     servo_clearance,
 )
-from cmd.morphology.linkage.packaging import (  # noqa: E402
+from core.morphology.linkage.packaging import (  # noqa: E402
     BODY_CLEARANCE_MM,
     HOUSING_RADIUS_MM,
     Packaging,
 )
-from cmd.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
+from core.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
 
 Outline = list[tuple[float, float]]
 

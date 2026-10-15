@@ -44,7 +44,7 @@ Stage-1에서는 Stage-0 seed를 **초기값으로 재사용하며 linkage를 �
 
 현재 0.1 격자: 거리·좌표 **0.1 mm**, 각도 **0.1°**. 기존 구현의 변수 정의와 이산화 방식을 재사용한다.
 
-구현: `cmd/optimization/stage0` (config, design, evaluate, run), 실행 `scripts/optimize/run_stage0.py`, 검증 `scripts/optimize/select_stage0.py`, 시각화 `scripts/optimize/plot_stage0_pareto.py`, `scripts/animate_finger.py`. 범위와 하드웨어는 `run_stage0.py`의 `CONFIG`(bounds, `Packaging`)가 기준이다.
+구현: `core/optimization/stage0` (config, design, evaluate, run), 실행 `scripts/optimize/stage0/run.py`, 검증 `scripts/optimize/stage0/select_seeds.py`, 시각화 `scripts/optimize/stage0/plot_pareto.py`, `scripts/animate_finger.py`. 범위와 하드웨어는 `scripts/optimize/stage0/run.py`의 `CONFIG`(bounds, `Packaging`)가 기준이다.
 
 Extension에서 `O=(0,0)`, `C=(B_x+BC,B_z)`이면:
 
