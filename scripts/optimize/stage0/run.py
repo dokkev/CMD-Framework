@@ -4,8 +4,8 @@
 See ``docs/optimization/stage0.md``. Objectives: the worst torque ratio
 ``k_max``, ``-(OA + BC)`` and ``180 deg - phi_safe_max``.
 
-Edit ``CONFIG`` below (the OA and BC ranges are its ``a_x_mm`` and
-``bc_length_mm`` bounds), then run, e.g.
+Edit ``config.yaml`` next to this script (or pass another with ``--config``),
+then run, e.g.
 
     python scripts/optimize/stage0/run.py --seed 0
 
@@ -27,109 +27,33 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from core.morphology.linkage.packaging import Packaging  # noqa: E402
-from core.optimization.stage0 import VARIABLE_NAMES, FingerStudyConfig  # noqa: E402
+from core.optimization.stage0 import read_design  # noqa: E402
+from core.optimization.stage0.config import load_yaml  # noqa: E402
 from core.optimization.stage0.run import run_study, save_result  # noqa: E402
 
 
 OUTPUT_ROOT = REPOSITORY_ROOT / "output" / "stage0"
-
-CONFIG = FingerStudyConfig(
-    bounds={
-        # OA is free; the servo clearance constraints keep the two servos apart.
-        "a_x_mm": (5.0, 120.0),
-        "b_x_mm": (40.0, 100.0),
-        # BC stays parallel to OA but may sit above or below it.
-        "b_z_mm": (-10.0, 10.0),
-        "ap_x_mm": (20.0, 100.0),
-        # A' sits dorsal of OA, at most 20 mm.
-        "ap_z_mm": (0.0, 20.0),
-        # B' is free in practice.
-        "bp_x_mm": (-50.0, 200.0),
-        "bp_z_mm": (-60.0, 80.0),
-        # The PIP servo body may tilt dorsally, at most 45 deg.
-        "servo_tilt_deg": (0.0, 45.0),
-        # BC, the middle + distal phalanx.
-        "bc_length_mm": (30.0, 50.0),
-    },
-    # Objective 1: the worst servo torque per unit distal-link moment.
-    objective="torque_ratio",
-    # The distal link must turn at least 150 deg relative to OA, safely.
-    minimum_flexion_rad=math.radians(150.0),
-    # Safe 10 deg into hyperextension; the usable range ends 10 deg of PIP
-    # before the first unsafe pose (room for stoppers).
-    range_margin_rad=math.radians(10.0),
-    minimum_transmission_margin_rad=math.radians(30.0),
-    # Half the 0.1 deg verification tolerance: optima sit on the DIP
-    # monotonicity boundary, so the coarse search keeps some slack.
-    dip_backoff_tolerance_rad=math.radians(0.05),
-    # XM335 servos at MCP (O) and PIP (A'), 3 x 4.5 mm pin bushings (McMaster
-    # 2706T72) in 1 mm machined aluminium walls, 1 mm clearances; pass other
-    # hardware here.
-    packaging=Packaging(),
-    # |OC| in the fully extended pose.
-    extended_length_bounds_mm=(80.0, 100.0),
-    # BC <= OA: the curled tip stays near O.
-    bc_to_oa_ratio_max=1.0,
-    # Held until Stage-1 (reported, not enforced): the tip C ahead of O at the
-    # curl pose and the fingertip clearing the MCP servo.
-    curl_tip_min_x_mm=0.0,
-    enforce_curl_tip=False,
-    mcp_flexion_max_rad=math.radians(90.0),
-    enforce_fingertip_mcp=False,
-    # The middle link's plates straddle the PIP servo in other layers.
-    link_clearance=False,
-    # The PIP servo at A' sits dorsal of the OA contact interface.
-    oa_interface_clearance_mm=0.0,
-    population_size=200,
-    generations=200,
-    seed=0,
-)
+DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--seed", type=int, default=CONFIG.seed)
-    parser.add_argument("--oa-interface-mm", type=float, default=CONFIG.oa_interface_clearance_mm,
-                        help="PIP servo clearance dorsal of OA")
-    parser.add_argument("--objective", choices=("transmission", "lever", "torque_ratio"),
-                        default=CONFIG.objective)
-    parser.add_argument("--servo-travel-max-deg", type=float,
-                        help="most PIP servo rotation from extension to curl (default: unbounded)")
-    parser.add_argument("--reference-point", choices=("C", "B"), default=CONFIG.reference_point,
-                        help="point for the length and curl-tip constraints")
-    parser.add_argument("--length-mm", type=float, nargs=2, metavar=("MIN", "MAX"),
-                        default=CONFIG.extended_length_bounds_mm,
-                        help="bounds on |O ref| in the extended pose")
-    parser.add_argument("--min-flexion-deg", type=float,
-                        default=math.degrees(CONFIG.minimum_flexion_rad),
-                        help="least phi_safe_max (default: %(default)s)")
-    parser.add_argument("--bc-to-oa-max", type=float, default=CONFIG.bc_to_oa_ratio_max,
-                        help="most BC / OA (default: %(default)s)")
-    parser.add_argument("--population", type=int, default=CONFIG.population_size)
-    parser.add_argument("--generations", type=int, default=CONFIG.generations)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG,
+                        help="study settings (default: %(default)s)")
+    parser.add_argument("--seed", type=int, help="NSGA-II seed (default: the config's)")
     parser.add_argument("--warm-start", type=Path, nargs="+", default=(), metavar="CSV",
-                        help="pareto.csv or seeds.csv files whose designs seed the population")
+                        help="pareto.csv or seeds.csv files whose designs seed up to half the population")
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     args = parser.parse_args(argv)
-    config = dataclasses.replace(
-        CONFIG, seed=args.seed,
-        population_size=args.population, generations=args.generations,
-        objective=args.objective,
-        reference_point=args.reference_point,
-        extended_length_bounds_mm=tuple(args.length_mm),
-        servo_travel_max_rad=(math.radians(args.servo_travel_max_deg)
-                              if args.servo_travel_max_deg is not None else None),
-        oa_interface_clearance_mm=args.oa_interface_mm,
-        bc_to_oa_ratio_max=args.bc_to_oa_max,
-        minimum_flexion_rad=math.radians(args.min_flexion_deg),
-    )
+    config = load_yaml(args.config)
+    if args.seed is not None:
+        config = dataclasses.replace(config, seed=args.seed)
 
     initial = [
-        [float(row[name]) for name in VARIABLE_NAMES]
+        read_design(row)
         for path in args.warm_start
         for row in csv.DictReader(path.open(encoding="utf-8", newline=""))
-    ][:config.population_size]
+    ]
     result = run_study(config, initial_designs=initial)
     output = save_result(result, _next_run_directory(args.output_root), source_git_commit=_git_commit())
     print(f"Evaluations: {result.evaluation_count}")

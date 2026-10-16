@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from pathlib import Path
 from types import MappingProxyType
+
+import yaml
 
 from core._validation import require_finite, require_nonnegative, require_positive
 
+from core.hardware import DShapedExtrusion
 from core.morphology.linkage.packaging import Packaging
 
 from core.optimization.stage0.design import VARIABLE_NAMES
@@ -18,21 +22,27 @@ from core.optimization.stage0.design import VARIABLE_NAMES
 class FingerStudyConfig:
     """Search space, requirements and NSGA-II settings.
 
-    The workspace is the PIP range from extension to the curl pose, where the
-    distal link has turned 180 deg relative to the proximal link (``BC``
-    antiparallel to ``OA``). The evaluated range extends it by
-    ``range_margin_rad`` at both ends, into hyperextension and past the curl,
-    where the mechanical stoppers go.
+    The motion is swept by the PIP servo. The usable PIP range runs from
+    ``-hyperextension_rad`` (the hyperextension stopper) to
+    ``flexion_stopper_margin_rad`` before the first unsafe flexion pose, or to
+    the curl pose (``BC`` antiparallel to ``OA``) if that comes first.
 
-    ``packaging`` holds the servo, bushing and clearance dimensions; swap it to
+    ``packaging`` holds the servo, bearing and clearance dimensions; swap it to
     study other hardware. ``bounds`` are the user's search box;
     :attr:`search_bounds` tightens them where a constraint has a closed form.
     """
 
     bounds: Mapping[str, tuple[float, float]]
-    pip_step_rad: float = math.radians(1.0)
-    pip_horizon_rad: float = math.pi
-    range_margin_rad: float = math.radians(10.0)
+    servo_step_rad: float = math.radians(1.0)
+    """PIP servo step of the motion sweep."""
+    servo_horizon_rad: float = math.pi
+    """Most PIP servo rotation swept from extension."""
+    hyperextension_rad: float = math.radians(10.0)
+    """PIP (and MCP) hyperextension the finger must reach safely: where the
+    hyperextension stoppers go. The servos are checked to this MCP angle too."""
+    flexion_stopper_margin_rad: float = math.radians(10.0)
+    """PIP the usable range stops short of the first unsafe flexion pose: room
+    past the flexion stopper."""
     minimum_transmission_margin_rad: float = math.radians(30.0)
     dip_backoff_tolerance_rad: float = math.radians(0.1)
     packaging: Packaging = field(default_factory=Packaging)
@@ -41,9 +51,6 @@ class FingerStudyConfig:
     (the tip; they then depend on ``BC``) or ``"B"`` (independent of ``BC``)."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 100.0)
     """Bounds on ``|O ref|`` (``|OC|`` or ``|OB|``) in the fully extended pose."""
-    bc_to_oa_ratio_max: float | None = 1.0
-    """Most ``BC / OA``: the distal link is no longer than this times the proximal
-    one, so the curled tip does not reach far behind ``O``; ``None``: unbounded."""
     enforce_curl_tip: bool = False
     enforce_fingertip_mcp: bool = False
     """Held Stage-0 constraints, reported but enforced only when enabled (Stage-1
@@ -53,14 +60,10 @@ class FingerStudyConfig:
     stays ahead of ``O``."""
     mcp_flexion_max_rad: float = math.radians(90.0)
     """MCP flexion up to which the fingertip must clear the MCP servo."""
-    link_clearance: bool = False
+    require_middle_link_servo_clearance: bool = False
     """Require the straight middle link ``A-B'`` to clear the PIP servo at ``A'``
     in the plane. Off: its plates straddle the servo in other layers; the
     planar clearance is still reported."""
-    objective: str = "torque_ratio"
-    """First objective: ``"transmission"`` (max worst transmission quality),
-    ``"lever"`` (min worst PIP servo torque per unit pad force) or
-    ``"torque_ratio"`` (min worst servo torque per unit distal-link moment)."""
     minimum_flexion_rad: float = math.radians(120.0)
     """Least ``phi_safe_max``: the distal link must turn at least this far, safely."""
     servo_travel_max_rad: float | None = None
@@ -69,6 +72,10 @@ class FingerStudyConfig:
     """Least distance of the PIP servo dorsal of the ``OA`` line, keeping the
     proximal contact interface free (a contact pad thickness, later)."""
     resolution_mm: float = 0.1
+    link_length_resolution_mm: float | None = None
+    """Machining resolution: the bars ``|A'B|``, ``|AB'|`` and ``B'`` from ``B`` are
+    rounded to it and the extended pose is re-assembled (see ``design``);
+    ``None``: the design vector is used as it is."""
     population_size: int = 200
     generations: int = 200
     seed: int = 0
@@ -83,23 +90,22 @@ class FingerStudyConfig:
                 raise ValueError(f"{name} lower bound exceeds its upper bound")
             bounds[name] = (lower, upper)
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
-        for name in ("pip_step_rad", "pip_horizon_rad",
+        for name in ("servo_step_rad", "servo_horizon_rad",
                      "minimum_transmission_margin_rad", "resolution_mm"):
             require_positive(name, getattr(self, name))
-        require_nonnegative("range_margin_rad", self.range_margin_rad)
+        require_nonnegative("hyperextension_rad", self.hyperextension_rad)
+        require_nonnegative("flexion_stopper_margin_rad", self.flexion_stopper_margin_rad)
         require_nonnegative("dip_backoff_tolerance_rad", self.dip_backoff_tolerance_rad)
         require_finite("curl_tip_min_x_mm", self.curl_tip_min_x_mm)
         if self.reference_point not in ("C", "B"):
             raise ValueError("reference_point must be 'C' or 'B'")
         require_finite("oa_interface_clearance_mm", self.oa_interface_clearance_mm)
-        if self.objective not in ("transmission", "lever", "torque_ratio"):
-            raise ValueError("objective must be 'transmission', 'lever' or 'torque_ratio'")
         if self.servo_travel_max_rad is not None:
             require_positive("servo_travel_max_rad", self.servo_travel_max_rad)
         require_nonnegative("mcp_flexion_max_rad", self.mcp_flexion_max_rad)
         require_nonnegative("minimum_flexion_rad", self.minimum_flexion_rad)
-        if self.bc_to_oa_ratio_max is not None:
-            require_positive("bc_to_oa_ratio_max", self.bc_to_oa_ratio_max)
+        if self.link_length_resolution_mm is not None:
+            require_positive("link_length_resolution_mm", self.link_length_resolution_mm)
         lower, upper = self.extended_length_bounds_mm
         if lower > upper:
             raise ValueError("extended_length_bounds_mm lower bound exceeds its upper bound")
@@ -130,9 +136,58 @@ class FingerStudyConfig:
         return tuple(self.search_bounds[name][1] for name in VARIABLE_NAMES)
 
     @property
-    def pip_samples_rad(self) -> tuple[float, ...]:
-        count = int(math.floor(self.pip_horizon_rad / self.pip_step_rad + 1e-9)) + 1
-        return tuple(index * self.pip_step_rad for index in range(count))
+    def servo_samples_rad(self) -> tuple[float, ...]:
+        count = int(math.floor(self.servo_horizon_rad / self.servo_step_rad + 1e-9)) + 1
+        return tuple(index * self.servo_step_rad for index in range(count))
 
 
-__all__ = ["FingerStudyConfig"]
+def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
+    """Build a config from plain values, as written in a config file.
+
+    Angles may be given in degrees: ``name_deg`` sets the field ``name_rad``.
+    ``bounds`` and ``packaging`` are tables of their fields (``packaging``'s
+    servos tables of :class:`DShapedExtrusion` fields); any other table only
+    groups fields for reading, so ``motion: {hyperextension_deg: 10}`` is
+    ``hyperextension_deg: 10``. A field left out keeps its default.
+    """
+
+    known = {f.name for f in fields(FingerStudyConfig)}
+    flat: list[tuple[str, object]] = []
+    for key, value in values.items():
+        if isinstance(value, Mapping) and key not in known:
+            flat.extend(value.items())
+        else:
+            flat.append((key, value))
+    kwargs: dict[str, object] = {}
+    for key, value in flat:
+        name = key
+        if key.endswith("_deg") and key[:-4] + "_rad" in known:
+            name = key[:-4] + "_rad"
+            value = None if value is None else math.radians(float(value))
+        if name not in known:
+            raise ValueError(f"unknown config entry {key!r}")
+        if name in kwargs:
+            raise ValueError(f"config entry {name!r} given twice")
+        kwargs[name] = value
+    kwargs["bounds"] = {name: tuple(pair) for name, pair in dict(kwargs.get("bounds", {})).items()}
+    if "extended_length_bounds_mm" in kwargs:
+        kwargs["extended_length_bounds_mm"] = tuple(kwargs["extended_length_bounds_mm"])
+    if "packaging" in kwargs:
+        packaging = dict(kwargs["packaging"])
+        for servo in ("pip_servo", "mcp_servo"):
+            if servo in packaging:
+                packaging[servo] = DShapedExtrusion(**packaging[servo])
+        if "mcp_servo_rear" in packaging:
+            packaging["mcp_servo_rear"] = tuple(packaging["mcp_servo_rear"])
+        kwargs["packaging"] = Packaging(**packaging)
+    return FingerStudyConfig(**kwargs)
+
+
+def load_yaml(path: str | Path) -> FingerStudyConfig:
+    """Read a study config from a YAML file (see :func:`config_from_mapping`)."""
+
+    with Path(path).open(encoding="utf-8") as stream:
+        return config_from_mapping(yaml.safe_load(stream) or {})
+
+
+__all__ = ["FingerStudyConfig", "config_from_mapping", "load_yaml"]

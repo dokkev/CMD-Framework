@@ -1,0 +1,76 @@
+# Stage-0 linkage seed study (docs/optimization/stage0.md).
+# Lengths in mm, angles in degrees; `name_deg` sets the field `name_rad`.
+# The top-level groups only organise the settings. A setting left out keeps
+# its default in core/optimization/stage0/config.py.
+
+# Search box of the design vector (0.1 grid).
+bounds:
+  # OA is free; the servo clearance constraints keep the two servos apart.
+  a_x_mm: [5.0, 120.0]
+  # A may sit off the proximal axis (the x axis through O), like B.
+  a_z_mm: [-10.0, 10.0]
+  b_x_mm: [40.0, 100.0]
+  # BC stays parallel to the axis but may sit above or below it.
+  b_z_mm: [-10.0, 10.0]
+  ap_x_mm: [20.0, 100.0]
+  # A' sits dorsal of OA, at most 20 mm.
+  ap_z_mm: [0.0, 20.0]
+  # B' is free in practice.
+  bp_x_mm: [-50.0, 200.0]
+  bp_z_mm: [-60.0, 80.0]
+  # The PIP servo body may tilt dorsally.
+  servo_tilt_deg: [0.0, 45.0]
+  # BC, the middle + distal phalanx.
+  bc_length_mm: [30.0, 50.0]
+
+# Safe motion and the usable range.
+motion:
+  # The distal link must turn at least this far relative to OA, safely.
+  minimum_flexion_deg: 150.0
+  # PIP (and MCP) hyperextension the finger must reach safely: the
+  # hyperextension stopper.
+  hyperextension_deg: 10.0
+  # The usable range ends this much PIP before the first unsafe flexion pose:
+  # room past the flexion stopper.
+  flexion_stopper_margin_deg: 5.0
+  # Half the 0.1 deg verification tolerance: optima sit on the DIP
+  # monotonicity boundary, so the coarse search keeps some slack.
+  dip_backoff_tolerance_deg: 0.05
+  # PIP servo step of the motion sweep.
+  servo_step_deg: 1.0
+
+# Force transmission.
+transmission:
+  # Least transmission angle at B' (away from both straight alignments).
+  minimum_transmission_margin_deg: 30.0
+  # Most PIP servo rotation over the usable range (null: unbounded).
+  servo_travel_max_deg: null
+
+# Overall geometry.
+geometry:
+  # |OC| in the fully extended pose.
+  extended_length_bounds_mm: [80.0, 100.0]
+  # The PIP servo at A' sits dorsal of the OA contact interface.
+  oa_interface_clearance_mm: 0.0
+  # Require the middle link A-B' to clear the PIP servo body in the side view.
+  # Off: its plates straddle the servo in other layers (still reported).
+  require_middle_link_servo_clearance: false
+
+# Hardware clearances (XM335 servos at MCP (O) and PIP (A') by default).
+packaging:
+  # Metal around each pin in the side view: the bearing housing (57155K424
+  # bearings, 6 mm OD, in 1 mm walls), or a flange if wider.
+  pin_envelope_diameter_mm: 8.0
+  # Servo bodies keep this far from the pin envelopes and from each other.
+  body_clearance_mm: 1.0
+
+# Production only: each part's own dimensions on this grid, B re-assembled
+# (null: off, for seed generation).
+production:
+  link_length_resolution_mm: null
+
+# NSGA-II.
+optimizer:
+  population_size: 200
+  generations: 200
+  seed: 0

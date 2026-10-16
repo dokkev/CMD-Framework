@@ -5,12 +5,12 @@ The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 the proximal contact interface free. Its rear body lies back along the link,
 along ``-X`` tilted dorsally by the design's ``pip_servo_tilt_rad``. The PIP
 pivot ``A`` hangs off the servo body on a bracket, in the same plane, so its
-bushing housing must clear the body. The MCP servo's shaft is on ``O``.
+bearing housing must clear the body. The MCP servo's shaft is on ``O``.
 
 Each servo's section in the linkage plane is a D shape: a disk of the
 actuator radius around the shaft and a rectangle reaching ``rear_extent_mm``
 back from it. :class:`Packaging` holds every hardware dimension these checks
-use, so another servo or bushing is a different ``Packaging``. All checks are
+use, so another servo or bearing is a different ``Packaging``. All checks are
 planar, in the proximal-link (reference) frame. Margins are in mm, feasible
 when >= 0.
 """
@@ -27,14 +27,13 @@ from core.hardware import DShapedExtrusion, XM335Actuator
 from core.morphology.linkage import FingerLinkage
 
 
-BUSHING_INNER_DIAMETER_MM = 3.0
-BUSHING_OUTER_DIAMETER_MM = 4.5
-"""Pin bushing: McMaster 2706T72, high-load dry-running flanged sleeve bearing,
-3 mm shaft, 4.5 mm OD, 5 mm long, 7.5 x 0.75 mm flange."""
-HOUSING_WALL_MM = 1.0
-"""Housing wall around a bushing, machined aluminium."""
+PIN_ENVELOPE_DIAMETER_MM = 8.0
+"""Metal around a pin in the side view, which the servo bodies keep clear of.
+The pins run in McMaster 57155K424 flanged ball bearings (trade no. 63: 3 mm
+shaft, 6 mm OD, 2 mm wide, 7.2 x 0.6 mm flange), one on each side of a joint,
+pressed into 1 mm aluminium walls: the 8 mm housing is wider than the flange."""
 BODY_CLEARANCE_MM = 1.0
-"""Servo to servo, servo to bushing housing, and servo to moving parts."""
+"""Servo to servo, servo to pin envelope, and servo to moving parts."""
 DEFAULT_PIP_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
 
 
@@ -53,8 +52,7 @@ class Packaging:
     pip_servo: DShapedExtrusion = field(default_factory=_xm335)
     mcp_servo: DShapedExtrusion = field(default_factory=_xm335)
     mcp_servo_rear: tuple[float, float] = (0.0, 1.0)
-    bushing_outer_diameter_mm: float = BUSHING_OUTER_DIAMETER_MM
-    housing_wall_mm: float = HOUSING_WALL_MM
+    pin_envelope_diameter_mm: float = PIN_ENVELOPE_DIAMETER_MM
     body_clearance_mm: float = BODY_CLEARANCE_MM
 
     def __post_init__(self) -> None:
@@ -66,16 +64,16 @@ class Packaging:
         )
 
     @property
-    def housing_radius_mm(self) -> float:
-        """Outer radius of a bushing housing."""
+    def pin_radius_mm(self) -> float:
+        """Radius of a pin's envelope in the plane; clearances are measured from it."""
 
-        return self.bushing_outer_diameter_mm / 2.0 + self.housing_wall_mm
+        return self.pin_envelope_diameter_mm / 2.0
 
     @property
     def pin_spacing_mm(self) -> float:
-        """Least centre distance of two pins on one rigid body: their housings touch."""
+        """Least centre distance of two pins on one rigid body: their envelopes touch."""
 
-        return 2.0 * self.housing_radius_mm
+        return 2.0 * self.pin_radius_mm
 
     def pip_footprint(self, linkage: FingerLinkage) -> "ServoFootprint":
         """The PIP servo on ``A'``, rear body along ``-X`` tilted dorsally."""
@@ -116,8 +114,7 @@ class Packaging:
         return min(to_mcp, float(pip_servo.distance_to_segments(start, end).min()))
 
 
-HOUSING_RADIUS_MM = Packaging().housing_radius_mm
-"""Outer radius of a bushing housing with the default packaging (8 mm diameter)."""
+PIN_RADIUS_MM = Packaging().pin_radius_mm
 PIN_SPACING_MM = Packaging().pin_spacing_mm
 
 
@@ -128,9 +125,9 @@ class ServoClearance:
     mcp_servo_mm: float
     """PIP servo beyond the MCP servo body over the MCP angles, less the body clearance."""
     pin_mm: float
-    """The PIP bushing housing at ``A`` beyond the servo body, less the body clearance."""
+    """The PIP pin envelope at ``A`` beyond the servo body, less the body clearance."""
     dip_pin_mm: float
-    """The DIP bushing housing at ``B'`` beyond the servo body over the PIP samples,
+    """The DIP pin envelope at ``B'`` beyond the servo body over the PIP samples,
     less the body clearance."""
     link_mm: float
     """The middle link ``A-B'`` beyond the servo over the PIP samples. Reported
@@ -159,7 +156,7 @@ def servo_clearance(
     sweep = linkage.sweep_pip(pip_samples_rad)
     a = np.array((linkage.a.x_mm, linkage.a.z_mm))
     clearance = packaging.body_clearance_mm
-    housing = packaging.housing_radius_mm
+    housing = packaging.pin_radius_mm
     link = footprint.distance_to_segments(np.broadcast_to(a, sweep.bp.shape), sweep.bp)
     dip = footprint.distance_to_segments(sweep.bp, sweep.bp)
     return ServoClearance(
@@ -299,11 +296,9 @@ def _segments_cross(start: np.ndarray, end: np.ndarray, q0: np.ndarray, q1: np.n
 
 __all__ = [
     "BODY_CLEARANCE_MM",
-    "BUSHING_INNER_DIAMETER_MM",
-    "BUSHING_OUTER_DIAMETER_MM",
     "DEFAULT_PIP_SAMPLES_RAD",
-    "HOUSING_RADIUS_MM",
-    "HOUSING_WALL_MM",
+    "PIN_ENVELOPE_DIAMETER_MM",
+    "PIN_RADIUS_MM",
     "PIN_SPACING_MM",
     "Packaging",
     "ServoClearance",

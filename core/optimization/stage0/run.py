@@ -20,18 +20,16 @@ from pymoo.operators.sampling.lhs import LHS
 from pymoo.optimize import minimize
 
 from core.hardware import DShapedExtrusion
+from core.morphology.linkage import FingerLinkageParameters
 from core.morphology.linkage.packaging import Packaging
 
 from core.optimization.stage0.config import FingerStudyConfig
-from core.optimization.stage0.design import VARIABLE_NAMES, decode
+from core.optimization.stage0.design import DEFAULT_VALUES, VARIABLE_NAMES, decode
 from core.optimization.stage0.evaluate import CONSTRAINT_NAMES, INVALID, FingerEvaluation, evaluate
 
 
 class FingerProblem(ElementwiseProblem):
-    """Minimize ``(objective 1, -(OA + BC), 180 deg - phi_safe_max)`` subject to ``G <= 0``.
-
-    Objective 1 is the worst torque ratio ``k`` (default), the worst lever ``r``
-    (mm) or ``-worst transmission quality``, per ``config.objective``.
+    """Minimize ``(k_max, -(OA + BC), 180 deg - phi_safe_max)`` subject to ``G <= 0``.
 
     pymoo searches integer grid steps; ``to_mm`` maps them to design values.
     """
@@ -54,34 +52,25 @@ class FingerProblem(ElementwiseProblem):
 
     def _evaluate(self, x, out, *args, **kwargs) -> None:
         try:
-            evaluation = evaluate(decode(self.to_mm(x)), self.config)
+            parameters = decode(self.to_mm(x), self.config.link_length_resolution_mm)
+            evaluation = evaluate(parameters, self.config)
         except ValueError:  # B not beyond A: no linkage to evaluate
             out["F"] = np.full(3, INVALID)
             out["G"] = np.full(len(CONSTRAINT_NAMES), INVALID)
             return
-        out["F"] = np.asarray(objectives(evaluation, self.config))
+        out["F"] = np.asarray(objectives(evaluation))
         out["G"] = np.asarray(evaluation.g)
 
 
-def objectives(evaluation: FingerEvaluation, config: FingerStudyConfig) -> tuple[float, float, float]:
-    """The three objectives to minimize."""
+def objectives(evaluation: FingerEvaluation) -> tuple[float, float, float]:
+    """The three objectives to minimize; an unswept design gets a large finite ``k_max``."""
 
+    k_max = evaluation.torque_ratio_max
     return (
-        objective_1(evaluation, config),
+        k_max if math.isfinite(k_max) else INVALID,
         -evaluation.structural_length_mm,
         evaluation.curl_shortfall_deg,
     )
-
-
-def objective_1(evaluation: FingerEvaluation, config: FingerStudyConfig) -> float:
-    """The first objective to minimize; unswept designs get a large finite value."""
-
-    value = {
-        "transmission": -evaluation.worst_transmission_quality,
-        "lever": evaluation.lever_max_mm,
-        "torque_ratio": evaluation.torque_ratio_max,
-    }[config.objective]
-    return value if math.isfinite(value) else INVALID
 
 
 @dataclass(frozen=True)
@@ -103,13 +92,13 @@ def run_study(
     """Run NSGA-II on the resolution grid from a Latin hypercube start, plus any
     ``initial_designs`` (design vectors in mm and degrees) to warm-start from.
 
-    A Pareto study keeps the feasible Pareto set; a single-objective study keeps
-    the ``keep_candidates`` best distinct feasible designs of the final population.
+    At most half the population is warm-started, so the rest still explores;
+    the study keeps the feasible Pareto set.
     """
 
     problem = FingerProblem(config)
     seeds = np.array([problem.to_steps(x) for x in initial_designs]).reshape(-1, problem.n_var)
-    seeds = np.clip(seeds, problem.xl, problem.xu)
+    seeds = np.clip(seeds, problem.xl, problem.xu)[: config.population_size // 2]
     lhs = LHS().do(problem, config.population_size - len(seeds),
                    random_state=np.random.default_rng(config.seed)).get("X")
     result = minimize(
@@ -133,11 +122,24 @@ def run_study(
             if x in seen:
                 continue
             seen.add(x)
-            evaluation = evaluate(decode(x), config)
+            evaluation = evaluate(decode(x, config.link_length_resolution_mm), config)
             if evaluation.feasible:
                 pareto.append(FingerCandidate(x, evaluation))
-    pareto.sort(key=lambda candidate: objective_1(candidate.evaluation, config))
+    pareto.sort(key=lambda candidate: candidate.evaluation.torque_ratio_max)
     return FingerStudyResult(config, tuple(pareto), int(result.algorithm.evaluator.n_eval))
+
+
+LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",
+                "apb_mm", "abp_mm")
+"""As built: ``B`` from ``O`` in the extended pose, ``B'`` from ``B``, and the bars."""
+
+
+def link_values(p: FingerLinkageParameters) -> tuple[float, ...]:
+    return (
+        p.b_x_mm, p.b_z_mm, p.bp.x_mm - p.b_x_mm, p.bp.z_mm - p.b_z_mm,
+        math.hypot(p.b_x_mm - p.ap.x_mm, p.b_z_mm - p.ap.z_mm),
+        math.hypot(p.bp.x_mm - p.a_x_mm, p.bp.z_mm - p.a_z_mm),
+    )
 
 
 def save_result(
@@ -167,7 +169,9 @@ def save_result(
             "torque_ratio_max", "structural_length_mm", "phi_safe_deg", "usable_pip_deg",
             "stop_reason", "worst_transmission_quality", "min_margin_deg", "lever_max_mm",
             "servo_travel_deg", "ab_mm", "curl_pip_deg", "curl_dip_deg",
-            "curl_tip_x_mm", "closes_to_deg", "link_clearance_mm", "servo_lowest_z_mm",
+            "curl_tip_x_mm", "closes_to_deg", "middle_link_servo_clearance_mm",
+            "servo_lowest_z_mm",
+            *LINK_COLUMNS,
         ))
         for index, candidate in enumerate(result.pareto, start=1):
             e = candidate.evaluation
@@ -177,8 +181,8 @@ def save_result(
                 math.degrees(e.usable_pip_rad), e.stop_reason, e.worst_transmission_quality,
                 math.degrees(e.min_margin_rad), e.lever_max_mm, math.degrees(e.servo_travel_rad),
                 e.ab_mm, math.degrees(e.curl_pip_rad), math.degrees(e.curl_dip_rad),
-                e.curl_tip_x_mm, math.degrees(e.closes_to_rad), e.link_clearance_mm,
-                e.servo_lowest_z_mm,
+                e.curl_tip_x_mm, math.degrees(e.closes_to_rad), e.middle_link_servo_clearance_mm,
+                e.servo_lowest_z_mm, *link_values(e.parameters),
             ))
     return output
 
@@ -188,9 +192,25 @@ def load_config(run_directory: str | Path) -> FingerStudyConfig:
 
     values = json.loads((Path(run_directory) / "run.json").read_text(encoding="utf-8"))["config"]
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
+    for old, new in (("pip_step_rad", "servo_step_rad"), ("pip_horizon_rad", "servo_horizon_rad")):
+        if old in values:  # runs swept by the PIP; the step and horizon carry over
+            values[new] = values.pop(old)
+    for name in ("range_margin_rad", "stopper_margin_rad"):  # one margin for both ends
+        if name in values:
+            margin = values.pop(name)
+            values["hyperextension_rad"] = values["flexion_stopper_margin_rad"] = margin
+    for name, value in DEFAULT_VALUES.items():  # runs from before the variable existed
+        values["bounds"].setdefault(name, (value, value))
     values["extended_length_bounds_mm"] = tuple(values["extended_length_bounds_mm"])
     if "packaging" in values:
         packaging = values["packaging"]
+        for kind in ("bushing", "bearing"):  # runs that recorded the bearing itself
+            if f"{kind}_outer_diameter_mm" in packaging:
+                housing = (packaging.pop(f"{kind}_outer_diameter_mm")
+                           + 2.0 * packaging.pop("housing_wall_mm"))
+                # Before the flange was modelled, the housing alone was the envelope.
+                flange = packaging.pop(f"{kind}_flange_diameter_mm", 0.0)
+                packaging["pin_envelope_diameter_mm"] = max(housing, flange)
         values["packaging"] = Packaging(**{
             **packaging,
             "pip_servo": DShapedExtrusion(**packaging["pip_servo"]),

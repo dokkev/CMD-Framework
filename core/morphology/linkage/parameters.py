@@ -29,12 +29,13 @@ class PointXZ:
 class FingerLinkageParameters:
     """Fully extended reference pose of the 2-DoF polycentric finger.
 
-    ``O`` (MCP, actuated) is the origin and ``A`` (PIP, actuated) lies on the
-    ``z = 0`` line. ``BC`` is parallel to ``OA``: ``B`` and ``C`` share the
-    height ``b_z_mm``. ``A'`` and ``B'`` (DIP) are free in the plane. The
-    bodies are the proximal link ``O-A-A'``, the middle link ``A-B'``, the
-    distal link ``B'-B-C`` and the coupler ``A'-B``. The design variables are
-    ``a_x_mm``, ``b_x_mm``, ``b_z_mm``, ``ap`` and ``bp``; ``bc_length_mm``
+    ``O`` (MCP, actuated) is the origin and ``+X`` is the proximal link's
+    axis; ``A`` (PIP) sits at ``(a_x_mm, a_z_mm)``. In this pose ``BC`` is
+    parallel to ``+X``: ``B`` and ``C`` share the height ``b_z_mm``. ``A'``
+    and ``B'`` (DIP) are free in the plane. The bodies are the proximal link
+    ``O-A-A'``, the middle link ``A-B'``, the distal link ``B'-B-C`` and the
+    coupler ``A'-B``. The design variables are ``a_x_mm``, ``a_z_mm``,
+    ``b_x_mm``, ``b_z_mm``, ``ap`` and ``bp``; ``bc_length_mm``
     is the fingertip length. The PIP servo's shaft is on ``A'``; its rear body
     lies back along ``-X`` tilted dorsally by ``pip_servo_tilt_rad``.
     """
@@ -46,11 +47,13 @@ class FingerLinkageParameters:
     bc_length_mm: float
     b_z_mm: float = 0.0
     pip_servo_tilt_rad: float = 0.0
+    a_z_mm: float = 0.0
 
     def __post_init__(self) -> None:
         require_positive("a_x_mm", self.a_x_mm)
         require_finite("b_x_mm", self.b_x_mm)
         require_finite("b_z_mm", self.b_z_mm)
+        require_finite("a_z_mm", self.a_z_mm)
         require_finite("pip_servo_tilt_rad", self.pip_servo_tilt_rad)
         require_positive("bc_length_mm", self.bc_length_mm)
         for name in ("ap", "bp"):

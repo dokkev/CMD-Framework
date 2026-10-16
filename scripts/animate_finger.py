@@ -21,9 +21,11 @@ import csv
 import math
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.patches import Circle, Polygon
 
@@ -40,10 +42,11 @@ from core.morphology.linkage import (  # noqa: E402
 )
 from core.morphology.linkage.packaging import (  # noqa: E402
     BODY_CLEARANCE_MM,
-    HOUSING_RADIUS_MM,
+    PIN_RADIUS_MM,
     Packaging,
 )
-from core.optimization.stage0 import VARIABLE_NAMES, decode  # noqa: E402
+from core.optimization.stage0 import decode, read_design  # noqa: E402
+from core.optimization.stage0.run import load_config  # noqa: E402
 
 Outline = list[tuple[float, float]]
 
@@ -57,8 +60,9 @@ def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float
     with csv_path.open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
-                x = [float(row[name]) for name in VARIABLE_NAMES]
-                return FingerLinkage(decode(x)), float(row["usable_pip_deg"])
+                x = read_design(row)
+                resolution = load_config(csv_path.parent).link_length_resolution_mm
+                return FingerLinkage(decode(x, resolution)), float(row["usable_pip_deg"])
     raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
@@ -89,7 +93,7 @@ def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float) -> float:
 
 def create_animation(
     linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int
-) -> tuple[plt.Figure, FuncAnimation]:
+) -> tuple[plt.Figure, FuncAnimation, Callable[[int], object]]:
     actuator = XM335Actuator()
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     clearances = [link_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
@@ -114,13 +118,15 @@ def create_animation(
     pip_servo = Polygon(frames[0], closed=True, facecolor=SERVO_COLOR,
                         edgecolor="#6b7280", linewidth=1.0, zorder=0.4)
     axis.add_patch(pip_servo)
-    # Dashed: the pin bushing housings.
+    # Dashed: the pin envelopes (bearing housing or flange) grown by the body clearance,
+    # the zone the servo body must stay out of.
+    keep_out = PIN_RADIUS_MM + BODY_CLEARANCE_MM
     rings = {
         name: Circle((0.0, 0.0), radius, fill=False, linestyle="--", linewidth=1.0,
                      edgecolor=color, zorder=4)
-        for name, radius, color in (("a", HOUSING_RADIUS_MM, RED),
-                                    ("bp", HOUSING_RADIUS_MM, BLUE),
-                                    ("b", HOUSING_RADIUS_MM, BLUE))
+        for name, radius, color in (("a", keep_out, RED),
+                                    ("bp", keep_out, BLUE),
+                                    ("b", keep_out, BLUE))
     }
     for ring in rings.values():
         axis.add_patch(ring)
@@ -132,8 +138,8 @@ def create_animation(
     markers = {
         name: axis.plot([], [], "o", markersize=11, markerfacecolor=face,
                         markeredgecolor=edge, markeredgewidth=2.2, zorder=5)[0]
-        for name, face, edge in (("o", "#ffd400", RED), ("a", "#ffd400", BLACK),
-                                 ("ap", RED, GRAY), ("bp", BLUE, BLACK),
+        for name, face, edge in (("o", "#ffd400", RED), ("a", RED, BLACK),
+                                 ("ap", "#ffd400", GRAY), ("bp", BLUE, BLACK),
                                  ("b", BLUE, GRAY), ("c", BLUE, BLUE))
     }
     labels = {
@@ -188,7 +194,28 @@ def create_animation(
     animation = FuncAnimation(figure, update, frames=len(poses),
                               interval=1000.0 / fps, blit=True)
     update(0)
-    return figure, animation
+    return figure, animation, update
+
+
+def save_key_frames(figure: plt.Figure, update: Callable[[int], object],
+                    indices: Sequence[int], output: Path, dpi: int) -> None:
+    """Tile the frames at ``indices`` two per row into one PNG."""
+
+    figure.set_dpi(dpi)
+    images = []
+    for index in indices:
+        # Blitting marks the moving artists animated, which a plain draw skips.
+        for artist in update(index):
+            artist.set_animated(False)
+        figure.canvas.draw()
+        images.append(Image.fromarray(np.asarray(figure.canvas.buffer_rgba())).convert("RGB"))
+    width, height = images[0].size
+    columns = 2
+    rows = -(-len(images) // columns)
+    sheet = Image.new("RGB", (columns * width, rows * height), "white")
+    for position, image in enumerate(images):
+        sheet.paste(image, ((position % columns) * width, (position // columns) * height))
+    sheet.save(output)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -204,6 +231,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", type=Path,
                         help="GIF path (default: output/finger_2dof.gif, or candidate_N.gif "
                         "next to --pareto)")
+    parser.add_argument("--no-png", action="store_true",
+                        help="skip the key-frame PNG saved next to the GIF")
     parser.add_argument("--show", action="store_true")
     args = parser.parse_args(argv)
 
@@ -218,11 +247,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     pip_deg = args.pip_deg if args.pip_deg is not None else pip_deg
 
     trajectory = build_trajectory(math.radians(args.mcp_deg), math.radians(pip_deg), args.frames)
-    figure, animation = create_animation(linkage, trajectory, args.fps)
+    figure, animation, update = create_animation(linkage, trajectory, args.fps)
     try:
         output.parent.mkdir(parents=True, exist_ok=True)
         animation.save(output, writer=PillowWriter(fps=args.fps), dpi=args.dpi)
         print(f"saved {len(trajectory)} frames to {output}")
+        if not args.no_png:
+            # Extension, half the PIP, the full PIP, then the full MCP on top.
+            ramp = args.frames - 1
+            still = output.with_suffix(".png")
+            save_key_frames(figure, update, (0, ramp // 2, ramp, 2 * ramp), still, args.dpi)
+            print(f"saved key frames to {still}")
         if args.show:
             plt.show()
     finally:

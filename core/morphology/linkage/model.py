@@ -1,9 +1,9 @@
 """Geometry and closed-form kinematics of the 2-DoF polycentric finger.
 
-The MCP (``O``) and PIP (``A``) are actuated. The DIP (``B'``) is passive:
-the four-bar ``A-B'-B-A'`` on the proximal link couples it to the
-PIP alone, so ``q_dip`` is a function of ``q_pip`` and the MCP only turns the
-whole finger. Flexion angles are positive and turn ``+X`` toward ``-Z``.
+The MCP servo (``O``) turns the whole finger; the PIP servo (``A'``) turns the
+driven link ``A'-B`` of the four-bar ``A-B'-B-A'`` on the proximal link, which
+sets the PIP (``A``) and the passive DIP (``B'``) together. Flexion angles,
+servo angles included, are positive and turn ``+X`` toward ``-Z``.
 """
 
 from __future__ import annotations
@@ -66,10 +66,11 @@ class FingerPose:
 
 @dataclass(frozen=True)
 class PipSweep:
-    """The four-bar solved over increasing PIP samples, in the proximal-link frame.
+    """The four-bar solved over a sequence of poses, in the proximal-link frame.
 
-    Arrays cover the samples up to the first one that fails to close;
-    ``q_dip_rad`` is unwrapped along the sweep. Points are ``(n, 2)`` XZ arrays.
+    Arrays cover the samples up to the first one that fails to close; angles
+    are unwrapped along the sweep. ``servo_rad`` is the driven link's rotation
+    from the reference pose. Points are ``(n, 2)`` XZ arrays.
     """
 
     q_pip_rad: np.ndarray
@@ -79,6 +80,7 @@ class PipSweep:
     c: np.ndarray
     margin_at_b_rad: np.ndarray
     margin_at_bp_rad: np.ndarray
+    servo_rad: np.ndarray
 
     @property
     def total_flexion_rad(self) -> np.ndarray:
@@ -101,14 +103,19 @@ class FingerLinkage:
 
     parameters: FingerLinkageParameters
     _branch: int = field(init=False, repr=False)
+    """Side of ``B'->A'`` that ``B`` lies on, for a PIP-driven solve."""
+    _servo_branch: int = field(init=False, repr=False)
+    """Side of ``A->B`` that ``B'`` lies on, for a servo-driven solve."""
 
     def __post_init__(self) -> None:
         if not isinstance(self.parameters, FingerLinkageParameters):
             raise TypeError("parameters must be a FingerLinkageParameters instance")
         side = _cross(_subtract(self.ap, self.bp), _subtract(self.b, self.bp))
-        if abs(side) <= _TOLERANCE:
+        servo_side = _cross(_subtract(self.b, self.a), _subtract(self.bp, self.a))
+        if abs(side) <= _TOLERANCE or abs(servo_side) <= _TOLERANCE:
             raise ValueError("the reference four-bar is at a dead point")
         object.__setattr__(self, "_branch", 1 if side > 0.0 else -1)
+        object.__setattr__(self, "_servo_branch", 1 if servo_side > 0.0 else -1)
 
     @property
     def o(self) -> PointXZ:
@@ -116,7 +123,7 @@ class FingerLinkage:
 
     @property
     def a(self) -> PointXZ:
-        return PointXZ(self.parameters.a_x_mm, 0.0)
+        return PointXZ(self.parameters.a_x_mm, self.parameters.a_z_mm)
 
     @property
     def ap(self) -> PointXZ:
@@ -169,42 +176,41 @@ class FingerLinkage:
         )
 
     def sweep_pip(self, q_pip_rad: Sequence[float]) -> PipSweep:
-        """Solve the four-bar at increasing PIP samples starting from extension.
+        """Solve the four-bar at a sequence of PIP angles starting from extension.
 
         The vectorized counterpart of :meth:`solve` for the proximal-link frame.
         """
 
         q = np.asarray(q_pip_rad, dtype=float)
         a, ap = _array(self.a), _array(self.ap)
+        bp = a + _turn(_array(self.bp) - a, -q)
+        b, count = _close_circles(bp, ap, np.linalg.norm(_array(self.b) - _array(self.bp)),
+                                  np.linalg.norm(_array(self.b) - ap), self._branch)
+        return self._sweep(bp[:count], b)
+
+    def sweep_servo(self, servo_rad: Sequence[float]) -> PipSweep:
+        """Solve the four-bar at a sequence of PIP servo angles starting from extension.
+
+        The servo turns the driven link ``A'-B`` by ``servo_rad`` (positive turns
+        ``+X`` toward ``-Z``); ``B'`` closes on the middle link ``A-B'``.
+        """
+
+        s = np.asarray(servo_rad, dtype=float)
+        a, ap = _array(self.a), _array(self.ap)
+        b = ap + _turn(_array(self.b) - ap, -s)
+        bp, count = _close_circles(b, a, np.linalg.norm(_array(self.bp) - _array(self.b)),
+                                   np.linalg.norm(_array(self.bp) - a), -self._servo_branch)
+        return self._sweep(bp, b[:count])
+
+    def _sweep(self, bp: np.ndarray, b: np.ndarray) -> PipSweep:
+        """Joint angles, ``C`` and the transmission margins of solved ``B'`` and ``B``."""
+
+        a, ap = _array(self.a), _array(self.ap)
         bp_ref, b_ref = _array(self.bp), _array(self.b)
-        arm = bp_ref - a
-        cosine, sine = np.cos(-q), np.sin(-q)
-        bp = a + np.stack((cosine * arm[0] - sine * arm[1], sine * arm[0] + cosine * arm[1]), axis=1)
-
-        distal = np.linalg.norm(b_ref - bp_ref)
-        coupler = np.linalg.norm(b_ref - ap)
-        delta = ap - bp
-        distance = np.linalg.norm(delta, axis=1)
-        along = (distal ** 2 - coupler ** 2 + distance ** 2) / (2.0 * distance)
-        height_squared = distal ** 2 - along ** 2
-        tolerance = _TOLERANCE * max(1.0, distal ** 2)
-        failed = np.flatnonzero(height_squared < -tolerance)
-        count = int(failed[0]) if failed.size else len(q)
-
-        unit = delta[:count] / distance[:count, None]
-        height = np.sqrt(np.maximum(height_squared[:count], 0.0))
-        perpendicular = np.stack((-unit[:, 1], unit[:, 0]), axis=1)
-        b = bp[:count] + along[:count, None] * unit + self._branch * height[:, None] * perpendicular
-
-        reference = b_ref - bp_ref
-        current = b - bp[:count]
-        distal_rad = np.unwrap(np.arctan2(
-            reference[0] * current[:, 1] - reference[1] * current[:, 0],
-            reference[0] * current[:, 0] + reference[1] * current[:, 1],
-        ))
-        bc = _array(self.c) - b_ref
-        c = b + np.stack((np.cos(distal_rad) * bc[0] - np.sin(distal_rad) * bc[1],
-                          np.sin(distal_rad) * bc[0] + np.cos(distal_rad) * bc[1]), axis=1)
+        q_pip = -_rotation(bp_ref - a, bp - a)
+        distal_rad = _rotation(b_ref - bp_ref, b - bp)
+        servo = -_rotation(b_ref - ap, b - ap)
+        c = b + _turn(_array(self.c) - b_ref, distal_rad)
 
         def margin(first: np.ndarray, second: np.ndarray) -> np.ndarray:
             angle = np.abs(np.arctan2(first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0],
@@ -212,13 +218,14 @@ class FingerLinkage:
             return np.minimum(angle, math.pi - angle)
 
         return PipSweep(
-            q_pip_rad=q[:count],
-            q_dip_rad=-(distal_rad + q[:count]),
-            bp=bp[:count],
+            q_pip_rad=q_pip,
+            q_dip_rad=-(distal_rad + q_pip),
+            bp=bp,
             b=b,
             c=c,
-            margin_at_b_rad=margin(ap - b, bp[:count] - b),
-            margin_at_bp_rad=margin(a - bp[:count], b - bp[:count]),
+            margin_at_b_rad=margin(ap - b, bp - b),
+            margin_at_bp_rad=margin(a - bp, b - bp),
+            servo_rad=servo,
         )
 
     def _close(self, bp: PointXZ) -> PointXZ:
@@ -232,6 +239,47 @@ class FingerLinkage:
             if len(candidates) == 1 or side * self._branch > 0.0:
                 return candidate
         raise KinematicClosureError("no closure on the reference assembly branch")
+
+
+def _turn(vectors: np.ndarray, angle_rad) -> np.ndarray:
+    """Rotate ``(2,)`` or ``(n, 2)`` vectors by angles (counter-clockwise in XZ)."""
+
+    angle = np.asarray(angle_rad, dtype=float)
+    cosine, sine = np.cos(angle), np.sin(angle)
+    x, z = vectors[..., 0], vectors[..., 1]
+    return np.stack((cosine * x - sine * z, sine * x + cosine * z), axis=-1)
+
+
+def _rotation(reference: np.ndarray, current: np.ndarray) -> np.ndarray:
+    """Unwrapped signed angle (counter-clockwise) from ``reference`` to each ``current``."""
+
+    return np.unwrap(np.arctan2(
+        reference[0] * current[:, 1] - reference[1] * current[:, 0],
+        reference[0] * current[:, 0] + reference[1] * current[:, 1],
+    ))
+
+
+def _close_circles(
+    moving: np.ndarray, fixed: np.ndarray, moving_radius: float, fixed_radius: float, branch: int
+) -> tuple[np.ndarray, int]:
+    """Points at ``moving_radius`` from each ``moving`` and ``fixed_radius`` from ``fixed``.
+
+    ``branch`` picks the side of ``moving->fixed``. Returns the solved points
+    up to the first sample that fails to close, and their count.
+    """
+
+    delta = fixed - moving
+    distance = np.linalg.norm(delta, axis=1)
+    along = (moving_radius ** 2 - fixed_radius ** 2 + distance ** 2) / (2.0 * distance)
+    height_squared = moving_radius ** 2 - along ** 2
+    tolerance = _TOLERANCE * max(1.0, moving_radius ** 2)
+    failed = np.flatnonzero(height_squared < -tolerance)
+    count = int(failed[0]) if failed.size else len(moving)
+    unit = delta[:count] / distance[:count, None]
+    height = np.sqrt(np.maximum(height_squared[:count], 0.0))
+    perpendicular = np.stack((-unit[:, 1], unit[:, 0]), axis=1)
+    points = moving[:count] + along[:count, None] * unit + branch * height[:, None] * perpendicular
+    return points, count
 
 
 def _circle_intersections(

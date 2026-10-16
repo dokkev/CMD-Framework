@@ -24,15 +24,16 @@ Stage-1에서는 Stage-0 seed를 **초기값으로 재사용하며 linkage를 �
 
 ## 2. 설계변수와 기준 형상
 
-기존 extension 기준의 XZ 평면 좌표와 linkage 정의를 유지한다. `OA`는 proximal structural segment, `BC`는 distal structural segment이며, extension에서 `BC`와 `OA`는 같은 방향으로 평행하다.
+기존 extension 기준의 XZ 평면 좌표와 linkage 정의를 유지한다. 원점은 `O`, `+X`는 proximal 축이다. `OA`는 proximal structural segment, `BC`는 distal structural segment이며, extension에서 `BC`는 `+X`와 평행하다. `A`는 축에서 벗어날 수 있다(`A_z`).
 
 \[
-\boldsymbol\xi=[A_x,BC,B_x,B_z,A'_x,A'_z,B'_x,B'_z,\alpha_{\mathrm{servo}}]^{\mathsf T}.
+\boldsymbol\xi=[A_x,A_z,BC,B_x,B_z,A'_x,A'_z,B'_x,B'_z,\alpha_{\mathrm{servo}}]^{\mathsf T}.
 \]
 
 | 설계변수 | 현재 탐색 범위 | 비고 |
 |---|---|---|
-| `A_x = OA` | 5–120 mm | Proximal 길이. 사실상 unbound; servo 간섭 제약이 결정 |
+| `A_x` | 5–120 mm | Proximal 길이. 사실상 unbound; servo 간섭 제약이 결정 |
+| `A_z` | −10–10 mm | Proximal 축에서 벗어난 높이. `OA = \|OA\| = \sqrt{A_x^2+A_z^2}` |
 | `BC` | 30–50 mm | Distal 길이 (middle + distal phalanx) |
 | `B_x` | 40–100 mm | Extension 기준 |
 | `B_z` | −10–10 mm | Extension 기준 |
@@ -44,7 +45,9 @@ Stage-1에서는 Stage-0 seed를 **초기값으로 재사용하며 linkage를 �
 
 현재 0.1 격자: 거리·좌표 **0.1 mm**, 각도 **0.1°**. 기존 구현의 변수 정의와 이산화 방식을 재사용한다.
 
-구현: `core/optimization/stage0` (config, design, evaluate, run), 실행 `scripts/optimize/stage0/run.py`, 검증 `scripts/optimize/stage0/select_seeds.py`, 시각화 `scripts/optimize/stage0/plot_pareto.py`, `scripts/animate_finger.py`. 범위와 하드웨어는 `scripts/optimize/stage0/run.py`의 `CONFIG`(bounds, `Packaging`)가 기준이다.
+**가공 기준 (production 전용, config의 `link_length_resolution_mm = 0.1`; seed 생성에는 쓰지 않음).** 부품마다 자기 기준의 치수가 0.1 mm 격자에 놓인다: proximal은 `O` 기준 `A`, `A'`; distal은 `B` 기준 `B'`와 `BC`; 별도 bar는 `|A'B|`, `|AB'|` 길이. 설계 벡터에서 잰 두 bar 길이를 반올림한 뒤 extension 자세의 `B`를 두 원의 교점으로 다시 조립하므로, 조립 치수인 `B`(따라서 `C`, `|OC|`)는 격자 밖에 있을 수 있다.
+
+구현: `core/optimization/stage0` (config, design, evaluate, run), 실행 `scripts/optimize/stage0/run.py`, 검증 `scripts/optimize/stage0/select_seeds.py`, 시각화 `scripts/optimize/stage0/plot_pareto.py`, `scripts/animate_finger.py`. 범위, 요구 조건, 하드웨어는 `scripts/optimize/stage0/config.yaml`(`[bounds]`, `[packaging]`)이 기준이다.
 
 Extension에서 `O=(0,0)`, `C=(B_x+BC,B_z)`이면:
 
@@ -110,6 +113,9 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 - 최소 굽힘으로 **`φ_safe,max >= 150°`를 hard constraint**로 둔다. 거의 굽지 못하는 후보가 짧은 평가 구간 덕분에 작은 `k_max`를 얻어 transmission best가 되는 것을 막는다. 그 이상 필요한 굽힘 범위는 Stage-1에서 판단한다.
 - `φ_safe,max`는 동일한 kinematic branch에서 특이점, 역행 금지, 기본 mechanism collision 조건을 만족하는 최대 굽힘각이다.
 - 기존처럼 servo total travel 상한은 두지 않는다. 실제 필요한 회전량은 diagnostic으로 기록한다.
+- 사용 범위는 PIP `−hyperextension_deg`(과신전 stopper, 기본 10°)부터 `min(최초 unsafe 샘플, sweep 끝) − flexion_stopper_margin_deg`(굽힘 stopper 뒤 여유, 기본 5°)와 curl 중 먼저 오는 곳까지다. 따라서 full curl(180°)은 curl 이후 여유만큼 sweep에서 안전이 확인된 경우에만 인정한다. 두 값은 config의 `motion`에서 따로 정한다.
+- **구동은 PIP 서보 기준**이다: 굽힘 쪽은 서보 각을 `servo_step_deg`(1°) 간격으로 돌려 four-bar를 닫는다(크랭크 `A'–B`를 돌리고 `B'`를 `A`, `B` 기준 두 원의 교점으로). 과신전은 PIP 요구 조건이므로 PIP를 stopper(`−hyperextension_deg`)까지 정확히 풀어 확인한다; `B`에서의 토글을 넘는 각은 닫히지 않는다. (d)는 서보와 PIP가 함께 도는지(`pip_backoff`)로 판정한다.
+- 경계는 탐색 격자(서보 1°) 샘플 기준이며 샘플 사이를 refine하지 않는다. 오차가 Pareto 순위에 영향을 줄 수 있으므로, seed export 전에 0.05° 격자로 재검증한다.
 
 ## 4. Constraints
 
@@ -118,11 +124,10 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 - Extension 기준 자세에서 closed-loop가 성립하고 특이점이 없을 것
 - 평가 범위에서 continuous branch closure 유지
 - **B′ transmission-angle margin ≥ 30°** (일직선 정렬의 양방향 모두 회피)
-- DIP 및 구동 링크(`A'–B`)의 역행 금지 — 기존 판정 방식 재사용
+- DIP 역행 금지, 서보와 PIP가 함께 돌 것 (`pip_backoff`)
 - **`φ_safe,max >= 150°`** (OA–BC 최소 굽힘)
 - Extension `|OC| = 80–100 mm` (최대 손가락 길이 10 cm)
-- **`BC <= OA`** (`bc_to_oa_ratio_max = 1`): 접었을 때 손끝이 O 뒤로 크게 넘어가지 않도록 하는 단순 대리 제약. 정확한 `C_x >= O_x`는 4.3에서 보류
-- 같은 강체의 pivot 간격 `|A–B'|`, `|B'–B| >= 6.5 mm` (두 bushing housing이 맞닿는 거리)
+- 같은 강체의 pivot 간격 `|A–B'|`, `|B'–B| >= 8.0 mm` (두 핀 외곽, 즉 bearing housing이 맞닿는 거리)
 - 기존 변수 bounds 및 이미 유도된 해석적 feasibility 조건
 
 ### 4.2 유지할 기본 packaging
@@ -130,11 +135,11 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 | 검사 | 현재 기준 |
 |---|---|
 | 두 servo 몸체 | clearance ≥ 1 mm, 기존 MCP −10°~0° sweep |
-| A housing (Ø6.5) – PIP servo | ≥ 1 mm |
-| B′ housing – PIP servo | ≥ 1 mm, 평가 motion 전 범위 |
+| A 핀 외곽 (housing Ø8.0) – PIP servo | ≥ 1 mm |
+| B′ 핀 외곽 (housing Ø8.0) – PIP servo | ≥ 1 mm, 평가 motion 전 범위 (사용 범위를 끊는 조건) |
 | PIP servo 하단의 OA 기준면 침범 | 기존 `z >= 0` 유지 |
 
-- Pin bushing은 McMaster **2706T72** (3 mm shaft, OD 4.5 mm, 길이 5 mm, flange Ø7.5 × 0.75), housing 벽은 **알루미늄 가공 1.0 mm**: housing Ø6.5. 치수는 모두 `Packaging`에서 바꾼다.
+- Pin bearing은 McMaster **57155K424** (flanged ball bearing 63: 3 mm shaft, OD 6 mm, 폭 2 mm, flange Ø7.2 × 0.6), 관절마다 양쪽 판에 하나씩. housing 벽은 **알루미늄 가공 1.0 mm**(압입): housing Ø8.0. 간섭 검사에는 이 결과값만 쓴다: 핀 외곽 `pin_envelope_diameter_mm = 8.0`(housing과 flange 중 큰 쪽), 여유 `body_clearance_mm = 1.0` (config의 `packaging`).
 - 실제 Y-layer가 분리된 부품은 XZ 투영 교차만으로 collision 판정하지 않는다.
 - 기존 **middle link–servo** 간섭은 별도 층이라는 전제하에 report-only 상태를 유지한다.
 - **Servo 회전량 hard upper bound는 없음.**
@@ -147,7 +152,7 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 | 기존 조건 | 현재 방침 |
 |---|---|
 | `q_PIP + q_DIP = 180°` | Hard constraint 제거 → Objective 3 |
-| `−10° ~ curl + 10°` 범위 닫힘 | Extension 쪽 여유는 유지 가능한지 확인; `curl+10°`는 endpoint 정의 후 재검토 |
+| `−10° ~ curl + 10°` 범위 닫힘 | 과신전 범위(`hyperextension_deg`)와 굽힘 여유(`flexion_stopper_margin_deg`)로 분리해 적용 |
 | Curl gap: OA선–BC선 ≥ 20 mm | 비평행 상태에서 기존 infinite-line distance는 부적절. **Stage-0에서 삭제**, contact interface와 함께 Stage-1에서 정의 |
 | Curl에서 `MCP=0`, `C_x >= O_x` | Candidate-specific endpoint로 재정의하기 전에는 **미적용** |
 
@@ -175,7 +180,7 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 
 세 best candidate가 같으면 중복을 제거한다. 가능하면 전체 feasible non-dominated frontier도 보존한다.
 
-기존 `k_max <= 1.05 × k_best` 규칙은 **대표 설계 하나를 표시하는 옵션**으로만 남기며, 다른 seed를 버리는 필터로 사용하지 않는다.
+기존 `k_max <= 1.05 × k_best` 대표 설계 규칙은 사용하지 않는다 (Balanced와 역할이 겹침).
 
 ### 저장할 정보
 
