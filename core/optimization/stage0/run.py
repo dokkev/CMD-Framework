@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import multiprocessing
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Sequence
@@ -21,24 +22,39 @@ from pymoo.optimize import minimize
 
 from core.hardware import DShapedExtrusion
 from core.morphology.linkage import FingerLinkageParameters
-from core.morphology.linkage.packaging import Packaging
+from core.morphology.linkage.packaging import ContactPad, Packaging
 
 from core.optimization.stage0.config import FingerStudyConfig
 from core.optimization.stage0.design import DEFAULT_VALUES, VARIABLE_NAMES, decode
 from core.optimization.stage0.evaluate import CONSTRAINT_NAMES, INVALID, FingerEvaluation, evaluate
+from core.optimization.stage0.objectives import OBJECTIVES, active_objectives, objective_values
+
+
+FORMULATION = "palmar-pad-v1"
+"""Geometry and feasibility rules of this study, recorded in ``run.json``
+with its objectives: contact pads palmar of ``O-A''`` and ``B''-C`` that end
+the safe range where they collide, the pad-length objective their whole
+``a-b``. (Runs of ``palmar-pad-v2`` counted only what the links never cross.) Runs without it used ``OA + BC``
+(``LEGACY_FORMULATION``); other values are earlier pad models. None of them
+are comparable."""
+LEGACY_FORMULATION = "oa-bc"
+LEGACY_OBJECTIVES = ("transmission", "support_length", "curl")
+"""The objectives of runs that predate recording them."""
 
 
 class FingerProblem(ElementwiseProblem):
-    """Minimize ``(k_max, -(OA + BC), 180 deg - phi_safe_max)`` subject to ``G <= 0``.
+    """Minimize the study's :func:`active_objectives` subject to ``G <= 0``.
 
     pymoo searches integer grid steps; ``to_mm`` maps them to design values.
     """
 
-    def __init__(self, config: FingerStudyConfig) -> None:
+    def __init__(self, config: FingerStudyConfig, **kwargs) -> None:
         self.config = config
+        self.objective_names = active_objectives(config)
         super().__init__(
+            **kwargs,
             n_var=len(VARIABLE_NAMES),
-            n_obj=3,
+            n_obj=len(self.objective_names),
             n_ieq_constr=len(CONSTRAINT_NAMES),
             xl=np.ceil(np.asarray(config.lower) / config.resolution_mm - 1e-9),
             xu=np.floor(np.asarray(config.upper) / config.resolution_mm + 1e-9),
@@ -55,22 +71,18 @@ class FingerProblem(ElementwiseProblem):
             parameters = decode(self.to_mm(x), self.config.link_length_resolution_mm)
             evaluation = evaluate(parameters, self.config)
         except ValueError:  # B not beyond A: no linkage to evaluate
-            out["F"] = np.full(3, INVALID)
+            out["F"] = np.full(self.n_obj, INVALID)
             out["G"] = np.full(len(CONSTRAINT_NAMES), INVALID)
             return
-        out["F"] = np.asarray(objectives(evaluation))
+        out["F"] = np.asarray(objective_values(evaluation, self.objective_names))
         out["G"] = np.asarray(evaluation.g)
 
 
-def objectives(evaluation: FingerEvaluation) -> tuple[float, float, float]:
-    """The three objectives to minimize; an unswept design gets a large finite ``k_max``."""
+def objectives(evaluation: FingerEvaluation,
+               names=tuple(name for name, o in OBJECTIVES.items() if o.default)) -> tuple[float, ...]:
+    """The named objectives (the default ones, by default) to minimize."""
 
-    k_max = evaluation.torque_ratio_max
-    return (
-        k_max if math.isfinite(k_max) else INVALID,
-        -evaluation.structural_length_mm,
-        evaluation.curl_shortfall_deg,
-    )
+    return objective_values(evaluation, names)
 
 
 @dataclass(frozen=True)
@@ -86,17 +98,55 @@ class FingerStudyResult:
     evaluation_count: int
 
 
+_WORKER_PROBLEM: FingerProblem | None = None
+"""The problem a worker process evaluates (set when its pool starts)."""
+
+
+def _start_worker(problem: FingerProblem) -> None:
+    global _WORKER_PROBLEM
+    _WORKER_PROBLEM = problem
+
+
+def _evaluate_in_worker(x) -> dict:
+    out: dict = {}
+    _WORKER_PROBLEM._evaluate(x, out)
+    return out
+
+
+class _PoolRunner:
+    """pymoo's elementwise runner over a process pool: each worker holds its own
+    problem, so only design vectors and results cross processes."""
+
+    def __init__(self, pool, workers: int) -> None:
+        self.pool, self.workers = pool, workers
+
+    def __call__(self, f, X):
+        return self.pool.map(_evaluate_in_worker, list(X),
+                             chunksize=max(1, len(X) // (4 * self.workers)))
+
+
 def run_study(
-    config: FingerStudyConfig, initial_designs: Sequence[Sequence[float]] = ()
+    config: FingerStudyConfig, initial_designs: Sequence[Sequence[float]] = (), workers: int = 1
 ) -> FingerStudyResult:
     """Run NSGA-II on the resolution grid from a Latin hypercube start, plus any
     ``initial_designs`` (design vectors in mm and degrees) to warm-start from.
 
     At most half the population is warm-started, so the rest still explores;
-    the study keeps the feasible Pareto set.
+    the study keeps the feasible Pareto set. ``workers`` > 1 evaluates each
+    generation in that many forked processes; the result is the same.
     """
 
-    problem = FingerProblem(config)
+    if workers <= 1:
+        return _run_study(FingerProblem(config), config, initial_designs)
+    context = multiprocessing.get_context("fork")
+    with context.Pool(workers, _start_worker, (FingerProblem(config),)) as pool:
+        problem = FingerProblem(config, elementwise_runner=_PoolRunner(pool, workers))
+        return _run_study(problem, config, initial_designs)
+
+
+def _run_study(
+    problem: FingerProblem, config: FingerStudyConfig, initial_designs: Sequence[Sequence[float]]
+) -> FingerStudyResult:
     seeds = np.array([problem.to_steps(x) for x in initial_designs]).reshape(-1, problem.n_var)
     seeds = np.clip(seeds, problem.xl, problem.xu)[: config.population_size // 2]
     lhs = LHS().do(problem, config.population_size - len(seeds),
@@ -154,6 +204,8 @@ def save_result(
     config["search_bounds"] = dict(result.config.search_bounds)
     config["packaging"] = asdict(result.config.packaging)
     metadata = {
+        "formulation": FORMULATION,
+        "objectives": list(active_objectives(result.config)),
         "config": config,
         "pymoo_version": pymoo.__version__,
         "source_git_commit": source_git_commit,
@@ -166,8 +218,12 @@ def save_result(
         writer = csv.writer(stream)
         writer.writerow((
             "candidate", *VARIABLE_NAMES,
-            "torque_ratio_max", "structural_length_mm", "phi_safe_deg", "usable_pip_deg",
-            "stop_reason", "worst_transmission_quality", "min_margin_deg", "lever_max_mm",
+            "torque_ratio_max", "torque_ratio_min", "torque_ratio_spread",
+            "usable_support_length_mm", "proximal_usable_length_mm", "distal_usable_length_mm",
+            "support_length_mm", "proximal_support_length_mm",
+            "distal_support_length_mm", "phi_safe_deg", "usable_pip_deg",
+            "stop_reason", "collision_pair", "pad_clearance_mm", "worst_transmission_quality",
+            "toggle_margin_deg", "hyperextension_phi_deg", "min_margin_deg", "lever_max_mm",
             "servo_travel_deg", "ab_mm", "curl_pip_deg", "curl_dip_deg",
             "curl_tip_x_mm", "closes_to_deg", "middle_link_servo_clearance_mm",
             "servo_lowest_z_mm",
@@ -177,14 +233,33 @@ def save_result(
             e = candidate.evaluation
             writer.writerow((
                 index, *candidate.x,
-                e.torque_ratio_max, e.structural_length_mm, math.degrees(e.phi_safe_rad),
-                math.degrees(e.usable_pip_rad), e.stop_reason, e.worst_transmission_quality,
+                e.torque_ratio_max, e.torque_ratio_min, e.torque_ratio_spread,
+                e.usable_support_length_mm, e.proximal_usable_length_mm, e.distal_usable_length_mm,
+                e.support_length_mm, e.proximal_support_length_mm,
+                e.distal_support_length_mm, math.degrees(e.phi_safe_rad),
+                math.degrees(e.usable_pip_rad), e.stop_reason, e.collision_pair,
+                e.pad_clearance_mm, e.worst_transmission_quality,
+                math.degrees(e.toggle_margin_rad), math.degrees(e.hyperextension_phi_rad),
                 math.degrees(e.min_margin_rad), e.lever_max_mm, math.degrees(e.servo_travel_rad),
                 e.ab_mm, math.degrees(e.curl_pip_rad), math.degrees(e.curl_dip_rad),
                 e.curl_tip_x_mm, math.degrees(e.closes_to_rad), e.middle_link_servo_clearance_mm,
                 e.servo_lowest_z_mm, *link_values(e.parameters),
             ))
     return output
+
+
+def load_objectives(run_directory: str | Path) -> tuple[str, ...]:
+    """The objectives a run optimized."""
+
+    metadata = json.loads((Path(run_directory) / "run.json").read_text(encoding="utf-8"))
+    return tuple(metadata.get("objectives", LEGACY_OBJECTIVES))
+
+
+def load_formulation(run_directory: str | Path) -> str:
+    """The formulation a run used; runs from before it was recorded used ``OA + BC``."""
+
+    metadata = json.loads((Path(run_directory) / "run.json").read_text(encoding="utf-8"))
+    return metadata.get("formulation", LEGACY_FORMULATION)
 
 
 def load_config(run_directory: str | Path) -> FingerStudyConfig:
@@ -202,8 +277,13 @@ def load_config(run_directory: str | Path) -> FingerStudyConfig:
     for name, value in DEFAULT_VALUES.items():  # runs from before the variable existed
         values["bounds"].setdefault(name, (value, value))
     values["extended_length_bounds_mm"] = tuple(values["extended_length_bounds_mm"])
+    if values.get("objectives") is not None:
+        values["objectives"] = tuple(values["objectives"])
     if "packaging" in values:
         packaging = values["packaging"]
+        # The dorsal support deck and web of support-structure-v1; pads replaced them.
+        packaging.pop("support_thickness_mm", None)
+        packaging.pop("support_web_width_mm", None)
         for kind in ("bushing", "bearing"):  # runs that recorded the bearing itself
             if f"{kind}_outer_diameter_mm" in packaging:
                 housing = (packaging.pop(f"{kind}_outer_diameter_mm")
@@ -211,6 +291,9 @@ def load_config(run_directory: str | Path) -> FingerStudyConfig:
                 # Before the flange was modelled, the housing alone was the envelope.
                 flange = packaging.pop(f"{kind}_flange_diameter_mm", 0.0)
                 packaging["pin_envelope_diameter_mm"] = max(housing, flange)
+        for pad in ("proximal_pad", "distal_pad"):
+            if pad in packaging:
+                packaging[pad] = ContactPad(**packaging[pad])
         values["packaging"] = Packaging(**{
             **packaging,
             "pip_servo": DShapedExtrusion(**packaging["pip_servo"]),
@@ -222,11 +305,14 @@ def load_config(run_directory: str | Path) -> FingerStudyConfig:
 
 
 __all__ = [
+    "FORMULATION",
     "FingerCandidate",
     "FingerProblem",
     "FingerStudyResult",
     "objectives",
     "load_config",
+    "load_formulation",
+    "load_objectives",
     "run_study",
     "save_result",
 ]

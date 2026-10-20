@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import Packaging
+from core.morphology.linkage.packaging import ContactPad, Packaging
 from core.optimization.stage0 import (
     CONSTRAINT_NAMES,
     VARIABLE_NAMES,
@@ -15,9 +15,12 @@ from core.optimization.stage0 import (
 )
 
 BOUNDS = {name: (0.0, 200.0) for name in VARIABLE_NAMES}
-# The designs below predate the bearing: test the evaluation with the earlier
-# 6.5 mm pin envelope.
-HOUSING_ONLY = Packaging(pin_envelope_diameter_mm=6.5)
+# The designs below predate the bearing and the pads: test the evaluation with
+# the earlier 6.5 mm pin envelope and thin (1 mm) pads, which leave their
+# motion to the linkage (tests/test_support_structure.py covers the pads).
+HOUSING_ONLY = Packaging(pin_envelope_diameter_mm=6.5,
+                         proximal_pad=ContactPad(height_mm=1.0, chamfer_mm=0.0),
+                         distal_pad=ContactPad(height_mm=1.0, chamfer_mm=0.0))
 CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY)
 CROSSED = (40.0, 70.0, 0.0, 52.0, 15.0, 62.0, 15.0, 0.0)
 # A feasible Stage-0 design (BC 30 mm) that curls to 180 deg safely.
@@ -39,8 +42,10 @@ def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
     assert evaluation.phi_safe_rad == math.pi
     assert evaluation.usable_pip_rad == pytest.approx(evaluation.curl_pip_rad)
     assert evaluation.curl_pip_rad + evaluation.curl_dip_rad == pytest.approx(math.pi, abs=1e-3)
-    assert objectives(evaluation) == pytest.approx(
-        (evaluation.torque_ratio_max, -(36.0 + 30.0), 0.0), abs=0.01)
+    # The pads' a-b: A'_x less the proximal pad's start, and B_x + BC - B'_x.
+    start = GOOD_CONFIG.packaging.proximal_pad_start_mm
+    assert objectives(evaluation, ("transmission", "support_length", "curl")) == pytest.approx(
+        (evaluation.torque_ratio_max, -(41.6 - start + (79.3 + 30.0 - 63.3)), 0.0), abs=0.01)
 
 
 def test_curl_needs_its_stopper_margin_inside_the_sweep() -> None:
@@ -228,7 +233,8 @@ def test_a_may_sit_off_the_proximal_axis() -> None:
     evaluation = evaluate(decode(raised), GOOD_CONFIG)
 
     assert (linkage.a.x_mm, linkage.a.z_mm) == (36.0, 3.0)
-    assert evaluation.structural_length_mm == pytest.approx(math.hypot(36.0, 3.0) + 30.0)
+    # The support lengths do not depend on A.
+    assert evaluation.support_length_mm == pytest.approx(evaluate(decode(GOOD), GOOD_CONFIG).support_length_mm)
     assert evaluation.ab_mm == pytest.approx(math.hypot(79.3 - 36.0, 10.0 - 3.0))
     # The middle link A-B' turns about the raised A.
     pose = linkage.solve(0.0, math.radians(30.0))
@@ -292,7 +298,9 @@ def test_the_stage0_script_config_loads() -> None:
 
     assert config.minimum_flexion_rad == pytest.approx(math.radians(150.0))
     assert config.dip_backoff_tolerance_rad == pytest.approx(math.radians(0.05))
-    assert config.bounds["servo_tilt_deg"] == (0.0, 45.0)
+    assert config.bounds["servo_tilt_deg"][0] == 0.0
+    assert config.bounds["a_z_mm"] == (0.0, 0.0)
+    assert config.packaging.proximal_pad == ContactPad(height_mm=5.0, offset_mm=0.0, chamfer_mm=2.5)
     assert config.link_length_resolution_mm is None
     assert config.packaging.pin_radius_mm == 4.0
 
@@ -307,3 +315,68 @@ def test_hyperextension_and_flexion_margin_are_separate() -> None:
 
     assert wider.usable_pip_rad == pytest.approx(base.usable_pip_rad - math.radians(10.0))
     assert shallow.usable_pip_rad == pytest.approx(base.usable_pip_rad)
+
+
+def test_linear_constraints_narrow_the_search_box_without_losing_designs() -> None:
+    from pathlib import Path
+
+    from core.optimization.stage0.config import load_yaml
+
+    import dataclasses
+
+    # The script config's box, with the lengths fixed here: |OC| 80-100, BC 30-50,
+    # A and B on the axis.
+    config = load_yaml(Path(__file__).resolve().parents[1] / "scripts/optimize/stage0/config.yaml")
+    config = dataclasses.replace(config, extended_length_bounds_mm=(80.0, 100.0), minimum_proximal_support_mm=0.0,
+                                 minimum_distal_support_mm=0.0, packaging=dataclasses.replace(
+        config.packaging, pad_link_ratio_max=None), bounds={
+        **config.bounds, "bc_length_mm": (30.0, 50.0), "a_x_mm": (5.0, 120.0), "b_x_mm": (40.0, 100.0),
+        "a_z_mm": (0.0, 0.0), "b_z_mm": (0.0, 0.0),
+        "ap_x_mm": (20.0, 100.0), "bp_x_mm": (-50.0, 200.0)})
+    box = config.search_bounds
+
+    # |OC| = B_x + BC <= 100 with BC >= 30; A_x < B_x; B'_x <= B_x; and, all
+    # on the x axis, the extended pads clear each other, the A and B pins (4 + 1
+    # mm) and the MCP servo's shaft disk (9.5 + 1 mm).
+    assert box["b_x_mm"] == (40.0, 70.0)
+    assert box["a_x_mm"] == (5.0, 65.0)
+    assert box["ap_x_mm"] == (20.0, 65.0)
+    assert box["bp_x_mm"] == (21.0, 70.0)
+    assert config.bounds["b_x_mm"] == (40.0, 100.0)  # the given bounds are untouched
+    # Every design in the file's box that meets the linear constraints is in the search box.
+    rng = np.random.default_rng(0)
+    names = ("a_x_mm", "b_x_mm", "ap_x_mm", "bp_x_mm", "bc_length_mm")
+    low = np.array([config.bounds[name][0] for name in names])
+    high = np.array([config.bounds[name][1] for name in names])
+    for a_x, b_x, ap_x, bp_x, bc in rng.uniform(low, high, (20000, len(names))):
+        linear = (80.0 <= b_x + bc <= 100.0 and a_x < b_x and ap_x >= a_x and bp_x <= b_x
+                  and ap_x - config.packaging.proximal_pad_start_mm >= 0.0
+                  and bp_x >= max(ap_x + 1.0, a_x + 5.0, 10.5) and ap_x <= b_x - 5.0)
+        if linear:
+            for name, value in zip(names, (a_x, b_x, ap_x, bp_x, bc)):
+                assert box[name][0] <= value <= box[name][1]
+
+
+def test_the_toggle_margin_and_hyperextension_phi_are_reported() -> None:
+    evaluation = evaluate(decode(GOOD), GOOD_CONFIG)
+    end = math.degrees(evaluation.usable_pip_rad)
+    sweep = FingerLinkage(decode(GOOD)).sweep_pip(np.radians(np.arange(-10.0, end, 0.01)))
+
+    # The angle at B (the driven link and B-B' in line) over the same range as
+    # the transmission margin, up to the servo sampling.
+    assert evaluation.toggle_margin_rad == pytest.approx(sweep.margin_at_b_rad.min(), abs=2e-2)
+    # At the -10 deg PIP stopper the passive DIP turns back too.
+    assert evaluation.hyperextension_phi_rad == pytest.approx(sweep.total_flexion_rad[0], abs=1e-6)
+    assert evaluation.hyperextension_phi_rad < -math.radians(10.0)
+
+
+def test_the_curl_tip_is_taken_at_the_most_usable_curl() -> None:
+    strict = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, extended_length_bounds_mm=(90.0, 110.0),
+                               minimum_transmission_margin_rad=math.radians(50.0), enforce_curl_tip=True)
+    evaluation = evaluate(decode(GOOD), strict)
+    pose = FingerLinkage(decode(GOOD)).solve(0.0, evaluation.usable_pip_rad)
+
+    # The range ends short of the curl, and the tip is still checked there.
+    assert evaluation.stop_reason == "transmission"
+    assert evaluation.curl_tip_x_mm == pytest.approx(pose.c.x_mm)
+    assert evaluation.constraints["curl_tip_x_mm"] == pytest.approx(-pose.c.x_mm)

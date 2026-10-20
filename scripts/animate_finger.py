@@ -12,6 +12,17 @@ The finger first flexes the PIP (the DIP follows through the four-bar), then the
 on the proximal link (rear body toward O), and the distal link B-C (Stage-0
 has no fingertip). The PIP servo sits at A' and drives A'-B; the middle link
 A-B' turns red where it comes closer than the body clearance to the PIP servo.
+
+The contact pads are drawn as the solids the Stage-0 evaluator checks
+(``core.morphology.linkage.packaging``): blocks palmar of O-A'' and B''-C,
+chamfered toward the PIP, riding on the proximal and distal links. They turn
+red when a checked pair comes closer than the body clearance at that pose
+(MCP at its frame angle); the status line names the closest pair.
+
+Each part in the central layer is outlined in its collision group's colour
+(``packaging.COLLISION_GROUPS``: palm, proximal, distal): parts of different
+groups must not collide, parts of one group are one rigid body. The middle
+link and coupler plates sit in another layer and are not outlined.
 """
 
 from __future__ import annotations
@@ -27,6 +38,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Polygon
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -41,9 +53,13 @@ from core.morphology.linkage import (  # noqa: E402
     servo_clearance,
 )
 from core.morphology.linkage.packaging import (  # noqa: E402
-    BODY_CLEARANCE_MM,
-    PIN_RADIUS_MM,
+    COMPONENTS,
     Packaging,
+    fixed_margin_pairs,
+    distal_pad_polygon,
+    proximal_pad_polygon,
+    pad_margins,
+    turn_points,
 )
 from core.optimization.stage0 import decode, read_design  # noqa: E402
 from core.optimization.stage0.run import load_config  # noqa: E402
@@ -52,17 +68,23 @@ Outline = list[tuple[float, float]]
 
 RED, BLACK, BLUE, GRAY = "#ff1027", "#111111", "#071c9e", "#7a7a7a"
 SERVO_COLOR = "#c9ced6"
+PROXIMAL_PAD_COLOR, DISTAL_PAD_COLOR = "#f7b6bd", "#b4bdf0"
+GROUP_COLORS = {"palm": "#7c3aed", "proximal": "#e11d48", "distal": "#2563eb"}
+"""Outline colour of each collision group drawn."""
+OUTLINE_WIDTH = 1.6
 
 
-def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float]:
-    """Return a Stage-0 candidate's linkage and the PIP flexion at the end of its usable range."""
+def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float, Packaging]:
+    """Return a Stage-0 candidate's linkage, the PIP flexion at the end of its
+    usable range and the run's packaging."""
 
     with csv_path.open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
                 x = read_design(row)
-                resolution = load_config(csv_path.parent).link_length_resolution_mm
-                return FingerLinkage(decode(x, resolution)), float(row["usable_pip_deg"])
+                config = load_config(csv_path.parent)
+                linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
+                return linkage, float(row["usable_pip_deg"]), config.packaging
     raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
@@ -87,17 +109,40 @@ def servo_outline(shaft: PointXZ, rear_angle_rad: float, actuator: XM335Actuator
             for x, z in local]
 
 
-def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float) -> float:
-    return servo_clearance(linkage, pip_samples_rad=(q_pip_rad,)).link_mm
+def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float, packaging: Packaging) -> float:
+    return servo_clearance(linkage, packaging, pip_samples_rad=(q_pip_rad,)).link_mm
+
+
+def pad_status(linkage: FingerLinkage, packaging: Packaging,
+               q_mcp_rad: float, q_pip_rad: float) -> tuple[float, str, bool]:
+    """Least pad margin at one pose (less the fixed-margin pairs), the pair
+    that sets it, and whether any checked pair collides."""
+
+    sweep = linkage.sweep_pip((q_pip_rad,))
+    margins = pad_margins(linkage, packaging, sweep.b, sweep.c, sweep.bp, (q_mcp_rad,))
+    reported = {pair: margin for pair, margin in margins.items() if pair not in fixed_margin_pairs(packaging)}
+    pair, margin = min(reported.items(), key=lambda item: float(item[1][0]))
+    colliding = any(float(value[0]) < 0.0 for value in margins.values())
+    return float(margin[0]), "/".join(pair), colliding
 
 
 def create_animation(
-    linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int
+    linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int,
+    packaging: Packaging | None = None,
 ) -> tuple[plt.Figure, FuncAnimation, Callable[[int], object]]:
+    packaging = packaging or Packaging()
     actuator = XM335Actuator()
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
-    clearances = [link_clearance_mm(linkage, q_pip) for _, q_pip in trajectory]
-    servo = Packaging().pip_footprint(linkage).outline
+    clearances = [link_clearance_mm(linkage, q_pip, packaging) for _, q_pip in trajectory]
+    pads = [pad_status(linkage, packaging, q_mcp, q_pip) for q_mcp, q_pip in trajectory]
+    servo = packaging.pip_footprint(linkage).outline
+    # The pad solids, posed: the proximal one turns with the MCP, the
+    # distal one rides on the posed B and C.
+    proximal = proximal_pad_polygon(linkage, packaging)
+    proximal_frames = [[turn_points(proximal, -pose.q_mcp_rad)] for pose in poses]
+    distal_frames = [list(distal_pad_polygon(
+        linkage, packaging, np.array([[pose.b.x_mm, pose.b.z_mm]]),
+        np.array([[pose.c.x_mm, pose.c.z_mm]]))) for pose in poses]
 
     frames = []
     for pose in poses:
@@ -107,6 +152,7 @@ def create_animation(
 
     points = [xz for frame in frames for xz in frame] + mcp_servo
     points += [(p.x_mm, p.z_mm) for pose in poses for p in (pose.ap, pose.bp, pose.b, pose.c)]
+    points += [tuple(xz) for frame in proximal_frames + distal_frames for quad in frame for xz in quad]
     xs, zs = [x for x, _ in points], [z for _, z in points]
     x_limits, z_limits = (min(xs) - 5, max(xs) + 5), (min(zs) - 5, max(zs) + 5)
     width = 11.0
@@ -118,9 +164,17 @@ def create_animation(
     pip_servo = Polygon(frames[0], closed=True, facecolor=SERVO_COLOR,
                         edgecolor="#6b7280", linewidth=1.0, zorder=0.4)
     axis.add_patch(pip_servo)
+    pad_patches = [
+        Polygon(quad, closed=True, facecolor=color, edgecolor=edge, linewidth=1.0, alpha=0.85, zorder=0.6)
+        for frames_, color, edge in ((proximal_frames, PROXIMAL_PAD_COLOR, RED),
+                                     (distal_frames, DISTAL_PAD_COLOR, BLUE))
+        for quad in frames_[0]
+    ]
+    for patch in pad_patches:
+        axis.add_patch(patch)
     # Dashed: the pin envelopes (bearing housing or flange) grown by the body clearance,
     # the zone the servo body must stay out of.
-    keep_out = PIN_RADIUS_MM + BODY_CLEARANCE_MM
+    keep_out = packaging.pin_radius_mm + packaging.body_clearance_mm
     rings = {
         name: Circle((0.0, 0.0), radius, fill=False, linestyle="--", linewidth=1.0,
                      edgecolor=color, zorder=4)
@@ -131,6 +185,38 @@ def create_animation(
     for ring in rings.values():
         axis.add_patch(ring)
 
+    # Collision groups: each part outlined in its group's colour.
+    pins = {"a_pin": "a", "ap_pin": "ap", "bp_pin": "bp", "b_pin": "b"}
+
+    def part_shape(name: str, index: int):
+        """A part at a frame: its outline points, or a pin's centre."""
+        pose = poses[index]
+        if name in pins:
+            point = getattr(pose, pins[name])
+            return (point.x_mm, point.z_mm)
+        return {"proximal_pad": proximal_frames[index][0], "distal_pad": distal_frames[index][0],
+                "pip_servo": frames[index], "mcp_servo": mcp_servo}[name]
+
+    outlines = []
+    for name, component in COMPONENTS.items():
+        if component.group not in GROUP_COLORS:
+            continue  # the link plates, in another layer
+        if name == "mcp_servo" and not packaging.pad_mcp_check:
+            continue
+        color = GROUP_COLORS[component.group]
+        if name in pins:
+            patch = Circle((0.0, 0.0), packaging.pin_radius_mm, fill=False,
+                           edgecolor=color, linewidth=OUTLINE_WIDTH, zorder=4.5)
+        else:
+            patch = Polygon(part_shape(name, 0), closed=True, fill=False,
+                            edgecolor=color, linewidth=OUTLINE_WIDTH, joinstyle="round", zorder=0.7)
+        axis.add_patch(patch)
+        outlines.append((patch, name))
+    axis.legend(handles=[Line2D([], [], color=color, linewidth=2.5, label=group)
+                         for group, color in GROUP_COLORS.items()],
+                loc="lower right", fontsize=8, framealpha=0.85,
+                title="collision group\n(different groups\nmust not collide)", title_fontsize=8)
+
     proximal, = axis.plot([], [], color=RED, linewidth=3.0, zorder=2)
     middle, = axis.plot([], [], color=BLACK, linewidth=3.0, zorder=3)
     distal, = axis.plot([], [], color=BLUE, linewidth=3.0, zorder=2)
@@ -140,7 +226,8 @@ def create_animation(
                         markeredgecolor=edge, markeredgewidth=2.2, zorder=5)[0]
         for name, face, edge in (("o", "#ffd400", RED), ("a", RED, BLACK),
                                  ("ap", "#ffd400", GRAY), ("bp", BLUE, BLACK),
-                                 ("b", BLUE, GRAY), ("c", BLUE, BLUE))
+                                 ("b", BLUE, GRAY), ("c", BLUE, BLUE),
+                                 ("app", "white", RED), ("bpp", "white", BLUE))
     }
     labels = {
         name: axis.annotate(text, (0, 0), xytext=offset, textcoords="offset points",
@@ -149,7 +236,8 @@ def create_animation(
         for name, text, color, offset in (
             ("o", r"$O$", RED, (-12, 12)), ("a", r"$A$", RED, (0, -18)),
             ("ap", r"$A'$", RED, (0, 15)), ("bp", r"$B'$", BLUE, (0, 15)),
-            ("b", r"$B$", BLUE, (0, -18)), ("c", r"$C$", BLUE, (12, -12)))
+            ("b", r"$B$", BLUE, (0, -18)), ("c", r"$C$", BLUE, (12, -12)),
+            ("app", r"$A''$", RED, (0, -18)), ("bpp", r"$B''$", BLUE, (0, -18)))
     }
     status = axis.text(0.01, 0.99, "", transform=axis.transAxes, va="top",
                        fontsize=10, fontfamily="monospace", zorder=7)
@@ -164,12 +252,31 @@ def create_animation(
     def xy(points: Sequence[PointXZ]) -> tuple[list[float], list[float]]:
         return [p.x_mm for p in points], [p.z_mm for p in points]
 
+    def transmission_text(pose) -> str:
+        # The transmission angle is at the joint the driven link does not touch.
+        on_a = packaging.pip_servo_on_a
+        drive, limit = (("B", "B'") if on_a else ("B'", "B"))
+        transmission = pose.margin_at_b_rad if on_a else pose.margin_at_bp_rad
+        toggle = pose.margin_at_bp_rad if on_a else pose.margin_at_b_rad
+        return (f"transmission at {drive} {math.degrees(transmission):3.0f}°"
+                f"  limit position at {limit} {math.degrees(toggle):3.0f}°")
+
     def update(index: int):
         pose = poses[index]
         pip_servo.set_xy(frames[index])
+        pad_margin, pad_pair, colliding = pads[index]
+        for patch, quad in zip(pad_patches, proximal_frames[index] + distal_frames[index]):
+            patch.set_xy(quad)
+            patch.set_edgecolor(RED if colliding else BLACK)
         for name, ring in rings.items():
             point = getattr(pose, name)
             ring.center = (point.x_mm, point.z_mm)
+        for patch, name in outlines:
+            shape = part_shape(name, index)
+            if name in pins:
+                patch.center = shape
+            else:
+                patch.set_xy(shape)
         proximal.set_data(*xy((pose.o, pose.a, pose.ap, pose.o)))
         middle.set_data(*xy((pose.a, pose.bp)))
         distal.set_data(*xy((pose.bp, pose.b, pose.c, pose.bp)))
@@ -183,11 +290,12 @@ def create_animation(
             f"MCP {math.degrees(pose.q_mcp_rad):5.1f}°  PIP {math.degrees(pose.q_pip_rad):5.1f}°"
             f"  DIP {math.degrees(pose.q_dip_rad):5.1f}°\n"
             f"{'crossed' if pose.is_crossed else 'open':7s} "
-            f"transmission at B' {math.degrees(pose.margin_at_bp_rad):3.0f}°"
-            f"  input limit at B {math.degrees(pose.margin_at_b_rad):3.0f}°"
-            f"  link-servo clearance {clearances[index] + BODY_CLEARANCE_MM:5.1f} mm"
+            f"{transmission_text(pose)}"
+            f"  link-servo clearance {clearances[index] + packaging.body_clearance_mm:5.1f} mm\n"
+            f"pad margin {pad_margin:5.1f} mm ({pad_pair})"
+            f"{'  COLLISION' if colliding else ''}"
         )
-        return (pip_servo, *rings.values(),
+        return (pip_servo, *pad_patches, *rings.values(), *(patch for patch, _ in outlines),
                 proximal, middle, distal, coupler,
                 *markers.values(), *labels.values(), status)
 
@@ -239,15 +347,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (args.pareto is None) != (args.candidate is None):
         raise ValueError("--pareto and --candidate must be given together")
     if args.pareto is None:
-        linkage, pip_deg = SKETCH_LINKAGE, 75.0
+        linkage, pip_deg, packaging = SKETCH_LINKAGE, 75.0, Packaging()
         output = args.output or Path("output/finger_2dof.gif")
     else:
-        linkage, pip_deg = load_candidate(args.pareto, args.candidate)
+        linkage, pip_deg, packaging = load_candidate(args.pareto, args.candidate)
         output = args.output or args.pareto.parent / f"candidate_{args.candidate}.gif"
     pip_deg = args.pip_deg if args.pip_deg is not None else pip_deg
 
     trajectory = build_trajectory(math.radians(args.mcp_deg), math.radians(pip_deg), args.frames)
-    figure, animation, update = create_animation(linkage, trajectory, args.fps)
+    figure, animation, update = create_animation(linkage, trajectory, args.fps, packaging)
     try:
         output.parent.mkdir(parents=True, exist_ok=True)
         animation.save(output, writer=PillowWriter(fps=args.fps), dpi=args.dpi)

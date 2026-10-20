@@ -4,6 +4,11 @@ The MCP servo (``O``) turns the whole finger; the PIP servo (``A'``) turns the
 driven link ``A'-B`` of the four-bar ``A-B'-B-A'`` on the proximal link, which
 sets the PIP (``A``) and the passive DIP (``B'``) together. Flexion angles,
 servo angles included, are positive and turn ``+X`` toward ``-Z``.
+
+The contact-supporting structures end at ``A''`` and ``B''``, points of the
+proximal and distal bodies (not joints): ``A''`` is ``A'`` projected on the
+proximal mounting line (the ``x`` axis), ``B''`` is ``B'`` projected on the
+distal one (the line ``BC``), both in the reference pose.
 """
 
 from __future__ import annotations
@@ -38,6 +43,10 @@ class FingerPose:
     bp: PointXZ
     b: PointXZ
     c: PointXZ
+    app: PointXZ
+    """``A''``, end of the proximal support structure, on the proximal body."""
+    bpp: PointXZ
+    """``B''``, end of the distal support structure, on the distal body."""
 
     @property
     def is_crossed(self) -> bool:
@@ -142,6 +151,24 @@ class FingerLinkage:
         return PointXZ(self.parameters.b_x_mm + self.parameters.bc_length_mm, self.parameters.b_z_mm)
 
     @property
+    def app(self) -> PointXZ:
+        """``A'' = (A'_x, 0)``, ``A'`` projected on the proximal mounting line."""
+
+        return PointXZ(self.parameters.ap.x_mm, 0.0)
+
+    @property
+    def bpp(self) -> PointXZ:
+        """``B'' = (B'_x, B_z)``, ``B'`` projected on the distal mounting line ``BC``."""
+
+        return PointXZ(self.parameters.bp.x_mm, self.parameters.b_z_mm)
+
+    @property
+    def bpp_along_bc(self) -> float:
+        """Signed position of ``B''`` along ``BC`` from ``B``, as a fraction of ``BC``."""
+
+        return (self.parameters.bp.x_mm - self.parameters.b_x_mm) / self.parameters.bc_length_mm
+
+    @property
     def is_crossed(self) -> bool:
         """Whether the middle link ``A-B'`` and the coupler ``A'-B`` intersect."""
 
@@ -160,6 +187,9 @@ class FingerLinkage:
         distal_rad = _signed_rotation(_subtract(self.b, self.bp), _subtract(b, bp))
         c = _add(b, _rotate(_subtract(self.c, self.b), distal_rad))
 
+        # B'' rides on the distal link: the same fraction of the posed B->C.
+        bpp = _add(b, _scale(_subtract(c, b), self.bpp_along_bc))
+
         def turn(point: PointXZ) -> PointXZ:
             return _rotate(point, -q_mcp_rad)
 
@@ -173,6 +203,8 @@ class FingerLinkage:
             bp=turn(bp),
             b=turn(b),
             c=turn(c),
+            app=turn(self.app),
+            bpp=turn(bpp),
         )
 
     def sweep_pip(self, q_pip_rad: Sequence[float]) -> PipSweep:
@@ -339,6 +371,10 @@ def _add(first: PointXZ, second: PointXZ) -> PointXZ:
 
 def _subtract(first: PointXZ, second: PointXZ) -> PointXZ:
     return PointXZ(first.x_mm - second.x_mm, first.z_mm - second.z_mm)
+
+
+def _scale(point: PointXZ, factor: float) -> PointXZ:
+    return PointXZ(point.x_mm * factor, point.z_mm * factor)
 
 
 def _length(point: PointXZ) -> float:

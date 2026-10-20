@@ -7,11 +7,12 @@
 bounds:
   # OA is free; the servo clearance constraints keep the two servos apart.
   a_x_mm: [5.0, 120.0]
-  # A may sit off the proximal axis (the x axis through O), like B.
-  a_z_mm: [-10.0, 10.0]
+  # A stays on the proximal axis: A = (A_x, 0).
+  a_z_mm: [0.0, 0.0]
   b_x_mm: [40.0, 100.0]
-  # BC stays parallel to the axis but may sit above or below it.
-  b_z_mm: [-10.0, 10.0]
+  # BC stays parallel to the axis, on it: B = (B_x, 0), so the pads' palmar
+  # faces line up in extension.
+  b_z_mm: [0.0, 0.0]
   ap_x_mm: [20.0, 100.0]
   # A' sits dorsal of OA, at most 20 mm.
   ap_z_mm: [0.0, 20.0]
@@ -19,7 +20,7 @@ bounds:
   bp_x_mm: [-50.0, 200.0]
   bp_z_mm: [-60.0, 80.0]
   # The PIP servo body may tilt dorsally.
-  servo_tilt_deg: [0.0, 45.0]
+  servo_tilt_deg: [0.0, 30.0]
   # BC, the middle + distal phalanx.
   bc_length_mm: [30.0, 50.0]
 
@@ -38,6 +39,11 @@ motion:
   dip_backoff_tolerance_deg: 0.05
   # PIP servo step of the motion sweep.
   servo_step_deg: 1.0
+  # With pad_mcp_check the pads must clear the MCP servo from MCP extension
+  # up to this MCP flexion, checked every mcp_step_deg. In hyperextension
+  # (linkage range only) the pads are not checked.
+  mcp_flexion_max_deg: 90.0
+  mcp_step_deg: 1.0
 
 # Force transmission.
 transmission:
@@ -45,13 +51,24 @@ transmission:
   minimum_transmission_margin_deg: 30.0
   # Most PIP servo rotation over the usable range (null: unbounded).
   servo_travel_max_deg: null
+  # Most k_max allowed: the PIP servo's torque over the distal moment it must
+  # hold (null: unbounded).
+  torque_ratio_max: null
 
 # Overall geometry.
 geometry:
   # |OC| in the fully extended pose.
-  extended_length_bounds_mm: [80.0, 100.0]
+  extended_length_bounds_mm: [80.0, 110.0]
+  # At the most curl (the end of the usable range) with the MCP at 0, the tip
+  # C stays at x >= curl_tip_min_x_mm, ahead of O.
+  enforce_curl_tip: true
+  curl_tip_min_x_mm: 0.0
   # The PIP servo at A' sits dorsal of the OA contact interface.
   oa_interface_clearance_mm: 0.0
+  # Least pad lengths |OA''| and |B''C| (0: none). Contact-module sizes are
+  # Stage-1 inputs.
+  minimum_proximal_support_mm: 30.0
+  minimum_distal_support_mm: 40.0
   # Require the middle link A-B' to clear the PIP servo body in the side view.
   # Off: its plates straddle the servo in other layers (still reported).
   require_middle_link_servo_clearance: false
@@ -61,8 +78,25 @@ packaging:
   # Metal around each pin in the side view: the bearing housing (57155K424
   # bearings, 6 mm OD, in 1 mm walls), or a flange if wider.
   pin_envelope_diameter_mm: 8.0
-  # Servo bodies keep this far from the pin envelopes and from each other.
+  # Servo bodies keep this far from the pin envelopes and from each other;
+  # the pads keep it from the parts of other bodies.
   body_clearance_mm: 1.0
+  # Check the pads against the MCP servo. On: the proximal pad starts past
+  # the servo's shaft disk by body_clearance_mm. Off: it starts at O.
+  pad_mcp_check: true
+  # Contact pads a-b-d-c on the proximal and distal links (provisional
+  # Stage-0 values), in the servos' central layer; the link plates sit
+  # outside it. height_mm: palmar of the mounting line. offset_mm: start in
+  # from the outer end. chamfer_mm: 45 deg chamfer of the palmar corner
+  # facing the PIP (0: square). length_mm: a fixed length the mounting line
+  # must have room for; null runs the proximal pad right to A'' and the
+  # distal pad from C left to B''.
+  # Most pad length per link length (proximal pad / |OA|, distal pad / BC):
+  # a pad may stand out of its link by this much. A free-length pad is cut to
+  # it, a fixed one must not exceed it (null: unbounded).
+  pad_link_ratio_max: null
+  proximal_pad: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  distal_pad: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
 
 # Production only: each part's own dimensions on this grid, B re-assembled
 # (null: off, for seed generation).
@@ -71,6 +105,11 @@ production:
 
 # NSGA-II.
 optimizer:
+  # Objectives to minimize (core/optimization/stage0/objectives.py): the worst
+  # torque ratio k_max and the curl shortfall. The pads are requirements
+  # (minimum_*_support_mm, or a fixed length_mm), not an objective. Opt-in:
+  # support_length (the pads' length), flatness (k_max / k_min).
+  objectives: [transmission, curl]
   population_size: 200
   generations: 200
   seed: 0
