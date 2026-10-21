@@ -3,7 +3,7 @@ import math
 import pytest
 
 from core.hardware import XM335Actuator
-from core.morphology.rcj import RollingContactJoint, RollingContactJointParameters
+from core.morphology.rolling_contact_joint import RollingContactJoint, RollingContactJointParameters
 
 
 def xz(point) -> tuple[float, float]:

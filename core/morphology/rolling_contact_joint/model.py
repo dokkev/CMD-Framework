@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from core._validation import require_finite
 from core.morphology.linkage.parameters import PointXZ
-from core.morphology.rcj.parameters import RollingContactJointParameters
+from core.morphology.rolling_contact_joint.parameters import RollingContactJointParameters
 
 
 @dataclass(frozen=True)
