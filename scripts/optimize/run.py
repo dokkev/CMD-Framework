@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="study settings (default: scripts/optimize/<mechanism>/config.yaml)")
     parser.add_argument("--algorithm", choices=sorted(OPTIMIZERS), help="optimizer (default: the config's)")
     parser.add_argument("--seed", type=int, help="optimizer seed (default: the config's)")
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                        help="override a config entry, e.g. motion.required_rom_deg=150 (repeatable)")
     parser.add_argument("--warm-start", type=Path, nargs="+", default=(), metavar="CSV",
                         help="pareto.csv or seeds.csv files whose designs seed up to half the "
                         "population (re-evaluated, so earlier formulations may warm-start)")
@@ -76,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.portfolio and (args.algorithms or args.runs_per_algorithm != 1):
         parser.error("--algorithms and --runs-per-algorithm need --portfolio")
     found = mechanism(args.mechanism)
-    config, settings = load_yaml(found, args.config or SCRIPTS / found.name / "config.yaml")
+    config, settings = load_yaml(found, args.config or SCRIPTS / found.name / "config.yaml", args.set)
     if args.algorithm is not None:
         settings = dataclasses.replace(settings, algorithm=args.algorithm)
     if args.seed is not None:

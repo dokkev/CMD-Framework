@@ -268,25 +268,7 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
         if "bounds" in values:
             raise ValueError("give optimization_parameter_bounds or bounds, not both")
         values["bounds"] = values.pop("optimization_parameter_bounds")
-    pads = values.pop("pad", None)
-    if pads is not None:
-        names = {  # entry: (packaging field, its value)
-            "proximal": ("proximal_pad", lambda value: value),
-            "distal": ("distal_pad", lambda value: value),
-            "allow_collision_with_mcp_servo": ("pad_mcp_check", lambda allow: not allow),
-            "mcp_servo_clearance_mm": ("pad_mcp_clearance_mm", lambda value: value),
-            "allow_longer_pad_than_link": ("pad_link_ratio_max", lambda allow: None if allow else 1.0),
-        }
-        unknown = set(pads) - set(names)
-        if unknown:
-            raise ValueError(f"unknown pad entries {sorted(unknown)}; known: {sorted(names)}")
-        packaging = dict(values.get("packaging") or {})
-        for key, value in pads.items():
-            name, convert = names[key]
-            if name in packaging:
-                raise ValueError(f"pad entry {key!r} also given in packaging")
-            packaging[name] = convert(value)
-        values["packaging"] = packaging
+    values = merge_pad_group(values)
 
     known = {f.name for f in fields(FingerStudyConfig)}
     flat: list[tuple[str, object]] = []
@@ -313,22 +295,57 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
     if "extended_length_bounds_mm" in kwargs:
         kwargs["extended_length_bounds_mm"] = tuple(kwargs["extended_length_bounds_mm"])
     if "packaging" in kwargs:
-        packaging = dict(kwargs["packaging"])
-        if "allow_collision_pip_servo_to_joint_A" in packaging:  # as written in the config
-            packaging["allow_collision_pip_servo_to_joint_a"] = packaging.pop(
-                "allow_collision_pip_servo_to_joint_A")
-        for servo in ("pip_servo", "mcp_servo"):
-            if isinstance(packaging.get(servo), str):  # an actuator by name, e.g. xm335
-                packaging[servo] = actuator(packaging[servo]).geometry
-            elif servo in packaging:
-                packaging[servo] = DShapedExtrusion(**packaging[servo])
-        for pad in ("proximal_pad", "distal_pad"):
-            if pad in packaging:
-                packaging[pad] = ContactPad(**packaging[pad])
-        if "mcp_servo_rear" in packaging:
-            packaging["mcp_servo_rear"] = tuple(packaging["mcp_servo_rear"])
-        kwargs["packaging"] = Packaging(**packaging)
+        kwargs["packaging"] = packaging_from_mapping(kwargs["packaging"])
     return FingerStudyConfig(**kwargs)
+
+
+def merge_pad_group(values: Mapping[str, object]) -> dict:
+    """Move a config's ``pad`` group into its ``packaging`` table (see
+    :func:`config_from_mapping`)."""
+
+    values = dict(values)
+    pads = values.pop("pad", None)
+    if pads is None:
+        return values
+    names = {  # entry: (packaging field, its value)
+        "proximal": ("proximal_pad", lambda value: value),
+        "distal": ("distal_pad", lambda value: value),
+        "allow_collision_with_mcp_servo": ("pad_mcp_check", lambda allow: not allow),
+        "mcp_servo_clearance_mm": ("pad_mcp_clearance_mm", lambda value: value),
+        "allow_longer_pad_than_link": ("pad_link_ratio_max", lambda allow: None if allow else 1.0),
+    }
+    unknown = set(pads) - set(names)
+    if unknown:
+        raise ValueError(f"unknown pad entries {sorted(unknown)}; known: {sorted(names)}")
+    packaging = dict(values.get("packaging") or {})
+    for key, value in pads.items():
+        name, convert = names[key]
+        if name in packaging:
+            raise ValueError(f"pad entry {key!r} also given in packaging")
+        packaging[name] = convert(value)
+    values["packaging"] = packaging
+    return values
+
+
+def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
+    """A :class:`Packaging` from plain values: servos by actuator name (e.g.
+    ``xm335``, ``core.hardware.ACTUATORS``) or as tables, pads as tables."""
+
+    packaging = dict(values)
+    if "allow_collision_pip_servo_to_joint_A" in packaging:  # as written in the config
+        packaging["allow_collision_pip_servo_to_joint_a"] = packaging.pop(
+            "allow_collision_pip_servo_to_joint_A")
+    for servo in ("pip_servo", "mcp_servo"):
+        if isinstance(packaging.get(servo), str):  # an actuator by name, e.g. xm335
+            packaging[servo] = actuator(packaging[servo]).geometry
+        elif servo in packaging and not isinstance(packaging[servo], DShapedExtrusion):
+            packaging[servo] = DShapedExtrusion(**packaging[servo])
+    for pad in ("proximal_pad", "distal_pad"):
+        if pad in packaging and not isinstance(packaging[pad], ContactPad):
+            packaging[pad] = ContactPad(**packaging[pad])
+    if "mcp_servo_rear" in packaging:
+        packaging["mcp_servo_rear"] = tuple(packaging["mcp_servo_rear"])
+    return Packaging(**packaging)
 
 
 def load_yaml(path: str | Path) -> FingerStudyConfig:
@@ -395,4 +412,12 @@ def config_from_json(values: dict) -> FingerStudyConfig:
     return FingerStudyConfig(**{name: value for name, value in values.items() if name in known})
 
 
-__all__ = ["FingerStudyConfig", "config_from_json", "config_from_mapping", "config_to_json", "load_yaml"]
+__all__ = [
+    "FingerStudyConfig",
+    "config_from_json",
+    "config_from_mapping",
+    "config_to_json",
+    "load_yaml",
+    "merge_pad_group",
+    "packaging_from_mapping",
+]

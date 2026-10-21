@@ -1,0 +1,6 @@
+# Idealized serial 2R: no servo housings (core/optimization/open_chain).
+base: ../contact_retention.yaml
+
+optimization_parameter_bounds:
+  proximal_length_mm: [30.0, 70.0]   # |OA|
+  distal_length_mm: [20.0, 60.0]     # |A EE|

@@ -1,0 +1,10 @@
+# Rolling contact joint, ideal no-slip, packaged (core/optimization/rolling_contact_joint).
+# Every candidate is provisional: the cable routing is not checked yet.
+base: ../contact_retention.yaml
+
+optimization_parameter_bounds:
+  a_x_mm: [20.0, 70.0]          # proximal roller centre A
+  a_z_mm: [0.0, 0.0]
+  radius_mm: [9.5, 20.0]        # raised to the servo radius + cable allowance
+  carrier_angle_deg: [0.0, 0.0] # carrier A-B from +X at extension
+  bc_length_mm: [20.0, 60.0]

@@ -12,10 +12,16 @@ from typing import Any, Sequence
 
 import numpy as np
 import pymoo
-import yaml
 from pymoo.core.problem import ElementwiseProblem
 
-from core.optimization.mechanism import INVALID, Evaluation, Mechanism, StudyConfig, mechanism
+from core.optimization.mechanism import (
+    INVALID,
+    Evaluation,
+    Mechanism,
+    StudyConfig,
+    mechanism,
+    read_config_file,
+)
 from core.optimization.optimizer import OptimizerSettings, initial_population, optimizer, split_settings
 
 
@@ -224,12 +230,13 @@ def load_run(directory: str | Path) -> Run:
                tuple(objectives), metadata)
 
 
-def load_yaml(mechanism: Mechanism, path: str | Path) -> tuple[StudyConfig, OptimizerSettings]:
-    """Read a study from a config file: the mechanism's config and the
-    optimizer settings (its ``optimizer`` table, see :func:`split_settings`)."""
+def load_yaml(mechanism: Mechanism, path: str | Path,
+              overrides: Sequence[str] = ()) -> tuple[StudyConfig, OptimizerSettings]:
+    """Read a study from a config file (``read_config_file``: its ``base`` and
+    ``overrides``): the mechanism's config and the optimizer settings (its
+    ``optimizer`` table, see :func:`split_settings`)."""
 
-    with Path(path).open(encoding="utf-8") as stream:
-        values, settings = split_settings(yaml.safe_load(stream) or {})
+    values, settings = split_settings(read_config_file(path, overrides))
     return mechanism.config_from_mapping(values), settings
 
 

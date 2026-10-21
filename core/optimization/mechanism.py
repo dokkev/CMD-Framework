@@ -99,8 +99,7 @@ class Mechanism(ABC):
 
         from core.optimization.optimizer import split_settings
 
-        with Path(path).open(encoding="utf-8") as stream:
-            return self.config_from_mapping(split_settings(yaml.safe_load(stream) or {})[0])
+        return self.config_from_mapping(split_settings(read_config_file(path))[0])
 
     @abstractmethod
     def config_to_json(self, config: StudyConfig) -> dict[str, Any]:
@@ -199,8 +198,11 @@ class Mechanism(ABC):
 
 MECHANISMS = {
     "linkage": "core.optimization.linkage.mechanism",
+    "open_chain_idealized": "core.optimization.open_chain.mechanism:IDEALIZED",
+    "open_chain_packaged": "core.optimization.open_chain.mechanism:PACKAGED",
+    "rolling_contact_joint": "core.optimization.rolling_contact_joint.mechanism",
 }
-"""Every mechanism, by name: the module whose ``MECHANISM`` it is."""
+"""Every mechanism, by name: ``module`` (its ``MECHANISM``) or ``module:NAME``."""
 
 
 def mechanism(name: str) -> Mechanism:
@@ -208,7 +210,41 @@ def mechanism(name: str) -> Mechanism:
 
     if name not in MECHANISMS:
         raise ValueError(f"unknown mechanism {name!r}; known: {sorted(MECHANISMS)}")
-    return importlib.import_module(MECHANISMS[name]).MECHANISM
+    module, _, attribute = MECHANISMS[name].partition(":")
+    return getattr(importlib.import_module(module), attribute or "MECHANISM")
+
+
+def read_config_file(path: str | Path, overrides: Sequence[str] = ()) -> dict[str, Any]:
+    """A config file's values. A ``base`` entry names a file (relative to this
+    one) whose values it extends, table by table; ``overrides`` are
+    ``key.subkey=value`` (YAML values) applied last."""
+
+    path = Path(path)
+    with path.open(encoding="utf-8") as stream:
+        values = yaml.safe_load(stream) or {}
+    base = values.pop("base", None)
+    if base is not None:
+        values = _merged(read_config_file(path.parent / base), values)
+    for override in overrides:
+        key, separator, text = override.partition("=")
+        if not separator:
+            raise ValueError(f"override {override!r} is not key=value")
+        *tables, last = key.strip().split(".")
+        target = values
+        for table in tables:
+            target = target.setdefault(table, {})
+        target[last] = yaml.safe_load(text)
+    return values
+
+
+def _merged(base: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in values.items():
+        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
+            merged[key] = _merged(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 __all__ = [
@@ -220,4 +256,5 @@ __all__ = [
     "StudyConfig",
     "SummaryColumn",
     "mechanism",
+    "read_config_file",
 ]
