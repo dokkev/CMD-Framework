@@ -1,3 +1,4 @@
+import dataclasses
 import math
 
 import numpy as np
@@ -5,7 +6,7 @@ import pytest
 
 from core.morphology.linkage import FingerLinkage
 from core.morphology.linkage.packaging import ContactPad, Packaging
-from core.optimization.stage0 import (
+from core.optimization.linkage import (
     CONSTRAINT_NAMES,
     VARIABLE_NAMES,
     FingerStudyConfig,
@@ -23,7 +24,7 @@ HOUSING_ONLY = Packaging(pin_envelope_diameter_mm=6.5,
                          distal_pad=ContactPad(height_mm=1.0, chamfer_mm=0.0))
 CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY)
 CROSSED = (40.0, 70.0, 0.0, 52.0, 15.0, 62.0, 15.0, 0.0)
-# A feasible Stage-0 design (BC 30 mm) that curls to 180 deg safely.
+# A feasible linkage design (BC 30 mm) that curls to 180 deg safely.
 GOOD = (36.0, 79.3, 10.0, 41.6, 12.6, 63.3, 17.4, 41.9, 30.0, 0.0)
 GOOD_CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, extended_length_bounds_mm=(90.0, 110.0))
 
@@ -33,7 +34,7 @@ def test_design_vector_round_trips() -> None:
 
 
 def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
-    from core.optimization.stage0.run import objectives
+    from core.optimization.linkage import MECHANISM
 
     evaluation = evaluate(decode(GOOD), GOOD_CONFIG)
 
@@ -44,7 +45,7 @@ def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
     assert evaluation.curl_pip_rad + evaluation.curl_dip_rad == pytest.approx(math.pi, abs=1e-3)
     # The pads' a-b: A'_x less the proximal pad's start, and B_x + BC - B'_x.
     start = GOOD_CONFIG.packaging.proximal_pad_start_mm
-    assert objectives(evaluation, ("transmission", "support_length", "curl")) == pytest.approx(
+    assert MECHANISM.objective_values(evaluation, ("transmission", "support_length", "curl")) == pytest.approx(
         (evaluation.torque_ratio_max, -(41.6 - start + (79.3 + 30.0 - 63.3)), 0.0), abs=0.01)
 
 
@@ -112,8 +113,6 @@ def test_oa_interface_keeps_the_servo_dorsal_of_oa() -> None:
     # The servo on A' = (52, 15) reaches down to z = 15 - 9.5.
     assert evaluate(decode((*CROSSED, 24.0, 0.0)), CONFIG).constraints["oa_interface_mm"] == pytest.approx(
         -(15.0 - 9.5))
-    padded = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, oa_interface_clearance_mm=8.0)
-    assert evaluate(decode((*CROSSED, 24.0, 0.0)), padded).constraints["oa_interface_mm"] == pytest.approx(2.5)
 
 
 def test_bc_may_sit_off_the_oa_line_and_ab_is_a_distance() -> None:
@@ -145,7 +144,7 @@ def test_fingertip_mcp_clearance_is_held_unless_enabled() -> None:
 
 
 def test_static_failures_skip_the_sweep() -> None:
-    from core.optimization.stage0.evaluate import MOTION_CONSTRAINTS, UNSWEPT
+    from core.optimization.linkage.evaluate import MOTION_CONSTRAINTS, UNSWEPT
 
     too_long = (60.0, 100.0, 0.0, 72.0, 15.0, 82.0, 15.0, 0.0)
     evaluation = evaluate(decode((*too_long, 24.0, 0.0)), CONFIG)
@@ -157,16 +156,16 @@ def test_static_failures_skip_the_sweep() -> None:
 def test_search_bounds_close_the_oa_interface_constraint() -> None:
     # Valid while the servo only tilts dorsally, by at most 90 deg.
     bounds = {**BOUNDS, "servo_tilt_deg": (0.0, 45.0)}
-    config = FingerStudyConfig(bounds=bounds, oa_interface_clearance_mm=2.0)
+    config = FingerStudyConfig(bounds=bounds)
     radius = config.packaging.pip_servo.radius_mm
 
-    assert config.search_bounds["ap_z_mm"] == (radius + 2.0, BOUNDS["ap_z_mm"][1])
+    assert config.search_bounds["ap_z_mm"] == (radius, BOUNDS["ap_z_mm"][1])
     assert config.bounds["ap_z_mm"] == BOUNDS["ap_z_mm"]
     assert FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY).search_bounds["ap_z_mm"] == BOUNDS["ap_z_mm"]
 
 
 def test_servo_lever_matches_a_finite_difference_of_virtual_work() -> None:
-    from core.optimization.stage0.evaluate import servo_lever
+    from core.optimization.linkage.evaluate import servo_lever
 
     parameters = decode((*CROSSED, 24.0, 0.0))
     linkage = FingerLinkage(parameters)
@@ -243,7 +242,7 @@ def test_a_may_sit_off_the_proximal_axis() -> None:
 
 
 def test_older_design_rows_read_with_a_on_the_axis() -> None:
-    from core.optimization.stage0 import read_design
+    from core.optimization.linkage import read_design
 
     row = {name: "1.0" for name in VARIABLE_NAMES if name != "a_z_mm"}
     assert read_design(row)[-1] == 0.0
@@ -268,7 +267,7 @@ def test_b_prime_pin_ends_the_safe_range_at_the_servo() -> None:
 
 
 def test_config_files_give_angles_in_degrees() -> None:
-    from core.optimization.stage0.config import config_from_mapping
+    from core.optimization.linkage.config import config_from_mapping
 
     config = config_from_mapping({
         "bounds": {name: [0.0, 200.0] for name in VARIABLE_NAMES},
@@ -288,12 +287,12 @@ def test_config_files_give_angles_in_degrees() -> None:
         config_from_mapping({"bounds": BOUNDS, "minimum_flexion_mm": 1.0})
 
 
-def test_the_stage0_script_config_loads() -> None:
+def test_the_linkage_script_config_loads() -> None:
     from pathlib import Path
 
-    from core.optimization.stage0.config import load_yaml
+    from core.optimization.linkage.config import load_yaml
 
-    path = Path(__file__).resolve().parents[1] / "scripts/optimize/stage0/config.yaml"
+    path = Path(__file__).resolve().parents[1] / "scripts/optimize/linkage/config.yaml"
     config = load_yaml(path)
 
     assert config.minimum_flexion_rad == pytest.approx(math.radians(150.0))
@@ -320,13 +319,13 @@ def test_hyperextension_and_flexion_margin_are_separate() -> None:
 def test_linear_constraints_narrow_the_search_box_without_losing_designs() -> None:
     from pathlib import Path
 
-    from core.optimization.stage0.config import load_yaml
+    from core.optimization.linkage.config import load_yaml
 
     import dataclasses
 
     # The script config's box, with the lengths fixed here: |OC| 80-100, BC 30-50,
     # A and B on the axis.
-    config = load_yaml(Path(__file__).resolve().parents[1] / "scripts/optimize/stage0/config.yaml")
+    config = load_yaml(Path(__file__).resolve().parents[1] / "scripts/optimize/linkage/config.yaml")
     config = dataclasses.replace(config, extended_length_bounds_mm=(80.0, 100.0), minimum_proximal_support_mm=0.0,
                                  minimum_distal_support_mm=0.0, packaging=dataclasses.replace(
         config.packaging, pad_link_ratio_max=None), bounds={
@@ -380,3 +379,83 @@ def test_the_curl_tip_is_taken_at_the_most_usable_curl() -> None:
     assert evaluation.stop_reason == "transmission"
     assert evaluation.curl_tip_x_mm == pytest.approx(pose.c.x_mm)
     assert evaluation.constraints["curl_tip_x_mm"] == pytest.approx(-pose.c.x_mm)
+
+
+def test_the_pads_are_their_own_config_group() -> None:
+    from core.optimization.linkage.config import config_from_mapping
+
+    bounds = {name: [0.0, 200.0] for name in VARIABLE_NAMES}
+    config = config_from_mapping({"bounds": bounds, "packaging": {"body_clearance_mm": 1.0}, "pad": {
+        "allow_collision_with_mcp_servo": True, "allow_longer_pad_than_link": False,
+        "proximal": {"height_mm": 4.0}, "distal": {"height_mm": 6.0, "length_mm": 35.0}}})
+
+    # Allowing the MCP servo collision is not checking it; a pad no longer than
+    # its link is a ratio of 1.
+    assert config.packaging.pad_mcp_check is False
+    assert config.packaging.pad_link_ratio_max == 1.0
+    default = config_from_mapping({"bounds": bounds, "pad": {
+        "allow_collision_with_mcp_servo": False, "allow_longer_pad_than_link": True}})
+    assert default.packaging.pad_mcp_check is True
+    assert default.packaging.pad_link_ratio_max is None
+    # The pads' gap to the MCP servo, apart from the other clearances.
+    gap = config_from_mapping({"bounds": bounds, "pad": {"mcp_servo_clearance_mm": 2.0}})
+    assert gap.packaging.mcp_pad_clearance_mm == 2.0
+    assert gap.packaging.proximal_pad_start_mm == pytest.approx(9.5 + 2.0)
+    assert default.packaging.mcp_pad_clearance_mm == default.packaging.body_clearance_mm
+    assert config.packaging.proximal_pad.height_mm == 4.0
+    assert config.packaging.distal_pad.length_mm == 35.0
+    with pytest.raises(ValueError, match="unknown pad entries"):
+        config_from_mapping({"bounds": bounds, "pad": {"thickness_mm": 5.0}})
+    with pytest.raises(ValueError, match="also given in packaging"):
+        config_from_mapping({"bounds": bounds, "packaging": {"pad_mcp_check": True},
+                             "pad": {"allow_collision_with_mcp_servo": True}})
+
+
+def test_the_search_box_may_be_named_optimization_parameter_bounds() -> None:
+    from core.optimization.linkage.config import config_from_mapping
+
+    box = {name: [0.0, 200.0] for name in VARIABLE_NAMES}
+    assert config_from_mapping({"optimization_parameter_bounds": box}).bounds == config_from_mapping(
+        {"bounds": box}).bounds
+    with pytest.raises(ValueError, match="not both"):
+        config_from_mapping({"optimization_parameter_bounds": box, "bounds": box})
+
+
+def test_the_pip_servo_to_joint_a_check_can_be_turned_off() -> None:
+    from core.optimization.linkage.config import config_from_mapping
+
+    allowed = config_from_mapping({"bounds": {name: [0.0, 200.0] for name in VARIABLE_NAMES},
+                                   "packaging": {"allow_collision_pip_servo_to_joint_A": True}})
+    assert allowed.packaging.allow_collision_pip_servo_to_joint_a is True
+    # GOOD's A pin envelope sits near the PIP servo: checked by default, not when allowed.
+    checked = evaluate(decode(GOOD), GOOD_CONFIG).constraints["pivot_pin_mm"]
+    free = evaluate(decode(GOOD), dataclasses.replace(GOOD_CONFIG, packaging=dataclasses.replace(
+        HOUSING_ONLY, allow_collision_pip_servo_to_joint_a=True))).constraints["pivot_pin_mm"]
+    assert checked != 0.0 and free == 0.0
+
+
+def test_the_servos_are_chosen_by_actuator_name() -> None:
+    from core.hardware import XM335Actuator, actuator
+    from core.optimization.linkage.config import config_from_mapping
+
+    bounds = {name: [0.0, 200.0] for name in VARIABLE_NAMES}
+    config = config_from_mapping({"bounds": bounds, "packaging": {"pip_servo": "xm335", "mcp_servo": "xm335"}})
+    assert config.packaging.pip_servo == XM335Actuator().geometry
+    assert config.packaging.mcp_servo == actuator("xm335").geometry
+    # A custom shape still works.
+    custom = config_from_mapping({"bounds": bounds, "packaging": {"pip_servo": {
+        "radius_mm": 8.0, "rear_extent_mm": 20.0, "depth_mm": 18.0}}})
+    assert custom.packaging.pip_servo.radius_mm == 8.0
+    with pytest.raises(ValueError, match="unknown actuator"):
+        config_from_mapping({"bounds": bounds, "packaging": {"pip_servo": "xm999"}})
+
+
+def test_the_minimum_flexion_may_be_named_the_minimum_desired_flexion_angle() -> None:
+    from core.optimization.linkage.config import config_from_mapping
+
+    bounds = {name: [0.0, 200.0] for name in VARIABLE_NAMES}
+    config = config_from_mapping({"bounds": bounds, "motion": {"minimum_desired_flexion_angle_deg": 150.0}})
+    assert config.minimum_flexion_rad == pytest.approx(math.radians(150.0))
+    with pytest.raises(ValueError, match="given twice"):
+        config_from_mapping({"bounds": bounds, "minimum_desired_flexion_angle_deg": 150.0,
+                             "minimum_flexion_deg": 150.0})

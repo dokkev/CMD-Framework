@@ -5,15 +5,15 @@
 
 or one candidate of a finger study (the output goes next to its CSV):
 
-    python scripts/animate_finger.py --pareto output/stage0/run_001/pareto.csv --candidate 1
+    python scripts/animate_finger.py --pareto output/linkage/run_001/pareto.csv --candidate 1
 
 The finger first flexes the PIP (the DIP follows through the four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
-on the proximal link (rear body toward O), and the distal link B-C (Stage-0
+on the proximal link (rear body toward O), and the distal link B-C (the linkage
 has no fingertip). The PIP servo sits at A' and drives A'-B; the middle link
 A-B' turns red where it comes closer than the body clearance to the PIP servo.
 
-The contact pads are drawn as the solids the Stage-0 evaluator checks
+The contact pads are drawn as the solids the linkage evaluator checks
 (``core.morphology.linkage.packaging``): blocks palmar of O-A'' and B''-C,
 chamfered toward the PIP, riding on the proximal and distal links. They turn
 red when a checked pair comes closer than the body clearance at that pose
@@ -45,7 +45,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from core.hardware import XM335Actuator  # noqa: E402
 from core.morphology.linkage import (  # noqa: E402
     SKETCH_LINKAGE,
     FingerLinkage,
@@ -61,8 +60,8 @@ from core.morphology.linkage.packaging import (  # noqa: E402
     pad_margins,
     turn_points,
 )
-from core.optimization.stage0 import decode, read_design  # noqa: E402
-from core.optimization.stage0.run import load_config  # noqa: E402
+from core.optimization.linkage import decode, read_design  # noqa: E402
+from core.optimization.study import load_config  # noqa: E402
 
 Outline = list[tuple[float, float]]
 
@@ -75,7 +74,7 @@ OUTLINE_WIDTH = 1.6
 
 
 def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float, Packaging]:
-    """Return a Stage-0 candidate's linkage, the PIP flexion at the end of its
+    """Return a linkage optimization candidate's linkage, the PIP flexion at the end of its
     usable range and the run's packaging."""
 
     with csv_path.open(encoding="utf-8", newline="") as stream:
@@ -94,19 +93,6 @@ def build_trajectory(mcp_rad: float, pip_rad: float, frames: int) -> list[tuple[
     ramp = [index / (frames - 1) for index in range(frames)]
     forward = [(0.0, s * pip_rad) for s in ramp] + [(s * mcp_rad, pip_rad) for s in ramp[1:]]
     return forward + forward[-2::-1]
-
-
-def servo_outline(shaft: PointXZ, rear_angle_rad: float, actuator: XM335Actuator) -> Outline:
-    """D-shaped servo section with its rear body pointing along ``rear_angle_rad``."""
-
-    radius, rear = actuator.geometry.radius_mm, actuator.geometry.rear_extent_mm
-    cap = [(radius * math.cos(t), radius * math.sin(t))
-           for t in (math.pi / 2 - math.pi * k / 24 for k in range(25))]
-    local = cap + [(-rear, -radius), (-rear, radius)]  # rear body along local -x
-    angle = rear_angle_rad + math.pi
-    cosine, sine = math.cos(angle), math.sin(angle)
-    return [(shaft.x_mm + cosine * x - sine * z, shaft.z_mm + sine * x + cosine * z)
-            for x, z in local]
 
 
 def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float, packaging: Packaging) -> float:
@@ -131,7 +117,6 @@ def create_animation(
     packaging: Packaging | None = None,
 ) -> tuple[plt.Figure, FuncAnimation, Callable[[int], object]]:
     packaging = packaging or Packaging()
-    actuator = XM335Actuator()
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     clearances = [link_clearance_mm(linkage, q_pip, packaging) for _, q_pip in trajectory]
     pads = [pad_status(linkage, packaging, q_mcp, q_pip) for q_mcp, q_pip in trajectory]
@@ -148,7 +133,8 @@ def create_animation(
     for pose in poses:
         cosine, sine = math.cos(-pose.q_mcp_rad), math.sin(-pose.q_mcp_rad)
         frames.append([(cosine * x - sine * z, sine * x + cosine * z) for x, z in servo])
-    mcp_servo = servo_outline(PointXZ(0.0, 0.0), math.pi / 2, actuator)
+    # The configured MCP servo, as the evaluator checks it.
+    mcp_servo = [tuple(point) for point in packaging.mcp_footprint().outline]
 
     points = [xz for frame in frames for xz in frame] + mcp_servo
     points += [(p.x_mm, p.z_mm) for pose in poses for p in (pose.ap, pose.bp, pose.b, pose.c)]

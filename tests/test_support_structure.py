@@ -22,7 +22,7 @@ from core.morphology.linkage.packaging import (
     proximal_pad_polygon,
     pad_margins,
 )
-from core.optimization.stage0 import VARIABLE_NAMES, FingerStudyConfig, decode, encode, evaluate
+from core.optimization.linkage import VARIABLE_NAMES, FingerStudyConfig, decode, encode, evaluate
 
 BOUNDS = {name: (0.0, 200.0) for name in VARIABLE_NAMES}
 # The earlier 6.5 mm pin envelope and the default 10 mm pads.
@@ -157,8 +157,10 @@ def test_a_fixed_pad_length_sets_the_pad_and_needs_room_on_its_line() -> None:
 
 
 def test_the_objectives_follow_the_config() -> None:
-    from core.optimization.stage0.objectives import active_objectives
-    from core.optimization.stage0.run import FingerProblem, objectives
+    from core.optimization.linkage import MECHANISM
+    from core.optimization.study import MechanismProblem
+
+    active_objectives = MECHANISM.active_objectives
 
     both_fixed = dataclasses.replace(CONFIG, packaging=dataclasses.replace(
         HOUSING_ONLY, proximal_pad=ContactPad(length_mm=20.0), distal_pad=ContactPad(length_mm=30.0)))
@@ -169,16 +171,16 @@ def test_the_objectives_follow_the_config() -> None:
     assert active_objectives(CONFIG) == ("transmission", "curl")
     assert active_objectives(one_fixed) == ("transmission", "curl")
     assert active_objectives(both_fixed) == ("transmission", "curl")
-    assert FingerProblem(both_fixed).n_obj == 2
+    assert MechanismProblem(MECHANISM, both_fixed).n_obj == 2
     with_pads = dataclasses.replace(CONFIG, objectives=("transmission", "support_length", "curl"))
     assert active_objectives(with_pads) == ("transmission", "support_length", "curl")
-    assert FingerProblem(with_pads).n_obj == 3
+    assert MechanismProblem(MECHANISM, with_pads).n_obj == 3
     chosen = dataclasses.replace(CONFIG, objectives=("curl", "transmission"))
     assert active_objectives(chosen) == ("transmission", "curl")
     with pytest.raises(ValueError, match="unknown objectives"):
         active_objectives(dataclasses.replace(CONFIG, objectives=("speed",)))
     evaluation = evaluate(decode(GOOD), both_fixed)
-    assert objectives(evaluation, ("transmission", "curl")) == (
+    assert MECHANISM.objective_values(evaluation, ("transmission", "curl")) == (
         evaluation.torque_ratio_max, evaluation.curl_shortfall_deg)
 
 
@@ -198,8 +200,9 @@ def test_the_reported_pad_clearance_leaves_out_the_mcp_offset() -> None:
 
 
 def test_flatness_is_an_opt_in_objective_and_k_max_can_be_capped() -> None:
-    from core.optimization.stage0.objectives import active_objectives
+    from core.optimization.linkage import MECHANISM
 
+    active_objectives = MECHANISM.active_objectives
     evaluation = evaluate(decode(GOOD), CONFIG)
     assert 0.0 < evaluation.torque_ratio_min <= evaluation.torque_ratio_max
     assert evaluation.torque_ratio_spread == pytest.approx(
@@ -231,7 +234,7 @@ def test_the_pip_servo_can_sit_on_a_and_carry_the_proximal_pad() -> None:
     assert pad[:, 0].max() == pytest.approx(36.0 + body.radius_mm)
     # The servo drives the middle link A-B': its angle is the PIP's, and the
     # transmission angle is at B.
-    module = importlib.import_module("core.optimization.stage0.evaluate")
+    module = importlib.import_module("core.optimization.linkage.evaluate")
     sweep = module._drive(linkage, on_a, np.radians([0.0, 10.0, 20.0]))
     assert sweep.servo_rad == pytest.approx(sweep.q_pip_rad)
     evaluation = evaluate(decode(GOOD), dataclasses.replace(CONFIG, packaging=on_a))
@@ -268,11 +271,11 @@ def test_a_chamfer_trims_only_the_palmar_corner_facing_the_pip() -> None:
 
 
 def test_the_pad_objective_is_the_pad_length_and_the_free_length_is_reported() -> None:
-    from core.optimization.stage0.run import objectives
+    from core.optimization.linkage import MECHANISM
 
     base = evaluate(decode(GOOD), CONFIG)
 
-    values = objectives(base, ("transmission", "support_length", "curl"))
+    values = MECHANISM.objective_values(base, ("transmission", "support_length", "curl"))
     assert values[1] == pytest.approx(-base.support_length_mm)
     assert values[0] == base.torque_ratio_max
     assert values[2] == pytest.approx(180.0 - math.degrees(base.phi_safe_rad))
@@ -383,7 +386,7 @@ def test_a_pad_collision_before_the_minimum_flexion_is_infeasible() -> None:
 def test_pads_are_not_checked_in_hyperextension(monkeypatch) -> None:
     import importlib
 
-    module = importlib.import_module("core.optimization.stage0.evaluate")
+    module = importlib.import_module("core.optimization.linkage.evaluate")
     real = module.pad_margins
     calls = []
 
@@ -403,30 +406,27 @@ def test_pads_are_not_checked_in_hyperextension(monkeypatch) -> None:
     assert evaluation.constraints["hyperextension_deg"] == 0.0
 
 
-def test_runs_record_the_formulation_and_reload(tmp_path) -> None:
-    from core.optimization.stage0.run import (
-        FORMULATION,
-        FingerCandidate,
-        FingerStudyResult,
-        load_config,
-        load_formulation,
-        load_objectives,
-        save_result,
-    )
+def test_runs_record_the_mechanism_and_formulation_and_reload(tmp_path) -> None:
+    from core.optimization.linkage import MECHANISM
+    from core.optimization.optimizer import OptimizerSettings
+    from core.optimization.study import Candidate, StudyResult, load_run, save_result
 
-    candidate = FingerCandidate(GOOD, evaluate(decode(GOOD), CONFIG))
-    run = save_result(FingerStudyResult(CONFIG, (candidate,), 1), tmp_path / "run")
+    candidate = Candidate(GOOD, evaluate(decode(GOOD), CONFIG))
+    run = save_result(StudyResult(MECHANISM, CONFIG, OptimizerSettings(), (candidate,), 1), tmp_path / "run")
 
-    assert load_formulation(run) == FORMULATION
-    assert load_objectives(run) == ("transmission", "curl")
-    assert load_config(run).packaging == HOUSING_ONLY
+    loaded = load_run(run)
+    assert loaded.mechanism is MECHANISM and loaded.current
+    assert loaded.objectives == ("transmission", "curl")
+    assert loaded.config.packaging == HOUSING_ONLY
     header = (run / "pareto.csv").read_text().splitlines()[0].split(",")
     assert {"support_length_mm", "proximal_support_length_mm", "distal_support_length_mm",
             "pad_clearance_mm", "collision_pair", "ab_mm"} <= set(header)
     assert "structural_length_mm" not in header
 
-    # A run from before the formulation was recorded is the OA + BC one.
+    # A run from before the mechanism and the formulation were recorded is an
+    # OA + BC linkage run.
     metadata = json.loads((run / "run.json").read_text())
-    del metadata["formulation"]
+    del metadata["mechanism"], metadata["formulation"]
     (run / "run.json").write_text(json.dumps(metadata))
-    assert load_formulation(run) != FORMULATION
+    legacy = load_run(run)
+    assert legacy.mechanism is MECHANISM and not legacy.current

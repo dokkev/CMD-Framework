@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from types import MappingProxyType
 
@@ -12,15 +12,16 @@ import yaml
 
 from core._validation import require_finite, require_nonnegative, require_positive
 
-from core.hardware import DShapedExtrusion
+from core.hardware import DShapedExtrusion, actuator
 from core.morphology.linkage.packaging import ContactPad, Packaging
 
-from core.optimization.stage0.design import VARIABLE_NAMES
+from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
 
 
 @dataclass(frozen=True)
 class FingerStudyConfig:
-    """Search space, requirements and NSGA-II settings.
+    """Search space and requirements (the optimizer's settings are
+    ``core.optimization.optimizer.OptimizerSettings``).
 
     The motion is swept by the PIP servo. The usable PIP range runs from
     ``-hyperextension_rad`` (the hyperextension stopper) to
@@ -53,7 +54,7 @@ class FingerStudyConfig:
     """Bounds on ``|O ref|`` (``|OC|`` or ``|OB|``) in the fully extended pose."""
     enforce_curl_tip: bool = False
     enforce_fingertip_mcp: bool = False
-    """Held Stage-0 constraints, reported but enforced only when enabled (Stage-1
+    """Held constraints, reported but enforced only when enabled (the pad
     defines them with the contact interfaces)."""
     curl_tip_min_x_mm: float = 0.0
     """Least ``x`` of the reference point at the most curl (the end of the usable
@@ -75,13 +76,10 @@ class FingerStudyConfig:
     must hold); ``None``: unbounded."""
     servo_travel_max_rad: float | None = None
     """Most PIP servo rotation from extension to the curl pose; ``None``: unbounded."""
-    oa_interface_clearance_mm: float = 0.0
-    """Least distance of the PIP servo dorsal of the ``OA`` line, keeping the
-    proximal contact interface free."""
     minimum_proximal_support_mm: float = 0.0
     minimum_distal_support_mm: float = 0.0
     """Least pad lengths ``|OA''|`` and ``|B''C|`` (0: none; the pad topology
-    already keeps them positive). Contact-module sizes are Stage-1 inputs; set
+    already keeps them positive). Contact-module sizes are the pad requirements; set
     these only for a known mounting requirement."""
     resolution_mm: float = 0.1
     link_length_resolution_mm: float | None = None
@@ -91,9 +89,6 @@ class FingerStudyConfig:
     objectives: tuple[str, ...] | None = None
     """Objectives to optimize, by name (``objectives.OBJECTIVES``); ``None``: the
     default ones, ``transmission`` and ``curl``."""
-    population_size: int = 200
-    generations: int = 200
-    seed: int = 0
 
     def __post_init__(self) -> None:
         if set(self.bounds) != set(VARIABLE_NAMES):
@@ -114,7 +109,6 @@ class FingerStudyConfig:
         require_finite("curl_tip_min_x_mm", self.curl_tip_min_x_mm)
         if self.reference_point not in ("C", "B"):
             raise ValueError("reference_point must be 'C' or 'B'")
-        require_finite("oa_interface_clearance_mm", self.oa_interface_clearance_mm)
         if self.torque_ratio_max is not None:
             require_positive("torque_ratio_max", self.torque_ratio_max)
         if self.servo_travel_max_rad is not None:
@@ -136,7 +130,7 @@ class FingerStudyConfig:
 
         With the PIP servo tilted dorsally by 0-90 deg its most palmar point is
         the bottom of the shaft disk, ``A'_z - radius``, so the OA interface
-        constraint is exactly ``A'_z >= radius + oa_interface_clearance_mm``.
+        constraint (the servo dorsal of the ``OA`` line) is exactly ``A'_z >= radius``.
         The linear constraints between the ``x`` coordinates then narrow each
         other's bounds (:meth:`_linear_bounds`).
         """
@@ -145,7 +139,7 @@ class FingerStudyConfig:
         tilt_low, tilt_high = bounds["servo_tilt_deg"]
         if 0.0 <= tilt_low and tilt_high <= 90.0 and not self.packaging.pip_servo_on_a:
             low, high = bounds["ap_z_mm"]
-            least = self.packaging.pip_servo.radius_mm + self.oa_interface_clearance_mm
+            least = self.packaging.pip_servo.radius_mm
             bounds["ap_z_mm"] = (min(max(low, least), high), high)
         self._linear_bounds(bounds)
         return MappingProxyType(bounds)
@@ -218,7 +212,8 @@ class FingerStudyConfig:
         pin = packaging.pin_radius_mm + clearance
         (a_lo, _), (b_lo, b_hi) = bounds["a_x_mm"], bounds["b_x_mm"]
         (ap_lo, ap_hi), (bp_lo, bp_hi) = bounds["ap_x_mm"], bounds["bp_x_mm"]
-        mcp = packaging.mcp_servo.radius_mm + clearance if packaging.pad_mcp_check else -math.inf
+        mcp = (packaging.mcp_servo.radius_mm + packaging.mcp_pad_clearance_mm if packaging.pad_mcp_check
+               else -math.inf)
         narrow("bp_x_mm", low=max(ap_lo + clearance, a_lo + pin, mcp))  # pads, A pin, MCP
         narrow("ap_x_mm", high=min(bp_hi - clearance, b_hi - pin))      # pads, B pin
         narrow("a_x_mm", high=bp_hi - pin)
@@ -246,16 +241,52 @@ class FingerStudyConfig:
         return tuple(index * self.servo_step_rad for index in range(count))
 
 
+_ALIASES = {"minimum_desired_flexion_angle_deg": "minimum_flexion_deg"}
+"""Config file names of fields named otherwise in the code."""
+
+
 def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
     """Build a config from plain values, as written in a config file.
 
     Angles may be given in degrees: ``name_deg`` sets the field ``name_rad``.
-    ``bounds`` and ``packaging`` are tables of their fields (``packaging``'s
-    servos tables of :class:`DShapedExtrusion` fields, its pads of
-    :class:`ContactPad` fields); any other table only
-    groups fields for reading, so ``motion: {hyperextension_deg: 10}`` is
-    ``hyperextension_deg: 10``. A field left out keeps its default.
+    ``optimization_parameter_bounds`` (or ``bounds``) and ``packaging`` are
+    tables of their fields (``packaging``'s
+    servos an actuator's name, e.g. ``xm335`` (``core.hardware.ACTUATORS``), or a
+    table of :class:`DShapedExtrusion` fields). ``pad`` holds the
+    contact pads, part of the packaging: ``proximal`` and ``distal`` tables of
+    :class:`ContactPad` fields; ``allow_collision_with_mcp_servo`` (no pad to
+    MCP servo check, the proximal pad from ``O``), ``mcp_servo_clearance_mm`` (the
+    gap kept from it otherwise) and
+    ``allow_longer_pad_than_link`` (false: a pad no longer than its link,
+    ``|OA|`` or ``BC``). Any other
+    table only groups fields for reading, so ``motion: {hyperextension_deg:
+    10}`` is ``hyperextension_deg: 10``. A field left out keeps its default.
     """
+
+    values = dict(values)
+    if "optimization_parameter_bounds" in values:  # the design variables' search box
+        if "bounds" in values:
+            raise ValueError("give optimization_parameter_bounds or bounds, not both")
+        values["bounds"] = values.pop("optimization_parameter_bounds")
+    pads = values.pop("pad", None)
+    if pads is not None:
+        names = {  # entry: (packaging field, its value)
+            "proximal": ("proximal_pad", lambda value: value),
+            "distal": ("distal_pad", lambda value: value),
+            "allow_collision_with_mcp_servo": ("pad_mcp_check", lambda allow: not allow),
+            "mcp_servo_clearance_mm": ("pad_mcp_clearance_mm", lambda value: value),
+            "allow_longer_pad_than_link": ("pad_link_ratio_max", lambda allow: None if allow else 1.0),
+        }
+        unknown = set(pads) - set(names)
+        if unknown:
+            raise ValueError(f"unknown pad entries {sorted(unknown)}; known: {sorted(names)}")
+        packaging = dict(values.get("packaging") or {})
+        for key, value in pads.items():
+            name, convert = names[key]
+            if name in packaging:
+                raise ValueError(f"pad entry {key!r} also given in packaging")
+            packaging[name] = convert(value)
+        values["packaging"] = packaging
 
     known = {f.name for f in fields(FingerStudyConfig)}
     flat: list[tuple[str, object]] = []
@@ -266,6 +297,7 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
             flat.append((key, value))
     kwargs: dict[str, object] = {}
     for key, value in flat:
+        key = _ALIASES.get(key, key)
         name = key
         if key.endswith("_deg") and key[:-4] + "_rad" in known:
             name = key[:-4] + "_rad"
@@ -282,8 +314,13 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
         kwargs["extended_length_bounds_mm"] = tuple(kwargs["extended_length_bounds_mm"])
     if "packaging" in kwargs:
         packaging = dict(kwargs["packaging"])
+        if "allow_collision_pip_servo_to_joint_A" in packaging:  # as written in the config
+            packaging["allow_collision_pip_servo_to_joint_a"] = packaging.pop(
+                "allow_collision_pip_servo_to_joint_A")
         for servo in ("pip_servo", "mcp_servo"):
-            if servo in packaging:
+            if isinstance(packaging.get(servo), str):  # an actuator by name, e.g. xm335
+                packaging[servo] = actuator(packaging[servo]).geometry
+            elif servo in packaging:
                 packaging[servo] = DShapedExtrusion(**packaging[servo])
         for pad in ("proximal_pad", "distal_pad"):
             if pad in packaging:
@@ -295,10 +332,67 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
 
 
 def load_yaml(path: str | Path) -> FingerStudyConfig:
-    """Read a study config from a YAML file (see :func:`config_from_mapping`)."""
+    """Read a study config from a YAML file (see :func:`config_from_mapping`),
+    less its optimizer settings (``core.optimization.study.load_yaml`` reads both)."""
+
+    from core.optimization.optimizer import split_settings
 
     with Path(path).open(encoding="utf-8") as stream:
-        return config_from_mapping(yaml.safe_load(stream) or {})
+        return config_from_mapping(split_settings(yaml.safe_load(stream) or {})[0])
 
 
-__all__ = ["FingerStudyConfig", "config_from_mapping", "load_yaml"]
+def config_to_json(config: FingerStudyConfig) -> dict:
+    """The config as JSON values, for ``run.json`` (with the search box it used)."""
+
+    values = {f.name: getattr(config, f.name) for f in fields(config)}
+    values["bounds"] = dict(config.bounds)
+    values["search_bounds"] = dict(config.search_bounds)
+    values["packaging"] = asdict(config.packaging)
+    return values
+
+
+def config_from_json(values: dict) -> FingerStudyConfig:
+    """Rebuild a config recorded by :func:`config_to_json`, migrating earlier runs."""
+
+    values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
+    for old, new in (("pip_step_rad", "servo_step_rad"), ("pip_horizon_rad", "servo_horizon_rad")):
+        if old in values:  # runs swept by the PIP; the step and horizon carry over
+            values[new] = values.pop(old)
+    for name in ("range_margin_rad", "stopper_margin_rad"):  # one margin for both ends
+        if name in values:
+            margin = values.pop(name)
+            values["hyperextension_rad"] = values["flexion_stopper_margin_rad"] = margin
+    for name, value in DEFAULT_VALUES.items():  # runs from before the variable existed
+        values["bounds"].setdefault(name, (value, value))
+    values["extended_length_bounds_mm"] = tuple(values["extended_length_bounds_mm"])
+    if values.get("objectives") is not None:
+        values["objectives"] = tuple(values["objectives"])
+    if "packaging" in values:
+        packaging = values["packaging"]
+        # A clearance of the PIP servo over the OA line that was always 0.
+        values.pop("oa_interface_clearance_mm", None)
+        packaging.pop("oa_interface_clearance_mm", None)
+        # The dorsal support deck and web of support-structure-v1; pads replaced them.
+        packaging.pop("support_thickness_mm", None)
+        packaging.pop("support_web_width_mm", None)
+        for kind in ("bushing", "bearing"):  # runs that recorded the bearing itself
+            if f"{kind}_outer_diameter_mm" in packaging:
+                housing = (packaging.pop(f"{kind}_outer_diameter_mm")
+                           + 2.0 * packaging.pop("housing_wall_mm"))
+                # Before the flange was modelled, the housing alone was the envelope.
+                flange = packaging.pop(f"{kind}_flange_diameter_mm", 0.0)
+                packaging["pin_envelope_diameter_mm"] = max(housing, flange)
+        for pad in ("proximal_pad", "distal_pad"):
+            if pad in packaging:
+                packaging[pad] = ContactPad(**packaging[pad])
+        values["packaging"] = Packaging(**{
+            **packaging,
+            "pip_servo": DShapedExtrusion(**packaging["pip_servo"]),
+            "mcp_servo": DShapedExtrusion(**packaging["mcp_servo"]),
+            "mcp_servo_rear": tuple(packaging["mcp_servo_rear"]),
+        })
+    known = {f.name for f in fields(FingerStudyConfig)}
+    return FingerStudyConfig(**{name: value for name, value in values.items() if name in known})
+
+
+__all__ = ["FingerStudyConfig", "config_from_json", "config_from_mapping", "config_to_json", "load_yaml"]

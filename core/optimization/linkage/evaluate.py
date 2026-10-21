@@ -1,4 +1,4 @@
-"""Evaluate one Stage-0 linkage design (see ``docs/optimization/stage0.md``).
+"""Evaluate one linkage design (see ``docs/optimization/linkage.md``).
 
 The PIP servo sits on ``A'`` and drives the coupler ``A'-B``, dorsal of the
 ``OA`` contact interface. ``phi = q_pip + q_dip`` is the distal link's
@@ -36,7 +36,7 @@ the minimum pad lengths, and a collision-free reference pose),
 hyperextension safety and ``phi_safe_max >= minimum_flexion_rad``. A pad
 collision past the minimum flexion only ends the usable range (objective 3). The curl-tip position and the fingertip to MCP servo
 clearance are held (reported, enforced only when enabled in the config) until
-their Stage-1 definitions; the OA-BC curl gap is left to Stage-1.
+their definitions in the mechanism comparison; the OA-BC curl gap is left out.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ from core.morphology.linkage.packaging import (
     usable_pad_lengths,
 )
 
-from core.optimization.stage0.config import FingerStudyConfig
+from core.optimization.linkage.config import FingerStudyConfig
 
 
 STATIC_CONSTRAINTS: tuple[str, ...] = (
@@ -360,7 +360,7 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
                              if config.torque_ratio_max is not None else 0.0),
         "servo_travel_deg": (math.degrees(travel - config.servo_travel_max_rad)
                              if config.servo_travel_max_rad is not None else 0.0),
-        # Held until their Stage-1 definitions; enforced only when enabled.
+        # Held; enforced only when enabled.
         "curl_tip_x_mm": tip_violation if config.enforce_curl_tip else 0.0,
         "fingertip_mcp_mm": fingertip_violation,
     }
@@ -477,12 +477,14 @@ def _static_constraints(
         "valid_reference": 0.0,
         "mcp_servo_mm": -(servo_gap - clearance),
         # The pivot off the servo (A, or A' with the servo on A) clears its body.
-        "pivot_pin_mm": -(footprint.distance_to_point(other_pin) - packaging.pin_radius_mm - clearance),
+        "pivot_pin_mm": (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
+                         -(footprint.distance_to_point(other_pin) - packaging.pin_radius_mm - clearance)),
         "pin_spacing_mm": packaging.pin_spacing_mm - spacing,
         "extended_length_mm": max(length_low - length, length - length_high),
         # The PIP servo stays dorsal of the OA contact interface.
-        "oa_interface_mm": (0.0 if packaging.pip_servo_on_a
-                            else config.oa_interface_clearance_mm - footprint.lowest_z_mm),
+        # The PIP servo stays dorsal of the OA line, the proximal pad's mounting
+        # line (one body with the pad, so not checked against it otherwise).
+        "oa_interface_mm": 0.0 if packaging.pip_servo_on_a else -footprint.lowest_z_mm,
         # The pads' mounting lines run from the pivots outward, with room for
         # the pads: a positive length, at least the minimum, at least a fixed one.
         "proximal_support_mm": max(-math.inf if packaging.pip_servo_on_a

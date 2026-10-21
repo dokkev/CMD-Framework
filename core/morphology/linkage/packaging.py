@@ -69,7 +69,7 @@ def _xm335() -> DShapedExtrusion:
 
 @dataclass(frozen=True)
 class ContactPad:
-    """One contact pad block (provisional Stage-0 values).
+    """One contact pad block (provisional values).
 
     ``height_mm`` palmar of its mounting line, starting ``offset_mm`` in from
     its outer end (``O`` or the MCP servo, or ``C``), and a 45 deg chamfer of
@@ -109,7 +109,13 @@ class Packaging:
     body_clearance_mm: float = BODY_CLEARANCE_MM
     proximal_pad: ContactPad = field(default_factory=ContactPad)
     distal_pad: ContactPad = field(default_factory=ContactPad)
+    allow_collision_pip_servo_to_joint_a: bool = False
+    """``False``: the pin envelope of the joint off the PIP servo (``A``; ``A'``
+    with the servo on ``A``) keeps the body clearance from the servo body."""
     pad_mcp_check: bool = True
+    pad_mcp_clearance_mm: float | None = None
+    """Least gap of the pads to the MCP servo, which also places the proximal
+    pad's start; ``None``: ``body_clearance_mm``."""
     pad_link_ratio_max: float | None = None
     """Most pad length per length of its link (the proximal pad over ``|OA|``,
     the distal pad over ``BC``): a pad may stand out of its link by this much.
@@ -121,6 +127,8 @@ class Packaging:
     no tilt, the proximal pad on its palmar face)."""
 
     def __post_init__(self) -> None:
+        if self.pad_mcp_clearance_mm is not None and not self.pad_mcp_clearance_mm >= 0.0:
+            raise ValueError("pad_mcp_clearance_mm must be non-negative, or None")
         if self.pad_link_ratio_max is not None and not self.pad_link_ratio_max > 0.0:
             raise ValueError("pad_link_ratio_max must be positive, or None")
         if self.pip_servo_at not in ("ap", "a"):
@@ -153,8 +161,14 @@ class Packaging:
         shaft disk plus the body clearance with ``pad_mcp_check``, plus the pad's
         offset."""
 
-        clear = self.mcp_servo.radius_mm + self.body_clearance_mm if self.pad_mcp_check else 0.0
+        clear = self.mcp_servo.radius_mm + self.mcp_pad_clearance_mm if self.pad_mcp_check else 0.0
         return clear + self.proximal_pad.offset_mm
+
+    @property
+    def mcp_pad_clearance_mm(self) -> float:
+        """The pads' least gap to the MCP servo (``pad_mcp_clearance_mm``)."""
+
+        return self.body_clearance_mm if self.pad_mcp_clearance_mm is None else self.pad_mcp_clearance_mm
 
     @property
     def pip_servo_on_a(self) -> bool:
@@ -681,7 +695,8 @@ def pad_margins(
     margins = {}
     for pair in checked_pairs(packaging):
         pad, other = pair if pair[0] in PADS else pair[::-1]
-        margin = gap(pad, other) - packaging.body_clearance_mm
+        clearance = packaging.mcp_pad_clearance_mm if other == "mcp_servo" else packaging.body_clearance_mm
+        margin = gap(pad, other) - clearance
         # A pad set exactly the clearance away (the MCP offset) must not fail by rounding.
         margins[pair] = np.where(np.abs(margin) < _MARGIN_TOLERANCE_MM, 0.0, margin)
     return margins
@@ -704,7 +719,7 @@ def _mcp_gap(polygons: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequen
     start, end = (array.reshape(-1, 2) for array in _edges(polygons))
     from_o = point_segment_distance(np.zeros(2), start, end)
     gap = from_o - servo.reach_mm
-    exact = packaging.body_clearance_mm + EXACT_BAND_MM
+    exact = packaging.mcp_pad_clearance_mm + EXACT_BAND_MM
 
     def at(edges: np.ndarray, angles: Sequence[float]) -> np.ndarray:
         # Turning the MCP servo by +q is turning the pads by -q about O.
