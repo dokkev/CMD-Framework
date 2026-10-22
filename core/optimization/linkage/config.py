@@ -197,8 +197,10 @@ class FingerStudyConfig:
                 narrow("ap_x_mm", low=max(a_lo, start + proximal_need) - offset_hi)  # A''_x >= A_x, room
                 narrow("a_x_mm", high=bounds["ap_x_mm"][1] + offset_hi)
             distal_outer = b_hi + c_hi - packaging.distal_pad.offset_mm
-            narrow("bp_x_mm", high=min(b_hi, distal_outer - distal_need))  # B'_x <= B_x, room
-            narrow("b_x_mm", low=bounds["bp_x_mm"][0])
+            # The distal pad runs to B'' = B'_x - offset: B''_x <= B_x, room.
+            boffset_lo, boffset_hi = bounds["bpp_offset_mm"]
+            narrow("bp_x_mm", high=min(b_hi, distal_outer - distal_need) + boffset_hi)
+            narrow("b_x_mm", low=bounds["bp_x_mm"][0] - boffset_hi)
             if on_axis:
                 self._extended_pad_bounds(bounds, narrow)
 
@@ -214,7 +216,7 @@ class FingerStudyConfig:
     def _extended_pad_bounds(self, bounds, narrow) -> None:
         """The extended pose's pad checks, linear when everything lies on the ``x`` axis.
 
-        The proximal pad ends at ``A''_x = A'_x + offset``, the distal pad starts at ``B'_x``, both
+        The proximal pad ends at ``A''_x = A'_x + offset``, the distal pad starts at ``B''_x = B'_x - offset``, both
         with their mounting edge on ``z = 0``, as are the ``A`` and ``B`` pins:
         the pads keep the body clearance from each other, the pins a pin
         envelope more, and (with ``pad_mcp_check``) the distal pad keeps clear
@@ -228,12 +230,15 @@ class FingerStudyConfig:
         (ap_lo, ap_hi), (bp_lo, bp_hi) = bounds["ap_x_mm"], bounds["bp_x_mm"]
         offset_lo, offset_hi = bounds["app_offset_mm"]
         app_lo = ap_lo + offset_lo  # least A''_x
+        boffset_lo = bounds["bpp_offset_mm"][0]
+        bpp_hi = bp_hi - boffset_lo  # most B''_x
         mcp = (packaging.mcp_servo.radius_mm + packaging.mcp_pad_clearance_mm if packaging.pad_mcp_check
                else -math.inf)
-        narrow("bp_x_mm", low=max(app_lo + clearance, a_lo + pin, mcp))  # pads, A pin, MCP
-        # A''_x <= B'_x - clearance and B_x - pin, as far as the offset allows.
-        narrow("ap_x_mm", high=min(bp_hi - clearance, b_hi - pin) - offset_lo)
-        narrow("a_x_mm", high=bp_hi - pin)
+        # B''_x >= A''_x + clearance, A pin, MCP, as far as the offsets allow.
+        narrow("bp_x_mm", low=max(app_lo + clearance, a_lo + pin, mcp) + boffset_lo)
+        # A''_x <= B''_x - clearance and B_x - pin.
+        narrow("ap_x_mm", high=min(bpp_hi - clearance, b_hi - pin) - offset_lo)
+        narrow("a_x_mm", high=bpp_hi - pin)
         narrow("b_x_mm", low=app_lo + pin)
 
     @property
@@ -262,7 +267,8 @@ _ALIASES = {"minimum_desired_flexion_angle_deg": "minimum_flexion_deg"}
 """Config file names of fields named otherwise in the code."""
 
 
-def config_from_mapping(values: Mapping[str, object], cls: type = None) -> FingerStudyConfig:
+def config_from_mapping(values: Mapping[str, object], cls: type = None,
+                        aliases: Mapping[str, str] = MappingProxyType({})) -> FingerStudyConfig:
     """Build a config from plain values, as written in a config file.
 
     Angles may be given in degrees: ``name_deg`` sets the field ``name_rad``.
@@ -297,7 +303,7 @@ def config_from_mapping(values: Mapping[str, object], cls: type = None) -> Finge
             flat.append((key, value))
     kwargs: dict[str, object] = {}
     for key, value in flat:
-        key = _ALIASES.get(key, key)
+        key = aliases.get(key, _ALIASES.get(key, key))
         name = key
         if key.endswith("_deg") and key[:-4] + "_rad" in known:
             name = key[:-4] + "_rad"

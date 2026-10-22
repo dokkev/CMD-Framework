@@ -159,15 +159,16 @@ class FingerLinkage:
 
     @property
     def bpp(self) -> PointXZ:
-        """``B'' = (B'_x, B_z)``, ``B'`` projected on the distal mounting line ``BC``."""
+        """``B'' = (B'_x - bpp_offset_mm, B_z)``, the distal pad's end on the
+        distal mounting line ``BC`` (``B'`` projected on it with no offset)."""
 
-        return PointXZ(self.parameters.bp.x_mm, self.parameters.b_z_mm)
+        return PointXZ(self.parameters.bpp_x_mm, self.parameters.b_z_mm)
 
     @property
     def bpp_along_bc(self) -> float:
         """Signed position of ``B''`` along ``BC`` from ``B``, as a fraction of ``BC``."""
 
-        return (self.parameters.bp.x_mm - self.parameters.b_x_mm) / self.parameters.bc_length_mm
+        return (self.parameters.bpp_x_mm - self.parameters.b_x_mm) / self.parameters.bc_length_mm
 
     @property
     def is_crossed(self) -> bool:

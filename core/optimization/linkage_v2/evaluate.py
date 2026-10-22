@@ -4,14 +4,16 @@ The linkage, its packaging and every check are formulation v1's
 (``core.optimization.linkage.evaluate``); what changes is the interval and
 what is optimized:
 
-- **ROM.** The motion must be safe on ``[0, phi_req + margin]`` (``target``):
+- **ROM.** The motion must be danger-free on ``[0, phi_req + margin]``
+  (``target``; the margin is ``flexion_stopper_margin_rad``):
   no closure loss, transmission-margin loss, DIP or PIP backoff, or pad
   collision before ``phi`` reaches it. The linkage validity (assembly,
   transmission margin, backoffs) also holds from the PIP hyperextension, as
   in v1, where the pads are not checked. Flexion past the target does not
   matter: the finger is stopped there.
-- **On ``[0, phi_req]``.** ``k_max`` (objective), the least ``C_x`` with the
-  MCP at 0 (``C_x >= 0``) and the least pad gap.
+- **On ``[0, phi_req]``.** ``k_max`` (objective) and the least pad gap
+  (reported). The least ``C_x`` with the MCP at 0 (``C_x >= 0``) is taken
+  over the danger-free interval ``[0, phi_req + margin]``, as the pads.
 - **Objectives.** ``k_max`` and ``L_finger = |OC|`` in the extended pose, with
   ``C = (B_x + BC, B_z)`` and ``B`` as assembled (on the machining grid).
 
@@ -74,7 +76,10 @@ class LinkageV2Evaluation(FingerEvaluation):
     """The most flexion every constraint would still allow (``C_x`` included),
     at most 180 deg: information only."""
     least_tip_x_mm: float = math.nan
-    """Least ``x`` of ``C`` on ``[0, phi_req]``, the MCP at 0."""
+    """Least ``x`` of ``C`` on ``[0, phi_req + margin]``, the MCP at 0."""
+    required_proximal_mm: float = math.nan
+    required_distal_mm: float = math.nan
+    """``L_p`` and ``L_d`` the design was asked to accommodate."""
     proximal_face_mm: float = math.nan
     distal_face_mm: float = math.nan
     """Each pad's palmar face, its ``a-b`` less the chamfer."""
@@ -106,6 +111,8 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageV2Config) -> Li
     ab_mm = math.hypot(parameters.b_x_mm - parameters.a_x_mm, parameters.b_z_mm - parameters.a_z_mm)
     packaging = config.packaging
     common = dict(finger_length_mm=finger_length_mm(parameters), required_rom_rad=config.required_rom_rad,
+                  required_proximal_mm=config.minimum_proximal_support_mm,
+                  required_distal_mm=config.minimum_distal_support_mm,
                   **_pad_lengths(parameters, packaging), **_faces(parameters, packaging))
     try:
         linkage = FingerLinkage(parameters)
@@ -186,16 +193,22 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageV2Config) -> Li
                                        if margin[first_unsafe] < 0.0))
     rom_violation = math.degrees(config.target_rad - reach)
 
-    # [0, phi_req] on the grid: to the first sample at or past phi_req (the
-    # whole safe motion when it falls short).
-    at_req = np.flatnonzero(total >= config.required_rom_rad - 1e-12)
-    last = int(at_req[0]) if at_req.size else max(first_unsafe - 1, 0)
-    window = np.zeros(len(total), dtype=bool)
-    window[:last + 1] = True
+    def up_to(phi: float) -> tuple[int, np.ndarray]:
+        """``[0, phi]`` on the grid: to the first sample at or past ``phi`` (the
+        whole safe motion when it falls short)."""
+
+        at = np.flatnonzero(total >= phi - 1e-12)
+        last = int(at[0]) if at.size else max(first_unsafe - 1, 0)
+        mask = np.zeros(len(total), dtype=bool)
+        mask[:last + 1] = True
+        return last, mask
+
+    last, window = up_to(config.required_rom_rad)  # k_max and the reported gaps
+    _, danger_free = up_to(config.target_rad)       # C_x, as the pads and the validity
     lever, ratio, travel = servo_lever(sweep, window)
     ratio_min = _least_torque_ratio(sweep, window)
     tip_x = sweep.c[:, 0]
-    least_tip = float(tip_x[window].min())
+    least_tip = float(tip_x[danger_free].min())
     tip_violation = config.curl_tip_min_x_mm - least_tip if config.enforce_curl_tip else 0.0
     # phi_max: the first sample any constraint fails at, C_x included.
     failing = forward_unsafe.copy()

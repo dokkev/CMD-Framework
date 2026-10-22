@@ -17,19 +17,25 @@ optimization_parameter_bounds:
   bp_x_mm: [-50.0, 200.0]
   bp_z_mm: [-60.0, 80.0]
   bc_length_mm: [15.0, 60.0]
-  app_offset_mm: [0.0, 20.0]  # A''_x - A'_x: the proximal pad may run past A'
+  app_offset_mm: [0.0, 20.0]  # A''_x - A'_x: the proximal pad runs distally past A'
+  bpp_offset_mm: [0.0, 20.0]  # B'_x - B''_x: the distal pad runs proximally past B'
 
 inputs:
   pip_servo_tilt_deg: 20.0    # not optimized
 
 requirements:
-  # L_p, L_d: least pad mounting-line a-b lengths (A'' included).
-  minimum_proximal_support_mm: 30.0
-  minimum_distal_support_mm: 40.0
-  # phi_req: distal rotation relative to OA reached safely (0 to phi_req + margin).
+  # L_p, L_d: the longest module each pad must accommodate, enforced as its
+  # minimum mounting-line a-b length (A'' / B'' extensions included). A shorter
+  # module then fits as well.
+  module_max_length_p: 30.0
+  module_max_length_d: 40.0
+  # phi_req: distal rotation relative to OA (phi = q_pip + q_dip), always the
+  # usable ROM. k_max is measured on [0, phi_req].
   required_rom_deg: 150.0
-  rom_margin_deg: 0.0
-  # The fingertip stays ahead of O on [0, phi_req], the MCP at 0.
+  # Stopper tolerance: the pads, C_x and the linkage validity must also hold
+  # this far past phi_req. It does not shorten the usable range.
+  flexion_stopper_margin_deg: 0.0
+  # The fingertip stays ahead of O on [0, phi_req + margin], the MCP at 0.
   enforce_curl_tip: true
   curl_tip_min_x_mm: 0.0
   reference_point: C
@@ -37,7 +43,7 @@ requirements:
   extended_length_bounds_mm: [40.0, 150.0]
 
 motion:
-  hyperextension_deg: 10.0          # linkage validity from here on
+  hyperextension_deg: 10.0          # the stopper at -10 deg PIP: linkage validity from there on
   dip_backoff_tolerance_deg: 0.05
   servo_step_deg: 1.0               # verified at 0.05 deg
   servo_horizon_deg: 180.0
@@ -71,6 +77,12 @@ pad:
 production:
   resolution_mm: 0.1
   link_length_resolution_mm: 0.1
+
+post_processing:
+  # Lengthen both pads past the optimized A'' / B'' while k_max and feasibility
+  # hold (0.5 mm extra clearance): balanced (alternate 0.5 mm steps),
+  # proximal_first or distal_first.
+  extension_priority: balanced
 
 optimizer:
   algorithm: nsga2

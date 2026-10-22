@@ -531,7 +531,7 @@ def pad_spans(parameters: FingerLinkageParameters, packaging: Packaging) -> dict
     length = proximal.length_mm or min(room, proximal_limit)  # a free pad is cut to the limit
     proximal_span = PadSpan(outer, outer + length, room, proximal_limit)
     outer = parameters.bc_length_mm - distal.offset_mm
-    room = outer - (parameters.bp.x_mm - parameters.b_x_mm)
+    room = outer - (parameters.bpp_x_mm - parameters.b_x_mm)
     length = distal.length_mm or min(room, distal_limit)
     distal_span = PadSpan(outer - length, outer, room, distal_limit)
     return {"proximal_pad": proximal_span, "distal_pad": distal_span}

@@ -47,8 +47,8 @@ def test_the_margin_extends_the_safe_interval_not_the_rom() -> None:
                                  enforce_curl_tip=False)
     reach = math.degrees(evaluate(decode(GOOD), at(180.0, strict)).phi_safe_rad)
     margin = math.radians(5.0)
-    assert evaluate(decode(GOOD), at(reach - 6.0, strict, rom_margin_rad=margin)).constraints["rom_deg"] <= 0.0
-    tight = evaluate(decode(GOOD), at(reach - 4.0, strict, rom_margin_rad=margin))
+    assert evaluate(decode(GOOD), at(reach - 6.0, strict, flexion_stopper_margin_rad=margin)).constraints["rom_deg"] <= 0.0
+    tight = evaluate(decode(GOOD), at(reach - 4.0, strict, flexion_stopper_margin_rad=margin))
     assert tight.constraints["rom_deg"] > 0.0
     # phi_req is still what k_max is measured to.
     assert tight.required_rom_rad == pytest.approx(math.radians(reach - 4.0))
@@ -125,4 +125,63 @@ def test_the_v2_config_file_pins_everything_and_is_registered() -> None:
     assert config.hypervolume_reference == {"transmission": 2.3, "finger_length": 150.0}
     assert config.link_length_resolution_mm == 0.1
     with pytest.raises(ValueError, match="180 deg"):
-        dataclasses.replace(config, required_rom_rad=math.pi, rom_margin_rad=0.1)
+        dataclasses.replace(config, required_rom_rad=math.pi, flexion_stopper_margin_rad=0.1)
+    assert config.extension_priority == "balanced" and config.flexion_stopper_margin_rad == 0.0
+    assert config.search_bounds["bpp_offset_mm"] == (0.0, 20.0)
+    assert raw["requirements"]["module_max_length_p"] == 30.0
+
+
+def test_a_design_dangerous_just_past_phi_req_needs_no_margin() -> None:
+    longer = list(GOOD)
+    longer[VARIABLE_NAMES.index("bc_length_mm")] = 60.0
+    crossing = math.degrees(evaluate(decode(longer), at(180.0)).phi_max_rad)  # C passes behind O here
+    phi_req = crossing - 2.0
+    assert evaluate(decode(longer), at(phi_req)).feasible
+    assert evaluate(decode(longer), at(phi_req, flexion_stopper_margin_rad=math.radians(1.0))).feasible
+    wider = evaluate(decode(longer), at(phi_req, flexion_stopper_margin_rad=math.radians(4.0)))
+    assert not wider.feasible and wider.constraints["curl_tip_x_mm"] > 0.0
+
+
+def test_the_linkage_validity_holds_from_the_hyperextension() -> None:
+    # A 50 deg transmission margin fails in hyperextension, though flexion is safe to 158 deg.
+    strict = dataclasses.replace(BASE, minimum_transmission_margin_rad=math.radians(50.0),
+                                 enforce_curl_tip=False)
+    e = evaluate(decode(GOOD), at(120.0, strict))
+    assert e.constraints["rom_deg"] <= 0.0
+    assert e.constraints["hyperextension_deg"] > 0.0 and not e.feasible
+
+
+def test_both_pad_lengths_include_their_extensions() -> None:
+    base = MECHANISM.evaluate((*GOOD, 0.0, 0.0), at(150.0))
+    toward = MECHANISM.evaluate((*GOOD, 3.0, 4.0), at(150.0))
+    assert toward.proximal_support_length_mm == pytest.approx(base.proximal_support_length_mm + 3.0)
+    assert toward.distal_support_length_mm == pytest.approx(base.distal_support_length_mm + 4.0)
+    report = MECHANISM.report(toward)
+    assert (report["app_offset_used_mm"], report["bpp_offset_used_mm"]) == (3.0, 4.0)
+    need = base.distal_support_length_mm + 2.0
+    assert MECHANISM.evaluate((*GOOD, 0.0, 0.0), at(150.0, minimum_distal_support_mm=need)
+                              ).constraints["distal_support_mm"] == pytest.approx(2.0)
+    assert MECHANISM.evaluate((*GOOD, 0.0, 4.0), at(150.0, minimum_distal_support_mm=need)
+                              ).constraints["distal_support_mm"] <= 1e-9
+
+
+def test_post_processing_lengthens_the_pads_in_the_order_asked() -> None:
+    from core.optimization.linkage.extend import extend_pads
+
+    config = at(120.0)
+    x = (*GOOD, 0.0, 0.0)
+    base = MECHANISM.evaluate(x, config)
+    runs = {priority: extend_pads(x, config, mechanism=MECHANISM, priority=priority)
+            for priority in ("balanced", "proximal_first", "distal_first")}
+    for result in runs.values():
+        assert result.evaluation.feasible
+        assert result.evaluation.torque_ratio_max == base.torque_ratio_max
+        assert result.evaluation.finger_length_mm == base.finger_length_mm
+        assert result.added_proximal_mm + result.added_distal_mm > 0.0
+        assert result.evaluation.proximal_support_length_mm == pytest.approx(
+            base.proximal_support_length_mm + result.added_proximal_mm)
+    # Who goes first takes the shared space.
+    assert runs["proximal_first"].added_proximal_mm >= runs["balanced"].added_proximal_mm
+    assert runs["distal_first"].added_distal_mm >= runs["balanced"].added_distal_mm
+    with pytest.raises(ValueError, match="priority"):
+        extend_pads(x, config, mechanism=MECHANISM, priority="random")

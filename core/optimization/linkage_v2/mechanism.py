@@ -15,7 +15,7 @@ from typing import Any
 from core.optimization.linkage.config import config_from_json, config_from_mapping, config_to_json
 from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode
 from core.optimization.linkage.mechanism import LINK_COLUMNS, LinkageMechanism, link_values
-from core.optimization.linkage_v2.config import LinkageV2Config
+from core.optimization.linkage_v2.config import ALIASES, LinkageV2Config
 from core.optimization.linkage_v2.evaluate import CONSTRAINT_NAMES, LinkageV2Evaluation, evaluate
 from core.optimization.mechanism import Objective, SummaryColumn
 
@@ -61,7 +61,7 @@ def bound_hits(x: Sequence[float], config: LinkageV2Config, finger_length_mm: fl
 
 class LinkageV2Mechanism(LinkageMechanism):
     name = "linkage_v2"
-    formulation = "linkage-rom-v2"
+    formulation = "linkage-v2-rev2"
     """Pads as an input (least lengths), the required ROM a constraint on
     ``[0, phi_req + margin]``, ``k_max`` and ``|OC|`` minimized."""
     legacy_formulation = None
@@ -80,7 +80,7 @@ class LinkageV2Mechanism(LinkageMechanism):
     )
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> LinkageV2Config:
-        return config_from_mapping(values, LinkageV2Config)
+        return config_from_mapping(values, LinkageV2Config, ALIASES)
 
     def config_to_json(self, config: LinkageV2Config) -> dict[str, Any]:
         values = config_to_json(config)
@@ -104,12 +104,16 @@ class LinkageV2Mechanism(LinkageMechanism):
             "torque_ratio_min": e.torque_ratio_min,
             "finger_length_mm": e.finger_length_mm,
             "required_rom_deg": math.degrees(e.required_rom_rad),
+            "required_proximal_mm": e.required_proximal_mm,
+            "required_distal_mm": e.required_distal_mm,
             "phi_max_deg": math.degrees(e.phi_max_rad),
             "safe_reach_deg": math.degrees(e.phi_safe_rad),
             "stop_reason": e.stop_reason,
             "collision_pair": e.collision_pair,
             "proximal_support_length_mm": e.proximal_support_length_mm,
             "distal_support_length_mm": e.distal_support_length_mm,
+            "app_offset_used_mm": e.parameters.app_offset_mm,
+            "bpp_offset_used_mm": e.parameters.bpp_offset_mm,
             "proximal_face_mm": e.proximal_face_mm,
             "distal_face_mm": e.distal_face_mm,
             "pad_clearance_mm": e.pad_clearance_mm,

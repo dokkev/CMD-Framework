@@ -39,7 +39,8 @@ class FingerLinkageParameters:
     is the fingertip length. The PIP servo's shaft is on ``A'``; its rear body
     lies back along ``-X`` tilted dorsally by ``pip_servo_tilt_rad``. The
     proximal pad's end ``A''`` lies on the mounting line ``app_offset_mm`` past
-    ``A'_x``.
+    ``A'_x``; the distal pad's end ``B''`` lies on its mounting line
+    ``bpp_offset_mm`` short of ``B'_x`` (toward the joint).
     """
 
     a_x_mm: float
@@ -52,12 +53,21 @@ class FingerLinkageParameters:
     a_z_mm: float = 0.0
     app_offset_mm: float = 0.0
     """``A''_x - A'_x``: 0 puts ``A''`` right below ``A'``."""
+    bpp_offset_mm: float = 0.0
+    """``B'_x - B''_x`` in the extended pose: 0 puts ``B''`` right below ``B'``;
+    more runs the distal pad proximally, toward the joint."""
 
     @property
     def app_x_mm(self) -> float:
         """``x`` of ``A''``, the proximal pad's end on its mounting line."""
 
         return self.ap.x_mm + self.app_offset_mm
+
+    @property
+    def bpp_x_mm(self) -> float:
+        """``x`` of ``B''`` in the extended pose, the distal pad's end on its mounting line."""
+
+        return self.bp.x_mm - self.bpp_offset_mm
 
     def __post_init__(self) -> None:
         require_positive("a_x_mm", self.a_x_mm)
@@ -66,6 +76,7 @@ class FingerLinkageParameters:
         require_finite("a_z_mm", self.a_z_mm)
         require_finite("pip_servo_tilt_rad", self.pip_servo_tilt_rad)
         require_finite("app_offset_mm", self.app_offset_mm)
+        require_finite("bpp_offset_mm", self.bpp_offset_mm)
         require_positive("bc_length_mm", self.bc_length_mm)
         for name in ("ap", "bp"):
             if not isinstance(getattr(self, name), PointXZ):

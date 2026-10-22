@@ -283,7 +283,7 @@ def test_the_pad_objective_is_the_pad_length_and_the_free_length_is_reported() -
     assert 0.0 <= base.proximal_usable_length_mm <= base.proximal_support_length_mm
     assert 0.0 <= base.distal_usable_length_mm <= base.distal_support_length_mm
     assert base.usable_support_length_mm < base.support_length_mm
-    assert encode(FingerLinkage(decode(GOOD))) == (*GOOD, 0.0)
+    assert encode(FingerLinkage(decode(GOOD))) == (*GOOD, 0.0, 0.0)
 
 
 def test_a_link_across_a_pad_ends_its_free_length() -> None:

@@ -492,7 +492,7 @@ def _static_constraints(
                                    proximal.length_mm - proximal.limit_mm,
                                    config.minimum_proximal_support_mm - proximal.length_mm,
                                    proximal.length_mm - proximal.room_mm),
-        "distal_support_mm": max(parameters.bp.x_mm - parameters.b_x_mm,
+        "distal_support_mm": max(parameters.bpp_x_mm - parameters.b_x_mm,
                                  distal.length_mm - distal.limit_mm,
                                  config.minimum_distal_support_mm - distal.length_mm,
                                  distal.length_mm - distal.room_mm),

@@ -21,6 +21,15 @@ from core.morphology.linkage.packaging import ContactPad, Packaging
 from core.optimization.linkage.config import FingerStudyConfig
 
 
+EXTENSION_PRIORITIES = ("balanced", "proximal_first", "distal_first")
+ALIASES = MappingProxyType({
+    "module_max_length_p": "minimum_proximal_support_mm",
+    "module_max_length_d": "minimum_distal_support_mm",
+    "phi_req_deg": "required_rom_deg",
+})
+"""Config file names of v2's inputs."""
+
+
 def _v2_packaging() -> Packaging:
     pad = ContactPad(height_mm=10.0, offset_mm=0.0, chamfer_mm=2.5, length_mm=None)
     return Packaging(proximal_pad=pad, distal_pad=pad)
@@ -30,13 +39,15 @@ def _v2_packaging() -> Packaging:
 class LinkageV2Config(FingerStudyConfig):
     """Formulation v2: v1's fields with these meanings and defaults, and the ROM.
 
-    - ``minimum_proximal_support_mm`` / ``minimum_distal_support_mm``: ``L_p``
-      and ``L_d``, the least pad mounting-line lengths (``A''`` included);
-    - ``extended_length_bounds_mm``: a search limit on ``|OC|``, which is now
-      an objective;
-    - ``minimum_flexion_rad``, ``flexion_stopper_margin_rad`` and
-      ``objectives`` of v1 are not used: :attr:`required_rom_rad` and
-      :attr:`rom_margin_rad` replace the first two.
+    - ``minimum_proximal_support_mm`` / ``minimum_distal_support_mm``
+      (config: ``module_max_length_p`` / ``_d``): ``L_p`` and ``L_d``, the
+      longest module each pad must accommodate, enforced as the least
+      mounting-line ``a-b`` length (``A''`` / ``B''`` extensions included);
+    - ``flexion_stopper_margin_rad``: how far past ``phi_req`` the motion must
+      stay danger-free (the stopper's tolerance; default 0). It no longer
+      ends the usable range early: ``phi_req`` is always the usable ROM;
+    - ``extended_length_bounds_mm``: a search limit on ``|OC|``, now an objective;
+    - ``minimum_flexion_rad`` (v1) is not used: :attr:`required_rom_rad` replaces it.
     """
 
     packaging: Packaging = field(default_factory=_v2_packaging)
@@ -45,14 +56,17 @@ class LinkageV2Config(FingerStudyConfig):
     extended_length_bounds_mm: tuple[float, float] = (40.0, 150.0)
     enforce_curl_tip: bool = True
     pip_servo_tilt_rad: float | None = math.radians(20.0)
+    flexion_stopper_margin_rad: float = 0.0
     required_rom_rad: float = math.radians(150.0)
     """``phi_req``: the distal rotation relative to ``OA`` every design must
-    reach safely. ``k_max``, ``C_x``, the pad collisions and the usable range
-    are judged on ``[0, phi_req]``; the linkage validity (assembly, transmission
-    margin, DIP and PIP backoff) from the PIP hyperextension on."""
-    rom_margin_rad: float = 0.0
-    """Room past ``phi_req`` for the stopper's tolerance: no unsafe condition on
-    ``[0, phi_req + margin]``. ``phi_req`` itself stays the usable ROM."""
+    reach safely. ``k_max`` is measured on ``[0, phi_req]``; the pads, ``C_x``
+    and the linkage validity must hold on ``[0, phi_req + margin]``, the
+    validity (assembly, transmission margin, DIP and PIP backoff) from the PIP
+    hyperextension on."""
+    extension_priority: str = "balanced"
+    """How the pads are lengthened after the optimization
+    (``core.optimization.linkage.extend.extend_pads``): ``balanced``,
+    ``proximal_first`` or ``distal_first``."""
     hypervolume_reference: Mapping[str, float] | None = None
     """Reference point per objective (``transmission``: ``k_max``,
     ``finger_length``: ``|OC|`` mm); ``None``: ``k_max`` 2.3 and the ``|OC|``
@@ -61,9 +75,11 @@ class LinkageV2Config(FingerStudyConfig):
     def __post_init__(self) -> None:
         super().__post_init__()
         require_positive("required_rom_rad", self.required_rom_rad)
-        require_nonnegative("rom_margin_rad", self.rom_margin_rad)
-        if self.required_rom_rad + self.rom_margin_rad > math.pi + 1e-12:
-            raise ValueError("required_rom_rad + rom_margin_rad may not exceed 180 deg (BC antiparallel to OA)")
+        require_nonnegative("flexion_stopper_margin_rad", self.flexion_stopper_margin_rad)
+        if self.required_rom_rad + self.flexion_stopper_margin_rad > math.pi + 1e-12:
+            raise ValueError("phi_req + flexion_stopper_margin may not exceed 180 deg (BC antiparallel to OA)")
+        if self.extension_priority not in EXTENSION_PRIORITIES:
+            raise ValueError(f"extension_priority must be one of {EXTENSION_PRIORITIES}")
         if self.reference_point != "C":
             raise ValueError("formulation v2 measures the finger at C")
         reference = {"transmission": 2.3, "finger_length": self.extended_length_bounds_mm[1]}
@@ -74,7 +90,7 @@ class LinkageV2Config(FingerStudyConfig):
     def target_rad(self) -> float:
         """``phi_req + margin``: how far the motion must stay safe."""
 
-        return self.required_rom_rad + self.rom_margin_rad
+        return self.required_rom_rad + self.flexion_stopper_margin_rad
 
 
-__all__ = ["LinkageV2Config"]
+__all__ = ["ALIASES", "EXTENSION_PRIORITIES", "LinkageV2Config"]

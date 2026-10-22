@@ -30,9 +30,9 @@ GOOD_CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, extended_
 
 
 def test_design_vector_round_trips() -> None:
-    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0, 3.5)))) == (*CROSSED, 24.0, 0.0, 3.5)
-    # A vector from before A''_x - A'_x reads with A'' right below A'.
-    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0)))) == (*CROSSED, 24.0, 0.0, 0.0)
+    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0, 3.5, 2.0)))) == (*CROSSED, 24.0, 0.0, 3.5, 2.0)
+    # A vector from before A''_x - A'_x and B'_x - B''_x reads with both right below A', B'.
+    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0)))) == (*CROSSED, 24.0, 0.0, 0.0, 0.0)
 
 
 def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
@@ -246,8 +246,8 @@ def test_a_may_sit_off_the_proximal_axis() -> None:
 def test_older_design_rows_read_with_a_on_the_axis_and_a_double_prime_below_a_prime() -> None:
     from core.optimization.linkage import read_design
 
-    row = {name: "1.0" for name in VARIABLE_NAMES if name not in ("a_z_mm", "app_offset_mm")}
-    assert read_design(row)[-2:] == [0.0, 0.0]
+    row = {name: "1.0" for name in VARIABLE_NAMES if name not in ("a_z_mm", "app_offset_mm", "bpp_offset_mm")}
+    assert read_design(row)[-3:] == [0.0, 0.0, 0.0]
 
 
 def test_the_proximal_pad_may_run_past_a_prime() -> None:
@@ -267,9 +267,15 @@ def test_the_proximal_pad_may_run_past_a_prime() -> None:
     assert result.added_mm > 0.0 and result.evaluation.feasible
     assert result.evaluation.phi_safe_rad == evaluate(base, GOOD_CONFIG).phi_safe_rad
     assert result.evaluation.pad_clearance_mm >= 0.5
-    one_more = decode((*result.x[:-1], result.x[-1] + 0.1))
+    offset = VARIABLE_NAMES.index("app_offset_mm")
+    one_more = decode((*result.x[:offset], result.x[offset] + 0.1, *result.x[offset + 1:]))
     beyond = evaluate(one_more, GOOD_CONFIG)
     assert not beyond.feasible or beyond.pad_clearance_mm < 0.5 or beyond.phi_safe_rad != result.evaluation.phi_safe_rad
+    # The distal pad runs past B' toward the joint the same way.
+    toward = decode((*GOOD, 0.0, 4.0))
+    assert FingerLinkage(toward).bpp.x_mm == pytest.approx(base.bp.x_mm - 4.0)
+    assert pad_spans(toward, HOUSING_ONLY)["distal_pad"].length_mm == pytest.approx(
+        pad_spans(base, HOUSING_ONLY)["distal_pad"].length_mm + 4.0)
     # Left out of a config's bounds, the offset is fixed at 0.
     bounds = {name: pair for name, pair in BOUNDS.items() if name != "app_offset_mm"}
     assert FingerStudyConfig(bounds=bounds).bounds["app_offset_mm"] == (0.0, 0.0)
