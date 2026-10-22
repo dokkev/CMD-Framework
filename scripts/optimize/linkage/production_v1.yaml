@@ -20,5 +20,10 @@ optimization_parameter_bounds:
 inputs:
   pip_servo_tilt_deg: null
 
+# The 5 mm pads it was run with (config.yaml has since moved to 10 mm).
+pad:
+  proximal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  distal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+
 optimizer:
   generations: 400

@@ -44,6 +44,14 @@ class Objective:
     larger_is_better: bool
     default: bool = True
     """Optimized when the config does not list its objectives."""
+    column_minimized: Callable[[float], float] | None = None
+    """The minimized value from the reported ``column`` (default: the value,
+    negated when ``larger_is_better``)."""
+
+    def minimized(self, column_value: float) -> float:
+        if self.column_minimized is not None:
+            return self.column_minimized(column_value)
+        return -column_value if self.larger_is_better else column_value
 
 
 @dataclass(frozen=True)

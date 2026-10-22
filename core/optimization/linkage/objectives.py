@@ -29,7 +29,8 @@ OBJECTIVES = MappingProxyType({
         larger_is_better=True, default=False),
     "curl": Objective(
         value=lambda e: e.curl_shortfall_deg, column="phi_safe_deg",
-        label="phi_safe_max [deg]", role="best_curl", larger_is_better=True),
+        label="phi_safe_max [deg]", role="best_curl", larger_is_better=True,
+        column_minimized=lambda phi_deg: 180.0 - phi_deg),
 })
 """Every objective, by the name configs use."""
 
