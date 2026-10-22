@@ -19,10 +19,17 @@ optimization_parameter_bounds:
   # B' is free in practice.
   bp_x_mm: [-50.0, 200.0]
   bp_z_mm: [-60.0, 80.0]
-  # The PIP servo body may tilt dorsally.
-  servo_tilt_deg: [0.0, 30.0]
   # BC, the middle + distal phalanx.
   bc_length_mm: [30.0, 50.0]
+  # A''_x - A'_x: the proximal pad may run past A' (0: it ends right below A').
+  app_offset_mm: [0.0, 20.0]
+
+# Fixed inputs, not optimized.
+inputs:
+  # Dorsal tilt of the PIP servo body from -X: up off the proximal pad, which
+  # is not mounted on the servo. (With the A' clearance and the B' pin free of
+  # the servo body it no longer changes k_max or phi_safe.)
+  pip_servo_tilt_deg: 20.0
 
 # Safe motion and the usable range.
 motion:
@@ -76,16 +83,23 @@ packaging:
   # The PIP and MCP servos, by actuator name (core.hardware.ACTUATORS: xm335).
   pip_servo: xm335
   mcp_servo: xm335
-  # Metal around each pin in the side view: the bearing housing (57155K424
-  # bearings, 6 mm OD, in 1 mm walls), or a flange if wider.
-  pin_envelope_diameter_mm: 8.0
+  # Diameter of the metal around each pivot pin (A, A', B, B') in the side
+  # view: the bearing housing (57155K424 bearings, 6 mm OD, in 1 mm walls), or
+  # a flange if wider. Other parts keep body_clearance_mm beyond it.
+  pivot_clearance_diameter_mm: 8.0
   # Servo bodies keep this far from the pin envelopes and from each other;
   # the pads keep it from the parts of other bodies (from the MCP servo:
   # pad.mcp_servo_clearance_mm).
   body_clearance_mm: 1.0
-  # false: the A pin envelope keeps body_clearance_mm from the PIP servo body
-  # (A hangs off the servo on a bracket). true: no such check.
+  # false: the A pin envelope keeps body_clearance_mm from a virtual clearance
+  # disk around the PIP servo's shaft at A' (A hangs off the servo on a
+  # bracket; the servo body is not checked against A). true: no such check.
   allow_collision_pip_servo_to_joint_A: false
+  ap_clearance_diameter_mm: 7.0
+  # true: the B' pin envelope may pass through the PIP servo body (the middle
+  # link sits in another Y layer). false: it keeps body_clearance_mm from it
+  # over the motion, ending the safe range.
+  allow_collision_pip_servo_to_joint_Bp: true
 
 # Contact pads a-b-d-c on the proximal and distal links (provisional
 # values), in the servos' central layer; the link plates sit outside it.
@@ -99,13 +113,14 @@ pad:
   # <= BC); a free-length pad is cut to it, a fixed one must fit. true: a pad
   # may stand out of its link.
   allow_longer_pad_than_link: true
-  # height_mm: palmar of the mounting line. offset_mm: start in from the
+  # height_mm: palmar of the mounting line, the mounting interface included
+  # (so the PIP servo may sit right on the line). offset_mm: start in from the
   # outer end. chamfer_mm: 45 deg chamfer of the palmar corner facing the PIP
   # (0: square). length_mm: a fixed length the mounting line must have room
   # for; null runs the proximal pad right to A'' and the distal pad from C
   # left to B''.
-  proximal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
-  distal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  proximal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  distal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
 
 # Production only: each part's own dimensions on this grid, B re-assembled
 # (null: off, for seed generation).

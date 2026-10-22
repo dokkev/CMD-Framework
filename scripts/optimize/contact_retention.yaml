@@ -18,7 +18,7 @@ requirements:
 packaging:
   pip_servo: xm335        # the distal joint's servo (2R: at A; RCJ: at the proximal roller)
   mcp_servo: xm335
-  pin_envelope_diameter_mm: 8.0
+  pivot_clearance_diameter_mm: 8.0
   body_clearance_mm: 1.0
 
 hardware:

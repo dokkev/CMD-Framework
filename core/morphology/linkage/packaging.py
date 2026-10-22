@@ -4,8 +4,9 @@ The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 ``A'`` and drives the coupler ``A'-B``; sitting dorsal of ``OA``, it leaves
 the proximal contact interface free. Its rear body lies back along the link,
 along ``-X`` tilted dorsally by the design's ``pip_servo_tilt_rad``. The PIP
-pivot ``A`` hangs off the servo body on a bracket, in the same plane, so its
-bearing housing must clear the body. The MCP servo's shaft is on ``O``.
+pivot ``A`` hangs off the servo body on a bracket, in the same plane: its
+bearing housing must clear a virtual clearance disk around the servo's shaft
+(``ap_clearance_diameter_mm``), not the body. The MCP servo's shaft is on ``O``.
 
 Each servo's section in the linkage plane is a D shape: a disk of the
 actuator radius around the shaft and a rectangle reaching ``rear_extent_mm``
@@ -46,8 +47,9 @@ from core.hardware import DShapedExtrusion, XM335Actuator
 from core.morphology.linkage import FingerLinkage, FingerLinkageParameters
 
 
-PIN_ENVELOPE_DIAMETER_MM = 8.0
-"""Metal around a pin in the side view, which the servo bodies keep clear of.
+PIVOT_CLEARANCE_DIAMETER_MM = 8.0
+"""Diameter of the metal around each pivot pin (``A``, ``A'``, ``B``, ``B'``) in
+the side view, which other parts keep the body clearance from.
 The pins run in McMaster 57155K424 flanged ball bearings (trade no. 63: 3 mm
 shaft, 6 mm OD, 2 mm wide, 7.2 x 0.6 mm flange), one on each side of a joint,
 pressed into 1 mm aluminium walls: the 8 mm housing is wider than the flange."""
@@ -105,13 +107,25 @@ class Packaging:
     pip_servo: DShapedExtrusion = field(default_factory=_xm335)
     mcp_servo: DShapedExtrusion = field(default_factory=_xm335)
     mcp_servo_rear: tuple[float, float] = (0.0, 1.0)
-    pin_envelope_diameter_mm: float = PIN_ENVELOPE_DIAMETER_MM
+    pivot_clearance_diameter_mm: float = PIVOT_CLEARANCE_DIAMETER_MM
+    """Diameter of each pivot pin's housing (:data:`PIVOT_CLEARANCE_DIAMETER_MM`); the
+    body clearance is kept beyond it."""
     body_clearance_mm: float = BODY_CLEARANCE_MM
     proximal_pad: ContactPad = field(default_factory=ContactPad)
     distal_pad: ContactPad = field(default_factory=ContactPad)
     allow_collision_pip_servo_to_joint_a: bool = False
     """``False``: the pin envelope of the joint off the PIP servo (``A``; ``A'``
-    with the servo on ``A``) keeps the body clearance from the servo body."""
+    with the servo on ``A``) keeps the body clearance from the virtual
+    clearance disk around the servo's shaft (``ap_clearance_diameter_mm``)."""
+    allow_collision_pip_servo_to_joint_bp: bool = True
+    """``True``: the ``B'`` pin envelope may pass through the PIP servo body
+    (the middle link sits in another Y layer). ``False``: it keeps the body
+    clearance from the body over the motion, which ends the safe range."""
+    ap_clearance_diameter_mm: float = 7.0
+    """Virtual clearance around the PIP servo's shaft (``A'``; ``A`` with the
+    servo on ``A``), what the other pivot's pin envelope keeps clear of. The
+    servo body itself is not checked against that pin: it rides on a bracket
+    off the body."""
     pad_mcp_check: bool = True
     pad_mcp_clearance_mm: float | None = None
     """Least gap of the pads to the MCP servo, which also places the proximal
@@ -131,6 +145,8 @@ class Packaging:
             raise ValueError("pad_mcp_clearance_mm must be non-negative, or None")
         if self.pad_link_ratio_max is not None and not self.pad_link_ratio_max > 0.0:
             raise ValueError("pad_link_ratio_max must be positive, or None")
+        if not self.ap_clearance_diameter_mm >= 0.0:
+            raise ValueError("ap_clearance_diameter_mm must be non-negative")
         if self.pip_servo_at not in ("ap", "a"):
             raise ValueError("pip_servo_at must be 'ap' or 'a'")
         for name in ("proximal_pad", "distal_pad"):
@@ -147,7 +163,7 @@ class Packaging:
     def pin_radius_mm(self) -> float:
         """Radius of a pin's envelope in the plane; clearances are measured from it."""
 
-        return self.pin_envelope_diameter_mm / 2.0
+        return self.pivot_clearance_diameter_mm / 2.0
 
     @property
     def pin_spacing_mm(self) -> float:
@@ -163,6 +179,14 @@ class Packaging:
 
         clear = self.mcp_servo.radius_mm + self.mcp_pad_clearance_mm if self.pad_mcp_check else 0.0
         return clear + self.proximal_pad.offset_mm
+
+    def pivot_pin_gap_mm(self, linkage: FingerLinkage) -> float:
+        """Gap between the pin envelope of the pivot off the PIP servo (``A``, or
+        ``A'`` with the servo on ``A``) and the virtual clearance disk around the
+        servo's shaft: ``|AA'|`` less both radii."""
+
+        return (math.hypot(linkage.a.x_mm - linkage.ap.x_mm, linkage.a.z_mm - linkage.ap.z_mm)
+                - self.pin_radius_mm - self.ap_clearance_diameter_mm / 2.0)
 
     @property
     def mcp_pad_clearance_mm(self) -> float:
@@ -241,10 +265,11 @@ class ServoClearance:
     mcp_servo_mm: float
     """PIP servo beyond the MCP servo body over the MCP angles, less the body clearance."""
     pin_mm: float
-    """The PIP pin envelope at ``A`` beyond the servo body, less the body clearance."""
+    """The pin envelope of the pivot off the PIP servo beyond the virtual
+    clearance at its shaft (:meth:`Packaging.pivot_pin_gap_mm`), less the body clearance."""
     dip_pin_mm: float
     """The DIP pin envelope at ``B'`` beyond the servo body over the PIP samples,
-    less the body clearance."""
+    less the body clearance (inf with ``allow_collision_pip_servo_to_joint_bp``)."""
     link_mm: float
     """The middle link ``A-B'`` beyond the servo over the PIP samples. Reported
     only: its plates straddle the servo in other layers."""
@@ -277,8 +302,9 @@ def servo_clearance(
     dip = footprint.distance_to_segments(sweep.bp, sweep.bp)
     return ServoClearance(
         mcp_servo_mm=packaging.mcp_servo_gap_mm(footprint, mcp_samples_rad) - clearance,
-        pin_mm=footprint.distance_to_point(a) - housing - clearance,
-        dip_pin_mm=(float(dip.min()) if dip.size else math.inf) - housing - clearance,
+        pin_mm=packaging.pivot_pin_gap_mm(linkage) - clearance,
+        dip_pin_mm=(math.inf if packaging.allow_collision_pip_servo_to_joint_bp or not dip.size
+                    else float(dip.min()) - housing - clearance),
         link_mm=(float(link.min()) if link.size else math.inf) - clearance,
     )
 
@@ -420,8 +446,10 @@ PIP servo on ``A`` the pad starts at that servo instead: see
 def fixed_margin_pairs(packaging: "Packaging") -> tuple[tuple[str, str], ...]:
     return () if packaging.pip_servo_on_a else FIXED_MARGIN_PAIRS
 SERVO_PAIRS = (("mcp_servo", "pip_servo"), ("a_pin", "pip_servo"), ("bp_pin", "pip_servo"))
-"""The servo checks besides the pads': the two servo bodies, and the A and B'
-pin envelopes against the PIP servo (the middle link's is reported only)."""
+"""The servo checks besides the pads': the two servo bodies, the A pin
+envelope against the virtual clearance at the PIP servo's shaft, and (unless
+``allow_collision_pip_servo_to_joint_bp``) the B' pin envelope against the PIP
+servo body (the middle link's is reported only)."""
 
 
 def checked_pairs(packaging: Packaging) -> tuple[tuple[str, str], ...]:
@@ -499,7 +527,7 @@ def pad_spans(parameters: FingerLinkageParameters, packaging: Packaging) -> dict
         room = parameters.a_x_mm + body.radius_mm - outer
     else:
         outer = packaging.proximal_pad_start_mm
-        room = parameters.ap.x_mm - outer
+        room = parameters.app_x_mm - outer
     length = proximal.length_mm or min(room, proximal_limit)  # a free pad is cut to the limit
     proximal_span = PadSpan(outer, outer + length, room, proximal_limit)
     outer = parameters.bc_length_mm - distal.offset_mm
@@ -852,7 +880,7 @@ __all__ = [
     "usable_pad_lengths",
     "proximal_pad_polygon",
     "pad_margins",
-    "PIN_ENVELOPE_DIAMETER_MM",
+    "PIVOT_CLEARANCE_DIAMETER_MM",
     "PIN_RADIUS_MM",
     "PIN_SPACING_MM",
     "PadSpan",

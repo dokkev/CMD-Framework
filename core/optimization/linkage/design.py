@@ -1,6 +1,7 @@
 """Design vector of the 2-DoF finger study: A_x, B (x, z), A', B', the PIP
 servo's dorsal tilt (degrees, on the same 0.1 grid), BC (the middle + distal
-phalanx) and A_z (last, so older vectors read with ``A_z = 0``).
+phalanx), A_z and ``A''_x - A'_x`` (the last two added later, so older vectors
+read with both 0: ``DEFAULT_VALUES``).
 
 With a machining resolution every part keeps its own dimensions on the grid:
 the proximal link ``A`` and ``A'`` from ``O``, the distal link ``B'`` from ``B``
@@ -31,8 +32,9 @@ VARIABLE_NAMES: tuple[str, ...] = (
     "servo_tilt_deg",
     "bc_length_mm",
     "a_z_mm",
+    "app_offset_mm",
 )
-DEFAULT_VALUES = {"a_z_mm": 0.0}
+DEFAULT_VALUES = {"a_z_mm": 0.0, "app_offset_mm": 0.0}
 """Values of variables added later, for design vectors written before them."""
 
 
@@ -46,9 +48,11 @@ def decode(
     ``ValueError`` when the rounded bars no longer close.
     """
 
-    if len(x) != len(VARIABLE_NAMES):
+    missing = VARIABLE_NAMES[len(x):]
+    if len(x) > len(VARIABLE_NAMES) or any(name not in DEFAULT_VALUES for name in missing):
         raise ValueError(f"design vector has {len(x)} values; expected {len(VARIABLE_NAMES)}")
-    a_x, b_x, b_z, ap_x, ap_z, bp_x, bp_z, tilt_deg, bc_length_mm, a_z = (float(v) for v in x)
+    x = (*x, *(DEFAULT_VALUES[name] for name in missing))  # vectors from before a variable
+    a_x, b_x, b_z, ap_x, ap_z, bp_x, bp_z, tilt_deg, bc_length_mm, a_z, app_offset = (float(v) for v in x)
     ap, bp = PointXZ(ap_x, ap_z), PointXZ(bp_x, bp_z)
     if link_length_resolution_mm is not None:
         b_x, b_z, bp = _assemble((a_x, a_z), (b_x, b_z), ap, bp, link_length_resolution_mm)
@@ -61,6 +65,7 @@ def decode(
         bp=bp,
         bc_length_mm=bc_length_mm,
         pip_servo_tilt_rad=math.radians(tilt_deg),
+        app_offset_mm=app_offset,
     )
 
 
@@ -96,7 +101,7 @@ def encode(linkage: FingerLinkage) -> tuple[float, ...]:
 
     p = linkage.parameters
     return (p.a_x_mm, p.b_x_mm, p.b_z_mm, p.ap.x_mm, p.ap.z_mm, p.bp.x_mm, p.bp.z_mm,
-            round(math.degrees(p.pip_servo_tilt_rad), 9), p.bc_length_mm, p.a_z_mm)
+            round(math.degrees(p.pip_servo_tilt_rad), 9), p.bc_length_mm, p.a_z_mm, p.app_offset_mm)
 
 
 def read_design(row: Mapping[str, str]) -> list[float]:

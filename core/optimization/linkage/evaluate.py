@@ -416,8 +416,10 @@ def _unsafe_conditions(
         # The PIP and the servo turn together.
         "pip_backoff": (np.maximum.accumulate(q_pip) - q_pip > tolerance)
         | (np.maximum.accumulate(servo) - servo > tolerance),
-        "dip_pin": footprint.distance_to_segments(bp, bp)
-        < config.packaging.pin_radius_mm + config.packaging.body_clearance_mm,
+        # The B' pin may cross the servo body when they sit in different Y layers.
+        "dip_pin": (np.zeros(len(margin), dtype=bool) if config.packaging.allow_collision_pip_servo_to_joint_bp
+                    else footprint.distance_to_segments(bp, bp)
+                    < config.packaging.pin_radius_mm + config.packaging.body_clearance_mm),
     }
 
 
@@ -456,9 +458,6 @@ def _static_constraints(
     packaging = config.packaging
     clearance = packaging.body_clearance_mm
     parameters = linkage.parameters
-    # The proximal pin without the servo hangs off its body on a bracket.
-    other = linkage.ap if packaging.pip_servo_on_a else linkage.a
-    other_pin = np.array((other.x_mm, other.z_mm))
     spacing = min(linkage.a.distance_to(linkage.bp), linkage.bp.distance_to(linkage.b))
     reach = parameters.bc_length_mm if config.reference_point == "C" else 0.0
     length = math.hypot(parameters.b_x_mm + reach, parameters.b_z_mm)
@@ -476,9 +475,10 @@ def _static_constraints(
     return {
         "valid_reference": 0.0,
         "mcp_servo_mm": -(servo_gap - clearance),
-        # The pivot off the servo (A, or A' with the servo on A) clears its body.
+        # The pivot off the servo (A, or A' with the servo on A) clears the
+        # virtual clearance at the servo's shaft.
         "pivot_pin_mm": (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
-                         -(footprint.distance_to_point(other_pin) - packaging.pin_radius_mm - clearance)),
+                         -(packaging.pivot_pin_gap_mm(linkage) - clearance)),
         "pin_spacing_mm": packaging.pin_spacing_mm - spacing,
         "extended_length_mm": max(length_low - length, length - length_high),
         # The PIP servo stays dorsal of the OA contact interface.
@@ -488,7 +488,7 @@ def _static_constraints(
         # The pads' mounting lines run from the pivots outward, with room for
         # the pads: a positive length, at least the minimum, at least a fixed one.
         "proximal_support_mm": max(-math.inf if packaging.pip_servo_on_a
-                                   else parameters.a_x_mm - parameters.ap.x_mm,
+                                   else parameters.a_x_mm - parameters.app_x_mm,
                                    proximal.length_mm - proximal.limit_mm,
                                    config.minimum_proximal_support_mm - proximal.length_mm,
                                    proximal.length_mm - proximal.room_mm),

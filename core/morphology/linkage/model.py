@@ -152,9 +152,10 @@ class FingerLinkage:
 
     @property
     def app(self) -> PointXZ:
-        """``A'' = (A'_x, 0)``, ``A'`` projected on the proximal mounting line."""
+        """``A'' = (A'_x + app_offset_mm, 0)``, the proximal pad's end on its
+        mounting line (``A'`` projected on it with no offset)."""
 
-        return PointXZ(self.parameters.ap.x_mm, 0.0)
+        return PointXZ(self.parameters.app_x_mm, 0.0)
 
     @property
     def bpp(self) -> PointXZ:

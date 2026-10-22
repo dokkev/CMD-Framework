@@ -86,13 +86,26 @@ class FingerStudyConfig:
     """Machining resolution: the bars ``|A'B|``, ``|AB'|`` and ``B'`` from ``B`` are
     rounded to it and the extended pose is re-assembled (see ``design``);
     ``None``: the design vector is used as it is."""
+    pip_servo_tilt_rad: float | None = None
+    """The PIP servo body's dorsal tilt as an input, not optimized: the design
+    variable ``servo_tilt_deg`` is held at it (its bounds may be left out).
+    ``None``: optimized within its bounds."""
     objectives: tuple[str, ...] | None = None
     """Objectives to optimize, by name (``objectives.OBJECTIVES``); ``None``: the
     default ones, ``transmission`` and ``curl``."""
 
     def __post_init__(self) -> None:
-        if set(self.bounds) != set(VARIABLE_NAMES):
+        given = dict(self.bounds)
+        for name, value in DEFAULT_VALUES.items():  # a variable added later, left out: fixed
+            given.setdefault(name, (value, value))
+        if self.pip_servo_tilt_rad is not None:  # an input: the variable is held at it
+            tilt = round(math.degrees(require_finite("pip_servo_tilt_rad", self.pip_servo_tilt_rad)), 9)
+            if "servo_tilt_deg" in given and tuple(given["servo_tilt_deg"]) != (tilt, tilt):
+                raise ValueError("give the PIP servo tilt as pip_servo_tilt_deg or as bounds, not both")
+            given["servo_tilt_deg"] = (tilt, tilt)
+        if set(given) != set(VARIABLE_NAMES):
             raise ValueError(f"bounds must cover exactly {VARIABLE_NAMES}")
+        object.__setattr__(self, "bounds", given)
         bounds = {}
         for name in VARIABLE_NAMES:
             lower, upper = (require_finite(name, value) for value in self.bounds[name])
@@ -179,9 +192,10 @@ class FingerStudyConfig:
             (b_lo, b_hi), (c_lo, c_hi) = bounds["b_x_mm"], bounds["bc_length_mm"]
             narrow("a_x_mm", high=b_hi)                                # A_x < B_x
             narrow("b_x_mm", low=a_lo)
-            if not packaging.pip_servo_on_a:  # the proximal pad runs to A''
-                narrow("ap_x_mm", low=max(a_lo, start + proximal_need))  # A'_x >= A_x, room
-                narrow("a_x_mm", high=bounds["ap_x_mm"][1])
+            if not packaging.pip_servo_on_a:  # the proximal pad runs to A'' = A'_x + offset
+                offset_lo, offset_hi = bounds["app_offset_mm"]
+                narrow("ap_x_mm", low=max(a_lo, start + proximal_need) - offset_hi)  # A''_x >= A_x, room
+                narrow("a_x_mm", high=bounds["ap_x_mm"][1] + offset_hi)
             distal_outer = b_hi + c_hi - packaging.distal_pad.offset_mm
             narrow("bp_x_mm", high=min(b_hi, distal_outer - distal_need))  # B'_x <= B_x, room
             narrow("b_x_mm", low=bounds["bp_x_mm"][0])
@@ -200,7 +214,7 @@ class FingerStudyConfig:
     def _extended_pad_bounds(self, bounds, narrow) -> None:
         """The extended pose's pad checks, linear when everything lies on the ``x`` axis.
 
-        The proximal pad ends at ``A'_x``, the distal pad starts at ``B'_x``, both
+        The proximal pad ends at ``A''_x = A'_x + offset``, the distal pad starts at ``B'_x``, both
         with their mounting edge on ``z = 0``, as are the ``A`` and ``B`` pins:
         the pads keep the body clearance from each other, the pins a pin
         envelope more, and (with ``pad_mcp_check``) the distal pad keeps clear
@@ -212,12 +226,15 @@ class FingerStudyConfig:
         pin = packaging.pin_radius_mm + clearance
         (a_lo, _), (b_lo, b_hi) = bounds["a_x_mm"], bounds["b_x_mm"]
         (ap_lo, ap_hi), (bp_lo, bp_hi) = bounds["ap_x_mm"], bounds["bp_x_mm"]
+        offset_lo, offset_hi = bounds["app_offset_mm"]
+        app_lo = ap_lo + offset_lo  # least A''_x
         mcp = (packaging.mcp_servo.radius_mm + packaging.mcp_pad_clearance_mm if packaging.pad_mcp_check
                else -math.inf)
-        narrow("bp_x_mm", low=max(ap_lo + clearance, a_lo + pin, mcp))  # pads, A pin, MCP
-        narrow("ap_x_mm", high=min(bp_hi - clearance, b_hi - pin))      # pads, B pin
+        narrow("bp_x_mm", low=max(app_lo + clearance, a_lo + pin, mcp))  # pads, A pin, MCP
+        # A''_x <= B'_x - clearance and B_x - pin, as far as the offset allows.
+        narrow("ap_x_mm", high=min(bp_hi - clearance, b_hi - pin) - offset_lo)
         narrow("a_x_mm", high=bp_hi - pin)
-        narrow("b_x_mm", low=ap_lo + pin)
+        narrow("b_x_mm", low=app_lo + pin)
 
     @property
     def lower(self) -> tuple[float, ...]:
@@ -332,9 +349,12 @@ def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
     ``xm335``, ``core.hardware.ACTUATORS``) or as tables, pads as tables."""
 
     packaging = dict(values)
-    if "allow_collision_pip_servo_to_joint_A" in packaging:  # as written in the config
-        packaging["allow_collision_pip_servo_to_joint_a"] = packaging.pop(
-            "allow_collision_pip_servo_to_joint_A")
+    if "pin_envelope_diameter_mm" in packaging:  # its earlier name (runs before 2026-10-21)
+        packaging["pivot_clearance_diameter_mm"] = packaging.pop("pin_envelope_diameter_mm")
+    for joint in ("A", "Bp"):  # as written in the config
+        if f"allow_collision_pip_servo_to_joint_{joint}" in packaging:
+            packaging[f"allow_collision_pip_servo_to_joint_{joint.lower()}"] = packaging.pop(
+                f"allow_collision_pip_servo_to_joint_{joint}")
     for servo in ("pip_servo", "mcp_servo"):
         if isinstance(packaging.get(servo), str):  # an actuator by name, e.g. xm335
             packaging[servo] = actuator(packaging[servo]).geometry
@@ -398,16 +418,8 @@ def config_from_json(values: dict) -> FingerStudyConfig:
                            + 2.0 * packaging.pop("housing_wall_mm"))
                 # Before the flange was modelled, the housing alone was the envelope.
                 flange = packaging.pop(f"{kind}_flange_diameter_mm", 0.0)
-                packaging["pin_envelope_diameter_mm"] = max(housing, flange)
-        for pad in ("proximal_pad", "distal_pad"):
-            if pad in packaging:
-                packaging[pad] = ContactPad(**packaging[pad])
-        values["packaging"] = Packaging(**{
-            **packaging,
-            "pip_servo": DShapedExtrusion(**packaging["pip_servo"]),
-            "mcp_servo": DShapedExtrusion(**packaging["mcp_servo"]),
-            "mcp_servo_rear": tuple(packaging["mcp_servo_rear"]),
-        })
+                packaging["pivot_clearance_diameter_mm"] = max(housing, flange)
+        values["packaging"] = packaging_from_mapping(packaging)
     known = {f.name for f in fields(FingerStudyConfig)}
     return FingerStudyConfig(**{name: value for name, value in values.items() if name in known})
 

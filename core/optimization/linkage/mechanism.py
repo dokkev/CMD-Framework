@@ -45,10 +45,13 @@ def _stop(row: Mapping[str, Any]) -> str:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "palmar-pad-v1"
+    formulation = "palmar-pad-v3"
     """Contact pads palmar of ``O-A''`` and ``B''-C`` that end the safe range
-    where they collide. Runs without it used ``OA + BC`` (``oa-bc``); other
-    values are earlier pad models (``support-structure-v1``, ``palmar-pad-v2``)."""
+    where they collide; the ``A`` pin envelope clears a virtual clearance disk
+    at ``A'`` and the ``B'`` pin may cross the PIP servo body
+    (``palmar-pad-v1`` checked both pins against the servo body). Runs
+    without it used ``OA + BC`` (``oa-bc``); other values are earlier pad
+    models (``support-structure-v1``, ``palmar-pad-v2``)."""
     legacy_formulation = "oa-bc"
     legacy_objectives = ("transmission", "support_length", "curl")
     variable_names = VARIABLE_NAMES

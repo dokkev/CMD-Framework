@@ -1,6 +1,6 @@
 # CoDe Hand — Linkage Optimization
 
-> **상태:** 설계 Master Document (2026-10-20, formulation `palmar-pad-v1`, 목적 `transmission`·`curl` 확정)  
+> **상태:** 설계 Master Document (2026-10-20, formulation `palmar-pad-v3`, 목적 `transmission`·`curl` 확정)  
 > **역할:** 주어진 pad requirement 아래 linkage 메커니즘의 Pareto front와 대표 seed 생성 (open chain·RCJ와 비교)  
 > **원칙:** 여기서 최종 hand design을 결정하지 않는다.
 
@@ -31,7 +31,7 @@ Linkage optimization은 **기구학적으로 유효하고 서로 다른 장점�
 **Contact pad (§2.1).** Contact interface(pad)는 kinematic pivot 사이가 아니라 `A''`, `B''`까지 연장된 장착선 아래에 붙는다.
 
 \[
-\boldsymbol\xi=[A_x,A_z,BC,B_x,B_z,A'_x,A'_z,B'_x,B'_z,\alpha_{\mathrm{servo}}]^{\mathsf T}.
+\boldsymbol\xi=[A_x,A_z,BC,B_x,B_z,A'_x,A'_z,B'_x,B'_z,\alpha_{\mathrm{servo}},\delta_{A''}]^{\mathsf T}.
 \]
 
 | 설계변수 | 현재 탐색 범위 | 비고 |
@@ -47,7 +47,7 @@ Linkage optimization은 **기구학적으로 유효하고 서로 다른 장점�
 | `B'_z` | −60–80 mm | 사실상 unbound |
 | Servo tilt | 0–45° | |
 
-`A''`, `B''`는 이 벡터에서 유도되며 별도 설계변수가 아니다.
+`B''`는 이 벡터에서 유도되며, `A''`는 `A'_x`에서 `δ_{A''}`(`app_offset_mm`)만큼 떨어진다.
 
 **탐색 범위 (`search_bounds`).** config의 bounds는 그대로 두고, 닫힌 식이 있는 제약으로 실제 탐색 범위만 좁힌다. feasible 설계는 잃지 않는다.
 
@@ -78,10 +78,10 @@ Extension에서 `O=(0,0)`, `C=(B_x+BC,B_z)`이면:
 기준 자세의 끝점:
 
 \[
-A''=(A'_x,\,0),\qquad B''=(B'_x,\,B_z).
+A''=(A'_x+\delta_{A''},\,0),\qquad B''=(B'_x,\,B_z).
 \]
 
-`A''`는 `A'`를 proximal mounting line(`x`축)에, `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
+`A''`는 `A'`를 proximal mounting line(`x`축)에 정사영한 점에서 `δ_{A''} ≥ 0`만큼 distal로 간 점이고(`δ = 0`이면 `A'` 바로 아래), `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
 
 **Pad 형상.** Pad는 기존 링크(proximal `O–A–A'`, distal `B'–B–C`)에 붙는 블록 `a–b–d–c`이며, 링크 밖으로 돌출할 수 있다. `a–b`는 장착선 위, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다. 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 세 값으로 정한다(`ContactPad`):
 
@@ -202,14 +202,14 @@ f_3=180^\circ-\phi_{\mathrm{safe,max}}.
 | 검사 | 현재 기준 |
 |---|---|
 | 두 servo 몸체 | clearance ≥ 1 mm, 기존 MCP −10°~0° sweep |
-| A 핀 외곽 (housing Ø8.0) – PIP servo | ≥ 1 mm (`packaging.allow_collision_pip_servo_to_joint_A: true`면 검사 안 함) |
-| B′ 핀 외곽 (housing Ø8.0) – PIP servo | ≥ 1 mm, 평가 motion 전 범위 (사용 범위를 끊는 조건) |
+| A 핀 외곽 (housing Ø8.0) – `A'`의 virtual clearance (Ø`ap_clearance_diameter_mm` = 7.0) | ≥ 1 mm, 즉 `|AA'| ≥ 4.0 + 3.5 + 1.0` (`allow_collision_pip_servo_to_joint_A: true`면 검사 안 함). Servo 몸체와 A 핀은 검사하지 않는다 |
+| B′ 핀 외곽 – PIP servo 몸체 | 검사 안 함: middle link가 다른 Y layer (`allow_collision_pip_servo_to_joint_Bp: false`면 ≥ 1 mm, 사용 범위를 끊는 조건) |
 | PIP servo 하단의 OA 기준면 침범 | 기존 `z >= 0` 유지 |
-| Pad topology | `A'_x >= A_x`, `B'_x <= B_x`, `L_P`, `L_D` ≥ `minimum_*_support_mm`(기본 0) |
+| Pad topology | `A''_x = A'_x + δ_{A''} >= A_x` (`app_offset_mm`, 기본 범위 0–20 mm), `B'_x <= B_x`, `L_P`, `L_D` ≥ `minimum_*_support_mm`(기본 0) |
 | Pad – 다른 body (§2.1 쌍) | ≥ 1 mm, 기준 자세(정적) + extension~사용 범위 끝(운동); 과신전은 검사 안 함 |
 | Pad – MCP servo (`allow_collision_with_mcp_servo: false`) | ≥ `mcp_servo_clearance_mm`(1 mm), MCP 0° ~ `mcp_flexion_max_deg`(90°), `mcp_step_deg`(1°) 간격 |
 
-- Pin bearing은 McMaster **57155K424** (flanged ball bearing 63: 3 mm shaft, OD 6 mm, 폭 2 mm, flange Ø7.2 × 0.6), 관절마다 양쪽 판에 하나씩. housing 벽은 **알루미늄 가공 1.0 mm**(압입): housing Ø8.0. 간섭 검사에는 이 결과값만 쓴다: 핀 외곽 `pin_envelope_diameter_mm = 8.0`(housing과 flange 중 큰 쪽), 여유 `body_clearance_mm = 1.0` (config의 `packaging`).
+- Pin bearing은 McMaster **57155K424** (flanged ball bearing 63: 3 mm shaft, OD 6 mm, 폭 2 mm, flange Ø7.2 × 0.6), 관절마다 양쪽 판에 하나씩. housing 벽은 **알루미늄 가공 1.0 mm**(압입): housing Ø8.0. 간섭 검사에는 이 결과값만 쓴다: 핀 외곽 지름 `pivot_clearance_diameter_mm = 8.0`(housing과 flange 중 큰 쪽), 여유 `body_clearance_mm = 1.0` (config의 `packaging`).
 - 실제 Y-layer가 분리된 부품은 XZ 투영 교차만으로 collision 판정하지 않는다 (§2.1 표).
 - `A'_x < B''_x` 같은 1D 순서 조건은 두지 않는다. 두 pad의 분리는 collision geometry가 정한다.
 - 최소 지지 길이는 장착 요구가 알려졌을 때만 설정한다. Contact module 치수는 주어진 pad requirement다.
@@ -267,7 +267,7 @@ best candidate가 겹치면 한 후보가 여러 역할을 갖는다. 가능하�
 - Transmission-angle / packaging 최소 여유
 - Feasibility 및 제약 판정 결과
 
-**Formulation 식별.** `run.json`에 `mechanism: linkage`와 `formulation: palmar-pad-v1`을 기록한다(`mechanism`이 없는 run은 linkage). Formulation 기록이 없는 run은 `OA + BC` formulation(`oa-bc`)이고, `support-structure-v1`은 등쪽 deck과 web을 쓰던 이전 모델, `palmar-pad-v2`는 링크가 가리지 않는 pad 길이를 F2로 썼던 실험이다(run_034, 035). `run.json`에는 최적화한 목적 목록(`objectives`)도 기록되며, `select_seeds.py`와 `plot_pareto.py`는 formulation이나 목적 목록이 다른 run을 섞지 않는다. 이전 run의 설계 벡터는 `run.py --warm-start`로 재사용할 수 있으며, 새 geometry와 제약으로 전부 다시 평가된다.
+**Formulation 식별.** `run.json`에 `mechanism: linkage`와 `formulation: palmar-pad-v3`을 기록한다(`mechanism`이 없는 run은 linkage). Formulation 기록이 없는 run은 `OA + BC` formulation(`oa-bc`)이고, `support-structure-v1`은 등쪽 deck과 web을 쓰던 이전 모델, `palmar-pad-v2`는 링크가 가리지 않는 pad 길이를 F2로 썼던 실험이다(run_034, 035). `palmar-pad-v1`(run_036–094)은 A 핀과 B′ 핀을 PIP servo 몸체와 검사하던 이전 규칙이다. `run.json`에는 최적화한 목적 목록(`objectives`)도 기록되며, `select_seeds.py`와 `plot_pareto.py`는 formulation이나 목적 목록이 다른 run을 섞지 않는다. 이전 run의 설계 벡터는 `run.py --warm-start`로 재사용할 수 있으며, 새 geometry와 제약으로 전부 다시 평가된다.
 
 ### Optimizer 운영 원칙
 

@@ -26,7 +26,7 @@ from core.optimization.linkage import VARIABLE_NAMES, FingerStudyConfig, decode,
 
 BOUNDS = {name: (0.0, 200.0) for name in VARIABLE_NAMES}
 # The earlier 6.5 mm pin envelope and the default 10 mm pads.
-HOUSING_ONLY = Packaging(pin_envelope_diameter_mm=6.5)
+HOUSING_ONLY = Packaging(pivot_clearance_diameter_mm=6.5)
 CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, extended_length_bounds_mm=(90.0, 110.0))
 GOOD = (36.0, 79.3, 10.0, 41.6, 12.6, 63.3, 17.4, 41.9, 30.0, 0.0)
 # With 10 mm pads its distal pad meets the MCP servo a little before the curl,
@@ -283,7 +283,7 @@ def test_the_pad_objective_is_the_pad_length_and_the_free_length_is_reported() -
     assert 0.0 <= base.proximal_usable_length_mm <= base.proximal_support_length_mm
     assert 0.0 <= base.distal_usable_length_mm <= base.distal_support_length_mm
     assert base.usable_support_length_mm < base.support_length_mm
-    assert encode(FingerLinkage(decode(GOOD))) == GOOD
+    assert encode(FingerLinkage(decode(GOOD))) == (*GOOD, 0.0)
 
 
 def test_a_link_across_a_pad_ends_its_free_length() -> None:

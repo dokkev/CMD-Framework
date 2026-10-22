@@ -19,7 +19,7 @@ BOUNDS = {name: (0.0, 200.0) for name in VARIABLE_NAMES}
 # The designs below predate the bearing and the pads: test the evaluation with
 # the earlier 6.5 mm pin envelope and thin (1 mm) pads, which leave their
 # motion to the linkage (tests/test_support_structure.py covers the pads).
-HOUSING_ONLY = Packaging(pin_envelope_diameter_mm=6.5,
+HOUSING_ONLY = Packaging(pivot_clearance_diameter_mm=6.5,
                          proximal_pad=ContactPad(height_mm=1.0, chamfer_mm=0.0),
                          distal_pad=ContactPad(height_mm=1.0, chamfer_mm=0.0))
 CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY)
@@ -30,7 +30,9 @@ GOOD_CONFIG = FingerStudyConfig(bounds=BOUNDS, packaging=HOUSING_ONLY, extended_
 
 
 def test_design_vector_round_trips() -> None:
-    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0)))) == (*CROSSED, 24.0, 0.0)
+    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0, 3.5)))) == (*CROSSED, 24.0, 0.0, 3.5)
+    # A vector from before A''_x - A'_x reads with A'' right below A'.
+    assert encode(FingerLinkage(decode((*CROSSED, 24.0, 0.0)))) == (*CROSSED, 24.0, 0.0, 0.0)
 
 
 def test_safe_range_ends_at_the_curl_pose_when_it_comes_first() -> None:
@@ -241,11 +243,36 @@ def test_a_may_sit_off_the_proximal_axis() -> None:
         math.dist((36.0, 3.0), (63.3, 17.4)))
 
 
-def test_older_design_rows_read_with_a_on_the_axis() -> None:
+def test_older_design_rows_read_with_a_on_the_axis_and_a_double_prime_below_a_prime() -> None:
     from core.optimization.linkage import read_design
 
-    row = {name: "1.0" for name in VARIABLE_NAMES if name != "a_z_mm"}
-    assert read_design(row)[-1] == 0.0
+    row = {name: "1.0" for name in VARIABLE_NAMES if name not in ("a_z_mm", "app_offset_mm")}
+    assert read_design(row)[-2:] == [0.0, 0.0]
+
+
+def test_the_proximal_pad_may_run_past_a_prime() -> None:
+    from core.morphology.linkage.packaging import pad_spans
+
+    base = decode(GOOD)
+    longer = decode((*GOOD, 5.0))
+    assert FingerLinkage(longer).app.x_mm == pytest.approx(base.ap.x_mm + 5.0)
+    assert pad_spans(longer, HOUSING_ONLY)["proximal_pad"].length_mm == pytest.approx(
+        pad_spans(base, HOUSING_ONLY)["proximal_pad"].length_mm + 5.0)
+    e = evaluate(longer, GOOD_CONFIG)
+    assert e.proximal_support_length_mm == pytest.approx(evaluate(base, GOOD_CONFIG).proximal_support_length_mm + 5.0)
+    # After the fact, the pad runs as far past A' as keeps the design as it is.
+    from core.optimization.linkage.extend import longest_proximal_pad
+
+    result = longest_proximal_pad(encode(FingerLinkage(base)), GOOD_CONFIG, extra_clearance_mm=0.5)
+    assert result.added_mm > 0.0 and result.evaluation.feasible
+    assert result.evaluation.phi_safe_rad == evaluate(base, GOOD_CONFIG).phi_safe_rad
+    assert result.evaluation.pad_clearance_mm >= 0.5
+    one_more = decode((*result.x[:-1], result.x[-1] + 0.1))
+    beyond = evaluate(one_more, GOOD_CONFIG)
+    assert not beyond.feasible or beyond.pad_clearance_mm < 0.5 or beyond.phi_safe_rad != result.evaluation.phi_safe_rad
+    # Left out of a config's bounds, the offset is fixed at 0.
+    bounds = {name: pair for name, pair in BOUNDS.items() if name != "app_offset_mm"}
+    assert FingerStudyConfig(bounds=bounds).bounds["app_offset_mm"] == (0.0, 0.0)
 
 
 def test_pins_clear_the_servo_by_their_envelope() -> None:
@@ -257,9 +284,13 @@ def test_pins_clear_the_servo_by_their_envelope() -> None:
     assert evaluate(decode(GOOD), bearing).constraints["pivot_pin_mm"] == pytest.approx(earlier + 0.75)
 
 
-def test_b_prime_pin_ends_the_safe_range_at_the_servo() -> None:
+def test_b_prime_pin_ends_the_safe_range_at_the_servo_only_when_checked() -> None:
     # B' = (62, 15) starts inside the PIP servo on A' = (52, 15).
-    evaluation = evaluate(decode((*CROSSED, 24.0, 0.0)), CONFIG)
+    design = decode((*CROSSED, 24.0, 0.0))
+    assert evaluate(design, CONFIG).stop_reason != "dip_pin"  # another Y layer: allowed
+    checked = dataclasses.replace(CONFIG, packaging=dataclasses.replace(
+        HOUSING_ONLY, allow_collision_pip_servo_to_joint_bp=False))
+    evaluation = evaluate(design, checked)
 
     assert evaluation.stop_reason == "dip_pin"
     assert evaluation.phi_safe_rad == pytest.approx(0.0)
@@ -274,7 +305,7 @@ def test_config_files_give_angles_in_degrees() -> None:
         "motion": {"minimum_flexion_deg": 150.0},
         "servo_travel_max_deg": None,
         "extended_length_bounds_mm": [80.0, 100.0],
-        "packaging": {"pin_envelope_diameter_mm": 8.0, "pip_servo": {
+        "packaging": {"pivot_clearance_diameter_mm": 8.0, "pip_servo": {
             "radius_mm": 10.0, "rear_extent_mm": 20.0, "depth_mm": 22.0}},
     })
 
@@ -283,6 +314,9 @@ def test_config_files_give_angles_in_degrees() -> None:
     assert config.extended_length_bounds_mm == (80.0, 100.0)
     assert config.packaging.pin_radius_mm == 4.0
     assert config.packaging.pip_servo.radius_mm == 10.0
+    # Runs recorded the pivot clearance by its earlier name.
+    earlier = config_from_mapping({"bounds": BOUNDS, "packaging": {"pin_envelope_diameter_mm": 9.0}})
+    assert earlier.packaging.pivot_clearance_diameter_mm == 9.0
     with pytest.raises(ValueError, match="unknown config entry"):
         config_from_mapping({"bounds": BOUNDS, "minimum_flexion_mm": 1.0})
 
@@ -297,9 +331,9 @@ def test_the_linkage_script_config_loads() -> None:
 
     assert config.minimum_flexion_rad == pytest.approx(math.radians(150.0))
     assert config.dip_backoff_tolerance_rad == pytest.approx(math.radians(0.05))
-    assert config.bounds["servo_tilt_deg"][0] == 0.0
+    assert config.bounds["servo_tilt_deg"] == (20.0, 20.0)  # an input, not optimized
     assert config.bounds["a_z_mm"] == (0.0, 0.0)
-    assert config.packaging.proximal_pad == ContactPad(height_mm=5.0, offset_mm=0.0, chamfer_mm=2.5)
+    assert config.packaging.proximal_pad == ContactPad(height_mm=10.0, offset_mm=0.0, chamfer_mm=2.5)
     assert config.link_length_resolution_mm is None
     assert config.packaging.pin_radius_mm == 4.0
 
@@ -425,8 +459,10 @@ def test_the_pip_servo_to_joint_a_check_can_be_turned_off() -> None:
     from core.optimization.linkage.config import config_from_mapping
 
     allowed = config_from_mapping({"bounds": {name: [0.0, 200.0] for name in VARIABLE_NAMES},
-                                   "packaging": {"allow_collision_pip_servo_to_joint_A": True}})
+                                   "packaging": {"allow_collision_pip_servo_to_joint_A": True,
+                                                 "allow_collision_pip_servo_to_joint_Bp": False}})
     assert allowed.packaging.allow_collision_pip_servo_to_joint_a is True
+    assert allowed.packaging.allow_collision_pip_servo_to_joint_bp is False
     # GOOD's A pin envelope sits near the PIP servo: checked by default, not when allowed.
     checked = evaluate(decode(GOOD), GOOD_CONFIG).constraints["pivot_pin_mm"]
     free = evaluate(decode(GOOD), dataclasses.replace(GOOD_CONFIG, packaging=dataclasses.replace(
@@ -459,3 +495,19 @@ def test_the_minimum_flexion_may_be_named_the_minimum_desired_flexion_angle() ->
     with pytest.raises(ValueError, match="given twice"):
         config_from_mapping({"bounds": bounds, "minimum_desired_flexion_angle_deg": 150.0,
                              "minimum_flexion_deg": 150.0})
+
+
+def test_the_pip_servo_tilt_can_be_an_input() -> None:
+    from core.optimization.linkage.config import config_from_mapping
+
+    bounds = {name: [0.0, 200.0] for name in VARIABLE_NAMES if name != "servo_tilt_deg"}
+    config = config_from_mapping({"bounds": bounds, "inputs": {"pip_servo_tilt_deg": 35.0}})
+    assert config.search_bounds["servo_tilt_deg"] == (35.0, 35.0)
+    with pytest.raises(ValueError, match="not both"):
+        config_from_mapping({"bounds": {**bounds, "servo_tilt_deg": [0.0, 30.0]},
+                             "inputs": {"pip_servo_tilt_deg": 35.0}})
+    # The script config holds it at 35 deg.
+    from pathlib import Path
+    from core.optimization.linkage.config import load_yaml
+    script = load_yaml(Path(__file__).resolve().parents[1] / "scripts/optimize/linkage/config.yaml")
+    assert script.search_bounds["servo_tilt_deg"] == (20.0, 20.0)

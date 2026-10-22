@@ -60,7 +60,7 @@ from core.morphology.linkage.packaging import (  # noqa: E402
     pad_margins,
     turn_points,
 )
-from core.optimization.linkage import decode, read_design  # noqa: E402
+from core.optimization.linkage import VARIABLE_NAMES, decode, read_design  # noqa: E402
 from core.optimization.study import load_config  # noqa: E402
 
 Outline = list[tuple[float, float]]
@@ -73,7 +73,8 @@ GROUP_COLORS = {"palm": "#7c3aed", "proximal": "#e11d48", "distal": "#2563eb"}
 OUTLINE_WIDTH = 1.6
 
 
-def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float, Packaging]:
+def load_candidate(csv_path: Path, candidate: int,
+                   app_offset_mm: float | None = None) -> tuple[FingerLinkage, float, Packaging]:
     """Return a linkage optimization candidate's linkage, the PIP flexion at the end of its
     usable range and the run's packaging."""
 
@@ -81,6 +82,8 @@ def load_candidate(csv_path: Path, candidate: int) -> tuple[FingerLinkage, float
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
                 x = read_design(row)
+                if app_offset_mm is not None:  # the proximal pad run past A' (extend_pads.py)
+                    x[VARIABLE_NAMES.index("app_offset_mm")] = app_offset_mm
                 config = load_config(csv_path.parent)
                 linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
                 return linkage, float(row["usable_pip_deg"]), config.packaging
@@ -316,6 +319,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--pareto", type=Path, help="finger study pareto.csv")
     parser.add_argument("--candidate", type=int, help="candidate number in --pareto")
+    parser.add_argument("--app-offset-mm", type=float,
+                        help="A''_x - A'_x to draw the candidate with (default: its own)")
     parser.add_argument("--mcp-deg", type=float, default=60.0)
     parser.add_argument("--pip-deg", type=float,
                         help="PIP flexion (default: 75, or the end of the candidate's usable range)")
@@ -336,7 +341,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         linkage, pip_deg, packaging = SKETCH_LINKAGE, 75.0, Packaging()
         output = args.output or Path("output/finger_2dof.gif")
     else:
-        linkage, pip_deg, packaging = load_candidate(args.pareto, args.candidate)
+        linkage, pip_deg, packaging = load_candidate(args.pareto, args.candidate, args.app_offset_mm)
         output = args.output or args.pareto.parent / f"candidate_{args.candidate}.gif"
     pip_deg = args.pip_deg if args.pip_deg is not None else pip_deg
 
