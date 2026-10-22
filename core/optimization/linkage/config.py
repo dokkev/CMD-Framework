@@ -262,7 +262,7 @@ _ALIASES = {"minimum_desired_flexion_angle_deg": "minimum_flexion_deg"}
 """Config file names of fields named otherwise in the code."""
 
 
-def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
+def config_from_mapping(values: Mapping[str, object], cls: type = None) -> FingerStudyConfig:
     """Build a config from plain values, as written in a config file.
 
     Angles may be given in degrees: ``name_deg`` sets the field ``name_rad``.
@@ -287,7 +287,8 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
         values["bounds"] = values.pop("optimization_parameter_bounds")
     values = merge_pad_group(values)
 
-    known = {f.name for f in fields(FingerStudyConfig)}
+    cls = cls or FingerStudyConfig  # or a subclass (formulation v2)
+    known = {f.name for f in fields(cls)}
     flat: list[tuple[str, object]] = []
     for key, value in values.items():
         if isinstance(value, Mapping) and key not in known:
@@ -313,7 +314,7 @@ def config_from_mapping(values: Mapping[str, object]) -> FingerStudyConfig:
         kwargs["extended_length_bounds_mm"] = tuple(kwargs["extended_length_bounds_mm"])
     if "packaging" in kwargs:
         kwargs["packaging"] = packaging_from_mapping(kwargs["packaging"])
-    return FingerStudyConfig(**kwargs)
+    return cls(**kwargs)
 
 
 def merge_pad_group(values: Mapping[str, object]) -> dict:
@@ -388,7 +389,7 @@ def config_to_json(config: FingerStudyConfig) -> dict:
     return values
 
 
-def config_from_json(values: dict) -> FingerStudyConfig:
+def config_from_json(values: dict, cls: type = None) -> FingerStudyConfig:
     """Rebuild a config recorded by :func:`config_to_json`, migrating earlier runs."""
 
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
@@ -420,8 +421,9 @@ def config_from_json(values: dict) -> FingerStudyConfig:
                 flange = packaging.pop(f"{kind}_flange_diameter_mm", 0.0)
                 packaging["pivot_clearance_diameter_mm"] = max(housing, flange)
         values["packaging"] = packaging_from_mapping(packaging)
-    known = {f.name for f in fields(FingerStudyConfig)}
-    return FingerStudyConfig(**{name: value for name, value in values.items() if name in known})
+    cls = cls or FingerStudyConfig
+    known = {f.name for f in fields(cls)}
+    return cls(**{name: value for name, value in values.items() if name in known})
 
 
 __all__ = [

@@ -77,6 +77,8 @@ class StudyResult:
     settings: OptimizerSettings
     pareto: tuple[Candidate, ...]
     evaluation_count: int
+    feasible_evaluation_count: int | None = None
+    """Evaluations that met every constraint (on the optimizer's grid)."""
 
 
 _WORKER_PROBLEM: MechanismProblem | None = None
@@ -94,16 +96,24 @@ def _evaluate_in_worker(x) -> dict:
     return out
 
 
-class _PoolRunner:
-    """pymoo's elementwise runner over a process pool: each worker holds its own
-    problem, so only design vectors and results cross processes."""
+class _CountingRunner:
+    """pymoo's elementwise runner, in this process or over a process pool (each
+    worker holds its own problem, so only design vectors and results cross
+    processes), counting the evaluations that meet every constraint."""
 
-    def __init__(self, pool, workers: int) -> None:
+    def __init__(self, pool=None, workers: int = 1) -> None:
         self.pool, self.workers = pool, workers
+        self.evaluated = self.feasible = 0
 
     def __call__(self, f, X):
-        return self.pool.map(_evaluate_in_worker, list(X),
-                             chunksize=max(1, len(X) // (4 * self.workers)))
+        if self.pool is None:
+            outputs = [f(x) for x in X]
+        else:
+            outputs = self.pool.map(_evaluate_in_worker, list(X),
+                                    chunksize=max(1, len(X) // (4 * self.workers)))
+        self.evaluated += len(outputs)
+        self.feasible += sum(bool(np.all(np.asarray(out["G"]) <= 0.0)) for out in outputs)
+        return outputs
 
 
 def run_study(
@@ -120,10 +130,11 @@ def run_study(
     """
 
     if workers <= 1:
-        return _run_study(MechanismProblem(mechanism, config), settings, initial_designs)
+        problem = MechanismProblem(mechanism, config, elementwise_runner=_CountingRunner())
+        return _run_study(problem, settings, initial_designs)
     context = multiprocessing.get_context("fork")
     with context.Pool(workers, _start_worker, (MechanismProblem(mechanism, config),)) as pool:
-        problem = MechanismProblem(mechanism, config, elementwise_runner=_PoolRunner(pool, workers))
+        problem = MechanismProblem(mechanism, config, elementwise_runner=_CountingRunner(pool, workers))
         return _run_study(problem, settings, initial_designs)
 
 
@@ -144,7 +155,8 @@ def _run_study(problem: MechanismProblem, settings: OptimizerSettings,
         if evaluation is not None and evaluation.feasible:
             pareto.append(Candidate(x, evaluation))
     pareto.sort(key=lambda c: mechanism.objective_values(c.evaluation, problem.objective_names)[0])
-    return StudyResult(mechanism, config, settings, tuple(pareto), result.evaluation_count)
+    return StudyResult(mechanism, config, settings, tuple(pareto), result.evaluation_count,
+                       problem.elementwise_runner.feasible)
 
 
 def save_result(result: StudyResult, directory: str | Path, *, source_git_commit: str | None = None) -> Path:
@@ -162,6 +174,7 @@ def save_result(result: StudyResult, directory: str | Path, *, source_git_commit
         "pymoo_version": pymoo.__version__,
         "source_git_commit": source_git_commit,
         "evaluation_count": result.evaluation_count,
+        "feasible_evaluation_count": result.feasible_evaluation_count,
         "pareto_count": len(result.pareto),
     }
     (output / "run.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")

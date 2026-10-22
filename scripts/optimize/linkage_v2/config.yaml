@@ -1,0 +1,81 @@
+# Linkage formulation v2 (core/optimization/linkage_v2; docs/linkage_v2_sweeps.md).
+# Self-contained on purpose: it does not extend linkage/config.yaml, so every
+# value that shapes the formulation is pinned here.
+#
+#   python scripts/optimize/run.py --mechanism linkage_v2 \
+#       --set requirements.required_rom_deg=165 --set requirements.minimum_proximal_support_mm=40
+
+# Search limits only, not requirements: wide enough that the front does not
+# sit on them.
+optimization_parameter_bounds:
+  a_x_mm: [5.0, 140.0]
+  a_z_mm: [0.0, 0.0]          # A on the proximal axis
+  b_x_mm: [20.0, 140.0]
+  b_z_mm: [0.0, 0.0]          # BC on the axis when extended
+  ap_x_mm: [5.0, 140.0]
+  ap_z_mm: [0.0, 25.0]
+  bp_x_mm: [-50.0, 200.0]
+  bp_z_mm: [-60.0, 80.0]
+  bc_length_mm: [15.0, 60.0]
+  app_offset_mm: [0.0, 20.0]  # A''_x - A'_x: the proximal pad may run past A'
+
+inputs:
+  pip_servo_tilt_deg: 20.0    # not optimized
+
+requirements:
+  # L_p, L_d: least pad mounting-line a-b lengths (A'' included).
+  minimum_proximal_support_mm: 30.0
+  minimum_distal_support_mm: 40.0
+  # phi_req: distal rotation relative to OA reached safely (0 to phi_req + margin).
+  required_rom_deg: 150.0
+  rom_margin_deg: 0.0
+  # The fingertip stays ahead of O on [0, phi_req], the MCP at 0.
+  enforce_curl_tip: true
+  curl_tip_min_x_mm: 0.0
+  reference_point: C
+  # |OC| is an objective; these are search limits.
+  extended_length_bounds_mm: [40.0, 150.0]
+
+motion:
+  hyperextension_deg: 10.0          # linkage validity from here on
+  dip_backoff_tolerance_deg: 0.05
+  servo_step_deg: 1.0               # verified at 0.05 deg
+  servo_horizon_deg: 180.0
+  mcp_flexion_max_deg: 90.0         # pads checked against the MCP servo up to here
+  mcp_step_deg: 1.0
+  minimum_transmission_margin_deg: 30.0
+  torque_ratio_max: null
+  servo_travel_max_deg: null
+  require_middle_link_servo_clearance: false
+  enforce_fingertip_mcp: false
+
+packaging:
+  pip_servo: xm335
+  mcp_servo: xm335
+  mcp_servo_rear: [0.0, 1.0]
+  pivot_clearance_diameter_mm: 8.0
+  body_clearance_mm: 1.0
+  allow_collision_pip_servo_to_joint_A: false
+  ap_clearance_diameter_mm: 7.0
+  allow_collision_pip_servo_to_joint_Bp: true
+  pip_servo_at: ap
+
+pad:
+  allow_collision_with_mcp_servo: false
+  mcp_servo_clearance_mm: 1.0
+  allow_longer_pad_than_link: true
+  # Height includes the mounting interface; 45 deg chamfer facing the PIP.
+  proximal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  distal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+
+production:
+  resolution_mm: 0.1
+  link_length_resolution_mm: 0.1
+
+optimizer:
+  algorithm: nsga2
+  objectives: [transmission, finger_length]
+  hypervolume_reference: {transmission: 2.3, finger_length: 150.0}
+  population_size: 200
+  generations: 200
+  seed: 0

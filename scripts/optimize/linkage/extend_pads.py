@@ -23,7 +23,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 import csv  # noqa: E402
 
-from core.optimization.linkage import MECHANISM  # noqa: E402
+from core.optimization.linkage.mechanism import LinkageMechanism  # noqa: E402
 from core.optimization.linkage.extend import longest_proximal_pad  # noqa: E402
 from core.optimization.study import load_run, write_rows  # noqa: E402
 
@@ -49,16 +49,17 @@ def main(argv: list[str] | None = None) -> int:
     for row in rows:
         if row["run"] not in configs:
             run = load_run(root / row["run"])
-            if run.mechanism is not MECHANISM:
+            if not isinstance(run.mechanism, LinkageMechanism):
                 parser.error(f"{row['run']} is not a linkage run")
-            configs[row["run"]] = MECHANISM.refine(run.config, math.radians(args.step_deg))
-        config = configs[row["run"]]
-        before = MECHANISM.evaluate(MECHANISM.read_design(row), config)
-        result = longest_proximal_pad(MECHANISM.read_design(row), config,
+            configs[row["run"]] = (run.mechanism, run.mechanism.refine(run.config, math.radians(args.step_deg)))
+        found, config = configs[row["run"]]
+        before = found.evaluate(found.read_design(row), config)
+        result = longest_proximal_pad(found.read_design(row), config, mechanism=found,
                                       extra_clearance_mm=args.extra_clearance_mm)
         e = result.evaluation
-        extended_rows.append({**row, **dict(zip(MECHANISM.variable_names, result.x)),
-                              **MECHANISM.report(e), "added_offset_mm": result.added_mm})
+        extended_rows.append({**row, **dict(zip(found.variable_names, result.x)),
+                              **found.report(e), "added_offset_mm": result.added_mm,
+                              "proximal_length_before_mm": before.proximal_support_length_mm})
         print(f"{row['seed_role']:28s} {row['run']:22s} {row['candidate']:>4s}  {result.added_mm:5.1f}  "
               f"{before.proximal_support_length_mm:6.1f} -> {e.proximal_support_length_mm:5.1f}  "
               f"{before.pad_clearance_mm:5.2f} -> {e.pad_clearance_mm:5.2f}  "

@@ -206,6 +206,7 @@ class Mechanism(ABC):
 
 MECHANISMS = {
     "linkage": "core.optimization.linkage.mechanism",
+    "linkage_v2": "core.optimization.linkage_v2.mechanism",
     "open_chain_idealized": "core.optimization.open_chain.mechanism:IDEALIZED",
     "open_chain_packaged": "core.optimization.open_chain.mechanism:PACKAGED",
     "rolling_contact_joint": "core.optimization.rolling_contact_joint.mechanism",
