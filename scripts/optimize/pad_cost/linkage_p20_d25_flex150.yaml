@@ -1,0 +1,25 @@
+# Pad cost: linkage, pads 20 + 25 mm, 150 deg required (make_configs.py).
+mechanism: linkage
+base: ../linkage/config.yaml
+goal:
+  motion:
+    dip_flexion_deg: 150
+  pads:
+    proximal:
+      length_mm: [20, 20]
+    distal:
+      length_mm: [25, 25]
+  link:
+    finger_length_mm: [60, 200]
+solver:
+  objectives:
+    - finger_length
+  pareto_front:
+    finger_length: 200
+  optimizer:
+    generations: 400
+    seeds:
+      - 0
+      - 1
+    warm_start:
+      - output/linkage/linkage_p20_d25_flex180/portfolio_001/seeds.csv

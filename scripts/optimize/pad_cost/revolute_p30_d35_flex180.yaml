@@ -1,0 +1,25 @@
+# Pad cost: revolute, pads 30 + 35 mm, 180 deg required (make_configs.py).
+mechanism: revolute
+base: ../linkage/config.yaml
+goal:
+  motion:
+    dip_flexion_deg: 180
+  pads:
+    proximal:
+      length_mm: [30, 30]
+    distal:
+      length_mm: [35, 35]
+  link:
+    finger_length_mm: [60, 200]
+solver:
+  objectives:
+    - finger_length
+  pareto_front:
+    finger_length: 200
+  optimizer:
+    generations: 400
+    seeds:
+      - 0
+      - 1
+    warm_start:
+      - output/revolute/revolute_p40_d45_flex90/portfolio_001/seeds.csv
