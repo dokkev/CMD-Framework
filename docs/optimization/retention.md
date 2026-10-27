@@ -31,8 +31,8 @@
 공통 조건(`scripts/optimize/contact_retention.yaml`)을 메커니즘별 `config.yaml`이 `base:`로 상속하고, 각 파일에는 탐색 범위만 있다.
 
 ```text
-python scripts/optimize/run.py --mechanism open_chain_packaged --set motion.required_rom_deg=150
-python scripts/optimize/run.py --mechanism rolling_contact_joint --set motion.required_rom_deg=150 --portfolio
+python scripts/optimize/run.py scripts/optimize/open_chain_packaged/config.yaml
+python scripts/optimize/run.py scripts/optimize/rolling_contact_joint/config.yaml
 python scripts/optimize/select_seeds.py output/rolling_contact_joint/run_001
 ```
 

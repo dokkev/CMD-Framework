@@ -1,5 +1,7 @@
 # CoDe Linkage — Formulation v2 and Exploratory Sweeps
 
+> **2026-10-26:** formulation v2 (`linkage-v2-rev2`) and its sweep script were removed; the last code is `03cfbc5`. The current study is `scripts/optimize/linkage/config.yaml` (formulation `linkage-v3`). The v2 runs are kept in `output/legacy/linkage_v2` but no longer load with the current code.
+
 *2026-10-23 · Dongho · branch `feature/2dof-fe`. Baseline v1 `303852e` (local tag `formulation-v1.x-baseline`, not pushed); formulation v2 `4e27140` and `0594912` (formulation id `linkage-v2-rev2`); sweep script and this report in the Phase 3 commit.*
 
 The framework's question is: *given the contact-interface requirements, what finger morphology fits them?* Formulation v2 treats the interface as an input. The pads' mounting lengths L<sub>p</sub> and L<sub>d</sub> are the longest modules to accommodate. The required ROM φ<sub>req</sub> is a constraint. The optimizer minimizes transmission (k<sub>max</sub>) and finger length (|OC|). The sweeps below measure how the best achievable finger changes with φ<sub>req</sub>, L<sub>p</sub> and L<sub>d</sub>, so those requirements can be chosen from data.
@@ -163,7 +165,7 @@ Every value in §6 comes from the final stage. No first-pass value is quoted as 
 
 ## 9. Open questions
 
-1. **Minimum BC.** BC rests on its 15 mm search limit across all fronts and would collapse toward 0 without it. Every length in §6 is conditional on BC ≥ 15 mm. A physical requirement is needed: fingertip length beyond the B pin, B-pin housing plus a tip, or a distal-segment ratio. The sweeps should be repeated once it is set.
+1. **Minimum BC.** *Decided 2026-10-23: BC ≥ 25 mm (`scripts/optimize/linkage_v2/config.yaml`). The results above were run with BC ≥ 15 mm and are superseded once the sweep is rerun.* BC rests on its 15 mm search limit across all fronts and would collapse toward 0 without it. Every length in §6 is conditional on BC ≥ 15 mm. A physical requirement is needed: fingertip length beyond the B pin, B-pin housing plus a tip, or a distal-segment ratio. The sweeps should be repeated once it is set.
 2. **φ<sub>req</sub>.**
    - Finger length is nearly independent of φ<sub>req</sub> up to 165°. Transmission is not: the least k<sub>max</sub> rises by 0.05, 0.06, 0.08 and 0.13 per 15° step from 120° to 180°.
    - Under a k<sub>max</sub> ≤ 1.6 cap, the shortest finger grows slowly to 165° (93.4 → 95.9 mm), then jumps to 103.4 mm at 180°.

@@ -17,8 +17,8 @@ The verified, mutually non-dominated candidates are written with a
 A candidate that holds several roles lists them all, joined by ``;``. The runs
 must be of one mechanism, share their study settings (the mechanism's config;
 the optimizer and its settings may differ) and use its current formulation;
-earlier runs can only warm-start a new one. ``run.py --portfolio`` runs and
-merges complementary runs in one go (``core/optimization/seeds.py``).
+earlier runs can only warm-start a new one. ``run.py`` runs a config's seeds
+and merges them in one go (``core/optimization/seeds.py``).
 """
 
 from __future__ import annotations

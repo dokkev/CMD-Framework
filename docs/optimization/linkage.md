@@ -1,5 +1,9 @@
 # CoDe Hand — Linkage Optimization
 
+> **2026-10-26:** 실행은 이제 `python scripts/optimize/run.py [config.yaml]` 하나뿐이다(명령행 옵션 없음, config 파일이 유일한 입력). 아래의 `--mechanism`, `--portfolio`, `--warm-start` 등은 예전 방식이다.
+>
+> **2026-10-26:** 이 문서의 formulation v1(`palmar-pad-v3`) 코드는 삭제되었다(마지막 코드: `03cfbc5`, 로컬 태그 `formulation-v1.x-baseline`). 현재 linkage 연구는 `scripts/optimize/linkage/config.yaml`의 `goal` / `solver` 구조(formulation `linkage-v3`, `core/optimization/linkage`)를 따른다. 저장된 v1 run은 `output/legacy/linkage_v1`에 있으나 현재 코드로는 다시 읽을 수 없다.
+
 > **상태:** 설계 Master Document (2026-10-20, formulation `palmar-pad-v3`, 목적 `transmission`·`curl` 확정)  
 > **역할:** 주어진 pad requirement 아래 linkage 메커니즘의 Pareto front와 대표 seed 생성 (open chain·RCJ와 비교)  
 > **원칙:** 여기서 최종 hand design을 결정하지 않는다.
@@ -156,7 +160,8 @@ L_P = A'_x - (\text{proximal pad 시작 } x),\qquad L_D = B_x + BC - (\text{dist
 
 §2.1 pad의 **장착 길이**(`a–b`)는 설계변수에서 따라 나오는 값이고, 요구조건으로 다룬다:
 
-- 최소 길이 `minimum_proximal_support_mm`, `minimum_distal_support_mm` (현재 30, 40 mm; 실제 pad/모듈 크기가 정해지면 바꾼다), 또는 pad별 고정 `length_mm`.
+- config의 `pad.proximal.length_mm`, `pad.distal.length_mm`(장착 길이 a–b, A″/B″ 포함): `null`이면 자유 길이, 숫자면 고정 길이, `[최소, 최대]`면 범위다(현재 `[30, null]`, `[40, null]`). 범위의 최소는 수용해야 할 가장 긴 module, 즉 최소 pad 길이(`minimum_*_support_mm`)다. 최대는 그보다 긴 module이 없다는 뜻으로, 자유 길이 pad를 거기서 자른다(`ContactPad.max_length_mm`, null이면 자르지 않음).
+- `pad.*.chamfer`: `true`면 PIP 쪽 palmar 모서리의 45° chamfer 길이가 pad별 설계변수(`proximal_chamfer_mm`, `distal_chamfer_mm`, 0~pad 높이)가 된다. chamfer는 접촉 면을 줄이는 대신 관절 쪽 공간을 만든다. `false`면 사각 pad이고, 예전 형식의 고정값 `chamfer_mm`도 그대로 읽는다(`chamfer: null`이면 지정 안 함).
 - `pad.allow_longer_pad_than_link`: `false`면 pad가 자기 링크(`|OA|`, `BC`)보다 길 수 없다. 자유 길이 pad는 링크 길이로 잘리고 고정 길이 pad는 넘으면 위반이다. 현재 `true`(제한 없음).
 - Pad는 간섭 검사에 참여하므로 충돌하면 안전 굽힘 범위가 끝난다(F2에 반영). 목적이 아니라서 pad를 늘릴 압력은 없다.
 - `|AB|`(`ab_mm`)와 링크가 pad 블록을 지나가지 않는 길이(`*_usable_length_mm`)는 diagnostic이다.

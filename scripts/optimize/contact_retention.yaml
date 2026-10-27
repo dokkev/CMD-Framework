@@ -1,7 +1,8 @@
 # Contact-interface retention comparison (core/optimization/retention): the
 # conditions every mechanism shares. Each mechanism's config.yaml extends this
 # file (base:) with its own search box only. One required ROM per study:
-#   python scripts/optimize/run.py --mechanism open_chain_packaged --set motion.required_rom_deg=150
+#   python scripts/optimize/run.py scripts/optimize/open_chain_packaged/config.yaml
+# (another required ROM: a file that extends that one, base:, with its own motion.required_rom_deg)
 
 motion:
   # Distal flexion (relative to the proximal segment) reached continuously from
@@ -34,8 +35,16 @@ hardware:
 pad:
   allow_collision_with_mcp_servo: false   # the proximal module starts past the MCP servo
   mcp_servo_clearance_mm: 1.0
-  proximal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 0.0, length_mm: 45.0}
-  distal: {height_mm: 5.0, offset_mm: 0.0, chamfer_mm: 0.0, length_mm: 45.0}
+  proximal:
+    height_mm: 5.0
+    offset_mm: 0.0
+    chamfer_mm: 0.0
+    length_mm: 45.0
+  distal:
+    height_mm: 5.0
+    offset_mm: 0.0
+    chamfer_mm: 0.0
+    length_mm: 45.0
 
 optimizer:
   algorithm: nsga2
