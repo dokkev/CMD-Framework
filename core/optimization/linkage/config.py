@@ -39,7 +39,7 @@ RELATIVE_BOUNDS = ("ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_fro
 """``A'`` from ``A`` and ``B'`` from ``B``, as searched (:mod:`~core.optimization.linkage.search`)."""
 COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin_and_pip_servo",
                     "a_pin_and_proximal_pad", "b_pin_and_distal_pad", "proximal_pad_and_distal_pad",
-                    "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad")
+                    "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad", "distal_carrier_and_pip_servo")
 PIVOT_KEYS = MappingProxyType({"a": "a", "a_prime": "ap", "b": "b", "b_prime": "bp"})
 """``goal.collision.param.pivot_diameter_mm`` keys and the packaging's pivot names."""
 
@@ -69,6 +69,10 @@ class LinkageConfig:
     everything at MCP 0. On: runs recorded before then."""
     transmission_angle_range_rad: tuple[float, float] = (math.radians(30.0), math.radians(150.0))
     """The transmission angle at ``B'`` stays within it over the whole motion."""
+    torque_ratio_max: float | None = None
+    """``goal.hardware.pip_servo.torque_ratio_max``: the most ``k_max`` (PIP
+    servo torque per distal moment held, on ``[0, required_rom_rad]``)
+    allowed; ``None``: no limit."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 110.0)
     """``|OC|`` in the extended pose."""
     proximal_length_bounds_mm: tuple[float | None, float | None] = (None, None)
@@ -98,6 +102,8 @@ class LinkageConfig:
     defaults: ``k_max`` 2.3, coverage 0, ``180 - phi_req``, the finger's max."""
     seeds: tuple[int, ...] = (0,)
     """Optimizer seeds, one run each, merged into one front."""
+    tilt_step_deg: float = 1.0
+    """Grid step of the PIP servo's tilt when searched, from the least of its range."""
     warm_start: tuple[str, ...] = ()
     """``seeds.csv`` / ``pareto.csv`` files (from the repository root) whose
     designs seed up to half of each run's first population
@@ -181,7 +187,8 @@ class LinkageConfig:
 
         ``B_x + BC`` lies in the extended length bounds, as far as ``B_z``
         allows; ``A_x < B_x``; ``A''_x >= A_x`` and ``B''_x <= B_x`` (the pad
-        topology); each pad's mounting line has room for its least length;
+        topology, unless the pads only keep off their pins: ``pads_off_pins``);
+        each pad's mounting line has room for its least length;
         and, with everything on the ``x`` axis, the extended pose's pad checks
         (:meth:`_extended_pad_bounds`). A bound only ever moves inward, and
         never past the other one (an empty box is left for the constraints).
@@ -207,16 +214,17 @@ class LinkageConfig:
             (b_lo, b_hi), (c_lo, c_hi) = bounds["b_x_mm"], bounds["bc_length_mm"]
             narrow("a_x_mm", high=b_hi)                                # A_x < B_x
             narrow("b_x_mm", low=a_lo)
-            # The proximal pad runs to A'' = A'_x + offset: A''_x >= A_x, room.
             offset_lo, offset_hi = bounds["app_offset_mm"]
-            narrow("ap_x_mm", low=max(a_lo, start + proximal_need) - offset_hi)
-            narrow("a_x_mm", high=bounds["ap_x_mm"][1] + offset_hi)
-            # The distal pad runs to B'' = B'_x - offset: B''_x <= B_x, room.
-            distal_outer = b_hi + c_hi - packaging.distal_pad.offset_mm
             boffset_lo, boffset_hi = bounds["bpp_offset_mm"]
-            narrow("bp_x_mm", high=min(b_hi, distal_outer - distal_need) + boffset_hi)
-            narrow("b_x_mm", low=bounds["bp_x_mm"][0] - boffset_hi)
-            if self._pads_on_axis:
+            distal_outer = b_hi + c_hi - packaging.distal_pad.offset_mm
+            if not packaging.pads_off_pins:  # (off their pins, the pads may end anywhere)
+                # The proximal pad runs to A'' = A'_x + offset: A''_x >= A_x, room.
+                narrow("ap_x_mm", low=max(a_lo, start + proximal_need) - offset_hi)
+                narrow("a_x_mm", high=bounds["ap_x_mm"][1] + offset_hi)
+                # The distal pad runs to B'' = B'_x - offset: B''_x <= B_x, room.
+                narrow("bp_x_mm", high=min(b_hi, distal_outer - distal_need) + boffset_hi)
+                narrow("b_x_mm", low=bounds["bp_x_mm"][0] - boffset_hi)
+            if self._pads_on_axis and not packaging.pads_off_pins:
                 self._extended_pad_bounds(bounds, narrow)
 
     @property
@@ -325,8 +333,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     for side in ("proximal", "distal"):
         pad = pads.table(side)
         low, high = _range(pad.take("length_mm"), f"goal.pads.{side}.length_mm", scalar=True)
-        if low is None or not low > 0.0:
-            raise ValueError(f"goal.pads.{side}.length_mm: the min must be a positive length")
+        if low is None or not low >= 0.0:
+            raise ValueError(f"goal.pads.{side}.length_mm: the min must be a length, 0 or more")
         high = finger_high if high is None else high
         height = float(pad.take("height_mm"))
         pad.done()
@@ -342,6 +350,12 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
                                  scalar=True)
     if tilt_low is None or tilt_high is None:
         raise ValueError("goal.hardware.pip_servo.tilt_angle_deg needs both ends")
+    tilt_step = float(pip_servo.take("tilt_step_deg"))
+    if not tilt_step > 0.0:
+        raise ValueError("goal.hardware.pip_servo.tilt_step_deg must be positive")
+    torque_ratio_max = pip_servo.take("torque_ratio_max")
+    if torque_ratio_max is not None and not float(torque_ratio_max) > 0.0:
+        raise ValueError("goal.hardware.pip_servo.torque_ratio_max must be positive, or null")
     pip_servo.done()
     mcp_model = mcp_servo.take("model")
     mcp_servo.done()
@@ -349,6 +363,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     param, check = collision.table("param"), collision.table("check")
     collision.done()
     diameters = param.table("pivot_diameter_mm")
+    carrier_height = float(param.take("distal_carrier_height_mm"))
     param.done()
     pivot = {name: float(diameters.take(key)) for key, name in PIVOT_KEYS.items()}
     diameters.done()
@@ -372,8 +387,10 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         proximal_pad_below_a=checks["a_pin_and_proximal_pad"],
         distal_pad_below_b=checks["b_pin_and_distal_pad"],
         pad_pad_check=checks["proximal_pad_and_distal_pad"],
+        pads_off_pins=True,  # each pad clear of its own pins, ending anywhere (2026-10-27)
         pip_servo_above_oa=False, pip_servo_pad_check=checks["pip_servo_and_proximal_pad"],
         pad_mcp_check=checks["mcp_servo_and_proximal_pad"], distal_pad_mcp_check=True,
+        distal_carrier_height_mm=carrier_height if checks["distal_carrier_and_pip_servo"] else 0.0,
     )
 
     reference = solver.table("pareto_front")
@@ -423,6 +440,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         mcp_flexion_max_rad=0.0,
         mcp_rotation_checked=False,
         transmission_angle_range_rad=angle,
+        torque_ratio_max=None if torque_ratio_max is None else float(torque_ratio_max),
         extended_length_bounds_mm=finger,
         proximal_length_bounds_mm=proximal_length,
         minimum_proximal_support_mm=pad_values["proximal"][0],
@@ -436,6 +454,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         objectives=objectives,
         hypervolume_reference=hypervolume,
         seeds=seeds,
+        tilt_step_deg=tilt_step,
         warm_start=warm_start,
         relative_bounds=relative,
     )

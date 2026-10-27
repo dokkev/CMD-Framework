@@ -13,9 +13,14 @@ hold by construction:
    least ``A`` allows, to the most ``A`` (short of ``B``) allows;
 4. ``A_x`` a share of what ``A'`` and ``B`` leave it: ``A'`` within its
    offset from ``A``, ``A`` between ``O`` and ``B`` and within the goal's ``|OA|``;
-5. ``B'`` from ``B``; the tilt in whole degrees from the least of its
-   range (the least itself when fixed); the pad offsets as they are. The pads
-   are plain blocks: the design vector's chamfers are held at 0.
+5. ``B'`` from ``B``; the tilt every ``tilt_step_deg`` from the least of its
+   range (the least itself when fixed); the pad offsets as they are, or, with
+   the pads only kept off their own pins (``packaging.pads_off_pins``), each
+   pad's end a share of its range, along the extended finger: ``A''_x`` from
+   the pad's start plus its least length to ``C`` less the distal pad's least
+   length, ``B''_x`` from ``A''_x`` (the pads side by side) to the same
+   (:func:`search_names`). The pads are plain blocks: the design vector's
+   chamfers are held at 0.
 
 Every position is rounded to the prototyping resolution. Coordinates whose
 ranges are empty describe no design (``None``).
@@ -40,12 +45,27 @@ SEARCH_NAMES = ("finger_length_mm", "bc_length_mm", "b_z_mm", "a_z_mm", "ap_from
                 "bpp_offset_mm")
 SHARE_STEP = 0.001
 """Grid step of a share of a range."""
-TILT_STEP_DEG = 1.0
-"""Grid step of the PIP servo's tilt, from the least of its range."""
 FLOOR_STEP_MM = 0.5
 """``A'_z`` step of the PIP servo floor's table."""
 FLOOR_MARGIN_MM = 0.5
 """How far below the solved floor the search starts (the table is sampled)."""
+PAD_SHARE_NAMES = ("app_share", "bpp_share")
+"""The pad offsets' coordinates with the pads only kept off their own pins."""
+
+
+def search_names(config: LinkageConfig) -> tuple[str, ...]:
+    """:data:`SEARCH_NAMES`, the pad offsets as shares with the pads off their pins."""
+
+    return (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
+
+
+def _pad_ranges(config: LinkageConfig, b_x: float, bc: float) -> tuple[tuple[float, float], float]:
+    """``A''_x``'s range and ``B''_x``'s most with the pads only kept off their
+    own pins (``B''_x`` from ``A''_x``)."""
+
+    packaging = config.packaging
+    last = b_x + bc - packaging.distal_pad.offset_mm - config.minimum_distal_support_mm
+    return (packaging.proximal_pad_start_mm + config.minimum_proximal_support_mm, last), last
 
 
 @functools.lru_cache(maxsize=256)
@@ -73,10 +93,11 @@ def least_ap_x(config: LinkageConfig, ap_z: float, tilt_deg: float) -> float:
 
 
 def tilts_deg(config: LinkageConfig) -> np.ndarray:
-    """The tilts searched: from the least, every :data:`TILT_STEP_DEG`."""
+    """The tilts searched: from the least, every ``config.tilt_step_deg``."""
 
     low, high = config.bounds["servo_tilt_deg"]
-    return low + TILT_STEP_DEG * np.arange(int(math.floor((high - low) / TILT_STEP_DEG + 1e-9)) + 1)
+    step = config.tilt_step_deg
+    return low + step * np.arange(int(math.floor((high - low) / step + 1e-9)) + 1)
 
 
 def search_box(config: LinkageConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
@@ -93,13 +114,15 @@ def search_box(config: LinkageConfig) -> tuple[tuple[float, ...], tuple[float, .
         "bp_from_b_z_mm": relative["bp_from_b_z_mm"],
         "servo_tilt_from_min_deg": (0.0, float(tilts_deg(config)[-1] - bounds["servo_tilt_deg"][0])),
         **{name: bounds[name] for name in ("app_offset_mm", "bpp_offset_mm")},
+        **{name: (0.0, 1.0) for name in PAD_SHARE_NAMES},
     }
-    return tuple(box[name][0] for name in SEARCH_NAMES), tuple(box[name][1] for name in SEARCH_NAMES)
+    names = search_names(config)
+    return tuple(box[name][0] for name in names), tuple(box[name][1] for name in names)
 
 
 def search_steps(config: LinkageConfig) -> tuple[float, ...]:
-    return tuple(SHARE_STEP if name.endswith("_share") else TILT_STEP_DEG if name == "servo_tilt_from_min_deg"
-                 else config.resolution_mm for name in SEARCH_NAMES)
+    return tuple(SHARE_STEP if name.endswith("_share") else config.tilt_step_deg if name == "servo_tilt_from_min_deg"
+                 else config.resolution_mm for name in search_names(config))
 
 
 def _ranges(config: LinkageConfig, b_x: float, ap_z: float, tilt_deg: float):
@@ -122,7 +145,7 @@ def _on_grid(value: float, resolution: float) -> float:
 
 
 def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[float, ...] | None:
-    v = dict(zip(SEARCH_NAMES, (float(c) for c in coordinates)))
+    v = dict(zip(search_names(config), (float(c) for c in coordinates)))
     resolution = config.resolution_mm
     grid = lambda value: _on_grid(value, resolution)  # noqa: E731
     b_x = grid(math.sqrt(max(v["finger_length_mm"] ** 2 - v["b_z_mm"] ** 2, 0.0)) - v["bc_length_mm"])
@@ -140,9 +163,17 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
     a_x = grid(low + v["a_x_share"] * (high - low))
     if not 0.0 < a_x < b_x:
         return None
+    bp_x = grid(b_x + v["bp_from_b_x_mm"])
+    if config.packaging.pads_off_pins:
+        (p_low, p_high), d_high = _pad_ranges(config, b_x, v["bc_length_mm"])
+        if p_high < p_low:
+            return None
+        app = grid(p_low + v["app_share"] * (p_high - p_low))
+        v["app_offset_mm"] = grid(app - ap_x)
+        v["bpp_offset_mm"] = grid(bp_x - grid(app + v["bpp_share"] * (d_high - app)))
     design = {
         "a_x_mm": a_x, "b_x_mm": b_x, "b_z_mm": v["b_z_mm"], "ap_x_mm": ap_x, "ap_z_mm": ap_z,
-        "bp_x_mm": grid(b_x + v["bp_from_b_x_mm"]), "bp_z_mm": grid(v["b_z_mm"] + v["bp_from_b_z_mm"]),
+        "bp_x_mm": bp_x, "bp_z_mm": grid(v["b_z_mm"] + v["bp_from_b_z_mm"]),
         "servo_tilt_deg": tilt,
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
         "proximal_chamfer_mm": 0.0, "distal_chamfer_mm": 0.0,
@@ -166,11 +197,17 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
         "a_x_share": share(d["a_x_mm"], *a_range(d["ap_x_mm"])),
         "bp_from_b_x_mm": d["bp_x_mm"] - d["b_x_mm"],
         "bp_from_b_z_mm": d["bp_z_mm"] - d["b_z_mm"],
-        "servo_tilt_from_min_deg": float(round(d["servo_tilt_deg"] - config.bounds["servo_tilt_deg"][0])),
+        "servo_tilt_from_min_deg": float(round((d["servo_tilt_deg"] - config.bounds["servo_tilt_deg"][0])
+                                               / config.tilt_step_deg) * config.tilt_step_deg),
         **{name: d[name] for name in ("bc_length_mm", "b_z_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
     }
-    return tuple(coordinates[name] for name in SEARCH_NAMES)
+    if config.packaging.pads_off_pins:
+        (p_low, p_high), d_high = _pad_ranges(config, d["b_x_mm"], d["bc_length_mm"])
+        app = d["ap_x_mm"] + d["app_offset_mm"]
+        coordinates["app_share"] = share(app, p_low, p_high)
+        coordinates["bpp_share"] = share(d["bp_x_mm"] - d["bpp_offset_mm"], app, d_high)
+    return tuple(coordinates[name] for name in search_names(config))
 
 
-__all__ = ["SEARCH_NAMES", "TILT_STEP_DEG", "from_design", "least_ap_x", "search_box", "search_steps", "tilts_deg",
-           "to_design"]
+__all__ = ["SEARCH_NAMES", "from_design", "least_ap_x", "search_box", "search_names", "search_steps",
+           "tilts_deg", "to_design"]

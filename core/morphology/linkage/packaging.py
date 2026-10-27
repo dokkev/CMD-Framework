@@ -175,9 +175,21 @@ class Packaging:
     servo on a bracket otherwise)."""
     pad_pad_check: bool = True
     """The two pads keep clear of each other."""
+    pads_off_pins: bool = False
+    """Each pad keeps clear of its own body's pin housings (the proximal pad
+    of ``A`` and ``A'``, the distal pad of ``B`` and ``B'``) and may end
+    anywhere: short of its pins or past them. Always so in the goal/solver
+    study (2026-10-27); ``False`` (runs before it): the pads run from ``A``
+    and ``B`` outward (``A''_x >= A_x``, ``B''_x <= B_x``), their own pins
+    unchecked."""
     distal_pad_mcp_check: bool | None = None
     """The distal pad keeps clear of the MCP servo; ``None``: as ``pad_mcp_check``
     (which then governs the proximal pad alone)."""
+    distal_carrier_height_mm: float = 0.0
+    """The distal pad's carrier plate: over the pad's span, this thick dorsal
+    of its top face, kept clear of the PIP servo body. The rest of the distal
+    link is not checked against the servo (a bracket in other Y layers). 0: no
+    carrier checked."""
     overlap_depth: bool = False
     """Report an overlap of two solids by its depth (negative), not as a zero
     gap, so a zero clearance still rejects it. Off: overlapping solids count as
@@ -192,6 +204,8 @@ class Packaging:
             raise ValueError("pad_mcp_clearance_mm must be non-negative, or None")
         if self.pad_link_ratio_max is not None and not self.pad_link_ratio_max > 0.0:
             raise ValueError("pad_link_ratio_max must be positive, or None")
+        if not self.distal_carrier_height_mm >= 0.0:
+            raise ValueError("distal_carrier_height_mm must be non-negative")
         if not self.ap_clearance_diameter_mm >= 0.0:
             raise ValueError("ap_clearance_diameter_mm must be non-negative")
         if self.pip_servo_at not in ("ap", "a"):
@@ -661,6 +675,28 @@ def distal_pad_polygon(linkage: FingerLinkage, packaging: Packaging,
     return b[:, None] + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
 
 
+def carrier_outline(pad_outline_mm: np.ndarray, height_mm: float) -> np.ndarray:
+    """The carrier plate of a pad given in its mounting-line frame (top face
+    at ``v = 0``): the pad's span, ``height_mm`` dorsal of it, ``(4, 2)``."""
+
+    start, end = float(pad_outline_mm[:, 0].min()), float(pad_outline_mm[:, 0].max())
+    return np.array(((start, 0.0), (end, 0.0), (end, height_mm), (start, height_mm)))
+
+
+def distal_carrier_polygon(linkage: FingerLinkage, packaging: Packaging,
+                           b: np.ndarray, c: np.ndarray) -> np.ndarray:
+    """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``)
+    at posed ``B`` and ``C``, ``(n, 4, 2)``, as :func:`distal_pad_polygon`."""
+
+    p = linkage.parameters
+    local = carrier_outline(pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start", 0.0),
+                            packaging.distal_carrier_height_mm) - (0.0, packaging.distal_pad_drop_mm)
+    b, c = np.atleast_2d(b), np.atleast_2d(c)
+    e = (c - b) / p.bc_length_mm
+    n = np.stack((-e[:, 1], e[:, 0]), axis=1)
+    return b[:, None] + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
+
+
 def usable_pad_lengths(
     linkage: FingerLinkage, packaging: Packaging, b: np.ndarray, bp: np.ndarray, c: np.ndarray,
 ) -> dict[str, np.ndarray]:
@@ -819,6 +855,10 @@ def pad_margins(
         margin = gap(pad, other) - clearance
         # A pad set exactly the clearance away (the MCP offset) must not fail by rounding.
         margins[pair] = np.where(np.abs(margin) < _MARGIN_TOLERANCE_MM, 0.0, margin)
+    if packaging.distal_carrier_height_mm > 0.0:
+        carrier = distal_carrier_polygon(linkage, packaging, b, c)
+        margin = footprint_gaps(carrier, footprint, packaging) - packaging.body_clearance_mm
+        margins[("distal_carrier", "pip_servo")] = np.where(np.abs(margin) < _MARGIN_TOLERANCE_MM, 0.0, margin)
     return margins
 
 
@@ -1051,7 +1091,9 @@ __all__ = [
     "EXACT_BAND_MM",
     "FIXED_MARGIN_PAIRS",
     "fixed_margin_pairs",
+    "carrier_outline",
     "checked_pairs",
+    "distal_carrier_polygon",
     "distal_pad_polygon",
     "layer_separated_pairs",
     "pad_chamfer_mm",

@@ -14,7 +14,9 @@ from core.morphology.linkage.packaging import (
     Packaging,
     _separation,
     checked_pairs,
+    distal_carrier_polygon,
     distal_pad_polygon,
+    pad_margins,
     pad_spans,
     proximal_pad_polygon,
 )
@@ -29,7 +31,10 @@ X = (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9, 0.0, 0.0
 
 
 PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[30, null]",
-          "goal.pads.distal.length_mm=[35, null]")
+          "goal.pads.distal.length_mm=[35, null]", "goal.collision.check.a_pin_and_pip_servo=false",
+          "goal.collision.check.a_pin_and_a_prime_pin=true",
+          "goal.hardware.pip_servo.tilt_angle_deg=20",
+          "goal.hardware.pip_servo.tilt_step_deg=1")
 """The study these tests were written for, whatever the config file now asks."""
 
 
@@ -103,6 +108,21 @@ def test_the_pads_hang_below_their_pivots():
     assert proximal_pad_polygon(linkage, flat)[:, 1].max() == pytest.approx(0.0)
 
 
+def test_the_distal_carrier_is_checked_against_the_pip_servo():
+    config = load()
+    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
+    b, c = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c))
+    pad = distal_pad_polygon(linkage, config.packaging, b, c)[0]
+    carrier = distal_carrier_polygon(linkage, config.packaging, b, c)[0]
+    # Over the pad's span, from its top face 4 mm dorsally (extended: along the axis).
+    assert (carrier[:, 0].min(), carrier[:, 0].max()) == pytest.approx((pad[:, 0].min(), pad[:, 0].max()))
+    assert (carrier[:, 1].min(), carrier[:, 1].max()) == pytest.approx((pad[:, 1].max(), pad[:, 1].max() + 4.0))
+    assert ("distal_carrier", "pip_servo") in pad_margins(linkage, config.packaging, b, c, b)
+    off = load("goal.collision.check.distal_carrier_and_pip_servo=false").packaging
+    assert off.distal_carrier_height_mm == 0.0
+    assert ("distal_carrier", "pip_servo") not in pad_margins(linkage, off, b, c, b)
+
+
 def test_overlap_is_negative_touching_zero():
     square = np.array([[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]])
     assert _separation(square, square + (2.0, 0.0))[0] == pytest.approx(1.0)
@@ -152,6 +172,17 @@ def test_the_transmission_range_bounds_the_motion():
     narrow = MECHANISM.evaluate(X, load("goal.link.transmission_angle_deg=[70, 110]"))
     assert narrow.phi_safe_rad < wide.phi_safe_rad
     assert not narrow.feasible
+
+
+def test_k_max_may_be_limited():
+    pads = ("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
+    free = MECHANISM.evaluate(X, load(*pads))
+    assert free.feasible and free.constraints["torque_ratio"] == 0.0
+    k = free.torque_ratio_max
+    for limit, feasible in ((k + 0.01, True), (k - 0.01, False)):
+        e = MECHANISM.evaluate(X, load(*pads, f"goal.hardware.pip_servo.torque_ratio_max={limit}"))
+        assert e.constraints["torque_ratio"] == pytest.approx(k - limit)
+        assert e.feasible is feasible
 
 
 def test_the_pip_servo_may_come_down_to_the_pad_but_not_into_it():
@@ -241,3 +272,29 @@ def test_older_studies_are_searched_in_the_design_vector():
     config = dataclasses.replace(load(), relative_bounds=None)
     assert MECHANISM.search_names(config) == VARIABLE_NAMES
     assert MECHANISM.to_design(X, config) == X
+
+
+def test_a_may_be_kept_out_of_the_pip_servo_body():
+    # X's A' sits 7.7 mm over A: A's housing (3 mm) lies inside the servo's
+    # rounded front (9.5 mm), allowed only with the check off.
+    assert MECHANISM.evaluate(X, load()).constraints["pivot_pin_mm"] <= 0.0
+    checked = MECHANISM.evaluate(X, load("goal.collision.check.a_pin_and_pip_servo=true"))
+    assert not checked.feasible
+    # A's centre is inside the body (its distance 0): the violation is its whole radius.
+    assert checked.constraints["pivot_pin_mm"] == pytest.approx(3.0)
+
+
+def test_the_pads_may_be_kept_off_their_own_pins():
+    off = load("goal.pads.proximal.length_mm=[20, null]", "goal.pads.distal.length_mm=[20, null]")
+    names = list(VARIABLE_NAMES)
+    # X's pads run under A and B, hung their radius below: clear of them.
+    e = MECHANISM.evaluate(X, off)
+    assert e.constraints["proximal_support_mm"] <= 0.0 and e.constraints["distal_support_mm"] <= 0.0
+    # B' brought down into the distal pad's span (61.8 - 2.9 on): the pad must keep off it.
+    x = list(X)
+    x[names.index("bp_z_mm")] = -5.0
+    assert MECHANISM.evaluate(x, off).constraints["distal_support_mm"] > 0.0
+    # Ended short of A, the proximal pad is as clear.
+    x = list(X)
+    x[names.index("app_offset_mm")] = 30.0 - 39.7
+    assert MECHANISM.evaluate(x, off).constraints["proximal_support_mm"] <= 0.0

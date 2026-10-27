@@ -1,0 +1,31 @@
+# Pad trade-off: revolute_idealized, pads 3 mm tall, 180 deg required (make_configs.py).
+mechanism: revolute_idealized
+base: ../linkage/config.yaml
+goal:
+  motion:
+    dip_flexion_deg: 180
+  pads:
+    proximal:
+      length_mm: [0, null]
+      height_mm: 3
+    distal:
+      length_mm: [20, null]
+      height_mm: 3
+  hardware:
+    pip_servo:
+      torque_ratio_max: 2.0
+  link:
+    finger_length_mm: [99.5, 100]
+    proximal_length_mm: [40, 60]
+solver:
+  objectives:
+    - pad_coverage
+  optimizer:
+    generations: 300
+    seeds:
+      - 0
+      - 1
+      - 2
+    warm_start:
+      - output/revolute_idealized/revolute_idealized_h8_flex180/portfolio_*/seeds.csv
+      - output/revolute_idealized/revolute_idealized_h5_flex180/portfolio_*/seeds.csv

@@ -1,0 +1,27 @@
+# Interface coverage: revolute_parallel, interfaces 5 mm thick, 150 deg required (make_configs.py).
+mechanism: revolute_parallel
+base: ../linkage/config.yaml
+goal:
+  motion:
+    dip_flexion_deg: 150
+  pads:
+    proximal:
+      length_mm: [0, null]
+      height_mm: 5
+    distal:
+      length_mm: [20, null]
+      height_mm: 5
+  link:
+    finger_length_mm: [99.5, 100]
+    proximal_length_mm: [40, 60]
+solver:
+  objectives:
+    - pad_coverage
+  optimizer:
+    generations: 500
+    seeds:
+      - 0
+      - 1
+      - 2
+    warm_start:
+      - output/revolute_parallel/revolute_parallel_cov_h10_flex150/portfolio_*/seeds.csv

@@ -22,4 +22,6 @@ solver:
       - 0
       - 1
     warm_start:
-      - output/linkage/linkage_p30_d35_flex180/portfolio_001/seeds.csv
+      - output/linkage/linkage_p40_d45_flex180/portfolio_*/seeds.csv
+      - output/linkage/linkage_p40_d45_flex150/portfolio_*/seeds.csv
+      - output/linkage/linkage_p30_d35_flex180/portfolio_*/seeds.csv

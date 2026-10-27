@@ -38,11 +38,14 @@ import numpy as np
 from core.morphology.linkage import FingerLinkage, FingerLinkageParameters, PipSweep
 from core.morphology.linkage.packaging import (
     ServoFootprint,
+    _polygon_to_disk,
+    distal_pad_polygon,
     fixed_margin_pairs,
     pad_chamfer_mm,
     pad_margins,
     pad_spans,
     pip_servo_pad_gap_mm,
+    proximal_pad_polygon,
     usable_pad_lengths,
 )
 
@@ -62,11 +65,13 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pad_collision_mm",
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
-MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm")
+MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm",
+                                       "torque_ratio")
 """``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
 it reaches it); the hyperextension still missing; how far ``C`` passes behind
 ``O``; how far either pad's effective length (the face no link crosses on
-``[0, phi_req]``) falls short of its least length: the module must be usable."""
+``[0, phi_req]``) falls short of its least length: the module must be usable;
+how far ``k_max`` exceeds its limit (``config.torque_ratio_max``, 0 without one)."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
 """Violation assigned to every other constraint of an invalid reference design."""
@@ -319,6 +324,7 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         "pad_usable_mm": max(
             config.minimum_proximal_support_mm - min(float(free["proximal_pad"].min()), common["proximal_face_mm"]),
             config.minimum_distal_support_mm - min(float(free["distal_pad"].min()), common["distal_face_mm"])),
+        "torque_ratio": 0.0 if config.torque_ratio_max is None else ratio - config.torque_ratio_max,
     }
     return LinkageEvaluation(
         parameters=parameters,
@@ -372,6 +378,16 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
         None if proximal_high is None else proximal_length - proximal_high) if value is not None]
     spans = pad_spans(parameters, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
+    if packaging.pads_off_pins:  # each pad clear of its own body's pin housings, wherever it ends
+        proximal_pad = proximal_pad_polygon(linkage, packaging)[None]
+        b, c = np.array((linkage.b.x_mm, linkage.b.z_mm)), np.array((linkage.c.x_mm, linkage.c.z_mm))
+        distal_pad = distal_pad_polygon(linkage, packaging, b, c)
+        own = lambda pad, pins: min(float(_polygon_to_disk(pad, np.array([(point.x_mm, point.z_mm)]),  # noqa: E731
+                                                            radius(name))[0]) for name, point in pins)
+        topology = (-(own(proximal_pad, (("a", linkage.a), ("ap", linkage.ap))) - clearance),
+                    -(own(distal_pad, (("b", linkage.b), ("bp", linkage.bp))) - clearance))
+    else:  # the pads run from A and B outward
+        topology = (parameters.a_x_mm - parameters.app_x_mm, parameters.bpp_x_mm - parameters.b_x_mm)
     # A clears the keep-out at the servo's shaft A'.
     pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
                  -(packaging.pivot_pin_gap_mm(linkage) - clearance))
@@ -383,11 +399,11 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
         "proximal_length_mm": max(proximal_violations, default=0.0),
         # The pads' mounting lines run from the pivots outward, with room for
         # the pads: at least the minimum, at most the cap.
-        "proximal_support_mm": max(parameters.a_x_mm - parameters.app_x_mm,
+        "proximal_support_mm": max(topology[0],
                                    proximal.length_mm - proximal.limit_mm,
                                    config.minimum_proximal_support_mm - proximal.length_mm,
                                    proximal.length_mm - proximal.room_mm),
-        "distal_support_mm": max(parameters.bpp_x_mm - parameters.b_x_mm,
+        "distal_support_mm": max(topology[1],
                                  distal.length_mm - distal.limit_mm,
                                  config.minimum_distal_support_mm - distal.length_mm,
                                  distal.length_mm - distal.room_mm),

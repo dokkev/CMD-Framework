@@ -50,7 +50,7 @@ goal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
       # outer end (the MCP servo side; for the distal pad, C), the rest of the
       # line toward the joint left empty.
-      #   min  a constraint: the module to carry.
+      #   min  a constraint: the module to carry (0: none).
       #   max  a goal and a cap: the pad is never longer, and the longer the
       #        better up to it. null: the finger's own limit,
       #        goal.link.finger_length_mm's max (no pad outgrows the finger).
@@ -88,8 +88,13 @@ goal:
     pip_servo:
       model: xm335              # core.hardware.ACTUATORS
       # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
-      # searched in whole degrees from min.
-      tilt_angle_deg: 20
+      # searched every tilt_step_deg from min.
+      tilt_angle_deg: [0, 35]
+      tilt_step_deg: 5
+      # The most k_max allowed: the PIP servo's torque per distal moment held,
+      # the worst on [0, motion.dip_flexion_deg] (the serial 2R's is 1, the
+      # RCJ's 2). null: no limit (k_max is then only an objective, if listed).
+      torque_ratio_max: null
     mcp_servo:
       model: xm335
 
@@ -109,15 +114,20 @@ goal:
         a_prime: 10
         b: 6
         b_prime: 6
+      # The distal pad's carrier plate: over the pad's span, this thick dorsal
+      # of its top face (goal.collision.check.distal_carrier_and_pip_servo).
+      distal_carrier_height_mm: 4
 
     # Which pairs are checked.
     check:
       # true: must not collide over the motion; false: may overlap in the side
       # view (separate Y layers, or a joint interface).
-      # A hangs off the servo on a bracket: its housing may overlap the body.
-      a_pin_and_pip_servo: false
-      # A's housing and the keep-out around the servo shaft at A'.
-      a_pin_and_a_prime_pin: true
+      # A's housing and the PIP servo body (2026-10-27: on; A no longer hangs
+      # off the servo on a bracket inside its outline).
+      a_pin_and_pip_servo: true
+      # A's housing and the keep-out around the servo shaft at A' (10 mm, within
+      # the servo's 19 mm front: implied by a_pin_and_pip_servo, so off).
+      a_pin_and_a_prime_pin: false
       # The middle link A-B' sits in another Y layer than the servo.
       b_prime_pin_and_pip_servo: false
       # Each pad clears its own link's pivot: true hangs the pad half that
@@ -135,9 +145,15 @@ goal:
       # radius) and checks it against the MCP servo; false starts it at O,
       # unchecked.
       mcp_servo_and_proximal_pad: true
-      # Always checked, not options: the pads against the pivots of the other
-      # body, the distal pad against the PIP and MCP servos, and the two servo
-      # bodies against each other.
+      # The distal pad's carrier plate and the PIP servo body. The rest of the
+      # distal link (between the joint and the pad) is a bracket beside the
+      # servo, in other Y layers: unchecked. (The serial 2R has no carrier: its
+      # distal phalanx is a truss of links, in other layers.)
+      distal_carrier_and_pip_servo: true
+      # Always checked, not options: the pads against the pivots of both bodies
+      # (each pad ending anywhere, short of its own pins or past them), the
+      # distal pad against the PIP and MCP servos, and the two servo bodies
+      # against each other.
 
 
 # 2. Solver -------------------------------------------------------------------
@@ -195,8 +211,10 @@ solver:
     ap_from_a_z_mm: [0, 25]       # A'_z - A_z
     bp_from_b_x_mm: [-50, 20]     # B'_x - B_x (extended)
     bp_from_b_z_mm: [-60, 80]     # B'_z - B_z
-    app_offset_mm: [0, 20]        # A''_x - A'_x: the proximal pad past A'
-    bpp_offset_mm: [0, 20]        # B'_x - B''_x: the distal pad past B'
+    # The pads may end short of A' and B' or past them: searched as shares of
+    # where they fit (core.optimization.linkage.search), these bound the box.
+    app_offset_mm: [-60, 60]      # A''_x - A'_x: the proximal pad past A'
+    bpp_offset_mm: [-60, 60]      # B'_x - B''_x: the distal pad past B'
 
   # Motion sampling.
   sampling:
@@ -209,7 +227,8 @@ solver:
   prototyping_resolution_mm: 0.1
 
   optimizer:
-    algorithm: nsga2
+    # One or a list (scripts/optimize/run.py runs each with every seed).
+    algorithm: [nsga2, smsemoa, agemoea]
     population: 200
     generations: 1000
     # One run per seed, merged into one verified front (the sweeps needed 3+ seeds).
@@ -217,3 +236,6 @@ solver:
       - 0
       - 1
       - 2
+    # Feasible designs sampled under this goal (scripts/optimize/sample_seeds.py).
+    warm_start:
+      - output/linkage/config/samples/seeds.csv

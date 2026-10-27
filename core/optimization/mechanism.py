@@ -242,7 +242,10 @@ MECHANISMS = {
     "linkage_v3": "core.optimization.linkage.mechanism",  # runs recorded under that name (2026-10-23 to 26)
     "open_chain_idealized": "core.optimization.open_chain.mechanism:IDEALIZED",
     "open_chain_packaged": "core.optimization.open_chain.mechanism:PACKAGED",
+    "rcj": "core.optimization.rcj.mechanism",
     "revolute": "core.optimization.revolute.mechanism",
+    "revolute_idealized": "core.optimization.revolute.mechanism:IDEALIZED",
+    "revolute_parallel": "core.optimization.revolute_parallel.mechanism",
     "rolling_contact_joint": "core.optimization.rolling_contact_joint.mechanism",
 }
 """Every mechanism, by name: ``module`` (its ``MECHANISM``) or ``module:NAME``."""

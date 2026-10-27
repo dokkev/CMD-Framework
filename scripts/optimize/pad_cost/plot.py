@@ -57,7 +57,6 @@ def main() -> int:
                          "xtick.color": MUTED, "ytick.color": MUTED})
     figure, axes = plt.subplots(1, len(PADS_MM), figsize=(4.6 * len(PADS_MM), 4.6), sharey=True,
                                 facecolor="white", constrained_layout=True)
-    top = FINGER_RANGE_MM[1]
     for axis, pads in zip(axes, sorted(PADS_MM)):
         axis.grid(color=GRID, linewidth=0.8)
         axis.set_axisbelow(True)
@@ -73,6 +72,7 @@ def main() -> int:
                       linewidth=2.2, label=LABELS[mechanism])
             for r in rows:
                 if r["finger_length_mm"] is None:
+                    top = FINGER_RANGE_MM[mechanism][1]
                     axis.scatter([r["flexion_deg"]], [top], marker="x", color=COLORS[mechanism], s=60, zorder=3)
                     axis.annotate(f"none ≤ {top:.0f} mm", (r["flexion_deg"], top), xytext=(0, -14),
                                   textcoords="offset points", ha="center", color=COLORS[mechanism], fontsize=8)

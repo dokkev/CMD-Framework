@@ -11,7 +11,9 @@ overrides it), and it sets the optimizer (``solver.optimizer`` for the
 any warm start. For another condition, write another config file (``base:``
 extends one).
 
-One run per seed is saved to ``output/<mechanism>/<config name>/run_NNN``
+The optimizer's ``algorithm`` may list several (e.g. ``[nsga2, smsemoa,
+agemoea]``): each runs every seed. One run per algorithm and seed is saved
+to ``output/<mechanism>/<config name>/run_NNN``
 (``run.json``, ``pareto.csv``). The runs are then verified on the fine grid
 and merged into ``portfolio_NNN`` (``seeds.csv``, the representative seeds
 first, and ``portfolio.json``). Every CPU evaluates.
@@ -49,19 +51,20 @@ def main(argv: list[str] | None = None) -> int:
     path = Path(argv[0]) if argv else SCRIPTS / "linkage" / "config.yaml"
     values = read_config_file(path)
     found = mechanism(values.pop("mechanism", None) or path.resolve().parent.name)
+    algorithms = _algorithms(values)
     values, settings = found.split_settings(values)
     config = found.config_from_mapping(values)
     seeds = tuple(getattr(config, "seeds", ()) or (settings.seed,))
-    initial = [found.read_design(row)
-               for warm in getattr(config, "warm_start", ()) or ()
-               for row in csv.DictReader((REPOSITORY_ROOT / warm).open(encoding="utf-8", newline=""))]
+    # The population takes at most half its size of warm-start designs.
+    initial = warm_designs(found, getattr(config, "warm_start", ()) or ())[: settings.population_size // 2]
     root = OUTPUT_ROOT / found.name / path.stem
     workers = os.cpu_count() or 1
     print(f"{found.name}: {path} -> {root}; seeds {', '.join(map(str, seeds))}"
           + (f"; warm start from {len(initial)} designs" if initial else "") + "\n")
 
-    directories = [run_one(found, config, dataclasses.replace(settings, seed=seed), initial, root, workers)
-                   for seed in seeds]
+    directories = [run_one(found, config, dataclasses.replace(settings, algorithm=algorithm, seed=seed), initial,
+                           root, workers)
+                   for algorithm in algorithms or (settings.algorithm,) for seed in seeds]
     runs = [load_run(directory) for directory in directories]
     step_rad = getattr(config, "verify_step_rad", math.radians(0.05))
     selection = select_seeds(runs, step_rad)
@@ -77,6 +80,37 @@ def main(argv: list[str] | None = None) -> int:
     print("Verified and merged:")
     print_selection(selection, found, output / "seeds.csv")
     return 0
+
+
+def _algorithms(values: dict) -> tuple[str, ...]:
+    """The optimizers a config lists (``algorithm`` as a list), left as the
+    first for the settings; ``()``: one, as it is."""
+
+    for table in (values.get("solver", {}).get("optimizer") if isinstance(values.get("solver"), dict) else None,
+                  values.get("optimizer")):
+        if isinstance(table, dict) and isinstance(table.get("algorithm"), list):
+            algorithms = tuple(str(name) for name in table["algorithm"])
+            if not algorithms:
+                raise ValueError("the optimizer's algorithm list is empty")
+            table["algorithm"] = algorithms[0]
+            return algorithms
+    return ()
+
+
+def warm_designs(found, patterns) -> list[list[float]]:
+    """The designs of the warm-start files (paths from the repository root; a
+    ``*`` matches several, absent ones are skipped), taken in turns from each
+    file so that every file's first (best) rows come first: the population
+    takes at most half its size of them."""
+
+    files = [path for pattern in patterns
+             for path in (sorted(REPOSITORY_ROOT.glob(pattern)) if "*" in pattern else [REPOSITORY_ROOT / pattern])
+             if path.exists()]
+    lists = [list(csv.DictReader(path.open(encoding="utf-8", newline=""))) for path in files]
+    designs = []
+    for index in range(max(map(len, lists), default=0)):
+        designs.extend(found.read_design(rows[index]) for rows in lists if index < len(rows))
+    return designs
 
 
 def run_one(found, config, settings, initial, root: Path, workers: int) -> Path:

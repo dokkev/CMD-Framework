@@ -10,14 +10,15 @@ goal:
     distal:
       length_mm: [45, 45]
   link:
-    finger_length_mm: [60, 200]
+    finger_length_mm: [60, 300]
 solver:
   objectives:
     - finger_length
   pareto_front:
-    finger_length: 200
+    finger_length: 300
   optimizer:
-    generations: 400
+    generations: 800
     seeds:
       - 0
       - 1
+      - 2

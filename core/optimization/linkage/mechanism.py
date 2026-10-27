@@ -117,9 +117,10 @@ class LinkageMechanism(Mechanism):
     )
 
     def split_settings(self, values: Mapping[str, Any]) -> tuple[dict[str, Any], OptimizerSettings]:
-        """The optimizer settings sit in ``solver.optimizer``: ``algorithm``,
-        ``population``, ``generations`` and ``seeds`` (the first one is the
-        settings' seed; the config keeps them all)."""
+        """The optimizer settings sit in ``solver.optimizer``: ``algorithm``
+        (one, or a list whose first the settings take), ``population``,
+        ``generations`` and ``seeds`` (the first one is the settings' seed;
+        the config keeps them all)."""
 
         values = copy.deepcopy(dict(values))
         solver = values.get("solver")
@@ -127,6 +128,8 @@ class LinkageMechanism(Mechanism):
         names = {"algorithm": "algorithm", "population": "population_size", "generations": "generations",
                  "options": "options"}
         settings = {names[key]: table.pop(key) for key in list(table) if key in names}
+        if isinstance(settings.get("algorithm"), list):  # several (run.py runs each): the first
+            settings["algorithm"] = settings["algorithm"][0]
         seeds = table.get("seeds")
         if not isinstance(seeds, list) or not seeds:
             raise ValueError("solver.optimizer.seeds must list at least one seed")
@@ -148,7 +151,7 @@ class LinkageMechanism(Mechanism):
     # core.optimization.linkage.search's coordinates; older ones in the design vector.
 
     def search_names(self, config: LinkageConfig) -> tuple[str, ...]:
-        return search.SEARCH_NAMES if config.relative_bounds is not None else VARIABLE_NAMES
+        return search.search_names(config) if config.relative_bounds is not None else VARIABLE_NAMES
 
     def search_box(self, config: LinkageConfig) -> tuple[Sequence[float], Sequence[float]]:
         return search.search_box(config) if config.relative_bounds is not None else (config.lower, config.upper)

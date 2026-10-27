@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run the pad-cost configs in order (make_configs.py); each warm-starts from the one before.
+# Run pad-cost configs, hardest first (make_configs.py).
 set -e
 cd "$(dirname "$0")/../../.."
 python scripts/optimize/run.py scripts/optimize/pad_cost/linkage_p40_d45_flex180.yaml

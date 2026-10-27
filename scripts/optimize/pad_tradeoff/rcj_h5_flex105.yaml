@@ -1,0 +1,40 @@
+# Pad trade-off: rcj, pads 5 mm tall, 105 deg required (make_configs.py).
+mechanism: rcj
+base: ../linkage/config.yaml
+goal:
+  motion:
+    dip_flexion_deg: 105
+  pads:
+    proximal:
+      length_mm: [0, null]
+      height_mm: 5
+    distal:
+      length_mm: [20, null]
+      height_mm: 5
+  hardware:
+    pip_servo:
+      torque_ratio_max: 2.0
+  link:
+    finger_length_mm: [99.5, 100]
+    proximal_length_mm: [40, 60]
+solver:
+  objectives:
+    - pad_coverage
+  optimizer:
+    generations: 300
+    seeds:
+      - 0
+      - 1
+      - 2
+    warm_start:
+      - output/rcj/rcj_h8_flex180/portfolio_*/seeds.csv
+      - output/rcj/rcj_h8_flex165/portfolio_*/seeds.csv
+      - output/rcj/rcj_h8_flex150/portfolio_*/seeds.csv
+      - output/rcj/rcj_h8_flex135/portfolio_*/seeds.csv
+      - output/rcj/rcj_h8_flex120/portfolio_*/seeds.csv
+      - output/rcj/rcj_h8_flex105/portfolio_*/seeds.csv
+      - output/rcj/rcj_h5_flex180/portfolio_*/seeds.csv
+      - output/rcj/rcj_h5_flex165/portfolio_*/seeds.csv
+      - output/rcj/rcj_h5_flex150/portfolio_*/seeds.csv
+      - output/rcj/rcj_h5_flex135/portfolio_*/seeds.csv
+      - output/rcj/rcj_h5_flex120/portfolio_*/seeds.csv
