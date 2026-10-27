@@ -50,7 +50,7 @@ class FingerPose:
 
     @property
     def is_crossed(self) -> bool:
-        """Whether the middle link ``A-B'`` and the coupler ``A'-B`` intersect."""
+        """Whether the driver link ``A-B'`` and the coupler ``A'-B`` intersect."""
 
         return _segments_intersect(self.a, self.bp, self.ap, self.b)
 
@@ -103,7 +103,7 @@ class FingerLinkage:
     """Reference geometry and pose solver for one finger linkage.
 
     The assembly branch of ``B`` is fixed by the reference pose, which must
-    not be a dead point. The four-bar may be open or crossed there (the middle
+    not be a dead point. The four-bar may be open or crossed there (the driver
     link ``A-B'`` and the coupler ``A'-B`` intersecting); like a polycentric
     knee it may start open and cross as it flexes, without changing branch.
     Whether the DIP flexes with the PIP is a property of the motion, checked
@@ -172,7 +172,7 @@ class FingerLinkage:
 
     @property
     def is_crossed(self) -> bool:
-        """Whether the middle link ``A-B'`` and the coupler ``A'-B`` intersect."""
+        """Whether the driver link ``A-B'`` and the coupler ``A'-B`` intersect."""
 
         return _segments_intersect(self.a, self.bp, self.ap, self.b)
 
@@ -226,7 +226,7 @@ class FingerLinkage:
         """Solve the four-bar at a sequence of PIP servo angles starting from extension.
 
         The servo turns the driven link ``A'-B`` by ``servo_rad`` (positive turns
-        ``+X`` toward ``-Z``); ``B'`` closes on the middle link ``A-B'``.
+        ``+X`` toward ``-Z``); ``B'`` closes on the driver link ``A-B'``.
         """
 
         s = np.asarray(servo_rad, dtype=float)

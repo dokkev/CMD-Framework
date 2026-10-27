@@ -1,141 +1,219 @@
-# Linkage optimization (docs/optimization/linkage.md).
-# Lengths in mm, angles in degrees; `name_deg` sets the field `name_rad`.
-# The top-level groups only organise the settings. A setting left out keeps
-# its default in core/optimization/linkage/config.py.
+# CoDe finger design study (core/optimization/linkage).
+#
+#   python scripts/optimize/run.py
+#
+# This file is the study's only input. For another condition, write a file
+# that extends this one (base: ../linkage/config.yaml) and run it:
+#   python scripts/optimize/run.py path/to/that.yaml
+#
+# One run per seed in solver.optimizer.seeds, then the runs verified on
+# solver.sampling.verify_step_deg and merged (output/linkage/portfolio_NNN/
+# seeds.csv). Every entry below is required; an
+# unknown one is an error.
+#
+# Two levels, by who sets them:
+#   goal    what the finger must do, carry and keep clear (the user; the GUI's form)
+#   solver  how the design is searched (defaults suffice; an advanced tab)
+# Requirements live in goal; solver only limits the search.
+# Lengths in mm, angles in degrees.
+#
+# Fixed in the code, not options:
+#   - no stopper margin past goal.motion.dip_flexion_deg;
+#   - the fingertip C stays ahead of the MCP (x >= 0, MCP at 0) while flexing;
+#   - the servos are taken at their model's nominal size, with no tolerance;
+#   - each pad's length is searched in [min, max] (goal.pads.*.length_mm).
 
-# Search box of the design vector (0.1 grid).
-optimization_parameter_bounds:
-  # OA is free; the servo clearance constraints keep the two servos apart.
-  a_x_mm: [5.0, 120.0]
-  # A stays on the proximal axis: A = (A_x, 0).
-  a_z_mm: [0.0, 0.0]
-  b_x_mm: [40.0, 100.0]
-  # BC stays parallel to the axis, on it: B = (B_x, 0), so the pads' palmar
-  # faces line up in extension.
-  b_z_mm: [0.0, 0.0]
-  ap_x_mm: [20.0, 100.0]
-  # A' sits dorsal of OA, at most 20 mm.
-  ap_z_mm: [0.0, 20.0]
-  # B' is free in practice.
-  bp_x_mm: [-50.0, 200.0]
-  bp_z_mm: [-60.0, 80.0]
-  # BC, the middle + distal phalanx.
-  bc_length_mm: [30.0, 50.0]
-  # A''_x - A'_x: the proximal pad may run past A' (0: it ends right below A').
-  app_offset_mm: [0.0, 20.0]
 
-# Fixed inputs, not optimized.
-inputs:
-  # Dorsal tilt of the PIP servo body from -X: up off the proximal pad, which
-  # is not mounted on the servo. (With the A' clearance and the B' pin free of
-  # the servo body it no longer changes k_max or phi_safe.)
-  pip_servo_tilt_deg: 20.0
+# 1. Goal ---------------------------------------------------------------------
 
-# Safe motion and the usable range.
-motion:
-  # The distal link must turn at least this far relative to OA, safely.
-  minimum_desired_flexion_angle_deg: 150.0
-  # PIP (and MCP) hyperextension the finger must reach safely: the
-  # hyperextension stopper.
-  hyperextension_deg: 10.0
-  # The usable range ends this much PIP before the first unsafe flexion pose:
-  # room past the flexion stopper.
-  flexion_stopper_margin_deg: 5.0
-  # Half the 0.1 deg verification tolerance: optima sit on the DIP
-  # monotonicity boundary, so the coarse search keeps some slack.
-  dip_backoff_tolerance_deg: 0.05
-  # PIP servo step of the motion sweep.
-  servo_step_deg: 1.0
-  # With pad_mcp_check the pads must clear the MCP servo from MCP extension
-  # up to this MCP flexion, checked every mcp_step_deg. In hyperextension
-  # (linkage range only) the pads are not checked.
-  mcp_flexion_max_deg: 90.0
-  mcp_step_deg: 1.0
+goal:
+  # The ranges of motion the finger must reach safely.
+  motion:
+    # Distal flexion. The four-bar's instantaneous centre of rotation moves as
+    # it flexes, so the angle is taken about the virtual remote centre of
+    # rotation of OA and BC: the rotation of the line BC relative to the line
+    # OA (0 extended, 180 antiparallel), which is phi = q_pip + q_dip in the
+    # code. The least required, and always usable: feasibility and k_max are
+    # judged on [0, dip_flexion_deg] only (no stopper margin); past it only
+    # the curl objective looks, at how far the finger would stay safe.
+    dip_flexion_deg: 150
+    # PIP hyperextension (the stopper at -10 deg). The MCP is held at 0: the
+    # pads and the PIP servo are checked against the MCP servo there only.
+    hyperextension_deg: 10
 
-# Force transmission.
-transmission:
-  # Least transmission angle at B' (away from both straight alignments).
-  minimum_transmission_margin_deg: 30.0
-  # Most PIP servo rotation over the usable range (null: unbounded).
-  servo_travel_max_deg: null
-  # Most k_max allowed: the PIP servo's torque over the distal moment it must
-  # hold (null: unbounded).
-  torque_ratio_max: null
+  # The contact modules each pad must carry. A pad's top face lies on its
+  # link line (O-A or B-C), or a housing radius below it when it must clear
+  # its pivot (goal.collision); length and A'' / B'' are measured along
+  # that face.
+  pads:
+    proximal:
+      # Mounting length a-b (A'' included), [min, max], laid from the pad's
+      # outer end (the MCP servo side; for the distal pad, C), the rest of the
+      # line toward the joint left empty.
+      #   min  a constraint: the module to carry.
+      #   max  a goal and a cap: the pad is never longer, and the longer the
+      #        better up to it. null: the finger's own limit,
+      #        goal.link.finger_length_mm's max (no pad outgrows the finger).
+      # The length is searched in [min, max]; [L, L] is exactly L.
+      length_mm: [20, null]
+      # Palmar of the mounting line, the mounting interface included. One
+      # value per study (a range would always end at its min); sweep it to
+      # see what thickness costs. The pad is a plain block (no chamfer: a
+      # chamfer only shortens the contact face).
+      height_mm: 5
+    distal:
+      length_mm: [25, null]
+      height_mm: 5
 
-# Overall geometry.
-geometry:
-  # |OC| in the fully extended pose.
-  extended_length_bounds_mm: [80.0, 110.0]
-  # At the most curl (the end of the usable range) with the MCP at 0, the tip
-  # C stays at x >= curl_tip_min_x_mm, ahead of O.
-  enforce_curl_tip: true
-  curl_tip_min_x_mm: 0.0
-  # Least pad lengths |OA''| and |B''C| (0: none). Contact-module sizes are
-  # pad requirements of the mechanism comparison.
-  minimum_proximal_support_mm: 30.0
-  minimum_distal_support_mm: 40.0
-  # Require the middle link A-B' to clear the PIP servo body in the side view.
-  # Off: its plates straddle the servo in other layers (still reported).
-  require_middle_link_servo_clearance: false
+  # The finger's links, each [min, max] (null: no limit). Requirements on the
+  # finger's size, not objectives: the front may sit on them (the run reports
+  # it), which then says the size limit binds.
+  link:
+    # |OC| in the extended pose.
+    finger_length_mm: [90, 100]
+    # |OA|: the MCP O to the proximal link's PIP pivot A.
+    # (The four-bar has no single PIP centre; A, the proximal link's own pivot,
+    # stands for it.)
+    proximal_length_mm: [null, null]
+    # BC: the distal link's pivot B to the fingertip C (the fingertip beyond
+    # the B pin; decided 2026-10-23: at least 25).
+    distal_length_mm: [25, null]
+    # Transmission angle at B' (between B'->A and B'->B) over the whole
+    # motion, hyperextension included, [min, max] ([30, 150] is v1/v2's 30 deg
+    # margin from 0 and 180).
+    transmission_angle_deg: [30, 150]
 
-# Hardware clearances (XM335 servos at MCP (O) and PIP (A') by default).
-packaging:
-  # The PIP and MCP servos, by actuator name (core.hardware.ACTUATORS: xm335).
-  pip_servo: xm335
-  mcp_servo: xm335
-  # Diameter of the metal around each pivot pin (A, A', B, B') in the side
-  # view: the bearing housing (57155K424 bearings, 6 mm OD, in 1 mm walls), or
-  # a flange if wider. Other parts keep body_clearance_mm beyond it.
-  pivot_clearance_diameter_mm: 8.0
-  # Servo bodies keep this far from the pin envelopes and from each other;
-  # the pads keep it from the parts of other bodies (from the MCP servo:
-  # pad.mcp_servo_clearance_mm).
-  body_clearance_mm: 1.0
-  # false: the A pin envelope keeps body_clearance_mm from a virtual clearance
-  # disk around the PIP servo's shaft at A' (A hangs off the servo on a
-  # bracket; the servo body is not checked against A). true: no such check.
-  allow_collision_pip_servo_to_joint_A: false
-  ap_clearance_diameter_mm: 7.0
-  # true: the B' pin envelope may pass through the PIP servo body (the middle
-  # link sits in another Y layer). false: it keeps body_clearance_mm from it
-  # over the motion, ending the safe range.
-  allow_collision_pip_servo_to_joint_Bp: true
+  # The actuators the finger is built around.
+  hardware:
+    pip_servo:
+      model: xm335              # core.hardware.ACTUATORS
+      # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
+      # searched in whole degrees from min.
+      tilt_angle_deg: 20
+    mcp_servo:
+      model: xm335
 
-# Contact pads a-b-d-c on the proximal and distal links (provisional
-# values), in the servos' central layer; the link plates sit outside it.
-pad:
-  # false: the pads are checked against the MCP servo, keeping
-  # mcp_servo_clearance_mm from it, and the proximal pad starts that far past
-  # its shaft disk. true: no such check, and the proximal pad starts at O.
-  allow_collision_with_mcp_servo: false
-  mcp_servo_clearance_mm: 1.0
-  # false: a pad is no longer than its link (proximal pad <= |OA|, distal pad
-  # <= BC); a free-length pad is cut to it, a fixed one must fit. true: a pad
-  # may stand out of its link.
-  allow_longer_pad_than_link: true
-  # height_mm: palmar of the mounting line, the mounting interface included
-  # (so the PIP servo may sit right on the line). offset_mm: start in from the
-  # outer end. chamfer_mm: 45 deg chamfer of the palmar corner facing the PIP
-  # (0: square). length_mm: a fixed length the mounting line must have room
-  # for; null runs the proximal pad right to A'' and the distal pad from C
-  # left to B''.
-  proximal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
-  distal: {height_mm: 10.0, offset_mm: 0.0, chamfer_mm: 2.5, length_mm: null}
+  # Collision checks. No clearance is added: touching is allowed, and the
+  # tolerances are part of the sizes below and of the pads.
+  collision:
+    # Sizes and ranges the checks use.
+    param:
+      # Each pivot's size, its tolerance included. Half of A's / B's is also how
+      # far the proximal / distal pad hangs below its link line to clear it.
+      #   A is 9 mm in fact but kept at 6, which sets the proximal pad's drop (3 mm).
+      #   A' is 7 mm in fact; 10 keeps the A-A' check as for the real pins
+      #   (3 + 5 = 4.5 + 3.5). The cost: the distal pad is checked against a
+      #   smaller A (1.5 mm less radius) and a larger A' (1.5 mm more) than real.
+      pivot_diameter_mm:
+        a: 6
+        a_prime: 10
+        b: 6
+        b_prime: 6
 
-# Production only: each part's own dimensions on this grid, B re-assembled
-# (null: off, for seed generation).
-production:
-  link_length_resolution_mm: null
+    # Which pairs are checked.
+    check:
+      # true: must not collide over the motion; false: may overlap in the side
+      # view (separate Y layers, or a joint interface).
+      # A hangs off the servo on a bracket: its housing may overlap the body.
+      a_pin_and_pip_servo: false
+      # A's housing and the keep-out around the servo shaft at A'.
+      a_pin_and_a_prime_pin: true
+      # The middle link A-B' sits in another Y layer than the servo.
+      b_prime_pin_and_pip_servo: false
+      # Each pad clears its own link's pivot: true hangs the pad half that
+      # pivot's diameter below its link line (touching allowed); false keeps it
+      # on the line, over the pivot.
+      a_pin_and_proximal_pad: true
+      b_pin_and_distal_pad: true
+      proximal_pad_and_distal_pad: true
+      # The PIP servo body and the proximal pad (one body, still kept apart):
+      # true lets the servo come down to the pad's top face, A's radius below
+      # OA (this replaces the old rule "the servo stays above OA"); false lets
+      # them overlap (separate Y layers).
+      pip_servo_and_proximal_pad: true
+      # true starts the proximal pad at the MCP servo's shaft disk (its model's
+      # radius) and checks it against the MCP servo; false starts it at O,
+      # unchecked.
+      mcp_servo_and_proximal_pad: true
+      # Always checked, not options: the pads against the pivots of the other
+      # body, the distal pad against the PIP and MCP servos, and the two servo
+      # bodies against each other.
 
-# The optimizer (core/optimization/optimizer.py: nsga2, smsemoa, agemoea; all
-# multi-objective) and its settings; options: settings of that algorithm only.
-optimizer:
-  algorithm: nsga2
-  # Objectives to minimize (core/optimization/linkage/objectives.py): the worst
-  # torque ratio k_max and the curl shortfall. The pads are requirements
-  # (minimum_*_support_mm, or a fixed length_mm), not an objective. Opt-in:
-  # support_length (the pads' length), flatness (k_max / k_min).
-  objectives: [transmission, curl]
-  population_size: 200
-  generations: 200
-  seed: 0
+
+# 2. Solver -------------------------------------------------------------------
+
+solver:
+  # What the front trades off:
+  #   transmission   k_max on [0, goal.motion.dip_flexion_deg], minimized
+  #   pad_coverage   (L_p,eff + L_d,eff) / |OC|, maximized: the share of the
+  #                  fully extended finger (MCP at 0, phi 0) the two pads'
+  #                  effective faces cover. A pad's effective length is its
+  #                  face (a-b, so at most its max) from its outer end up to
+  #                  the first link (A-B' or A'-B)
+  #                  that crosses it, the least over [0, dip_flexion_deg]: the
+  #                  face usable all over the required flexion. (The mounting
+  #                  lengths a-b are reported as mounted_coverage.) A longer finger lengthens the
+  #                  denominator too, so it pays only for packing more pad into
+  #                  the same length; with the pads at their max it favours a
+  #                  shorter finger (goal.link.finger_length_mm's min then
+  #                  matters).
+  #   curl           180 deg - phi_max, minimized: phi_max the most flexion that stays
+  #                  safe (C_x >= 0 included). goal.motion.dip_flexion_deg
+  #                  stays the least required, and k_max is still taken on
+  #                  [0, dip_flexion_deg], so curling further costs no k_max.
+  # Any of them, also finger_length (|OC|, when shorter is better than the
+  # range goal.link.finger_length_mm already asks for). Each one added makes
+  # the front a dimension bigger and the search slower to converge (two
+  # needed 1000 generations x 3+ seeds).
+  objectives:
+    - transmission
+    - pad_coverage
+    - curl
+
+  # The Pareto front's hypervolume reference point, per objective: the worst
+  # value that still counts, to compare fronts (seeds, runs, conditions) on
+  # one number. One study keeps one point (finger_length, when optimized:
+  # goal.link.finger_length_mm's max).
+  pareto_front:
+    transmission: 2.3
+    pad_coverage: 0               # no pad
+    curl: null                    # null: 180 - dip_flexion_deg (just the required flexion)
+
+  # Where the optimizer looks for the variables no requirement bounds. Search
+  # limits, not requirements: keep them wide enough that the front does not
+  # sit on them (the run reports bound hits). A' and B' are searched relative
+  # to A and B. The rest come from the goal, searched so that it holds:
+  #   |OC|            goal.link.finger_length_mm (B_x = |OC| - BC)
+  #   BC              goal.link.distal_length_mm
+  #   A_x = |OA|      goal.link.proximal_length_mm, between O and B
+  #   A'_x            from the least that keeps the PIP servo off the MCP servo
+  # A null max there is taken as finger_length_mm's max.
+  search_bounds:
+    a_z_mm: [0, 0]                # A on the proximal axis
+    b_z_mm: [0, 0]                # BC on the axis when extended
+    ap_from_a_x_mm: [-20, 30]     # A'_x - A_x
+    ap_from_a_z_mm: [0, 25]       # A'_z - A_z
+    bp_from_b_x_mm: [-50, 20]     # B'_x - B_x (extended)
+    bp_from_b_z_mm: [-60, 80]     # B'_z - B_z
+    app_offset_mm: [0, 20]        # A''_x - A'_x: the proximal pad past A'
+    bpp_offset_mm: [0, 20]        # B'_x - B''_x: the distal pad past B'
+
+  # Motion sampling.
+  sampling:
+    servo_step_deg: 1.0           # optimization grid
+    verify_step_deg: 0.05         # fine grid for verifying the front
+    dip_backoff_tolerance_deg: 0.05
+
+  # Resolution the prototype is made to: each part's dimensions are rounded
+  # to it (B re-assembled from the rounded bars).
+  prototyping_resolution_mm: 0.1
+
+  optimizer:
+    algorithm: nsga2
+    population: 200
+    generations: 1000
+    # One run per seed, merged into one verified front (the sweeps needed 3+ seeds).
+    seeds:
+      - 0
+      - 1
+      - 2

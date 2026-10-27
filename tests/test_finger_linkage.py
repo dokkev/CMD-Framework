@@ -104,7 +104,7 @@ def test_sweep_matches_the_pose_solver() -> None:
 
 
 def test_unreachable_pip_raises() -> None:
-    # This four-bar does not let the middle link turn fully: some PIP angles fail.
+    # This four-bar does not let the driver link turn fully: some PIP angles fail.
     linkage = FingerLinkage(FingerLinkageParameters(
         a_x_mm=40.0, b_x_mm=100.0, ap=PointXZ(45.0, 10.0), bp=PointXZ(90.0, 10.0),
         bc_length_mm=40.0,
@@ -167,7 +167,7 @@ def test_the_a_pin_clears_the_virtual_clearance_at_a_prime_not_the_servo_body() 
 def test_the_dip_pin_may_cross_the_servo_body_unless_checked() -> None:
     linkage = FingerLinkage(SKETCH)
     q = [math.radians(d) for d in range(0, 91)]
-    # The middle link sits in another Y layer: B' is not checked by default.
+    # The driver link sits in another Y layer: B' is not checked by default.
     assert servo_clearance(linkage, pip_samples_rad=q).dip_pin_mm == math.inf
 
     checked = Packaging(allow_collision_pip_servo_to_joint_bp=False)

@@ -28,7 +28,7 @@ facing the PIP lose a 45 deg chamfer at their palmar corner. Without
 
 The pads are 2.5D solids: XZ polygons with a Y interval (:data:`COMPONENTS`).
 They share the central layer with the servos, as wide as the servo; the
-middle link and coupler plates are outside it and the pins run through every
+driver link and coupler plates are outside it and the pins run through every
 layer. Only components in different collision groups (rigid bodies,
 :data:`COLLISION_GROUPS`) whose Y intervals overlap are checked
 (:func:`checked_pairs`).
@@ -36,6 +36,7 @@ layer. Only components in different collision groups (rigid bodies,
 
 from __future__ import annotations
 
+import functools
 import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -44,6 +45,7 @@ from typing import Sequence
 import numpy as np
 
 from core.hardware import DShapedExtrusion, XM335Actuator
+from core.morphology.linkage import _geometry as _kernels
 from core.morphology.linkage import FingerLinkage, FingerLinkageParameters
 
 
@@ -63,6 +65,8 @@ larger gap may be reported by a cheaper lower bound (a bounding-box gap, or
 _MCP_COARSE_STEP_RAD = math.radians(5.0)
 _MARGIN_TOLERANCE_MM = 1e-9
 DEFAULT_PIP_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
+PIVOTS = ("a", "ap", "b", "bp")
+"""The pivots by name: ``A``, ``A'``, ``B``, ``B'``."""
 
 
 def _xm335() -> DShapedExtrusion:
@@ -75,15 +79,22 @@ class ContactPad:
 
     ``height_mm`` palmar of its mounting line, starting ``offset_mm`` in from
     its outer end (``O`` or the MCP servo, or ``C``), and a 45 deg chamfer of
-    ``chamfer_mm`` at its palmar corner facing the PIP. ``length_mm`` fixes
+    ``chamfer_mm`` at its palmar corner facing the PIP (with ``chamfer_free``
+    the design's own, 0 to ``height_mm``: :func:`pad_chamfer_mm`). ``length_mm`` fixes
     its length, which the mounting line must have room for; ``None`` runs it
-    to ``A''`` or ``B''``, the whole room (see :func:`pad_spans`).
+    to ``A''`` or ``B''``, the whole room (see :func:`pad_spans`), cut to
+    ``max_length_mm`` when given (no module needs more).
     """
 
     height_mm: float = 5.0
     offset_mm: float = 0.0
     chamfer_mm: float = 2.5
     length_mm: float | None = None
+    max_length_mm: float | None = None
+    """Most mounting length: a free pad is cut to it, a fixed one may not exceed it."""
+    chamfer_free: bool = False
+    """The chamfer is a design variable (``FingerLinkageParameters.proximal_chamfer_mm``
+    or ``distal_chamfer_mm``), at most ``height_mm``; ``chamfer_mm`` is then unused."""
 
     def __post_init__(self) -> None:
         if not self.height_mm > 0.0:
@@ -94,6 +105,8 @@ class ContactPad:
             raise ValueError("offset_mm must be non-negative")
         if not 0.0 <= self.chamfer_mm <= self.height_mm:
             raise ValueError("chamfer_mm must be within [0, height_mm]")
+        if self.max_length_mm is not None and not self.max_length_mm > 0.0:
+            raise ValueError("max_length_mm must be positive, or None")
 
 
 @dataclass(frozen=True)
@@ -119,7 +132,7 @@ class Packaging:
     clearance disk around the servo's shaft (``ap_clearance_diameter_mm``)."""
     allow_collision_pip_servo_to_joint_bp: bool = True
     """``True``: the ``B'`` pin envelope may pass through the PIP servo body
-    (the middle link sits in another Y layer). ``False``: it keeps the body
+    (the driver link sits in another Y layer). ``False``: it keeps the body
     clearance from the body over the motion, which ends the safe range."""
     ap_clearance_diameter_mm: float = 7.0
     """Virtual clearance around the PIP servo's shaft (``A'``; ``A`` with the
@@ -137,10 +150,44 @@ class Packaging:
     unbounded."""
     pip_servo_at: str = "ap"
     """Where the PIP servo's shaft is: ``"ap"`` (``A'``, driving ``A'-B``) or
-    ``"a"`` (the PIP ``A``, driving the middle link ``A-B'``; body along ``-X``,
+    ``"a"`` (the PIP ``A``, driving the driver link ``A-B'``; body along ``-X``,
     no tilt, the proximal pad on its palmar face)."""
+    a_pivot_diameter_mm: float | None = None
+    ap_pivot_diameter_mm: float | None = None
+    b_pivot_diameter_mm: float | None = None
+    bp_pivot_diameter_mm: float | None = None
+    """Each pivot's own size in the side view (:meth:`pivot_radius_mm`);
+    ``None``: ``pivot_clearance_diameter_mm``. The ``A``-``A'`` check still
+    uses ``ap_clearance_diameter_mm`` at the servo's shaft."""
+    proximal_pad_below_a: bool = False
+    distal_pad_below_b: bool = False
+    """Hang the pad half its own link's pivot (``A``, ``B``) below the link
+    line, so its top face clears that pivot (:attr:`proximal_pad_drop_mm`);
+    ``False``: on the line, over the pivot."""
+    pip_servo_above_oa: bool = True
+    """The PIP servo stays dorsal of the ``OA`` line (the ``oa_interface_mm``
+    constraint)."""
+    pip_servo_pad_check: bool = False
+    """The PIP servo body keeps clear of the proximal pad (one body, still
+    kept apart): it may come down to the pad's top face."""
+    a_pin_servo_check: bool = False
+    """The ``A`` pin also keeps clear of the PIP servo body (it hangs off the
+    servo on a bracket otherwise)."""
+    pad_pad_check: bool = True
+    """The two pads keep clear of each other."""
+    distal_pad_mcp_check: bool | None = None
+    """The distal pad keeps clear of the MCP servo; ``None``: as ``pad_mcp_check``
+    (which then governs the proximal pad alone)."""
+    overlap_depth: bool = False
+    """Report an overlap of two solids by its depth (negative), not as a zero
+    gap, so a zero clearance still rejects it. Off: overlapping solids count as
+    touching, which only a positive clearance rejects."""
 
     def __post_init__(self) -> None:
+        for pivot in PIVOTS:
+            diameter = getattr(self, f"{pivot}_pivot_diameter_mm")
+            if diameter is not None and not diameter >= 0.0:
+                raise ValueError(f"{pivot}_pivot_diameter_mm must be non-negative, or None")
         if self.pad_mcp_clearance_mm is not None and not self.pad_mcp_clearance_mm >= 0.0:
             raise ValueError("pad_mcp_clearance_mm must be non-negative, or None")
         if self.pad_link_ratio_max is not None and not self.pad_link_ratio_max > 0.0:
@@ -171,6 +218,26 @@ class Packaging:
 
         return 2.0 * self.pin_radius_mm
 
+    def pivot_radius_mm(self, pivot: str) -> float:
+        """Radius of one pivot (``"a"``, ``"ap"``, ``"b"``, ``"bp"``) in the side view."""
+
+        diameter = getattr(self, f"{pivot}_pivot_diameter_mm")
+        return (self.pivot_clearance_diameter_mm if diameter is None else diameter) / 2.0
+
+    @property
+    def proximal_pad_drop_mm(self) -> float:
+        """How far the proximal pad's top face lies palmar of ``O-A``: ``A``'s
+        radius with ``proximal_pad_below_a``, else 0."""
+
+        return self.pivot_radius_mm("a") if self.proximal_pad_below_a and not self.pip_servo_on_a else 0.0
+
+    @property
+    def distal_pad_drop_mm(self) -> float:
+        """How far the distal pad's top face lies palmar of ``BC``: ``B``'s radius
+        with ``distal_pad_below_b``, else 0."""
+
+        return self.pivot_radius_mm("b") if self.distal_pad_below_b else 0.0
+
     @property
     def proximal_pad_start_mm(self) -> float:
         """``x`` of the proximal pad's first edge ``a-c``: ``O``, or the MCP servo's
@@ -186,7 +253,8 @@ class Packaging:
         servo's shaft: ``|AA'|`` less both radii."""
 
         return (math.hypot(linkage.a.x_mm - linkage.ap.x_mm, linkage.a.z_mm - linkage.ap.z_mm)
-                - self.pin_radius_mm - self.ap_clearance_diameter_mm / 2.0)
+                - self.pivot_radius_mm("ap" if self.pip_servo_on_a else "a")
+                - self.ap_clearance_diameter_mm / 2.0)
 
     @property
     def mcp_pad_clearance_mm(self) -> float:
@@ -194,15 +262,22 @@ class Packaging:
 
         return self.body_clearance_mm if self.pad_mcp_clearance_mm is None else self.pad_mcp_clearance_mm
 
+    def pad_checks_mcp(self, pad: str) -> bool:
+        """Whether a pad (``"proximal_pad"``, ``"distal_pad"``) is checked against the MCP servo."""
+
+        if pad == "distal_pad" and self.distal_pad_mcp_check is not None:
+            return self.distal_pad_mcp_check
+        return self.pad_mcp_check
+
     @property
     def pip_servo_on_a(self) -> bool:
         return self.pip_servo_at == "a"
 
     def proximal_pad_line_z(self, parameters: FingerLinkageParameters) -> float:
-        """``z`` of the proximal pad's mounting line: ``O-A''``, or the palmar face
-        of the PIP servo on ``A``."""
+        """``z`` of the proximal pad's mounting line: ``O-A''`` (less
+        :attr:`proximal_pad_drop_mm`), or the palmar face of the PIP servo on ``A``."""
 
-        return parameters.a_z_mm - self.pip_servo.radius_mm if self.pip_servo_on_a else 0.0
+        return parameters.a_z_mm - self.pip_servo.radius_mm if self.pip_servo_on_a else -self.proximal_pad_drop_mm
 
     def layer_y_mm(self, layer: str) -> tuple[float, float]:
         """``|y|`` interval of a layer (``y`` across the finger, 0 at its middle)."""
@@ -251,7 +326,12 @@ class Packaging:
         to_mcp = float(mcp.distance_to_segments(start, end).min())
         start = np.concatenate(mcp_edges)
         end = np.concatenate([np.roll(edge, -1, axis=0) for edge in mcp_edges])
-        return min(to_mcp, float(pip_servo.distance_to_segments(start, end).min()))
+        gap = min(to_mcp, float(pip_servo.distance_to_segments(start, end).min()))
+        if self.overlap_depth and gap <= _MARGIN_TOLERANCE_MM:
+            depth = float(_separation(np.stack(pip_edges), np.broadcast_to(
+                mcp_outline, (len(pip_edges), *mcp_outline.shape))).min())
+            gap = min(gap, depth) if depth < 0.0 else gap
+        return gap
 
 
 PIN_RADIUS_MM = Packaging().pin_radius_mm
@@ -271,7 +351,7 @@ class ServoClearance:
     """The DIP pin envelope at ``B'`` beyond the servo body over the PIP samples,
     less the body clearance (inf with ``allow_collision_pip_servo_to_joint_bp``)."""
     link_mm: float
-    """The middle link ``A-B'`` beyond the servo over the PIP samples. Reported
+    """The driver link ``A-B'`` beyond the servo over the PIP samples. Reported
     only: its plates straddle the servo in other layers."""
 
     @property
@@ -297,7 +377,7 @@ def servo_clearance(
     sweep = linkage.sweep_pip(pip_samples_rad)
     a = np.array((linkage.a.x_mm, linkage.a.z_mm))
     clearance = packaging.body_clearance_mm
-    housing = packaging.pin_radius_mm
+    housing = packaging.pivot_radius_mm("bp")
     link = footprint.distance_to_segments(np.broadcast_to(a, sweep.bp.shape), sweep.bp)
     dip = footprint.distance_to_segments(sweep.bp, sweep.bp)
     return ServoClearance(
@@ -375,35 +455,16 @@ class ServoFootprint:
     def distance_to_segments(self, start: np.ndarray, end: np.ndarray) -> np.ndarray:
         """Distance from each segment ``start[i]-end[i]`` to the footprint (0 if touching)."""
 
-        start, end = self._to_local(start), self._to_local(end)
-        r, rear = self.radius_mm, self.rear_extent_mm
-        disk = np.maximum(point_segment_distance(np.zeros(2), start, end) - r, 0.0)
-        corners = np.array(((-rear, -r), (0.0, -r), (0.0, r), (-rear, r)))
-        to_box = np.minimum(self._box_distance(start), self._box_distance(end))
-        for k in range(4):
-            to_box = np.minimum(to_box, point_segment_distance(corners[k], start, end))
-            crosses = _segments_cross(start, end, corners[k], corners[(k + 1) % 4])
-            to_box = np.where(crosses, 0.0, to_box)
-        return np.minimum(disk, to_box)
+        forward, side = self._axes()
+        return _kernels.footprint_distance(_points(start), _points(end), float(self.pivot[0]), float(self.pivot[1]),
+                                           float(forward[0]), float(forward[1]), float(side[0]), float(side[1]),
+                                           float(self.radius_mm), float(self.rear_extent_mm))
 
     def _axes(self) -> tuple[np.ndarray, np.ndarray]:
         """Unit vectors of the servo frame: ``forward`` (away from the rear body) and ``side``."""
 
         forward = -np.array(self.rear)
         return forward, np.array((-forward[1], forward[0]))
-
-    def _to_local(self, points: np.ndarray) -> np.ndarray:
-        """Plane points in servo coordinates: pivot at 0, rear body along ``-x``."""
-
-        forward, side = self._axes()
-        delta = np.asarray(points, dtype=float) - np.array(self.pivot)
-        return np.stack((delta @ forward, delta @ side), axis=-1)
-
-    def _box_distance(self, points: np.ndarray) -> np.ndarray:
-        r = self.radius_mm
-        dx = np.maximum.reduce((-self.rear_extent_mm - points[:, 0], np.zeros(len(points)), points[:, 0]))
-        dz = np.maximum(np.abs(points[:, 1]) - r, 0.0)
-        return np.hypot(dx, dz)
 
 
 @dataclass(frozen=True)
@@ -414,7 +475,7 @@ class Component:
     layer: str
 
 
-COLLISION_GROUPS = ("palm", "proximal", "distal", "middle", "coupler")
+COLLISION_GROUPS = ("palm", "proximal", "distal", "driver", "coupler")
 """Rigid bodies: parts of one group never collide with each other. Parts of
 different groups must not collide where their Y layers overlap."""
 COMPONENTS = MappingProxyType({
@@ -426,13 +487,13 @@ COMPONENTS = MappingProxyType({
     "distal_pad": Component("distal", "central"),
     "bp_pin": Component("distal", "through"),
     "b_pin": Component("distal", "through"),
-    "middle_link": Component("middle", "outer"),
+    "driver_link": Component("driver", "outer"),
     "coupler": Component("coupler", "outer"),
 })
 """Each solid's collision group and where it sits across the finger. The PIP
 servo is bolted to the proximal body. A pin joins two bodies and sits in the
 group of the one that carries it in the central layer, so it is the joint
-interface of both: the middle link and coupler, its other bodies, are only in
+interface of both: the driver link and coupler, its other bodies, are only in
 the outer layer."""
 PADS = ("proximal_pad", "distal_pad")
 FIXED_MARGIN_PAIRS = (("mcp_servo", "proximal_pad"),)
@@ -449,7 +510,7 @@ SERVO_PAIRS = (("mcp_servo", "pip_servo"), ("a_pin", "pip_servo"), ("bp_pin", "p
 """The servo checks besides the pads': the two servo bodies, the A pin
 envelope against the virtual clearance at the PIP servo's shaft, and (unless
 ``allow_collision_pip_servo_to_joint_bp``) the B' pin envelope against the PIP
-servo body (the middle link's is reported only)."""
+servo body (the driver link's is reported only)."""
 
 
 def checked_pairs(packaging: Packaging) -> tuple[tuple[str, str], ...]:
@@ -460,7 +521,9 @@ def checked_pairs(packaging: Packaging) -> tuple[tuple[str, str], ...]:
     for pad in PADS:
         for other, component in COMPONENTS.items():
             pair = tuple(sorted((pad, other)))
-            if other == pad or pair in pairs or (other == "mcp_servo" and not packaging.pad_mcp_check):
+            if other == pad or pair in pairs or (other == "mcp_servo" and not packaging.pad_checks_mcp(pad)):
+                continue
+            if other in PADS and not packaging.pad_pad_check:
                 continue
             if COMPONENTS[pad].group == component.group:
                 continue  # one rigid body
@@ -521,6 +584,10 @@ def pad_spans(parameters: FingerLinkageParameters, packaging: Packaging) -> dict
     ratio = packaging.pad_link_ratio_max
     proximal_limit = math.inf if ratio is None else ratio * math.hypot(parameters.a_x_mm, parameters.a_z_mm)
     distal_limit = math.inf if ratio is None else ratio * parameters.bc_length_mm
+    if proximal.max_length_mm is not None:  # no module needs more (morphology goal)
+        proximal_limit = min(proximal_limit, proximal.max_length_mm)
+    if distal.max_length_mm is not None:
+        distal_limit = min(distal_limit, distal.max_length_mm)
     if packaging.pip_servo_on_a:
         body = packaging.pip_servo
         outer = parameters.a_x_mm - body.rear_extent_mm + proximal.offset_mm
@@ -537,7 +604,15 @@ def pad_spans(parameters: FingerLinkageParameters, packaging: Packaging) -> dict
     return {"proximal_pad": proximal_span, "distal_pad": distal_span}
 
 
-def pad_outline(span: PadSpan, pad: ContactPad, chamfer_at: str) -> np.ndarray:
+def pad_chamfer_mm(pad: ContactPad, parameters: FingerLinkageParameters, side: str) -> float:
+    """The chamfer a pad has in this design: its own (``chamfer_free``) or the packaging's."""
+
+    if pad.chamfer_free:
+        return min(getattr(parameters, f"{side}_chamfer_mm"), pad.height_mm)
+    return pad.chamfer_mm
+
+
+def pad_outline(span: PadSpan, pad: ContactPad, chamfer_at: str, chamfer_mm: float | None = None) -> np.ndarray:
     """A pad in its mounting-line frame (``u`` along the line, ``v`` dorsal), ``(m, 2)``.
 
     ``a-b`` is the span on the line and ``c-d`` the pad's height palmar of it;
@@ -546,7 +621,8 @@ def pad_outline(span: PadSpan, pad: ContactPad, chamfer_at: str) -> np.ndarray:
     """
 
     start_mm, end_mm = span.start_mm, span.end_mm
-    t, k = pad.height_mm, min(pad.chamfer_mm, end_mm - start_mm)
+    chamfer = pad.chamfer_mm if chamfer_mm is None else chamfer_mm
+    t, k = pad.height_mm, min(chamfer, end_mm - start_mm)
     a, b, d, c = (start_mm, 0.0), (end_mm, 0.0), (end_mm, -t), (start_mm, -t)
     if k <= 0.0:
         return np.array((c, d, b, a))
@@ -560,7 +636,8 @@ def proximal_pad_polygon(linkage: FingerLinkage, packaging: Packaging) -> np.nda
     ``O-A''``, chamfered at the end facing the PIP."""
 
     span = pad_spans(linkage.parameters, packaging)["proximal_pad"]
-    outline = pad_outline(span, packaging.proximal_pad, "end")
+    outline = pad_outline(span, packaging.proximal_pad, "end",
+                          pad_chamfer_mm(packaging.proximal_pad, linkage.parameters, "proximal"))
     return outline + (0.0, packaging.proximal_pad_line_z(linkage.parameters))
 
 
@@ -575,7 +652,9 @@ def distal_pad_polygon(linkage: FingerLinkage, packaging: Packaging,
     """
 
     p = linkage.parameters
-    local = pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start")
+    local = pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start",
+                        pad_chamfer_mm(packaging.distal_pad, p, "distal"))
+    local = local - (0.0, packaging.distal_pad_drop_mm)
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     e = (c - b) / p.bc_length_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
@@ -587,7 +666,7 @@ def usable_pad_lengths(
 ) -> dict[str, np.ndarray]:
     """Per-sample length of each pad's face the links leave free, from its outer end.
 
-    The middle link ``A-B'`` and the coupler ``A'-B`` sit in other layers, but
+    The driver link ``A-B'`` and the coupler ``A'-B`` sit in other layers, but
     where one passes through a pad's block in the side view (over its span,
     between the mounting line and the pad's height), it runs across the
     contact interface. (Passing further palmar, in front of the face, is the
@@ -603,7 +682,8 @@ def usable_pad_lengths(
     count = len(b)
     a = np.broadcast_to((p.a_x_mm, p.a_z_mm), (count, 2))
     ap = np.broadcast_to((p.ap.x_mm, p.ap.z_mm), (count, 2))
-    links = [_trimmed(a, bp, packaging.pin_radius_mm), _trimmed(ap, b, packaging.pin_radius_mm)]
+    radius = packaging.pivot_radius_mm
+    links = [_trimmed(a, bp, radius("a"), radius("bp")), _trimmed(ap, b, radius("ap"), radius("b"))]
     spans = pad_spans(p, packaging)
 
     proximal = spans["proximal_pad"]  # frame: x along the mounting line, z dorsal of it
@@ -619,9 +699,9 @@ def usable_pad_lengths(
     e = (c - b) / p.bc_length_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
 
-    def local(points: np.ndarray) -> np.ndarray:
+    def local(points: np.ndarray) -> np.ndarray:  # v from the pad's top face
         rel = points - b
-        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1)), axis=1)
+        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + packaging.distal_pad_drop_mm), axis=1)
 
     far = np.full(count, -np.inf)
     for start, end in links:
@@ -632,13 +712,19 @@ def usable_pad_lengths(
     return {"proximal_pad": np.maximum(proximal_free, 0.0), "distal_pad": np.maximum(distal_free, 0.0)}
 
 
-def _trimmed(start: np.ndarray, end: np.ndarray, radius: float) -> tuple[np.ndarray, np.ndarray]:
-    """Segments ``start-end`` shortened by ``radius`` at both ends (to a point at most)."""
+def _trimmed(start: np.ndarray, end: np.ndarray, radius: float,
+             end_radius: float | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Segments ``start-end`` shortened by ``radius`` at the start and
+    ``end_radius`` (default: the same) at the end, to a point at most."""
 
     direction = end - start
-    length = np.linalg.norm(direction, axis=1)
-    trim = np.minimum(radius / np.where(length > 0.0, length, 1.0), 0.5)[:, None]
-    return start + trim * direction, end - trim * direction
+    length = np.where((norm := np.linalg.norm(direction, axis=1)) > 0.0, norm, 1.0)
+    if end_radius is None or end_radius == radius:
+        head = tail = np.minimum(radius / length, 0.5)[:, None]
+    else:  # the two trims meet at most, in proportion
+        total = np.maximum((radius + end_radius) / length, 1.0)
+        head, tail = (radius / length / total)[:, None], (end_radius / length / total)[:, None]
+    return start + head * direction, end - tail * direction
 
 
 def _block_extent(start: np.ndarray, end: np.ndarray, low: float, high: float,
@@ -691,10 +777,11 @@ def pad_margins(
             "ap_pin": np.broadcast_to((linkage.ap.x_mm, linkage.ap.z_mm), (count, 2)),
             "bp_pin": bp, "b_pin": b}
     footprint = packaging.pip_footprint(linkage)
-    radius = packaging.pin_radius_mm
+    radius = {name: packaging.pivot_radius_mm(name[:-len("_pin")]) for name in pins}
+    signed = packaging.overlap_depth
 
     boxes = {name: (polygon.min(axis=1), polygon.max(axis=1)) for name, polygon in pads.items()}
-    boxes.update({name: (center - radius, center + radius) for name, center in pins.items()})
+    boxes.update({name: (center - radius[name], center + radius[name]) for name, center in pins.items()})
     outline = footprint.outline
     boxes["pip_servo"] = (np.broadcast_to(outline.min(axis=0), (count, 2)),
                           np.broadcast_to(outline.max(axis=0), (count, 2)))
@@ -703,21 +790,26 @@ def pad_margins(
         polygon = pads[pad]
         if other == "mcp_servo":
             if pad == "proximal_pad":  # fixed in the proximal frame: the same at every sample
-                return np.full(count, _mcp_gap(polygon[:1], packaging, mcp_samples_rad)[0])
+                return np.full(count, proximal_pad_mcp_gap(polygon[0], packaging, mcp_samples_rad))
             return _mcp_gap(polygon, packaging, mcp_samples_rad)
         # Broad phase: the bounding boxes' gap bounds the gap from below.
         (low, high), (other_low, other_high) = boxes[pad], boxes[other]
         result = np.hypot(*np.maximum(np.maximum(other_low - high, low - other_high), 0.0).T)
         near = np.flatnonzero(result <= packaging.body_clearance_mm + EXACT_BAND_MM)
         if near.size:
+            if other in pins:  # signed already: a disk's centre distance less its radius
+                result[near] = _polygon_to_disk(polygon[near], pins[other][near], radius[other])
+                return result
             if other in pads:
-                result[near] = _polygons_gap(polygon[near], pads[other][near])
-            elif other in pins:
-                result[near] = _polygon_to_disk(polygon[near], pins[other][near], radius)
+                solid = pads[other][near]
+                result[near] = _polygons_gap(polygon[near], solid)
             elif other == "pip_servo":
+                solid = np.broadcast_to(outline, (near.size, *outline.shape))
                 result[near] = _polygon_to_footprint(polygon[near], footprint)
             else:
                 raise ValueError(f"no geometry for the pair {pad!r}, {other!r}")
+            if signed:
+                result[near] = _signed(result[near], polygon[near], solid)
         return result
 
     margins = {}
@@ -728,6 +820,38 @@ def pad_margins(
         # A pad set exactly the clearance away (the MCP offset) must not fail by rounding.
         margins[pair] = np.where(np.abs(margin) < _MARGIN_TOLERANCE_MM, 0.0, margin)
     return margins
+
+
+def proximal_pad_mcp_gap(polygon: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequence[float]) -> float:
+    """Gap of the proximal pad (``(m, 2)``, fixed in the proximal frame) to the
+    MCP servo over the MCP flexion samples.
+
+    The pad starts at the servo by construction, so near the servo it is the
+    same block in every design: its start, line and height are the study's.
+    When the pad (chamfer included) ends beyond the servo's reach and the exact
+    band, only that block can come near the servo, and its gap is solved once
+    per study (:func:`_proximal_block_gap`); otherwise the whole pad is checked.
+    """
+
+    limit = packaging.mcp_footprint().reach_mm + packaging.mcp_pad_clearance_mm + EXACT_BAND_MM
+    height = packaging.proximal_pad.height_mm
+    near = polygon[:, 0] < limit
+    if polygon[:, 0].max() - height > limit and near.any():
+        top = float(polygon[:, 1].max())
+        start = float(polygon[:, 0].min())
+        bottom = float(polygon[:, 1].min())
+        if np.allclose(polygon[near][:, 0], start) and math.isclose(top - bottom, height):  # the square edge a-c
+            return _proximal_block_gap(packaging, start, top, height, limit, tuple(mcp_samples_rad))
+    return float(_mcp_gap(polygon[None], packaging, mcp_samples_rad)[0])
+
+
+@functools.lru_cache(maxsize=64)
+def _proximal_block_gap(packaging: Packaging, start: float, top: float, height: float, limit: float,
+                        mcp_samples_rad: tuple[float, ...]) -> float:
+    """The MCP servo gap of the proximal pad's block within ``limit`` of ``O``."""
+
+    block = np.array(((start, top - height), (limit, top - height), (limit, top), (start, top)))
+    return float(_mcp_gap(block[None], packaging, mcp_samples_rad)[0])
 
 
 def _mcp_gap(polygons: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequence[float]) -> np.ndarray:
@@ -772,62 +896,118 @@ def _mcp_gap(polygons: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequen
         fine = near[gap[near] <= exact]
         if fine.size:
             gap[fine] = at(fine, samples)
-    return gap.reshape(count, -1).min(axis=1)
+    result = gap.reshape(count, -1).min(axis=1)
+    touching = np.flatnonzero(result <= _MARGIN_TOLERANCE_MM)
+    if packaging.overlap_depth and touching.size:  # touching or overlapping at some MCP angle
+        outline = servo.outline
+        depth = np.full(touching.size, math.inf)
+        for angle in samples:
+            turned = turn_points(polygons[touching].reshape(-1, 2), -angle).reshape(touching.size, -1, 2)
+            depth = np.minimum(depth, _separation(turned, np.broadcast_to(outline, (touching.size, *outline.shape))))
+        result[touching] = np.where(depth < 0.0, depth, result[touching])
+    return result
 
 
 def _edges(polygons: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return polygons, np.roll(polygons, -1, axis=-2)
 
 
+def _separation(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    """Signed separation of convex ``(n, m, 2)`` and ``(n, k, 2)`` polygons per
+    sample: the most any edge normal of either separates their projections.
+    Positive: apart (by at least that); 0: touching; negative: overlapping,
+    by that depth."""
+
+    return _kernels.separation(_polygons(first), _polygons(second))
+
+def _signed(gap: np.ndarray, first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    """A gap that is 0 for touching and overlapping alike, made negative by the
+    overlap's depth (:func:`_separation`) where the convex polygons overlap."""
+
+    depth = _separation(first, second)
+    return np.where(depth < 0.0, depth, gap)
+
+
+def polygon_gaps(first: np.ndarray, second: np.ndarray, packaging: Packaging) -> np.ndarray:
+    """Gap per sample between convex ``(n, m, 2)`` and ``(n, k, 2)`` polygons;
+    with ``packaging.overlap_depth`` an overlap is negative by its depth."""
+
+    gap = _polygons_gap(first, second)
+    return _signed(gap, first, second) if packaging.overlap_depth else gap
+
+
+def footprint_gaps(polygons: np.ndarray, footprint: "ServoFootprint", packaging: Packaging) -> np.ndarray:
+    """Gap per sample between ``(n, m, 2)`` polygons and a servo footprint
+    (signed as :func:`polygon_gaps`)."""
+
+    gap = _polygon_to_footprint(polygons, footprint)
+    if not packaging.overlap_depth:
+        return gap
+    return _signed(gap, polygons, np.broadcast_to(footprint.outline, (len(polygons), *footprint.outline.shape)))
+
+
+def mcp_servo_gaps(polygons: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequence[float]) -> np.ndarray:
+    """Least gap per sample of ``(n, m, 2)`` polygons to the MCP servo over the
+    MCP flexion samples (signed as :func:`polygon_gaps`)."""
+
+    return _mcp_gap(polygons, packaging, mcp_samples_rad)
+
+
+def servo_floor_x(packaging: Packaging, pivot_z: float, rear: tuple[float, float],
+                  mcp_angles_rad: Sequence[float]) -> float:
+    """The least shaft ``x`` (at ``pivot_z``) of a servo of the PIP servo's size,
+    laid back along ``rear``, that keeps it clear of the MCP servo at the MCP
+    angles: searched from far ahead of ``O`` back to the first overlap (far
+    behind ``O`` it is clear again, which is no finger), in 5 mm steps, then
+    bisected to 0.05 mm."""
+
+    servo = packaging.pip_servo
+    angles = tuple(mcp_angles_rad)
+
+    def clear(x: float) -> bool:
+        footprint = ServoFootprint((x, pivot_z), rear, servo.radius_mm, servo.rear_extent_mm)
+        return packaging.mcp_servo_gap_mm(footprint, angles) - packaging.body_clearance_mm >= 0.0
+
+    high = 200.0
+    low = high - 5.0
+    while low > -200.0 and clear(low):
+        high, low = low, low - 5.0
+    while high - low > 0.05:
+        middle = 0.5 * (low + high)
+        low, high = (low, middle) if clear(middle) else (middle, high)
+    return high
+
+
+def pip_servo_pad_gap_mm(linkage: FingerLinkage, packaging: Packaging) -> float:
+    """Gap between the PIP servo body and the proximal pad (both fixed in the
+    proximal frame), signed as :func:`footprint_gaps`."""
+
+    return float(footprint_gaps(proximal_pad_polygon(linkage, packaging)[None],
+                                packaging.pip_footprint(linkage), packaging)[0])
+
+
 def _inside(points: np.ndarray, polygons: np.ndarray) -> np.ndarray:
     """Whether each of ``(n, p, 2)`` points lies inside (or on) the convex ``(n, m, 2)`` polygon."""
 
-    start, end = _edges(polygons)
-    edge = (end - start)[:, None]                  # (n, 1, m, 2)
-    offset = points[:, :, None] - start[:, None]   # (n, p, m, 2)
-    cross = edge[..., 0] * offset[..., 1] - edge[..., 1] * offset[..., 0]
-    return np.all(cross >= 0.0, axis=2) | np.all(cross <= 0.0, axis=2)
-
+    return _kernels.inside(_polygons(points), _polygons(polygons))
 
 def _polygons_gap(first: np.ndarray, second: np.ndarray) -> np.ndarray:
     """Gap between two ``(n, m, 2)`` convex polygons per sample (0 when they touch or overlap)."""
 
-    count = len(first)
-    (p0, p1), (q0, q1) = _edges(first), _edges(second)
-    p0, p1 = (array[:, :, None] for array in (p0, p1))
-    q0, q1 = (array[:, None] for array in (q0, q1))
-    shape = np.broadcast_shapes(p0.shape, q0.shape)
-    p0, p1, q0, q1 = (np.broadcast_to(array, shape).reshape(-1, 2) for array in (p0, p1, q0, q1))
-    distance = np.minimum.reduce((
-        point_segment_distance(p0, q0, q1), point_segment_distance(p1, q0, q1),
-        point_segment_distance(q0, p0, p1), point_segment_distance(q1, p0, p1),
-    ))
-    distance = np.where(_segments_cross(p0, p1, q0, q1), 0.0, distance).reshape(count, -1).min(axis=1)
-    overlap = _inside(first, second).any(axis=1) | _inside(second, first).any(axis=1)
-    return np.where(overlap, 0.0, distance)
-
+    return _kernels.polygons_gap(_polygons(first), _polygons(second))
 
 def _polygon_to_disk(polygons: np.ndarray, centers: np.ndarray, radius: float) -> np.ndarray:
     """Gap from ``(n, m, 2)`` polygons to disks at ``(n, 2)`` centres (negative: overlap)."""
 
-    count, sides = polygons.shape[:2]
-    start, end = _edges(polygons)
-    distance = point_segment_distance(np.repeat(centers, sides, axis=0),
-                                      start.reshape(-1, 2), end.reshape(-1, 2))
-    distance = distance.reshape(count, sides).min(axis=1)
-    return np.where(_inside(centers[:, None], polygons)[:, 0], 0.0, distance) - radius
-
+    return _kernels.polygon_to_disk(_polygons(polygons), _points(centers), float(radius))
 
 def _polygon_to_footprint(polygons: np.ndarray, footprint: "ServoFootprint") -> np.ndarray:
     """Gap from ``(n, m, 2)`` polygons to a servo footprint (0 when they touch or overlap)."""
 
-    count = len(polygons)
-    start, end = _edges(polygons)
-    distance = footprint.distance_to_segments(start.reshape(-1, 2), end.reshape(-1, 2))
-    distance = distance.reshape(count, -1).min(axis=1)
-    pivot = np.broadcast_to(footprint.pivot, (count, 1, 2))
-    return np.where(_inside(pivot, polygons)[:, 0], 0.0, distance)
-
+    forward, side = footprint._axes()
+    return _kernels.polygon_to_footprint(_polygons(polygons), float(footprint.pivot[0]), float(footprint.pivot[1]),
+                                         float(forward[0]), float(forward[1]), float(side[0]), float(side[1]),
+                                         float(footprint.radius_mm), float(footprint.rear_extent_mm))
 
 def turn_points(points: np.ndarray, angle_rad: float) -> np.ndarray:
     """Points ``(n, 2)`` turned by ``angle_rad`` about the origin ``O``."""
@@ -839,28 +1019,27 @@ def turn_points(points: np.ndarray, angle_rad: float) -> np.ndarray:
 
 
 def point_segment_distance(point: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
-    """Distance from ``point`` to each segment ``start[i]-end[i]``."""
+    """Distance from ``point`` (one, or one per segment) to each segment ``start[i]-end[i]``."""
 
-    direction = end - start
-    length_squared = np.sum(direction * direction, axis=1)
-    safe = np.where(length_squared > 0.0, length_squared, 1.0)
-    t = np.where(length_squared > 0.0, np.sum((point - start) * direction, axis=1) / safe, 0.0)
-    nearest = start + np.clip(t, 0.0, 1.0)[:, None] * direction
-    return np.linalg.norm(point - nearest, axis=1)
-
-
+    point, start, end = np.broadcast_arrays(*(np.asarray(a, dtype=float) for a in (point, start, end)))
+    return _kernels.point_segment_distance(_points(point), _points(start), _points(end))
 
 def _segments_cross(start: np.ndarray, end: np.ndarray, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
-    def cross(o, p, q):
-        return (p[..., 0] - o[..., 0]) * (q[..., 1] - o[..., 1]) - (p[..., 1] - o[..., 1]) * (q[..., 0] - o[..., 0])
+    """Whether segment ``start[i]-end[i]`` crosses ``q0[i]-q1[i]``. Collinear
+    segments only touch if an endpoint lies on the other, which the endpoint
+    distances already find."""
 
-    d1, d2 = cross(start, end, q0), cross(start, end, q1)
-    d3, d4 = cross(q0, q1, start), cross(q0, q1, end)
-    # Collinear segments only touch if an endpoint lies on the other, which
-    # the endpoint distances already find.
-    collinear = (d1 == 0.0) & (d2 == 0.0)
-    return (d1 * d2 <= 0.0) & (d3 * d4 <= 0.0) & ~collinear
+    arrays = np.broadcast_arrays(*(np.asarray(a, dtype=float) for a in (start, end, q0, q1)))
+    return _kernels.segments_cross(*(_points(array) for array in arrays))
 
+
+def _points(array) -> np.ndarray:
+    return np.ascontiguousarray(np.asarray(array, dtype=float).reshape(-1, 2))
+
+
+def _polygons(array) -> np.ndarray:
+    array = np.asarray(array, dtype=float)
+    return np.ascontiguousarray(array.reshape(-1, *array.shape[-2:]))
 
 __all__ = [
     "BODY_CLEARANCE_MM",
@@ -875,11 +1054,19 @@ __all__ = [
     "checked_pairs",
     "distal_pad_polygon",
     "layer_separated_pairs",
+    "pad_chamfer_mm",
     "pad_outline",
     "pad_spans",
     "usable_pad_lengths",
     "proximal_pad_polygon",
     "pad_margins",
+    "pip_servo_pad_gap_mm",
+    "servo_floor_x",
+    "proximal_pad_mcp_gap",
+    "footprint_gaps",
+    "mcp_servo_gaps",
+    "polygon_gaps",
+    "PIVOTS",
     "PIVOT_CLEARANCE_DIAMETER_MM",
     "PIN_RADIUS_MM",
     "PIN_SPACING_MM",

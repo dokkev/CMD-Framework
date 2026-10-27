@@ -1,29 +1,49 @@
-"""The four-bar linkage (PIP servo at ``A'``) as a pluggable mechanism."""
+"""The four-bar linkage finger (PIP servo at ``A'``) as a pluggable mechanism.
+
+Its study is the ``goal`` / ``solver`` file (``scripts/optimize/linkage/config.yaml``,
+:func:`~core.optimization.linkage.config.config_from_goal`); the objectives
+are any of ``transmission`` (``k_max``), ``pad_coverage`` (the effective pads
+over ``|OC|``), ``curl`` (``180 - phi_max``) and ``finger_length``.
+"""
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import math
 from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 from typing import Any
 
 from core.morphology.linkage import FingerLinkageParameters
 
-from core.optimization.linkage.config import (
-    FingerStudyConfig,
-    config_from_json,
-    config_from_mapping,
-    config_to_json,
-)
-from core.optimization.linkage.design import VARIABLE_NAMES, decode, read_design
-from core.optimization.linkage.evaluate import CONSTRAINT_NAMES, FingerEvaluation, evaluate
-from core.optimization.linkage.objectives import OBJECTIVES
-from core.optimization.mechanism import Mechanism, SummaryColumn
+from core.optimization.linkage.config import LinkageConfig, config_from_goal, config_from_json, config_to_json
+from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
+from core.optimization.linkage import search
+from core.optimization.linkage.evaluate import CONSTRAINT_NAMES, LinkageEvaluation, evaluate
+from core.optimization.mechanism import Mechanism, Objective, SummaryColumn
+from core.optimization.optimizer import OptimizerSettings
 
 
-LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",
-                "apb_mm", "abp_mm")
+OBJECTIVES = MappingProxyType({
+    "transmission": Objective(
+        value=lambda e: e.torque_ratio_max, column="torque_ratio_max",
+        label="worst torque ratio k_max on [0, dip_flexion]", role="best_transmission",
+        larger_is_better=False),
+    "pad_coverage": Objective(
+        value=lambda e: -e.pad_coverage, column="pad_coverage",
+        label="effective pad coverage on [0, dip_flexion]", role="most_pad", larger_is_better=True),
+    "curl": Objective(
+        value=lambda e: e.curl_deg, column="curl_deg",
+        label="180 deg - phi_max", role="most_curl", larger_is_better=False),
+    "finger_length": Objective(
+        value=lambda e: e.finger_length_mm, column="finger_length_mm",
+        label="finger length |OC| [mm]", role="shortest", larger_is_better=False, default=False),
+})
+LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm", "apb_mm", "abp_mm")
 """As built: ``B`` from ``O`` in the extended pose, ``B'`` from ``B``, and the bars."""
+BOUND_TOLERANCE = 0.005
+"""A variable is at a bound within this share of its search range."""
 
 
 def link_values(p: FingerLinkageParameters) -> tuple[float, ...]:
@@ -34,100 +54,192 @@ def link_values(p: FingerLinkageParameters) -> tuple[float, ...]:
     )
 
 
-def _pads(row: Mapping[str, Any]) -> str:
-    return (f"{float(row['support_length_mm']):.1f} ({float(row['proximal_support_length_mm']):.1f} + "
-            f"{float(row['distal_support_length_mm']):.1f})")
+def bound_hits(x: Sequence[float], config: LinkageConfig, finger_length_mm: float) -> tuple[str, ...]:
+    """The variables within :data:`BOUND_TOLERANCE` of a bound of the search
+    box as given (fixed ones left out), and ``|OC|`` near its bounds, as
+    ``name:low`` or ``name:high``."""
+
+    values = dict(zip(VARIABLE_NAMES, x))
+    values = {name: values.get(name, DEFAULT_VALUES.get(name)) for name in VARIABLE_NAMES}
+    boxes = dict(config.bounds)
+    if config.relative_bounds is not None:  # A' and B' were searched from A and B
+        for point, base in (("ap", "a"), ("bp", "b")):
+            for axis in ("x", "z"):
+                del boxes[f"{point}_{axis}_mm"]
+                name = f"{point}_from_{base}_{axis}_mm"
+                values[name] = values[f"{point}_{axis}_mm"] - values[f"{base}_{axis}_mm"]
+                boxes[name] = config.relative_bounds[name]
+    return bound_hits_of(values, boxes, finger_length_mm, config.extended_length_bounds_mm)
 
 
-def _stop(row: Mapping[str, Any]) -> str:
-    return " " + row["stop_reason"] + (f" ({row['collision_pair']})" if row["collision_pair"] else "")
+def bound_hits_of(values: Mapping[str, float], boxes: Mapping[str, tuple[float, float]],
+                  finger_length_mm: float, length_bounds_mm: tuple[float, float]) -> tuple[str, ...]:
+    """Each ``values`` entry within :data:`BOUND_TOLERANCE` of a bound of its
+    box (a fixed one left out), and ``|OC|`` near its bounds, as ``name:low``
+    or ``name:high`` (the 2R's as the linkage's)."""
+
+    boxes = {**boxes, "finger_length": length_bounds_mm}
+    values = {**values, "finger_length": finger_length_mm}
+    hits = []
+    for name, (low, high) in boxes.items():
+        width = high - low
+        if width <= 0.0:
+            continue
+        if values[name] - low <= BOUND_TOLERANCE * width:
+            hits.append(f"{name}:low")
+        elif high - values[name] <= BOUND_TOLERANCE * width:
+            hits.append(f"{name}:high")
+    return tuple(hits)
 
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "palmar-pad-v3"
-    """Contact pads palmar of ``O-A''`` and ``B''-C`` that end the safe range
-    where they collide; the ``A`` pin envelope clears a virtual clearance disk
-    at ``A'`` and the ``B'`` pin may cross the PIP servo body
-    (``palmar-pad-v1`` checked both pins against the servo body). Runs
-    without it used ``OA + BC`` (``oa-bc``); other values are earlier pad
-    models (``support-structure-v1``, ``palmar-pad-v2``)."""
-    legacy_formulation = "oa-bc"
-    legacy_objectives = ("transmission", "support_length", "curl")
+    formulation = "linkage-v3"
+    """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
+    no clearance, the PIP servo against the proximal pad, the transmission
+    angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
+    Earlier formulations (``palmar-pad-v3``, ``linkage-v2-rev2``) were removed
+    on 2026-10-26."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
     summary = (
-        SummaryColumn("k_max", 6, lambda r: f"{float(r['torque_ratio_max']):.2f}"),
-        SummaryColumn("k ratio", 7, lambda r: f"{float(r['torque_ratio_spread']):.2f}"),
-        SummaryColumn("pad length (P + D) mm", 22, _pads),
-        SummaryColumn("phi_safe", 9, lambda r: f"{float(r['phi_safe_deg']):.1f}°"),
+        SummaryColumn("k_max", 6, lambda r: f"{float(r['torque_ratio_max']):.3f}"),
+        SummaryColumn("coverage", 8, lambda r: f"{float(r['pad_coverage']):.3f}"),
+        SummaryColumn("phi_max", 8, lambda r: f"{float(r['phi_max_deg']):.1f}°"),
+        SummaryColumn("|OC| mm", 8, lambda r: f"{float(r['finger_length_mm']):.1f}"),
+        SummaryColumn("pads P + D mm", 15, lambda r: f"{float(r['proximal_support_length_mm']):.1f} + "
+                                                     f"{float(r['distal_support_length_mm']):.1f}"),
+        SummaryColumn("effective P + D", 15, lambda r: f"{float(r['proximal_effective_mm']):.1f} + "
+                                                       f"{float(r['distal_effective_mm']):.1f}"),
         SummaryColumn("pad clr", 8, lambda r: f"{float(r['pad_clearance_mm']):.2f}mm"),
-        SummaryColumn(" stop", 0, _stop),
+        SummaryColumn(" bounds", 0, lambda r: f" {r['bound_hits'] or '-'}"),
     )
-    verification_dip_tolerance_rad = math.radians(0.1)
-    """DIP and driven-link backoff allowed when verifying on a fine grid."""
 
-    def config_from_mapping(self, values: Mapping[str, Any]) -> FingerStudyConfig:
-        return config_from_mapping(values)
+    def split_settings(self, values: Mapping[str, Any]) -> tuple[dict[str, Any], OptimizerSettings]:
+        """The optimizer settings sit in ``solver.optimizer``: ``algorithm``,
+        ``population``, ``generations`` and ``seeds`` (the first one is the
+        settings' seed; the config keeps them all)."""
 
-    def config_to_json(self, config: FingerStudyConfig) -> dict[str, Any]:
+        values = copy.deepcopy(dict(values))
+        solver = values.get("solver")
+        table = dict(solver.get("optimizer") or {}) if isinstance(solver, Mapping) else {}
+        names = {"algorithm": "algorithm", "population": "population_size", "generations": "generations",
+                 "options": "options"}
+        settings = {names[key]: table.pop(key) for key in list(table) if key in names}
+        seeds = table.get("seeds")
+        if not isinstance(seeds, list) or not seeds:
+            raise ValueError("solver.optimizer.seeds must list at least one seed")
+        settings["seed"] = int(seeds[0])
+        if isinstance(solver, Mapping):
+            solver["optimizer"] = table
+        return values, OptimizerSettings(**settings)
+
+    def config_from_mapping(self, values: Mapping[str, Any]) -> LinkageConfig:
+        return config_from_goal(values)
+
+    def config_to_json(self, config: LinkageConfig) -> dict[str, Any]:
         return config_to_json(config)
 
-    def config_from_json(self, values: dict[str, Any]) -> FingerStudyConfig:
+    def config_from_json(self, values: dict[str, Any]) -> LinkageConfig:
         return config_from_json(values)
 
-    def search_box(self, config: FingerStudyConfig) -> tuple[Sequence[float], Sequence[float]]:
-        return config.lower, config.upper
+    # Studies with A' and B' bounded from A and B are searched in
+    # core.optimization.linkage.search's coordinates; older ones in the design vector.
 
-    def refine(self, config: FingerStudyConfig, step_rad: float) -> FingerStudyConfig:
-        return dataclasses.replace(config, servo_step_rad=step_rad,
-                                   dip_backoff_tolerance_rad=self.verification_dip_tolerance_rad)
+    def search_names(self, config: LinkageConfig) -> tuple[str, ...]:
+        return search.SEARCH_NAMES if config.relative_bounds is not None else VARIABLE_NAMES
 
-    def evaluate(self, x: Sequence[float], config: FingerStudyConfig) -> FingerEvaluation | None:
+    def search_box(self, config: LinkageConfig) -> tuple[Sequence[float], Sequence[float]]:
+        return search.search_box(config) if config.relative_bounds is not None else (config.lower, config.upper)
+
+    def search_steps(self, config: LinkageConfig) -> tuple[float, ...]:
+        if config.relative_bounds is not None:
+            return search.search_steps(config)
+        return super().search_steps(config)
+
+    def to_design(self, coordinates: Sequence[float], config: LinkageConfig) -> tuple[float, ...] | None:
+        if config.relative_bounds is not None:
+            return search.to_design(coordinates, config)
+        return tuple(coordinates)
+
+    def prepare(self, config: LinkageConfig) -> None:
+        if config.relative_bounds is not None:  # the PIP servo floor's table, per tilt searched
+            for tilt in search.tilts_deg(config):
+                search.least_ap_x(config, config.bounds["ap_z_mm"][0], float(tilt))
+
+    def from_design(self, x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
+        if config.relative_bounds is not None:
+            return search.from_design(x, config)
+        return tuple(x)
+
+    def refine(self, config: LinkageConfig, step_rad: float) -> LinkageConfig:
+        return dataclasses.replace(config, servo_step_rad=step_rad)  # the config's backoff tolerance
+
+    def evaluate(self, x: Sequence[float], config: LinkageConfig) -> LinkageEvaluation | None:
         try:
             parameters = decode(x, config.link_length_resolution_mm)
         except ValueError:  # B not beyond A, or the rounded bars do not close
             return None
-        return evaluate(parameters, config)
+        evaluation = evaluate(parameters, config)
+        return dataclasses.replace(evaluation, bound_hits=bound_hits(x, config, evaluation.finger_length_mm))
 
     def read_design(self, row: Mapping[str, str]) -> list[float]:
         return read_design(row)
 
-    def report(self, e: FingerEvaluation) -> dict[str, Any]:
+    def report(self, e: LinkageEvaluation) -> dict[str, Any]:
         return {
             "torque_ratio_max": e.torque_ratio_max,
-            "torque_ratio_min": e.torque_ratio_min,
-            "torque_ratio_spread": e.torque_ratio_spread,
-            "usable_support_length_mm": e.usable_support_length_mm,
+            "pad_coverage": e.pad_coverage,
+            "curl_deg": e.curl_deg,
+            "proximal_effective_mm": e.proximal_effective_mm,
+            "distal_effective_mm": e.distal_effective_mm,
+            "mounted_coverage": e.mounted_coverage,
             "proximal_usable_length_mm": e.proximal_usable_length_mm,
             "distal_usable_length_mm": e.distal_usable_length_mm,
-            "support_length_mm": e.support_length_mm,
-            "proximal_support_length_mm": e.proximal_support_length_mm,
-            "distal_support_length_mm": e.distal_support_length_mm,
-            "phi_safe_deg": math.degrees(e.phi_safe_rad),
-            "usable_pip_deg": math.degrees(e.usable_pip_rad),
+            "torque_ratio_min": e.torque_ratio_min,
+            "finger_length_mm": e.finger_length_mm,
+            "required_proximal_mm": e.required_proximal_mm,
+            "required_distal_mm": e.required_distal_mm,
+            "phi_max_deg": math.degrees(e.phi_max_rad),
+            "safe_reach_deg": math.degrees(e.phi_safe_rad),
             "stop_reason": e.stop_reason,
             "collision_pair": e.collision_pair,
+            "proximal_support_length_mm": e.proximal_support_length_mm,
+            "distal_support_length_mm": e.distal_support_length_mm,
+            "app_offset_used_mm": e.parameters.app_offset_mm,
+            "bpp_offset_used_mm": e.parameters.bpp_offset_mm,
+            "proximal_face_mm": e.proximal_face_mm,
+            "distal_face_mm": e.distal_face_mm,
+            "proximal_depth_mm": e.proximal_depth_mm,
+            "distal_depth_mm": e.distal_depth_mm,
             "pad_clearance_mm": e.pad_clearance_mm,
-            "worst_transmission_quality": e.worst_transmission_quality,
+            "min_margin_deg": math.degrees(e.min_margin_rad),
             "toggle_margin_deg": math.degrees(e.toggle_margin_rad),
             "hyperextension_phi_deg": math.degrees(e.hyperextension_phi_rad),
-            "min_margin_deg": math.degrees(e.min_margin_rad),
-            "lever_max_mm": e.lever_max_mm,
+            "least_tip_x_mm": e.least_tip_x_mm,
             "servo_travel_deg": math.degrees(e.servo_travel_rad),
-            "ab_mm": e.ab_mm,
-            "curl_pip_deg": math.degrees(e.curl_pip_rad),
-            "curl_dip_deg": math.degrees(e.curl_dip_rad),
-            "curl_tip_x_mm": e.curl_tip_x_mm,
-            "closes_to_deg": math.degrees(e.closes_to_rad),
-            "middle_link_servo_clearance_mm": e.middle_link_servo_clearance_mm,
+            "lever_max_mm": e.lever_max_mm,
+            "driver_link_servo_clearance_mm": e.driver_link_servo_clearance_mm,
             "servo_lowest_z_mm": e.servo_lowest_z_mm,
+            "bound_hits": ";".join(e.bound_hits),
             **dict(zip(LINK_COLUMNS, link_values(e.parameters))),
+            "phi_max_stop": e.phi_max_stop,
+            "dip_flexion_deg": math.degrees(e.required_rom_rad),
+            "usable_pip_deg": math.degrees(e.usable_pip_rad),
+            "proximal_length_mm": e.proximal_length_mm,
         }
+
+    def hypervolume_reference(self, config: LinkageConfig) -> Mapping[str, float]:
+        """The reference point in minimized terms (``pad_coverage`` negated)."""
+
+        return {name: -value if self.objectives[name].larger_is_better else value
+                for name, value in config.hypervolume_reference.items()}
+
 
 
 MECHANISM = LinkageMechanism()
 
 
-__all__ = ["LINK_COLUMNS", "MECHANISM", "LinkageMechanism", "link_values"]
+__all__ = ["BOUND_TOLERANCE", "LINK_COLUMNS", "MECHANISM", "OBJECTIVES", "LinkageMechanism",
+           "bound_hits", "bound_hits_of", "link_values"]

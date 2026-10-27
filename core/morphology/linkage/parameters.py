@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from core._validation import require_finite, require_positive
+from core._validation import require_finite, require_nonnegative, require_positive
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class FingerLinkageParameters:
     axis; ``A`` (PIP) sits at ``(a_x_mm, a_z_mm)``. In this pose ``BC`` is
     parallel to ``+X``: ``B`` and ``C`` share the height ``b_z_mm``. ``A'``
     and ``B'`` (DIP) are free in the plane. The bodies are the proximal link
-    ``O-A-A'``, the middle link ``A-B'``, the distal link ``B'-B-C`` and the
+    ``O-A-A'``, the driver link ``A-B'``, the distal link ``B'-B-C`` and the
     coupler ``A'-B``. The design variables are ``a_x_mm``, ``a_z_mm``,
     ``b_x_mm``, ``b_z_mm``, ``ap`` and ``bp``; ``bc_length_mm``
     is the fingertip length. The PIP servo's shaft is on ``A'``; its rear body
@@ -56,6 +56,10 @@ class FingerLinkageParameters:
     bpp_offset_mm: float = 0.0
     """``B'_x - B''_x`` in the extended pose: 0 puts ``B''`` right below ``B'``;
     more runs the distal pad proximally, toward the joint."""
+    proximal_chamfer_mm: float = 0.0
+    distal_chamfer_mm: float = 0.0
+    """Each pad's chamfer, used where the pad's chamfer is free
+    (``ContactPad.chamfer_free``); otherwise the packaging's applies."""
 
     @property
     def app_x_mm(self) -> float:
@@ -77,6 +81,8 @@ class FingerLinkageParameters:
         require_finite("pip_servo_tilt_rad", self.pip_servo_tilt_rad)
         require_finite("app_offset_mm", self.app_offset_mm)
         require_finite("bpp_offset_mm", self.bpp_offset_mm)
+        require_nonnegative("proximal_chamfer_mm", self.proximal_chamfer_mm)
+        require_nonnegative("distal_chamfer_mm", self.distal_chamfer_mm)
         require_positive("bc_length_mm", self.bc_length_mm)
         for name in ("ap", "bp"):
             if not isinstance(getattr(self, name), PointXZ):

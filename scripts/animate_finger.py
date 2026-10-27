@@ -10,7 +10,7 @@ or one candidate of a finger study (the output goes next to its CSV):
 The finger first flexes the PIP (the DIP follows through the four-bar), then the MCP, then returns. Drawn in the linkage plane (+X distal,
 +Z dorsal): the MCP servo at O (rear body dorsal), the PIP servo at A riding
 on the proximal link (rear body toward O), and the distal link B-C (the linkage
-has no fingertip). The PIP servo sits at A' and drives A'-B; the middle link
+has no fingertip). The PIP servo sits at A' and drives A'-B; the driver link
 A-B' turns red where it comes closer than the body clearance to the PIP servo.
 
 The contact pads are drawn as the solids the linkage evaluator checks
@@ -21,7 +21,7 @@ red when a checked pair comes closer than the body clearance at that pose
 
 Each part in the central layer is outlined in its collision group's colour
 (``packaging.COLLISION_GROUPS``: palm, proximal, distal): parts of different
-groups must not collide, parts of one group are one rigid body. The middle
+groups must not collide, parts of one group are one rigid body. The driver
 link and coupler plates sit in another layer and are not outlined.
 """
 
@@ -82,7 +82,7 @@ def load_candidate(csv_path: Path, candidate: int,
         for row in csv.DictReader(stream):
             if int(row["candidate"]) == candidate:
                 x = read_design(row)
-                if app_offset_mm is not None:  # the proximal pad run past A' (extend_pads.py)
+                if app_offset_mm is not None:  # the proximal pad run past A'
                     x[VARIABLE_NAMES.index("app_offset_mm")] = app_offset_mm
                 config = load_config(csv_path.parent)
                 linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
@@ -163,13 +163,10 @@ def create_animation(
         axis.add_patch(patch)
     # Dashed: the pin envelopes (bearing housing or flange) grown by the body clearance,
     # the zone the servo body must stay out of.
-    keep_out = packaging.pin_radius_mm + packaging.body_clearance_mm
     rings = {
-        name: Circle((0.0, 0.0), radius, fill=False, linestyle="--", linewidth=1.0,
-                     edgecolor=color, zorder=4)
-        for name, radius, color in (("a", keep_out, RED),
-                                    ("bp", keep_out, BLUE),
-                                    ("b", keep_out, BLUE))
+        name: Circle((0.0, 0.0), packaging.pivot_radius_mm(name) + packaging.body_clearance_mm, fill=False,
+                     linestyle="--", linewidth=1.0, edgecolor=color, zorder=4)
+        for name, color in (("a", RED), ("bp", BLUE), ("b", BLUE))
     }
     for ring in rings.values():
         axis.add_patch(ring)
@@ -190,11 +187,12 @@ def create_animation(
     for name, component in COMPONENTS.items():
         if component.group not in GROUP_COLORS:
             continue  # the link plates, in another layer
-        if name == "mcp_servo" and not packaging.pad_mcp_check:
+        if name == "mcp_servo" and not (packaging.pad_checks_mcp("proximal_pad")
+                                        or packaging.pad_checks_mcp("distal_pad")):
             continue
         color = GROUP_COLORS[component.group]
         if name in pins:
-            patch = Circle((0.0, 0.0), packaging.pin_radius_mm, fill=False,
+            patch = Circle((0.0, 0.0), packaging.pivot_radius_mm(pins[name]), fill=False,
                            edgecolor=color, linewidth=OUTLINE_WIDTH, zorder=4.5)
         else:
             patch = Polygon(part_shape(name, 0), closed=True, fill=False,
@@ -207,7 +205,7 @@ def create_animation(
                 title="collision group\n(different groups\nmust not collide)", title_fontsize=8)
 
     proximal, = axis.plot([], [], color=RED, linewidth=3.0, zorder=2)
-    middle, = axis.plot([], [], color=BLACK, linewidth=3.0, zorder=3)
+    driver, = axis.plot([], [], color=BLACK, linewidth=3.0, zorder=3)
     distal, = axis.plot([], [], color=BLUE, linewidth=3.0, zorder=2)
     coupler, = axis.plot([], [], color=GRAY, linewidth=3.0, zorder=3)
     markers = {
@@ -267,14 +265,21 @@ def create_animation(
             else:
                 patch.set_xy(shape)
         proximal.set_data(*xy((pose.o, pose.a, pose.ap, pose.o)))
-        middle.set_data(*xy((pose.a, pose.bp)))
+        driver.set_data(*xy((pose.a, pose.bp)))
         distal.set_data(*xy((pose.bp, pose.b, pose.c, pose.bp)))
         coupler.set_data(*xy((pose.ap, pose.b)))
-        middle.set_color(RED if clearances[index] < 0.0 else BLACK)
+        driver.set_color(RED if clearances[index] < 0.0 else BLACK)
         for name, marker in markers.items():
             point = getattr(pose, name)
-            marker.set_data((point.x_mm,), (point.z_mm,))
-            labels[name].xy = (point.x_mm, point.z_mm)
+            x, z = point.x_mm, point.z_mm
+            if name in ("app", "bpp"):  # on the pad's top face, its drop below the link line
+                start, end, drop = ((pose.o, pose.a, packaging.proximal_pad_drop_mm) if name == "app"
+                                    else (pose.b, pose.c, packaging.distal_pad_drop_mm))
+                ux, uz = end.x_mm - start.x_mm, end.z_mm - start.z_mm
+                length = math.hypot(ux, uz) or 1.0
+                x, z = x - drop * -uz / length, z - drop * ux / length
+            marker.set_data((x,), (z,))
+            labels[name].xy = (x, z)
         status.set_text(
             f"MCP {math.degrees(pose.q_mcp_rad):5.1f}°  PIP {math.degrees(pose.q_pip_rad):5.1f}°"
             f"  DIP {math.degrees(pose.q_dip_rad):5.1f}°\n"
@@ -285,7 +290,7 @@ def create_animation(
             f"{'  COLLISION' if colliding else ''}"
         )
         return (pip_servo, *pad_patches, *rings.values(), *(patch for patch, _ in outlines),
-                proximal, middle, distal, coupler,
+                proximal, driver, distal, coupler,
                 *markers.values(), *labels.values(), status)
 
     animation = FuncAnimation(figure, update, frames=len(poses),

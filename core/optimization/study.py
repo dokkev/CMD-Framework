@@ -4,8 +4,12 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import multiprocessing
+import pickle
+from collections.abc import Mapping
+from types import MappingProxyType
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -22,7 +26,7 @@ from core.optimization.mechanism import (
     mechanism,
     read_config_file,
 )
-from core.optimization.optimizer import OptimizerSettings, initial_population, optimizer, split_settings
+from core.optimization.optimizer import OptimizerSettings, initial_population, optimizer
 
 
 LEGACY_MECHANISM = "linkage"
@@ -32,30 +36,39 @@ LEGACY_MECHANISM = "linkage"
 class MechanismProblem(ElementwiseProblem):
     """Minimize a mechanism's active objectives subject to ``G <= 0``.
 
-    pymoo searches integer grid steps; ``to_mm`` maps them to design values.
+    pymoo searches integer grid steps of the mechanism's search coordinates
+    (:meth:`~core.optimization.mechanism.Mechanism.search_names`); ``to_mm``
+    maps them to a design vector.
     """
 
     def __init__(self, mechanism: Mechanism, config: StudyConfig, **kwargs) -> None:
         self.mechanism, self.config = mechanism, config
         self.objective_names = mechanism.active_objectives(config)
         lower, upper = mechanism.search_box(config)
+        self.steps = np.asarray(mechanism.search_steps(config), dtype=float)
         super().__init__(
             **kwargs,
-            n_var=len(mechanism.variable_names),
+            n_var=len(mechanism.search_names(config)),
             n_obj=len(self.objective_names),
             n_ieq_constr=len(mechanism.constraint_names),
-            xl=np.ceil(np.asarray(lower) / config.resolution_mm - 1e-9),
-            xu=np.floor(np.asarray(upper) / config.resolution_mm + 1e-9),
+            xl=np.ceil(np.asarray(lower) / self.steps - 1e-9),
+            xu=np.floor(np.asarray(upper) / self.steps + 1e-9),
         )
 
-    def to_mm(self, steps) -> tuple[float, ...]:
-        return tuple(round(float(step) * self.config.resolution_mm, 9) for step in steps)
+    def to_mm(self, steps) -> tuple[float, ...] | None:
+        """The design vector of grid steps (``None``: no design)."""
+
+        coordinates = tuple(round(float(step) * size, 9) for step, size in zip(steps, self.steps))
+        return self.mechanism.to_design(coordinates, self.config)
 
     def to_steps(self, values_mm) -> np.ndarray:
-        return np.round(np.asarray(values_mm, dtype=float) / self.config.resolution_mm)
+        """Grid steps of a design vector."""
+
+        return np.round(np.asarray(self.mechanism.from_design(values_mm, self.config), dtype=float) / self.steps)
 
     def _evaluate(self, x, out, *args, **kwargs) -> None:
-        evaluation = self.mechanism.evaluate(self.to_mm(x), self.config)
+        design = self.to_mm(x)
+        evaluation = None if design is None else self.mechanism.evaluate(design, self.config)
         if evaluation is None:
             out["F"] = np.full(self.n_obj, INVALID)
             out["G"] = np.full(self.n_ieq_constr, INVALID)
@@ -90,20 +103,55 @@ def _start_worker(problem: MechanismProblem) -> None:
     _WORKER_PROBLEM = problem
 
 
+def _evaluate_design_in_worker(x):
+    """A design's full evaluation, in a form that crosses processes (``None``: infeasible)."""
+
+    evaluation = _WORKER_PROBLEM.mechanism.evaluate(x, _WORKER_PROBLEM.config)
+    if evaluation is None or not evaluation.feasible:
+        return None
+    if dataclasses.is_dataclass(evaluation) and isinstance(getattr(evaluation, "constraints", None), Mapping):
+        evaluation = dataclasses.replace(evaluation, constraints=dict(evaluation.constraints))
+    return evaluation
+
+
+def _restored(evaluation):
+    if dataclasses.is_dataclass(evaluation) and isinstance(getattr(evaluation, "constraints", None), dict):
+        return dataclasses.replace(evaluation, constraints=MappingProxyType(evaluation.constraints))
+    return evaluation
+
+
 def _evaluate_in_worker(x) -> dict:
     out: dict = {}
     _WORKER_PROBLEM._evaluate(x, out)
     return out
 
 
+ARCHIVE_PRUNE = 4096
+"""The archive is cut back to its non-dominated designs past this many."""
+
+
+def non_dominated(objectives: np.ndarray) -> np.ndarray:
+    """Indices of the rows of ``objectives`` (minimized) no other row dominates."""
+
+    from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+
+    if not len(objectives):
+        return np.zeros(0, dtype=int)
+    return np.asarray(NonDominatedSorting().do(objectives, only_non_dominated_front=True), dtype=int)
+
+
 class _CountingRunner:
     """pymoo's elementwise runner, in this process or over a process pool (each
     worker holds its own problem, so only design vectors and results cross
-    processes), counting the evaluations that meet every constraint."""
+    processes), counting the evaluations that meet every constraint and
+    archiving the feasible ones no other feasible one dominates: designs a
+    later generation loses stay in the run's front."""
 
     def __init__(self, pool=None, workers: int = 1) -> None:
         self.pool, self.workers = pool, workers
         self.evaluated = self.feasible = 0
+        self.archive_x: list[np.ndarray] = []
+        self.archive_f: list[np.ndarray] = []
 
     def __call__(self, f, X):
         if self.pool is None:
@@ -112,8 +160,19 @@ class _CountingRunner:
             outputs = self.pool.map(_evaluate_in_worker, list(X),
                                     chunksize=max(1, len(X) // (4 * self.workers)))
         self.evaluated += len(outputs)
-        self.feasible += sum(bool(np.all(np.asarray(out["G"]) <= 0.0)) for out in outputs)
+        for x, out in zip(X, outputs):
+            if np.all(np.asarray(out["G"]) <= 0.0):
+                self.feasible += 1
+                self.archive_x.append(np.asarray(x, dtype=float))
+                self.archive_f.append(np.asarray(out["F"], dtype=float))
+        if len(self.archive_x) > ARCHIVE_PRUNE:
+            self.prune()
         return outputs
+
+    def prune(self) -> None:
+        keep = non_dominated(np.asarray(self.archive_f))
+        self.archive_x = [self.archive_x[i] for i in keep]
+        self.archive_f = [self.archive_f[i] for i in keep]
 
 
 def run_study(
@@ -129,6 +188,7 @@ def run_study(
     the result is the same.
     """
 
+    mechanism.prepare(config)  # before forking: the workers inherit its tables
     if workers <= 1:
         problem = MechanismProblem(mechanism, config, elementwise_runner=_CountingRunner())
         return _run_study(problem, settings, initial_designs)
@@ -144,16 +204,30 @@ def _run_study(problem: MechanismProblem, settings: OptimizerSettings,
     warm = np.array([problem.to_steps(x) for x in initial_designs])
     result = optimizer(settings.algorithm).minimize(
         problem, initial_population(problem, warm, settings), settings)
-    pareto: list[Candidate] = []
+    # The final population's front and every feasible design archived on the way.
+    runner = problem.elementwise_runner
+    runner.prune()
+    archived = np.asarray(runner.archive_x).reshape(-1, problem.n_var)
+    designs: list[tuple[float, ...]] = []
     seen: set[tuple[float, ...]] = set()
-    for steps in result.x:
+    for steps in np.vstack((np.atleast_2d(result.x).reshape(-1, problem.n_var), archived)):
         x = problem.to_mm(steps)
-        if x in seen:
-            continue
-        seen.add(x)
-        evaluation = mechanism.evaluate(x, config)
-        if evaluation is not None and evaluation.feasible:
-            pareto.append(Candidate(x, evaluation))
+        if x is not None and x not in seen:
+            seen.add(x)
+            designs.append(x)
+    evaluations = None
+    if runner.pool is not None:  # in the workers, when the evaluations cross processes
+        try:
+            evaluations = [None if e is None else _restored(e)
+                           for e in runner.pool.map(_evaluate_design_in_worker, designs,
+                                                    chunksize=max(1, len(designs) // (4 * runner.workers)))]
+        except (pickle.PicklingError, TypeError, AttributeError):
+            evaluations = None
+    if evaluations is None:
+        evaluations = [mechanism.evaluate(x, config) for x in designs]
+    pareto = [Candidate(x, e) for x, e in zip(designs, evaluations) if e is not None and e.feasible]
+    scores = np.array([mechanism.objective_values(c.evaluation, problem.objective_names) for c in pareto])
+    pareto = [pareto[i] for i in non_dominated(scores)] if pareto else []
     pareto.sort(key=lambda c: mechanism.objective_values(c.evaluation, problem.objective_names)[0])
     return StudyResult(mechanism, config, settings, tuple(pareto), result.evaluation_count,
                        problem.elementwise_runner.feasible)
@@ -247,9 +321,9 @@ def load_yaml(mechanism: Mechanism, path: str | Path,
               overrides: Sequence[str] = ()) -> tuple[StudyConfig, OptimizerSettings]:
     """Read a study from a config file (``read_config_file``: its ``base`` and
     ``overrides``): the mechanism's config and the optimizer settings (its
-    ``optimizer`` table, see :func:`split_settings`)."""
+    ``optimizer`` table, or as :meth:`Mechanism.split_settings` reads it)."""
 
-    values, settings = split_settings(read_config_file(path, overrides))
+    values, settings = mechanism.split_settings(read_config_file(path, overrides))
     return mechanism.config_from_mapping(values), settings
 
 
@@ -260,6 +334,7 @@ def load_config(directory: str | Path) -> StudyConfig:
 
 
 __all__ = [
+    "ARCHIVE_PRUNE",
     "Candidate",
     "MechanismProblem",
     "Run",
@@ -267,6 +342,7 @@ __all__ = [
     "load_config",
     "load_run",
     "load_yaml",
+    "non_dominated",
     "run_study",
     "save_result",
     "write_rows",

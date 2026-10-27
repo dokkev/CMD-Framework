@@ -10,7 +10,7 @@ from types import MappingProxyType
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.morphology.linkage.packaging import ContactPad, Packaging
 
-from core.optimization.linkage.config import merge_pad_group, packaging_from_mapping
+from core.optimization.linkage.config import packaging_from_mapping
 
 
 def _nominal_packaging() -> Packaging:
@@ -99,7 +99,7 @@ class RetentionConfig:
 def config_from_mapping(values: Mapping[str, object]) -> RetentionConfig:
     """Build a config from plain values, as written in a config file.
 
-    As the linkage's (``core.optimization.linkage.config.config_from_mapping``):
+    As the linkage's former (v1) config file:
     ``name_deg`` sets ``name_rad``, ``optimization_parameter_bounds`` the
     bounds, ``pad`` the modules, other tables only group fields.
     """
@@ -143,6 +143,69 @@ def config_to_json(config: RetentionConfig) -> dict:
 def config_from_json(values: dict) -> RetentionConfig:
     known = {f.name for f in fields(RetentionConfig)}
     return _build({name: value for name, value in values.items() if name in known})
+
+
+
+# The linkage's former (v1) pad group, kept here for the retention config.
+def merge_pad_group(values: Mapping[str, object]) -> dict:
+    """Move a config's ``pad`` group into its ``packaging`` table (see
+    :func:`config_from_mapping`)."""
+
+    values = dict(values)
+    pads = values.pop("pad", None)
+    if pads is None:
+        return values
+    names = {  # entry: (packaging field, its value)
+        "proximal": ("proximal_pad", lambda value: value),
+        "distal": ("distal_pad", lambda value: value),
+        "allow_collision_with_mcp_servo": ("pad_mcp_check", lambda allow: not allow),
+        "mcp_servo_clearance_mm": ("pad_mcp_clearance_mm", lambda value: value),
+        "allow_longer_pad_than_link": ("pad_link_ratio_max", lambda allow: None if allow else 1.0),
+    }
+    unknown = set(pads) - set(names)
+    if unknown:
+        raise ValueError(f"unknown pad entries {sorted(unknown)}; known: {sorted(names)}")
+    packaging = dict(values.get("packaging") or {})
+    for key, value in pads.items():
+        name, convert = names[key]
+        if name in packaging:
+            raise ValueError(f"pad entry {key!r} also given in packaging")
+        packaging[name] = convert(value)
+        if key in ("proximal", "distal") and isinstance(value, Mapping):
+            packaging[name] = _length_range(values, key, value)
+    values["packaging"] = packaging
+    return values
+
+
+def _length_range(values: dict, side: str, pad: Mapping[str, object]) -> dict:
+    """A pad entry as written: ``chamfer`` true makes the chamfer a design
+    variable (0 to the height), false gives none (``chamfer_mm`` still sets a
+    fixed one). A ``length_mm`` of ``[min, max]`` gives the least mounting
+    length (``minimum_<side>_support_mm``, set in ``values``) and the most
+    (``max_length_mm``: a free pad is cut to it; null: none). A number or null
+    ``length_mm`` is left as it is (fixed, or free)."""
+
+    pad = dict(pad)
+    if pad.get("chamfer", False) is None:  # null: not given (a fixed chamfer_mm may follow)
+        pad.pop("chamfer")
+    if "chamfer" in pad:  # true: the chamfer is a design variable up to the height; false: none
+        if "chamfer_mm" in pad:
+            raise ValueError(f"pad {side}: give chamfer (true/false) or chamfer_mm, not both")
+        pad["chamfer_free"], pad["chamfer_mm"] = bool(pad.pop("chamfer")), 0.0
+    length = pad.get("length_mm")
+    if not isinstance(length, (list, tuple)):
+        return pad
+    if len(length) != 2:
+        raise ValueError(f"pad {side} length_mm must be a number, null or [min, max]")
+    low, high = length
+    if low is not None and high is not None and low > high:
+        raise ValueError(f"pad {side} length_mm: min exceeds max")
+    if f"minimum_{side}_support_mm" in values:
+        raise ValueError(f"give the {side} pad's least length in pad.{side}.length_mm or as "
+                         f"minimum_{side}_support_mm, not both")
+    values[f"minimum_{side}_support_mm"] = 0.0 if low is None else low
+    pad["length_mm"], pad["max_length_mm"] = None, high
+    return pad
 
 
 __all__ = ["RetentionConfig", "config_from_json", "config_from_mapping", "config_to_json"]

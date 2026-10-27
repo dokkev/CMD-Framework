@@ -1,48 +1,33 @@
-"""Evaluate one linkage design (see ``docs/optimization/linkage.md``).
+"""Evaluate one linkage design.
 
-The PIP servo sits on ``A'`` and drives the coupler ``A'-B``, dorsal of the
-``OA`` contact interface. ``phi = q_pip + q_dip`` is the distal link's
-rotation relative to the proximal link (180 deg: ``BC`` antiparallel to ``OA``).
-The contact pads hang palmar of ``O-A''`` (proximal body) and ``B''-C``
-(distal body), solids whose geometry and collision pairs
-``core.morphology.linkage.packaging`` owns.
+The PIP servo sits on ``A'`` and drives the coupler ``A'-B``. ``phi = q_pip +
+q_dip`` is the distal link's rotation relative to the proximal link (180 deg:
+``BC`` antiparallel to ``OA``). The contact pads hang palmar of ``O-A''``
+(proximal body) and ``B''-C`` (distal body), solids whose geometry and
+collision pairs ``core.morphology.linkage.packaging`` owns.
 
-**Safe motion.** From extension the PIP servo is turned in ``servo_step_rad``
-steps, both ways. The motion is safe while (a) the four-bar closes, (b) the
-transmission margin at ``B'`` (between ``B'->A`` and ``B'->B``) stays at least
-``minimum_transmission_margin_rad``, (c) the DIP and (d) the PIP keep turning
-with the servo, (e) the ``B'`` pin envelope (its bearing housing or
-flange) clears the PIP servo body, and (f) the pads clear the
-parts of other bodies in their Y layers (``pad_collision``; with
-``pad_mcp_check`` also the MCP servo at every MCP flexion up to
-``mcp_flexion_max_rad``). Hyperextension is only range for the linkage: (f)
-is not checked there. The usable range ends
-``flexion_stopper_margin_rad`` (of PIP) before the first unsafe sample, leaving
-room past the flexion stopper, or at ``phi = 180 deg``, whichever comes first;
-``phi_safe_max`` is ``phi`` there. The same conditions must hold
-``hyperextension_rad`` into hyperextension, where the other stopper goes.
+- **Static checks first** (the reference pose and the packaging alone): the
+  servos clear each other, the pins their neighbours, ``|OC|`` and ``|OA|``
+  their bounds, the PIP servo the proximal pad, the pads their mounting
+  lines' room and every checked pair. A design that fails one is not swept.
+- **The motion** is swept by the PIP servo from extension, and by the PIP
+  into hyperextension. It is safe while the four-bar closes, the transmission
+  angle at ``B'`` stays in its range, the DIP and the PIP keep turning with
+  the servo, the ``B'`` pin clears the PIP servo (when checked) and, from
+  extension on, the pads clear the parts of other bodies (the MCP servo at
+  every MCP flexion up to its max). It must stay safe on ``[0, phi_req]``
+  (``rom_deg``) and back to the hyperextension stopper, and the fingertip
+  ``C`` must stay ahead of ``O`` (MCP at 0) on ``[0, phi_req]``.
+- **Measured on ``[0, phi_req]``:** ``k_max``, the effective pads (each
+  pad's face the links leave free) and the least pad gap. ``phi_max`` is the
+  most flexion every check still allows (``C_x`` included), for ``curl``.
 
-**Objectives** (all minimized; no weights):
-
-1. ``k_max``, the worst torque ratio ``k = d(phi)/d(theta_servo)`` over the
-   usable range (the worst lever and transmission quality are reported);
-2. ``-(|a-b| proximal + |a-b| distal)``, the pads' lengths on ``O-A''`` and
-   ``B''-C`` (less the MCP servo and the pad offsets);
-3. ``180 deg - phi_safe_max``.
-
-**Constraints** (``g <= 0``; degrees and mm): the static geometry and
-packaging checks (pad topology ``A'_x >= A_x`` and ``B'_x <= B_x`` with
-the minimum pad lengths, and a collision-free reference pose),
-hyperextension safety and ``phi_safe_max >= minimum_flexion_rad``. A pad
-collision past the minimum flexion only ends the usable range (objective 3). The curl-tip position and the fingertip to MCP servo
-clearance are held (reported, enforced only when enabled in the config) until
-their definitions in the mechanism comparison; the OA-BC curl gap is left out.
+On the servo grid an interval is taken to the first sample at or past its end,
+so a design is judged on slightly more than ``[0, phi_req]``.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import functools
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -50,19 +35,18 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology import Fingertip, FingertipParameters
 from core.morphology.linkage import FingerLinkage, FingerLinkageParameters, PipSweep
 from core.morphology.linkage.packaging import (
     ServoFootprint,
     fixed_margin_pairs,
-    point_segment_distance,
+    pad_chamfer_mm,
     pad_margins,
     pad_spans,
-    turn_points,
+    pip_servo_pad_gap_mm,
     usable_pad_lengths,
 )
 
-from core.optimization.linkage.config import FingerStudyConfig
+from core.optimization.linkage.config import LinkageConfig
 
 
 STATIC_CONSTRAINTS: tuple[str, ...] = (
@@ -71,123 +55,89 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pivot_pin_mm",
     "pin_spacing_mm",
     "extended_length_mm",
-    "oa_interface_mm",
+    "proximal_length_mm",
+    "pip_servo_pad_mm",
     "proximal_support_mm",
     "distal_support_mm",
     "pad_collision_mm",
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
-MOTION_CONSTRAINTS: tuple[str, ...] = (
-    "hyperextension_deg",
-    "minimum_flexion_deg",
-    "middle_link_servo_mm",
-    "servo_travel_deg",
-    "torque_ratio_max",
-    "curl_tip_x_mm",
-    "fingertip_mcp_mm",
-)
-"""Constraints that need the PIP sweep (the last two are held unless enabled)."""
+MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm")
+"""``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
+it reaches it); the hyperextension still missing; how far ``C`` passes behind ``O``."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
 """Violation assigned to every other constraint of an invalid reference design."""
 UNSWEPT = 1.0e2
-"""Violation assigned to the motion constraints of a design that already fails a
-static one: such designs rank behind every design that passes them."""
-STOP_REASONS = ("closure", "transmission", "dip_backoff", "pip_backoff", "dip_pin",
-                "pad_collision")
-"""The unsafe conditions (a)-(f), in the order they are reported."""
+"""Violation assigned to the motion constraints of a design that fails a static one."""
+STOP_REASONS = ("closure", "transmission", "dip_backoff", "pip_backoff", "dip_pin", "pad_collision")
+"""The unsafe conditions, in the order they are reported."""
 
 
 @dataclass(frozen=True)
-class FingerEvaluation:
+class LinkageEvaluation:
     """Constraints, objectives and diagnostics of one design."""
 
     parameters: FingerLinkageParameters
     constraints: Mapping[str, float]
-    worst_transmission_quality: float
-    ab_mm: float
+    worst_transmission_quality: float = 0.0
+    ab_mm: float = math.nan
+    finger_length_mm: float = math.nan
+    """``|OC|`` in the extended pose."""
+    proximal_length_mm: float = math.nan
+    """``|OA|``."""
+    required_rom_rad: float = math.nan
     phi_safe_rad: float = 0.0
-    """Distal rotation at the end of the usable range (at most pi)."""
-    usable_pip_rad: float = 0.0
-    """PIP flexion at the end of the usable range (the flexion stopper)."""
-    usable_servo_rad: float = 0.0
-    """PIP servo rotation from extension at the end of the usable range."""
+    """How far the safe motion reaches (at most pi), ``C_x`` aside."""
+    phi_max_rad: float = math.nan
+    """The most flexion every check still allows, ``C_x`` included (at most pi)."""
     stop_reason: str = ""
-    """``"curl"`` when ``phi`` reached 180 deg first, else the first unsafe condition
-    (``"closure"``, ``"transmission"``, ``"dip_backoff"``, ``"pip_backoff"``,
-    ``"dip_pin"``, ``"pad_collision"``) or ``"horizon"``."""
+    """What ends the safe motion: ``"curl"`` at 180 deg, an unsafe condition
+    (:data:`STOP_REASONS`), ``"closure"`` or ``"horizon"``."""
     collision_pair: str = ""
     """With ``"pad_collision"``, the first pair that collides, ``"first/second"``."""
-    curl_pip_rad: float = math.nan
-    curl_dip_rad: float = math.nan
+    usable_pip_rad: float = 0.0
+    usable_servo_rad: float = 0.0
+    """PIP and servo rotation at ``phi_req`` (the end of the measured interval)."""
     curl_tip_x_mm: float = math.nan
-    """``x`` of the reference point (``C`` or ``B``) at the end of the usable range
-    (the most curl) with the MCP at 0."""
+    least_tip_x_mm: float = math.nan
+    """``x`` of ``C`` at ``phi_req``, and its least on ``[0, phi_req]``, MCP at 0."""
     min_margin_rad: float = math.nan
-    """Smallest transmission margin from hyperextension to the end of the usable range."""
+    """Least transmission margin (from 0 or 180 deg) at ``B'``, hyperextension to ``phi_req``."""
     toggle_margin_rad: float = math.nan
-    """Smallest margin from 0 or pi of the angle at ``B`` (the driven link
-    ``A'-B`` and ``B-B'`` in line: the four-bar's limit position, where ``k``
-    falls to 0) over the same range."""
+    """Least margin from 0 or 180 deg of the angle at ``B`` (the limit position) over the same range."""
     hyperextension_phi_rad: float = math.nan
-    """``phi`` at the deepest safe hyperextension (negative: the distal link
-    turned back past the proximal one, the passive DIP's share included)."""
-    middle_link_servo_clearance_mm: float = math.nan
-    """Middle link ``A-B'`` to the PIP servo body over the usable range, beyond the
-    body clearance, in the plane (negative: they overlap in the side view)."""
+    driver_link_servo_clearance_mm: float = math.nan
+    """The driver link ``A-B'`` to the PIP servo in the side view (reported;
+    its plates straddle the servo in other layers)."""
     servo_lowest_z_mm: float = math.nan
-    """Most palmar point of the PIP servo; below 0 it protrudes past the ``OA`` line."""
     closes_to_rad: float = math.nan
     lever_max_mm: float = math.nan
-    """Worst PIP servo torque per unit pad force over the usable range (N mm / N)."""
     torque_ratio_max: float = math.nan
-    """Worst ``k = d(phi_distal)/d(theta_servo)`` over the usable range: servo torque
-    per unit moment on the distal link. Independent of where along ``BC`` a
-    contact lands."""
+    """``k_max``: the worst ``d(phi)/d(theta_servo)`` on ``[0, phi_req]``."""
     torque_ratio_min: float = math.nan
-    """Least ``k`` over the usable range."""
     servo_travel_rad: float = math.nan
-    """PIP servo rotation over the usable range."""
     pad_clearance_mm: float = math.nan
-    """Least margin of the pads beyond the body clearance, over the checked
-    pairs from extension to the end of the usable range, less
-    ``packaging.FIXED_MARGIN_PAIRS`` (their margin does not depend on the design)."""
+    """Least pad margin on ``[0, phi_req]``, less the pairs set by definition."""
     proximal_support_length_mm: float = math.nan
-    """The proximal pad's ``a-b`` (``packaging.pad_spans``)."""
     distal_support_length_mm: float = math.nan
-    """The distal pad's ``a-b`` (``packaging.pad_spans``)."""
+    """Each pad's mounting length ``a-b`` (``packaging.pad_spans``)."""
+    proximal_face_mm: float = math.nan
+    distal_face_mm: float = math.nan
+    """Each pad's palmar face, its ``a-b`` less the chamfer."""
     proximal_usable_length_mm: float = math.nan
     distal_usable_length_mm: float = math.nan
-    """Each pad's length the links leave free over the usable range, from its
-    outer end (``packaging.usable_pad_lengths``)."""
-
-    @property
-    def support_length_mm(self) -> float:
-        """The two pads' ``a-b`` lengths."""
-
-        return self.proximal_support_length_mm + self.distal_support_length_mm
-
-    @property
-    def usable_support_length_mm(self) -> float:
-        """The two pads' free lengths (reported only)."""
-
-        return self.proximal_usable_length_mm + self.distal_usable_length_mm
-
-    @property
-    def phi_safe_deg(self) -> float:
-        return math.degrees(self.phi_safe_rad)
-
-    @property
-    def torque_ratio_spread(self) -> float:
-        """``k_max / k_min`` over the usable range: 1 when the torque ratio is flat."""
-
-        return self.torque_ratio_max / self.torque_ratio_min
-
-    @property
-    def curl_shortfall_deg(self) -> float:
-        """``180 deg - phi_safe_max``."""
-
-        return 180.0 - math.degrees(self.phi_safe_rad)
+    """Each pad's length the links leave free from its outer end, the least on
+    ``[0, phi_req]`` (``packaging.usable_pad_lengths``)."""
+    required_proximal_mm: float = math.nan
+    required_distal_mm: float = math.nan
+    proximal_depth_mm: float = math.nan
+    distal_depth_mm: float = math.nan
+    """How far each pad's contact face lies palmar of its link's line through
+    the pivots (``O-A``, ``B-C``): the finger's thickness there, measured from
+    the centres of rotation."""
+    bound_hits: tuple[str, ...] = ()
+    """Search limits the design sits at (set by the mechanism, which knows the box)."""
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -201,69 +151,103 @@ class FingerEvaluation:
     def feasible(self) -> bool:
         return self.max_violation <= 0.0
 
+    @property
+    def proximal_effective_mm(self) -> float:
+        """The proximal pad's face the links leave free all over ``[0, phi_req]``."""
 
-def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> FingerEvaluation:
-    """Evaluate one design.
+        return min(self.proximal_usable_length_mm, self.proximal_face_mm)
 
-    Static constraints come first; a design that fails one is not swept and
-    gets :data:`UNSWEPT` for the motion constraints. An invalid reference
-    design gets :data:`INVALID` for everything but ``valid_reference``.
-    """
+    @property
+    def distal_effective_mm(self) -> float:
+        return min(self.distal_usable_length_mm, self.distal_face_mm)
 
-    ab_mm = math.hypot(parameters.b_x_mm - parameters.a_x_mm, parameters.b_z_mm - parameters.a_z_mm)
-    try:
-        linkage = FingerLinkage(parameters)
-    except ValueError:
-        # The reference pose is a dead point: no assembly branch to follow.
-        constraints = {name: INVALID for name in CONSTRAINT_NAMES}
-        constraints["valid_reference"] = 1.0
-        return FingerEvaluation(parameters, MappingProxyType(constraints), 0.0, ab_mm,
-                                **_pad_lengths(parameters, config.packaging))
+    @property
+    def pad_coverage(self) -> float:
+        """``(L_p,eff + L_d,eff) / |OC|``: the share of the extended finger the
+        pads' effective faces cover (the objective)."""
+
+        return (self.proximal_effective_mm + self.distal_effective_mm) / self.finger_length_mm
+
+    @property
+    def mounted_coverage(self) -> float:
+        """``(L_p + L_d) / |OC|`` with the mounting lengths (reported)."""
+
+        return (self.proximal_support_length_mm + self.distal_support_length_mm) / self.finger_length_mm
+
+    @property
+    def curl_deg(self) -> float:
+        """``180 deg - phi_max``."""
+
+        return 180.0 - math.degrees(self.phi_max_rad)
+
+    @property
+    def phi_max_stop(self) -> str:
+        """What ends ``phi_max``: ``C`` passing behind ``O`` (``tip_x``), else the safe motion's stop."""
+
+        return "tip_x" if self.phi_max_rad < self.phi_safe_rad - 1e-12 else self.stop_reason
+
+
+def finger_length_mm(parameters: FingerLinkageParameters) -> float:
+    """``|OC|`` in the extended pose, ``C = (B_x + BC, B_z)``."""
+
+    return math.hypot(parameters.b_x_mm + parameters.bc_length_mm, parameters.b_z_mm)
+
+
+def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> LinkageEvaluation:
+    """Evaluate one design (see the module docstring). A design that fails a
+    static check gets :data:`UNSWEPT` for the motion constraints; an invalid
+    reference pose :data:`INVALID` for every other constraint."""
 
     packaging = config.packaging
+    common = dict(
+        ab_mm=math.hypot(parameters.b_x_mm - parameters.a_x_mm, parameters.b_z_mm - parameters.a_z_mm),
+        finger_length_mm=finger_length_mm(parameters),
+        proximal_length_mm=math.hypot(parameters.a_x_mm, parameters.a_z_mm),
+        required_rom_rad=config.required_rom_rad,
+        required_proximal_mm=config.minimum_proximal_support_mm,
+        required_distal_mm=config.minimum_distal_support_mm,
+        proximal_depth_mm=packaging.proximal_pad_drop_mm + packaging.proximal_pad.height_mm,
+        distal_depth_mm=packaging.distal_pad_drop_mm + packaging.distal_pad.height_mm,
+        **_pad_lengths(parameters, packaging),
+    )
+    try:
+        linkage = FingerLinkage(parameters)
+    except ValueError:  # the reference pose is a dead point
+        constraints = {name: INVALID for name in CONSTRAINT_NAMES}
+        constraints["valid_reference"] = 1.0
+        return LinkageEvaluation(parameters, MappingProxyType(constraints), **common)
+
     footprint = packaging.pip_footprint(linkage)
-    static = _static_constraints(linkage, footprint, config)
+    static = _static_constraints(linkage, footprint, config, common)
     if max(static.values()) > 0.0:
         constraints = {**static, **{name: UNSWEPT for name in MOTION_CONSTRAINTS}}
-        return FingerEvaluation(parameters, MappingProxyType(constraints), 0.0, ab_mm,
-                                servo_lowest_z_mm=footprint.lowest_z_mm,
-                                **_pad_lengths(parameters, packaging))
+        return LinkageEvaluation(parameters, MappingProxyType(constraints),
+                                 servo_lowest_z_mm=footprint.lowest_z_mm, **common)
 
     step = config.servo_step_rad
     # The servo sense that flexes the PIP.
-    sense = 1.0 if _drive(linkage, packaging, [0.0, step]).q_pip_rad[-1] >= 0.0 else -1.0
+    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_pip_rad[-1] >= 0.0 else -1.0
     forward = np.asarray(config.servo_samples_rad)
-    sweep = _drive(linkage, packaging, sense * forward)
-    # The transmission angle is at the joint the driven link does not touch.
-    transmission, limit_position = (("margin_at_b_rad", "margin_at_bp_rad") if packaging.pip_servo_on_a
-                                    else ("margin_at_bp_rad", "margin_at_b_rad"))
-    # Hyperextension is a PIP requirement: solve it by the PIP, to the stopper
-    # exactly. Past a toggle at B the four-bar no longer closes.
+    sweep = linkage.sweep_servo(sense * forward)
+    # Hyperextension is a PIP requirement: solved by the PIP, to the stopper exactly.
     count = int(math.ceil(config.hyperextension_rad / step - 1e-9))
-    requested_back = -np.minimum(np.arange(count + 1) * step, config.hyperextension_rad)
-    back = linkage.sweep_pip(requested_back)
-    if packaging.pip_servo_on_a:
-        back = dataclasses.replace(back, servo_rad=back.q_pip_rad)
+    back = linkage.sweep_pip(-np.minimum(np.arange(count + 1) * step, config.hyperextension_rad))
     n_back = len(back.q_pip_rad) - 1  # back samples besides 0
 
-    # Joined, in increasing flexion: the back samples, then the forward sweep.
     def joined(name: str) -> np.ndarray:
+        """The back samples, then the forward sweep, in increasing flexion."""
+
         return np.concatenate((getattr(back, name)[n_back:0:-1], getattr(sweep, name)))
 
-    unsafe = _unsafe_conditions(
-        footprint, joined(transmission), joined("q_dip_rad"), joined("q_pip_rad"),
-        sense * joined("servo_rad"), joined("bp"), config,
-    )
-    # (f) The pads, from extension (hyperextension is only linkage range, where
-    # the pads may touch) up to where the usable range is already decided: the
-    # first other unsafe sample, or the curl plus the stopper margin.
-    other_unsafe = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[n_back:])
-    end = int(other_unsafe[0]) if other_unsafe.size else len(sweep.q_pip_rad) - 1
-    reached = np.flatnonzero(sweep.total_flexion_rad >= math.pi)
-    if reached.size:
-        rising = np.maximum.accumulate(sweep.q_pip_rad)
-        past = rising[reached[0]] + config.flexion_stopper_margin_rad
-        end = min(end, int(np.searchsorted(rising, past)))
+    unsafe = _unsafe_conditions(linkage, footprint, joined, sense, config)
+    total = sweep.total_flexion_rad
+    # The pads from extension up to the first other unsafe sample or the curl
+    # (180 deg), as far as phi_max needs them; hyperextension is linkage range only.
+    other = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[n_back:])
+    end = int(other[0]) if other.size else len(total) - 1
+    curled = np.flatnonzero(total >= math.pi)
+    if curled.size:
+        end = min(end, int(curled[0]))
     swept = slice(n_back, n_back + end + 1)
     margins = pad_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
                           joined("bp")[swept], config.mcp_samples_rad)
@@ -275,6 +259,7 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
     if reported:
         reported_pad[swept] = np.min(np.stack(reported), axis=0)
     unsafe["pad_collision"] = pad < 0.0
+    unsafe["pad_collision"][n_back + end + 1:] = True  # past the pads' last sample nothing is known safe
     any_unsafe = np.any(np.stack(list(unsafe.values())), axis=0)
 
     # Hyperextension: the PIP must reach the stopper safely; short of it, the
@@ -287,140 +272,183 @@ def evaluate(parameters: FingerLinkageParameters, config: FingerStudyConfig) -> 
     if hyper_violation < 1e-9:
         hyper_violation = 0.0
 
-    # Flexion: the first unsafe sample, else where the sweep stops closing or ends.
-    q = sweep.q_pip_rad
-    servo = forward[:len(q)]
-    total = sweep.total_flexion_rad
+    # The safe motion from extension: up to the first unsafe sample (or the
+    # sweep's end, where the four-bar stops closing).
     forward_unsafe = any_unsafe[n_back:]
+    first_unsafe = int(np.flatnonzero(forward_unsafe)[0]) if forward_unsafe.any() else len(total)
+    reach = float(min(total[first_unsafe - 1], math.pi)) if first_unsafe > 0 else 0.0
+    stop_reason = (next(name for name in STOP_REASONS if unsafe[name][n_back + first_unsafe])
+                   if first_unsafe < len(total) else ("closure" if len(total) < len(forward) else "horizon"))
+    if reach >= math.pi - 1e-12:  # BC antiparallel to OA: nothing past it is needed
+        stop_reason = "curl"
     collision_pair = ""
-    if forward_unsafe.any():
-        safe_count = int(np.flatnonzero(forward_unsafe)[0])
-        limit = float(q[safe_count])
-        stop_reason = next(name for name in STOP_REASONS if unsafe[name][n_back + safe_count])
-        if stop_reason == "pad_collision":
-            collision_pair = "/".join(next(pair for pair, margin in margins.items()
-                                           if margin[safe_count] < 0.0))
-    else:
-        safe_count = len(q)
-        limit = float(q[-1])
-        stop_reason = "closure" if len(q) < len(forward) else "horizon"
-    usable_end = limit - config.flexion_stopper_margin_rad
-    curl = curl_servo = math.nan
-    reached_curl = np.flatnonzero(total[:safe_count] >= math.pi)
-    if reached_curl.size and reached_curl[0] > 0:
-        i = int(reached_curl[0])
-        curl_servo, curl = _refine_curl(linkage, packaging, sense, float(servo[i - 1]), float(servo[i]))
-        if curl <= usable_end:
-            usable_end, stop_reason, collision_pair = curl, "curl", ""
-    usable_end = max(usable_end, 0.0)
-    if stop_reason == "curl":
-        usable_servo, phi_safe = curl_servo, math.pi
-    elif safe_count >= 2:
-        # The PIP rises with the servo over the safe samples (up to the backoff tolerance).
-        rising = np.maximum.accumulate(q[:safe_count])
-        usable_servo = float(np.interp(usable_end, rising, servo[:safe_count]))
-        phi_safe = min(float(np.interp(usable_servo, servo, total)), math.pi)
-    else:
-        usable_servo, phi_safe = 0.0, 0.0
+    if stop_reason == "pad_collision" and first_unsafe <= end:
+        collision_pair = "/".join(next(pair for pair, margin in margins.items()
+                                       if margin[first_unsafe] < 0.0))
 
-    usable = servo <= usable_servo + 1e-12
-    lever, ratio, travel = servo_lever(sweep, usable)
-    free = usable_pad_lengths(linkage, packaging, sweep.b[usable], sweep.bp[usable], sweep.c[usable])
-    ratio_min = _least_torque_ratio(sweep, usable)
-    usable_joined = np.concatenate((np.ones(n_back, dtype=bool), usable))
-    margin = joined(transmission)[usable_joined]
-    toggle = joined(limit_position)[usable_joined]
-    bp_range = joined("bp")[usable_joined]
-    pad_clearance = float(reported_pad[n_back:][usable].min())
+    # [0, phi_req] on the grid: to the first sample at or past it (the whole
+    # safe motion when it falls short).
+    at = np.flatnonzero(total >= config.required_rom_rad - 1e-12)
+    last = int(at[0]) if at.size else max(first_unsafe - 1, 0)
+    window = np.zeros(len(total), dtype=bool)
+    window[:last + 1] = True
+    lever, ratio, travel = servo_lever(sweep, window)
+    ratio_min = _least_torque_ratio(sweep, window)
+    tip_x = sweep.c[:, 0]
+    least_tip = float(tip_x[window].min())
+    # phi_max: the first sample any check fails at, C_x included.
+    failing = forward_unsafe | (tip_x < 0.0)
+    first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(total)
+    phi_max = float(min(total[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
 
-    clearance = packaging.body_clearance_mm
+    window_joined = np.concatenate((np.ones(n_back, dtype=bool), window))
+    margin = joined("margin_at_bp_rad")[window_joined]
+    toggle = joined("margin_at_b_rad")[window_joined]
+    bp_range = joined("bp")[window_joined]
     a = np.array((linkage.a.x_mm, linkage.a.z_mm))
-    # The middle link A-B' passes the servo side.
     link = footprint.distance_to_segments(np.broadcast_to(a, bp_range.shape), bp_range)
-    middle_link_clearance = float(link.min()) - clearance
-
-    curl_dip = math.nan
-    if stop_reason == "curl":
-        curl_dip = linkage.solve(0.0, curl).q_dip_rad
-    # The tip at the deepest usable curl, the MCP at 0.
-    end_pose = linkage.solve(0.0, usable_end)
-    curl_tip_x = (end_pose.c if config.reference_point == "C" else end_pose.b).x_mm
-    tip_violation = config.curl_tip_min_x_mm - curl_tip_x
-    fingertip_violation = 0.0
-    if config.enforce_fingertip_mcp:
-        fingertip_violation = -(_fingertip_mcp_gap_mm(linkage, sweep, usable, config) - clearance)
+    free = usable_pad_lengths(linkage, packaging, sweep.b[window], sweep.bp[window], sweep.c[window])
 
     constraints = {
         **static,
+        "rom_deg": math.degrees(config.required_rom_rad - reach),
         "hyperextension_deg": hyper_violation,
-        "minimum_flexion_deg": math.degrees(config.minimum_flexion_rad - phi_safe),
-        "middle_link_servo_mm": (-middle_link_clearance
-                                 if config.require_middle_link_servo_clearance else 0.0),
-        "torque_ratio_max": (ratio - config.torque_ratio_max
-                             if config.torque_ratio_max is not None else 0.0),
-        "servo_travel_deg": (math.degrees(travel - config.servo_travel_max_rad)
-                             if config.servo_travel_max_rad is not None else 0.0),
-        # Held; enforced only when enabled.
-        "curl_tip_x_mm": tip_violation if config.enforce_curl_tip else 0.0,
-        "fingertip_mcp_mm": fingertip_violation,
+        "curl_tip_x_mm": -least_tip,
     }
-    return FingerEvaluation(
+    return LinkageEvaluation(
         parameters=parameters,
         constraints=MappingProxyType(constraints),
         worst_transmission_quality=float(np.sin(margin).min()),
-        ab_mm=ab_mm,
-        phi_safe_rad=phi_safe,
-        usable_pip_rad=usable_end,
+        phi_safe_rad=reach,
+        phi_max_rad=phi_max,
         stop_reason=stop_reason,
         collision_pair=collision_pair,
-        usable_servo_rad=usable_servo,
-        curl_pip_rad=curl if stop_reason == "curl" else math.nan,
-        curl_dip_rad=curl_dip,
-        curl_tip_x_mm=curl_tip_x,
+        usable_pip_rad=float(sweep.q_pip_rad[last]),
+        usable_servo_rad=float(forward[last]),
+        curl_tip_x_mm=float(tip_x[last]),
+        least_tip_x_mm=least_tip,
         min_margin_rad=float(margin.min()),
         toggle_margin_rad=float(toggle.min()),
         hyperextension_phi_rad=float(back.total_flexion_rad[safe_back]),
-        middle_link_servo_clearance_mm=middle_link_clearance,
+        driver_link_servo_clearance_mm=float(link.min()) - packaging.body_clearance_mm,
         servo_lowest_z_mm=footprint.lowest_z_mm,
-        closes_to_rad=float(q[-1]),
+        closes_to_rad=float(sweep.q_pip_rad[-1]),
         lever_max_mm=lever,
         torque_ratio_max=ratio,
         torque_ratio_min=ratio_min,
         servo_travel_rad=travel,
-        pad_clearance_mm=pad_clearance,
-        **_pad_lengths(parameters, packaging),
+        pad_clearance_mm=float(reported_pad[n_back:][window].min()),
         proximal_usable_length_mm=float(free["proximal_pad"].min()),
         distal_usable_length_mm=float(free["distal_pad"].min()),
+        **common,
     )
 
 
-def _unsafe_conditions(
-    footprint: ServoFootprint,
-    margin: np.ndarray,
-    q_dip: np.ndarray,
-    q_pip: np.ndarray,
-    servo: np.ndarray,
-    bp: np.ndarray,
-    config: FingerStudyConfig,
-) -> dict[str, np.ndarray]:
-    """Per-sample unsafe flags (b)-(e) along the joined sweep, in increasing
-    flexion; (a) is the sweep's end and the caller adds (f). Backoffs are
-    measured from the start of the sweep (deepest hyperextension); ``servo`` is
-    signed to rise with flexion."""
+def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, config: LinkageConfig,
+                        common: Mapping[str, float]) -> dict[str, float]:
+    """Constraints of the reference geometry and the packaging alone, in three
+    stages by cost: lengths and pins, then the servos, then the pads' polygons.
+    A stage that fails leaves the later ones unchecked, at :data:`UNSWEPT`
+    (a feasible design checks them all)."""
 
+    packaging = config.packaging
+    clearance = packaging.body_clearance_mm
+    parameters = linkage.parameters
+    radius = packaging.pivot_radius_mm
+
+    # 1. Lengths, pins and the pads' room: closed forms.
+    # Two pins on one body: A-B' (the driver link) and B'-B; their housings may touch.
+    spacing = max(radius("a") + radius("bp") - linkage.a.distance_to(linkage.bp),
+                  radius("bp") + radius("b") - linkage.bp.distance_to(linkage.b))
+    length, length_low, length_high = common["finger_length_mm"], *config.extended_length_bounds_mm
+    proximal_length, (proximal_low, proximal_high) = common["proximal_length_mm"], config.proximal_length_bounds_mm
+    proximal_violations = [value for value in (
+        None if proximal_low is None else proximal_low - proximal_length,
+        None if proximal_high is None else proximal_length - proximal_high) if value is not None]
+    spans = pad_spans(parameters, packaging)
+    proximal, distal = spans["proximal_pad"], spans["distal_pad"]
+    # A clears the keep-out at the servo's shaft A'.
+    pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
+                 -(packaging.pivot_pin_gap_mm(linkage) - clearance))
+    constraints = {
+        "valid_reference": 0.0,
+        "pivot_pin_mm": pivot_pin,
+        "pin_spacing_mm": spacing,
+        "extended_length_mm": max(length_low - length, length - length_high),
+        "proximal_length_mm": max(proximal_violations, default=0.0),
+        # The pads' mounting lines run from the pivots outward, with room for
+        # the pads: at least the minimum, at most the cap.
+        "proximal_support_mm": max(parameters.a_x_mm - parameters.app_x_mm,
+                                   proximal.length_mm - proximal.limit_mm,
+                                   config.minimum_proximal_support_mm - proximal.length_mm,
+                                   proximal.length_mm - proximal.room_mm),
+        "distal_support_mm": max(parameters.bpp_x_mm - parameters.b_x_mm,
+                                 distal.length_mm - distal.limit_mm,
+                                 config.minimum_distal_support_mm - distal.length_mm,
+                                 distal.length_mm - distal.room_mm),
+    }
+    servos, pads = ("mcp_servo_mm", "pip_servo_pad_mm"), ("pad_collision_mm",)
+    if max(constraints.values()) > 0.0:
+        return {**constraints, **{name: UNSWEPT for name in servos + pads}}
+
+    # 2. The servos: the two bodies, A against the PIP servo, the PIP servo
+    # and the proximal pad.
+    mcp_angles = np.asarray(config.mcp_servo_angles_rad)
+    # Footprints whose circumscribed circles are apart cannot touch.
+    apart = math.hypot(*footprint.pivot) - footprint.reach_mm - packaging.mcp_footprint().reach_mm
+    servo_gap = apart if apart > clearance else packaging.mcp_servo_gap_mm(footprint, mcp_angles)
+    constraints["mcp_servo_mm"] = -(servo_gap - clearance)
+    if packaging.a_pin_servo_check:
+        a = np.array((linkage.a.x_mm, linkage.a.z_mm))
+        constraints["pivot_pin_mm"] = max(pivot_pin, -(footprint.distance_to_point(a) - radius("a") - clearance))
+    # The PIP servo and the proximal pad (one body, still kept apart), and the
+    # older rule: the servo dorsal of the OA line.
+    interface = -footprint.lowest_z_mm if packaging.pip_servo_above_oa else 0.0
+    if packaging.pip_servo_pad_check:
+        interface = max(interface, -(pip_servo_pad_gap_mm(linkage, packaging) - clearance))
+    constraints["pip_servo_pad_mm"] = interface
+    if max(constraints.values()) > 0.0:
+        return {**constraints, **{name: UNSWEPT for name in pads}}
+
+    # 3. The pads against every checked part, extended.
+    reference = [np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp)]
+    margins = pad_margins(linkage, packaging, *reference, config.mcp_samples_rad)
+    constraints["pad_collision_mm"] = -min(float(margin.min()) for margin in margins.values())
+    return constraints
+
+
+def _unsafe_conditions(linkage: FingerLinkage, footprint: ServoFootprint, joined, sense: float,
+                       config: LinkageConfig) -> dict[str, np.ndarray]:
+    """Per-sample unsafe flags along the joined sweep, in increasing flexion
+    (the caller adds the pads). Backoffs are measured from the start of the
+    sweep (deepest hyperextension); the servo angle is signed to rise with flexion."""
+
+    packaging = config.packaging
     tolerance = config.dip_backoff_tolerance_rad
+    low, high = config.transmission_angle_range_rad
+    bp = joined("bp")
+    angle = _angle_at(np.array((linkage.a.x_mm, linkage.a.z_mm)), bp, joined("b"))
+    q_dip, q_pip, servo = joined("q_dip_rad"), joined("q_pip_rad"), sense * joined("servo_rad")
     return {
-        "closure": np.zeros(len(margin), dtype=bool),
-        "transmission": margin < config.minimum_transmission_margin_rad,
+        "closure": np.zeros(len(angle), dtype=bool),
+        "transmission": np.minimum(angle - low, high - angle) < 0.0,
         "dip_backoff": np.maximum.accumulate(q_dip) - q_dip > tolerance,
         # The PIP and the servo turn together.
         "pip_backoff": (np.maximum.accumulate(q_pip) - q_pip > tolerance)
         | (np.maximum.accumulate(servo) - servo > tolerance),
         # The B' pin may cross the servo body when they sit in different Y layers.
-        "dip_pin": (np.zeros(len(margin), dtype=bool) if config.packaging.allow_collision_pip_servo_to_joint_bp
+        "dip_pin": (np.zeros(len(angle), dtype=bool) if packaging.allow_collision_pip_servo_to_joint_bp
                     else footprint.distance_to_segments(bp, bp)
-                    < config.packaging.pin_radius_mm + config.packaging.body_clearance_mm),
+                    < packaging.pivot_radius_mm("bp") + packaging.body_clearance_mm),
     }
+
+
+def _angle_at(a: np.ndarray, bp: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """The transmission angle at ``B'`` between ``B'->A`` and ``B'->B`` per sample, 0 to pi."""
+
+    first, second = a - bp, b - bp
+    cosine = np.sum(first * second, axis=1) / (np.linalg.norm(first, axis=1) * np.linalg.norm(second, axis=1))
+    return np.arccos(np.clip(cosine, -1.0, 1.0))
 
 
 def servo_lever(sweep: PipSweep, workspace: np.ndarray) -> tuple[float, float, float]:
@@ -431,9 +459,8 @@ def servo_lever(sweep: PipSweep, workspace: np.ndarray) -> tuple[float, float, f
     ``A'-B`` by ``theta``, with ``tau = F * |n . dp/dtheta|`` (virtual work, MCP
     held). ``r = |n . dp/dtheta|`` is linear along ``BC``, so its worst is at
     ``B`` or ``C``. It factors as ``r = k * d``: the linkage's torque ratio
-    ``k = d(phi)/d(theta)``, with ``phi = q_pip + q_dip`` the distal link's
-    rotation, times the contact's distance ``d`` along ``BC`` from the
-    instantaneous centre. Returns ``(max r in mm, max k, |theta(end) - theta(start)|)``.
+    ``k = d(phi)/d(theta)`` times the contact's distance ``d`` along ``BC`` from
+    the instantaneous centre. Returns ``(max r in mm, max k, |theta(end) - theta(start)|)``.
     """
 
     theta = sweep.servo_rad[workspace]
@@ -442,62 +469,11 @@ def servo_lever(sweep: PipSweep, workspace: np.ndarray) -> tuple[float, float, f
     b, c = sweep.b[workspace], sweep.c[workspace]
     bc = (c - b) / np.linalg.norm(c - b, axis=1)[:, None]
     normal = np.stack((bc[:, 1], -bc[:, 0]), axis=1)  # palmar side of BC
-    levers = [np.abs(np.sum(normal * np.gradient(point, theta, axis=0), axis=1))
-              for point in (b, c)]
+    levers = [np.abs(np.sum(normal * np.gradient(point, theta, axis=0), axis=1)) for point in (b, c)]
     phi = sweep.total_flexion_rad[workspace]
     lever = np.max(np.maximum(*levers))
     ratio = np.max(np.abs(np.gradient(phi, theta)))
     return float(lever), float(ratio), float(abs(theta[-1] - theta[0]))
-
-
-def _static_constraints(
-    linkage: FingerLinkage, footprint: ServoFootprint, config: FingerStudyConfig
-) -> dict[str, float]:
-    """Constraints of the reference geometry and the packaging alone."""
-
-    packaging = config.packaging
-    clearance = packaging.body_clearance_mm
-    parameters = linkage.parameters
-    spacing = min(linkage.a.distance_to(linkage.bp), linkage.bp.distance_to(linkage.b))
-    reach = parameters.bc_length_mm if config.reference_point == "C" else 0.0
-    length = math.hypot(parameters.b_x_mm + reach, parameters.b_z_mm)
-    length_low, length_high = config.extended_length_bounds_mm
-    # From MCP hyperextension to extension; flexion only turns the PIP servo
-    # away from the MCP servo's dorsal rear body.
-    mcp_angles = np.linspace(-config.hyperextension_rad, 0.0, 3)
-    # Footprints whose circumscribed circles are apart cannot touch.
-    apart = math.hypot(*footprint.pivot) - footprint.reach_mm - packaging.mcp_footprint().reach_mm
-    servo_gap = apart if apart > clearance else packaging.mcp_servo_gap_mm(footprint, mcp_angles)
-    spans = pad_spans(parameters, packaging)
-    proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    reference = [np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp)]
-    margins = pad_margins(linkage, packaging, *reference, config.mcp_samples_rad)
-    return {
-        "valid_reference": 0.0,
-        "mcp_servo_mm": -(servo_gap - clearance),
-        # The pivot off the servo (A, or A' with the servo on A) clears the
-        # virtual clearance at the servo's shaft.
-        "pivot_pin_mm": (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
-                         -(packaging.pivot_pin_gap_mm(linkage) - clearance)),
-        "pin_spacing_mm": packaging.pin_spacing_mm - spacing,
-        "extended_length_mm": max(length_low - length, length - length_high),
-        # The PIP servo stays dorsal of the OA contact interface.
-        # The PIP servo stays dorsal of the OA line, the proximal pad's mounting
-        # line (one body with the pad, so not checked against it otherwise).
-        "oa_interface_mm": 0.0 if packaging.pip_servo_on_a else -footprint.lowest_z_mm,
-        # The pads' mounting lines run from the pivots outward, with room for
-        # the pads: a positive length, at least the minimum, at least a fixed one.
-        "proximal_support_mm": max(-math.inf if packaging.pip_servo_on_a
-                                   else parameters.a_x_mm - parameters.app_x_mm,
-                                   proximal.length_mm - proximal.limit_mm,
-                                   config.minimum_proximal_support_mm - proximal.length_mm,
-                                   proximal.length_mm - proximal.room_mm),
-        "distal_support_mm": max(parameters.bpp_x_mm - parameters.b_x_mm,
-                                 distal.length_mm - distal.limit_mm,
-                                 config.minimum_distal_support_mm - distal.length_mm,
-                                 distal.length_mm - distal.room_mm),
-        "pad_collision_mm": -min(float(margin.min()) for margin in margins.values()),
-    }
 
 
 def _least_torque_ratio(sweep: PipSweep, workspace: np.ndarray) -> float:
@@ -510,94 +486,27 @@ def _least_torque_ratio(sweep: PipSweep, workspace: np.ndarray) -> float:
 
 
 def _pad_lengths(parameters: FingerLinkageParameters, packaging) -> dict[str, float]:
+    """Each pad's mounting length and its face (less the chamfer)."""
+
     spans = pad_spans(parameters, packaging)
-    return {"proximal_support_length_mm": spans["proximal_pad"].length_mm,
-            "distal_support_length_mm": spans["distal_pad"].length_mm}
-
-
-def _fingertip_mcp_gap_mm(
-    linkage: FingerLinkage, sweep: PipSweep, safe: np.ndarray, config: FingerStudyConfig
-) -> float:
-    """Least gap between the fingertip silhouette and the MCP servo body.
-
-    Checked on a coarse grid: PIP every 5 deg over the flexion side of the
-    range and MCP flexion every 15 deg from hyperextension to its maximum. The
-    fingertip (default family, as long as ``BC``) rides on ``BC`` like in
-    :func:`core.morphology.hand_layout.fingertip_attachment`. Only outline
-    segments within the MCP servo's reach of ``O`` are checked at every MCP
-    angle; the rest bound the gap from below.
-    """
-
-    outline = _fingertip_outline(linkage.parameters.bc_length_mm)
-
-    stride = max(1, int(round(math.radians(5.0) / config.servo_step_rad)))
-    b, c = sweep.b[safe][::stride], sweep.c[safe][::stride]
-    angle = np.arctan2(c[:, 1] - b[:, 1], c[:, 0] - b[:, 0])
-    cosine, sine = np.cos(angle)[:, None], np.sin(angle)[:, None]
-    points = np.stack((b[:, :1] + cosine * outline[:, 0] - sine * outline[:, 1],
-                       b[:, 1:] + sine * outline[:, 0] + cosine * outline[:, 1]), axis=-1)
-    start = points.reshape(-1, 2)
-    end = np.roll(points, -1, axis=1).reshape(-1, 2)
-
-    packaging = config.packaging
-    reach = packaging.mcp_footprint().reach_mm
-    from_o = point_segment_distance(np.zeros(2), start, end)
-    near = from_o <= reach + packaging.body_clearance_mm
-    if not near.any():
-        return float(from_o.min()) - reach
-    angles = np.arange(-config.hyperextension_rad, config.mcp_flexion_max_rad + 1e-9, math.radians(15.0))
-    # Turning the MCP servo by +q is turning the fingertip by -q about O.
-    starts = np.concatenate([turn_points(start[near], -q) for q in angles])
-    ends = np.concatenate([turn_points(end[near], -q) for q in angles])
-    return float(packaging.mcp_footprint().distance_to_segments(starts, ends).min())
-
-
-@functools.lru_cache(maxsize=8)
-def _fingertip_outline(bc_length_mm: float) -> np.ndarray:
-    """Fingertip side silhouette in the ``BC`` frame (``B`` at 0, ``BC`` along ``+X``)."""
-
-    fingertip = Fingertip(FingertipParameters(total_length_mm=bc_length_mm))
-    outline = np.array(fingertip.side_silhouette_mm(12))
-    outline[:, 1] -= fingertip.rotation_axis_z_mm
-    return outline
-
-
-def _drive(linkage: FingerLinkage, packaging, servo_rad) -> PipSweep:
-    """The four-bar at PIP servo angles: turning ``A'-B`` about ``A'``, or with the
-    servo on ``A`` the middle link ``A-B'`` about ``A`` (its angle is the PIP's)."""
-
-    if packaging.pip_servo_on_a:
-        sweep = linkage.sweep_pip(servo_rad)
-        return dataclasses.replace(sweep, servo_rad=sweep.q_pip_rad)
-    return linkage.sweep_servo(servo_rad)
-
-
-def _refine_curl(linkage: FingerLinkage, packaging, sense: float, low: float,
-                 high: float) -> tuple[float, float]:
-    """The servo angle and PIP where ``q_pip + q_dip`` reaches pi between two servo samples.
-
-    One fine vectorized sweep of the bracket, then linear interpolation.
-    """
-
-    servo = np.linspace(low, high, 65)
-    sweep = _drive(linkage, packaging, sense * servo)
-    total = sweep.total_flexion_rad
-    i = int(np.flatnonzero(total >= math.pi)[0]) if (total >= math.pi).any() else len(total) - 1
-    if i == 0:
-        return float(servo[0]), float(sweep.q_pip_rad[0])
-    fraction = (math.pi - total[i - 1]) / (total[i] - total[i - 1])
-    return (float(servo[i - 1] + fraction * (servo[i] - servo[i - 1])),
-            float(sweep.q_pip_rad[i - 1] + fraction * (sweep.q_pip_rad[i] - sweep.q_pip_rad[i - 1])))
+    values = {}
+    for side in ("proximal", "distal"):
+        length = spans[f"{side}_pad"].length_mm
+        chamfer = pad_chamfer_mm(getattr(packaging, f"{side}_pad"), parameters, side)
+        values[f"{side}_support_length_mm"] = length
+        values[f"{side}_face_mm"] = max(length - min(chamfer, length), 0.0)
+    return values
 
 
 __all__ = [
     "CONSTRAINT_NAMES",
-    "FingerEvaluation",
     "INVALID",
     "MOTION_CONSTRAINTS",
     "STATIC_CONSTRAINTS",
     "STOP_REASONS",
     "UNSWEPT",
+    "LinkageEvaluation",
     "evaluate",
+    "finger_length_mm",
     "servo_lever",
 ]

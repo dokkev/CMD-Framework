@@ -105,9 +105,15 @@ class Mechanism(ABC):
         """The config of a config file, less its optimizer settings
         (``core.optimization.study.load_yaml`` reads both)."""
 
+        return self.config_from_mapping(self.split_settings(read_config_file(path))[0])
+
+    def split_settings(self, values: Mapping[str, Any]) -> tuple[dict[str, Any], Any]:
+        """A config file's values less its optimizer settings, and those
+        (``core.optimization.optimizer.split_settings``: its ``optimizer`` table)."""
+
         from core.optimization.optimizer import split_settings
 
-        return self.config_from_mapping(split_settings(read_config_file(path))[0])
+        return split_settings(values)
 
     @abstractmethod
     def config_to_json(self, config: StudyConfig) -> dict[str, Any]:
@@ -119,7 +125,34 @@ class Mechanism(ABC):
 
     @abstractmethod
     def search_box(self, config: StudyConfig) -> tuple[Sequence[float], Sequence[float]]:
-        """Lower and upper bounds of the design vector, in :attr:`variable_names` order."""
+        """Lower and upper bounds of the search coordinates (:meth:`search_names`;
+        by default the design vector, in :attr:`variable_names` order)."""
+
+    # The coordinates the optimizer searches. By default the design vector
+    # itself; a mechanism may search others (relative positions, shares of a
+    # range) that keep its simplest constraints by construction.
+
+    def search_names(self, config: StudyConfig) -> tuple[str, ...]:
+        return tuple(self.variable_names)
+
+    def search_steps(self, config: StudyConfig) -> tuple[float, ...]:
+        """Grid step of each search coordinate."""
+
+        return (config.resolution_mm,) * len(self.search_names(config))
+
+    def to_design(self, coordinates: Sequence[float], config: StudyConfig) -> tuple[float, ...] | None:
+        """The design vector of search coordinates (``None``: no design)."""
+
+        return tuple(coordinates)
+
+    def from_design(self, x: Sequence[float], config: StudyConfig) -> tuple[float, ...]:
+        """Search coordinates of a design vector (to warm-start from it)."""
+
+        return tuple(x)
+
+    def prepare(self, config: StudyConfig) -> None:
+        """Compute once what every evaluation of the study reuses (cached
+        tables), before the evaluating processes fork and inherit it."""
 
     def refine(self, config: StudyConfig, step_rad: float) -> StudyConfig:
         """The config to verify candidates with: its motion sampled every ``step_rad``."""
@@ -206,7 +239,7 @@ class Mechanism(ABC):
 
 MECHANISMS = {
     "linkage": "core.optimization.linkage.mechanism",
-    "linkage_v2": "core.optimization.linkage_v2.mechanism",
+    "linkage_v3": "core.optimization.linkage.mechanism",  # runs recorded under that name (2026-10-23 to 26)
     "open_chain_idealized": "core.optimization.open_chain.mechanism:IDEALIZED",
     "open_chain_packaged": "core.optimization.open_chain.mechanism:PACKAGED",
     "rolling_contact_joint": "core.optimization.rolling_contact_joint.mechanism",

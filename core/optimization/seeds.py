@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import multiprocessing
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.optimization.study import Run, write_rows
+import numpy as np
+
+from core.optimization.study import Run, non_dominated, write_rows
 
 
 def study_settings(run: Run) -> dict:
@@ -62,39 +66,55 @@ def run_label(run: Run) -> str:
     return f"{run.directory.parent.name}/{run.directory.name}"
 
 
-def select_seeds(runs: Sequence[Run], step_rad: float = math.radians(0.05)) -> Selection:
+_VERIFY: dict = {}
+"""The mechanism and refined configs a verification worker evaluates with (set before forking)."""
+
+
+def _verify(task) -> dict | None:
+    index, row = task
+    found, names, configs = _VERIFY["found"], _VERIFY["names"], _VERIFY["configs"]
+    x = found.read_design(row)
+    e = found.evaluate(x, configs[index])
+    if e is None or not e.feasible:
+        return None
+    return {**dict(zip(found.variable_names, x)), "objectives": found.objective_values(e, names), **found.report(e)}
+
+
+def select_seeds(runs: Sequence[Run], step_rad: float = math.radians(0.05), workers: int | None = None) -> Selection:
     """Re-evaluate every run's candidates with the motion sampled every
-    ``step_rad``, keep the verified ones no other verified one dominates and
-    mark the seeds (:meth:`~core.optimization.mechanism.Mechanism.seed_roles`).
-    A candidate that holds several roles lists them all, joined by ``;``."""
+    ``step_rad`` (in ``workers`` forked processes; default: every CPU), keep
+    the verified ones no other verified one dominates and mark the seeds
+    (:meth:`~core.optimization.mechanism.Mechanism.seed_roles`). A candidate
+    that holds several roles lists them all, joined by ``;``."""
 
     check_mergeable(runs)
     found, names = runs[0].mechanism, runs[0].objectives
+    tasks, labels = [], []
+    for index, run in enumerate(runs):
+        for row in run.candidates():
+            tasks.append((index, row))
+            labels.append({"run": run_label(run), "candidate": row["candidate"],
+                           "algorithm": run.settings.algorithm, "seed": run.settings.seed})
+    _VERIFY.update(found=found, names=names, configs=[found.refine(run.config, step_rad) for run in runs])
+    workers = workers or os.cpu_count() or 1
+    if workers > 1 and len(tasks) > 1:
+        with multiprocessing.get_context("fork").Pool(workers) as pool:
+            verified = pool.map(_verify, tasks, chunksize=max(1, len(tasks) // (8 * workers)))
+    else:
+        verified = [_verify(task) for task in tasks]
     rows, counts = [], []
-    for run in runs:
-        config = found.refine(run.config, step_rad)
-        candidates = run.candidates()
-        verified = 0
-        for row in candidates:
-            x = found.read_design(row)
-            e = found.evaluate(x, config)
-            if e is None or not e.feasible:
-                continue
-            verified += 1
-            rows.append({
-                "run": run_label(run), "candidate": row["candidate"],
-                "algorithm": run.settings.algorithm, "seed": run.settings.seed,
-                **dict(zip(found.variable_names, x)),
-                "objectives": found.objective_values(e, names),
-                **found.report(e),
-            })
-        counts.append((run_label(run), len(candidates), verified))
+    for index, run in enumerate(runs):
+        mine = [i for i, (owner, _) in enumerate(tasks) if owner == index]
+        kept = [{**labels[i], **verified[i]} for i in mine if verified[i] is not None]
+        rows.extend(kept)
+        counts.append((run_label(run), len(mine), len(kept)))
 
-    def dominates(first, second):
-        return all(a <= b for a, b in zip(first, second)) and first != second
-
-    rows = [row for row in rows
-            if not any(dominates(other["objectives"], row["objectives"]) for other in rows)]
+    if rows:  # the verified designs no other verified one dominates (a design found twice, once)
+        design = lambda row: tuple(row[name] for name in found.variable_names)  # noqa: E731
+        unique = {design(row): row for row in reversed(rows)}
+        rows = [row for row in rows if unique.get(design(row)) is row]
+        keep = set(non_dominated(np.array([row["objectives"] for row in rows])).tolist())
+        rows = [row for i, row in enumerate(rows) if i in keep]
     order = found.role_order(names)
     for row in rows:
         row["roles"] = []
