@@ -62,9 +62,11 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pad_collision_mm",
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
-MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm")
+MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm")
 """``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
-it reaches it); the hyperextension still missing; how far ``C`` passes behind ``O``."""
+it reaches it); the hyperextension still missing; how far ``C`` passes behind
+``O``; how far either pad's effective length (the face no link crosses on
+``[0, phi_req]``) falls short of its least length: the module must be usable."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
 """Violation assigned to every other constraint of an invalid reference design."""
@@ -314,6 +316,9 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         "rom_deg": math.degrees(config.required_rom_rad - reach),
         "hyperextension_deg": hyper_violation,
         "curl_tip_x_mm": -least_tip,
+        "pad_usable_mm": max(
+            config.minimum_proximal_support_mm - min(float(free["proximal_pad"].min()), common["proximal_face_mm"]),
+            config.minimum_distal_support_mm - min(float(free["distal_pad"].min()), common["distal_face_mm"])),
     }
     return LinkageEvaluation(
         parameters=parameters,

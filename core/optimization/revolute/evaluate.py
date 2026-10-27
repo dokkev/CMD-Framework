@@ -45,7 +45,7 @@ from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
                       "proximal_support_mm", "distal_support_mm", "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "curl_tip_x_mm")
+MOTION_CONSTRAINTS = ("rom_deg", "curl_tip_x_mm", "pad_usable_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
@@ -250,6 +250,9 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
         "curl_tip_x_mm": -float(tip_x[window].min()),
+        # No link crosses a 2R pad: its effective length is its face (as the linkage's).
+        "pad_usable_mm": max(goal.minimum_proximal_support_mm - geo.proximal_face_mm,
+                             goal.minimum_distal_support_mm - geo.distal_face_mm),
     }
     return RevoluteEvaluation(
         constraints=MappingProxyType(constraints),

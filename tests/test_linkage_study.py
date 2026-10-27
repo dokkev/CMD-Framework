@@ -123,7 +123,12 @@ def test_pad_pairs_follow_the_checks():
 
 
 def test_a_design_is_evaluated_with_the_objectives():
-    config = load()
+    # X's pads are 30 + 35 mm mounted, but the links leave less of them free:
+    # its least lengths must be what it can use.
+    short = MECHANISM.evaluate(X, load())
+    assert short.constraints["pad_usable_mm"] == pytest.approx(30.0 - short.proximal_effective_mm)
+    assert not short.feasible
+    config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
     spans = pad_spans(e.parameters, config.packaging)
