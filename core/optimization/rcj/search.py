@@ -5,9 +5,9 @@ set (as ``core.optimization.revolute.search``):
 2. the rollers' radius ``r`` itself;
 3. ``BC`` a share of the range keeping ``|OA| = |OC| - 2r - BC`` within its
    bounds, the least ``|OA|`` also keeping the servo off the MCP servo;
-4. ``A''_x`` a share of ``[the pad's start + its least length, A_x + r]``;
-5. ``B''`` from ``B`` a share of ``[-DISTAL_PAD_REACH_MM, BC - its least length]``;
-6. the distal pad's drop a share of ``[0, r]``.
+4. ``A''_x`` a share of ``[the pad's start + its least length, A_x + r + the overhang]``;
+5. ``B''`` from ``B`` a share of ``[-(its reach behind B), BC - its least length]``;
+6. the distal and 7. the proximal pad's drops, each a share of ``[0, r]``.
 
 Lengths are rounded to the prototyping resolution; empty ranges describe no design.
 """
@@ -22,10 +22,11 @@ import numpy as np
 from core.morphology.linkage.packaging import Packaging, servo_floor_x
 
 from core.optimization.rcj import config as rcj_config
-from core.optimization.rcj.config import DISTAL_PAD_REACH_MM, VARIABLE_NAMES, RcjConfig
+from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 
 
-SEARCH_NAMES = ("finger_length_mm", "roller_radius_mm", "bc_share", "app_share", "bpp_share", "drop_share")
+SEARCH_NAMES = ("finger_length_mm", "roller_radius_mm", "bc_share", "app_share", "bpp_share", "drop_share",
+                "proximal_drop_share")
 SHARE_STEP = 0.001
 
 
@@ -57,8 +58,8 @@ def _ranges(config: RcjConfig, length: float, r: float):
 
     def pads(bc: float) -> tuple[tuple[float, float], tuple[float, float]]:
         a_x = length - 2.0 * r - bc
-        return ((start + goal.minimum_proximal_support_mm, a_x + r),
-                (-DISTAL_PAD_REACH_MM, bc - goal.minimum_distal_support_mm))
+        return ((start + goal.minimum_proximal_support_mm, a_x + proximal_reach(goal, r)),
+                (-distal_reach(goal, r), bc - goal.minimum_distal_support_mm))
 
     return bc_range, pads
 
@@ -78,7 +79,8 @@ def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, .
     design = {"a_x_mm": grid(length - 2.0 * r - bc), "roller_radius_mm": r, "bc_length_mm": bc,
               "app_x_mm": grid(p_low + v["app_share"] * (p_high - p_low)),
               "bpp_from_b_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
-              "distal_drop_mm": min(grid(v["drop_share"] * r), r)}
+              "distal_drop_mm": min(grid(v["drop_share"] * r), r),
+              "proximal_drop_mm": min(grid(v["proximal_drop_share"] * r), r)}
     return tuple(design[name] for name in VARIABLE_NAMES)
 
 
@@ -96,7 +98,8 @@ def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
                    "bc_share": share(d["bc_length_mm"], *bc_range),
                    "app_share": share(d["app_x_mm"], p_low, p_high),
                    "bpp_share": share(d["bpp_from_b_mm"], d_low, d_high),
-                   "drop_share": share(d["distal_drop_mm"], 0.0, r)}
+                   "drop_share": share(d["distal_drop_mm"], 0.0, r),
+                   "proximal_drop_share": share(d["proximal_drop_mm"], 0.0, r)}
     return tuple(coordinates[name] for name in SEARCH_NAMES)
 
 

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Sample a study's search box for feasible designs, to warm-start its runs.
 
-    python scripts/optimize/sample_seeds.py <config.yaml> [samples] [target] [seed]
+    python scripts/optimize/sample_seeds.py <config.yaml> [samples] [target] [seed] [from]
 
 1. Draws ``samples`` (default 200000) points uniformly in the mechanism's
    search coordinates (on their grid) and evaluates them on every core (a
    design failing a static check is not swept, so most cost little).
 2. Grows the feasible ones (with those of an earlier sampling of the config,
-   if any): each round perturbs designs of the pool by :data:`SPREAD` of every
+   if any, or of a ``from`` file: each taken through the config's own search
+   coordinates, so a design of another study becomes its nearest of this
+   one): each round perturbs designs of the pool by :data:`SPREAD` of every
    coordinate's range and keeps the feasible, until the pool holds ``target``
    (default 1000) or a round adds none.
 
@@ -108,17 +110,25 @@ def main(argv: list[str]) -> int:
     samples = int(argv[1]) if len(argv) > 1 else 200_000
     target = int(argv[2]) if len(argv) > 2 else 1000
     seed = int(argv[3]) if len(argv) > 3 else 0
+    source = Path(argv[4]) if len(argv) > 4 else None
     found, config = _load(path)
     problem = MechanismProblem(found, config)
     output = REPOSITORY_ROOT / "output" / found.name / path.stem / "samples" / "seeds.csv"
     pool_designs: dict[tuple[float, ...], None] = {}
-    if output.exists():  # an earlier sampling's pool, still feasible under this config
-        for row in csv.DictReader(output.open(encoding="utf-8", newline="")):
-            x = tuple(found.read_design(row))
+    found.prepare(config)
+    for start_file in (output, source):  # earlier pools, as this config searches them
+        if start_file is None or not start_file.exists():
+            continue
+        rows = list(csv.DictReader(start_file.open(encoding="utf-8", newline="")))
+        for row in rows:
+            x = problem.to_mm(problem.to_steps(found.read_design(row)))
+            if x is None:
+                continue
+            x = tuple(float(value) for value in x)
             evaluation = found.evaluate(x, config)
             if evaluation is not None and evaluation.feasible:
                 pool_designs[x] = None
-        print(f"{len(pool_designs)} feasible designs from {output.relative_to(REPOSITORY_ROOT)}")
+        print(f"{len(pool_designs)} feasible designs after {start_file} ({len(rows)} rows)")
 
     start = time.time()
     with ProcessPoolExecutor(os.cpu_count() or 1, initializer=_init, initargs=(str(path),)) as pool:

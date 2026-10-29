@@ -92,6 +92,21 @@ class StudyResult:
     evaluation_count: int
     feasible_evaluation_count: int | None = None
     """Evaluations that met every constraint (on the optimizer's grid)."""
+    history: "History | None" = None
+    """Every feasible evaluation's objectives and generation (``history.npz``)."""
+
+
+@dataclass(frozen=True)
+class History:
+    """The run's feasible evaluations in order: each one's ``generation`` (0:
+    the initial population) and minimized ``objectives``, with the evaluations
+    every generation made. The front after generation ``g`` is the
+    non-dominated set of the rows up to ``g`` (the run's archive then)."""
+
+    generation: np.ndarray
+    objectives: np.ndarray
+    evaluations: np.ndarray
+    """Evaluations made in each generation (feasible or not)."""
 
 
 _WORKER_PROBLEM: MechanismProblem | None = None
@@ -152,6 +167,9 @@ class _CountingRunner:
         self.evaluated = self.feasible = 0
         self.archive_x: list[np.ndarray] = []
         self.archive_f: list[np.ndarray] = []
+        self.history_generation: list[int] = []
+        self.history_f: list[np.ndarray] = []
+        self.generation_evaluations: list[int] = []
 
     def __call__(self, f, X):
         if self.pool is None:
@@ -160,11 +178,15 @@ class _CountingRunner:
             outputs = self.pool.map(_evaluate_in_worker, list(X),
                                     chunksize=max(1, len(X) // (4 * self.workers)))
         self.evaluated += len(outputs)
+        generation = len(self.generation_evaluations)
+        self.generation_evaluations.append(len(outputs))
         for x, out in zip(X, outputs):
             if np.all(np.asarray(out["G"]) <= 0.0):
                 self.feasible += 1
                 self.archive_x.append(np.asarray(x, dtype=float))
                 self.archive_f.append(np.asarray(out["F"], dtype=float))
+                self.history_generation.append(generation)
+                self.history_f.append(np.asarray(out["F"], dtype=float))
         if len(self.archive_x) > ARCHIVE_PRUNE:
             self.prune()
         return outputs
@@ -229,8 +251,11 @@ def _run_study(problem: MechanismProblem, settings: OptimizerSettings,
     scores = np.array([mechanism.objective_values(c.evaluation, problem.objective_names) for c in pareto])
     pareto = [pareto[i] for i in non_dominated(scores)] if pareto else []
     pareto.sort(key=lambda c: mechanism.objective_values(c.evaluation, problem.objective_names)[0])
+    history = History(np.asarray(runner.history_generation, dtype=np.int32),
+                      np.asarray(runner.history_f, dtype=float).reshape(-1, problem.n_obj),
+                      np.asarray(runner.generation_evaluations, dtype=np.int32))
     return StudyResult(mechanism, config, settings, tuple(pareto), result.evaluation_count,
-                       problem.elementwise_runner.feasible)
+                       runner.feasible, history)
 
 
 def save_result(result: StudyResult, directory: str | Path, *, source_git_commit: str | None = None) -> Path:
@@ -257,6 +282,10 @@ def save_result(result: StudyResult, directory: str | Path, *, source_git_commit
              **mechanism.report(candidate.evaluation)}
             for index, candidate in enumerate(result.pareto, start=1)]
     write_rows(output / "pareto.csv", rows, ("candidate", *mechanism.variable_names))
+    if result.history is not None:
+        np.savez_compressed(output / "history.npz", generation=result.history.generation,
+                            objectives=result.history.objectives, evaluations=result.history.evaluations,
+                            objective_names=np.array(metadata["objectives"]))
     return output
 
 
@@ -336,6 +365,7 @@ def load_config(directory: str | Path) -> StudyConfig:
 __all__ = [
     "ARCHIVE_PRUNE",
     "Candidate",
+    "History",
     "MechanismProblem",
     "Run",
     "StudyResult",

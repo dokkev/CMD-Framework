@@ -175,6 +175,12 @@ class Packaging:
     servo on a bracket otherwise)."""
     pad_pad_check: bool = True
     """The two pads keep clear of each other."""
+    links_clear_pads: bool = False
+    """The links (``A-B'``, ``A'-B``) bend around the pads, out of their way
+    (as the serial 2R's truss of links): a pad is usable up to where the two
+    contact faces cross in the fold instead (``face_crossing_lengths``).
+    Always so in the goal/solver study (2026-10-27); ``False`` (runs before
+    it): up to the first link crossing it (``usable_pad_lengths``)."""
     pads_off_pins: bool = False
     """Each pad keeps clear of its own body's pin housings (the proximal pad
     of ``A`` and ``A'``, the distal pad of ``B`` and ``B'``) and may end
@@ -252,6 +258,18 @@ class Packaging:
 
         return self.pivot_radius_mm("b") if self.distal_pad_below_b else 0.0
 
+    def proximal_drop(self, parameters: FingerLinkageParameters) -> float:
+        """The proximal pad's drop below ``O-A`` in a design: its own, or the packaging's."""
+
+        own = parameters.proximal_drop_mm
+        return self.proximal_pad_drop_mm if own is None or self.pip_servo_on_a else own
+
+    def distal_drop(self, parameters: FingerLinkageParameters) -> float:
+        """The distal pad's drop below ``B-C`` in a design: its own, or the packaging's."""
+
+        own = parameters.distal_drop_mm
+        return self.distal_pad_drop_mm if own is None else own
+
     @property
     def proximal_pad_start_mm(self) -> float:
         """``x`` of the proximal pad's first edge ``a-c``: ``O``, or the MCP servo's
@@ -291,7 +309,7 @@ class Packaging:
         """``z`` of the proximal pad's mounting line: ``O-A''`` (less
         :attr:`proximal_pad_drop_mm`), or the palmar face of the PIP servo on ``A``."""
 
-        return parameters.a_z_mm - self.pip_servo.radius_mm if self.pip_servo_on_a else -self.proximal_pad_drop_mm
+        return parameters.a_z_mm - self.pip_servo.radius_mm if self.pip_servo_on_a else -self.proximal_drop(parameters)
 
     def layer_y_mm(self, layer: str) -> tuple[float, float]:
         """``|y|`` interval of a layer (``y`` across the finger, 0 at its middle)."""
@@ -668,7 +686,7 @@ def distal_pad_polygon(linkage: FingerLinkage, packaging: Packaging,
     p = linkage.parameters
     local = pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start",
                         pad_chamfer_mm(packaging.distal_pad, p, "distal"))
-    local = local - (0.0, packaging.distal_pad_drop_mm)
+    local = local - (0.0, packaging.distal_drop(p))
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     e = (c - b) / p.bc_length_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
@@ -690,7 +708,7 @@ def distal_carrier_polygon(linkage: FingerLinkage, packaging: Packaging,
 
     p = linkage.parameters
     local = carrier_outline(pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start", 0.0),
-                            packaging.distal_carrier_height_mm) - (0.0, packaging.distal_pad_drop_mm)
+                            packaging.distal_carrier_height_mm) - (0.0, packaging.distal_drop(p))
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     e = (c - b) / p.bc_length_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
@@ -737,7 +755,7 @@ def usable_pad_lengths(
 
     def local(points: np.ndarray) -> np.ndarray:  # v from the pad's top face
         rel = points - b
-        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + packaging.distal_pad_drop_mm), axis=1)
+        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + packaging.distal_drop(p)), axis=1)
 
     far = np.full(count, -np.inf)
     for start, end in links:
@@ -746,6 +764,226 @@ def usable_pad_lengths(
         far = np.fmax(far, high)
     distal_free = np.where(np.isfinite(far), distal.end_mm - far, distal.length_mm)
     return {"proximal_pad": np.maximum(proximal_free, 0.0), "distal_pad": np.maximum(distal_free, 0.0)}
+
+
+def fold_free_lengths(
+    proximal_face: np.ndarray, proximal_normal: np.ndarray, distal_face: np.ndarray, distal_normal: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Per-sample length of each contact face not hidden in the fold.
+
+    Faces are segments ``(n, 2, 2)`` (or ``(2, 2)``), their outer end first
+    (the MCP end of the proximal face, the fingertip end of the distal one),
+    with their outward (palmar) unit normals ``(n, 2)`` (or ``(2,)``), all in
+    the proximal frame. A point of one face is hidden when it lies behind the
+    other face (on its pad's side of its line) and opposite it (its
+    projection on that line falls within the other face): there the other
+    face, not an object, is in front of it. Each face loses the length so
+    hidden. The other face's segment, not its endless line, decides: barely
+    flexed, two faces at different depths cross far from either pad, and
+    hide nothing (the lines alone would hide a whole face there). Where the
+    other face covers the crossing, this is the crossing rule
+    (:func:`face_crossing_lengths`); the length lost grows continuously with
+    the flexion.
+    """
+
+    def faces(face, normal):
+        face = np.asarray(face, dtype=float)
+        face = face[None] if face.ndim == 2 else face
+        normal = np.broadcast_to(np.asarray(normal, dtype=float), (len(face), 2))
+        return face, normal
+
+    proximal_face, proximal_normal = faces(proximal_face, proximal_normal)
+    distal_face, distal_normal = faces(distal_face, distal_normal)
+    count = max(len(proximal_face), len(distal_face))
+    proximal_face = np.broadcast_to(proximal_face, (count, 2, 2))
+    distal_face = np.broadcast_to(distal_face, (count, 2, 2))
+    proximal_normal = np.broadcast_to(proximal_normal, (count, 2))
+    distal_normal = np.broadcast_to(distal_normal, (count, 2))
+
+    def hidden(face: np.ndarray, other: np.ndarray, other_normal: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The face's length and how much of it ``other`` hides."""
+
+        outer, inner = face[:, 0], face[:, 1]
+        length = np.linalg.norm(inner - outer, axis=1)
+        t = (inner - outer) / np.where(length > 0.0, length, 1.0)[:, None]
+        g0, g1 = other[:, 0], other[:, 1]
+        other_length = np.linalg.norm(g1 - g0, axis=1)
+        tg = (g1 - g0) / np.where(other_length > 0.0, other_length, 1.0)[:, None]
+        rel = outer - g0
+        # Behind the other face: (p - g0) . n < 0, linear in s along the face.
+        a, b = np.sum(rel * other_normal, axis=1), np.sum(t * other_normal, axis=1)
+        flat = np.abs(b) < 1e-12
+        root = -a / np.where(flat, 1.0, b)
+        behind_low = np.where(flat, np.where(a < 0.0, -np.inf, np.inf), np.where(b < 0.0, root, -np.inf))
+        behind_high = np.where(flat, np.where(a < 0.0, np.inf, -np.inf), np.where(b > 0.0, root, np.inf))
+        # Opposite it: 0 <= (p - g0) . tg <= its length.
+        c, d = np.sum(rel * tg, axis=1), np.sum(t * tg, axis=1)
+        level = np.abs(d) < 1e-12
+        first = -c / np.where(level, 1.0, d)
+        second = (other_length - c) / np.where(level, 1.0, d)
+        inside = (c >= 0.0) & (c <= other_length)
+        facing_low = np.where(level, np.where(inside, -np.inf, np.inf), np.minimum(first, second))
+        facing_high = np.where(level, np.where(inside, np.inf, -np.inf), np.maximum(first, second))
+        low = np.maximum.reduce([np.zeros(count), behind_low, facing_low])
+        high = np.minimum.reduce([length, behind_high, facing_high])
+        return length, np.maximum(high - low, 0.0)
+
+    proximal_length, proximal_hidden = hidden(proximal_face, distal_face, distal_normal)
+    distal_length, distal_hidden = hidden(distal_face, proximal_face, proximal_normal)
+    return {"proximal_pad": proximal_length - proximal_hidden, "distal_pad": distal_length - distal_hidden}
+
+
+PROBE_STEP_MM = 0.5
+"""Spacing of the face points :func:`probe_free_lengths` probes."""
+
+
+def probe_free_lengths(face: np.ndarray, normal: np.ndarray, depth_mm: float, polygons=(), segments=(),
+                       disks=(), step_mm: float = PROBE_STEP_MM) -> np.ndarray:
+    """The face's length times the share of its points :func:`probe_blocked` leaves free."""
+
+    length, blocked = probe_blocked(face, normal, depth_mm, polygons, segments, disks, step_mm)
+    return length * (1.0 - blocked.mean(axis=1))
+
+
+def probe_blocked(face: np.ndarray, normal: np.ndarray, depth_mm: float, polygons=(), segments=(),
+                  disks=(), step_mm: float = PROBE_STEP_MM) -> tuple[np.ndarray, np.ndarray]:
+    """Per-sample length of a contact face an object can reach.
+
+    A point of the face is reachable when nothing lies within ``depth_mm`` in
+    front of it: the probe from it along the outward normal, ``depth_mm``
+    long, meets no solid. Faces ``(n, 2, 2)`` (outer end first) with unit
+    normals ``(n, 2)``; solids, every other part of the finger at each
+    sample, as convex ``polygons`` ``(n, m, 2)``, ``segments`` ``(n, 2, 2)``
+    (bars seen edge on) and ``disks`` ``((n, 2) centres, radius)``. The face
+    is probed every ``step_mm`` (at the middles of equal pieces). Returns
+    each face's length ``(n,)`` and which points are blocked ``(n, k)``.
+    """
+
+    face = np.asarray(face, dtype=float)
+    count = len(face)
+    normal = np.broadcast_to(np.asarray(normal, dtype=float), (count, 2))
+    outer, inner = face[:, 0], face[:, 1]
+    length = np.linalg.norm(inner - outer, axis=1)
+    points = max(int(math.ceil(float(length.max()) / step_mm)), 1) if count else 1
+    share = (np.arange(points) + 0.5) / points
+    start = outer[:, None] + share[None, :, None] * (inner - outer)[:, None]          # (n, k, 2)
+    end = start + depth_mm * normal[:, None]
+    start = start + 1e-6 * normal[:, None]  # off the face itself
+    blocked = np.zeros((count, points), dtype=bool)
+
+    def cross(a, b):
+        return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+
+    def crosses(p0, p1, q0, q1):
+        """Whether segments p (n, k, 2) and q (n, 1, 2) cross (touching counts)."""
+
+        d, e = p1 - p0, q1 - q0
+        o1, o2 = cross(d, q0 - p0), cross(d, q1 - p0)
+        o3, o4 = cross(e, p0 - q0), cross(e, p1 - q0)
+        return (o1 * o2 <= 0.0) & (o3 * o4 <= 0.0) & ~((o1 == 0.0) & (o2 == 0.0) & (o3 == 0.0) & (o4 == 0.0))
+
+    for polygon in polygons:
+        polygon = np.broadcast_to(np.asarray(polygon, dtype=float), (count, *np.shape(polygon)[-2:]))
+        blocked |= _inside(start, polygon).reshape(count, points)
+        for corner, following in zip(np.moveaxis(polygon, 1, 0), np.moveaxis(np.roll(polygon, -1, axis=1), 1, 0)):
+            blocked |= crosses(start, end, corner[:, None], following[:, None])
+    for segment in segments:
+        segment = np.broadcast_to(np.asarray(segment, dtype=float), (count, 2, 2))
+        blocked |= crosses(start, end, segment[:, None, 0], segment[:, None, 1])
+    for centers, radius in disks:
+        centers = np.broadcast_to(np.asarray(centers, dtype=float), (count, 2))[:, None]
+        d = end - start
+        t = np.clip(np.sum((centers - start) * d, axis=-1) / np.maximum(np.sum(d * d, axis=-1), 1e-12), 0.0, 1.0)
+        blocked |= np.linalg.norm(start + t[..., None] * d - centers, axis=-1) <= radius
+    return length, blocked
+
+
+def probe_contact_lengths(linkage: FingerLinkage, packaging: Packaging, b: np.ndarray, c: np.ndarray,
+                          bp: np.ndarray, depth_mm: float, solids: str = "all") -> dict[str, np.ndarray]:
+    """Each contact face's reachable length (:func:`probe_free_lengths`) at
+    the posed ``B``, ``C`` and ``B'`` (``(n, 2)``), MCP at 0, against the
+    ``solids`` in front of it, whatever their Y layer (seen from the side, an
+    object meets the outer layers' links first): ``"all"``, every solid of
+    the finger but its own pad; ``"pads"``, the other pad alone;
+    ``"hardware"``, all but the pads (the distal carrier, the links ``A-B'``
+    and ``A'-B``, the four pins' housings, the PIP and MCP servos)."""
+
+    p = linkage.parameters
+    b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
+    count = len(b)
+    proximal_face, proximal_normal, distal_face, distal_normal = contact_faces(linkage, packaging, b, c)
+    proximal = np.broadcast_to(proximal_pad_polygon(linkage, packaging), (count, *proximal_pad_polygon(linkage,
+                                                                                                    packaging).shape))
+    distal = distal_pad_polygon(linkage, packaging, b, c)
+    shared_polygons, segments, disks = [], [], []
+    if solids not in ("all", "pads", "hardware"):
+        raise ValueError(f"solids must be all, pads or hardware, not {solids!r}")
+    if solids != "pads":
+        if packaging.distal_carrier_height_mm > 0.0:
+            shared_polygons.append(distal_carrier_polygon(linkage, packaging, b, c))
+        shared_polygons += [packaging.pip_footprint(linkage).outline, packaging.mcp_footprint().outline]
+        a = np.broadcast_to((p.a_x_mm, p.a_z_mm), (count, 2))
+        ap = np.broadcast_to((p.ap.x_mm, p.ap.z_mm), (count, 2))
+        segments = [np.stack((a, bp), axis=1), np.stack((ap, b), axis=1)]
+        disks = [(a, packaging.pivot_radius_mm("a")), (ap, packaging.pivot_radius_mm("ap")),
+                 (b, packaging.pivot_radius_mm("b")), (bp, packaging.pivot_radius_mm("bp"))]
+    other = {"proximal": [] if solids == "hardware" else [distal], "distal": [] if solids == "hardware" else [proximal]}
+    proximal_free = probe_free_lengths(np.broadcast_to(proximal_face, (count, 2, 2)), proximal_normal, depth_mm,
+                                       [*other["proximal"], *shared_polygons], segments, disks)
+    distal_free = probe_free_lengths(distal_face, distal_normal, depth_mm, [*other["distal"], *shared_polygons],
+                                     segments, disks)
+    return {"proximal_pad": proximal_free, "distal_pad": distal_free}
+
+
+def contact_faces(linkage: FingerLinkage, packaging: Packaging, b: np.ndarray, c: np.ndarray):
+    """The linkage's two contact faces as :func:`fold_free_lengths` takes them:
+    the proximal one fixed, the distal one at the posed ``B`` and ``C``."""
+
+    p = linkage.parameters
+    b, c = np.atleast_2d(b), np.atleast_2d(c)
+    spans = pad_spans(p, packaging)
+    proximal, distal = spans["proximal_pad"], spans["distal_pad"]
+    face_z = packaging.proximal_pad_line_z(p) - packaging.proximal_pad.height_mm
+    proximal_face = np.array(((proximal.start_mm, face_z), (proximal.end_mm, face_z)))
+    e = (c - b) / p.bc_length_mm
+    n = np.stack((-e[:, 1], e[:, 0]), axis=1)
+    face_v = -packaging.distal_drop(p) - packaging.distal_pad.height_mm  # dorsal of BC
+    outer = b + distal.end_mm * e + face_v * n
+    inner = b + distal.start_mm * e + face_v * n
+    return proximal_face, np.array((0.0, -1.0)), np.stack((outer, inner), axis=1), -n
+
+
+def face_crossing_lengths(
+    linkage: FingerLinkage, packaging: Packaging, b: np.ndarray, c: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Per-sample length of each pad's face outside the fold, from its outer end.
+
+    The two contact faces, extended, cross where the finger folds: past that
+    point each face lies inside the V the other one closes, facing it, where
+    no object reaches. Each pad counts from its outer end (``a`` of the
+    proximal pad, the ``C`` end of the distal one) to the crossing. Barely
+    flexed, the faces cross below the centre of rotation; extended (the faces
+    in line, or parallel) neither loses any. Samples are four-bar poses in the
+    proximal-link frame, given by the posed ``B`` and ``C`` (``(n, 2)``).
+    """
+
+    p = linkage.parameters
+    b, c = np.atleast_2d(b), np.atleast_2d(c)
+    spans = pad_spans(p, packaging)
+    proximal, distal = spans["proximal_pad"], spans["distal_pad"]
+    face_z = packaging.proximal_pad_line_z(p) - packaging.proximal_pad.height_mm
+    face_v = -packaging.distal_drop(p) - packaging.distal_pad.height_mm  # dorsal of BC
+    e = (c - b) / p.bc_length_mm
+    n = np.stack((-e[:, 1], e[:, 0]), axis=1)
+    # The distal face's line, B + u e + face_v n, meets z = face_z at u.
+    rise = face_z - b[:, 1] - face_v * n[:, 1]
+    crossing = np.abs(e[:, 1]) > 1e-9
+    u = np.where(crossing, rise / np.where(crossing, e[:, 1], 1.0), np.inf)
+    x = b[:, 0] + u * e[:, 0] + face_v * n[:, 0]
+    in_line = ~crossing | (np.abs(rise) < 1e-9)  # extended: one line, no fold
+    proximal_free = np.where(in_line, proximal.length_mm, np.clip(x - proximal.start_mm, 0.0, proximal.length_mm))
+    distal_free = np.where(in_line, distal.length_mm, np.clip(distal.end_mm - u, 0.0, distal.length_mm))
+    return {"proximal_pad": proximal_free, "distal_pad": distal_free}
 
 
 def _trimmed(start: np.ndarray, end: np.ndarray, radius: float,
@@ -1082,6 +1320,11 @@ def _polygons(array) -> np.ndarray:
     return np.ascontiguousarray(array.reshape(-1, *array.shape[-2:]))
 
 __all__ = [
+    "contact_faces",
+    "fold_free_lengths",
+    "probe_blocked",
+    "probe_contact_lengths",
+    "probe_free_lengths",
     "BODY_CLEARANCE_MM",
     "COLLISION_GROUPS",
     "COMPONENTS",

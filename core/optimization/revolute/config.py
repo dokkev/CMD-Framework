@@ -35,6 +35,21 @@ XM335; the idealized 2R's: its pin housing's): the fingertip no deeper than
 the proximal segment can be (deeper, the optimum at little flexion is a hook)."""
 
 
+def joint_radius(goal: LinkageConfig, joint_servo: bool, joint_pulley: bool = False) -> float:
+    """The joint's envelope at ``A``: the servo's rounded front (servo on the
+    joint), else the pin's housing, or a pulley on it when larger."""
+
+    packaging = goal.packaging
+    if joint_servo:
+        return packaging.pip_servo.radius_mm
+    pin = packaging.pivot_radius_mm("a")
+    if not joint_pulley:
+        return pin
+    if goal.pulley_radius_mm is None:
+        raise ValueError("a pulley on the joint needs goal.hardware.pulley_radius_mm")
+    return max(pin, goal.pulley_radius_mm)
+
+
 def servo_rear(tilt_deg: float) -> tuple[float, float]:
     """The direction the distal servo's body lies back in from its shaft on
     ``A``: ``-X`` turned dorsally by ``tilt_deg``."""
@@ -52,13 +67,17 @@ class RevoluteConfig:
     """The distal servo on ``A`` (packaged). ``False``: the idealized 2R, driven
     from elsewhere, only ``A``'s pin housing (``goal.collision.param``) at the
     joint (and no tilt)."""
+    joint_pulley: bool = False
+    """A pulley on ``A`` (``goal.hardware.pulley_radius_mm``), as a belt or a
+    tendon drives the joint through (with ``joint_servo`` off): the joint's
+    envelope is the larger of it and the pin's housing."""
 
     @property
     def joint_radius_mm(self) -> float:
-        """What the joint holds at ``A``: the servo's rounded front, or the pin housing."""
+        """What the joint holds at ``A``: the servo's rounded front, or the pin
+        housing (or the pulley, when larger)."""
 
-        packaging = self.goal.packaging
-        return packaging.pip_servo.radius_mm if self.joint_servo else packaging.pivot_radius_mm("a")
+        return joint_radius(self.goal, self.joint_servo, self.joint_pulley)
 
     def __post_init__(self) -> None:
         if set(self.bounds) != set(VARIABLE_NAMES):
@@ -72,14 +91,14 @@ class RevoluteConfig:
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
 
     @classmethod
-    def from_goal(cls, goal: LinkageConfig, joint_servo: bool = True) -> "RevoluteConfig":
+    def from_goal(cls, goal: LinkageConfig, joint_servo: bool = True, joint_pulley: bool = False) -> "RevoluteConfig":
         """The 2R's search box from the goal: ``|OA|`` and ``|AC|`` as the
         linkage's ``A_x`` and ``BC``, the pads within the finger and off the
         joint, the tilt the goal's PIP servo's."""
 
         finger_high = goal.extended_length_bounds_mm[1]
         start = goal.packaging.proximal_pad_start_mm
-        radius = goal.packaging.pip_servo.radius_mm if joint_servo else goal.packaging.pivot_radius_mm("a")
+        radius = joint_radius(goal, joint_servo, joint_pulley)
         if not joint_servo:
             tilt = (0.0, 0.0)
         elif goal.pip_servo_tilt_rad is not None:
@@ -87,15 +106,15 @@ class RevoluteConfig:
         else:
             tilt = tuple(goal.bounds["servo_tilt_deg"])
         bounds = {
-            "a_x_mm": goal.bounds["a_x_mm"],
-            "ac_length_mm": goal.bounds["bc_length_mm"],
+            "a_x_mm": goal.within_share(goal.bounds["a_x_mm"], goal.proximal_length_ratio_bounds),
+            "ac_length_mm": goal.within_share(goal.bounds["bc_length_mm"], goal.distal_length_ratio_bounds),
             "app_x_mm": (start + goal.minimum_proximal_support_mm, finger_high),
             "bpp_from_a_mm": (radius, finger_high - goal.minimum_distal_support_mm),
             "distal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
             "proximal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
             "servo_tilt_deg": tilt,
         }
-        return cls(goal, bounds, joint_servo)
+        return cls(goal, bounds, joint_servo, joint_pulley)
 
     @property
     def search_bounds(self) -> Mapping[str, tuple[float, float]]:
@@ -153,4 +172,4 @@ class RevoluteConfig:
         return self.goal.hypervolume_reference
 
 
-__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "servo_rear"]
+__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "servo_rear"]

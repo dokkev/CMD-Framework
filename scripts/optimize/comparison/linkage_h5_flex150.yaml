@@ -1,0 +1,16 @@
+# Mechanism comparison: linkage, interfaces 5 mm thick, 150 deg required (make_configs.py).
+mechanism: linkage
+base: base.yaml
+goal:
+  motion:
+    dip_flexion_deg: 150
+  pads:
+    proximal:
+      height_mm: 5
+    distal:
+      height_mm: 5
+solver:
+  optimizer:
+    population: 200
+    generations: 600
+    seeds: [0, 1, 2]

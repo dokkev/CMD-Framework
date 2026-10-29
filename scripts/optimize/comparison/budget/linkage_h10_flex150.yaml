@@ -1,0 +1,6 @@
+# Budget check: the study's linkage at h10 / 150 deg, 1500 generations.
+base: ../linkage_h10_flex150.yaml
+output: output/comparison_budget2
+solver:
+  optimizer:
+    generations: 1500

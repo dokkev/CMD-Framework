@@ -1,0 +1,16 @@
+# Mechanism comparison: revolute, interfaces 10 mm thick, 120 deg required (make_configs.py).
+mechanism: revolute
+base: base.yaml
+goal:
+  motion:
+    dip_flexion_deg: 120
+  pads:
+    proximal:
+      height_mm: 10
+    distal:
+      height_mm: 10
+solver:
+  optimizer:
+    population: 200
+    generations: 600
+    seeds: [0, 1, 2]

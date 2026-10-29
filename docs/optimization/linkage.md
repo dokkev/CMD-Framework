@@ -65,7 +65,7 @@ Linkage optimization은 **기구학적으로 유효하고 서로 다른 장점�
 
 **가공 기준 (production 전용, config의 `link_length_resolution_mm = 0.1`; seed 생성에는 쓰지 않음).** 부품마다 자기 기준의 치수가 0.1 mm 격자에 놓인다: proximal은 `O` 기준 `A`, `A'`; distal은 `B` 기준 `B'`와 `BC`; 별도 bar는 `|A'B|`, `|AB'|` 길이. 설계 벡터에서 잰 두 bar 길이를 반올림한 뒤 extension 자세의 `B`를 두 원의 교점으로 다시 조립하므로, 조립 치수인 `B`(따라서 `C`, `|OC|`)는 격자 밖에 있을 수 있다.
 
-구현: `core/optimization/linkage` (config, design, evaluate, objectives, `mechanism.py`). Linkage는 공통 최적화 엔진(`core/optimization/mechanism.py`의 `Mechanism` 인터페이스, `core/optimization/study.py`의 NSGA-II·저장·로드)에 꽂히는 메커니즘 하나다. Open chain·RCJ도 같은 인터페이스를 구현해 `MECHANISMS`에 등록하면 같은 스크립트로 돈다. 최적화 알고리즘도 같은 방식으로 바꿔 낀다: `core/optimization/optimizer.py`의 `Optimizer` 인터페이스와 `OPTIMIZERS`(현재 `nsga2`, `smsemoa`; 모두 multi-objective). YAML `optimizer.algorithm`(또는 `run.py --algorithm`)으로 고르고, 알고리즘 전용 설정은 `optimizer.options`에 둔다. `run.json`에는 `optimizer`(algorithm, population, generations, seed, options)가 메커니즘 config와 따로 기록된다. 실행 `scripts/optimize/run.py --mechanism linkage`, 검증 `scripts/optimize/select_seeds.py`, 시각화 `scripts/optimize/plot_pareto.py`(여러 메커니즘의 run을 함께 주면 메커니즘별 색으로 front 비교), `scripts/animate_finger.py`. 범위, 요구 조건, 하드웨어는 `scripts/optimize/linkage/config.yaml`(`optimization_parameter_bounds`, `packaging`, `pad`)이 기준이다.
+구현: `core/optimization/linkage` (config, design, evaluate, objectives, `mechanism.py`). Linkage는 공통 최적화 엔진(`core/optimization/mechanism.py`의 `Mechanism` 인터페이스, `core/optimization/study.py`의 NSGA-II·저장·로드)에 꽂히는 메커니즘 하나다. Open chain·RCJ도 같은 인터페이스를 구현해 `MECHANISMS`에 등록하면 같은 스크립트로 돈다. 최적화 알고리즘도 같은 방식으로 바꿔 낀다: `core/optimization/optimizer.py`의 `Optimizer` 인터페이스와 `OPTIMIZERS`(현재 `nsga2`, `smsemoa`; 모두 multi-objective). YAML `optimizer.algorithm`(또는 `run.py --algorithm`)으로 고르고, 알고리즘 전용 설정은 `optimizer.options`에 둔다. `run.json`에는 `optimizer`(algorithm, population, generations, seed, options)가 메커니즘 config와 따로 기록된다. 실행 `scripts/optimize/run.py --mechanism linkage`, 검증 `scripts/optimize/select_seeds.py`, 시각화는 `visualize` 패키지: `python -m visualize.study.pareto`(여러 메커니즘의 run을 함께 주면 메커니즘별 색으로 front 비교), `python -m visualize.animate`. 범위, 요구 조건, 하드웨어는 `scripts/optimize/linkage/config.yaml`(`optimization_parameter_bounds`, `packaging`, `pad`)이 기준이다.
 
 Extension에서 `O=(0,0)`, `C=(B_x+BC,B_z)`이면:
 
@@ -109,7 +109,7 @@ B''(q)=B(q)+\frac{B'_x-B_x}{BC}\big(C(q)-B(q)\big).
 - `A'–b`, `B'–a` 점선은 reference일 뿐 형상이 아니다. Coupler(`A'–B`)와 middle link(`A–B'`)는 다른 층이라 pad와 충돌하지 않는다.
 - **장착 길이**: `L_P = A'_x − (proximal pad 시작 x)`, `L_D = B_x + BC − (distal offset) − B'_x`. offset은 설계와 무관한 상수라 F2 순위에는 영향이 없다.
 - PIP servo는 기존대로 `OA` 선 위(`oa_interface`, `z >= 0`)에 있다. 같은 body인 proximal pad와는 이 제약으로만 분리된다.
-- 구현: 끝점은 `FingerLinkage.app/bpp`, `FingerPose.app/bpp` (`core/morphology/linkage/model.py`). Pad는 장착선 좌표계의 한 윤곽 `pad_outline`을 `proximal_pad_polygon`(proximal 링크)과 `distal_pad_polygon`(distal 링크)이 각자 자세에 붙인다 (`core/morphology/linkage/packaging.py`). 시각화(`scripts/animate_finger.py`)도 같은 함수를 쓴다.
+- 구현: 끝점은 `FingerLinkage.app/bpp`, `FingerPose.app/bpp` (`core/morphology/linkage/model.py`). Pad는 장착선 좌표계의 한 윤곽 `pad_outline`을 `proximal_pad_polygon`(proximal 링크)과 `distal_pad_polygon`(distal 링크)이 각자 자세에 붙인다 (`core/morphology/linkage/packaging.py`). 시각화(`visualize/animate.py`, `visualize/sketch.py`)도 같은 함수를 쓴다.
 - **잠정 치수** (config `pad`): 각 pad height 5 mm, offset 0, chamfer 2.5 mm, `allow_collision_with_mcp_servo: false`. 실제 pad/tactile module이 정해지면 바꾼다.
 
 **Y-layer (2.5D).** 각 solid는 XZ quad와 `|y|` 구간을 가진다(`COMPONENTS`).
@@ -272,7 +272,7 @@ best candidate가 겹치면 한 후보가 여러 역할을 갖는다. 가능하�
 - Transmission-angle / packaging 최소 여유
 - Feasibility 및 제약 판정 결과
 
-**Formulation 식별.** `run.json`에 `mechanism: linkage`와 `formulation: palmar-pad-v3`을 기록한다(`mechanism`이 없는 run은 linkage). Formulation 기록이 없는 run은 `OA + BC` formulation(`oa-bc`)이고, `support-structure-v1`은 등쪽 deck과 web을 쓰던 이전 모델, `palmar-pad-v2`는 링크가 가리지 않는 pad 길이를 F2로 썼던 실험이다(run_034, 035). `palmar-pad-v1`(run_036–094)은 A 핀과 B′ 핀을 PIP servo 몸체와 검사하던 이전 규칙이다. `run.json`에는 최적화한 목적 목록(`objectives`)도 기록되며, `select_seeds.py`와 `plot_pareto.py`는 formulation이나 목적 목록이 다른 run을 섞지 않는다. 이전 run의 설계 벡터는 `run.py --warm-start`로 재사용할 수 있으며, 새 geometry와 제약으로 전부 다시 평가된다.
+**Formulation 식별.** `run.json`에 `mechanism: linkage`와 `formulation: palmar-pad-v3`을 기록한다(`mechanism`이 없는 run은 linkage). Formulation 기록이 없는 run은 `OA + BC` formulation(`oa-bc`)이고, `support-structure-v1`은 등쪽 deck과 web을 쓰던 이전 모델, `palmar-pad-v2`는 링크가 가리지 않는 pad 길이를 F2로 썼던 실험이다(run_034, 035). `palmar-pad-v1`(run_036–094)은 A 핀과 B′ 핀을 PIP servo 몸체와 검사하던 이전 규칙이다. `run.json`에는 최적화한 목적 목록(`objectives`)도 기록되며, `select_seeds.py`와 `visualize.study.pareto`는 formulation이나 목적 목록이 다른 run을 섞지 않는다. 이전 run의 설계 벡터는 `run.py --warm-start`로 재사용할 수 있으며, 새 geometry와 제약으로 전부 다시 평가된다.
 
 ### Optimizer 운영 원칙
 

@@ -77,6 +77,15 @@ class LinkageConfig:
     """``|OC|`` in the extended pose."""
     proximal_length_bounds_mm: tuple[float | None, float | None] = (None, None)
     """``|OA|`` (``None``: no limit)."""
+    proximal_length_ratio_bounds: tuple[float | None, float | None] = (None, None)
+    distal_length_ratio_bounds: tuple[float | None, float | None] = (None, None)
+    joint_span_ratio_bounds: tuple[float | None, float | None] = (None, None)
+    """``|OA|``, ``BC`` and ``|AB|`` as shares of the extended ``|OC|``
+    (``goal.link.proximal_length_ratio`` / ``distal_length_ratio`` /
+    ``joint_span_ratio``; ``None``: no limit), with the ``_mm`` bounds besides."""
+    joint_span_bounds_mm: tuple[float | None, float | None] = (None, None)
+    """``|AB|`` in the extended pose, the four-bar's span along the finger
+    (``goal.link.joint_span_mm``; ``None``: no limit)."""
     minimum_proximal_support_mm: float = 0.0
     minimum_distal_support_mm: float = 0.0
     """Each pad's least mounting length ``a-b``."""
@@ -104,6 +113,21 @@ class LinkageConfig:
     """Optimizer seeds, one run each, merged into one front."""
     tilt_step_deg: float = 1.0
     """Grid step of the PIP servo's tilt when searched, from the least of its range."""
+    proximal_pad_past_icr_max_mm: float | None = None
+    """How far the proximal pad's end ``A''`` may lie past the extended pose's
+    centre of rotation (``A-B'`` crossing ``A'-B``), along the finger
+    (``goal.pads.proximal.past_icr_max_mm``): the fold, which a fixed pivot's
+    pads stop at too (its pin); past it the pad hangs unsupported under the
+    four-bar. ``None``: no limit. The distal pad may run back as far as it fits."""
+    pads_on_links: bool = False
+    """Searched with each pad on its own link only (``goal.pads.on_links``,
+    true unless the file says otherwise; ``False`` here for runs before it):
+    the proximal pad to ``A``, the distal one from ``B`` to ``C``, so more pad
+    means a shorter four-bar. ``scripts/optimize/extend_pads.py`` then grows
+    the pads of the designs found as far as they keep usable."""
+    symmetric_four_bar: bool = False
+    """The four-bar an antiparallelogram: ``|B'B| = |A'A|`` and ``|AB'| = |A'B|``,
+    ``B'`` then set by ``A``, ``A'`` and ``B`` (``goal.link.symmetric_four_bar``)."""
     warm_start: tuple[str, ...] = ()
     """``seeds.csv`` / ``pareto.csv`` files (from the repository root) whose
     designs seed up to half of each run's first population
@@ -112,6 +136,16 @@ class LinkageConfig:
     """Search box of ``A'`` from ``A`` and ``B'`` from ``B`` (:data:`RELATIVE_BOUNDS`);
     ``bounds`` then holds the absolute box they span. ``None``: ``A'`` and
     ``B'`` searched in ``bounds`` (runs recorded before 2026-10-26)."""
+    proximal_overhang_max_mm: float | None = None
+    distal_overhang_max_mm: float | None = None
+    """How far each pad may run past its own body (``goal.pads.*.overhang_max_mm``):
+    the proximal pad past the proximal body's front (its joint's housing, the
+    servo), the distal pad behind the distal body's back, in the extended
+    pose; ``None``: no limit."""
+    pulley_radius_mm: float | None = None
+    """``goal.hardware.pulley_radius_mm``: the envelope of a belt's or a
+    tendon's pulley on a joint (the mechanisms that drive one through them);
+    ``None``: none given."""
 
     def __post_init__(self) -> None:
         if self.packaging.pip_servo_on_a:
@@ -125,6 +159,9 @@ class LinkageConfig:
                 given.setdefault(name, (0.0, pad.height_mm))
             else:
                 given[name] = (0.0, 0.0)
+        # The pads' drops, unless searched: the packaging's (the variables held at it).
+        given.setdefault("proximal_drop_mm", (self.packaging.proximal_pad_drop_mm,) * 2)
+        given.setdefault("distal_drop_mm", (self.packaging.distal_pad_drop_mm,) * 2)
         for name, value in DEFAULT_VALUES.items():  # a variable left out: fixed
             given.setdefault(name, (value, value))
         if self.pip_servo_tilt_rad is not None:  # an input: the variable is held at it
@@ -167,6 +204,9 @@ class LinkageConfig:
                      "curl": 180.0 - math.degrees(self.required_rom_rad),
                      "finger_length": self.extended_length_bounds_mm[1]}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
+        for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm"):
+            if getattr(self, name) is not None:
+                require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
             if set(self.relative_bounds) != set(RELATIVE_BOUNDS):
                 raise ValueError(f"relative_bounds must cover exactly {RELATIVE_BOUNDS}")
@@ -228,12 +268,19 @@ class LinkageConfig:
                 self._extended_pad_bounds(bounds, narrow)
 
     @property
+    def searched_drops(self) -> tuple[str, ...]:
+        """The pads' drops searched (``goal.pads.*.drop_mm``), not held at the packaging's."""
+
+        return tuple(name for name in ("proximal_drop_mm", "distal_drop_mm")
+                     if self.bounds[name][0] < self.bounds[name][1])
+
+    @property
     def _pads_on_axis(self) -> bool:
         """Whether ``A``, ``B`` and both free-length pads lie on the ``x`` axis when extended."""
 
         packaging = self.packaging
         return (packaging.pad_link_ratio_max is None
-                and packaging.proximal_pad_drop_mm == 0.0 and packaging.distal_pad_drop_mm == 0.0
+                and self.bounds["proximal_drop_mm"] == (0.0, 0.0) and self.bounds["distal_drop_mm"] == (0.0, 0.0)
                 and self.bounds["a_z_mm"] == (0.0, 0.0) and self.bounds["b_z_mm"] == (0.0, 0.0)
                 and packaging.proximal_pad.length_mm is None and packaging.distal_pad.length_mm is None)
 
@@ -297,6 +344,29 @@ class LinkageConfig:
         count = int(math.floor(self.servo_horizon_rad / self.servo_step_rad + 1e-9)) + 1
         return tuple(index * self.servo_step_rad for index in range(count))
 
+    def length_ratio_violations(self, proximal_mm: float, distal_mm: float, span_mm: float,
+                                finger_mm: float) -> list[float]:
+        """How far (mm) ``|OA|``, ``BC`` and ``|AB|`` lie outside their shares
+        of the extended ``|OC|`` (``goal.link.*_ratio``), one value per bound
+        set (each mechanism's constraint: none positive)."""
+
+        violations = []
+        for value, (low, high) in ((proximal_mm, self.proximal_length_ratio_bounds),
+                                   (distal_mm, self.distal_length_ratio_bounds),
+                                   (span_mm, self.joint_span_ratio_bounds)):
+            violations += [v for v in (None if low is None else low * finger_mm - value,
+                                       None if high is None else value - high * finger_mm) if v is not None]
+        return violations
+
+    def within_share(self, bounds: tuple[float, float], ratio: tuple[float | None, float | None]) -> tuple[float, float]:
+        """``bounds`` (mm) narrowed to what a share ``ratio`` of ``|OC|`` allows
+        over the finger's range: a search box (the share itself is a constraint)."""
+
+        (low, high), (finger_low, finger_high) = bounds, self.extended_length_bounds_mm
+        low = low if ratio[0] is None else max(low, ratio[0] * finger_low)
+        high = high if ratio[1] is None else min(high, ratio[1] * finger_high)
+        return (low, high) if low <= high else bounds
+
 
 def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     """A config from a ``goal`` / ``solver`` mapping, as written in the file
@@ -322,14 +392,26 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     if finger_high is None:
         raise ValueError("goal.link.finger_length_mm needs a max (it bounds every length)")
     finger = (0.0 if finger_low is None else finger_low, finger_high)
-    proximal_length = _range(link.take("proximal_length_mm"), "goal.link.proximal_length_mm")
-    distal_low, distal_high = _range(link.take("distal_length_mm"), "goal.link.distal_length_mm")
+    # Optional (absent: no limit): the links may be bounded as shares instead.
+    proximal_length = _range(link.values.pop("proximal_length_mm", [None, None]), "goal.link.proximal_length_mm")
+    distal_low, distal_high = _range(link.values.pop("distal_length_mm", [None, None]),
+                                     "goal.link.distal_length_mm")
+    joint_span = _range(link.values.pop("joint_span_mm", [None, None]), "goal.link.joint_span_mm")
+    span_ratio = _range(link.values.pop("joint_span_ratio", [None, None]), "goal.link.joint_span_ratio")
+    proximal_ratio = _range(link.take("proximal_length_ratio"), "goal.link.proximal_length_ratio")
+    distal_ratio = _range(link.take("distal_length_ratio"), "goal.link.distal_length_ratio")
     angle_low, angle_high = _range(link.take("transmission_angle_deg"), "goal.link.transmission_angle_deg")
+    symmetric = link.take("symmetric_four_bar")
+    if not isinstance(symmetric, bool):
+        raise ValueError("goal.link.symmetric_four_bar must be true or false")
     link.done()
     angle = (math.radians(0.0 if angle_low is None else angle_low),
              math.radians(180.0 if angle_high is None else angle_high))
 
-    pad_values = {}
+    on_links = pads.values.pop("on_links", True)  # the default since 2026-10-27
+    if not isinstance(on_links, bool):
+        raise ValueError("goal.pads.on_links must be true or false")
+    pad_values, drops, overhangs = {}, {}, {}
     for side in ("proximal", "distal"):
         pad = pads.table(side)
         low, high = _range(pad.take("length_mm"), f"goal.pads.{side}.length_mm", scalar=True)
@@ -337,6 +419,13 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
             raise ValueError(f"goal.pads.{side}.length_mm: the min must be a length, 0 or more")
         high = finger_high if high is None else high
         height = float(pad.take("height_mm"))
+        if side == "proximal":
+            past_icr = pad.take("past_icr_max_mm")
+            past_icr = None if past_icr is None else float(past_icr)
+        # Optional (absent: the packaging's drop, no overhang limit).
+        drops[side] = _range(pad.values.pop("drop_mm"), f"goal.pads.{side}.drop_mm") if "drop_mm" in pad.values else None
+        overhang = pad.values.pop("overhang_max_mm", None)
+        overhangs[side] = None if overhang is None else float(overhang)
         pad.done()
         pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, chamfer_mm=0.0,
                                                   length_mm=None, max_length_mm=high,
@@ -344,6 +433,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     pads.done()
 
     pip_servo, mcp_servo = hardware.table("pip_servo"), hardware.table("mcp_servo")
+    pulley = hardware.values.pop("pulley_radius_mm", None)  # optional
     hardware.done()
     pip_model = pip_servo.take("model")
     tilt_low, tilt_high = _range(pip_servo.take("tilt_angle_deg"), "goal.hardware.pip_servo.tilt_angle_deg",
@@ -388,6 +478,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         distal_pad_below_b=checks["b_pin_and_distal_pad"],
         pad_pad_check=checks["proximal_pad_and_distal_pad"],
         pads_off_pins=True,  # each pad clear of its own pins, ending anywhere (2026-10-27)
+        links_clear_pads=True,  # the links bent around the pads: every face usable (2026-10-27)
         pip_servo_above_oa=False, pip_servo_pad_check=checks["pip_servo_and_proximal_pad"],
         pad_mcp_check=checks["mcp_servo_and_proximal_pad"], distal_pad_mcp_check=True,
         distal_carrier_height_mm=carrier_height if checks["distal_carrier_and_pip_servo"] else 0.0,
@@ -426,6 +517,12 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         dx, dz = relative[f"{point}_from_{base}_x_mm"], relative[f"{point}_from_{base}_z_mm"]
         bounds[f"{point}_x_mm"] = (x_base[0] + dx[0], x_base[1] + dx[1])
         bounds[f"{point}_z_mm"] = (z_base[0] + dz[0], z_base[1] + dz[1])
+    # The pads' drops when searched: [min, max], max null: the pad's own pivot's radius.
+    for side, pivot in (("proximal", "a"), ("distal", "b")):
+        if drops[side] is not None:
+            low, high = drops[side]
+            bounds[f"{side}_drop_mm"] = (0.0 if low is None else low,
+                                         packaging.pivot_radius_mm(pivot) if high is None else high)
     tilt_rad = None
     if tilt_low == tilt_high:  # fixed
         tilt_rad = math.radians(tilt_low)
@@ -443,6 +540,10 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         torque_ratio_max=None if torque_ratio_max is None else float(torque_ratio_max),
         extended_length_bounds_mm=finger,
         proximal_length_bounds_mm=proximal_length,
+        joint_span_bounds_mm=joint_span,
+        proximal_length_ratio_bounds=proximal_ratio,
+        distal_length_ratio_bounds=distal_ratio,
+        joint_span_ratio_bounds=span_ratio,
         minimum_proximal_support_mm=pad_values["proximal"][0],
         minimum_distal_support_mm=pad_values["distal"][0],
         pip_servo_tilt_rad=tilt_rad,
@@ -455,8 +556,14 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         hypervolume_reference=hypervolume,
         seeds=seeds,
         tilt_step_deg=tilt_step,
+        symmetric_four_bar=symmetric,
+        proximal_pad_past_icr_max_mm=past_icr,
+        pads_on_links=on_links,
         warm_start=warm_start,
         relative_bounds=relative,
+        proximal_overhang_max_mm=overhangs["proximal"],
+        distal_overhang_max_mm=overhangs["distal"],
+        pulley_radius_mm=None if pulley is None else float(pulley),
     )
 
 
@@ -530,6 +637,8 @@ def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
 
 
 TUPLE_FIELDS = ("transmission_angle_range_rad", "extended_length_bounds_mm", "proximal_length_bounds_mm",
+                "joint_span_bounds_mm", "proximal_length_ratio_bounds", "distal_length_ratio_bounds",
+                "joint_span_ratio_bounds",
                 "objectives", "seeds", "warm_start")
 
 

@@ -18,9 +18,13 @@ hold by construction:
    the pads only kept off their own pins (``packaging.pads_off_pins``), each
    pad's end a share of its range, along the extended finger: ``A''_x`` from
    the pad's start plus its least length to ``C`` less the distal pad's least
-   length, ``B''_x`` from ``A''_x`` (the pads side by side) to the same
-   (:func:`search_names`). The pads are plain blocks: the design vector's
-   chamfers are held at 0.
+   length (and at most ``proximal_pad_past_icr_max_mm`` past the extended
+   centre of rotation), ``B''_x`` from ``A''_x`` (the pads side by side) to the same
+   (:func:`search_names`); with ``pads_on_links``, not searched: the proximal
+   pad ends at ``A`` and the distal one starts at ``B``. The pads are plain
+   blocks: the design vector's chamfers are held at 0. 6. The pads' drops
+   below their link lines themselves, when searched (``goal.pads.*.drop_mm``);
+   else NaN in the design vector: the packaging's.
 
 Every position is rounded to the prototyping resolution. Coordinates whose
 ranges are empty describe no design (``None``).
@@ -53,19 +57,63 @@ PAD_SHARE_NAMES = ("app_share", "bpp_share")
 """The pad offsets' coordinates with the pads only kept off their own pins."""
 
 
+SYMMETRIC_DROPPED = ("bp_from_b_x_mm", "bp_from_b_z_mm")
+"""Not searched in a symmetric four-bar: ``B'`` follows from ``A``, ``A'`` and ``B``."""
+
+
 def search_names(config: LinkageConfig) -> tuple[str, ...]:
-    """:data:`SEARCH_NAMES`, the pad offsets as shares with the pads off their pins."""
+    """:data:`SEARCH_NAMES`, the pad offsets as shares with the pads off their
+    pins, without ``B'`` in a symmetric four-bar."""
 
-    return (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
+    if config.pads_on_links:  # the pads set by the links
+        names = SEARCH_NAMES[:-2]
+    else:
+        names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
+    names = (*names, *config.searched_drops)
+    return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED))
 
 
-def _pad_ranges(config: LinkageConfig, b_x: float, bc: float) -> tuple[tuple[float, float], float]:
-    """``A''_x``'s range and ``B''_x``'s most with the pads only kept off their
-    own pins (``B''_x`` from ``A''_x``)."""
+def symmetric_bp(a: np.ndarray, ap: np.ndarray, b: np.ndarray) -> np.ndarray | None:
+    """``B'`` making ``A'-B-B'-A`` an antiparallelogram (``|B'B| = |A'A|``,
+    ``|AB'| = |A'B|``, the bars crossed), ``None`` when the circles miss: of
+    the two crossings, the one away from the parallelogram's ``B + A - A'``."""
+
+    g, r = float(np.linalg.norm(a - ap)), float(np.linalg.norm(b - ap))
+    d = float(np.linalg.norm(b - a))
+    if not abs(r - g) < d < r + g:
+        return None
+    along = (r * r - g * g + d * d) / (2.0 * d)  # from A toward B
+    unit = (b - a) / d
+    off = math.sqrt(max(r * r - along * along, 0.0)) * np.array((-unit[1], unit[0]))
+    parallel = b + a - ap
+    return max((a + along * unit + off, a + along * unit - off), key=lambda p: float(np.linalg.norm(p - parallel)))
+
+
+def extended_icr_x(a: Sequence[float], ap: Sequence[float], b: Sequence[float], bp: Sequence[float]) -> float | None:
+    """``x`` of the extended pose's centre of rotation: ``A-B'`` crossing
+    ``A'-B`` (``None``: the bars parallel)."""
+
+    a, ap, b, bp = (np.asarray(point, dtype=float) for point in (a, ap, b, bp))
+    first, second = bp - a, b - ap
+    det = first[0] * -second[1] - first[1] * -second[0]
+    if abs(det) < 1e-9:
+        return None
+    gap = ap - a
+    t = (gap[0] * -second[1] - gap[1] * -second[0]) / det
+    return float(a[0] + t * first[0])
+
+
+def _pad_ranges(config: LinkageConfig, b_x: float, bc: float,
+                icr_x: float | None = None) -> tuple[tuple[float, float], float]:
+    """``A''_x``'s range (at most ``proximal_pad_past_icr_max_mm`` past the
+    extended centre of rotation ``icr_x``) and ``B''_x``'s most with the pads
+    only kept off their own pins (``B''_x`` from ``A''_x``)."""
 
     packaging = config.packaging
     last = b_x + bc - packaging.distal_pad.offset_mm - config.minimum_distal_support_mm
-    return (packaging.proximal_pad_start_mm + config.minimum_proximal_support_mm, last), last
+    past = config.proximal_pad_past_icr_max_mm
+    proximal_last = last if past is None or icr_x is None else min(last, icr_x + past)
+    return (packaging.proximal_pad_start_mm + config.minimum_proximal_support_mm, proximal_last), last
 
 
 @functools.lru_cache(maxsize=256)
@@ -115,6 +163,7 @@ def search_box(config: LinkageConfig) -> tuple[tuple[float, ...], tuple[float, .
         "servo_tilt_from_min_deg": (0.0, float(tilts_deg(config)[-1] - bounds["servo_tilt_deg"][0])),
         **{name: bounds[name] for name in ("app_offset_mm", "bpp_offset_mm")},
         **{name: (0.0, 1.0) for name in PAD_SHARE_NAMES},
+        **{name: bounds[name] for name in ("proximal_drop_mm", "distal_drop_mm")},
     }
     names = search_names(config)
     return tuple(box[name][0] for name in names), tuple(box[name][1] for name in names)
@@ -125,13 +174,23 @@ def search_steps(config: LinkageConfig) -> tuple[float, ...]:
                  else config.resolution_mm for name in search_names(config))
 
 
-def _ranges(config: LinkageConfig, b_x: float, ap_z: float, tilt_deg: float):
+def _ranges(config: LinkageConfig, b_x: float, ap_z: float, tilt_deg: float, length: float | None = None):
     """The ranges ``A'_x`` and then ``A_x`` are shares of."""
 
     resolution = config.resolution_mm
     dx_low, dx_high = config.relative_bounds["ap_from_a_x_mm"]
     a_low, a_high = config.bounds["a_x_mm"]
     a_low, a_high = max(a_low, resolution), min(a_high, b_x - resolution)
+    span_low, span_high = config.joint_span_bounds_mm  # |AB|, A and B on the axis extended
+    a_low = a_low if span_high is None else max(a_low, b_x - span_high)
+    a_high = a_high if span_low is None else min(a_high, b_x - span_low)
+    ratio_low, ratio_high = config.proximal_length_ratio_bounds  # |OA| / |OC|, A on the axis
+    if length is not None:
+        a_low = a_low if ratio_low is None else max(a_low, ratio_low * length)
+        a_high = a_high if ratio_high is None else min(a_high, ratio_high * length)
+        span_low, span_high = config.joint_span_ratio_bounds  # |AB| / |OC|
+        a_low = a_low if span_high is None else max(a_low, b_x - span_high * length)
+        a_high = a_high if span_low is None else min(a_high, b_x - span_low * length)
     ap_range = (max(least_ap_x(config, ap_z, tilt_deg), a_low + dx_low), a_high + dx_high)
 
     def a_range(ap_x: float) -> tuple[float, float]:
@@ -153,7 +212,7 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         return None
     ap_z = grid(v["a_z_mm"] + v["ap_from_a_z_mm"])
     tilt = round(config.bounds["servo_tilt_deg"][0] + v["servo_tilt_from_min_deg"], 9)
-    ap_range, a_range = _ranges(config, b_x, ap_z, tilt)
+    ap_range, a_range = _ranges(config, b_x, ap_z, tilt, v["finger_length_mm"])
     if ap_range[1] < ap_range[0]:
         return None
     ap_x = grid(ap_range[0] + v["ap_x_share"] * (ap_range[1] - ap_range[0]))
@@ -163,9 +222,18 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
     a_x = grid(low + v["a_x_share"] * (high - low))
     if not 0.0 < a_x < b_x:
         return None
-    bp_x = grid(b_x + v["bp_from_b_x_mm"])
-    if config.packaging.pads_off_pins:
-        (p_low, p_high), d_high = _pad_ranges(config, b_x, v["bc_length_mm"])
+    if config.symmetric_four_bar:
+        bp = symmetric_bp(np.array((a_x, v["a_z_mm"])), np.array((ap_x, ap_z)), np.array((b_x, v["b_z_mm"])))
+        if bp is None:
+            return None
+        bp_x, bp_z = grid(bp[0]), grid(bp[1])
+    else:
+        bp_x, bp_z = grid(b_x + v["bp_from_b_x_mm"]), grid(v["b_z_mm"] + v["bp_from_b_z_mm"])
+    if config.pads_on_links:  # A'' at A, B'' at B
+        v["app_offset_mm"], v["bpp_offset_mm"] = grid(a_x - ap_x), grid(bp_x - b_x)
+    elif config.packaging.pads_off_pins:
+        icr_x = extended_icr_x((a_x, v["a_z_mm"]), (ap_x, ap_z), (b_x, v["b_z_mm"]), (bp_x, bp_z))
+        (p_low, p_high), d_high = _pad_ranges(config, b_x, v["bc_length_mm"], icr_x)
         if p_high < p_low:
             return None
         app = grid(p_low + v["app_share"] * (p_high - p_low))
@@ -173,10 +241,11 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         v["bpp_offset_mm"] = grid(bp_x - grid(app + v["bpp_share"] * (d_high - app)))
     design = {
         "a_x_mm": a_x, "b_x_mm": b_x, "b_z_mm": v["b_z_mm"], "ap_x_mm": ap_x, "ap_z_mm": ap_z,
-        "bp_x_mm": bp_x, "bp_z_mm": grid(v["b_z_mm"] + v["bp_from_b_z_mm"]),
+        "bp_x_mm": bp_x, "bp_z_mm": bp_z,
         "servo_tilt_deg": tilt,
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
         "proximal_chamfer_mm": 0.0, "distal_chamfer_mm": 0.0,
+        **{name: grid(v[name]) if name in v else math.nan for name in ("proximal_drop_mm", "distal_drop_mm")},
     }
     return tuple(design[name] for name in VARIABLE_NAMES)
 
@@ -185,7 +254,8 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
     """Search coordinates of a design (the shares clipped to their ranges)."""
 
     d = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    ap_range, a_range = _ranges(config, d["b_x_mm"], d["ap_z_mm"], d["servo_tilt_deg"])
+    ap_range, a_range = _ranges(config, d["b_x_mm"], d["ap_z_mm"], d["servo_tilt_deg"],
+                                math.hypot(d["b_x_mm"] + d["bc_length_mm"], d["b_z_mm"]))
 
     def share(value: float, low: float, high: float) -> float:
         return float(np.clip((value - low) / (high - low), 0.0, 1.0)) if high > low else 0.0
@@ -200,9 +270,12 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
         "servo_tilt_from_min_deg": float(round((d["servo_tilt_deg"] - config.bounds["servo_tilt_deg"][0])
                                                / config.tilt_step_deg) * config.tilt_step_deg),
         **{name: d[name] for name in ("bc_length_mm", "b_z_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
+        **{name: d[name] for name in config.searched_drops},
     }
-    if config.packaging.pads_off_pins:
-        (p_low, p_high), d_high = _pad_ranges(config, d["b_x_mm"], d["bc_length_mm"])
+    if config.packaging.pads_off_pins and not config.pads_on_links:
+        icr_x = extended_icr_x((d["a_x_mm"], d["a_z_mm"]), (d["ap_x_mm"], d["ap_z_mm"]),
+                               (d["b_x_mm"], d["b_z_mm"]), (d["bp_x_mm"], d["bp_z_mm"]))
+        (p_low, p_high), d_high = _pad_ranges(config, d["b_x_mm"], d["bc_length_mm"], icr_x)
         app = d["ap_x_mm"] + d["app_offset_mm"]
         coordinates["app_share"] = share(app, p_low, p_high)
         coordinates["bpp_share"] = share(d["bp_x_mm"] - d["bpp_offset_mm"], app, d_high)
@@ -210,4 +283,4 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
 
 
 __all__ = ["SEARCH_NAMES", "from_design", "least_ap_x", "search_box", "search_names", "search_steps",
-           "tilts_deg", "to_design"]
+           "extended_icr_x", "symmetric_bp", "tilts_deg", "to_design"]

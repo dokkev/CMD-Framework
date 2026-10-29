@@ -11,7 +11,9 @@ import pytest
 from core.optimization import mechanism as registry
 from core.optimization.mechanism import Mechanism, Objective, SummaryColumn
 from core.optimization.optimizer import OPTIMIZERS, OptimizerSettings, portfolio, split_settings
-from core.optimization.study import load_run, run_study, save_result
+import numpy as np
+
+from core.optimization.study import load_run, non_dominated, run_study, save_result
 
 SETTINGS = OptimizerSettings(population_size=20, generations=5)
 
@@ -110,6 +112,26 @@ def test_every_optimizer_finds_a_feasible_front(algorithm: str) -> None:
 
     assert result.pareto and result.settings.algorithm == algorithm
     assert all(c.evaluation.feasible for c in result.pareto)
+
+
+@pytest.mark.parametrize("algorithm", sorted(OPTIMIZERS))
+def test_a_run_records_every_generation(tmp_path, algorithm: str) -> None:
+    settings = OptimizerSettings(algorithm=algorithm, population_size=20, generations=5)
+    result = run_study(MECHANISM, ToyConfig(), settings)
+    history = result.history
+
+    assert len(history.evaluations) == settings.generations
+    assert int(history.evaluations.sum()) == result.evaluation_count
+    assert len(history.generation) == result.feasible_evaluation_count
+    assert np.all(np.diff(history.generation) >= 0) and history.generation.max() < settings.generations
+    # Its last front is the run's.
+    front = {tuple(row) for row in history.objectives[non_dominated(history.objectives)]}
+    names = MECHANISM.active_objectives(ToyConfig())
+    assert front == {MECHANISM.objective_values(c.evaluation, names) for c in result.pareto}
+
+    saved = np.load(save_result(result, tmp_path / "run") / "history.npz")
+    assert np.array_equal(saved["generation"], history.generation)
+    assert list(saved["objective_names"]) == list(names)
 
 
 def test_the_optimizer_settings_come_out_of_the_config_file() -> None:

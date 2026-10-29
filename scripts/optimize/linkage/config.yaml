@@ -45,6 +45,10 @@ goal:
   # link line (O-A or B-C), or a housing radius below it when it must clear
   # its pivot (goal.collision); length and A'' / B'' are measured along
   # that face.
+  # Searched with each pad on its own link only (the proximal pad to A, the
+  # distal one from B to C), so more pad means a shorter four-bar;
+  # scripts/optimize/extend_pads.py then grows the found designs' pads as far
+  # as they stay usable. (on_links: false here searches the pads' ends too.)
   pads:
     proximal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
@@ -61,6 +65,10 @@ goal:
       # see what thickness costs. The pad is a plain block (no chamfer: a
       # chamfer only shortens the contact face).
       height_mm: 5
+      # How far A'' may lie past the extended pose's centre of rotation (mm;
+      # A-B' crossing A'-B). null: no limit, the faces' crossing (pad_coverage)
+      # already leaves out what folds in.
+      past_icr_max_mm: null
     distal:
       length_mm: [25, null]
       height_mm: 5
@@ -71,13 +79,21 @@ goal:
   link:
     # |OC| in the extended pose.
     finger_length_mm: [90, 100]
-    # |OA|: the MCP O to the proximal link's PIP pivot A.
-    # (The four-bar has no single PIP centre; A, the proximal link's own pivot,
-    # stands for it.)
-    proximal_length_mm: [null, null]
-    # BC: the distal link's pivot B to the fingertip C (the fingertip beyond
-    # the B pin; decided 2026-10-23: at least 25).
-    distal_length_mm: [25, null]
+    # |OA| (the MCP O to the proximal link's PIP pivot A, which stands for the
+    # PIP: the four-bar has none), BC (the distal link's pivot B to the
+    # fingertip C) and |AB| (the four-bar's span along the finger) as shares
+    # of the extended |OC|, [min, max] (null: no limit). |AB| at most 0.35 of
+    # it, a shorter four-bar (above 0.40 the |OA| and BC minimums bind it
+    # anyway; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
+    # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
+    # distal_length_mm and joint_span_mm, optional, bound them in mm.)
+    proximal_length_ratio: [0.35, 0.55]
+    distal_length_ratio: [0.25, 0.55]
+    joint_span_ratio: [null, 0.35]
+    # true: the four-bar an antiparallelogram, |B'B| = |A'A| and |AB'| = |A'B|
+    # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
+    # A'A, as a rolling contact joint's.
+    symmetric_four_bar: false
     # Transmission angle at B' (between B'->A and B'->B) over the whole
     # motion, hyperextension included, [min, max] ([30, 150] is v1/v2's 30 deg
     # margin from 0 and 180).
@@ -165,10 +181,11 @@ solver:
   #                  fully extended finger (MCP at 0, phi 0) the two pads'
   #                  effective faces cover. A pad's effective length is its
   #                  face (a-b, so at most its max) from its outer end up to
-  #                  the first link (A-B' or A'-B)
-  #                  that crosses it, the least over [0, dip_flexion_deg]: the
-  #                  face usable all over the required flexion. (The mounting
-  #                  lengths a-b are reported as mounted_coverage.) A longer finger lengthens the
+  #                  where the two contact faces, extended, cross, the least
+  #                  over [0, dip_flexion_deg]: past it a face lies inside the
+  #                  fold, facing the other. The links (A-B', A'-B) are bent
+  #                  around the pads and take nothing (2026-10-27; before, the
+  #                  face up to the first link crossing it). A longer finger lengthens the
   #                  denominator too, so it pays only for packing more pad into
   #                  the same length; with the pads at their max it favours a
   #                  shorter finger (goal.link.finger_length_mm's min then
@@ -200,8 +217,8 @@ solver:
   # sit on them (the run reports bound hits). A' and B' are searched relative
   # to A and B. The rest come from the goal, searched so that it holds:
   #   |OC|            goal.link.finger_length_mm (B_x = |OC| - BC)
-  #   BC              goal.link.distal_length_mm
-  #   A_x = |OA|      goal.link.proximal_length_mm, between O and B
+  #   BC              goal.link.distal_length_mm (if given)
+  #   A_x = |OA|      goal.link.proximal_length_mm (if given) and _ratio, |AB|'s, between O and B
   #   A'_x            from the least that keeps the PIP servo off the MCP servo
   # A null max there is taken as finger_length_mm's max.
   search_bounds:
@@ -227,15 +244,31 @@ solver:
   prototyping_resolution_mm: 0.1
 
   optimizer:
-    # One or a list (scripts/optimize/run.py runs each with every seed).
-    algorithm: [nsga2, smsemoa, agemoea]
-    population: 200
-    generations: 1000
-    # One run per seed, merged into one verified front (the sweeps needed 3+ seeds).
-    seeds:
-      - 0
-      - 1
-      - 2
+    # Which preset runs (output/linkage/<config name>/<preset>/):
+    #   quick   a look in about a minute, for trends while exploring
+    #   search  the full study, to settle a design (about 15 min)
+    #   paper   the search run until its hypervolume levels off, for the
+    #           paper's convergence figure (visualize.paper.fig_convergence;
+    #           about 45 min)
+    preset: paper
+    presets:
+      quick:
+        algorithm: smsemoa
+        population: 200
+        generations: 300
+        seeds: [0]
+      search:
+        # One or a list (scripts/optimize/run.py runs each with every seed),
+        # merged into one verified front.
+        algorithm: [nsga2, smsemoa, agemoea]
+        population: 200
+        generations: 1000
+        seeds: [0, 1, 2]
+      paper:
+        algorithm: [nsga2, smsemoa, agemoea]
+        population: 200
+        generations: 3000
+        seeds: [0, 1, 2]
     # Feasible designs sampled under this goal (scripts/optimize/sample_seeds.py).
     warm_start:
       - output/linkage/config/samples/seeds.csv

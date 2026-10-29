@@ -1,5 +1,6 @@
-"""The serial 2R driven through a parallel four-bar from a servo on ``A'``, on
-the linkage study's goal (``MECHANISM``, registered as ``revolute_parallel``)."""
+"""The serial 2R driven through a belt from a servo on ``A'`` (the actuator
+moved off the joint), on the linkage study's goal (``MECHANISM``, registered
+as ``revolute_parallel``)."""
 
 from core.optimization.revolute_parallel.config import VARIABLE_NAMES, ParallelConfig
 from core.optimization.revolute_parallel.evaluate import (

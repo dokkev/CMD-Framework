@@ -22,7 +22,11 @@ the linkage's links), so only the pad is checked. No clearance, overlaps by dept
 the distal servo and the MCP servo (MCP flexion up to its max); statically
 the proximal pad against the distal servo and the MCP servo, and the two
 servos (MCP hyperextension to extension). No link crosses a pad, so a pad's
-effective length is its face.
+effective length is its face less what the other face hides in the fold
+(``packaging.fold_free_lengths``, as the linkage's). As the linkage's, the
+distal pad sits on a carrier plate (``goal.collision.param.distal_carrier_height_mm``)
+checked against the joint's servo, and the joint must hyperextend
+(``goal.motion.hyperextension_deg``) with every pair clear.
 """
 
 from __future__ import annotations
@@ -38,6 +42,8 @@ from core.morphology.linkage.packaging import (
     PadSpan,
     ServoFootprint,
     _polygon_to_disk,
+    carrier_outline,
+    fold_free_lengths,
     footprint_gaps,
     mcp_servo_gaps,
     pad_outline,
@@ -50,7 +56,7 @@ from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, se
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
                       "proximal_support_mm", "distal_support_mm", "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "curl_tip_x_mm", "pad_usable_mm")
+MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
@@ -74,6 +80,8 @@ class RevoluteGeometry:
     distal_face_mm: float
     proximal_room_mm: float
     distal_room_mm: float
+    distal_carrier_local: np.ndarray | None = None
+    """The distal pad's carrier plate in the distal frame (``None``: none)."""
 
     @property
     def finger_length_mm(self) -> float:
@@ -99,7 +107,9 @@ class RevoluteGeometry:
         """The distal pad's farthest point from ``A``: how fast it moves per
         radian of ``phi``, at most."""
 
-        return float(np.hypot(self.distal_pad_local[:, 0], self.distal_pad_local[:, 1]).max())
+        solids = self.distal_pad_local if self.distal_carrier_local is None else np.vstack(
+            (self.distal_pad_local, self.distal_carrier_local))
+        return float(np.hypot(solids[:, 0], solids[:, 1]).max())
 
     @property
     def distal_mount(self) -> np.ndarray:
@@ -139,7 +149,52 @@ def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                             v["proximal_drop_mm"], servo,
                             proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
-                            face(distal_length, chamfer["distal"]), proximal_room, distal_room)
+                            face(distal_length, chamfer["distal"]), proximal_room, distal_room,
+                            carrier_local(distal_outline, v["distal_drop_mm"], packaging))
+
+
+def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
+    """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``
+    dorsal of the pad's top face, over its span) in the distal frame, as the
+    linkage's (``packaging.distal_carrier_polygon``); ``None`` without one."""
+
+    if packaging.distal_carrier_height_mm <= 0.0:
+        return None
+    return carrier_outline(distal_pad_local + (0.0, drop_mm), packaging.distal_carrier_height_mm) - (0.0, drop_mm)
+
+
+def contact_faces(geo, phi_rad: np.ndarray):
+    """The two contact faces as ``packaging.fold_free_lengths`` takes them:
+    each pad's palmar face, outer end first, at distal flexions ``phi``
+    (any geometry with ``proximal_pad``, ``distal_pad_local`` and ``posed``)."""
+
+    proximal = geo.proximal_pad
+    z = float(proximal[:, 1].min())
+    proximal_face = np.array(((proximal[:, 0].min(), z), (proximal[:, 0].max(), z)))
+    local = geo.distal_pad_local
+    v = float(local[:, 1].min())
+    distal_face = geo.posed(np.array(((local[:, 0].max(), v), (local[:, 0].min(), v))), phi_rad)
+    origin, palmar = np.moveaxis(geo.posed(np.array(((0.0, 0.0), (0.0, -1.0))), phi_rad), 1, 0)
+    return proximal_face, np.array((0.0, -1.0)), distal_face, palmar - origin
+
+
+def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
+    """Each face's length the other leaves unhidden at ``phi`` (``(n,)`` each)."""
+
+    return fold_free_lengths(*contact_faces(geo, np.atleast_1d(phi_rad)))
+
+
+def hyperextension_violation(geo, config, margins_of) -> float:
+    """How deep (mm) any checked pair overlaps while the joint hyperextends
+    to ``goal.motion.hyperextension_deg`` (0: all clear), on the servo grid."""
+
+    goal = config.goal
+    if goal.hyperextension_rad <= 0.0:
+        return 0.0
+    step = goal.servo_step_rad
+    back = -np.unique(np.append(np.arange(step, goal.hyperextension_rad, step), goal.hyperextension_rad))
+    least = min(float(margin.min()) for margin in margins_of(geo, back, config).values())
+    return max(-least, 0.0)
 
 
 @dataclass(frozen=True)
@@ -168,6 +223,9 @@ class RevoluteEvaluation:
     torque_ratio_max: float = 1.0
     """Direct drive: one unit of servo torque per unit of distal moment."""
     bound_hits: tuple[str, ...] = ()
+    proximal_usable_length_mm: float = math.inf
+    distal_usable_length_mm: float = math.inf
+    """Each face's length the other face leaves unhidden in the fold, the least on ``[0, phi_req]``."""
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -179,11 +237,11 @@ class RevoluteEvaluation:
 
     @property
     def proximal_effective_mm(self) -> float:
-        return self.proximal_face_mm
+        return min(self.proximal_face_mm, self.proximal_usable_length_mm)
 
     @property
     def distal_effective_mm(self) -> float:
-        return self.distal_face_mm
+        return min(self.distal_face_mm, self.distal_usable_length_mm)
 
     @property
     def pad_coverage(self) -> float:
@@ -213,6 +271,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     oa_low, oa_high = goal.proximal_length_bounds_mm
     oa = [value for value in (None if oa_low is None else oa_low - geo.a_x_mm,
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
+    # |OA| and BC (|AC|: no span) as shares of |OC|, as the linkage's.
+    oa += goal.length_ratio_violations(geo.a_x_mm, geo.ac_length_mm, 0.0, geo.finger_length_mm)
     # In stages by cost (as the linkage's): lengths and the pads' room, then
     # the servos, then the pads' polygons; a failing stage leaves the rest unchecked.
     static = {
@@ -270,15 +330,20 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
+    free = fold_free(geo, phi[window])
+    proximal_usable, distal_usable = float(free["proximal_pad"].min()), float(free["distal_pad"].min())
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
+        "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
-        # No link crosses a 2R pad: its effective length is its face (as the linkage's).
-        "pad_usable_mm": max(goal.minimum_proximal_support_mm - geo.proximal_face_mm,
-                             goal.minimum_distal_support_mm - geo.distal_face_mm),
+        # No link crosses a 2R pad: its effective length is its face less the fold (as the linkage's).
+        "pad_usable_mm": max(goal.minimum_proximal_support_mm - min(geo.proximal_face_mm, proximal_usable),
+                             goal.minimum_distal_support_mm - min(geo.distal_face_mm, distal_usable)),
     }
     return RevoluteEvaluation(
+        proximal_usable_length_mm=proximal_usable,
+        distal_usable_length_mm=distal_usable,
         constraints=MappingProxyType(constraints),
         phi_safe_rad=reach,
         phi_max_rad=phi_max,
@@ -307,6 +372,9 @@ def _margins(geo: RevoluteGeometry, phi: np.ndarray, config: RevoluteConfig,
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
     moving = {"distal_pad": distal}
     margins = {}
+    if config.joint_servo and geo.distal_carrier_local is not None:
+        margins[("distal_carrier", "pip_servo")] = (
+            footprint_gaps(geo.posed(geo.distal_carrier_local, phi), geo.distal_servo, packaging) - clearance)
     for name, solid in moving.items():
         if config.joint_servo:
             margins[(name, "pip_servo")] = footprint_gaps(solid, geo.distal_servo, packaging) - clearance
@@ -373,4 +441,5 @@ def _between_samples(geo: RevoluteGeometry, phi: np.ndarray, margins: dict[tuple
     return result
 
 
-__all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "RevoluteGeometry", "evaluate", "geometry"]
+__all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "RevoluteGeometry", "carrier_local", "contact_faces",
+           "evaluate", "fold_free", "geometry", "hyperextension_violation"]

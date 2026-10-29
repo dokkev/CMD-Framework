@@ -1,14 +1,21 @@
-"""The serial 2R driven through a parallel four-bar: the linkage study's
-``goal`` / ``solver`` file, read as is (as ``core.optimization.revolute``'s).
+"""The serial 2R driven from a servo on ``A'`` through a belt: the linkage
+study's ``goal`` / ``solver`` file, read as is (as ``core.optimization.revolute``'s).
 
-The joint ``A`` holds only its pin, as the idealized 2R's (the pads hang its
-housing's radius below their segment lines); the servo sits on ``A'``,
-searched where the linkage's is (``solver.search_bounds.ap_from_a_*``),
-tilted as the goal's PIP servo, and turns the joint through a parallelogram.
+The joint ``A`` holds its pin (the pads hang and keep off its housing, as
+the idealized 2R's); the servo sits on ``A'``, searched where the linkage's
+is (``solver.search_bounds.ap_from_a_*``), its tilt searched as the
+linkage's (``goal.hardware.pip_servo.tilt_angle_deg``). The belt and its two
+pulleys (``goal.hardware.pulley_radius_mm``, on ``A`` and on the servo's horn
+at ``A'``) run in the outer layer, beside the servo, as the linkage's links:
+no collision with the pads, which lie in the central layer; seen from the
+side they still stand in front of a face (``core.optimization.analysis.loss``).
+The tendon 2R's pulleys are the same size; its routing band lies in the
+pads' layer instead.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -19,18 +26,16 @@ from core.optimization.linkage.config import LinkageConfig
 from core.optimization.revolute.config import VARIABLE_NAMES as REVOLUTE_NAMES, RevoluteConfig
 
 
-VARIABLE_NAMES = (*REVOLUTE_NAMES, "ap_from_a_x_mm", "ap_from_a_z_mm", "crank_mm", "crank_angle_deg")
-"""The 2R's (``|OA|``, ``|AC|``, the pads' ends, the distal pad's drop), then
-the servo shaft ``A'`` from ``A``, the cranks' length ``|A'Q| = |AR|`` and
-their direction at extension (degrees from ``+X``, toward ``+Z``)."""
-CRANK_RANGE_MM = (5.0, 30.0)
-"""Cranks from about a pin's size to a third of the finger."""
+VARIABLE_NAMES = (*REVOLUTE_NAMES, "ap_from_a_x_mm", "ap_from_a_z_mm")
+"""The 2R's (``|OA|``, ``|AC|``, the pads' ends and drops, the servo's tilt,
+here the servo on ``A'``), then the servo shaft ``A'`` from ``A``."""
 
 
 @dataclass(frozen=True)
 class ParallelConfig:
     base: RevoluteConfig
-    """The idealized 2R's config (pin only at ``A``) the pads and joint follow."""
+    """The idealized 2R's config (the pads and joint follow it), its tilt
+    bounds the servo's on ``A'``."""
     bounds: Mapping[str, tuple[float, float]]
 
     def __post_init__(self) -> None:
@@ -43,17 +48,21 @@ class ParallelConfig:
                 raise ValueError(f"{name} lower bound exceeds its upper bound")
             bounds[name] = (low, high)
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
-        if self.goal.pip_servo_tilt_rad is None:
-            raise ValueError("the parallel 2R takes the PIP servo's tilt as an input (one value)")
+        if self.goal.pulley_radius_mm is None:
+            raise ValueError("the belt-driven 2R needs goal.hardware.pulley_radius_mm")
 
     @classmethod
     def from_goal(cls, goal: LinkageConfig) -> "ParallelConfig":
-        base = RevoluteConfig.from_goal(goal, joint_servo=False)
+        joint = RevoluteConfig.from_goal(goal, joint_servo=False)
+        if goal.pip_servo_tilt_rad is not None:
+            tilt = (round(math.degrees(goal.pip_servo_tilt_rad), 9),) * 2
+        else:
+            tilt = tuple(goal.bounds["servo_tilt_deg"])
+        base = RevoluteConfig(goal, {**joint.bounds, "servo_tilt_deg": tilt}, False)
         relative = goal.relative_bounds or {}
         bounds = {**base.bounds,
                   "ap_from_a_x_mm": tuple(relative.get("ap_from_a_x_mm", (-20.0, 30.0))),
-                  "ap_from_a_z_mm": tuple(relative.get("ap_from_a_z_mm", (0.0, 25.0))),
-                  "crank_mm": CRANK_RANGE_MM, "crank_angle_deg": (-180.0, 180.0)}
+                  "ap_from_a_z_mm": tuple(relative.get("ap_from_a_z_mm", (0.0, 25.0)))}
         return cls(base, bounds)
 
     @property
@@ -61,12 +70,12 @@ class ParallelConfig:
         return self.base.goal
 
     @property
-    def tilt_rad(self) -> float:
-        return float(self.goal.pip_servo_tilt_rad)
-
-    @property
     def joint_radius_mm(self) -> float:
         return self.base.joint_radius_mm
+
+    @property
+    def pulley_radius_mm(self) -> float:
+        return float(self.goal.pulley_radius_mm)
 
     @property
     def search_bounds(self) -> Mapping[str, tuple[float, float]]:
@@ -107,4 +116,4 @@ class ParallelConfig:
         return self.goal.hypervolume_reference
 
 
-__all__ = ["CRANK_RANGE_MM", "VARIABLE_NAMES", "ParallelConfig"]
+__all__ = ["VARIABLE_NAMES", "ParallelConfig"]

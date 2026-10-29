@@ -1,0 +1,6 @@
+# Budget check: the study's revolute at h5 / 150 deg, 1500 generations.
+base: ../revolute_h5_flex150.yaml
+output: output/comparison_budget2
+solver:
+  optimizer:
+    generations: 1500

@@ -25,11 +25,15 @@ def bound_hits(x: Sequence[float], config: RcjConfig, finger_length_mm: float) -
 
 class RcjMechanism(RevoluteMechanism):
     name = "rcj"
-    formulation = "rcj-goal-v1"
+    formulation = "rcj-goal-v2"
     """The RCJ on the linkage's goal (2026-10-27): equal rollers, the servo on
     the proximal roller's centre driving the carrier (``k = 2``), laid back
     along ``-X`` as the 2R's; ideal no-slip rolling, the cables not modelled
-    (provisional)."""
+    (provisional). v2 (2026-10-28): ``|OA|``, ``BC`` and ``|AB| = 2r`` held to
+    the goal's shares of ``|OC|`` (``goal.link.*_ratio``), as the linkage's;
+    the proximal pad's drop searched (at most ``r``), the pads' overhang past
+    the rollers (``goal.pads.*.overhang_max_mm``), the fold, the carrier and
+    the hyperextension (the linkage's v4 rules)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 

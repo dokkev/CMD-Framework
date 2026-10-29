@@ -21,17 +21,21 @@ from core._validation import require_finite
 from core.optimization.linkage.config import LinkageConfig
 
 
-VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm")
+VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm",
+                  "proximal_drop_mm")
 """``|OA|``, the rollers' radius ``r`` (``|AB| = 2r``), ``BC``, the proximal
 pad's end ``A''_x``, the distal pad's joint end ``B''`` from ``B`` along
-``B->C`` (negative: behind ``B``), and how far below ``B-C`` the distal pad's
-top face lies (at most ``r``: the fingertip no deeper than the proximal
-segment, whose pad hangs ``r`` below ``O-A``). The pads are plain blocks."""
+``B->C`` (negative: behind ``B``), and how far below ``B-C`` and ``O-A``
+the distal and the proximal pad's top faces lie (each at most ``r``, the
+joint's radius, as the 2R's; each pad clears its own roller). The pads are
+plain blocks."""
 ROLLER_RADIUS_MAX_MM = 20.0
 """The largest roller searched; the least is the servo's radius (the roller
 holds the servo's shaft and rounded front)."""
 DISTAL_PAD_REACH_MM = 20.0
-"""How far behind ``B`` the distal pad's joint end may be searched."""
+"""How far behind ``B`` the distal pad's joint end may be searched, without
+``goal.pads.distal.overhang_max_mm`` (with it: past the distal roller by
+at most that)."""
 SERVO_REAR = (-1.0, 0.0)
 """The servo on ``A`` lies back along ``-X``, untilted, as the 2R's: within
 the roller's depth (``r`` is at least its radius), so no thicker than the
@@ -66,12 +70,13 @@ class RcjConfig:
         radius = goal.packaging.pip_servo.radius_mm
         start = goal.packaging.proximal_pad_start_mm
         bounds = {
-            "a_x_mm": goal.bounds["a_x_mm"],
+            "a_x_mm": goal.within_share(goal.bounds["a_x_mm"], goal.proximal_length_ratio_bounds),
             "roller_radius_mm": (radius, max(radius, ROLLER_RADIUS_MAX_MM)),
-            "bc_length_mm": goal.bounds["bc_length_mm"],
+            "bc_length_mm": goal.within_share(goal.bounds["bc_length_mm"], goal.distal_length_ratio_bounds),
             "app_x_mm": (start + goal.minimum_proximal_support_mm, finger_high),
-            "bpp_from_b_mm": (-DISTAL_PAD_REACH_MM, finger_high - goal.minimum_distal_support_mm),
+            "bpp_from_b_mm": (-distal_reach(goal, ROLLER_RADIUS_MAX_MM), finger_high - goal.minimum_distal_support_mm),
             "distal_drop_mm": (0.0, max(radius, ROLLER_RADIUS_MAX_MM)),
+            "proximal_drop_mm": (0.0, max(radius, ROLLER_RADIUS_MAX_MM)),
         }
         return cls(goal, bounds)
 
@@ -113,6 +118,21 @@ class RcjConfig:
         return self.goal.hypervolume_reference
 
 
+def distal_reach(goal: LinkageConfig, roller_radius_mm: float) -> float:
+    """How far behind ``B`` the distal pad may reach: past the roller by
+    ``goal.pads.distal.overhang_max_mm``, or :data:`DISTAL_PAD_REACH_MM`."""
+
+    overhang = goal.distal_overhang_max_mm
+    return DISTAL_PAD_REACH_MM if overhang is None else roller_radius_mm + overhang
+
+
+def proximal_reach(goal: LinkageConfig, roller_radius_mm: float) -> float:
+    """How far past ``A`` the proximal pad may reach: the roller's front, and
+    ``goal.pads.proximal.overhang_max_mm`` past it."""
+
+    return roller_radius_mm + (goal.proximal_overhang_max_mm or 0.0)
+
+
 def finger_length_mm(a_x_mm: float, roller_radius_mm: float, bc_length_mm: float) -> float:
     """``|OC|`` extended: ``O-A``, the two radii to ``B``, then ``BC``."""
 
@@ -120,4 +140,4 @@ def finger_length_mm(a_x_mm: float, roller_radius_mm: float, bc_length_mm: float
 
 
 __all__ = ["DISTAL_PAD_REACH_MM", "ROLLER_RADIUS_MAX_MM", "SERVO_REAR", "VARIABLE_NAMES", "RcjConfig",
-           "finger_length_mm"]
+           "distal_reach", "finger_length_mm", "proximal_reach"]

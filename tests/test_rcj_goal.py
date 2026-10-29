@@ -15,8 +15,8 @@ CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage
 MECHANISM = mechanism("rcj")
 STUDY = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]")
-X = (52.0, 9.5, 29.0, 39.5, 1.0, 9.5)
-"""|OA| 52, r 9.5, BC 29: the proximal pad 30 mm, the distal 28 mm at the roller's bottom."""
+X = (52.0, 9.5, 29.0, 39.5, 1.0, 9.5, 9.5)
+"""|OA| 52, r 9.5, BC 29: the proximal pad 30 mm, the distal 28 mm, both at the rollers' bottom."""
 
 
 def load(*overrides: str):
@@ -41,7 +41,11 @@ def test_equal_rollers_roll_the_distal_segment_twice_as_far_as_the_carrier():
 def test_a_design_is_swept_and_reported():
     e = MECHANISM.evaluate(X, load())
     assert e.torque_ratio_max == 2.0
-    assert (e.proximal_effective_mm, e.distal_effective_mm) == pytest.approx((30.0, 28.0))
+    # The faces (30 and 28 mm) less what each hides of the other folded to 150 deg.
+    assert (e.proximal_face_mm, e.distal_face_mm) == pytest.approx((30.0, 28.0))
+    assert e.proximal_effective_mm == pytest.approx(min(30.0, e.proximal_usable_length_mm))
+    assert e.distal_effective_mm == pytest.approx(min(28.0, e.distal_usable_length_mm))
+    assert 20.0 < e.proximal_effective_mm < 30.0 and 20.0 < e.distal_effective_mm < 28.0
     assert 0.0 < math.degrees(e.phi_safe_rad) < 180.0 and e.collision_pair
     report = MECHANISM.report(e)
     assert report["roller_radius_mm"] == 9.5 and report["proximal_depth_mm"] == pytest.approx(14.5)
@@ -49,12 +53,15 @@ def test_a_design_is_swept_and_reported():
 
 def test_each_pad_clears_its_own_roller():
     # On B-C (drop 0) from 1 mm past B the distal pad is inside the distal roller.
-    inside = MECHANISM.evaluate((*X[:5], 0.0), load())
+    inside = MECHANISM.evaluate((*X[:5], 0.0, 9.5), load())
     assert inside.constraints["roller_pad_mm"] == pytest.approx(8.5)
-    clear = MECHANISM.evaluate((*X[:4], 9.5, 0.0), load())
+    clear = MECHANISM.evaluate((*X[:4], 9.5, 0.0, 9.5), load())
     assert clear.constraints["roller_pad_mm"] <= 0.0
-    # The drop is at most r.
-    assert MECHANISM.evaluate((*X[:5], 10.0), load()).constraints["distal_drop_mm"] == pytest.approx(0.5)
+    # The proximal pad, ending under the proximal roller, clears it only a radius below O-A.
+    assert MECHANISM.evaluate((*X[:3], 50.0, *X[4:6], 5.0), load()).constraints["roller_pad_mm"] > 0.0
+    # Each drop is at most r.
+    assert MECHANISM.evaluate((*X[:5], 10.0, 9.5), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
+    assert MECHANISM.evaluate((*X[:6], 10.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
 
 
 def test_k_is_held_against_the_goals_limit():

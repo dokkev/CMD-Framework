@@ -60,6 +60,11 @@ class FingerLinkageParameters:
     distal_chamfer_mm: float = 0.0
     """Each pad's chamfer, used where the pad's chamfer is free
     (``ContactPad.chamfer_free``); otherwise the packaging's applies."""
+    proximal_drop_mm: float | None = None
+    distal_drop_mm: float | None = None
+    """How far each pad's top face lies palmar of its link line (``O-A``,
+    ``B-C``), when the design sets it; ``None``: the packaging's
+    (:attr:`Packaging.proximal_pad_drop_mm`, its pivot's radius or 0)."""
 
     @property
     def app_x_mm(self) -> float:
@@ -83,6 +88,9 @@ class FingerLinkageParameters:
         require_finite("bpp_offset_mm", self.bpp_offset_mm)
         require_nonnegative("proximal_chamfer_mm", self.proximal_chamfer_mm)
         require_nonnegative("distal_chamfer_mm", self.distal_chamfer_mm)
+        for name in ("proximal_drop_mm", "distal_drop_mm"):
+            if getattr(self, name) is not None:
+                require_nonnegative(name, getattr(self, name))
         require_positive("bc_length_mm", self.bc_length_mm)
         for name in ("ap", "bp"):
             if not isinstance(getattr(self, name), PointXZ):

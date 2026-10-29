@@ -34,7 +34,10 @@ PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=
           "goal.pads.distal.length_mm=[35, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
           "goal.hardware.pip_servo.tilt_angle_deg=20",
-          "goal.hardware.pip_servo.tilt_step_deg=1")
+          "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
+          "goal.link.distal_length_mm=[25, null]", "goal.link.joint_span_ratio=[null, null]",
+          "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]",
+          "solver.optimizer.preset=search", "goal.pads.on_links=false")
 """The study these tests were written for, whatever the config file now asks."""
 
 
@@ -143,23 +146,22 @@ def test_pad_pairs_follow_the_checks():
 
 
 def test_a_design_is_evaluated_with_the_objectives():
-    # X's pads are 30 + 35 mm mounted, but the links leave less of them free:
-    # its least lengths must be what it can use.
-    short = MECHANISM.evaluate(X, load())
-    assert short.constraints["pad_usable_mm"] == pytest.approx(30.0 - short.proximal_effective_mm)
-    assert not short.feasible
     config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
     spans = pad_spans(e.parameters, config.packaging)
     covered = spans["proximal_pad"].length_mm + spans["distal_pad"].length_mm
     assert e.mounted_coverage == pytest.approx(covered / e.finger_length_mm)
-    # The objective counts each pad's face the links leave free on [0, dip_flexion].
+    # The links are bent around the pads; each face counts less what the other
+    # face hides in the fold, the least over [0, dip_flexion] (v4: here the
+    # distal pad, from B, is never opposite the proximal one's end).
+    assert config.packaging.links_clear_pads
     assert e.proximal_effective_mm == min(e.proximal_usable_length_mm, e.proximal_face_mm)
-    assert e.distal_effective_mm <= e.distal_face_mm
-    assert e.pad_coverage == pytest.approx(
-        (e.proximal_effective_mm + e.distal_effective_mm) / e.finger_length_mm)
-    assert e.pad_coverage < e.mounted_coverage
+    assert e.proximal_effective_mm <= e.proximal_face_mm and e.distal_effective_mm <= e.distal_face_mm
+    assert e.pad_coverage <= e.mounted_coverage
+    # The least lengths hold on the faces.
+    short = MECHANISM.evaluate(X, load("goal.pads.proximal.length_mm=[60, null]"))
+    assert short.constraints["proximal_support_mm"] > 0.0 and not short.feasible
     assert e.curl_deg == pytest.approx(180.0 - math.degrees(e.phi_max_rad))
     assert MECHANISM.objective_values(e, config.objectives) == pytest.approx(
         (e.torque_ratio_max, -e.pad_coverage, e.curl_deg))
@@ -262,10 +264,10 @@ def test_the_search_coordinates_keep_the_simple_constraints():
         assert 0.0 < d["a_x_mm"] < d["b_x_mm"]
         assert 90.0 - 0.1 <= d["b_x_mm"] + d["bc_length_mm"] <= 110.0 + 0.1
         assert d["ap_x_mm"] >= search.least_ap_x(config, d["ap_z_mm"], d["servo_tilt_deg"]) - 0.1
-        assert all(abs(v * 10 - round(v * 10)) < 1e-6 for v in d.values())  # on the 0.1 mm grid
+        assert all(abs(v * 10 - round(v * 10)) < 1e-6 for v in d.values() if v == v)  # on the 0.1 mm grid (NaN: the packaging's drop)
     assert designs > 200
     # A design maps to coordinates and back.
-    assert problem.to_mm(problem.to_steps(X)) == pytest.approx(X, abs=0.11)
+    assert problem.to_mm(problem.to_steps(X))[:len(X)] == pytest.approx(X, abs=0.11)  # (then the drops: NaN)
 
 
 def test_older_studies_are_searched_in_the_design_vector():
@@ -298,3 +300,113 @@ def test_the_pads_may_be_kept_off_their_own_pins():
     x = list(X)
     x[names.index("app_offset_mm")] = 30.0 - 39.7
     assert MECHANISM.evaluate(x, off).constraints["proximal_support_mm"] <= 0.0
+
+
+def test_a_symmetric_four_bar_sets_b_prime():
+    from core.optimization.linkage import search
+    from core.optimization.study import MechanismProblem
+
+    config = load("goal.link.symmetric_four_bar=true")
+    assert not set(search.SYMMETRIC_DROPPED) & set(MECHANISM.search_names(config))
+    problem = MechanismProblem(MECHANISM, config)
+    rng = np.random.default_rng(1)
+    found = 0
+    for _ in range(300):
+        x = problem.to_mm(np.round(problem.xl + rng.random(problem.n_var) * (problem.xu - problem.xl)))
+        if x is None:
+            continue
+        d = dict(zip(VARIABLE_NAMES, x))
+        a, ap = np.array((d["a_x_mm"], d["a_z_mm"])), np.array((d["ap_x_mm"], d["ap_z_mm"]))
+        b, bp = np.array((d["b_x_mm"], d["b_z_mm"])), np.array((d["bp_x_mm"], d["bp_z_mm"]))
+        # Opposite sides equal (to the grid), and crossed: not the parallelogram
+        # (the two coincide only with A, A' and B in line).
+        assert np.linalg.norm(bp - b) == pytest.approx(np.linalg.norm(ap - a), abs=0.15)
+        assert np.linalg.norm(bp - a) == pytest.approx(np.linalg.norm(b - ap), abs=0.15)
+        area = abs((ap - a)[0] * (b - a)[1] - (ap - a)[1] * (b - a)[0]) / 2.0
+        assert area < 20.0 or np.linalg.norm(bp - (b + a - ap)) > 0.5
+        found += 1
+    assert found > 50
+
+
+def test_the_proximal_pad_may_stop_at_the_fold():
+    from core.optimization.linkage.search import extended_icr_x
+
+    config = load("goal.pads.proximal.past_icr_max_mm=0", "goal.pads.proximal.length_mm=[15, null]",
+                  "goal.pads.distal.length_mm=[20, null]")
+    d = dict(zip(VARIABLE_NAMES, X))
+    icr_x = extended_icr_x((d["a_x_mm"], 0.0), (d["ap_x_mm"], d["ap_z_mm"]), (d["b_x_mm"], 0.0),
+                           (d["bp_x_mm"], d["bp_z_mm"]))
+    assert d["a_x_mm"] < icr_x < d["b_x_mm"]  # between the joints, where the bars cross
+    names = list(VARIABLE_NAMES)
+    x = list(X)
+    x[names.index("app_offset_mm")] = icr_x + 1.0 - d["ap_x_mm"]  # A'' 1 mm past it
+    assert MECHANISM.evaluate(x, config).constraints["proximal_support_mm"] == pytest.approx(1.0, abs=0.15)
+    x[names.index("app_offset_mm")] -= 2.0
+    assert MECHANISM.evaluate(x, config).constraints["proximal_support_mm"] <= 0.0
+
+
+def test_the_four_bar_span_may_be_bounded():
+    d = dict(zip(VARIABLE_NAMES, X))
+    span = d["b_x_mm"] - d["a_x_mm"]  # A and B on the axis, extended (B within the grid)
+    e = MECHANISM.evaluate(X, load(f"goal.link.joint_span_mm=[null, {span - 2.0}]"))
+    assert e.constraints["proximal_length_mm"] == pytest.approx(2.0, abs=0.1)
+    assert MECHANISM.evaluate(X, load(f"goal.link.joint_span_mm=[null, {span + 1.0}]")).constraints[
+        "proximal_length_mm"] <= 0.0
+
+
+def test_a_pad_counts_up_to_where_the_faces_cross():
+    from core.morphology.linkage.packaging import face_crossing_lengths
+
+    config = load()
+    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
+    spans = pad_spans(linkage.parameters, config.packaging)
+    sweep = linkage.sweep_servo(np.radians([0.0, 1.0, 40.0]) * (1.0 if linkage.sweep_servo(
+        [0.0, 0.01]).q_pip_rad[-1] >= 0.0 else -1.0))
+    free = face_crossing_lengths(linkage, config.packaging, sweep.b, sweep.c)
+    # Extended, the faces lie in one line: nothing is lost.
+    assert free["proximal_pad"][0] == pytest.approx(spans["proximal_pad"].length_mm)
+    assert free["distal_pad"][0] == pytest.approx(spans["distal_pad"].length_mm)
+    # Barely flexed, they cross below the centre of rotation, between A and B.
+    p = linkage.parameters
+    crossing = spans["proximal_pad"].start_mm + free["proximal_pad"][1]
+    assert free["proximal_pad"][1] < spans["proximal_pad"].length_mm and p.a_x_mm < crossing < p.b_x_mm
+
+
+def test_the_links_may_be_bounded_as_shares_of_the_finger():
+    e = MECHANISM.evaluate(X, load())
+    oc, oa, bc = e.finger_length_mm, X[0], X[VARIABLE_NAMES.index("bc_length_mm")]
+    low = MECHANISM.evaluate(X, load(f"goal.link.proximal_length_ratio=[{(oa + 2.0) / oc}, null]"))
+    assert low.constraints["proximal_length_mm"] == pytest.approx(2.0, abs=1e-6)
+    high = MECHANISM.evaluate(X, load(f"goal.link.distal_length_ratio=[null, {(bc - 3.0) / oc}]"))
+    assert high.constraints["proximal_length_mm"] == pytest.approx(3.0, abs=1e-6)
+    assert MECHANISM.evaluate(X, load("goal.link.proximal_length_ratio=[0.2, 0.5]",
+                                      "goal.link.distal_length_ratio=[0.2, 0.4]")).constraints[
+        "proximal_length_mm"] <= 0.0
+
+
+def test_the_four_bar_span_may_be_bounded_as_a_share():
+    e = MECHANISM.evaluate(X, load())
+    d = dict(zip(VARIABLE_NAMES, X))
+    span = d["b_x_mm"] - d["a_x_mm"]
+    over = MECHANISM.evaluate(X, load(f"goal.link.joint_span_ratio=[null, {(span - 2.0) / e.finger_length_mm}]"))
+    assert over.constraints["proximal_length_mm"] == pytest.approx(2.0, abs=0.1)
+
+
+def test_the_pads_may_be_searched_on_their_links():
+    from core.optimization.study import MechanismProblem
+
+    config = load("goal.pads.on_links=true")
+    assert not {"app_share", "bpp_share", "app_offset_mm", "bpp_offset_mm"} & set(MECHANISM.search_names(config))
+    problem = MechanismProblem(MECHANISM, config)
+    rng = np.random.default_rng(2)
+    for _ in range(100):
+        x = problem.to_mm(np.round(problem.xl + rng.random(problem.n_var) * (problem.xu - problem.xl)))
+        if x is None:
+            continue
+        try:
+            p = decode(x, config.link_length_resolution_mm)
+        except ValueError:  # the rounded bars do not close: no design
+            continue
+        # The proximal pad to A, the distal from B (to the grid).
+        assert p.app_x_mm == pytest.approx(p.a_x_mm, abs=0.1)
+        assert p.bpp_x_mm == pytest.approx(p.b_x_mm, abs=0.1)  # B re-assembled, B' with it

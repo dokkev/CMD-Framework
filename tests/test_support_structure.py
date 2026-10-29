@@ -165,7 +165,9 @@ def test_a_chamfer_trims_only_the_palmar_corner_facing_the_pip() -> None:
     assert len(square) == 4 and len(chamfered) == 5
     # a-b, the mounting length, is untouched.
     assert {(0.0, 0.0), (30.0, 0.0)} <= {tuple(point) for point in chamfered}
-    assert encode(FingerLinkage(decode(GOOD))) == (*GOOD, 0.0, 0.0, 0.0, 0.0)
+    encoded = encode(FingerLinkage(decode(GOOD)))
+    assert encoded[:-2] == (*GOOD, 0.0, 0.0, 0.0, 0.0)
+    assert all(math.isnan(value) for value in encoded[-2:])  # the drops: the packaging's
 
 
 def test_a_link_across_a_pad_ends_its_free_length() -> None:

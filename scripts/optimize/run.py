@@ -3,6 +3,7 @@
 
     python scripts/optimize/run.py                                     # scripts/optimize/linkage/config.yaml
     python scripts/optimize/run.py scripts/optimize/revolute/config.yaml
+    python scripts/optimize/run.py <config> --append   # into a folder that has runs already
 
 The config file is the only input. Its folder names the mechanism
 (``scripts/optimize/<mechanism>/``; a top-level ``mechanism:`` entry
@@ -11,12 +12,19 @@ overrides it), and it sets the optimizer (``solver.optimizer`` for the
 any warm start. For another condition, write another config file (``base:``
 extends one).
 
-The optimizer's ``algorithm`` may list several (e.g. ``[nsga2, smsemoa,
+``solver.optimizer.preset`` picks one of ``solver.optimizer.presets`` (e.g.
+``quick`` or ``search``); its runs go to ``output/<mechanism>/<config
+name>/<preset>/``. A top-level ``output:`` entry (a folder from the
+repository root) puts them in ``<output>/<mechanism>/<config name>/`` instead. The optimizer's ``algorithm`` may list several (e.g. ``[nsga2, smsemoa,
 agemoea]``): each runs every seed. One run per algorithm and seed is saved
 to ``output/<mechanism>/<config name>/run_NNN``
 (``run.json``, ``pareto.csv``). The runs are then verified on the fine grid
 and merged into ``portfolio_NNN`` (``seeds.csv``, the representative seeds
 first, and ``portfolio.json``). Every CPU evaluates.
+
+A folder that already holds runs or portfolios is not run into (no earlier
+result is mixed with, or mistaken for, a new one) unless ``--append`` is
+given; then the new runs and portfolio take the next numbers.
 """
 
 from __future__ import annotations
@@ -34,6 +42,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+from core.optimization.linkage.mechanism import resolve_preset  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 from core.optimization.seeds import print_selection, select_seeds, write_seeds  # noqa: E402
 from core.optimization.study import StudyResult, load_run, run_study, save_result  # noqa: E402
@@ -45,21 +54,32 @@ OUTPUT_ROOT = REPOSITORY_ROOT / "output"
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
+    append = "--append" in argv
+    argv = [arg for arg in argv if arg != "--append"]
     if len(argv) > 1 or (argv and argv[0].startswith("-")):
         print(__doc__.strip())
         return 2
     path = Path(argv[0]) if argv else SCRIPTS / "linkage" / "config.yaml"
     values = read_config_file(path)
     found = mechanism(values.pop("mechanism", None) or path.resolve().parent.name)
+    output_root = values.pop("output", None)
+    preset = resolve_preset(values)
     algorithms = _algorithms(values)
     values, settings = found.split_settings(values)
     config = found.config_from_mapping(values)
     seeds = tuple(getattr(config, "seeds", ()) or (settings.seed,))
     # The population takes at most half its size of warm-start designs.
     initial = warm_designs(found, getattr(config, "warm_start", ()) or ())[: settings.population_size // 2]
-    root = OUTPUT_ROOT / found.name / path.stem
+    root = (REPOSITORY_ROOT / str(output_root) / found.name / path.stem if output_root is not None
+            else OUTPUT_ROOT / found.name / path.stem / (preset or ""))
+    earlier = sorted(p.name for pattern in ("run_*", "portfolio_*") for p in root.glob(pattern)) if root.exists() else []
+    if earlier and not append:
+        print(f"{root} already holds {', '.join(earlier[:4])}{', ...' if len(earlier) > 4 else ''}: not run "
+              "(move them, or run with --append to add to them)", file=sys.stderr)
+        return 3
     workers = os.cpu_count() or 1
-    print(f"{found.name}: {path} -> {root}; seeds {', '.join(map(str, seeds))}"
+    print(f"{found.name}: {path}{f' (preset {preset})' if preset else ''} -> {root}; "
+          f"seeds {', '.join(map(str, seeds))}"
           + (f"; warm start from {len(initial)} designs" if initial else "") + "\n")
 
     directories = [run_one(found, config, dataclasses.replace(settings, algorithm=algorithm, seed=seed), initial,

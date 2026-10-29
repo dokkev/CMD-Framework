@@ -32,8 +32,13 @@ def test_it_reads_the_linkage_goal_as_is():
     assert config.goal == linkage
     assert config.objectives == linkage.objectives and config.seeds == linkage.seeds
     assert MECHANISM.hypervolume_reference(config) == mechanism("linkage").hypervolume_reference(linkage)
-    # |OA| and |AC| take the linkage's A_x and BC bounds; the pads start past their min.
-    assert config.bounds["ac_length_mm"] == linkage.bounds["bc_length_mm"]
+    # |OA| and |AC| take the linkage's A_x and BC bounds within their shares of |OC|;
+    # the pads start past their min.
+    assert config.bounds["ac_length_mm"] == linkage.within_share(linkage.bounds["bc_length_mm"],
+                                                                 linkage.distal_length_ratio_bounds)
+    low, high = linkage.extended_length_bounds_mm
+    share_low, share_high = linkage.proximal_length_ratio_bounds
+    assert config.bounds["a_x_mm"] == (pytest.approx(share_low * low), pytest.approx(share_high * high))
     assert config.bounds["app_x_mm"][0] == pytest.approx(linkage.packaging.proximal_pad_start_mm + 20.0)
     assert config.bounds["servo_tilt_deg"] == (20.0, 20.0)  # the goal's PIP servo tilt
     # Each pad on its own segment, off the servo at A.

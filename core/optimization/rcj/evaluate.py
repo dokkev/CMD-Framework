@@ -12,11 +12,15 @@ cables that hold it are not modelled (provisional, as the retention study's
 RCJ).
 
 Packaging, in one plane, by the linkage's rules: the servo lies back along
-``-X`` from ``A`` (``SERVO_REAR``; its rounded front within the roller); the proximal pad hangs from the
-roller's bottom (``r`` below ``O-A``), laid from the MCP servo to ``A''``,
-at most ``A_x + r``; the distal pad hangs a searched drop below ``B-C`` (at
-most ``r``), laid from ``C`` to ``B''``. Each pad clears its own roller
-(statically: each is fixed to its roller). The carrier and the links holding
+``-X`` from ``A`` (``SERVO_REAR``; its rounded front within the roller); the proximal pad hangs a
+searched drop below ``O-A`` (at most ``r``), laid from the MCP servo to
+``A''``, at most ``A_x + r`` (plus ``goal.pads.proximal.overhang_max_mm``);
+the distal pad hangs a searched drop below ``B-C`` (at most ``r``), laid
+from ``C`` to ``B''`` (behind ``B`` at most the distal overhang past the
+roller). Each pad clears its own roller (statically: each is fixed to its
+roller). As the linkage's and the 2R's: each face counts less what the
+other hides in the fold, the distal pad's carrier is checked against the
+servo, and the joint hyperextends with every pair clear. The carrier and the links holding
 the distal pad are in other layers, so they are not checked. No clearance,
 overlaps by depth; checked over ``[0, 180 deg]`` from extension: the distal
 pad against the proximal pad, the proximal roller, the servo and the MCP
@@ -46,14 +50,21 @@ from core.morphology.linkage.packaging import (
 )
 
 from core.optimization.rcj import config as rcj_config
-from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig
-from core.optimization.revolute.evaluate import UNSWEPT, RevoluteEvaluation, _between_samples
+from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
+from core.optimization.revolute.evaluate import (
+    UNSWEPT,
+    RevoluteEvaluation,
+    _between_samples,
+    carrier_local,
+    fold_free,
+    hyperextension_violation,
+)
 
 
-STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "distal_drop_mm", "mcp_servo_mm",
+STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "pad_drop_mm", "mcp_servo_mm",
                       "pip_servo_pad_mm", "proximal_support_mm", "distal_support_mm", "roller_pad_mm",
                       "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "curl_tip_x_mm", "pad_usable_mm", "torque_ratio")
+MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "torque_ratio")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 TORQUE_RATIO = 2.0
 """``d(phi)/d(theta)`` of equal rollers: two units of servo torque per unit of distal moment."""
@@ -78,6 +89,9 @@ class RcjGeometry:
     distal_face_mm: float
     proximal_room_mm: float
     distal_room_mm: float
+    proximal_drop_mm: float = 0.0
+    distal_carrier_local: np.ndarray | None = None
+    """The distal pad's carrier plate in the distal frame (``None``: none)."""
 
     @property
     def finger_length_mm(self) -> float:
@@ -111,7 +125,9 @@ class RcjGeometry:
         at ``r`` (half the carrier's rate on ``2r``), plus the pad's farthest
         point from ``B`` turning at the full rate."""
 
-        return self.roller_radius_mm + float(np.hypot(self.distal_pad_local[:, 0], self.distal_pad_local[:, 1]).max())
+        solids = self.distal_pad_local if self.distal_carrier_local is None else np.vstack(
+            (self.distal_pad_local, self.distal_carrier_local))
+        return self.roller_radius_mm + float(np.hypot(solids[:, 0], solids[:, 1]).max())
 
     @property
     def distal_mount(self) -> np.ndarray:
@@ -141,7 +157,7 @@ def geometry(x: Sequence[float], config: RcjConfig) -> RcjGeometry:
     chamfer = {side: pad.chamfer_mm for side, pad in (("proximal", proximal), ("distal", distal))}  # 0: blocks
     outer = v["bc_length_mm"] - distal.offset_mm
     proximal_outline = pad_outline(PadSpan(start, start + max(proximal_length, 1e-6), proximal_room),
-                                   proximal, "end", chamfer["proximal"]) - (0.0, r)
+                                   proximal, "end", chamfer["proximal"]) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
     distal_outline = pad_outline(distal_span, distal, "start", chamfer["distal"]) - (0.0, v["distal_drop_mm"])
     servo = ServoFootprint((v["a_x_mm"], 0.0), rcj_config.SERVO_REAR,
@@ -149,7 +165,8 @@ def geometry(x: Sequence[float], config: RcjConfig) -> RcjGeometry:
     face = lambda length, k: max(length - min(k, max(length, 0.0)), 0.0)  # noqa: E731
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                        servo, proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
-                       face(distal_length, chamfer["distal"]), proximal_room, distal_room)
+                       face(distal_length, chamfer["distal"]), proximal_room, distal_room, v["proximal_drop_mm"],
+                       carrier_local(distal_outline, v["distal_drop_mm"], packaging))
 
 
 @dataclass(frozen=True)
@@ -176,16 +193,20 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     oa_low, oa_high = goal.proximal_length_bounds_mm
     oa = [value for value in (None if oa_low is None else oa_low - geo.a_x_mm,
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
+    # |OA|, BC and |AB| = 2r as shares of |OC|, as the linkage's.
+    oa += goal.length_ratio_violations(geo.a_x_mm, geo.bc_length_mm, 2.0 * r, geo.finger_length_mm)
     static = {
         "extended_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),
         "proximal_length_mm": max(oa, default=0.0),
-        # The fingertip no deeper than the proximal segment.
-        "distal_drop_mm": geo.distal_drop_mm - r,
-        # At least its min, and on the proximal body: no further than the roller's front.
+        # Each pad at most the joint's radius below its line.
+        "pad_drop_mm": max(geo.distal_drop_mm, geo.proximal_drop_mm) - r,
+        # At least its min, and on its body: no further than the roller's front
+        # (plus the overhang), the distal pad no further behind B than its reach.
         "proximal_support_mm": max(goal.minimum_proximal_support_mm - geo.proximal_length_mm,
                                    -geo.proximal_room_mm,
-                                   x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + r)),
-        "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm),
+                                   x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + proximal_reach(goal, r))),
+        "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
+                                 -x[VARIABLE_NAMES.index("bpp_from_b_mm")] - distal_reach(goal, r)),
     }
     stages = (("mcp_servo_mm", "pip_servo_pad_mm", "roller_pad_mm"), ("pad_collision_mm",))
     if max(static.values()) <= 0.0:
@@ -208,7 +229,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                   proximal_support_length_mm=geo.proximal_length_mm,
                   distal_support_length_mm=geo.distal_length_mm,
                   proximal_face_mm=geo.proximal_face_mm, distal_face_mm=geo.distal_face_mm,
-                  proximal_depth_mm=r + packaging.proximal_pad.height_mm,
+                  proximal_depth_mm=geo.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=geo.distal_drop_mm + packaging.distal_pad.height_mm,
                   roller_radius_mm=r)
     if max(static.values()) > 0.0:
@@ -235,16 +256,21 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
+    free = fold_free(geo, phi[window])
+    proximal_usable, distal_usable = float(free["proximal_pad"].min()), float(free["distal_pad"].min())
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
+        "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
-        "pad_usable_mm": max(goal.minimum_proximal_support_mm - geo.proximal_face_mm,
-                             goal.minimum_distal_support_mm - geo.distal_face_mm),
+        "pad_usable_mm": max(goal.minimum_proximal_support_mm - min(geo.proximal_face_mm, proximal_usable),
+                             goal.minimum_distal_support_mm - min(geo.distal_face_mm, distal_usable)),
         "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
     }
     return RcjEvaluation(
         constraints=MappingProxyType(constraints),
+        proximal_usable_length_mm=proximal_usable,
+        distal_usable_length_mm=distal_usable,
         phi_safe_rad=reach,
         phi_max_rad=phi_max,
         stop_reason=stop_reason,
@@ -270,6 +296,9 @@ def _margins(geo: RcjGeometry, phi: np.ndarray, config: RcjConfig,
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
     margins = {
         ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
+        **({} if geo.distal_carrier_local is None else {
+            ("distal_carrier", "pip_servo"): footprint_gaps(geo.posed(geo.distal_carrier_local, phi), geo.servo,
+                                                            packaging) - clearance}),
         ("distal_pad", "proximal_roller"): _polygon_to_disk(distal, np.broadcast_to(geo.a, (count, 2)), r) - clearance,
         ("distal_roller", "proximal_pad"): _polygon_to_disk(proximal, geo.b(phi), r) - clearance,
     }

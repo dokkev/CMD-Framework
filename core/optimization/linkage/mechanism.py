@@ -92,14 +92,39 @@ def bound_hits_of(values: Mapping[str, float], boxes: Mapping[str, tuple[float, 
     return tuple(hits)
 
 
+def resolve_preset(values: dict[str, Any]) -> str | None:
+    """Apply ``solver.optimizer.preset`` in place: the named entry of
+    ``solver.optimizer.presets`` (its algorithm, population, generations,
+    seeds...) fills the optimizer table where the table does not set the
+    entry itself (a config extending this one may), both keys then dropped.
+    Returns the preset's name (``None``: no preset). Idempotent."""
+
+    solver = values.get("solver")
+    table = solver.get("optimizer") if isinstance(solver, Mapping) else None
+    if not isinstance(table, dict) or ("preset" not in table and "presets" not in table):
+        return None
+    name, presets = table.pop("preset", None), table.pop("presets", None) or {}
+    if name is None:
+        return None
+    if name not in presets:
+        raise ValueError(f"solver.optimizer.preset {name!r} is not in solver.optimizer.presets {sorted(presets)}")
+    for key, value in copy.deepcopy(presets[name]).items():
+        table.setdefault(key, value)
+    return str(name)
+
+
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v3"
+    formulation = "linkage-v4"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
     Earlier formulations (``palmar-pad-v3``, ``linkage-v2-rev2``) were removed
-    on 2026-10-26."""
+    on 2026-10-26. v4 (2026-10-28): a face loses only what the other face's
+    segment hides (``packaging.fold_free_lengths``; v3 crossed the faces'
+    endless lines, which, barely flexed, could hide a whole face), and,
+    optional in the goal, the pads' drops searched (``goal.pads.*.drop_mm``)
+    and their overhang past their body limited (``overhang_max_mm``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -117,12 +142,14 @@ class LinkageMechanism(Mechanism):
     )
 
     def split_settings(self, values: Mapping[str, Any]) -> tuple[dict[str, Any], OptimizerSettings]:
-        """The optimizer settings sit in ``solver.optimizer``: ``algorithm``
-        (one, or a list whose first the settings take), ``population``,
+        """The optimizer settings sit in ``solver.optimizer`` (after its
+        ``preset``, :func:`resolve_preset`): ``algorithm`` (one, or a list
+        whose first the settings take), ``population``,
         ``generations`` and ``seeds`` (the first one is the settings' seed;
         the config keeps them all)."""
 
         values = copy.deepcopy(dict(values))
+        resolve_preset(values)
         solver = values.get("solver")
         table = dict(solver.get("optimizer") or {}) if isinstance(solver, Mapping) else {}
         names = {"algorithm": "algorithm", "population": "population_size", "generations": "generations",
