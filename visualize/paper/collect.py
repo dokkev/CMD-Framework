@@ -7,10 +7,13 @@ table the paper's figures read (they read nothing else of the runs).
 ``output/comparison_quick``, the quick runs: drafts). Per mechanism,
 interface thickness and required flexion (``scripts/optimize/comparison``'s
 grid): the verified front's most pad coverage, its pads, ``k_max``, the
-extended centre of rotation's share of ``|OC|``, the most flexion, each
+extended centre of rotation's share of ``|OC|``, the most flexion, the
+extended finger's dorsal-palmar thickness (its own solids and pads), the
+servo's tilt and the bound hits, each
 run's own best (the seeds' spread), and the share of the two faces an
-object ACCESS_DEPTH_MM deep cannot reach at the required flexion. The loss
-rule is the evaluator's (v4: the other pad's face segment), stated in the
+object ``goal.loss.access_depth_mm`` deep (ACCESS_DEPTH_MM without one)
+cannot reach at the required flexion. The loss rule is the run's
+(``goal.loss.integrity_depth_mm``; without one, v4's fold), stated in the
 table (``loss_rule``) with the source. Writes output/paper/data/<source name>.csv.
 """
 
@@ -24,15 +27,15 @@ from pathlib import Path
 import numpy as np
 
 from core.optimization.analysis.icr import icr0_share
-from core.optimization.analysis.loss import face_loss, scene
+from core.optimization.analysis.loss import face_loss, scene, thickness_mm
 from core.optimization.study import load_run
 from visualize.fronts import latest_portfolio, read_rows
 from visualize.studies import grid
 from visualize.style import MECHANISMS, OUTPUT, REPOSITORY_ROOT
 
 STUDY = grid("comparison")
-LOSS_RULE = "segment (v4)"
 ACCESS_DEPTH_MM = 20.0
+"""The accessibility depth of runs whose goal sets none."""
 DATA = OUTPUT / "paper" / "data"
 
 
@@ -51,6 +54,11 @@ def best_of(config_dir: Path):
     return max(rows, key=lambda r: float(r["pad_coverage"]), default=None), seeds
 
 
+def loss_rule(goal) -> str:
+    depth = goal.integrity_depth_mm
+    return "segment (v4)" if depth is None else f"integrity {depth:g} mm"
+
+
 def collect(source: Path) -> list[dict]:
     table = []
     for mechanism in MECHANISMS:
@@ -59,7 +67,7 @@ def collect(source: Path) -> list[dict]:
                 config_dir = source / mechanism / STUDY.name(mechanism, thickness, flexion)
                 row, seeds = best_of(config_dir)
                 entry = {"mechanism": mechanism, "thickness_mm": thickness, "flexion_deg": flexion,
-                         "source": str(source.relative_to(REPOSITORY_ROOT)), "loss_rule": LOSS_RULE,
+                         "source": str(source.relative_to(REPOSITORY_ROOT)),
                          "has_front": latest_portfolio(config_dir) is not None, "runs": len(seeds),
                          "seed_min_pct": 100 * min(seeds) if seeds else None,
                          "seed_max_pct": 100 * max(seeds) if seeds else None}
@@ -68,7 +76,9 @@ def collect(source: Path) -> list[dict]:
                     x = run.mechanism.read_design(row)
                     length = float(row["finger_length_mm"])
                     built = scene(mechanism, run.config, x, [float(flexion)])
-                    access = face_loss(built, "probe", ACCESS_DEPTH_MM)
+                    dorsal, palmar = thickness_mm(scene(mechanism, run.config, x, [0.0]))
+                    goal = getattr(run.config, "goal", run.config)
+                    access = face_loss(built, "probe", goal.access_depth_mm)
                     lost = sum(float(access[side].lost[0]) for side in access)
                     faces = sum(float(access[side].length[0]) for side in access)
                     entry.update({
@@ -78,7 +88,11 @@ def collect(source: Path) -> list[dict]:
                         "k_max": float(row["torque_ratio_max"]), "finger_length_mm": length,
                         "icr0_share": icr0_share(mechanism, x, run.mechanism.variable_names, length),
                         "phi_max_deg": float(row["phi_max_deg"]),
-                        f"access_lost_pct_at_flexion_d{ACCESS_DEPTH_MM:g}": 100 * lost / faces if faces else math.nan,
+                        "dorsal_z_mm": dorsal, "palmar_z_mm": palmar, "thickness_mm": dorsal - palmar,
+                        "servo_tilt_deg": float(row["servo_tilt_deg"]) if row.get("servo_tilt_deg") else None,
+                        "bound_hits": row.get("bound_hits", ""),
+                        "loss_rule": loss_rule(goal), "access_depth_mm": goal.access_depth_mm,
+                        "access_lost_pct_at_flexion": 100 * lost / faces if faces else math.nan,
                         "run": f"{config_dir.relative_to(REPOSITORY_ROOT)}/{row['run'].split('/')[-1]}",
                         "candidate": row["candidate"],
                         "x": " ".join(f"{value:g}" for value in x),
@@ -111,7 +125,7 @@ def read(source: str = "comparison_quick") -> list[dict]:
         for key, value in row.items():
             if value in ("", "None"):
                 parsed[key] = None
-            elif key in ("mechanism", "source", "loss_rule", "run", "candidate", "x"):
+            elif key in ("mechanism", "source", "loss_rule", "run", "candidate", "x", "bound_hits"):
                 parsed[key] = value
             elif value in ("True", "False"):
                 parsed[key] = value == "True"

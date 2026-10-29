@@ -86,6 +86,33 @@ def inside(points, polygons):
 
 
 @njit(cache=True)
+def probe_polygon(start, end, polygons):
+    """``(n, k)``: whether the probe ``start[i, j] -> end[i, j]`` starts inside
+    the convex ``polygons[i]`` or crosses one of its edges (see ``packaging.probe_blocked``)."""
+
+    out = np.empty((start.shape[0], start.shape[1]), dtype=np.bool_)
+    m = polygons.shape[1]
+    for i in range(start.shape[0]):
+        polygon = polygons[i]
+        low_x, high_x = polygon[:, 0].min(), polygon[:, 0].max()
+        low_y, high_y = polygon[:, 1].min(), polygon[:, 1].max()
+        for j in range(start.shape[1]):
+            sx, sy, ex, ey = start[i, j, 0], start[i, j, 1], end[i, j, 0], end[i, j, 1]
+            if (max(sx, ex) < low_x or min(sx, ex) > high_x or max(sy, ey) < low_y
+                    or min(sy, ey) > high_y):  # the boxes apart: no hit
+                out[i, j] = False
+                continue
+            hit = _inside(sx, sy, polygon)
+            a = 0
+            while not hit and a < m:
+                b = (a + 1) % m
+                hit = _segments_cross(sx, sy, ex, ey, polygon[a, 0], polygon[a, 1], polygon[b, 0], polygon[b, 1])
+                a += 1
+            out[i, j] = hit
+    return out
+
+
+@njit(cache=True)
 def separation(first, second):
     """Signed separation of convex polygons per sample (see ``packaging._separation``)."""
 

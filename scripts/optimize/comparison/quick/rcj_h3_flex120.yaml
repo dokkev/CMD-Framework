@@ -1,6 +1,6 @@
 # Quick run: the study's rcj_h3_flex120, 1 seed x 300 generations (figure drafts, not results).
 base: ../rcj_h3_flex120.yaml
-output: output/comparison_quick
+output: output/comparison_quick2
 solver:
   optimizer:
     generations: 300

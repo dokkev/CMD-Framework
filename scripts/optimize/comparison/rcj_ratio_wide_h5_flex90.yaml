@@ -1,0 +1,19 @@
+# Mechanism comparison: rcj, ratio_wide, interfaces 5 mm thick, 90 deg required (make_configs.py).
+mechanism: rcj
+base: base.yaml
+goal:
+  motion:
+    dip_flexion_deg: 90
+  pads:
+    proximal:
+      height_mm: 5
+    distal:
+      height_mm: 5
+  link:
+    proximal_length_ratio: [0.25, 0.65]
+    distal_length_ratio: [0.25, 0.65]
+solver:
+  optimizer:
+    population: 200
+    generations: 600
+    seeds: [0, 1, 2]

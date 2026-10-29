@@ -56,8 +56,8 @@ from core.optimization.revolute.evaluate import (
     RevoluteEvaluation,
     _between_samples,
     carrier_local,
-    fold_free,
     hyperextension_violation,
+    usable_lengths,
 )
 
 
@@ -195,6 +195,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
     # |OA|, BC and |AB| = 2r as shares of |OC|, as the linkage's.
     oa += goal.length_ratio_violations(geo.a_x_mm, geo.bc_length_mm, 2.0 * r, geo.finger_length_mm)
+    oa += goal.icr0_violations(geo.a_x_mm + r, geo.finger_length_mm)  # the rollers' contact
     static = {
         "extended_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),
         "proximal_length_mm": max(oa, default=0.0),
@@ -256,8 +257,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
-    free = fold_free(geo, phi[window])
-    proximal_usable, distal_usable = float(free["proximal_pad"].min()), float(free["distal_pad"].min())
+    proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "rcj")
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),

@@ -833,6 +833,29 @@ def fold_free_lengths(
     return {"proximal_pad": proximal_length - proximal_hidden, "distal_pad": distal_length - distal_hidden}
 
 
+def fold_hidden_points(face: np.ndarray, other_face: np.ndarray, other_normal: np.ndarray,
+                       points: int) -> np.ndarray:
+    """Which of ``points`` evenly spread points of a face (at the middles of
+    equal pieces, as :func:`probe_blocked` probes) the other face hides in
+    the fold, as :func:`fold_free_lengths` measures it: behind the other face
+    and opposite it. Faces ``(n, 2, 2)``, the other's normal ``(n, 2)``;
+    returns ``(n, points)``."""
+
+    face = np.asarray(face, dtype=float)
+    count = len(face)
+    other_face = np.broadcast_to(np.asarray(other_face, dtype=float), (count, 2, 2))
+    other_normal = np.broadcast_to(np.asarray(other_normal, dtype=float), (count, 2))
+    share = (np.arange(points) + 0.5) / points
+    at = face[:, :1] + share[None, :, None] * (face[:, 1:] - face[:, :1])           # (n, k, 2)
+    g0, g1 = other_face[:, 0], other_face[:, 1]
+    other_length = np.linalg.norm(g1 - g0, axis=1)
+    tg = (g1 - g0) / np.where(other_length > 0.0, other_length, 1.0)[:, None]
+    rel = at - g0[:, None]
+    behind = np.sum(rel * other_normal[:, None], axis=-1) < 0.0
+    along = np.sum(rel * tg[:, None], axis=-1)
+    return behind & (along >= 0.0) & (along <= other_length[:, None])
+
+
 PROBE_STEP_MM = 0.5
 """Spacing of the face points :func:`probe_free_lengths` probes."""
 
@@ -870,26 +893,11 @@ def probe_blocked(face: np.ndarray, normal: np.ndarray, depth_mm: float, polygon
     end = start + depth_mm * normal[:, None]
     start = start + 1e-6 * normal[:, None]  # off the face itself
     blocked = np.zeros((count, points), dtype=bool)
-
-    def cross(a, b):
-        return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
-
-    def crosses(p0, p1, q0, q1):
-        """Whether segments p (n, k, 2) and q (n, 1, 2) cross (touching counts)."""
-
-        d, e = p1 - p0, q1 - q0
-        o1, o2 = cross(d, q0 - p0), cross(d, q1 - p0)
-        o3, o4 = cross(e, p0 - q0), cross(e, p1 - q0)
-        return (o1 * o2 <= 0.0) & (o3 * o4 <= 0.0) & ~((o1 == 0.0) & (o2 == 0.0) & (o3 == 0.0) & (o4 == 0.0))
-
-    for polygon in polygons:
+    start, end = np.ascontiguousarray(start), np.ascontiguousarray(end)
+    # A bar is a polygon of two corners (seen edge on): the probe crosses it or not.
+    for polygon in (*polygons, *segments):
         polygon = np.broadcast_to(np.asarray(polygon, dtype=float), (count, *np.shape(polygon)[-2:]))
-        blocked |= _inside(start, polygon).reshape(count, points)
-        for corner, following in zip(np.moveaxis(polygon, 1, 0), np.moveaxis(np.roll(polygon, -1, axis=1), 1, 0)):
-            blocked |= crosses(start, end, corner[:, None], following[:, None])
-    for segment in segments:
-        segment = np.broadcast_to(np.asarray(segment, dtype=float), (count, 2, 2))
-        blocked |= crosses(start, end, segment[:, None, 0], segment[:, None, 1])
+        blocked |= _kernels.probe_polygon(start, end, _polygons(polygon))
     for centers, radius in disks:
         centers = np.broadcast_to(np.asarray(centers, dtype=float), (count, 2))[:, None]
         d = end - start
@@ -1322,6 +1330,7 @@ def _polygons(array) -> np.ndarray:
 __all__ = [
     "contact_faces",
     "fold_free_lengths",
+    "fold_hidden_points",
     "probe_blocked",
     "probe_contact_lengths",
     "probe_free_lengths",

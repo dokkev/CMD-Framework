@@ -146,6 +146,19 @@ class LinkageConfig:
     """``goal.hardware.pulley_radius_mm``: the envelope of a belt's or a
     tendon's pulley on a joint (the mechanisms that drive one through them);
     ``None``: none given."""
+    icr0_share_bounds: tuple[float | None, float | None] = (None, None)
+    """``goal.link.icr0_share``: where the extended pose's centre of rotation
+    may lie, as a share of ``|OC|`` from ``O`` (``core.optimization.analysis.icr``;
+    the bending-point control runs); ``(None, None)``: anywhere."""
+    integrity_depth_mm: float | None = None
+    """``goal.loss.integrity_depth_mm``: the objective's loss rule
+    (``core.optimization.analysis.loss.integrity_free``): a face's point is
+    lost when, at any pose to the required flexion, it is hidden in the fold
+    or any solid but its own pad lies within this depth in front of it.
+    ``None``: the fold alone, as measured before linkage-v5."""
+    access_depth_mm: float = 20.0
+    """``goal.loss.access_depth_mm``: the depth of the accessibility profile
+    (reports only, not the objective)."""
 
     def __post_init__(self) -> None:
         if self.packaging.pip_servo_on_a:
@@ -204,7 +217,8 @@ class LinkageConfig:
                      "curl": 180.0 - math.degrees(self.required_rom_rad),
                      "finger_length": self.extended_length_bounds_mm[1]}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
-        for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm"):
+        for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
+                     "integrity_depth_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
@@ -358,6 +372,18 @@ class LinkageConfig:
                                        None if high is None else value - high * finger_mm) if v is not None]
         return violations
 
+    def icr0_violations(self, icr_x_mm: float | None, finger_mm: float) -> list[float]:
+        """How far (mm) the extended centre of rotation at ``icr_x_mm`` lies
+        outside ``goal.link.icr0_share`` of ``|OC|`` (none: ``finger_mm``)."""
+
+        low, high = self.icr0_share_bounds
+        if low is None and high is None:
+            return []
+        if icr_x_mm is None or not math.isfinite(icr_x_mm):
+            return [finger_mm]
+        return [v for v in (None if low is None else low * finger_mm - icr_x_mm,
+                            None if high is None else icr_x_mm - high * finger_mm) if v is not None]
+
     def within_share(self, bounds: tuple[float, float], ratio: tuple[float | None, float | None]) -> tuple[float, float]:
         """``bounds`` (mm) narrowed to what a share ``ratio`` of ``|OC|`` allows
         over the finger's range: a search box (the share itself is a constraint)."""
@@ -378,7 +404,11 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     tree.done()
     motion, pads, link = goal.table("motion"), goal.table("pads"), goal.table("link")
     hardware, collision = goal.table("hardware"), goal.table("collision")
+    loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, the fold alone
     goal.done()
+    integrity_depth = loss.values.pop("integrity_depth_mm", None)
+    access_depth = float(loss.values.pop("access_depth_mm", 20.0))
+    loss.done()
     angles = {name: math.radians(float(motion.take(name)))
               for name in ("dip_flexion_deg", "hyperextension_deg")}
     motion.done()
@@ -400,6 +430,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     span_ratio = _range(link.values.pop("joint_span_ratio", [None, None]), "goal.link.joint_span_ratio")
     proximal_ratio = _range(link.take("proximal_length_ratio"), "goal.link.proximal_length_ratio")
     distal_ratio = _range(link.take("distal_length_ratio"), "goal.link.distal_length_ratio")
+    icr0_share = _range(link.values.pop("icr0_share", [None, None]), "goal.link.icr0_share")  # optional
     angle_low, angle_high = _range(link.take("transmission_angle_deg"), "goal.link.transmission_angle_deg")
     symmetric = link.take("symmetric_four_bar")
     if not isinstance(symmetric, bool):
@@ -564,6 +595,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         proximal_overhang_max_mm=overhangs["proximal"],
         distal_overhang_max_mm=overhangs["distal"],
         pulley_radius_mm=None if pulley is None else float(pulley),
+        icr0_share_bounds=icr0_share,
+        integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
+        access_depth_mm=access_depth,
     )
 
 
@@ -638,7 +672,7 @@ def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
 
 TUPLE_FIELDS = ("transmission_angle_range_rad", "extended_length_bounds_mm", "proximal_length_bounds_mm",
                 "joint_span_bounds_mm", "proximal_length_ratio_bounds", "distal_length_ratio_bounds",
-                "joint_span_ratio_bounds",
+                "joint_span_ratio_bounds", "icr0_share_bounds",
                 "objectives", "seeds", "warm_start")
 
 

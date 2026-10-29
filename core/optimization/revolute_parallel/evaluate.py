@@ -36,9 +36,9 @@ from core.optimization.revolute.evaluate import (
     RevoluteGeometry,
     _between_samples,
     _margins as revolute_margins,
-    fold_free,
     geometry as revolute_geometry,
     hyperextension_violation,
+    usable_lengths,
 )
 from core.optimization.revolute.config import VARIABLE_NAMES as REVOLUTE_NAMES
 from core.optimization.revolute_parallel.config import VARIABLE_NAMES, ParallelConfig
@@ -100,6 +100,7 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     oa = [value for value in (None if oa_low is None else oa_low - joint.a_x_mm,
                               None if oa_high is None else joint.a_x_mm - oa_high) if value is not None]
     oa += goal.length_ratio_violations(joint.a_x_mm, joint.ac_length_mm, 0.0, joint.finger_length_mm)
+    oa += goal.icr0_violations(joint.a_x_mm, joint.finger_length_mm)  # the pin A
     static = {
         "extended_length_mm": max(length_low - joint.finger_length_mm, joint.finger_length_mm - length_high),
         "proximal_length_mm": max(oa, default=0.0),
@@ -151,8 +152,7 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     failing = unsafe | (tip_x < 0.0)
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
-    free = fold_free(joint, phi[window])
-    proximal_usable, distal_usable = float(free["proximal_pad"].min()), float(free["distal_pad"].min())
+    proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "revolute_parallel")
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
     constraints = {
         **static,

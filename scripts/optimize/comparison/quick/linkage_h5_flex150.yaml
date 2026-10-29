@@ -1,6 +1,6 @@
 # Quick run: the study's linkage_h5_flex150, 1 seed x 300 generations (figure drafts, not results).
 base: ../linkage_h5_flex150.yaml
-output: output/comparison_quick
+output: output/comparison_quick2
 solver:
   optimizer:
     generations: 300

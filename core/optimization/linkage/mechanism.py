@@ -113,9 +113,17 @@ def resolve_preset(values: dict[str, Any]) -> str | None:
     return str(name)
 
 
+def icr0_share_of(p: FingerLinkageParameters, finger_length_mm: float) -> float:
+    """The extended centre of rotation's share of ``|OC|`` (NaN: the bars parallel)."""
+
+    found = search.extended_icr_x((p.a_x_mm, p.a_z_mm), (p.ap.x_mm, p.ap.z_mm), (p.b_x_mm, p.b_z_mm),
+                                  (p.bp.x_mm, p.bp.z_mm))
+    return math.nan if found is None else float(found) / finger_length_mm
+
+
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v4"
+    formulation = "linkage-v5"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -124,7 +132,11 @@ class LinkageMechanism(Mechanism):
     segment hides (``packaging.fold_free_lengths``; v3 crossed the faces'
     endless lines, which, barely flexed, could hide a whole face), and,
     optional in the goal, the pads' drops searched (``goal.pads.*.drop_mm``)
-    and their overhang past their body limited (``overhang_max_mm``)."""
+    and their overhang past their body limited (``overhang_max_mm``). v5
+    (2026-10-29): optional in the goal, the integrity rule
+    (``goal.loss.integrity_depth_mm``): a face's point is lost when hidden in
+    the fold or with any solid but its own pad within the depth in front, at
+    any pose to the required flexion; absent, v4's measure."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -229,6 +241,7 @@ class LinkageMechanism(Mechanism):
             "distal_usable_length_mm": e.distal_usable_length_mm,
             "torque_ratio_min": e.torque_ratio_min,
             "finger_length_mm": e.finger_length_mm,
+            "icr0_share": icr0_share_of(e.parameters, e.finger_length_mm),
             "required_proximal_mm": e.required_proximal_mm,
             "required_distal_mm": e.required_distal_mm,
             "phi_max_deg": math.degrees(e.phi_max_rad),

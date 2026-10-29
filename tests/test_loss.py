@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.morphology.linkage.packaging import contact_faces, fold_free_lengths
-from core.optimization.analysis.loss import CATEGORIES, face_loss, intrusion_mm, scene
+from core.morphology.linkage.packaging import contact_faces, fold_free_lengths, fold_hidden_points
+from core.optimization.analysis.loss import CATEGORIES, face_loss, integrity_free, intrusion_mm, scene
 from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 
@@ -83,3 +83,121 @@ def test_the_intrusion_is_the_least_depth_that_hides_something():
         one.solids = only
         assert face_loss(one, "probe", depth)["proximal_pad"].lost[0] > 0.0
         assert face_loss(one, "probe", depth - 0.5)["proximal_pad"].lost[0] == pytest.approx(0.0)
+
+
+def test_the_fold_points_measure_the_fold():
+    config = config_of("revolute_idealized")
+    built = scene("revolute_idealized", config, DESIGNS["revolute_idealized"], PHI)
+    (pf, pn), (df, dn) = built.faces["proximal_pad"], built.faces["distal_pad"]
+    free = fold_free_lengths(pf, pn, df, dn)
+    for face, other, normal, side in ((pf, df, dn, "proximal_pad"), (df, pf, pn, "distal_pad")):
+        length = np.linalg.norm(face[:, 1] - face[:, 0], axis=1)
+        hidden = fold_hidden_points(face, other, normal, 400)
+        assert length * (1.0 - hidden.mean(axis=1)) == pytest.approx(free[side], abs=2 * length.max() / 400)
+
+
+@pytest.mark.parametrize("name", list(DESIGNS))
+def test_integrity_keeps_what_no_pose_loses(name):
+    built = scene(name, config_of(name), DESIGNS[name], PHI)
+    (pf, pn), (df, dn) = built.faces["proximal_pad"], built.faces["distal_pad"]
+    fold = fold_free_lengths(pf, pn, df, dn)
+    shallow, deep = integrity_free(built, 0.0), integrity_free(built, 3.0)
+    for side in ("proximal_pad", "distal_pad"):
+        # Depth 0: the fold at its worst pose (to the probe's spacing); deeper: no more kept.
+        assert shallow[side] <= float(fold[side].min()) + 0.5
+        assert deep[side] <= shallow[side] + 1e-9
+        # A point any one pose's probe loses is lost to the whole motion.
+        assert deep[side] <= float(face_loss(built, "probe", 3.0)[side].free.min()) + 1e-9
+
+
+def test_the_loss_depths_are_read_from_the_goal():
+    base = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", OVERRIDES)[0]
+    assert base.integrity_depth_mm is None and base.access_depth_mm == 20.0
+    given = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
+                      (*OVERRIDES, "goal.loss.integrity_depth_mm=3", "goal.loss.access_depth_mm=15"))[0]
+    assert given.integrity_depth_mm == 3.0 and given.access_depth_mm == 15.0
+    with pytest.raises(ValueError):
+        load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
+                  (*OVERRIDES, "goal.loss.integrity_depth_mm=-1"))
+    with pytest.raises(ValueError):
+        load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
+
+
+COMPARISON = CONFIGS / "comparison"
+FEASIBLE = {
+    "revolute": (51.1, 48.9, 41.6, 18.7, 0.0, 0.0, 90.0),
+    "revolute_parallel": (54.6, 45.1, 51.6, 18.7, 0.0, 0.0, 49.0, 16.4, 23.4),
+    "revolute_idealized": (53.1, 46.9, 50.1, 18.7, 0.0, 0.0, 0.0),
+    "rcj": (47.5, 9.5, 33.5, 43.7, 8.5, 4.3, 9.5),
+    "linkage": (35.0, 68.0, 0.0, 39.7, 11.6, 61.9, 10.7, 70.0, 32.0, 0.0, 19.4, -3.1, 0.0, 0.0, 3.0, 3.0),
+}
+"""Each mechanism's best of the comparison's quick runs at 5 mm, 150 deg (feasible there)."""
+
+
+def comparison_config(name, *overrides):
+    from core.optimization.mechanism import read_config_file
+
+    values = read_config_file(COMPARISON / f"{name}_h5_flex150.yaml", overrides)
+    found = mechanism(values.pop("mechanism"))
+    values.pop("output")
+    values, _ = found.split_settings(values)
+    return found, found.config_from_mapping(values)
+
+
+@pytest.mark.parametrize("name", list(FEASIBLE))
+def test_every_evaluator_keeps_the_integrity_rules_length(name):
+    found, config = comparison_config(name)
+    goal = getattr(config, "goal", config)
+    assert goal.integrity_depth_mm == 3.0  # the comparison's
+    evaluation = found.evaluate(FEASIBLE[name], config)
+    assert evaluation.feasible
+    phi = np.arange(0.0, np.degrees(goal.required_rom_rad) + 1e-9, 1.0)
+    kept = integrity_free(scene(name, config, FEASIBLE[name], phi), 3.0)
+    assert evaluation.proximal_usable_length_mm == pytest.approx(kept["proximal_pad"], abs=1.0)
+    assert evaluation.distal_usable_length_mm == pytest.approx(kept["distal_pad"], abs=1.0)
+    # The fold alone (no depth) keeps at least as much.
+    _, fold = comparison_config(name, "goal.loss.integrity_depth_mm=null")
+    plain = found.evaluate(FEASIBLE[name], fold)
+    assert evaluation.proximal_usable_length_mm <= plain.proximal_usable_length_mm + 0.5
+    assert evaluation.distal_usable_length_mm <= plain.distal_usable_length_mm + 0.5
+
+
+def test_the_probe_meets_what_stands_within_its_depth():
+    from core.morphology.linkage.packaging import probe_blocked
+
+    face = np.array([[[0.0, 0.0], [10.0, 0.0]]] * 2)
+    normal = np.array([0.0, -1.0])
+    square = np.array([[3.0, -2.0], [5.0, -2.0], [5.0, -4.0], [3.0, -4.0]])  # 2 mm in front of x 3-5
+    bar = np.array([[7.0, -1.0], [9.0, -1.5]])                              # 1-1.5 mm in front of x 7-9
+    disk = (np.array([1.0, -3.0]), 0.5)                                     # 2.5-3 mm in front of x 0.5-1.5
+    # The bar from x 7 to 7.8 within 1.2 mm, all of it within 1.6; at 2.6 the
+    # square too and the disk where |x - 1| <= 0.3.
+    for depth, share in ((0.5, 0.0), (1.2, 0.08), (1.6, 0.2), (2.6, 0.46)):
+        length, blocked = probe_blocked(face, normal, depth, [square], [bar], [disk], step_mm=0.1)
+        assert length == pytest.approx(10.0)
+        assert blocked.mean(axis=1) == pytest.approx(share, abs=0.011)
+    # A point inside a solid is blocked at any depth; one behind the face is not.
+    _, blocked = probe_blocked(face, normal, 0.0, [square - (0.0, -3.0)], step_mm=0.1)
+    assert blocked.mean() == pytest.approx(0.2, abs=0.011)
+    _, blocked = probe_blocked(face, normal, 5.0, [square * (1.0, -1.0)], step_mm=0.1)
+    assert not blocked.any()
+
+
+def test_the_thickness_spans_the_fingers_own_solids():
+    from core.optimization.analysis.loss import thickness_mm
+
+    found, config = comparison_config("revolute_idealized")
+    x = FEASIBLE["revolute_idealized"]
+    built = scene("revolute_idealized", config, x, [0.0])
+    dorsal, palmar = thickness_mm(built)
+    names = found.variable_names
+    drops = max(x[names.index("proximal_drop_mm")], x[names.index("distal_drop_mm")])
+    # Palmar: the lower pad's face; dorsal: A's pin housing or the distal pad's
+    # carrier on its top face (no servo; the MCP servo in the palm).
+    packaging = config.goal.packaging
+    assert palmar == pytest.approx(-(drops + 5.0))
+    assert dorsal == pytest.approx(max(packaging.pivot_radius_mm("a"), packaging.distal_carrier_height_mm
+                                       - x[names.index("distal_drop_mm")]))
+    _, with_servo = comparison_config("revolute")
+    dorsal_servo, _ = thickness_mm(scene("revolute", with_servo, FEASIBLE["revolute"], [0.0]))
+    assert dorsal_servo > dorsal + 10.0

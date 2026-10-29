@@ -108,3 +108,57 @@ def test_the_convergence_curve_is_the_running_best_per_generation():
     assert list(curve.evaluations) == [10, 20, 30, 40, 50]
     assert curve.generation_within(0.01) == 4
     assert curve.gain_after(0.6) == pytest.approx(0.05)
+
+
+@pytest.mark.parametrize("label, field, value", [
+    ("ratio_wide", ("proximal_length_ratio_bounds", "distal_length_ratio_bounds"), (0.25, 0.65)),
+    ("icr_control", ("icr0_share_bounds",), (0.45, 0.55)),
+])
+def test_each_check_differs_from_the_grid_only_in_its_bounds(label, field, value):
+    import dataclasses
+
+    names = MECHANISMS if label == "ratio_wide" else ("rcj", "linkage")
+    for name in names:
+        found, checked, settings, output = load(STUDY / f"{name}_{label}_h5_flex120.yaml")
+        _, plain, plain_settings, plain_output = load(STUDY / f"{name}_h5_flex120.yaml")
+        goal, plain_goal = goal_of(found, checked), goal_of(found, plain)
+        assert all(getattr(goal, f) == value for f in field)
+        assert dataclasses.replace(goal, **{f: getattr(plain_goal, f) for f in field}) == plain_goal
+        assert (settings, output) == (plain_settings, plain_output)
+
+
+def test_the_extended_lengths_add_up_to_the_finger():
+    # A_z = B_z = 0: |OA| + |AB| + BC = |OC| in the extended pose, every mechanism.
+    from core.optimization.linkage.design import decode
+    from core.optimization.linkage.evaluate import finger_length_mm
+    from core.optimization.rcj.config import finger_length_mm as rcj_length
+
+    p = decode((35.0, 68.0, 0.0, 39.7, 11.6, 61.9, 10.7, 70.0, 32.0, 0.0, 19.4, -3.1, 0.0, 0.0, 3.0, 3.0), 0.1)
+    assert p.a_x_mm + (p.b_x_mm - p.a_x_mm) + p.bc_length_mm == pytest.approx(finger_length_mm(p))
+    assert 47.5 + 2 * 9.5 + 33.5 == pytest.approx(rcj_length(47.5, 9.5, 33.5))
+
+
+@pytest.mark.parametrize("name, x, icr_x", [
+    # The RCJ's centre at A + r: 47.5 + 9.5 = 57 of |OC| 100, 2 mm past 0.55.
+    ("rcj", (47.5, 9.5, 33.5, 43.7, 8.5, 4.3, 9.5), 57.0),
+    # The linkage's where A-B' and A'-B cross.
+    ("linkage", (35.0, 68.0, 0.0, 39.7, 11.6, 61.9, 10.7, 70.0, 32.0, 0.0, 19.4, -3.1, 0.0, 0.0, 3.0, 3.0), None),
+])
+def test_the_icr_control_holds_the_extended_centre_of_rotation(name, x, icr_x):
+    from core.optimization.analysis.icr import icr0_x_mm
+
+    found, config, *_ = load(STUDY / f"{name}_icr_control_h5_flex150.yaml")
+    _, plain, *_ = load(STUDY / f"{name}_h5_flex150.yaml")
+    evaluation, free = found.evaluate(x, config), found.evaluate(x, plain)
+    found_x = icr0_x_mm(name, x, found.variable_names)
+    if icr_x is not None:
+        assert found_x == pytest.approx(icr_x)
+    length = evaluation.finger_length_mm
+    outside = max(0.45 * length - found_x, found_x - 0.55 * length)
+    # The report's from the design as built (the links' lengths on their 0.1 mm grid).
+    assert found.report(evaluation)["icr0_share"] == pytest.approx(found_x / length, abs=1e-3)
+    column = "proximal_length_mm"
+    if outside > 0.0:
+        assert evaluation.constraints[column] == pytest.approx(max(outside, free.constraints[column]))
+    else:
+        assert evaluation.constraints[column] == pytest.approx(free.constraints[column])

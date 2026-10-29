@@ -154,8 +154,9 @@ def main(argv: list[str]) -> int:
     pending.axis("off")
     pending.text(0.5, 0.5, "(c) interface envelope\nat fixed morphology\n\npending its definition\n(Checkpoint C)",
                  ha="center", va="center", color=MUTED, fontsize=9, transform=pending.transAxes)
-    figure.suptitle(f"PROVISIONAL: {table[0]['source']} (one seed each, unconverged), loss rule "
-                    f"{table[0]['loss_rule']}", color=COLLIDE, fontsize=8.5, x=0.01, ha="left")
+    rule = next((r["loss_rule"] for r in table if r.get("loss_rule")), "?")
+    figure.suptitle(f"PROVISIONAL: {table[0]['source']} (one seed each, unconverged), loss rule {rule}",
+                    color=COLLIDE, fontsize=8.5, x=0.01, ha="left")
     out = save(figure, f"fig_scientific_h{height}_flex{flexion}")
     heights, flexions = sorted(STUDY.THICKNESSES_MM), sorted(STUDY.FLEXIONS_DEG)
     with out.with_suffix(".csv").open("w", encoding="utf-8", newline="") as stream:

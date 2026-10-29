@@ -8,7 +8,7 @@ most pad coverage of the collected table, ``visualize.paper.collect``; its
 ``k_max`` and extended centre of rotation's share of |OC| by the label).
 Columns 1-3: extended, half the required flexion and the required flexion,
 one scale, O aligned; each contact face green where an object
-ACCESS_DEPTH_MM deep reaches it, red hatched where something stands closer
+``goal.loss.access_depth_mm`` deep reaches it, red x where something stands closer
 in front (the accessibility profile, ``core.optimization.analysis.loss``);
 the centre of rotation's path from extension, dotted (a fixed pivot's: a
 point). Column 4: the finger's length, unfolded: the faces kept through the
@@ -52,11 +52,11 @@ def design_row(entry: dict) -> tuple[dict[str, str], Path]:
     return row, config_dir
 
 
-def faces_by_access(axis, built, index: int) -> None:
+def faces_by_access(axis, built, index: int, depth_mm: float) -> None:
     """Each face's probed points, green where reached, red where not."""
 
     for side in ("proximal_pad", "distal_pad"):
-        points, blocked = access_points(built, side, ACCESS_DEPTH_MM)
+        points, blocked = access_points(built, side, depth_mm)
         p, b = points[index], blocked[index]
         axis.plot(p[~b, 0], p[~b, 1], linestyle="none", marker="s", markersize=2.2, color=USABLE, zorder=6)
         axis.plot(p[b, 0], p[b, 1], linestyle="none", marker="x", markersize=3.0, color=LOST, zorder=6)
@@ -72,6 +72,8 @@ def main(argv: list[str]) -> int:
     figure, axes = plt.subplots(len(MECHANISMS), 4, figsize=(11.5, 2.15 * len(MECHANISMS)), squeeze=False,
                                 gridspec_kw={"width_ratios": (1, 1, 1, 1.35)}, constrained_layout=True)
     out_rows = []
+    rule = next((r["loss_rule"] for r in table if r.get("loss_rule")), "?")
+    depth = next((r["access_depth_mm"] for r in table if r.get("access_depth_mm")), ACCESS_DEPTH_MM)
     for row_axes, mechanism in zip(axes, MECHANISMS):
         entry = next((r for r in table if r["mechanism"] == mechanism), None)
         for axis in row_axes[:3]:
@@ -88,7 +90,7 @@ def main(argv: list[str]) -> int:
         built = scene(mechanism, finger.config, finger.x, poses)
         for index, (axis, pose) in enumerate(zip(row_axes[:3], poses)):
             finger.draw(axis, pose)
-            faces_by_access(axis, built, index)
+            faces_by_access(axis, built, index, depth)
             if pose > 0.0:
                 path = finger.icr(np.linspace(0.0, pose, 61))
                 sketch.icr_path(axis, path, size=14, linewidth=1.1)
@@ -116,21 +118,21 @@ def main(argv: list[str]) -> int:
         strip.set_xlabel("unfolded finger [mm]" if mechanism == MECHANISMS[-1] else "", color=INK)
         for side in ("top", "right", "left"):
             strip.spines[side].set_visible(False)
-        access = entry.get(f"access_lost_pct_at_flexion_d{ACCESS_DEPTH_MM:g}")
+        access = entry.get("access_lost_pct_at_flexion")
         strip.text(0.0, -0.75, f"P {proximal:.0f} + D {distal:.0f} mm kept to {flexion}°\n"
-                   f"at {flexion}°: {access:.0f}% out of reach ({ACCESS_DEPTH_MM:g} mm object)",
+                   f"at {flexion}°: {access:.0f}% out of reach ({depth:g} mm object)",
                    color=MUTED, fontsize=7, va="center")
         out_rows.append({**{k: entry[k] for k in ("mechanism", "coverage_pct", "proximal_mm", "distal_mm", "k_max",
                                                     "icr0_share", "finger_length_mm", "run", "candidate",
                                                     "source", "loss_rule")},
-                         "lost_to_motion_mm": motion, f"access_lost_pct_d{ACCESS_DEPTH_MM:g}": access,
+                         "lost_to_motion_mm": motion, "access_depth_mm": depth, "access_lost_pct": access,
                          "selection": "the most pad coverage of the verified front (one seed, quick run)"})
     handles = next((a.get_legend_handles_labels() for a in axes[:, 3] if a.get_legend_handles_labels()[0]), None)
     if handles:
         figure.legend(*handles, loc="outside lower right", ncol=4, frameon=False, fontsize=7)
-    figure.suptitle(f"PROVISIONAL: quick runs, loss rule {table[0]['loss_rule'] if table else '?'}\n"
+    figure.suptitle(f"PROVISIONAL: quick runs, loss rule {rule}\n"
                     f"Interfaces {height} mm thick, {flexion}° required, |OC| 100 mm. Faces: green reachable, "
-                    f"red x out of reach of a {ACCESS_DEPTH_MM:g} mm object; dotted: centre of rotation",
+                    f"red x out of reach of a {depth:g} mm object; dotted: centre of rotation",
                     color=COLLIDE, fontsize=8, x=0.01, ha="left")
     out = save(figure, f"fig_visual_h{height}_flex{flexion}")
     with out.with_suffix(".csv").open("w", encoding="utf-8", newline="") as stream:

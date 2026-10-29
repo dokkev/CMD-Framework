@@ -9,6 +9,7 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from core.optimization.analysis.icr import icr0_share
 from core.optimization.linkage.config import config_from_goal, config_from_json, config_to_json
 from core.optimization.linkage.mechanism import MECHANISM as LINKAGE, OBJECTIVES, bound_hits_of
 from core.optimization.mechanism import Mechanism
@@ -27,7 +28,7 @@ def bound_hits(x: Sequence[float], config: RevoluteConfig, finger_length_mm: flo
 
 class RevoluteMechanism(Mechanism):
     name = "revolute"
-    formulation = "revolute-goal-v4"
+    formulation = "revolute-goal-v5"
     """The 2R on the linkage's goal (2026-10-26): direct drive at ``A``
     (``k = 1``), the distal servo on ``A`` laid back along ``-X``;
     v2: the distal pad's drop searched, the distal phalanx a truss of links;
@@ -36,7 +37,8 @@ class RevoluteMechanism(Mechanism):
     v4 (2026-10-28): ``|OA|`` and ``BC`` held to the goal's shares of ``|OC|``
     (``goal.link.*_ratio``), as the linkage's; the faces less what the other
     hides in the fold, the distal pad's carrier against the servo and the
-    hyperextension checked (the linkage's v4 rules)."""
+    hyperextension checked (the linkage's v4 rules); v5 (2026-10-29):
+    the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -95,6 +97,7 @@ class RevoluteMechanism(Mechanism):
             "distal_effective_mm": e.distal_effective_mm,
             "mounted_coverage": e.mounted_coverage,
             "finger_length_mm": e.finger_length_mm,
+            "icr0_share": icr0_share(self.name, e.x, self.variable_names, e.finger_length_mm),
             "phi_max_deg": math.degrees(e.phi_max_rad),
             "safe_reach_deg": math.degrees(e.phi_safe_rad),
             "stop_reason": e.stop_reason,
@@ -121,11 +124,11 @@ class RevoluteMechanism(Mechanism):
 
 class IdealizedRevoluteMechanism(RevoluteMechanism):
     name = "revolute_idealized"
-    formulation = "revolute-idealized-goal-v3"
+    formulation = "revolute-idealized-goal-v4"
     """The 2R without its distal servo (2026-10-27): driven from elsewhere,
     only ``A``'s pin at the joint; the kinematic bound of a fixed pivot.
     v3 (2026-10-28): the goal's link shares, the fold, the carrier and the
-    hyperextension, as the 2R's v4."""
+    hyperextension, as the 2R's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5."""
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> RevoluteConfig:
         return RevoluteConfig.from_goal(config_from_goal(values), joint_servo=False)

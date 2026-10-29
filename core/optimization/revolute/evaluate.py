@@ -184,6 +184,22 @@ def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
     return fold_free_lengths(*contact_faces(geo, np.atleast_1d(phi_rad)))
 
 
+def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[float, float]:
+    """Each face's length kept through the flexions ``phi`` (the window to
+    the required flexion): less the fold at each, or with
+    ``goal.integrity_depth_mm`` the integrity rule
+    (``core.optimization.analysis.loss.integrity_free``) over the
+    ``mechanism``'s solids."""
+
+    if goal.integrity_depth_mm is None:
+        free = fold_free(getattr(geo, "joint", geo), phi_rad)
+        return float(free["proximal_pad"].min()), float(free["distal_pad"].min())
+    from core.optimization.analysis.loss import integrity_free, joint_scene
+
+    kept = integrity_free(joint_scene(mechanism, geo, goal.packaging, np.degrees(phi_rad)), goal.integrity_depth_mm)
+    return kept["proximal_pad"], kept["distal_pad"]
+
+
 def hyperextension_violation(geo, config, margins_of) -> float:
     """How deep (mm) any checked pair overlaps while the joint hyperextends
     to ``goal.motion.hyperextension_deg`` (0: all clear), on the servo grid."""
@@ -273,6 +289,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
     # |OA| and BC (|AC|: no span) as shares of |OC|, as the linkage's.
     oa += goal.length_ratio_violations(geo.a_x_mm, geo.ac_length_mm, 0.0, geo.finger_length_mm)
+    oa += goal.icr0_violations(geo.a_x_mm, geo.finger_length_mm)  # the pin A
     # In stages by cost (as the linkage's): lengths and the pads' room, then
     # the servos, then the pads' polygons; a failing stage leaves the rest unchecked.
     static = {
@@ -330,8 +347,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
-    free = fold_free(geo, phi[window])
-    proximal_usable, distal_usable = float(free["proximal_pad"].min()), float(free["distal_pad"].min())
+    proximal_usable, distal_usable = usable_lengths(
+        geo, phi[window], goal, "revolute" if config.joint_servo else "revolute_idealized")
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
@@ -442,4 +459,4 @@ def _between_samples(geo: RevoluteGeometry, phi: np.ndarray, margins: dict[tuple
 
 
 __all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "RevoluteGeometry", "carrier_local", "contact_faces",
-           "evaluate", "fold_free", "geometry", "hyperextension_violation"]
+           "evaluate", "fold_free", "geometry", "hyperextension_violation", "usable_lengths"]

@@ -40,8 +40,8 @@ PHI_DEG = np.arange(0.0, 150.0 + 1e-9, 5.0)
 SHADES = ("#d9e6f5", "#b3cdeb", "#86b0de", "#5590cf", "#2a6fc4", "#0b3d80")
 """One hue, light to dark with the depth."""
 CATEGORY_COLORS = {"other_pad": "#2a78d6", "carrier": "#8a5cd1", "link": "#eb6834", "pin": "#c9a227",
-                   "servo": "#5b6b7f", "pulley": "#d63d8f", "roller": "#1f9e74"}
-HARDWARE = ("carrier", "link", "pin", "servo", "pulley", "roller")
+                   "servo": "#5b6b7f", "mcp_servo": "#9aa5b4", "pulley": "#d63d8f", "roller": "#1f9e74"}
+HARDWARE = ("carrier", "link", "pin", "servo", "mcp_servo", "pulley", "roller")
 
 
 def design_of(argument: str):

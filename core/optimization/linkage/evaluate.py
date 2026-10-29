@@ -325,6 +325,13 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         free = fold_free_lengths(*contact_faces(linkage, packaging, sweep.b[window], sweep.c[window]))
     else:
         free = usable_pad_lengths(linkage, packaging, sweep.b[window], sweep.bp[window], sweep.c[window])
+    free = {side: float(lengths.min()) for side, lengths in free.items()}
+    if config.integrity_depth_mm is not None:  # linkage-v5: no solid within the depth in front, at any pose
+        from core.optimization.analysis.loss import integrity_free, linkage_scene
+
+        kept = integrity_free(linkage_scene(linkage, packaging, sweep.b[window], sweep.c[window], sweep.bp[window],
+                                            np.degrees(total[window])), config.integrity_depth_mm)
+        free = kept if packaging.links_clear_pads else {side: min(free[side], kept[side]) for side in free}
 
     constraints = {
         **static,
@@ -332,8 +339,8 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         "hyperextension_deg": hyper_violation,
         "curl_tip_x_mm": -least_tip,
         "pad_usable_mm": max(
-            config.minimum_proximal_support_mm - min(float(free["proximal_pad"].min()), common["proximal_face_mm"]),
-            config.minimum_distal_support_mm - min(float(free["distal_pad"].min()), common["distal_face_mm"])),
+            config.minimum_proximal_support_mm - min(free["proximal_pad"], common["proximal_face_mm"]),
+            config.minimum_distal_support_mm - min(free["distal_pad"], common["distal_face_mm"])),
         "torque_ratio": 0.0 if config.torque_ratio_max is None else ratio - config.torque_ratio_max,
     }
     return LinkageEvaluation(
@@ -359,8 +366,8 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         torque_ratio_min=ratio_min,
         servo_travel_rad=travel,
         pad_clearance_mm=float(reported_pad[n_back:][window].min()),
-        proximal_usable_length_mm=float(free["proximal_pad"].min()),
-        distal_usable_length_mm=float(free["distal_pad"].min()),
+        proximal_usable_length_mm=free["proximal_pad"],
+        distal_usable_length_mm=free["distal_pad"],
         **common,
     )
 
@@ -408,6 +415,10 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
                                            None if span_high is None else span - span_high) if value is not None]
     # |OA| and BC as shares of |OC|, their violations in mm.
     span_violations += config.length_ratio_violations(proximal_length, parameters.bc_length_mm, span, length)
+    # The extended centre of rotation within its share of |OC| (the bending-point control).
+    span_violations += config.icr0_violations(
+        extended_icr_x(*((point.x_mm, point.z_mm) for point in (linkage.a, linkage.ap, linkage.b, linkage.bp))),
+        length)
     # A clears the keep-out at the servo's shaft A'.
     pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
                  -(packaging.pivot_pin_gap_mm(linkage) - clearance))

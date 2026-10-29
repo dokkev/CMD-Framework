@@ -15,7 +15,10 @@ all over [0, flexion]); k and the finger's thickness are reported, not
 limited. Mechanisms named: only theirs written (and run_<mechanism>.sh).
 
 Besides the grid, VARIANTS: conditions run once to check a choice (the
-linkage with its pads held to its links, at the base condition).
+linkage with its pads held to its links, at the base condition); CHECKS:
+the bounds' checks (Task 2) at CHECK_CONDITIONS: the link shares widened
+(the mechanisms' order kept?), and the extended centre of rotation held where
+the 2R's lies (the moving centres' gain kept at the 2R's bending point?).
 """
 
 import sys
@@ -40,6 +43,15 @@ VARIANTS = {"linkage_onlinks": ("linkage", ["  pads:", "    on_links: true"]),
 """Extra configs at BASE_CONDITION, each to check one choice: name:
 (mechanism, lines under goal). The pads held to the linkage's links; no
 overhang past a pad's body (the 2R's pads cannot pass their joint either way)."""
+
+CHECK_CONDITIONS = ((5, 150), (5, 120), (5, 90))
+CHECKS = {
+    "ratio_wide": (MECHANISMS, ["  link:", "    proximal_length_ratio: [0.25, 0.65]",
+                                "    distal_length_ratio: [0.25, 0.65]"]),
+    # The 2R's pin A at 0.45-0.55 of |OC|: its |OA| and BC shares leave it nowhere else.
+    "icr_control": (("rcj", "linkage"), ["  link:", "    icr0_share: [0.45, 0.55]"]),
+}
+"""name: (mechanisms, lines under goal), each run at CHECK_CONDITIONS."""
 
 HERE = Path(__file__).resolve().parent
 STUDY = "comparison"
@@ -97,6 +109,15 @@ def main(argv: list[str]) -> None:
         stem = name(label, *BASE_CONDITION)
         (HERE / f"{stem}.yaml").write_text(config(mechanism, *BASE_CONDITION, label, extra), encoding="utf-8")
         order.setdefault("variants", []).append(stem)
+    for label, (mechanisms, extra) in CHECKS.items():
+        for mechanism in mechanisms:
+            if argv and mechanism not in argv:
+                continue
+            for condition in CHECK_CONDITIONS:
+                stem = name(f"{mechanism}_{label}", *condition)
+                (HERE / f"{stem}.yaml").write_text(config(mechanism, *condition, f"{mechanism}, {label}", extra),
+                                                   encoding="utf-8")
+                order.setdefault(label, []).append(stem)
     header = ["#!/bin/bash", "# Run mechanism comparison configs (make_configs.py).", "set -e",
               'cd "$(dirname "$0")/../../.."']
     scripts = list(order.items()) if argv else [("all", [s for stems in order.values() for s in stems]),
