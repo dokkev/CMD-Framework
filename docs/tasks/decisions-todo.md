@@ -4,7 +4,9 @@
 
 ## 결정됨
 
-### 비교 study (`scripts/optimize/comparison/`)
+### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-10-30: `scripts/optimize/`는 production linkage(`run.py`, `linkage/config.yaml`, `sample_seeds.py`, `select_seeds.py`, `extend_pads.py`)와 `accommodation/`만 남김. `interface_coverage`, `pad_cost`, `pad_tradeoff`, `revolute`(linkage config를 base로 쓰던 한 줄짜리), contact retention(`open_chain_*`, `rolling_contact_joint`, `contact_retention.yaml`), `coverage_by_flexion.py` 삭제. 이들만 읽던 figure(`visualize/studies.py`, `paper/fig_{coverage,2r,cost,mechanisms}.py`, `study/{pad_cost,pad_tradeoff,retention}.py`, `comparison/pad_fit.py`)와 `tests/test_contact_retention.py`도 삭제.
+- 2026-10-30: 코드베이스 정리로 study 폴더와 이를 모으던 paper pipeline(`visualize/paper/{collect,build,fig_scientific,fig_visual}.py`), `tests/test_comparison_study.py` 삭제. 이를 config로 쓰던 테스트와 `visualize/comparison/modules.py`는 `scripts/optimize/accommodation/`의 config로 옮김. 아래는 기록용.
 - production linkage study와 분리. `base.yaml`이 goal을 고정: nsga2, population 200, seeds [0, 1, 2], 출력 `output/comparison`, proximal pad 하한 20 mm. preset 의존 없음.
 - warm start: 모든 메커니즘이 쓰지 않음 (linkage seed 상속 금지).
 - linkage는 `on_links: false`. 기준 조건(h10, φ150)에 `on_links: true` 변형 run (`linkage_onlinks`).
@@ -78,13 +80,12 @@
 
 ## TODO (구현)
 - [ ] integrity D 결정 후: `loss.integrity_depth_mm` / `loss.access_depth_mm` config 키, 모든 evaluator에 integrity 연결 (formulation 버전 업), 테스트.
-- [ ] 진단 run 재실행 준비: h5/φ150, h10/φ150 (`scripts/optimize/comparison/budget/`). 출력 폴더 guard 때문에 새 폴더 사용. 보고: 수렴 곡선, run best vs 0.05° verified 차이 (메커니즘별).
 - [ ] 동점 front 중복 제거 검토 (단일 목적 front의 0.05° 검증이 느림).
 - [ ] Task 2: bound 분류 표, evaluator의 ICR₀ 보고, extended / ICR-control run, tilt 90° 상한 = 두께 공짜 사용 여부, best 설계의 dorsal–palmar 두께 → CP2.
 - [ ] Task 4: 4a 대칭 모드 closed-form 테스트, 4b 대칭 통계(production 조건 명시), 4c free vs symmetric, 4d v0 후보(margin, CAD 좌표 0.1 mm grid) → CP4.
 - [ ] Task 3: 3a revolute_tendon (r_pulley, t_route placeholder는 사용자가 정함), 3b 3R 결정 목록 → CP3.
 - [ ] Task 5: 5a analytic overlay, 5b h_b(φ), 5c tolerance Monte Carlo (±0.1 mm × 500), 5d minimal-change 재최적화.
-- [ ] Task 6 / paper figures: full run 결과로 `visualize.paper.build output/comparison`, PROVISIONAL 해제.
+- [ ] Task 6 / paper figures: 비교 study 삭제로 `visualize.paper.build` pipeline도 없음. accommodation 기준으로 다시 정함.
 - [ ] 최종 보고서 `docs/figures/paper-figures.md`. 포함할 것: parallelogram φ > 120° 불가, v3 → v4 규칙 변경, production front v4 재검증에서 coverage 상승 (+0.96%p, 전부 endless line → segment 효과), belt pulley outer layer.
 
 ## 관찰 (provisional, 인용 금지)

@@ -144,7 +144,7 @@ def main(argv: list[str]) -> int:
     finger = float(argv[0]) if argv else 100.0
     proximal = float(argv[1]) if len(argv) > 1 else 36.0
     distal = float(argv[2]) if len(argv) > 2 else 28.0
-    config, _ = load_yaml(mechanism("revolute"), REPOSITORY_ROOT / "scripts/optimize/revolute/config.yaml", [])
+    config, _ = load_yaml(mechanism("revolute"), REPOSITORY_ROOT / "scripts/optimize/linkage/config.yaml", [])
     packaging = config.goal.packaging
     design = search(finger, proximal, distal, packaging)
     if design is None:

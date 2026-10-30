@@ -23,7 +23,7 @@ with the proximal one, the servo tilted as the linkage's)."""
 
 
 def load(*overrides: str):
-    return load_yaml(MECHANISM, ROOT / "revolute" / "config.yaml", (*PINNED, *overrides))[0]
+    return load_yaml(MECHANISM, ROOT / "linkage" / "config.yaml", (*PINNED, *overrides))[0]
 
 
 def test_it_reads_the_linkage_goal_as_is():
@@ -179,7 +179,7 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     from core.optimization.revolute import geometry
 
     idealized = mechanism("revolute_idealized")
-    config = load_yaml(idealized, ROOT / "revolute" / "config.yaml", PINNED)[0]
+    config = load_yaml(idealized, ROOT / "linkage" / "config.yaml", PINNED)[0]
     assert not config.joint_servo and config.joint_radius_mm == 3.0  # A's pin housing, 6 mm
     assert config.bounds["distal_drop_mm"] == (0.0, 3.0)
     assert config.bounds["servo_tilt_deg"] == (0.0, 0.0)  # no servo to tilt

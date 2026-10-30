@@ -33,7 +33,7 @@ def matched_revolute(finger_mm: float, proximal_mm: float, distal_mm: float):
     its mechanism, config and ``(x, evaluation)``."""
 
     found = mechanism("revolute")
-    config, _ = load_yaml(found, REPOSITORY_ROOT / "scripts/optimize/revolute/config.yaml", [
+    config, _ = load_yaml(found, REPOSITORY_ROOT / "scripts/optimize/linkage/config.yaml", [
         f"goal.pads.proximal.length_mm=[{proximal_mm}, {proximal_mm}]",
         f"goal.pads.distal.length_mm=[{distal_mm}, {distal_mm}]",
         "goal.motion.dip_flexion_deg=10", f"goal.link.finger_length_mm=[40, {finger_mm}]"])

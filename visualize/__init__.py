@@ -10,12 +10,11 @@ Shared pieces:
 - ``gaps``: each checked pair's gap against the flexion
 - ``fronts``: a study's verified fronts (``portfolio_NNN/seeds.csv``) and their runs
 - ``finger``: any mechanism's design behind one interface (pose, gaps, ICR, ``k``, sketch)
-- ``studies``: the comparison studies' grids and best designs
 
 Figures, each run from the repository root as ``python -m visualize.<package>.<module>``:
 
 - ``paper``: the paper's figures (``output/paper/``)
 - ``comparison``: the linkage against the serial 2R and the RCJ (``output/comparison/``)
-- ``study``: a study's fronts (Pareto, retention, pad cost, pad trade-off)
+- ``study``: a study's fronts (Pareto, convergence, accommodation, length budget, loss profile)
 - ``animate``: the 2-DoF finger animated, ``hardware``: the actuator and fingertip models
 """

@@ -1,7 +1,0 @@
-# Quick run: the study's revolute_h5_flex150, 1 seed x 300 generations (figure drafts, not results).
-base: ../revolute_h5_flex150.yaml
-output: output/comparison_quick2
-solver:
-  optimizer:
-    generations: 300
-    seeds: [0]

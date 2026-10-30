@@ -1,5 +1,7 @@
 # Task: CoDe Hand 논문 핵심 figure 2개 (Visual / Scientific)
 
+> **2026-10-30:** 이 문서가 다루는 `scripts/optimize/comparison/` study와 paper pipeline은 삭제됨. 기록용.
+
 ## 0. 배경 — 이 figure들이 증명해야 하는 것
 
 논문(T-RO)의 핵심 주장은 다음과 같다.

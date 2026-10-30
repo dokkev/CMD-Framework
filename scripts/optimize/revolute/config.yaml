@@ -1,6 +1,0 @@
-# The serial 2R (core/optimization/revolute) on the linkage study's goal: the
-# same requirements, objectives and solver, so the fronts compare directly.
-# Change the study in linkage/config.yaml; override here only for the 2R.
-#
-#   python scripts/optimize/run.py scripts/optimize/revolute/config.yaml
-base: ../linkage/config.yaml

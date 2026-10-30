@@ -123,21 +123,19 @@ def test_the_loss_depths_are_read_from_the_goal():
         load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
 
 
-COMPARISON = CONFIGS / "comparison"
+ACCOMMODATION = CONFIGS / "accommodation"
 FEASIBLE = {
-    "revolute": (51.1, 48.9, 41.6, 18.7, 0.0, 0.0, 90.0),
-    "revolute_parallel": (54.6, 45.1, 51.6, 18.7, 0.0, 0.0, 49.0, 16.4, 23.4),
-    "revolute_idealized": (53.1, 46.9, 50.1, 18.7, 0.0, 0.0, 0.0),
-    "rcj": (47.5, 9.5, 33.5, 43.7, 8.5, 4.3, 9.5),
-    "linkage": (35.0, 68.0, 0.0, 39.7, 11.6, 61.9, 10.7, 70.0, 32.0, 0.0, 19.4, -3.1, 0.0, 0.0, 3.0, 3.0),
+    "revolute": (47.5, 52.5, 36.0, 15.0, 0.0, 0.0, 90.0),
+    "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 0.0, 0.0, 3.0, 3.0),
 }
-"""Each mechanism's best of the comparison's quick runs at 5 mm, 150 deg (feasible there)."""
+"""Each mechanism's design that carries the accommodation's 25 x 5 mm modules through 120 deg."""
 
 
-def comparison_config(name, *overrides):
+def integrity_config(name, *overrides):
     from core.optimization.mechanism import read_config_file
 
-    values = read_config_file(COMPARISON / f"{name}_h5_flex150.yaml", overrides)
+    values = read_config_file(ACCOMMODATION / f"{name}_P25x5_D25x5_flex120.yaml",
+                              ("goal.loss.integrity_depth_mm=3", "goal.loss.fold=true", *overrides))
     found = mechanism(values.pop("mechanism"))
     values.pop("output")
     values, _ = found.split_settings(values)
@@ -146,9 +144,9 @@ def comparison_config(name, *overrides):
 
 @pytest.mark.parametrize("name", list(FEASIBLE))
 def test_every_evaluator_keeps_the_integrity_rules_length(name):
-    found, config = comparison_config(name)
+    found, config = integrity_config(name)
     goal = getattr(config, "goal", config)
-    assert goal.integrity_depth_mm == 3.0  # the comparison's
+    assert goal.integrity_depth_mm == 3.0
     evaluation = found.evaluate(FEASIBLE[name], config)
     assert evaluation.feasible
     phi = np.arange(0.0, np.degrees(goal.required_rom_rad) + 1e-9, 1.0)
@@ -156,7 +154,7 @@ def test_every_evaluator_keeps_the_integrity_rules_length(name):
     assert evaluation.proximal_usable_length_mm == pytest.approx(kept["proximal_pad"], abs=1.0)
     assert evaluation.distal_usable_length_mm == pytest.approx(kept["distal_pad"], abs=1.0)
     # The fold alone (no depth) keeps at least as much.
-    _, fold = comparison_config(name, "goal.loss.integrity_depth_mm=null")
+    _, fold = integrity_config(name, "goal.loss.integrity_depth_mm=null")
     plain = found.evaluate(FEASIBLE[name], fold)
     assert evaluation.proximal_usable_length_mm <= plain.proximal_usable_length_mm + 0.5
     assert evaluation.distal_usable_length_mm <= plain.distal_usable_length_mm + 0.5
@@ -186,8 +184,8 @@ def test_the_probe_meets_what_stands_within_its_depth():
 def test_the_thickness_spans_the_fingers_own_solids():
     from core.optimization.analysis.loss import thickness_mm
 
-    found, config = comparison_config("revolute_idealized")
-    x = FEASIBLE["revolute_idealized"]
+    found, config = mechanism("revolute_idealized"), config_of("revolute_idealized")
+    x = DESIGNS["revolute_idealized"]
     built = scene("revolute_idealized", config, x, [0.0])
     dorsal, palmar = thickness_mm(built)
     names = found.variable_names
@@ -198,6 +196,5 @@ def test_the_thickness_spans_the_fingers_own_solids():
     assert palmar == pytest.approx(-(drops + 5.0))
     assert dorsal == pytest.approx(max(packaging.pivot_radius_mm("a"), packaging.distal_carrier_height_mm
                                        - x[names.index("distal_drop_mm")]))
-    _, with_servo = comparison_config("revolute")
-    dorsal_servo, _ = thickness_mm(scene("revolute", with_servo, FEASIBLE["revolute"], [0.0]))
+    dorsal_servo, _ = thickness_mm(scene("revolute", config_of("revolute"), DESIGNS["revolute"], [0.0]))
     assert dorsal_servo > dorsal + 10.0

@@ -1,5 +1,7 @@
 # 메커니즘 비교 study — bound 분류 (Task 2)
 
+> **2026-10-30:** 이 문서가 다루는 `scripts/optimize/comparison/` study와 paper pipeline은 삭제됨. 기록용.
+
 > **상태:** Checkpoint 2 보고 (2026-10-29). formulation: linkage-v5, revolute-goal-v5,
 > revolute-idealized-goal-v4, revolute-parallel-goal-v4, rcj-goal-v3.
 > **설정:** `scripts/optimize/comparison/base.yaml`, 생성 `make_configs.py`.

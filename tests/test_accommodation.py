@@ -11,7 +11,7 @@ from core.optimization.analysis.tradeoff import Modules, load, phi_max_deg, with
 from core.optimization.mechanism import mechanism, read_config_file
 
 STUDY = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "accommodation"
-COMPARISON = STUDY.parent / "comparison"
+REFERENCE = "P25x5_D25x5_flex150"
 LINKAGE_X = (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 0.0, 0.0, 3.0, 3.0)
 """The production CoDe (paper, balanced), its pads' drops at its pins' radius."""
 REVOLUTE_X = (47.5, 52.5, 36.0, 15.0, 0.0, 0.0, 90.0)
@@ -79,9 +79,9 @@ def test_the_capsules_stop_the_motion_where_a_bar_meets_a_pad():
     # The same finger and modules with and without the bars' capsules: they can only stop it sooner.
     modules = Modules(25.0, 5.0, 25.0, 5.0)
     for name, x in (("linkage", LINKAGE_X), ("revolute", REVOLUTE_X)):
-        found, bare = load(COMPARISON / f"{name}_h5_flex150.yaml")
-        _, capsules = load(COMPARISON / f"{name}_h5_flex150.yaml", "goal.collision.param.link_radius_mm=3")
-        _, wide = load(COMPARISON / f"{name}_h5_flex150.yaml", "goal.collision.param.link_radius_mm=30")
+        found, bare = load(STUDY / f"{name}_{REFERENCE}.yaml", "goal.collision.param.link_radius_mm=0")
+        _, capsules = load(STUDY / f"{name}_{REFERENCE}.yaml", "goal.collision.param.link_radius_mm=3")
+        _, wide = load(STUDY / f"{name}_{REFERENCE}.yaml", "goal.collision.param.link_radius_mm=30")
         reach = [phi_max_deg(found, config, x, modules) for config in (bare, capsules, wide)]
         assert reach[1] <= reach[0] + 1e-9
         assert np.isnan(reach[2]) or reach[2] < reach[0]
@@ -90,14 +90,14 @@ def test_the_capsules_stop_the_motion_where_a_bar_meets_a_pad():
 def test_the_dorsal_space_is_measured_from_os_line():
     from core.optimization.analysis.loss import dorsal_space_mm, scene
 
-    found, config = load(COMPARISON / "revolute_h5_flex150.yaml")
+    found, config = load(STUDY / f"revolute_{REFERENCE}.yaml")
     config = with_modules(config, Modules(25.0, 5.0, 25.0, 5.0))
     servo = config.goal.packaging.pip_servo
     assert dorsal_space_mm(scene("revolute", config, REVOLUTE_X, [0.0])) == pytest.approx(servo.rear_extent_mm)
     # A pad's drop does not move the datum.
     dropped = (*REVOLUTE_X[:4], 4.0, 4.0, REVOLUTE_X[6])
     assert dorsal_space_mm(scene("revolute", config, dropped, [0.0])) == pytest.approx(servo.rear_extent_mm)
-    tight = with_modules(load(COMPARISON / "revolute_h5_flex150.yaml", "goal.link.dorsal_space_mm=20")[1],
+    tight = with_modules(load(STUDY / f"revolute_{REFERENCE}.yaml", "goal.link.dorsal_space_mm=20")[1],
                          Modules(25.0, 5.0, 25.0, 5.0))
     evaluation = found.evaluate(REVOLUTE_X, tight)
     assert evaluation.constraints["dorsal_space_mm"] == pytest.approx(servo.rear_extent_mm - 20.0)
@@ -107,7 +107,7 @@ def test_the_dorsal_space_is_measured_from_os_line():
 def test_a_fixed_finger_changes_its_modules_not_its_supports(name, x):
     from core.optimization.analysis.loss import scene
 
-    found, config = load(COMPARISON / f"{name}_h5_flex150.yaml")
+    found, config = load(STUDY / f"{name}_{REFERENCE}.yaml")
     short, full = (with_modules(config, Modules(length, 5.0, 20.0, 5.0)) for length in (10.0, 25.0))
     built = [scene(name, c, x, [0.0]) for c in (short, full)]
     # The proximal module from its outer end, as long as asked; the distal
@@ -131,7 +131,7 @@ def test_the_proximal_support_stays_whatever_module_it_carries():
     from core.optimization.linkage.design import decode
     from core.optimization.linkage.evaluate import support_margins
 
-    found, config = load(COMPARISON / "linkage_h5_flex150.yaml", "goal.collision.param.proximal_carrier_height_mm=4")
+    found, config = load(STUDY / f"linkage_{REFERENCE}.yaml", "goal.collision.param.proximal_carrier_height_mm=4")
     linkage = FingerLinkage(decode(LINKAGE_X, 0.1))
     supports = []
     for length in (10.0, 25.0):
@@ -154,7 +154,7 @@ def test_the_proximal_support_stays_whatever_module_it_carries():
 def test_the_dorsal_space_counts_the_bars_capsules():
     from core.optimization.analysis.loss import dorsal_space_mm, scene
 
-    found, config = load(COMPARISON / "linkage_h5_flex150.yaml")
+    found, config = load(STUDY / f"linkage_{REFERENCE}.yaml")
     built = scene("linkage", config, LINKAGE_X, [0.0])
     bars = max(float(np.asarray(s)[..., 1].max()) for s in built.solids["proximal_pad"]["link"].segments)
     assert dorsal_space_mm(built, 3.0) == pytest.approx(max(dorsal_space_mm(built), bars + 3.0))

@@ -36,7 +36,7 @@ from visualize.finger import Finger  # noqa: E402
 from visualize.fronts import read_rows, run_of, with_role  # noqa: E402
 from visualize.style import COLLIDE, COLORS, INK, MUTED, REPOSITORY_ROOT, save_comparison  # noqa: E402
 
-STUDY = REPOSITORY_ROOT / "scripts/optimize/comparison"
+STUDY = REPOSITORY_ROOT / "scripts/optimize/accommodation"
 CODE_SEEDS = REPOSITORY_ROOT / "output/linkage/config/paper/portfolio_001/seeds.csv"
 REVOLUTE_X = (47.5, 52.5, 38.0, 9.5, 0.0, 0.0, 90.0)
 """The 2R: A at 47.5 of |OC| 100, the pads on its link lines (drop 0), the
@@ -65,7 +65,7 @@ def fingers(modules: Modules):
 
     out = {}
     for name, x in (("revolute", REVOLUTE_X), ("linkage", code_design())):
-        found, config = load(STUDY / f"{name}_h5_flex150.yaml", *OVERRIDES)
+        found, config = load(STUDY / f"{name}_P25x5_D25x5_flex150.yaml", *OVERRIDES)
         out[name] = (found, config, x, with_modules(config, modules))
     return out
 

@@ -1,5 +1,5 @@
 """What a contact face loses in the fold (packaging.fold_free_lengths), and the
-comparison study's linkage options it goes with (pad drops, overhang)."""
+linkage options it goes with (pad drops, overhang)."""
 
 import math
 from pathlib import Path
@@ -10,7 +10,7 @@ import pytest
 from core.morphology.linkage.packaging import fold_free_lengths
 from core.optimization.mechanism import mechanism, read_config_file
 
-STUDY = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "comparison"
+STUDY = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "accommodation"
 PIVOT = np.array((50.0, 0.0))
 
 
@@ -98,16 +98,16 @@ def test_a_face_hides_only_where_it_is_opposite():
     assert short["proximal_pad"][0] > long["proximal_pad"][0]
 
 
-def load(name):
-    values = read_config_file(STUDY / f"{name}.yaml")
+def load(name, *overrides):
+    values = read_config_file(STUDY / f"{name}.yaml", overrides)
     found = mechanism(values.pop("mechanism"))
     values.pop("output")
     values, _ = found.split_settings(values)
     return found, found.config_from_mapping(values)
 
 
-def test_the_comparison_linkage_searches_its_pads_drops():
-    found, config = load("linkage_h5_flex150")
+def test_the_accommodation_linkage_searches_its_pads_drops():
+    found, config = load("linkage_P25x5_D25x5_flex150")
     assert config.searched_drops == ("proximal_drop_mm", "distal_drop_mm")
     assert config.bounds["proximal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("a"))
     assert config.bounds["distal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("b"))
@@ -126,8 +126,9 @@ def test_an_overhanging_pad_is_limited():
     from core.optimization.linkage.design import decode
     from core.optimization.linkage.evaluate import overhang_violations
 
-    found, config = load("linkage_h5_flex150")
-    _, strict = load("linkage_overhang0_h10_flex150")
+    found, config = load("linkage_P25x5_D25x5_flex150")
+    _, strict = load("linkage_P25x5_D25x5_flex150", "goal.pads.proximal.overhang_max_mm=0",
+                     "goal.pads.distal.overhang_max_mm=0")
     x = [36.0, 75.0, 0.0, 40.0, 12.0, 72.0, 8.0, 20.0, 25.0, 0.0, 15.0, 5.0, 0.0, 0.0, 3.0, 3.0]
     linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
     p = linkage.parameters

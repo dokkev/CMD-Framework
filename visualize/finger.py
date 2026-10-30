@@ -1,7 +1,7 @@
 """The mechanisms behind one interface: a design read from its study's
 verified front, then posed, sketched and checked over the distal flexion ``phi``.
 
-    finger = finger_from_row("rcj", row, study_dir)   # or visualize.studies.best(...)
+    finger = finger_from_row("rcj", row, study_dir)
     finger.margins(phi_deg)   # each checked pair's gap, (n,) per pair
     finger.icr(phi_deg)       # the distal segment's instantaneous centre of rotation
     finger.k(phi_deg)         # d(phi)/d(theta_servo): servo torque per distal moment

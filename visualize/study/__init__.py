@@ -1,1 +1,1 @@
-"""A study's fronts: Pareto, contact retention, pad cost and pad trade-off."""
+"""A study's fronts: Pareto, convergence, accommodation, length budget and loss profile."""
