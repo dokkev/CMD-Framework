@@ -7,10 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.morphology.linkage.packaging import fold_free_lengths
-from core.optimization.mechanism import mechanism, read_config_file
+from core.morphology.packaging.faces import fold_free_lengths
+from core.optimization.mechanism import mechanism
+from core.morphology.linkage.packaging import pip_footprint
 
-STUDY = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "accommodation"
+CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
+DROPS = ("goal.pads.on_links=false", "goal.pads.proximal.drop_mm=[0, null]", "goal.pads.distal.drop_mm=[0, null]")
 PIVOT = np.array((50.0, 0.0))
 
 
@@ -98,16 +100,15 @@ def test_a_face_hides_only_where_it_is_opposite():
     assert short["proximal_pad"][0] > long["proximal_pad"][0]
 
 
-def load(name, *overrides):
-    values = read_config_file(STUDY / f"{name}.yaml", overrides)
-    found = mechanism(values.pop("mechanism"))
-    values.pop("output")
-    values, _ = found.split_settings(values)
-    return found, found.config_from_mapping(values)
+def load(*overrides):
+    from core.optimization.study import load_yaml
+
+    found = mechanism("linkage")
+    return found, load_yaml(found, CONFIG, overrides)[0]
 
 
-def test_the_accommodation_linkage_searches_its_pads_drops():
-    found, config = load("linkage_P25x5_D25x5_flex150")
+def test_a_linkage_with_drop_bounds_searches_its_pads_drops():
+    found, config = load(*DROPS)
     assert config.searched_drops == ("proximal_drop_mm", "distal_drop_mm")
     assert config.bounds["proximal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("a"))
     assert config.bounds["distal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("b"))
@@ -116,23 +117,22 @@ def test_the_accommodation_linkage_searches_its_pads_drops():
     # The production study holds them at its packaging's (NaN in the design).
     from core.optimization.study import load_yaml
 
-    production = load_yaml(found, STUDY.parent / "linkage" / "config.yaml", ())[0]
+    production = load_yaml(found, CONFIG, ())[0]
     assert production.searched_drops == ()
     assert production.bounds["proximal_drop_mm"] == (production.packaging.proximal_pad_drop_mm,) * 2
 
 
 def test_an_overhanging_pad_is_limited():
     from core.morphology.linkage import FingerLinkage
-    from core.optimization.linkage.design import decode
+    from core.morphology.linkage.design import decode
     from core.optimization.linkage.evaluate import overhang_violations
 
-    found, config = load("linkage_P25x5_D25x5_flex150")
-    _, strict = load("linkage_P25x5_D25x5_flex150", "goal.pads.proximal.overhang_max_mm=0",
-                     "goal.pads.distal.overhang_max_mm=0")
+    found, config = load("goal.pads.proximal.overhang_max_mm=10", "goal.pads.distal.overhang_max_mm=10")
+    _, strict = load("goal.pads.proximal.overhang_max_mm=0", "goal.pads.distal.overhang_max_mm=0")
     x = [36.0, 75.0, 0.0, 40.0, 12.0, 72.0, 8.0, 20.0, 25.0, 0.0, 15.0, 5.0, 0.0, 0.0, 3.0, 3.0]
     linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
     p = linkage.parameters
-    front = max(p.a_x_mm + 3.0, float(config.packaging.pip_footprint(linkage).outline[:, 0].max()))
+    front = max(p.a_x_mm + 3.0, float(pip_footprint(config.packaging, linkage).outline[:, 0].max()))
     over = p.app_x_mm - front
     assert over > 0.0
     assert overhang_violations(linkage, strict)[0] == pytest.approx(over)

@@ -2,7 +2,6 @@
 """Run the multi-objective optimization of one finger study, as its config file says.
 
     python scripts/optimize/run.py                                     # scripts/optimize/linkage/config.yaml
-    python scripts/optimize/run.py scripts/optimize/accommodation/revolute_P25x5_D25x5_flex150.yaml
     python scripts/optimize/run.py <config> --append   # into a folder that has runs already
 
 The config file is the only input. Its folder names the mechanism

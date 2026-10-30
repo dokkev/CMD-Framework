@@ -1,1 +1,1 @@
-"""A study's fronts: Pareto, convergence, accommodation, length budget and loss profile."""
+"""A study's fronts: Pareto, convergence and loss profile."""

@@ -16,9 +16,10 @@ from types import MappingProxyType
 from typing import Any
 
 from core.morphology.linkage import FingerLinkageParameters
+from core.morphology.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
+from core.morphology.linkage.measures import extended_icr_x
 
 from core.optimization.linkage.config import LinkageConfig, config_from_goal, config_from_json, config_to_json
-from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
 from core.optimization.linkage import search
 from core.optimization.linkage.evaluate import CONSTRAINT_NAMES, LinkageEvaluation, evaluate
 from core.optimization.mechanism import Mechanism, Objective, SummaryColumn
@@ -123,8 +124,8 @@ def resolve_preset(values: dict[str, Any]) -> str | None:
 def icr0_share_of(p: FingerLinkageParameters, finger_length_mm: float) -> float:
     """The extended centre of rotation's share of ``|OC|`` (NaN: the bars parallel)."""
 
-    found = search.extended_icr_x((p.a_x_mm, p.a_z_mm), (p.ap.x_mm, p.ap.z_mm), (p.b_x_mm, p.b_z_mm),
-                                  (p.bp.x_mm, p.bp.z_mm))
+    found = extended_icr_x((p.a_x_mm, p.a_z_mm), (p.ap.x_mm, p.ap.z_mm), (p.b_x_mm, p.b_z_mm),
+                           (p.bp.x_mm, p.bp.z_mm))
     return math.nan if found is None else float(found) / finger_length_mm
 
 

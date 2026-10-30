@@ -1,12 +1,14 @@
-"""The loss of contact face by rule and depth (core.optimization.analysis.loss)."""
+"""The loss of contact face by rule and depth (core.morphology.contact.loss)."""
 
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from core.morphology.linkage.packaging import contact_faces, fold_free_lengths, fold_hidden_points
-from core.optimization.analysis.loss import CATEGORIES, face_loss, integrity_free, intrusion_mm, scene
+from core.morphology.linkage.packaging import contact_faces
+from core.morphology.packaging.faces import fold_free_lengths, fold_hidden_points
+from core.morphology.contact.loss import CATEGORIES, face_loss, integrity_free, intrusion_mm
+from core.optimization.analysis.scene import scene
 from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 
@@ -123,23 +125,18 @@ def test_the_loss_depths_are_read_from_the_goal():
         load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
 
 
-ACCOMMODATION = CONFIGS / "accommodation"
 FEASIBLE = {
-    "revolute": (47.5, 52.5, 36.0, 15.0, 0.0, 0.0, 90.0),
+    "revolute": (51.1, 48.9, 41.6, 18.7, 0.0, 0.0, 90.0),
     "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 0.0, 0.0, 3.0, 3.0),
 }
-"""Each mechanism's design that carries the accommodation's 25 x 5 mm modules through 120 deg."""
+"""A design of each mechanism feasible on the production goal with any pad length."""
 
 
 def integrity_config(name, *overrides):
-    from core.optimization.mechanism import read_config_file
-
-    values = read_config_file(ACCOMMODATION / f"{name}_P25x5_D25x5_flex120.yaml",
-                              ("goal.loss.integrity_depth_mm=3", "goal.loss.fold=true", *overrides))
-    found = mechanism(values.pop("mechanism"))
-    values.pop("output")
-    values, _ = found.split_settings(values)
-    return found, found.config_from_mapping(values)
+    found = mechanism(name)
+    return found, load_yaml(found, CONFIGS / "linkage" / "config.yaml",
+                            ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
+                             "goal.loss.integrity_depth_mm=3", *overrides))[0]
 
 
 @pytest.mark.parametrize("name", list(FEASIBLE))
@@ -161,7 +158,7 @@ def test_every_evaluator_keeps_the_integrity_rules_length(name):
 
 
 def test_the_probe_meets_what_stands_within_its_depth():
-    from core.morphology.linkage.packaging import probe_blocked
+    from core.morphology.packaging.faces import probe_blocked
 
     face = np.array([[[0.0, 0.0], [10.0, 0.0]]] * 2)
     normal = np.array([0.0, -1.0])
@@ -182,7 +179,7 @@ def test_the_probe_meets_what_stands_within_its_depth():
 
 
 def test_the_thickness_spans_the_fingers_own_solids():
-    from core.optimization.analysis.loss import thickness_mm
+    from core.morphology.contact.loss import thickness_mm
 
     found, config = mechanism("revolute_idealized"), config_of("revolute_idealized")
     x = DESIGNS["revolute_idealized"]

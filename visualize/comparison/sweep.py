@@ -25,7 +25,17 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.patches import Circle  # noqa: E402
 
-from core.morphology.linkage.packaging import distal_carrier_polygon, distal_pad_polygon, proximal_pad_polygon  # noqa: E402
+from core.morphology.linkage.packaging import (  # noqa: E402
+
+    distal_carrier_polygon,
+
+    distal_pad_polygon,
+
+    pip_footprint,
+
+    proximal_pad_polygon,
+
+)
 from core.optimization.revolute import geometry  # noqa: E402
 from core.optimization.revolute.evaluate import _margins  # noqa: E402
 from visualize import solids  # noqa: E402
@@ -55,7 +65,7 @@ def draw_linkage(axis, linkage, packaging, phi_max_deg: float, color: str) -> No
         solids.patch(axis, distal_pad_polygon(linkage, packaging, b, c)[0], shade, alpha=0.8, width=0.5)
         solids.line(axis, (b[0], c[0]), color, alpha=0.25)
     solids.patch(axis, packaging.mcp_footprint().outline, SERVO, zorder=0.5)
-    solids.patch(axis, packaging.pip_footprint(linkage).outline, SERVO, zorder=0.5)
+    solids.patch(axis, pip_footprint(packaging, linkage).outline, SERVO, zorder=0.5)
     solids.patch(axis, proximal_pad_polygon(linkage, packaging), PROXIMAL_PAD, zorder=2)
     o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)
     solids.line(axis, (o, a, ap, o), color)

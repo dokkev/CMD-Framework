@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from core.morphology.linkage import FingerLinkage, FingerLinkageParameters, PointXZ
+from core.morphology.linkage.model import FingerLinkage
+from core.morphology.linkage.parameters import FingerLinkageParameters, PointXZ
 
 
 # Proportions read off the design sketch (OA scaled to 40 mm); a starting

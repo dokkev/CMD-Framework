@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-import core.morphology.linkage.packaging as packaging_module  # noqa: E402
+import core.morphology.packaging.gaps as packaging_module  # noqa: E402
 from core.optimization.revolute import geometry  # noqa: E402
 from core.optimization.revolute.evaluate import _margins  # noqa: E402
 from visualize import gaps, sketch  # noqa: E402

@@ -28,14 +28,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-import core.morphology.linkage.packaging as packaging_module  # noqa: E402
-from core.morphology.linkage.packaging import (  # noqa: E402
-    ServoFootprint,
-    _polygon_to_disk,
-    footprint_gaps,
-    mcp_servo_gaps,
-    polygon_gaps,
-)
+import core.morphology.packaging.gaps as packaging_module  # noqa: E402
+from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps  # noqa: E402
+from core.morphology.packaging.shapes import ServoFootprint, polygon_to_disk  # noqa: E402
 from core.optimization.mechanism import mechanism  # noqa: E402
 from core.optimization.study import load_yaml  # noqa: E402
 from visualize import gaps, sketch  # noqa: E402
@@ -90,10 +85,10 @@ class Rcj:
         b = self.b(phi)
         return {
             ("distal_pad", "proximal_pad"): polygon_gaps(pad, proximal, p),
-            ("distal_pad", "proximal_roller"): _polygon_to_disk(pad, a, self.r),
+            ("distal_pad", "proximal_roller"): polygon_to_disk(pad, a, self.r),
             ("distal_pad", "pip_servo"): footprint_gaps(pad, self.servo, p),
             ("distal_pad", "mcp_servo"): mcp_servo_gaps(pad, p, (0.0,)),
-            ("distal_roller", "proximal_pad"): _polygon_to_disk(proximal, b, self.r),
+            ("distal_roller", "proximal_pad"): polygon_to_disk(proximal, b, self.r),
         }
 
     def reach_deg(self, step_deg: float = STEP_DEG) -> float:

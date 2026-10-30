@@ -11,8 +11,7 @@ import pytest
 
 from core.morphology.linkage import FingerLinkage
 from core.morphology.linkage.packaging import (
-    Packaging,
-    _separation,
+    LinkagePackaging,
     checked_pairs,
     distal_carrier_polygon,
     distal_pad_polygon,
@@ -20,7 +19,8 @@ from core.morphology.linkage.packaging import (
     pad_spans,
     proximal_pad_polygon,
 )
-from core.optimization.linkage.design import VARIABLE_NAMES, decode
+from core.morphology.packaging.shapes import separation
+from core.morphology.linkage.design import VARIABLE_NAMES, decode
 from core.optimization.mechanism import mechanism, read_config_file
 from core.optimization.study import load_yaml
 
@@ -128,9 +128,9 @@ def test_the_distal_carrier_is_checked_against_the_pip_servo():
 
 def test_overlap_is_negative_touching_zero():
     square = np.array([[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]])
-    assert _separation(square, square + (2.0, 0.0))[0] == pytest.approx(1.0)
-    assert _separation(square, square + (1.0, 0.0))[0] == pytest.approx(0.0)
-    assert _separation(square, square + (0.75, 0.0))[0] == pytest.approx(-0.25)
+    assert separation(square, square + (2.0, 0.0))[0] == pytest.approx(1.0)
+    assert separation(square, square + (1.0, 0.0))[0] == pytest.approx(0.0)
+    assert separation(square, square + (0.75, 0.0))[0] == pytest.approx(-0.25)
 
 
 def test_pad_pairs_follow_the_checks():
@@ -196,7 +196,7 @@ def test_the_pip_servo_may_come_down_to_the_pad_but_not_into_it():
 
 
 def test_packaging_defaults_keep_the_older_checks():
-    packaging = Packaging()
+    packaging = LinkagePackaging()
     assert packaging.proximal_pad_drop_mm == 0.0 and packaging.distal_pad_drop_mm == 0.0
     assert packaging.pip_servo_above_oa and not packaging.pip_servo_pad_check and not packaging.overlap_depth
     assert all(packaging.pivot_radius_mm(p) == packaging.pin_radius_mm for p in ("a", "ap", "b", "bp"))
@@ -205,7 +205,7 @@ def test_packaging_defaults_keep_the_older_checks():
 def test_pads_are_not_checked_in_hyperextension(monkeypatch):
     import importlib
 
-    module = importlib.import_module("core.optimization.linkage.evaluate")
+    module = importlib.import_module("core.morphology.linkage.motion")
     real, calls = module.pad_margins, []
 
     def recording(linkage, packaging, b, c, bp, mcp):
@@ -329,7 +329,7 @@ def test_a_symmetric_four_bar_sets_b_prime():
 
 
 def test_the_proximal_pad_may_stop_at_the_fold():
-    from core.optimization.linkage.search import extended_icr_x
+    from core.morphology.linkage.measures import extended_icr_x
 
     config = load("goal.pads.proximal.past_icr_max_mm=0", "goal.pads.proximal.length_mm=[15, null]",
                   "goal.pads.distal.length_mm=[20, null]")

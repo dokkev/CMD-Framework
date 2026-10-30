@@ -38,10 +38,13 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from core.morphology.linkage.packaging import Packaging, servo_floor_x
+from core.morphology.packaging.gaps import servo_floor_x
+from core.morphology.packaging.hardware import Packaging
+
+from core.morphology.linkage.design import VARIABLE_NAMES
+from core.morphology.linkage.measures import extended_icr_x, symmetric_bp
 
 from core.optimization.linkage.config import LinkageConfig
-from core.optimization.linkage.design import VARIABLE_NAMES
 
 
 SEARCH_NAMES = ("finger_length_mm", "bc_length_mm", "b_z_mm", "a_z_mm", "ap_from_a_z_mm", "ap_x_share",
@@ -71,36 +74,6 @@ def search_names(config: LinkageConfig) -> tuple[str, ...]:
         names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
     names = (*names, *config.searched_drops)
     return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED))
-
-
-def symmetric_bp(a: np.ndarray, ap: np.ndarray, b: np.ndarray) -> np.ndarray | None:
-    """``B'`` making ``A'-B-B'-A`` an antiparallelogram (``|B'B| = |A'A|``,
-    ``|AB'| = |A'B|``, the bars crossed), ``None`` when the circles miss: of
-    the two crossings, the one away from the parallelogram's ``B + A - A'``."""
-
-    g, r = float(np.linalg.norm(a - ap)), float(np.linalg.norm(b - ap))
-    d = float(np.linalg.norm(b - a))
-    if not abs(r - g) < d < r + g:
-        return None
-    along = (r * r - g * g + d * d) / (2.0 * d)  # from A toward B
-    unit = (b - a) / d
-    off = math.sqrt(max(r * r - along * along, 0.0)) * np.array((-unit[1], unit[0]))
-    parallel = b + a - ap
-    return max((a + along * unit + off, a + along * unit - off), key=lambda p: float(np.linalg.norm(p - parallel)))
-
-
-def extended_icr_x(a: Sequence[float], ap: Sequence[float], b: Sequence[float], bp: Sequence[float]) -> float | None:
-    """``x`` of the extended pose's centre of rotation: ``A-B'`` crossing
-    ``A'-B`` (``None``: the bars parallel)."""
-
-    a, ap, b, bp = (np.asarray(point, dtype=float) for point in (a, ap, b, bp))
-    first, second = bp - a, b - ap
-    det = first[0] * -second[1] - first[1] * -second[0]
-    if abs(det) < 1e-9:
-        return None
-    gap = ap - a
-    t = (gap[0] * -second[1] - gap[1] * -second[0]) / det
-    return float(a[0] + t * first[0])
 
 
 def _pad_ranges(config: LinkageConfig, b_x: float, bc: float,
@@ -283,4 +256,4 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
 
 
 __all__ = ["SEARCH_NAMES", "from_design", "least_ap_x", "search_box", "search_names", "search_steps",
-           "extended_icr_x", "symmetric_bp", "tilts_deg", "to_design"]
+           "tilts_deg", "to_design"]

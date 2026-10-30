@@ -5,6 +5,13 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-10-30: morphology를 라이브러리로 정리. `Packaging`은 공통 하드웨어만, linkage 배치(핀별 지름, servo 위치, 축 여유, 충돌 허용, pad drop, `links_clear_pads`, `pads_off_pins`, `pad_link_ratio_max`)는 `LinkagePackaging(Packaging)`. `run.json` 필드 이름 그대로. `core.morphology.linkage`/`packaging`/`contact`가 공개 API를 export하고 optimization을 import하지 않음(테스트로 확인). `tests/test_morphology_library.py`: study 없이 강체 규칙, 간격, linkage 검사·sweep, pad 늘리기.
+- 2026-10-30: 충돌 검사를 강체 + Y 층 규칙으로 일반화(`core/morphology/packaging/assembly.py`: `Part`, `Layout`, `Assembly`, `Poses`, `margins`). linkage는 `PARTS`/`JOINTS`/`layout(packaging)`/`assembly`/`poses`. 규칙: 다른 몸체 & 층 공유 & 관절 아님 → 검사, 같은 몸체는 keep-out으로만. 규칙이 새로 끌어내는 16쌍(핀↔MCP servo, 관절 건너 핀끼리, B 핀↔PIP servo, 핀↔자기가 잇지 않는 링크, carrier↔MCP servo·proximal pad·proximal 핀)은 `NOT_YET_CHECKED`로 빼 둠 → 켤지 결정 필요(결과 바뀜, formulation 버전 업). 제약·feasibility 비트 단위 동일, 보고값 `pad_clearance_mm`만 5 mm 넘는 경우 하한으로 바뀜(carrier–servo 쌍도 broad phase).
+- [ ] 정적 keep-out(pad↔자기 핀 등)은 0 근처 반올림을 0으로 안 맞춤: drop = 핀 반경인 설계에서 ±1e-16 위반으로 feasibility가 반올림에 좌우됨. 맞출지 결정(결과 바뀜).
+- 2026-10-30: linkage의 충돌 검사는 전부 `core/morphology/linkage/packaging.py`가 맡음. 핀 겹침, pad와 자기 핀, A/B′ 핀과 servo, 구동 링크와 servo, servo끼리, 링크 capsule, 지지구조. optimization은 그 간격을 요구조건과 비교만 함. 결과 비트 단위 동일.
+- 2026-10-30: packaging 공통화. 하드웨어(`Packaging`, `ContactPad`)와 기구와 무관한 solid·간격·접촉면 계산은 `core/morphology/packaging/`(`hardware`, `shapes`, `gaps`, `faces`, numba `_kernels`), linkage에 붙는 배치(핀 A/A′/B/B′, pad span, `pad_margins`, `pip_footprint(packaging, linkage)` 등 linkage를 받던 Packaging 메서드 5개)는 `core/morphology/linkage/packaging.py`. 결과 비트 단위 동일.
+- 2026-10-30: core 구조 정리. 기구가 무엇이고 어떻게 움직이는지(설계 벡터, 기구학, solid와 간격, 운동 sweep, pad 늘리기, 접촉면 손실, ICR)는 `core/morphology/`(`linkage/{design,measures,motion,pad_extension}`, `revolute`, `revolute_parallel`, `rcj`, `open_chain/solids`, `rolling_contact_joint/solids`, `contact/{loss,retention}`, `icr`), 요구조건 대비 제약·목적함수·탐색·config는 `core/optimization/`. 옮기기 전후 모든 mechanism의 평가 결과(설계 약 3,300개)와 extend_pads 결과가 비트 단위로 같음을 확인.
+- 2026-10-30: 이 브랜치는 production linkage만 남기기로 함. `scripts/optimize/accommodation/`(모듈 수용 study, 기준 레이아웃 탐색)과 이를 읽던 테스트(`test_accommodation`, `test_contact_envelope`, `test_evaluator_consistency`), figure(`comparison/contact_envelope.py`, `comparison/modules.py`, `study/accommodation.py`, `study/length_budget.py`) 삭제. 마지막 상태는 커밋 494427d에 있음. core의 비교용 코드는 남김.
 - 2026-10-30: `scripts/optimize/`는 production linkage(`run.py`, `linkage/config.yaml`, `sample_seeds.py`, `select_seeds.py`, `extend_pads.py`)와 `accommodation/`만 남김. `interface_coverage`, `pad_cost`, `pad_tradeoff`, `revolute`(linkage config를 base로 쓰던 한 줄짜리), contact retention(`open_chain_*`, `rolling_contact_joint`, `contact_retention.yaml`), `coverage_by_flexion.py` 삭제. 이들만 읽던 figure(`visualize/studies.py`, `paper/fig_{coverage,2r,cost,mechanisms}.py`, `study/{pad_cost,pad_tradeoff,retention}.py`, `comparison/pad_fit.py`)와 `tests/test_contact_retention.py`도 삭제.
 - 2026-10-30: 코드베이스 정리로 study 폴더와 이를 모으던 paper pipeline(`visualize/paper/{collect,build,fig_scientific,fig_visual}.py`), `tests/test_comparison_study.py` 삭제. 이를 config로 쓰던 테스트와 `visualize/comparison/modules.py`는 `scripts/optimize/accommodation/`의 config로 옮김. 아래는 기록용.
 - production linkage study와 분리. `base.yaml`이 goal을 고정: nsga2, population 200, seeds [0, 1, 2], 출력 `output/comparison`, proximal pad 하한 20 mm. preset 의존 없음.
@@ -29,7 +36,7 @@
 
 ### 손실 판정
 - 임시 규칙: v4 segment (상대 pad 면 segment 뒤·맞은편이면 손실). 모든 메커니즘 적용, 테스트: 깊이가 같을 때 기존 규칙과 일치, φ에 대해 연속.
-- 구조(제안 수용): 두 판정으로 분리, 판정 함수가 규칙과 D를 인자로 받음 (`core/optimization/analysis/loss.py`).
+- 구조(제안 수용): 두 판정으로 분리, 판정 함수가 규칙과 D를 인자로 받음 (`core/morphology/contact/loss.py`, 당시 `core/optimization/analysis/loss.py`).
   - integrity: 모든 자세 [0, φ_req], 작은 D (`loss.integrity_depth_mm`). objective와 coverage에 사용.
   - accessibility: 자세별 프로파일 A(φ), 큰 D (`loss.access_depth_mm`, 초기 20 mm). report와 Visual figure 자세 열에 사용.
   - 대상 solid: 자기 pad를 제외한 모든 solid (상대 pad, carrier, 링크, 핀 housing, servo, pulley, roller), Y-layer 무관.

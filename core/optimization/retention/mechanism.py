@@ -4,7 +4,7 @@ Each segment carries a contact module of fixed nominal envelope (thickness
 ``h``, nominal length, independent of the link lengths, which it may outgrow).
 A design keeps of each module what clears every other solid from extension
 to the required ROM, continuously: its joint-facing vertices are design
-variables (:class:`~core.optimization.retention.geometry.Module`), every
+variables (:class:`~core.morphology.contact.retention.Module`), every
 checked gap over the sweep is a hard constraint, and the two objectives are
 the kept area over the nominal area, proximal ``r_p`` and distal ``r_d``,
 maximized. A front's figure is ``max min(r_p, r_d)`` (the ``maximin`` seed).
@@ -25,6 +25,8 @@ from typing import Any
 
 import numpy as np
 
+from core.morphology.contact.retention import Module, Pair, Solids, pair_margins
+
 from core.optimization.mechanism import Mechanism, Objective, SummaryColumn
 from core.optimization.retention.config import (
     RetentionConfig,
@@ -32,14 +34,12 @@ from core.optimization.retention.config import (
     config_from_mapping,
     config_to_json,
 )
-from core.optimization.retention.geometry import MCP_SERVO, Module, gap
 
 
 MODULE_VARIABLES = ("proximal_line_mm", "proximal_palmar_mm", "distal_line_mm", "distal_palmar_mm")
 """Kept length of each module's joint-facing vertices from its outer edge:
 ``b`` on the mounting line and ``d`` on the palmar face."""
 LENGTH_CONSTRAINTS = ("extended_length_min_mm", "extended_length_max_mm")
-OWN_BODY_GAP_MM = 1e-6
 
 OBJECTIVES = MappingProxyType({
     "proximal_retention": Objective(
@@ -49,35 +49,6 @@ OBJECTIVES = MappingProxyType({
         value=lambda e: -e.distal_retention, column="distal_retention",
         label="distal module area kept / nominal", role="best_distal", larger_is_better=True),
 })
-
-
-@dataclass(frozen=True)
-class Pair:
-    """A checked pair of solids: ``clearance`` is ``"body"`` (the body
-    clearance), ``"mcp"`` (the modules' MCP servo clearance) or ``"none"``
-    (a module against hardware of its own body: it may sit against it, not
-    in it; the gaps are 0 for both, so it keeps :data:`OWN_BODY_GAP_MM`)."""
-
-    first: str
-    second: str
-    clearance: str = "body"
-    fixed: bool = False
-    """Its margin is set by definition (the proximal module starts the MCP
-    clearance past the MCP servo): still checked, not reported as limiting."""
-
-    @property
-    def name(self) -> str:
-        return f"{self.first}-{self.second}"
-
-
-@dataclass(frozen=True)
-class Solids:
-    """A design's solids over the sweep (see ``geometry``), by name."""
-
-    solids: Mapping[str, object]
-    proximal: Module
-    distal: Module
-    extended_length_mm: float
 
 
 @dataclass(frozen=True)
@@ -212,18 +183,7 @@ class RetentionMechanism(Mechanism):
         if solids is None:
             return None
         samples = np.asarray(config.rom_samples_rad)
-        count, packaging = len(samples), config.packaging
-        clearance = {"body": packaging.body_clearance_mm, "mcp": packaging.mcp_pad_clearance_mm, "none": OWN_BODY_GAP_MM}
-        empty = {"proximal_module": solids.proximal.empty, "distal_module": solids.distal.empty}
-        per_sample = {}
-        for pair in self.pairs:
-            if empty.get(pair.first) or empty.get(pair.second):
-                per_sample[pair.name] = np.full(count, math.inf)
-                continue
-            first = MCP_SERVO if pair.first == MCP_SERVO else solids.solids[pair.first]
-            second = MCP_SERVO if pair.second == MCP_SERVO else solids.solids[pair.second]
-            margin = gap(first, second, count, packaging, config.mcp_samples_rad) - clearance[pair.clearance]
-            per_sample[pair.name] = np.where(np.abs(margin) < 1e-9, 0.0, margin)
+        per_sample = pair_margins(solids, self.pairs, config.packaging, config.mcp_samples_rad, len(samples))
         stacked = np.vstack(list(per_sample.values()))
         failing = np.flatnonzero(stacked.min(axis=0) < 0.0)
         if failing.size:
@@ -312,9 +272,7 @@ __all__ = [
     "LENGTH_CONSTRAINTS",
     "MODULE_VARIABLES",
     "OBJECTIVES",
-    "Pair",
     "RetentionEvaluation",
     "RetentionMechanism",
-    "Solids",
     "front_retention",
 ]

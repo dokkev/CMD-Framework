@@ -22,9 +22,12 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from core.morphology.linkage.packaging import Packaging, servo_floor_x
+from core.morphology.packaging.gaps import servo_floor_x
+from core.morphology.packaging.hardware import Packaging
 
-from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm, servo_rear
+from core.morphology.revolute.solids import servo_rear
+
+from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 
 
 SEARCH_NAMES = ("finger_length_mm", "ac_share", "app_share", "bpp_share", "distal_drop_mm", "proximal_drop_mm",

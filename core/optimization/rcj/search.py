@@ -19,9 +19,10 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from core.morphology.linkage.packaging import Packaging, servo_floor_x
+from core.morphology.packaging.gaps import servo_floor_x
+from core.morphology.packaging.hardware import Packaging
+from core.morphology.rcj.solids import SERVO_REAR, finger_length_mm
 
-from core.optimization.rcj import config as rcj_config
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 
 
@@ -34,7 +35,7 @@ SHARE_STEP = 0.001
 def least_a_x(packaging: Packaging, angles: tuple[float, ...]) -> float:
     """The least ``|OA|`` keeping the servo on ``A`` clear of the MCP servo."""
 
-    return servo_floor_x(packaging, 0.0, rcj_config.SERVO_REAR, angles)
+    return servo_floor_x(packaging, 0.0, SERVO_REAR, angles)
 
 
 def search_box(config: RcjConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
@@ -87,7 +88,7 @@ def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, .
 def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
     d = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
     r = d["roller_radius_mm"]
-    length = rcj_config.finger_length_mm(d["a_x_mm"], r, d["bc_length_mm"])
+    length = finger_length_mm(d["a_x_mm"], r, d["bc_length_mm"])
     bc_range, pads = _ranges(config, length, r)
     (p_low, p_high), (d_low, d_high) = pads(d["bc_length_mm"])
 

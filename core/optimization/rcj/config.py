@@ -18,17 +18,11 @@ from types import MappingProxyType
 
 from core._validation import require_finite
 
+from core.morphology.rcj.solids import VARIABLE_NAMES
+
 from core.optimization.linkage.config import LinkageConfig
 
 
-VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm",
-                  "proximal_drop_mm")
-"""``|OA|``, the rollers' radius ``r`` (``|AB| = 2r``), ``BC``, the proximal
-pad's end ``A''_x``, the distal pad's joint end ``B''`` from ``B`` along
-``B->C`` (negative: behind ``B``), and how far below ``B-C`` and ``O-A``
-the distal and the proximal pad's top faces lie (each at most ``r``, the
-joint's radius, as the 2R's; each pad clears its own roller). The pads are
-plain blocks."""
 ROLLER_RADIUS_MAX_MM = 20.0
 """The largest roller searched; the least is the servo's radius (the roller
 holds the servo's shaft and rounded front)."""
@@ -36,13 +30,6 @@ DISTAL_PAD_REACH_MM = 20.0
 """How far behind ``B`` the distal pad's joint end may be searched, without
 ``goal.pads.distal.overhang_max_mm`` (with it: past the distal roller by
 at most that)."""
-SERVO_REAR = (-1.0, 0.0)
-"""The servo on ``A`` lies back along ``-X``, untilted, as the 2R's: within
-the roller's depth (``r`` is at least its radius), so no thicker than the
-rollers; standing dorsal it would only add height, and it never meets a pad
-either way (the pads hang a roller radius below ``O-A``)."""
-
-
 @dataclass(frozen=True)
 class RcjConfig:
     goal: LinkageConfig
@@ -133,11 +120,5 @@ def proximal_reach(goal: LinkageConfig, roller_radius_mm: float) -> float:
     return roller_radius_mm + (goal.proximal_overhang_max_mm or 0.0)
 
 
-def finger_length_mm(a_x_mm: float, roller_radius_mm: float, bc_length_mm: float) -> float:
-    """``|OC|`` extended: ``O-A``, the two radii to ``B``, then ``BC``."""
-
-    return a_x_mm + 2.0 * roller_radius_mm + bc_length_mm
-
-
-__all__ = ["DISTAL_PAD_REACH_MM", "ROLLER_RADIUS_MAX_MM", "SERVO_REAR", "VARIABLE_NAMES", "RcjConfig",
-           "distal_reach", "finger_length_mm", "proximal_reach"]
+__all__ = ["DISTAL_PAD_REACH_MM", "ROLLER_RADIUS_MAX_MM", "VARIABLE_NAMES", "RcjConfig", "distal_reach",
+           "proximal_reach"]

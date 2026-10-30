@@ -9,6 +9,7 @@ by the same angle: ``phi = theta``, so ``k = 1``, with no dead centre (a
 parallelogram from ``A'`` turning 1:1 keeps its transmission angle within
 [30, 150] deg for at most 120 deg of flexion; the belt has no such limit).
 
+Its solids are the morphology's (``core.morphology.revolute_parallel``).
 Every other rule is the idealized 2R's (``core.optimization.revolute``,
 ``joint_servo=False``): the pads hang at most ``A``'s pin radius below their
 segment lines, keep off its housing, and are checked against each other,
@@ -28,19 +29,18 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.linkage.packaging import ServoFootprint, footprint_gaps
+from core.morphology.packaging.gaps import footprint_gaps
+from core.morphology.revolute_parallel import solids
+from core.morphology.revolute_parallel.solids import ParallelGeometry
 
 from core.optimization.revolute.evaluate import (
     UNSWEPT,
     RevoluteEvaluation,
-    RevoluteGeometry,
     _between_samples,
-    _margins as revolute_margins,
-    geometry as revolute_geometry,
     hyperextension_violation,
+    joint_checks,
     usable_lengths,
 )
-from core.optimization.revolute.config import VARIABLE_NAMES as REVOLUTE_NAMES
 from core.optimization.revolute_parallel.config import VARIABLE_NAMES, ParallelConfig
 
 
@@ -50,32 +50,11 @@ MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usab
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 
 
-@dataclass(frozen=True)
-class ParallelGeometry:
-    """The 2R's solids (``joint``) with the servo and the drive pulley on ``A'``."""
-
-    joint: RevoluteGeometry
-    ap: np.ndarray
-    servo: ServoFootprint
-    pulley_radius_mm: float
-
-    def __getattr__(self, name: str):  # the 2R's solids and poses
-        return getattr(self.joint, name)
-
-    @property
-    def a(self) -> np.ndarray:
-        return np.array((self.joint.a_x_mm, 0.0))
-
-
 def geometry(x: Sequence[float], config: ParallelConfig) -> ParallelGeometry:
-    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    joint = revolute_geometry(tuple(x[:len(REVOLUTE_NAMES)]), config.base)
-    ap = np.array((joint.a_x_mm + v["ap_from_a_x_mm"], v["ap_from_a_z_mm"]))
-    servo = config.goal.packaging.pip_servo
-    tilt = math.radians(v["servo_tilt_deg"])
-    footprint = ServoFootprint((float(ap[0]), float(ap[1])), (-math.cos(tilt), math.sin(tilt)),
-                               servo.radius_mm, servo.rear_extent_mm)
-    return ParallelGeometry(joint, ap, footprint, config.pulley_radius_mm)
+    """The solids of a design vector, with the study's packaging and supports."""
+
+    goal = config.goal
+    return solids.geometry(x, goal.packaging, config.pulley_radius_mm, goal.proximal_carrier_height_mm)
 
 
 @dataclass(frozen=True)
@@ -178,22 +157,9 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
 
 def _margins(geo: ParallelGeometry, phi: np.ndarray, config: ParallelConfig,
              until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
-    """The idealized 2R's pairs (the pads, the joint, the MCP servo), then the
-    servo against the distal pad and its carrier (the pulleys, in the outer
-    layer, meet neither pad)."""
+    """Per-sample margin of every checked pair (``solids.margins``, the study's checks)."""
 
-    packaging = config.goal.packaging
-    clearance = packaging.body_clearance_mm
-    joint = geo.joint
-    distal = joint.distal_pad(phi)
-    margins = {
-        ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
-    }
-    if joint.distal_carrier_local is not None:
-        margins[("distal_carrier", "pip_servo")] = (
-            footprint_gaps(joint.posed(joint.distal_carrier_local, phi), geo.servo, packaging) - clearance)
-    margins = {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
-    return {**revolute_margins(joint, phi, config.base, until_unsafe=until_unsafe), **margins}
+    return solids.margins(geo, phi, joint_checks(config.base), until_unsafe)
 
 
-__all__ = ["CONSTRAINT_NAMES", "ParallelEvaluation", "ParallelGeometry", "evaluate", "geometry"]
+__all__ = ["CONSTRAINT_NAMES", "ParallelEvaluation", "evaluate", "geometry"]

@@ -19,7 +19,7 @@ red when a checked pair comes closer than the body clearance at that pose
 (MCP at its frame angle); the status line names the closest pair.
 
 Each part in the central layer is outlined in its collision group's colour
-(``packaging.COLLISION_GROUPS``: palm, proximal, distal): parts of different
+(``packaging.PARTS``' bodies: palm, proximal, distal): parts of different
 groups must not collide, parts of one group are one rigid body. The driver
 link and coupler plates sit in another layer and are not outlined.
 """
@@ -45,16 +45,19 @@ from core.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
+from core.morphology.linkage.design import VARIABLE_NAMES, decode, read_design
 from core.morphology.linkage.packaging import (
     COMPONENTS,
-    Packaging,
-    fixed_margin_pairs,
+    LinkagePackaging,
+    distal_drop,
     distal_pad_polygon,
-    proximal_pad_polygon,
+    fixed_margin_pairs,
     pad_margins,
-    turn_points,
+    pip_footprint,
+    proximal_drop,
+    proximal_pad_polygon,
 )
-from core.optimization.linkage import VARIABLE_NAMES, decode, read_design
+from core.morphology.packaging.shapes import turn_points
 from core.optimization.study import load_config
 from visualize.style import DISTAL_PAD, LIGHT_GRID, OUTPUT, PROXIMAL_PAD, SERVO
 
@@ -67,7 +70,7 @@ OUTLINE_WIDTH = 1.6
 
 
 def load_candidate(csv_path: Path, candidate: int,
-                   app_offset_mm: float | None = None) -> tuple[FingerLinkage, float, Packaging]:
+                   app_offset_mm: float | None = None) -> tuple[FingerLinkage, float, LinkagePackaging]:
     """Return a linkage optimization candidate's linkage, the PIP flexion at the end of its
     usable range and the run's packaging."""
 
@@ -91,11 +94,11 @@ def build_trajectory(mcp_rad: float, pip_rad: float, frames: int) -> list[tuple[
     return forward + forward[-2::-1]
 
 
-def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float, packaging: Packaging) -> float:
+def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float, packaging: LinkagePackaging) -> float:
     return servo_clearance(linkage, packaging, pip_samples_rad=(q_pip_rad,)).link_mm
 
 
-def pad_status(linkage: FingerLinkage, packaging: Packaging,
+def pad_status(linkage: FingerLinkage, packaging: LinkagePackaging,
                q_mcp_rad: float, q_pip_rad: float) -> tuple[float, str, bool]:
     """Least pad margin at one pose (less the fixed-margin pairs), the pair
     that sets it, and whether any checked pair collides."""
@@ -110,13 +113,13 @@ def pad_status(linkage: FingerLinkage, packaging: Packaging,
 
 def create_animation(
     linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int,
-    packaging: Packaging | None = None,
+    packaging: LinkagePackaging | None = None,
 ) -> tuple[plt.Figure, FuncAnimation, Callable[[int], object]]:
-    packaging = packaging or Packaging()
+    packaging = packaging or LinkagePackaging()
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     clearances = [link_clearance_mm(linkage, q_pip, packaging) for _, q_pip in trajectory]
     pads = [pad_status(linkage, packaging, q_mcp, q_pip) for q_mcp, q_pip in trajectory]
-    servo = packaging.pip_footprint(linkage).outline
+    servo = pip_footprint(packaging, linkage).outline
     # The pad solids, posed: the proximal one turns with the MCP, the
     # distal one rides on the posed B and C.
     proximal = proximal_pad_polygon(linkage, packaging)
@@ -178,12 +181,12 @@ def create_animation(
 
     outlines = []
     for name, component in COMPONENTS.items():
-        if component.group not in GROUP_COLORS:
-            continue  # the link plates, in another layer
+        if component.body not in GROUP_COLORS or name in ("distal_carrier", "pip_shaft"):
+            continue  # the link plates, in other layers; the carrier and the shaft's clearance, not drawn
         if name == "mcp_servo" and not (packaging.pad_checks_mcp("proximal_pad")
                                         or packaging.pad_checks_mcp("distal_pad")):
             continue
-        color = GROUP_COLORS[component.group]
+        color = GROUP_COLORS[component.body]
         if name in pins:
             patch = Circle((0.0, 0.0), packaging.pivot_radius_mm(pins[name]), fill=False,
                            edgecolor=color, linewidth=OUTLINE_WIDTH, zorder=4.5)
@@ -266,8 +269,8 @@ def create_animation(
             point = getattr(pose, name)
             x, z = point.x_mm, point.z_mm
             if name in ("app", "bpp"):  # on the pad's top face, its drop below the link line
-                start, end, drop = ((pose.o, pose.a, packaging.proximal_drop(linkage.parameters)) if name == "app"
-                                    else (pose.b, pose.c, packaging.distal_drop(linkage.parameters)))
+                start, end, drop = ((pose.o, pose.a, proximal_drop(packaging, linkage.parameters)) if name == "app"
+                                    else (pose.b, pose.c, distal_drop(packaging, linkage.parameters)))
                 ux, uz = end.x_mm - start.x_mm, end.z_mm - start.z_mm
                 length = math.hypot(ux, uz) or 1.0
                 x, z = x - drop * -uz / length, z - drop * ux / length
@@ -336,7 +339,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (args.pareto is None) != (args.candidate is None):
         raise ValueError("--pareto and --candidate must be given together")
     if args.pareto is None:
-        linkage, pip_deg, packaging = SKETCH_LINKAGE, 75.0, Packaging()
+        linkage, pip_deg, packaging = SKETCH_LINKAGE, 75.0, LinkagePackaging()
         output = args.output or OUTPUT / "finger_2dof.gif"
     else:
         linkage, pip_deg, packaging = load_candidate(args.pareto, args.candidate, args.app_offset_mm)

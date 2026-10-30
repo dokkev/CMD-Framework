@@ -26,9 +26,10 @@ import numpy as np
 
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.hardware import DShapedExtrusion, actuator
-from core.morphology.linkage.packaging import ContactPad, Packaging
+from core.morphology.packaging.hardware import ContactPad
+from core.morphology.linkage.packaging import LinkagePackaging
 
-from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
+from core.morphology.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
 
 
 OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")
@@ -53,7 +54,7 @@ class LinkageConfig:
     """
 
     bounds: Mapping[str, tuple[float, float]]
-    packaging: Packaging = field(default_factory=Packaging)
+    packaging: LinkagePackaging = field(default_factory=LinkagePackaging)
     required_rom_rad: float = math.radians(150.0)
     """``goal.motion.dip_flexion_deg``: the rotation of ``BC`` relative to
     ``OA`` (``phi = q_pip + q_dip``) every design must reach safely; ``k_max``
@@ -123,8 +124,9 @@ class LinkageConfig:
     """Searched with each pad on its own link only (``goal.pads.on_links``,
     true unless the file says otherwise; ``False`` here for runs before it):
     the proximal pad to ``A``, the distal one from ``B`` to ``C``, so more pad
-    means a shorter four-bar. ``scripts/optimize/extend_pads.py`` then grows
-    the pads of the designs found as far as they keep usable."""
+    means a shorter four-bar. ``scripts/optimize/extend_pads.py``
+    (``core.morphology.linkage.pad_extension``) then grows the pads of the
+    designs found as far as they keep usable."""
     symmetric_four_bar: bool = False
     """The four-bar an antiparallelogram: ``|B'B| = |A'A|`` and ``|AB'| = |A'B|``,
     ``B'`` then set by ``A``, ``A'`` and ``B`` (``goal.link.symmetric_four_bar``)."""
@@ -148,13 +150,13 @@ class LinkageConfig:
     ``None``: none given."""
     icr0_share_bounds: tuple[float | None, float | None] = (None, None)
     """``goal.link.icr0_share``: where the extended pose's centre of rotation
-    may lie, as a share of ``|OC|`` from ``O`` (``core.optimization.analysis.icr``;
+    may lie, as a share of ``|OC|`` from ``O`` (``core.morphology.icr``;
     the bending-point control runs); ``(None, None)``: anywhere."""
     dorsal_space_mm: float | None = None
     """``goal.link.dorsal_space_mm``: how far the extended finger's own solids
     may rise above the common datum, the line through ``O`` along the finger
     (the pads, free in their drops, below it; the MCP servo, in the palm, left
-    out; ``core.optimization.analysis.loss.dorsal_space_mm``); ``None``: any."""
+    out; ``core.morphology.contact.loss.dorsal_space_mm``); ``None``: any."""
     link_radius_mm: float | None = None
     """``goal.collision.param.link_radius_mm``: the links and bars as capsules
     of this radius, each checked against the pads it does not carry, in the
@@ -171,7 +173,7 @@ class LinkageConfig:
     counts whole (the comparison model's accommodation)."""
     integrity_depth_mm: float | None = None
     """``goal.loss.integrity_depth_mm``: the objective's loss rule
-    (``core.optimization.analysis.loss.integrity_free``): a face's point is
+    (``core.morphology.contact.loss.integrity_free``): a face's point is
     lost when, at any pose to the required flexion, it is hidden in the fold
     or any solid but its own pad lies within this depth in front of it.
     ``None``: the fold alone, as measured before linkage-v5."""
@@ -518,7 +520,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     for name, value in checks.items():
         if not isinstance(value, bool):
             raise ValueError(f"goal.collision.check.{name} must be true or false")
-    packaging = Packaging(
+    packaging = LinkagePackaging(
         pip_servo=actuator(pip_model).geometry,
         mcp_servo=actuator(mcp_model).geometry,
         pivot_clearance_diameter_mm=pivot["a"],
@@ -675,8 +677,8 @@ def _bounds(value: Any, name: str) -> tuple[float, float]:
     return low, high
 
 
-def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
-    """A :class:`Packaging` from plain values: servos by actuator name (e.g.
+def packaging_from_mapping(values: Mapping[str, object]) -> LinkagePackaging:
+    """A :class:`LinkagePackaging` from plain values: servos by actuator name (e.g.
     ``xm335``, ``core.hardware.ACTUATORS``) or as tables, pads as tables."""
 
     packaging = dict(values)
@@ -696,7 +698,7 @@ def packaging_from_mapping(values: Mapping[str, object]) -> Packaging:
             packaging[pad] = ContactPad(**packaging[pad])
     if "mcp_servo_rear" in packaging:
         packaging["mcp_servo_rear"] = tuple(packaging["mcp_servo_rear"])
-    return Packaging(**packaging)
+    return LinkagePackaging(**packaging)
 
 
 TUPLE_FIELDS = ("transmission_angle_range_rad", "extended_length_bounds_mm", "proximal_length_bounds_mm",

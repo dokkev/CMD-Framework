@@ -15,6 +15,6 @@ Figures, each run from the repository root as ``python -m visualize.<package>.<m
 
 - ``paper``: the paper's figures (``output/paper/``)
 - ``comparison``: the linkage against the serial 2R and the RCJ (``output/comparison/``)
-- ``study``: a study's fronts (Pareto, convergence, accommodation, length budget, loss profile)
+- ``study``: a study's fronts (Pareto, convergence, loss profile)
 - ``animate``: the 2-DoF finger animated, ``hardware``: the actuator and fingertip models
 """

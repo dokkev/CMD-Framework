@@ -1,4 +1,8 @@
-"""Evaluate one linkage design.
+"""Evaluate one linkage design against the study's requirements.
+
+What the finger is and does is the morphology's (``core.morphology.linkage``:
+its kinematics, packaging, measures and swept motion); this module holds
+those measurements to the goal's bounds as constraints.
 
 The PIP servo sits on ``A'`` and drives the coupler ``A'-B``. ``phi = q_pip +
 q_dip`` is the distal link's rotation relative to the proximal link (180 deg:
@@ -35,29 +39,23 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.linkage import FingerLinkage, FingerLinkageParameters, PipSweep
+from core.morphology.linkage import FingerLinkage, FingerLinkageParameters
+from core.morphology.linkage.measures import finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
+from core.morphology.linkage.motion import MotionSettings, sweep_motion
 from core.morphology.linkage.packaging import (
-    ServoFootprint,
-    _polygon_to_disk,
-    distal_pad_polygon,
-    contact_faces,
-    fold_free_lengths,
-    fixed_margin_pairs,
-    footprint_gaps,
-    pad_chamfer_mm,
-    pad_margins,
+    PAD_PARTS,
+    assembly,
+    distal_drop,
+    least_margin_mm,
     pad_spans,
-    distal_carrier_polygon,
-    pip_servo_pad_gap_mm,
-    polygon_gaps,
-    proximal_carrier_polygon,
-    proximal_pad_polygon,
-    segment_polygon_gaps,
-    usable_pad_lengths,
+    pip_footprint,
+    proximal_drop,
+    reference_poses,
 )
+from core.morphology.packaging.assembly import margins
+from core.morphology.packaging.shapes import ServoFootprint
 
 from core.optimization.linkage.config import LinkageConfig
-from core.optimization.linkage.search import extended_icr_x
 
 
 STATIC_CONSTRAINTS: tuple[str, ...] = (
@@ -88,8 +86,6 @@ INVALID = 1.0e3
 """Violation assigned to every other constraint of an invalid reference design."""
 UNSWEPT = 1.0e2
 """Violation assigned to the motion constraints of a design that fails a static one."""
-STOP_REASONS = ("closure", "transmission", "dip_backoff", "pip_backoff", "dip_pin", "pad_collision")
-"""The unsafe conditions, in the order they are reported."""
 
 
 @dataclass(frozen=True)
@@ -111,7 +107,7 @@ class LinkageEvaluation:
     """The most flexion every check still allows, ``C_x`` included (at most pi)."""
     stop_reason: str = ""
     """What ends the safe motion: ``"curl"`` at 180 deg, an unsafe condition
-    (:data:`STOP_REASONS`), ``"closure"`` or ``"horizon"``."""
+    (``core.morphology.linkage.motion.STOP_REASONS``), ``"closure"`` or ``"horizon"``."""
     collision_pair: str = ""
     """With ``"pad_collision"``, the first pair that collides, ``"first/second"``."""
     usable_pip_rad: float = 0.0
@@ -219,12 +215,6 @@ class LinkageEvaluation:
         return "tip_x" if self.phi_max_rad < self.phi_safe_rad - 1e-12 else self.stop_reason
 
 
-def finger_length_mm(parameters: FingerLinkageParameters) -> float:
-    """``|OC|`` in the extended pose, ``C = (B_x + BC, B_z)``."""
-
-    return math.hypot(parameters.b_x_mm + parameters.bc_length_mm, parameters.b_z_mm)
-
-
 def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> LinkageEvaluation:
     """Evaluate one design (see the module docstring). A design that fails a
     static check gets :data:`UNSWEPT` for the motion constraints; an invalid
@@ -238,9 +228,9 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         required_rom_rad=config.required_rom_rad,
         required_proximal_mm=config.minimum_proximal_support_mm,
         required_distal_mm=config.minimum_distal_support_mm,
-        proximal_depth_mm=packaging.proximal_drop(parameters) + packaging.proximal_pad.height_mm,
-        distal_depth_mm=packaging.distal_drop(parameters) + packaging.distal_pad.height_mm,
-        **_pad_lengths(parameters, packaging),
+        proximal_depth_mm=proximal_drop(packaging, parameters) + packaging.proximal_pad.height_mm,
+        distal_depth_mm=distal_drop(packaging, parameters) + packaging.distal_pad.height_mm,
+        **pad_lengths(parameters, packaging),
     )
     try:
         linkage = FingerLinkage(parameters)
@@ -249,204 +239,79 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         constraints["valid_reference"] = 1.0
         return LinkageEvaluation(parameters, MappingProxyType(constraints), **common)
 
-    footprint = packaging.pip_footprint(linkage)
+    footprint = pip_footprint(packaging, linkage)
     static = _static_constraints(linkage, footprint, config, common)
     if max(static.values()) > 0.0:
         constraints = {**static, **{name: UNSWEPT for name in MOTION_CONSTRAINTS}}
         return LinkageEvaluation(parameters, MappingProxyType(constraints),
                                  servo_lowest_z_mm=footprint.lowest_z_mm, **common)
 
-    step = config.servo_step_rad
-    # The servo sense that flexes the PIP.
-    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_pip_rad[-1] >= 0.0 else -1.0
-    forward = np.asarray(config.servo_samples_rad)
-    sweep = linkage.sweep_servo(sense * forward)
-    # Hyperextension is a PIP requirement: solved by the PIP, to the stopper exactly.
-    count = int(math.ceil(config.hyperextension_rad / step - 1e-9))
-    back = linkage.sweep_pip(-np.minimum(np.arange(count + 1) * step, config.hyperextension_rad))
-    n_back = len(back.q_pip_rad) - 1  # back samples besides 0
-
-    def joined(name: str) -> np.ndarray:
-        """The back samples, then the forward sweep, in increasing flexion."""
-
-        return np.concatenate((getattr(back, name)[n_back:0:-1], getattr(sweep, name)))
-
-    unsafe = _unsafe_conditions(linkage, footprint, joined, sense, config)
-    total = sweep.total_flexion_rad
-    # The pads from extension up to the first other unsafe sample or the curl
-    # (180 deg), as far as phi_max needs them; hyperextension is linkage range only.
-    other = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[n_back:])
-    end = int(other[0]) if other.size else len(total) - 1
-    curled = np.flatnonzero(total >= math.pi)
-    if curled.size:
-        end = min(end, int(curled[0]))
-    swept = slice(n_back, n_back + end + 1)
-    margins = pad_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
-                          joined("bp")[swept], config.mcp_samples_rad)
-    if config.link_radius_mm is not None:  # the comparison model: the links as capsules, in the side view
-        margins.update(link_capsule_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
-                                            joined("bp")[swept], config.link_radius_mm))
-    if config.proximal_carrier_height_mm is not None:  # the comparison model: both supports solid
-        margins.update(support_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
-                                       config.proximal_carrier_height_mm))
-    pad = np.full(len(unsafe["closure"]), math.inf)
-    pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
-    # The reported clearance leaves out pairs whose margin the design does not set.
-    reported = [margin for pair, margin in margins.items() if pair not in fixed_margin_pairs(packaging)]
-    reported_pad = np.full(len(unsafe["closure"]), math.inf)
-    if reported:
-        reported_pad[swept] = np.min(np.stack(reported), axis=0)
-    unsafe["pad_collision"] = pad < 0.0
-    unsafe["pad_collision"][n_back + end + 1:] = True  # past the pads' last sample nothing is known safe
-    any_unsafe = np.any(np.stack(list(unsafe.values())), axis=0)
-
+    motion = sweep_motion(linkage, packaging, motion_settings(config), config.required_rom_rad, footprint,
+                          config.integrity_depth_mm)
     # Hyperextension: the PIP must reach the stopper safely; short of it, the
     # violation is the PIP still missing.
-    safe_back = 0
-    while safe_back < n_back and not any_unsafe[n_back - 1 - safe_back]:
-        safe_back += 1
-    deepest = float(back.q_pip_rad[safe_back]) if not any_unsafe[n_back] else 0.0
-    hyper_violation = max(0.0, math.degrees(config.hyperextension_rad + deepest))
+    hyper_violation = max(0.0, math.degrees(config.hyperextension_rad + motion.deepest_pip_rad))
     if hyper_violation < 1e-9:
         hyper_violation = 0.0
-
-    # The safe motion from extension: up to the first unsafe sample (or the
-    # sweep's end, where the four-bar stops closing).
-    forward_unsafe = any_unsafe[n_back:]
-    first_unsafe = int(np.flatnonzero(forward_unsafe)[0]) if forward_unsafe.any() else len(total)
-    reach = float(min(total[first_unsafe - 1], math.pi)) if first_unsafe > 0 else 0.0
-    stop_reason = (next(name for name in STOP_REASONS if unsafe[name][n_back + first_unsafe])
-                   if first_unsafe < len(total) else ("closure" if len(total) < len(forward) else "horizon"))
-    if reach >= math.pi - 1e-12:  # BC antiparallel to OA: nothing past it is needed
-        stop_reason = "curl"
-    collision_pair = ""
-    if stop_reason == "pad_collision" and first_unsafe <= end:
-        collision_pair = "/".join(next(pair for pair, margin in margins.items()
-                                       if margin[first_unsafe] < 0.0))
-
-    # [0, phi_req] on the grid: to the first sample at or past it (the whole
-    # safe motion when it falls short).
-    at = np.flatnonzero(total >= config.required_rom_rad - 1e-12)
-    last = int(at[0]) if at.size else max(first_unsafe - 1, 0)
-    window = np.zeros(len(total), dtype=bool)
-    window[:last + 1] = True
-    lever, ratio, travel = servo_lever(sweep, window)
-    ratio_min = _least_torque_ratio(sweep, window)
-    tip_x = sweep.c[:, 0]
-    least_tip = float(tip_x[window].min())
-    # phi_max: the first sample any check fails at, C_x included.
-    failing = forward_unsafe | (tip_x < 0.0)
-    first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(total)
-    phi_max = float(min(total[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
-
-    window_joined = np.concatenate((np.ones(n_back, dtype=bool), window))
-    margin = joined("margin_at_bp_rad")[window_joined]
-    toggle = joined("margin_at_b_rad")[window_joined]
-    bp_range = joined("bp")[window_joined]
-    a = np.array((linkage.a.x_mm, linkage.a.z_mm))
-    link = footprint.distance_to_segments(np.broadcast_to(a, bp_range.shape), bp_range)
-    if packaging.links_clear_pads:  # the links bent out of the way: each face less what the other hides
-        free = fold_free_lengths(*contact_faces(linkage, packaging, sweep.b[window], sweep.c[window]))
-    else:
-        free = usable_pad_lengths(linkage, packaging, sweep.b[window], sweep.bp[window], sweep.c[window])
-    free = {side: float(lengths.min()) for side, lengths in free.items()}
+    free = motion.fold_free
     if not config.count_fold:  # a module clear through the motion counts whole
         free = {side: math.inf for side in free}
     if config.integrity_depth_mm is not None:  # linkage-v5: no solid within the depth in front, at any pose
-        from core.optimization.analysis.loss import integrity_free, linkage_scene
-
-        kept = integrity_free(linkage_scene(linkage, packaging, sweep.b[window], sweep.c[window], sweep.bp[window],
-                                            np.degrees(total[window])), config.integrity_depth_mm)
+        kept = motion.integrity_free
         free = kept if packaging.links_clear_pads else {side: min(free[side], kept[side]) for side in free}
 
     constraints = {
         **static,
-        "rom_deg": math.degrees(config.required_rom_rad - reach),
+        "rom_deg": math.degrees(config.required_rom_rad - motion.phi_safe_rad),
         "hyperextension_deg": hyper_violation,
-        "curl_tip_x_mm": -least_tip,
+        "curl_tip_x_mm": -motion.least_tip_x_mm,
         "pad_usable_mm": max(
             config.minimum_proximal_support_mm - min(free["proximal_pad"], common["proximal_face_mm"]),
             config.minimum_distal_support_mm - min(free["distal_pad"], common["distal_face_mm"])),
-        "torque_ratio": 0.0 if config.torque_ratio_max is None else ratio - config.torque_ratio_max,
+        "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
     }
     return LinkageEvaluation(
         parameters=parameters,
         constraints=MappingProxyType(constraints),
-        worst_transmission_quality=float(np.sin(margin).min()),
-        phi_safe_rad=reach,
-        phi_max_rad=phi_max,
-        stop_reason=stop_reason,
-        collision_pair=collision_pair,
-        usable_pip_rad=float(sweep.q_pip_rad[last]),
-        usable_servo_rad=float(forward[last]),
-        curl_tip_x_mm=float(tip_x[last]),
-        least_tip_x_mm=least_tip,
-        min_margin_rad=float(margin.min()),
-        toggle_margin_rad=float(toggle.min()),
-        hyperextension_phi_rad=float(back.total_flexion_rad[safe_back]),
-        driver_link_servo_clearance_mm=float(link.min()) - packaging.body_clearance_mm,
+        worst_transmission_quality=motion.worst_transmission_quality,
+        phi_safe_rad=motion.phi_safe_rad,
+        phi_max_rad=motion.phi_max_rad,
+        stop_reason=motion.stop_reason,
+        collision_pair=motion.collision_pair,
+        usable_pip_rad=motion.usable_pip_rad,
+        usable_servo_rad=motion.usable_servo_rad,
+        curl_tip_x_mm=motion.curl_tip_x_mm,
+        least_tip_x_mm=motion.least_tip_x_mm,
+        min_margin_rad=motion.min_margin_rad,
+        toggle_margin_rad=motion.toggle_margin_rad,
+        hyperextension_phi_rad=motion.hyperextension_phi_rad,
+        driver_link_servo_clearance_mm=motion.driver_link_servo_clearance_mm,
         servo_lowest_z_mm=footprint.lowest_z_mm,
-        closes_to_rad=float(sweep.q_pip_rad[-1]),
-        lever_max_mm=lever,
-        torque_ratio_max=ratio,
-        torque_ratio_min=ratio_min,
-        servo_travel_rad=travel,
-        pad_clearance_mm=float(reported_pad[n_back:][window].min()),
+        closes_to_rad=motion.closes_to_rad,
+        lever_max_mm=motion.lever_max_mm,
+        torque_ratio_max=motion.torque_ratio_max,
+        torque_ratio_min=motion.torque_ratio_min,
+        servo_travel_rad=motion.servo_travel_rad,
+        pad_clearance_mm=motion.pad_clearance_mm,
         proximal_usable_length_mm=free["proximal_pad"],
         distal_usable_length_mm=free["distal_pad"],
         **common,
     )
 
 
-def link_capsule_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndarray, bp: np.ndarray,
-                         radius_mm: float) -> dict[tuple[str, str], np.ndarray]:
-    """Per-sample margin (mm) of each pad against the bars it is not mounted
-    on, each a capsule of ``radius_mm`` about its centre line, in the side
-    view: the proximal pad against the crossing bars ``A-B'`` and ``A'-B``
-    and the distal body (``B'-B``, ``B-C``); the distal pad against the
-    crossing bars and the proximal body (``O-A``, ``A-A'``, ``A'-O``). A pad
-    against its own body's bars is its mounting, not a collision."""
+def motion_settings(config: LinkageConfig) -> MotionSettings:
+    """How the study sweeps a design's motion and what it checks along it."""
 
-    b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
-    count = len(b)
-    o = np.zeros((count, 2))
-    a = np.broadcast_to((linkage.a.x_mm, linkage.a.z_mm), (count, 2))
-    ap = np.broadcast_to((linkage.ap.x_mm, linkage.ap.z_mm), (count, 2))
-    polygon = proximal_pad_polygon(linkage, packaging)
-    pads = {"proximal_pad": np.broadcast_to(polygon, (count, *polygon.shape)),
-            "distal_pad": distal_pad_polygon(linkage, packaging, b, c)}
-    crossing = {"a_bp": (a, bp), "ap_b": (ap, b)}
-    bodies = {"proximal_pad": {**crossing, "bp_b": (bp, b), "b_c": (b, c)},
-              "distal_pad": {**crossing, "o_a": (o, a), "a_ap": (a, ap), "ap_o": (ap, o)}}
-    clearance = packaging.body_clearance_mm
-    return {(pad, f"link_{name}"): segment_polygon_gaps(pads[pad], start, end) - radius_mm - clearance
-            for pad, bars in bodies.items() for name, (start, end) in bars.items()}
-
-
-def support_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndarray,
-                    height_mm: float) -> dict[tuple[str, str], np.ndarray]:
-    """Per-sample margin (mm) between each segment's support and the other
-    segment's pad and support: the proximal support
-    (``packaging.proximal_carrier_polygon``) against the distal pad and
-    carrier, the distal carrier against the proximal pad; and the proximal
-    support against the PIP servo's body on its own segment (a support may
-    end on its own pins, its mounting, not run through an actuator)."""
-
-    b, c = np.atleast_2d(b), np.atleast_2d(c)
-    count = len(b)
-    support = np.broadcast_to(proximal_carrier_polygon(linkage, packaging, height_mm), (count, 4, 2))
-    polygon = proximal_pad_polygon(linkage, packaging)
-    proximal = np.broadcast_to(polygon, (count, *polygon.shape))
-    clearance = packaging.body_clearance_mm
-    margins = {("distal_pad", "proximal_carrier"): polygon_gaps(distal_pad_polygon(linkage, packaging, b, c), support,
-                                                                packaging) - clearance,
-               ("proximal_carrier", "pip_servo"): footprint_gaps(support, packaging.pip_footprint(linkage), packaging)
-               - clearance}
-    if packaging.distal_carrier_height_mm > 0.0:
-        carrier = distal_carrier_polygon(linkage, packaging, b, c)
-        margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
-        margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
-    return margins
+    return MotionSettings(
+        servo_samples_rad=config.servo_samples_rad,
+        servo_step_rad=config.servo_step_rad,
+        hyperextension_rad=config.hyperextension_rad,
+        mcp_samples_rad=config.mcp_samples_rad,
+        transmission_angle_range_rad=config.transmission_angle_range_rad,
+        dip_backoff_tolerance_rad=config.dip_backoff_tolerance_rad,
+        link_radius_mm=config.link_radius_mm,
+        proximal_carrier_height_mm=config.proximal_carrier_height_mm,
+    )
 
 
 def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> float:
@@ -454,7 +319,7 @@ def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> flo
 
     if config.dorsal_space_mm is None:
         return 0.0
-    from core.optimization.analysis.loss import dorsal_space_mm, linkage_scene
+    from core.morphology.contact.loss import dorsal_space_mm, linkage_scene  # only with a dorsal space set
 
     b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp))
     built = linkage_scene(linkage, config.packaging, b, c, bp, [0.0], config.proximal_carrier_height_mm)
@@ -469,14 +334,15 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     (a feasible design checks them all)."""
 
     packaging = config.packaging
-    clearance = packaging.body_clearance_mm
     parameters = linkage.parameters
-    radius = packaging.pivot_radius_mm
+
+    # Every gap is the packaging's (its rigid bodies and their keep-outs), in the extended pose.
+    built, rest = assembly(linkage, packaging), reference_poses(linkage, config.mcp_samples_rad)
+    least = lambda *pairs: least_margin_mm(built, rest, packaging, *pairs)  # noqa: E731
 
     # 1. Lengths, pins and the pads' room: closed forms.
-    # Two pins on one body: A-B' (the driver link) and B'-B; their housings may touch.
-    spacing = max(radius("a") + radius("bp") - linkage.a.distance_to(linkage.bp),
-                  radius("bp") + radius("b") - linkage.bp.distance_to(linkage.b))
+    # Two pins on one link: A-B' (the driver link) and B'-B; their housings may touch.
+    spacing = -least(("a_pin", "bp_pin"), ("bp_pin", "b_pin"))
     length, length_low, length_high = common["finger_length_mm"], *config.extended_length_bounds_mm
     proximal_length, (proximal_low, proximal_high) = common["proximal_length_mm"], config.proximal_length_bounds_mm
     proximal_violations = [value for value in (
@@ -485,14 +351,9 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     spans = pad_spans(parameters, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
     if packaging.pads_off_pins:  # each pad clear of its own body's pin housings, wherever it ends
-        proximal_pad = proximal_pad_polygon(linkage, packaging)[None]
-        b, c = np.array((linkage.b.x_mm, linkage.b.z_mm)), np.array((linkage.c.x_mm, linkage.c.z_mm))
-        distal_pad = distal_pad_polygon(linkage, packaging, b, c)
-        own = lambda pad, pins: min(float(_polygon_to_disk(pad, np.array([(point.x_mm, point.z_mm)]),  # noqa: E731
-                                                            radius(name))[0]) for name, point in pins)
-        topology = (-(own(proximal_pad, (("a", linkage.a), ("ap", linkage.ap))) - clearance),
-                    -(own(distal_pad, (("b", linkage.b), ("bp", linkage.bp))) - clearance))
-        icr_x = extended_icr_x(*((point.x_mm, point.z_mm) for point in (linkage.a, linkage.ap, linkage.b, linkage.bp)))
+        topology = (-least(("proximal_pad", "a_pin"), ("proximal_pad", "ap_pin")),
+                    -least(("distal_pad", "b_pin"), ("distal_pad", "bp_pin")))
+        icr_x = linkage_icr_x(linkage)
         if config.proximal_pad_past_icr_max_mm is not None and icr_x is not None:  # not past the fold
             topology = (max(topology[0], parameters.app_x_mm - icr_x - config.proximal_pad_past_icr_max_mm),
                         topology[1])
@@ -505,12 +366,10 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     # |OA| and BC as shares of |OC|, their violations in mm.
     span_violations += config.length_ratio_violations(proximal_length, parameters.bc_length_mm, span, length)
     # The extended centre of rotation within its share of |OC| (the bending-point control).
-    span_violations += config.icr0_violations(
-        extended_icr_x(*((point.x_mm, point.z_mm) for point in (linkage.a, linkage.ap, linkage.b, linkage.bp))),
-        length)
+    span_violations += config.icr0_violations(linkage_icr_x(linkage), length)
     # A clears the keep-out at the servo's shaft A'.
     pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
-                 -(packaging.pivot_pin_gap_mm(linkage) - clearance))
+                 -least(("ap_pin" if packaging.pip_servo_on_a else "a_pin", "pip_shaft")))
     constraints = {
         "valid_reference": 0.0,
         "pivot_pin_mm": pivot_pin,
@@ -536,126 +395,32 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
 
     # 2. The servos: the two bodies, A against the PIP servo, the PIP servo
     # and the proximal pad.
-    mcp_angles = np.asarray(config.mcp_servo_angles_rad)
-    # Footprints whose circumscribed circles are apart cannot touch.
-    apart = math.hypot(*footprint.pivot) - footprint.reach_mm - packaging.mcp_footprint().reach_mm
-    servo_gap = apart if apart > clearance else packaging.mcp_servo_gap_mm(footprint, mcp_angles)
-    constraints["mcp_servo_mm"] = -(servo_gap - clearance)
+    servo_rest = reference_poses(linkage, np.asarray(config.mcp_servo_angles_rad))
+    constraints["mcp_servo_mm"] = -least_margin_mm(built, servo_rest, packaging, ("mcp_servo", "pip_servo"))
     if packaging.a_pin_servo_check:
-        a = np.array((linkage.a.x_mm, linkage.a.z_mm))
-        constraints["pivot_pin_mm"] = max(pivot_pin, -(footprint.distance_to_point(a) - radius("a") - clearance))
+        constraints["pivot_pin_mm"] = max(pivot_pin, -least(("a_pin", "pip_servo")))
     # The PIP servo and the proximal pad (one body, still kept apart), and the
     # older rule: the servo dorsal of the OA line.
     interface = -footprint.lowest_z_mm if packaging.pip_servo_above_oa else 0.0
     if packaging.pip_servo_pad_check:
-        interface = max(interface, -(pip_servo_pad_gap_mm(linkage, packaging) - clearance))
+        interface = max(interface, -least(("pip_servo", "proximal_pad")))
     constraints["pip_servo_pad_mm"] = interface
     if max(constraints.values()) > 0.0:
         return {**constraints, **{name: UNSWEPT for name in pads}}
 
     # 3. The pads against every checked part, extended.
-    reference = [np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp)]
-    margins = pad_margins(linkage, packaging, *reference, config.mcp_samples_rad)
-    constraints["pad_collision_mm"] = -min(float(margin.min()) for margin in margins.values())
+    found = margins(built, rest, packaging, built.layout.pairs_with(PAD_PARTS))
+    constraints["pad_collision_mm"] = -min(float(margin.min()) for margin in found.values())
     return constraints
 
 
 def overhang_violations(linkage: FingerLinkage, config: LinkageConfig) -> tuple[float, float]:
-    """How far (mm) each pad runs past its own body beyond ``goal.pads.*.overhang_max_mm``
-    (0 within it, or without a limit), in the extended pose along the finger:
-    the proximal pad's ``A''`` past the proximal body's front (``A``'s
-    housing, the PIP servo's outline), the distal pad's ``B''`` behind the
-    distal body's back (``B``'s and ``B'``'s housings)."""
+    """How far (mm) each pad runs past its own body (``measures.overhang_mm``)
+    beyond ``goal.pads.*.overhang_max_mm`` (0 within it, or without a limit)."""
 
-    packaging, p = config.packaging, linkage.parameters
-    radius = packaging.pivot_radius_mm
-    front = max(p.a_x_mm + radius("a"), float(packaging.pip_footprint(linkage).outline[:, 0].max()))
-    back = min(p.b_x_mm - radius("b"), p.bp.x_mm - radius("bp"))
-    proximal, distal = config.proximal_overhang_max_mm, config.distal_overhang_max_mm
-    return (0.0 if proximal is None else max(p.app_x_mm - front - proximal, 0.0),
-            0.0 if distal is None else max(back - p.bpp_x_mm - distal, 0.0))
-
-
-def _unsafe_conditions(linkage: FingerLinkage, footprint: ServoFootprint, joined, sense: float,
-                       config: LinkageConfig) -> dict[str, np.ndarray]:
-    """Per-sample unsafe flags along the joined sweep, in increasing flexion
-    (the caller adds the pads). Backoffs are measured from the start of the
-    sweep (deepest hyperextension); the servo angle is signed to rise with flexion."""
-
-    packaging = config.packaging
-    tolerance = config.dip_backoff_tolerance_rad
-    low, high = config.transmission_angle_range_rad
-    bp = joined("bp")
-    angle = _angle_at(np.array((linkage.a.x_mm, linkage.a.z_mm)), bp, joined("b"))
-    q_dip, q_pip, servo = joined("q_dip_rad"), joined("q_pip_rad"), sense * joined("servo_rad")
-    return {
-        "closure": np.zeros(len(angle), dtype=bool),
-        "transmission": np.minimum(angle - low, high - angle) < 0.0,
-        "dip_backoff": np.maximum.accumulate(q_dip) - q_dip > tolerance,
-        # The PIP and the servo turn together.
-        "pip_backoff": (np.maximum.accumulate(q_pip) - q_pip > tolerance)
-        | (np.maximum.accumulate(servo) - servo > tolerance),
-        # The B' pin may cross the servo body when they sit in different Y layers.
-        "dip_pin": (np.zeros(len(angle), dtype=bool) if packaging.allow_collision_pip_servo_to_joint_bp
-                    else footprint.distance_to_segments(bp, bp)
-                    < packaging.pivot_radius_mm("bp") + packaging.body_clearance_mm),
-    }
-
-
-def _angle_at(a: np.ndarray, bp: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """The transmission angle at ``B'`` between ``B'->A`` and ``B'->B`` per sample, 0 to pi."""
-
-    first, second = a - bp, b - bp
-    cosine = np.sum(first * second, axis=1) / (np.linalg.norm(first, axis=1) * np.linalg.norm(second, axis=1))
-    return np.arccos(np.clip(cosine, -1.0, 1.0))
-
-
-def servo_lever(sweep: PipSweep, workspace: np.ndarray) -> tuple[float, float, float]:
-    """Worst lever ``r``, worst torque ratio ``k`` and the servo travel over the workspace.
-
-    A pad force ``F`` along the palmar normal ``n`` of ``BC`` at a contact
-    point ``p`` on ``BC`` loads the PIP servo, which turns the coupler
-    ``A'-B`` by ``theta``, with ``tau = F * |n . dp/dtheta|`` (virtual work, MCP
-    held). ``r = |n . dp/dtheta|`` is linear along ``BC``, so its worst is at
-    ``B`` or ``C``. It factors as ``r = k * d``: the linkage's torque ratio
-    ``k = d(phi)/d(theta)`` times the contact's distance ``d`` along ``BC`` from
-    the instantaneous centre. Returns ``(max r in mm, max k, |theta(end) - theta(start)|)``.
-    """
-
-    theta = sweep.servo_rad[workspace]
-    if len(theta) < 3:
-        return math.inf, math.inf, 0.0
-    b, c = sweep.b[workspace], sweep.c[workspace]
-    bc = (c - b) / np.linalg.norm(c - b, axis=1)[:, None]
-    normal = np.stack((bc[:, 1], -bc[:, 0]), axis=1)  # palmar side of BC
-    levers = [np.abs(np.sum(normal * np.gradient(point, theta, axis=0), axis=1)) for point in (b, c)]
-    phi = sweep.total_flexion_rad[workspace]
-    lever = np.max(np.maximum(*levers))
-    ratio = np.max(np.abs(np.gradient(phi, theta)))
-    return float(lever), float(ratio), float(abs(theta[-1] - theta[0]))
-
-
-def _least_torque_ratio(sweep: PipSweep, workspace: np.ndarray) -> float:
-    """Least ``k = d(phi)/d(theta_servo)`` over the workspace, as :func:`servo_lever` takes it."""
-
-    theta = sweep.servo_rad[workspace]
-    if len(theta) < 3:
-        return math.nan
-    return float(np.min(np.abs(np.gradient(sweep.total_flexion_rad[workspace], theta))))
-
-
-def _pad_lengths(parameters: FingerLinkageParameters, packaging) -> dict[str, float]:
-    """Each pad's mounting length and its face (less the chamfer)."""
-
-    spans = pad_spans(parameters, packaging)
-    values = {}
-    for side in ("proximal", "distal"):
-        length = spans[f"{side}_pad"].length_mm
-        chamfer = pad_chamfer_mm(getattr(packaging, f"{side}_pad"), parameters, side)
-        values[f"{side}_support_length_mm"] = length
-        values[f"{side}_room_mm"] = spans[f"{side}_pad"].room_mm
-        values[f"{side}_face_mm"] = max(length - min(chamfer, length), 0.0)
-    return values
+    over = overhang_mm(linkage, config.packaging)
+    limits = (config.proximal_overhang_max_mm, config.distal_overhang_max_mm)
+    return tuple(0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(over, limits))
 
 
 __all__ = [
@@ -663,10 +428,8 @@ __all__ = [
     "INVALID",
     "MOTION_CONSTRAINTS",
     "STATIC_CONSTRAINTS",
-    "STOP_REASONS",
     "UNSWEPT",
     "LinkageEvaluation",
     "evaluate",
-    "finger_length_mm",
-    "servo_lever",
+    "motion_settings",
 ]

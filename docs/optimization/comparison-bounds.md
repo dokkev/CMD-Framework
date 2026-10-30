@@ -53,7 +53,7 @@ hit = quick run best 설계 중 그 bound에 붙은 칸 수 / 설계가 나온 �
 ## ICR₀ (extension 굽힘점) 보고
 
 - **계산**
-  - 함수는 `core/optimization/analysis/icr.py`에 있다. 2R 계열은 A, RCJ는 A + r, linkage는 AB′와 A′B의 교점이다.
+  - 함수는 `core/morphology/icr.py`에 있다. 2R 계열은 A, RCJ는 A + r, linkage는 AB′와 A′B의 교점이다.
   - 모든 front 행에 `icr0_share` 열이 생겼다. linkage는 만들어진 설계(링크 0.1 mm grid)로 계산한다.
 - **quick run best (provisional)**
 
@@ -71,7 +71,7 @@ hit = quick run best 설계 중 그 bound에 붙은 칸 수 / 설계가 나온 �
 
 XM335의 body는 반경 9.5 mm cap에 rear extent 25.5 mm이다. tilt 0°이면 body가 −X로 누워 proximal pad 자리를 차지한다. tilt 90°이면 body가 dorsal로 서서 pad 자리를 비우는 대신 dorsal 높이를 25.5 mm 쓴다. 지금은 두께 제한이 없으므로 **tilt 상한에 붙는 설계는 finger 두께를 공짜로 써서 pad 길이를 사는 것**이다.
 
-quick run best 설계의 extension 자세 dorsal–palmar 두께(finger 자기 solid와 pad, MCP servo 제외; `analysis.loss.thickness_mm`):
+quick run best 설계의 extension 자세 dorsal–palmar 두께(finger 자기 solid와 pad, MCP servo 제외; `core.morphology.contact.loss.thickness_mm`):
 
 | 메커니즘 | 두께 (mm) | dorsal 최고점 | tilt |
 |---|---|---|---|

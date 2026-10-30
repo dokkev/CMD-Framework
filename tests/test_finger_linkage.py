@@ -12,7 +12,11 @@ from core.morphology.linkage import (
     PointXZ,
     servo_clearance,
 )
-from core.morphology.linkage.packaging import PIN_RADIUS_MM, Packaging
+from core.morphology.packaging.hardware import PIN_RADIUS_MM
+from core.morphology.linkage.packaging import (
+    LinkagePackaging,
+    pip_footprint,
+)
 
 SKETCH = SKETCH_LINKAGE.parameters
 
@@ -116,7 +120,7 @@ def test_unreachable_pip_raises() -> None:
 
 def test_servo_at_a_prime_lies_back_parallel_to_oa() -> None:
     clearance = servo_clearance(FingerLinkage(SKETCH))
-    footprint = Packaging().pip_footprint(FingerLinkage(SKETCH))
+    footprint = pip_footprint(LinkagePackaging(), FingerLinkage(SKETCH))
 
     # The rear body spans x in [60 - 25.5, 60] and z in [19.3 - 9.5, 19.3 + 9.5];
     # the MCP servo body spans x in [-9.5, 9.5] up to z = 25.5: the gap is
@@ -153,14 +157,14 @@ def test_the_a_pin_clears_the_virtual_clearance_at_a_prime_not_the_servo_body() 
         a_x_mm=40.0, b_x_mm=90.0, ap=PointXZ(60.0, 8.0), bp=PointXZ(80.0, 10.0),
         bc_length_mm=40.0,
     )
-    footprint = Packaging().pip_footprint(FingerLinkage(flat))
+    footprint = pip_footprint(LinkagePackaging(), FingerLinkage(flat))
     assert footprint.distance_to_point(np.array((40.0, 0.0))) == 0.0
     expected = math.hypot(20.0, 8.0) - PIN_RADIUS_MM - 3.5 - 1.0
     assert servo_clearance(FingerLinkage(flat)).pin_mm == pytest.approx(expected)
     # The servo's tilt does not move the disk; its diameter is the packaging's.
     tilted = FingerLinkage(replace(flat, pip_servo_tilt_rad=math.radians(45.0)))
     assert servo_clearance(tilted).pin_mm == pytest.approx(expected)
-    wider = Packaging(ap_clearance_diameter_mm=10.0)
+    wider = LinkagePackaging(ap_clearance_diameter_mm=10.0)
     assert servo_clearance(FingerLinkage(flat), wider).pin_mm == pytest.approx(expected - 1.5)
 
 
@@ -170,8 +174,8 @@ def test_the_dip_pin_may_cross_the_servo_body_unless_checked() -> None:
     # The driver link sits in another Y layer: B' is not checked by default.
     assert servo_clearance(linkage, pip_samples_rad=q).dip_pin_mm == math.inf
 
-    checked = Packaging(allow_collision_pip_servo_to_joint_bp=False)
-    footprint = checked.pip_footprint(linkage)
+    checked = LinkagePackaging(allow_collision_pip_servo_to_joint_bp=False)
+    footprint = pip_footprint(checked, linkage)
     sweep = linkage.sweep_pip(q)
     nearest = min(footprint.distance_to_point(point) for point in sweep.bp)
     assert servo_clearance(linkage, checked, pip_samples_rad=q).dip_pin_mm == pytest.approx(
@@ -179,8 +183,8 @@ def test_the_dip_pin_may_cross_the_servo_body_unless_checked() -> None:
 
 
 def test_mcp_hyperextension_turns_the_pip_servo_toward_the_mcp_servo() -> None:
-    packaging = Packaging()
-    footprint = packaging.pip_footprint(FingerLinkage(SKETCH))
+    packaging = LinkagePackaging()
+    footprint = pip_footprint(packaging, FingerLinkage(SKETCH))
     at_rest = packaging.mcp_servo_gap_mm(footprint, (0.0,))
     hyperextended = packaging.mcp_servo_gap_mm(footprint, (math.radians(-10.0),))
     assert hyperextended < at_rest

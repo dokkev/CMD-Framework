@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 
-import core.morphology.linkage.packaging as packaging_module  # noqa: E402
+import core.morphology.packaging.gaps as packaging_module  # noqa: E402
 import visualize  # noqa: E402
 from core.morphology.linkage import SKETCH_LINKAGE  # noqa: E402
-from core.morphology.linkage.packaging import Packaging  # noqa: E402
+from core.morphology.linkage.packaging import LinkagePackaging  # noqa: E402
 from visualize import sketch, solids  # noqa: E402
 from visualize.motion import collisions, index_at, linkage_margins, servo_sweep  # noqa: E402
 
@@ -43,7 +43,7 @@ def test_the_servo_sweep_flexes_the_finger():
 
 
 def test_the_sketch_linkage_draws_at_every_flexion():
-    packaging = Packaging()
+    packaging = LinkagePackaging()
     phi, margins, sweep, index = linkage_margins(SKETCH_LINKAGE, packaging, 30.0)
     figure, (left, right) = plt.subplots(1, 2)
     try:

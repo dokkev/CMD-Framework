@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 from core.morphology.linkage import FingerLinkage  # noqa: E402
-from core.optimization.linkage.design import VARIABLE_NAMES, decode  # noqa: E402
+from core.morphology.linkage.design import VARIABLE_NAMES, decode  # noqa: E402
 from core.optimization.study import load_run  # noqa: E402
 from visualize.fronts import read_rows, with_role  # noqa: E402
 from visualize.motion import servo_sweep  # noqa: E402

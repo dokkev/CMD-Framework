@@ -27,8 +27,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-import core.morphology.linkage.packaging as packaging_module  # noqa: E402
-from core.optimization.analysis.loss import CATEGORIES, face_loss, intrusion_mm, scene  # noqa: E402
+import core.morphology.packaging.gaps as packaging_module  # noqa: E402
+from core.morphology.contact.loss import CATEGORIES, face_loss, intrusion_mm  # noqa: E402
+from core.optimization.analysis.scene import scene  # noqa: E402
 from core.optimization.study import load_run  # noqa: E402
 from visualize.fronts import read_rows, with_role  # noqa: E402
 from visualize.style import COLORS, GRID, INK, MUTED, SHORT_LABELS, axes_style, save_comparison, use  # noqa: E402

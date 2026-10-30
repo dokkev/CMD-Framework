@@ -16,18 +16,11 @@ from types import MappingProxyType
 
 from core._validation import require_finite
 
+from core.morphology.revolute.solids import VARIABLE_NAMES
+
 from core.optimization.linkage.config import LinkageConfig
 
 
-VARIABLE_NAMES = ("a_x_mm", "ac_length_mm", "app_x_mm", "bpp_from_a_mm", "distal_drop_mm", "proximal_drop_mm",
-                  "servo_tilt_deg")
-"""``|OA|``, ``|AC|``, the proximal pad's end ``A''_x``, the distal pad's
-joint end ``B''`` from ``A`` along ``A->C``, how far below ``A-C`` the distal
-pad's top face lies and below ``O-A`` the proximal pad's, and the distal
-servo's dorsal tilt from ``-X`` (degrees; the goal's PIP servo tilt, fixed or
-searched). The pads are plain blocks, each on its own segment and off the
-joint's housing (:data:`DISTAL_DROP_MIN_MM`'s radius): the proximal pad ends
-at ``A_x`` less it, the distal pad starts at it past ``A``."""
 DISTAL_DROP_MIN_MM = 0.0
 """Each pad's top face may be searched below its segment's line from on the
 line down to the joint's palmar face (the servo's radius, 9.5 mm for the
@@ -60,14 +53,6 @@ def joint_radius(goal: LinkageConfig, joint_servo: bool, joint_pulley: bool = Fa
     if goal.pulley_radius_mm is None:
         raise ValueError("a pulley on the joint needs goal.hardware.pulley_radius_mm")
     return max(pin, goal.pulley_radius_mm)
-
-
-def servo_rear(tilt_deg: float) -> tuple[float, float]:
-    """The direction the distal servo's body lies back in from its shaft on
-    ``A``: ``-X`` turned dorsally by ``tilt_deg``."""
-
-    tilt = math.radians(tilt_deg)
-    return (-math.cos(tilt), math.sin(tilt))
 
 
 @dataclass(frozen=True)
@@ -185,4 +170,4 @@ class RevoluteConfig:
         return self.goal.hypervolume_reference
 
 
-__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "pad_reach_mm", "servo_rear"]
+__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "pad_reach_mm"]

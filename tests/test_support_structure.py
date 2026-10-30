@@ -9,22 +9,21 @@ import pytest
 from core.morphology.linkage import FingerLinkage
 from core.morphology.linkage.packaging import (
     COMPONENTS,
-    Packaging,
+    LinkagePackaging,
     checked_pairs,
-    ContactPad,
-    PadSpan,
     distal_pad_polygon,
     layer_separated_pairs,
-    point_segment_distance,
-    pad_outline,
-    pad_spans,
-    proximal_pad_polygon,
     pad_margins,
+    pad_spans,
+    pip_footprint,
+    proximal_pad_polygon,
 )
-from core.optimization.linkage import decode, encode
+from core.morphology.packaging.hardware import ContactPad
+from core.morphology.packaging.shapes import PadSpan, pad_outline, point_segment_distance
+from core.morphology.linkage.design import decode, encode
 
 # The earlier 6.5 mm pin envelope and the default pads.
-HOUSING_ONLY = Packaging(pivot_clearance_diameter_mm=6.5)
+HOUSING_ONLY = LinkagePackaging(pivot_clearance_diameter_mm=6.5)
 GOOD = (36.0, 79.3, 10.0, 41.6, 12.6, 63.3, 17.4, 41.9, 30.0, 0.0)
 MCP_SAMPLES = tuple(math.radians(degrees) for degrees in range(91))
 
@@ -146,7 +145,7 @@ def test_the_pip_servo_can_sit_on_a_and_carry_the_proximal_pad() -> None:
     body = on_a.pip_servo
 
     # The servo's shaft is on A, its body back along -X.
-    footprint = on_a.pip_footprint(linkage)
+    footprint = pip_footprint(on_a, linkage)
     assert footprint.pivot == (36.0, 0.0) and footprint.rear == (-1.0, 0.0)
     # The proximal pad lies on the body's palmar face, as long as the body.
     pad = proximal_pad_polygon(linkage, on_a)
@@ -211,7 +210,7 @@ def test_y_layers_decide_which_pairs_are_checked() -> None:
 
 
 def test_a_link_crossing_a_pad_in_the_side_view_is_not_a_collision() -> None:
-    from core.morphology.linkage.packaging import _inside
+    from core.morphology.packaging.shapes import points_inside
 
     linkage = FingerLinkage(decode(GOOD))
     pad = proximal_pad_polygon(linkage, HOUSING_ONLY)
@@ -219,7 +218,7 @@ def test_a_link_crossing_a_pad_in_the_side_view_is_not_a_collision() -> None:
     pose = linkage.solve(0.0, math.radians(60.0))
     along = np.linspace(0.0, 1.0, 50)[:, None]
     link = xz(pose.a) + along * (xz(pose.bp) - xz(pose.a))
-    assert _inside(link[None], pad[None]).any()
+    assert points_inside(link[None], pad[None]).any()
     # ...yet it is no checked pair: the link plates are in other layers.
     assert not any("driver_link" in pair for pair in checked_pairs(HOUSING_ONLY))
 

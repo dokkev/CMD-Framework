@@ -10,12 +10,10 @@ links (so its ``k``) and gets the pad ends ``A''`` (toward ``B``) and
 face up to where the two faces cross in the fold) while the design stays
 feasible and flexes as far as it did (its ``phi_max``, so its curl;
 ``--to-required``: only as far as the required flexion, trading curl for
-pad): a grid of EXTENSION_STEP_MM up to EXTENSION_MAX_MM each, refined to
-REFINE_STEP_MM (screened every SCREEN_STEP_DEG of servo), the best then
-checked on the study's verification grid. Of
-equal coverage the shortest extension is taken, then each cut back as far
-as the coverage holds (a pad grown past where its face folds in adds nothing). ``--all``: every design of the front; else its
-representatives (``balanced`` and the like).
+pad): ``core.morphology.linkage.pad_extension.grow_pads``, screened every
+SCREEN_STEP_DEG of servo and checked on the study's verification grid.
+``--all``: every design of the front; else its representatives
+(``balanced`` and the like).
 
 Writes ``seeds_extended.csv`` next to the portfolio's ``seeds.csv``: the
 extended designs (their variables and report), with ``coverage_on_links``
@@ -32,28 +30,19 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-import numpy as np
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from core.optimization.linkage.design import VARIABLE_NAMES  # noqa: E402
+from core.morphology.linkage.design import VARIABLE_NAMES  # noqa: E402
+from core.morphology.linkage.pad_extension import grow_pads  # noqa: E402
 from core.optimization.mechanism import mechanism  # noqa: E402
 from core.optimization.study import load_run  # noqa: E402
 
-EXTENSION_STEP_MM = 1.0
-EXTENSION_MAX_MM = 30.0
-REFINE_STEP_MM = 0.2
 SCREEN_STEP_DEG = 0.2
 """The screening's servo step: fine enough that a flexion lost to a grown pad shows."""
-TRIES = 60
-"""Candidates checked on the verification grid, best first, before giving up."""
-TIE_COVERAGE = 1e-4
-"""Coverages closer than this count as equal (then the shorter extension wins)."""
 
 MECHANISM = mechanism("linkage")
-APP, BPP = VARIABLE_NAMES.index("app_offset_mm"), VARIABLE_NAMES.index("bpp_offset_mm")
 
 
 @functools.lru_cache(maxsize=16)
@@ -63,15 +52,6 @@ def _configs(run_dir: str):
     config = load_run(Path(run_dir)).config
     return (MECHANISM.refine(config, math.radians(SCREEN_STEP_DEG)),
             MECHANISM.refine(config, config.verify_step_rad))
-
-
-def _extended(x: list[float], proximal_mm: float, distal_mm: float) -> list[float]:
-    """``x`` with ``A''`` moved ``proximal_mm`` toward ``B`` and ``B''`` ``distal_mm`` toward ``A``."""
-
-    y = list(x)
-    y[APP] = round(x[APP] + proximal_mm, 9)
-    y[BPP] = round(x[BPP] + distal_mm, 9)
-    return y
 
 
 def _score(x, config, phi_max_rad: float) -> float:
@@ -89,39 +69,15 @@ def extend(task: tuple[str, list[float], bool]) -> tuple[list[float], dict, floa
     # on its own grid), or only the required one (feasibility holds it).
     phi_max = 0.0 if to_required else base.phi_max_rad
     coarse_phi_max = 0.0 if to_required else MECHANISM.evaluate(x, config).phi_max_rad
-    grid = np.arange(0.0, EXTENSION_MAX_MM + 1e-9, EXTENSION_STEP_MM)
-    scored = [(_score(_extended(x, p, d), config, coarse_phi_max), p, d) for p in grid for d in grid]
-    _, p0, d0 = max(scored)
-    fine = np.arange(-EXTENSION_STEP_MM, EXTENSION_STEP_MM + 1e-9, REFINE_STEP_MM)
-    scored += [(_score(_extended(x, max(p0 + dp, 0.0), max(d0 + dd, 0.0)), config, coarse_phi_max),
-                max(p0 + dp, 0.0), max(d0 + dd, 0.0)) for dp in fine for dd in fine]
-    ranked = sorted(scored, key=lambda item: (round(item[0] / TIE_COVERAGE) if math.isfinite(item[0])
-                                              else -math.inf, -(item[1] + item[2])), reverse=True)
-    def verified(p: float, d: float):
-        e = MECHANISM.evaluate(_extended(x, p, d), verify)
+
+    def verified(y: list[float]):
+        e = MECHANISM.evaluate(y, verify)
         return e if e is not None and e.feasible and e.phi_max_rad >= phi_max - 1e-9 else None
 
-    for score, p, d in ranked[:TRIES]:
-        if not math.isfinite(score):
-            break
-        e = verified(p, d)
-        if e is None:
-            continue
-        # Each extension back as far as the coverage holds: no pad past where it counts.
-        for side in (0, 1):
-            low, high = 0.0, (p, d)[side]
-            while high - low > REFINE_STEP_MM / 2:
-                mid = round((low + high) / 2, 3)
-                trial = verified(*((mid, d) if side == 0 else (p, mid)))
-                if trial is not None and trial.pad_coverage >= e.pad_coverage - TIE_COVERAGE:
-                    high = mid
-                else:
-                    low = mid
-            if high < (p, d)[side]:
-                p, d = (high, d) if side == 0 else (p, high)
-                e = verified(p, d)
-        return _extended(x, p, d), MECHANISM.report(e), float(p), float(d)
-    return list(x), MECHANISM.report(base), 0.0, 0.0
+    y, p, d, e = grow_pads(x, lambda y: _score(y, config, coarse_phi_max), verified, lambda e: e.pad_coverage)
+    if e is None:
+        return list(x), MECHANISM.report(base), 0.0, 0.0
+    return y, MECHANISM.report(e), float(p), float(d)
 
 
 def main(argv: list[str]) -> int:

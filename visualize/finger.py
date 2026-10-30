@@ -22,10 +22,11 @@ from typing import Any
 import numpy as np
 from matplotlib.patches import Circle
 
-import core.morphology.linkage.packaging as packaging_module
+import core.morphology.packaging.gaps as packaging_module
 from core.morphology.linkage import FingerLinkage
 from core.morphology.linkage.packaging import distal_pad_polygon, pad_margins, proximal_pad_polygon
-from core.optimization.linkage.design import decode
+from core.morphology.linkage.design import decode
+from core.morphology.rcj import TORQUE_RATIO as RCJ_TORQUE_RATIO
 from core.optimization.study import load_run
 from visualize import sketch
 from visualize.motion import index_at, servo_sweep
@@ -118,7 +119,7 @@ class Finger:
         if self.mechanism.startswith("revolute"):
             return np.ones(len(phi_deg))
         if self.mechanism == "rcj":
-            return np.full(len(phi_deg), rcj_evaluate.TORQUE_RATIO)
+            return np.full(len(phi_deg), RCJ_TORQUE_RATIO)
         sweep, index = self._linkage_index(phi_deg)
         rate = np.gradient(sweep.total_flexion_rad, np.abs(self._servo[:len(sweep.total_flexion_rad)]))
         return rate[index]

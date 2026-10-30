@@ -9,7 +9,7 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from core.optimization.analysis.icr import icr0_share
+from core.morphology.icr import icr0_share
 from core.optimization.linkage.config import config_from_goal, config_from_json, config_to_json
 from core.optimization.linkage.mechanism import MECHANISM as LINKAGE, OBJECTIVES, bound_hits_of
 from core.optimization.mechanism import Mechanism

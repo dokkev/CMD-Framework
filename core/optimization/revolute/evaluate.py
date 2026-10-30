@@ -1,5 +1,8 @@
 """Evaluate one serial 2R (revolute) finger against the linkage study's goal.
 
+Its solids and their gaps are the morphology's (``core.morphology.revolute``);
+this module holds them to the goal's bounds as constraints.
+
 The MCP is at ``O`` and the distal joint at ``A = (|OA|, 0)``; the distal
 segment ``A-C`` turns by ``phi`` about ``A`` (positive flexion turns ``+X``
 toward ``-Z``), so ``phi`` is the same rotation of the distal segment
@@ -38,21 +41,19 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.linkage.packaging import (
-    PadSpan,
-    ServoFootprint,
-    _polygon_to_disk,
-    carrier_outline,
-    fold_free_lengths,
-    footprint_gaps,
-    mcp_servo_gaps,
-    pad_outline,
-    polygon_gaps,
-    proximal_pad_mcp_gap,
-    segment_polygon_gaps,
+from core.morphology.contact.loss import dorsal_space_mm, integrity_free, joint_scene
+from core.morphology.packaging.gaps import footprint_gaps
+from core.morphology.packaging.shapes import polygon_to_disk
+from core.morphology.revolute import solids
+from core.morphology.revolute.solids import (
+    JointChecks,
+    RevoluteGeometry,
+    between_samples,
+    fold_free,
+    hyperextension_margin,
 )
 
-from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm, servo_rear
+from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
@@ -62,153 +63,19 @@ CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
 
-@dataclass(frozen=True)
-class RevoluteGeometry:
-    """A design's solids in the reference pose: the proximal pad and servos in
-    the proximal frame, the distal pad in the distal frame (``u`` from ``A``
-    along ``A->C``, ``v`` dorsal)."""
-
-    a_x_mm: float
-    ac_length_mm: float
-    proximal_pad: np.ndarray
-    distal_pad_local: np.ndarray
-    distal_drop_mm: float
-    proximal_drop_mm: float
-    distal_servo: ServoFootprint
-    proximal_length_mm: float
-    distal_length_mm: float
-    proximal_face_mm: float
-    distal_face_mm: float
-    proximal_room_mm: float
-    distal_room_mm: float
-    distal_carrier_local: np.ndarray | None = None
-    """The distal pad's carrier plate in the distal frame (``None``: none)."""
-    proximal_carrier: np.ndarray | None = None
-    """The proximal support's plate in the proximal frame
-    (``goal.collision.param.proximal_carrier_height_mm``; ``None``: none)."""
-    distal_mount_local: np.ndarray | None = None
-    """The distal mounting line, ``B''`` then the fingertip end, in the distal
-    frame (``None``: the pad's top face): the support, there whatever module it carries."""
-
-    @property
-    def finger_length_mm(self) -> float:
-        return self.a_x_mm + self.ac_length_mm
-
-    def distal_pad(self, phi_rad: np.ndarray) -> np.ndarray:
-        """The distal pad at distal flexions ``phi`` (``(n,)``), ``(n, m, 2)`` in the proximal frame."""
-
-        return self.posed(self.distal_pad_local, phi_rad)
-
-    def posed(self, local: np.ndarray, phi_rad: np.ndarray) -> np.ndarray:
-        """Points ``(m, 2)`` of the distal frame at ``phi``, ``(n, m, 2)`` in the proximal frame."""
-
-        phi = np.atleast_1d(np.asarray(phi_rad, dtype=float))
-        e = np.stack((np.cos(phi), -np.sin(phi)), axis=1)
-        n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-        a = np.array((self.a_x_mm, 0.0))
-        local = np.asarray(local, dtype=float)
-        return a + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
-
-    @property
-    def distal_reach_mm(self) -> float:
-        """The distal pad's farthest point from ``A``: how fast it moves per
-        radian of ``phi``, at most."""
-
-        solids = self.distal_pad_local if self.distal_carrier_local is None else np.vstack(
-            (self.distal_pad_local, self.distal_carrier_local))
-        return float(np.hypot(solids[:, 0], solids[:, 1]).max())
-
-    @property
-    def distal_mount(self) -> np.ndarray:
-        """The distal pad's mounting line (its top face), ``B''`` then ``C``'s
-        end, in the distal frame: the truss's two pad-side nodes."""
-
-        if self.distal_mount_local is not None:
-            return self.distal_mount_local
-        top = self.distal_pad_local[:, 1].max()
-        return np.array(((self.distal_pad_local[:, 0].min(), top), (self.distal_pad_local[:, 0].max(), top)))
-
-    def tip(self, phi_rad: np.ndarray) -> np.ndarray:
-        """``C`` at distal flexions ``phi``, ``(n, 2)``."""
-
-        phi = np.atleast_1d(np.asarray(phi_rad, dtype=float))
-        return np.stack((self.a_x_mm + self.ac_length_mm * np.cos(phi), -self.ac_length_mm * np.sin(phi)), axis=1)
-
-
 def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
-    """The solids of a design vector."""
+    """The solids of a design vector, with the study's packaging and supports."""
 
-    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    packaging = config.goal.packaging
-    proximal, distal = packaging.proximal_pad, packaging.distal_pad
-    start = packaging.proximal_pad_start_mm
-    proximal_room = v["app_x_mm"] - start
-    distal_room = v["ac_length_mm"] - distal.offset_mm - v["bpp_from_a_mm"]
-    # A module of a set length (a fixed finger's module sweep), else the room's, at most its max.
-    proximal_length = proximal.length_mm or min(proximal_room, proximal.max_length_mm or math.inf)
-    distal_length = distal.length_mm or min(distal_room, distal.max_length_mm or math.inf)
-    chamfer = {side: pad.chamfer_mm for side, pad in (("proximal", proximal), ("distal", distal))}  # 0: blocks
-    outer = v["ac_length_mm"] - distal.offset_mm
-    proximal_outline = pad_outline(PadSpan(start, start + max(proximal_length, 1e-6), proximal_room),
-                                   proximal, "end", chamfer["proximal"]) - (0.0, v["proximal_drop_mm"])
-    distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
-    distal_outline = pad_outline(distal_span, distal, "start", chamfer["distal"]) - (0.0, v["distal_drop_mm"])
-    servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]),
-                           packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
-    face = lambda length, k: max(length - min(k, max(length, 0.0)), 0.0)  # noqa: E731
-    # The support: the mounting line from B'' to the fingertip end, whatever the module.
-    support = pad_outline(PadSpan(outer - max(distal_room, 1e-6), outer, distal_room), distal, "start", 0.0) \
-        - (0.0, v["distal_drop_mm"])
-    mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
-    return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
-                            v["proximal_drop_mm"], servo,
-                            proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
-                            face(distal_length, chamfer["distal"]), proximal_room, distal_room,
-                            carrier_local(support, v["distal_drop_mm"], packaging),
-                            proximal_support(start, proximal_room, v["proximal_drop_mm"], config), mount)
+    goal = config.goal
+    return solids.geometry(x, goal.packaging, goal.proximal_carrier_height_mm)
 
 
-def proximal_support(start_mm: float, room_mm: float, drop_mm: float, config) -> np.ndarray | None:
-    """The proximal support's plate (``goal.collision.param.proximal_carrier_height_mm``
-    dorsal of the mounting line, from the pad's outer end to ``A''``), as
-    the linkage's (``packaging.proximal_carrier_polygon``); ``None`` without one."""
+def joint_checks(config: RevoluteConfig) -> JointChecks:
+    """What the study checks a 2R's motion against."""
 
-    height = config.goal.proximal_carrier_height_mm
-    if height is None:
-        return None
-    end = start_mm + max(room_mm, 1e-6)
-    return np.array(((start_mm, -drop_mm), (end, -drop_mm), (end, height - drop_mm), (start_mm, height - drop_mm)))
-
-
-def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
-    """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``
-    dorsal of the pad's top face, over its span) in the distal frame, as the
-    linkage's (``packaging.distal_carrier_polygon``); ``None`` without one."""
-
-    if packaging.distal_carrier_height_mm <= 0.0:
-        return None
-    return carrier_outline(distal_pad_local + (0.0, drop_mm), packaging.distal_carrier_height_mm) - (0.0, drop_mm)
-
-
-def contact_faces(geo, phi_rad: np.ndarray):
-    """The two contact faces as ``packaging.fold_free_lengths`` takes them:
-    each pad's palmar face, outer end first, at distal flexions ``phi``
-    (any geometry with ``proximal_pad``, ``distal_pad_local`` and ``posed``)."""
-
-    proximal = geo.proximal_pad
-    z = float(proximal[:, 1].min())
-    proximal_face = np.array(((proximal[:, 0].min(), z), (proximal[:, 0].max(), z)))
-    local = geo.distal_pad_local
-    v = float(local[:, 1].min())
-    distal_face = geo.posed(np.array(((local[:, 0].max(), v), (local[:, 0].min(), v))), phi_rad)
-    origin, palmar = np.moveaxis(geo.posed(np.array(((0.0, 0.0), (0.0, -1.0))), phi_rad), 1, 0)
-    return proximal_face, np.array((0.0, -1.0)), distal_face, palmar - origin
-
-
-def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
-    """Each face's length the other leaves unhidden at ``phi`` (``(n,)`` each)."""
-
-    return fold_free_lengths(*contact_faces(geo, np.atleast_1d(phi_rad)))
+    goal = config.goal
+    return JointChecks(goal.packaging, goal.mcp_samples_rad, config.joint_servo, config.joint_radius_mm,
+                       goal.link_radius_mm)
 
 
 def dorsal_space_violation(geo, goal, mechanism: str) -> float:
@@ -216,8 +83,6 @@ def dorsal_space_violation(geo, goal, mechanism: str) -> float:
 
     if goal.dorsal_space_mm is None:
         return 0.0
-    from core.optimization.analysis.loss import dorsal_space_mm, joint_scene
-
     return (dorsal_space_mm(joint_scene(mechanism, geo, goal.packaging, [0.0]), goal.link_radius_mm or 0.0)
             - goal.dorsal_space_mm)
 
@@ -226,7 +91,7 @@ def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[floa
     """Each face's length kept through the flexions ``phi`` (the window to
     the required flexion): less the fold at each, or with
     ``goal.integrity_depth_mm`` the integrity rule
-    (``core.optimization.analysis.loss.integrity_free``) over the
+    (``core.morphology.contact.loss.integrity_free``) over the
     ``mechanism``'s solids."""
 
     if goal.integrity_depth_mm is None and not goal.count_fold:  # a module clear through the motion counts whole
@@ -234,8 +99,6 @@ def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[floa
     if goal.integrity_depth_mm is None:
         free = fold_free(getattr(geo, "joint", geo), phi_rad)
         return float(free["proximal_pad"].min()), float(free["distal_pad"].min())
-    from core.optimization.analysis.loss import integrity_free, joint_scene
-
     kept = integrity_free(joint_scene(mechanism, geo, goal.packaging, np.degrees(phi_rad)), goal.integrity_depth_mm)
     return kept["proximal_pad"], kept["distal_pad"]
 
@@ -247,9 +110,8 @@ def hyperextension_violation(geo, config, margins_of) -> float:
     goal = config.goal
     if goal.hyperextension_rad <= 0.0:
         return 0.0
-    step = goal.servo_step_rad
-    back = -np.unique(np.append(np.arange(step, goal.hyperextension_rad, step), goal.hyperextension_rad))
-    least = min(float(margin.min()) for margin in margins_of(geo, back, config).values())
+    least = hyperextension_margin(geo, goal.hyperextension_rad, goal.servo_step_rad,
+                                  lambda geo, phi: margins_of(geo, phi, config))
     return max(-least, 0.0)
 
 
@@ -367,7 +229,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     elif max(static.values()) <= 0.0:  # idealized: only a pin at A, the proximal pad off its housing
         static["mcp_servo_mm"] = 0.0
         a = np.array([[geo.a_x_mm, 0.0]])
-        static["pip_servo_pad_mm"] = -(float(_polygon_to_disk(geo.proximal_pad[None], a, config.joint_radius_mm)[0])
+        static["pip_servo_pad_mm"] = -(float(polygon_to_disk(geo.proximal_pad[None], a, config.joint_radius_mm)[0])
                                        - clearance)
     if max(static.values()) <= 0.0:
         margins_at_rest = _margins(geo, np.zeros(1), config)
@@ -433,117 +295,20 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
 
 def _margins(geo: RevoluteGeometry, phi: np.ndarray, config: RevoluteConfig,
              until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
-    """Per-sample margin of every checked pair beyond the clearance.
+    """Per-sample margin of every checked pair (``solids.margins``, the study's checks)."""
 
-    ``until_unsafe``: the distal pad is checked against the MCP servo (the
-    costly pair: every MCP angle) only up to the first sample another pair
-    fails at; past it the motion is unsafe anyway, and its margin is ``inf``.
-    """
-
-    goal = config.goal
-    packaging = goal.packaging
-    clearance = packaging.body_clearance_mm
-    count = len(phi)
-    distal = geo.distal_pad(phi)
-    proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
-    moving = {"distal_pad": distal}
-    margins = {}
-    if config.joint_servo and geo.distal_carrier_local is not None:
-        margins[("distal_carrier", "pip_servo")] = (
-            footprint_gaps(geo.posed(geo.distal_carrier_local, phi), geo.distal_servo, packaging) - clearance)
-    for name, solid in moving.items():
-        if config.joint_servo:
-            margins[(name, "pip_servo")] = footprint_gaps(solid, geo.distal_servo, packaging) - clearance
-        else:
-            a = np.broadcast_to((geo.a_x_mm, 0.0), (count, 2))
-            margins[(name, "a_pin")] = _polygon_to_disk(solid, a, config.joint_radius_mm) - clearance
-        if packaging.pad_pad_check:
-            margins[(name, "proximal_pad")] = polygon_gaps(solid, proximal, packaging) - clearance
-    if goal.link_radius_mm is not None:  # the comparison model: the bars as capsules, in the side view
-        margins.update(bar_capsule_margins(geo, phi, goal.link_radius_mm, clearance))
-    if geo.proximal_carrier is not None:  # the comparison model: both supports solid
-        support = np.broadcast_to(geo.proximal_carrier, (count, 4, 2))
-        margins[("distal_pad", "proximal_carrier")] = polygon_gaps(distal, support, packaging) - clearance
-        if config.joint_servo:  # not through the servo on its own segment (ending on the pin A is its mounting)
-            margins[("proximal_carrier", "pip_servo")] = footprint_gaps(support, geo.distal_servo, packaging) - clearance
-        if geo.distal_carrier_local is not None:
-            carrier = geo.posed(geo.distal_carrier_local, phi)
-            margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
-            margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
-    if packaging.pad_checks_mcp("distal_pad"):
-        end = count
-        if until_unsafe:
-            failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -1e-9)
-            end = int(failing[0]) + 1 if failing.size else count
-        for name, solid in moving.items():
-            margin = np.full(count, np.inf)
-            margin[:end] = (mcp_servo_gaps(solid[:end], packaging, goal.mcp_samples_rad)
-                            - packaging.mcp_pad_clearance_mm)
-            margins[(name, "mcp_servo")] = margin
-    if packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
-        gap = proximal_pad_mcp_gap(geo.proximal_pad, packaging, goal.mcp_samples_rad)
-        margins[("mcp_servo", "proximal_pad")] = np.full(count, gap - packaging.mcp_pad_clearance_mm)
-    return {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
+    return solids.margins(geo, phi, joint_checks(config), until_unsafe)
 
 
-def bar_capsule_margins(geo, phi: np.ndarray, radius_mm: float, clearance: float) -> dict[tuple[str, str], np.ndarray]:
-    """Per-sample margin (mm) of each pad against the bars it is not mounted
-    on, capsules of ``radius_mm``, in the side view: the proximal pad against
-    the distal truss (``A`` to the distal pad's mounting ends, and between
-    them), the distal pad against the proximal bar ``O-A``."""
+def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndarray], config,
+                     margins_of=None) -> dict[tuple[str, str], np.ndarray]:
+    """``margins`` resampled between samples where a collision could hide
+    (``solids.between_samples``, on the study's verification grid);
+    ``margins_of``: another mechanism's ``_margins``."""
 
-    count = len(phi)
-    a = np.broadcast_to((geo.a_x_mm, 0.0), (count, 2))
-    near, far = np.moveaxis(geo.posed(geo.distal_mount, phi), 1, 0)
-    proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
-    margins = {("proximal_pad", f"link_{name}"): segment_polygon_gaps(proximal, start, end) - radius_mm - clearance
-               for name, (start, end) in (("a_near", (a, near)), ("a_far", (a, far)), ("near_far", (near, far)))}
-    margins[("distal_pad", "link_o_a")] = (segment_polygon_gaps(geo.distal_pad(phi), np.zeros((count, 2)), a)
-                                           - radius_mm - clearance)
-    return margins
+    of = margins_of or _margins
+    return between_samples(geo, phi, margins, config.goal.verify_step_rad, lambda geo, phi: of(geo, phi, config))
 
 
-def _between_samples(geo: RevoluteGeometry, phi: np.ndarray, margins: dict[tuple[str, str], np.ndarray],
-                     config: RevoluteConfig, margins_of=None) -> dict[tuple[str, str], np.ndarray]:
-    """``margins`` with the motion between samples checked on the verification
-    grid where a collision could hide there.
-
-    The distal solids turn rigidly about ``A``, so no point of them moves more
-    than ``distal_reach_mm`` per radian: a margin falls at most that fast, and
-    two neighbouring clear samples whose margins sum to less than the reach
-    times their step may pass through a collision between them. Those steps
-    are resampled on ``verify_step_rad``, up to the first unsafe sample; the
-    first that collides inside lowers the margins at its end to the least
-    inside. (On the verification grid itself nothing is resampled.)
-    ``margins_of`` (``_margins``'s signature) resamples another mechanism whose
-    ``geo`` bounds its speed by ``distal_reach_mm`` too.
-    """
-
-    fine = config.goal.verify_step_rad
-    least = np.min(np.stack(list(margins.values())), axis=0)
-    unsafe = np.flatnonzero(least < 0.0)
-    end = int(unsafe[0]) if unsafe.size else len(phi) - 1
-    step = np.diff(phi[:end + 1])
-    clear = least[:end]
-    suspect = np.flatnonzero((clear + least[1:end + 1] < geo.distal_reach_mm * step)
-                             & (step > fine * (1.0 + 1e-9)))
-    if not suspect.size:
-        return margins
-    counts = np.ceil(step[suspect] / fine - 1e-9).astype(int)
-    inner = np.concatenate([np.linspace(phi[i], phi[i + 1], count + 1)[1:-1] for i, count in zip(suspect, counts)])
-    owner = np.repeat(suspect, counts - 1)
-    fine_margins = (margins_of or _margins)(geo, inner, config)
-    fine_least = np.min(np.stack(list(fine_margins.values())), axis=0)
-    hit = np.flatnonzero(fine_least < 0.0)
-    if not hit.size:
-        return margins
-    interval = owner[hit[0]]
-    inside = owner == interval
-    result = {pair: margin.copy() for pair, margin in margins.items()}
-    for pair, margin in fine_margins.items():
-        result[pair][interval + 1] = min(result[pair][interval + 1], float(margin[inside].min()))
-    return result
-
-
-__all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "RevoluteGeometry", "carrier_local", "contact_faces",
-           "evaluate", "fold_free", "geometry", "hyperextension_violation", "usable_lengths"]
+__all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "evaluate", "geometry", "hyperextension_violation",
+           "joint_checks", "usable_lengths"]

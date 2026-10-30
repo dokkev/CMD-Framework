@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from core.optimization.linkage.search import extended_icr_x  # noqa: E402
+from core.morphology.linkage.measures import extended_icr_x  # noqa: E402
 from visualize import sketch  # noqa: E402
 from visualize.finger import finger_from_row  # noqa: E402
 from visualize.fronts import latest_portfolio, read_rows, with_role  # noqa: E402

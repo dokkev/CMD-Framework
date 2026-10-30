@@ -22,7 +22,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from core.morphology.linkage.packaging import distal_pad_polygon, pad_margins, proximal_pad_polygon  # noqa: E402
+from core.morphology.linkage.packaging import (  # noqa: E402
+    distal_pad_polygon,
+    pad_margins,
+    pip_footprint,
+    proximal_pad_polygon,
+)
 from core.optimization.revolute import geometry  # noqa: E402
 from core.optimization.revolute.evaluate import _margins  # noqa: E402
 from visualize import solids  # noqa: E402
@@ -39,7 +44,7 @@ def draw_linkage(axis, linkage, packaging, phi_rad: float) -> str:
     margins = pad_margins(linkage, packaging, b[None], c[None], bp[None], (0.0,))
     collides = {name for pair, margin in margins.items() if margin[0] < 0.0 for name in pair}
     solids.patch(axis, packaging.mcp_footprint().outline, SERVO, zorder=0.5)
-    solids.patch(axis, packaging.pip_footprint(linkage).outline, SERVO, zorder=0.5)
+    solids.patch(axis, pip_footprint(packaging, linkage).outline, SERVO, zorder=0.5)
     solids.phalanx(axis, b, c)
     for name, polygon, color in (("proximal_pad", proximal_pad_polygon(linkage, packaging), PROXIMAL_PAD),
                                  ("distal_pad", distal_pad_polygon(linkage, packaging, b[None], c[None])[0], DISTAL_PAD)):

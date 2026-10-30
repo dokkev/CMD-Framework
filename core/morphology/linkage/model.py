@@ -20,7 +20,7 @@ from typing import Sequence
 import numpy as np
 
 from core._validation import require_finite
-from core.morphology.linkage import FingerLinkageParameters, PointXZ
+from core.morphology.linkage.parameters import FingerLinkageParameters, PointXZ
 
 
 _TOLERANCE = 1e-10

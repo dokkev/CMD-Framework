@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from core.morphology.linkage import packaging as P
-from core.morphology.linkage.packaging import ServoFootprint
+from core.morphology.packaging import shapes as P
+from core.morphology.packaging.shapes import ServoFootprint
 
 
 def _edges(polygons):
@@ -112,19 +112,19 @@ def test_kernels_match_the_array_forms(seed):
     point = rng.uniform(-40, 40, (2000, 2))
     tolerance = dict(rel=0.0, abs=1e-12)
     assert P.point_segment_distance(point, start, end) == pytest.approx(ref_point_segment(point, start, end), **tolerance)
-    assert np.array_equal(P._segments_cross(start, end, first[:, 0], first[:, 1]),
+    assert np.array_equal(P.segments_cross(start, end, first[:, 0], first[:, 1]),
                           ref_cross(start, end, first[:, 0], first[:, 1]))
-    assert np.array_equal(P._inside(second, first), ref_inside(second, first))
-    assert P._separation(first, second) == pytest.approx(ref_separation(first, second), **tolerance)
-    assert P._polygons_gap(first, second) == pytest.approx(ref_polygons_gap(first, second), **tolerance)
+    assert np.array_equal(P.points_inside(second, first), ref_inside(second, first))
+    assert P.separation(first, second) == pytest.approx(ref_separation(first, second), **tolerance)
+    assert P.polygons_gap(first, second) == pytest.approx(ref_polygons_gap(first, second), **tolerance)
     radius = 3.0
     expected = np.where(ref_inside(point[:, None], first)[:, 0], 0.0,
                         ref_point_segment(np.repeat(point, 4, axis=0), *(a.reshape(-1, 2) for a in _edges(first)))
                         .reshape(-1, 4).min(axis=1)) - radius
-    assert P._polygon_to_disk(first, point, radius) == pytest.approx(expected, **tolerance)
+    assert P.polygon_to_disk(first, point, radius) == pytest.approx(expected, **tolerance)
     footprint = ServoFootprint((5.0, 3.0), (-np.cos(0.3), np.sin(0.3)), 9.5, 25.5)
     assert footprint.distance_to_segments(start, end) == pytest.approx(ref_footprint(footprint, start, end), **tolerance)
     edges = [a.reshape(-1, 2) for a in _edges(first)]
     expected = np.where(ref_inside(np.broadcast_to(footprint.pivot, (2000, 1, 2)), first)[:, 0], 0.0,
                         ref_footprint(footprint, *edges).reshape(2000, -1).min(axis=1))
-    assert P._polygon_to_footprint(first, footprint) == pytest.approx(expected, **tolerance)
+    assert P.polygon_to_footprint(first, footprint) == pytest.approx(expected, **tolerance)

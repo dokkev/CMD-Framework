@@ -8,7 +8,7 @@ linkage's (``goal.hardware.pip_servo.tilt_angle_deg``). The belt and its two
 pulleys (``goal.hardware.pulley_radius_mm``, on ``A`` and on the servo's horn
 at ``A'``) run in the outer layer, beside the servo, as the linkage's links:
 no collision with the pads, which lie in the central layer; seen from the
-side they still stand in front of a face (``core.optimization.analysis.loss``).
+side they still stand in front of a face (``core.morphology.contact.loss``).
 The tendon 2R's pulleys are the same size; its routing band lies in the
 pads' layer instead.
 """
@@ -22,13 +22,11 @@ from types import MappingProxyType
 
 from core._validation import require_finite
 
+from core.morphology.revolute.solids import VARIABLE_NAMES as REVOLUTE_NAMES
+from core.morphology.revolute_parallel.solids import VARIABLE_NAMES
+
 from core.optimization.linkage.config import LinkageConfig
-from core.optimization.revolute.config import VARIABLE_NAMES as REVOLUTE_NAMES, RevoluteConfig
-
-
-VARIABLE_NAMES = (*REVOLUTE_NAMES, "ap_from_a_x_mm", "ap_from_a_z_mm")
-"""The 2R's (``|OA|``, ``|AC|``, the pads' ends and drops, the servo's tilt,
-here the servo on ``A'``), then the servo shaft ``A'`` from ``A``."""
+from core.optimization.revolute.config import RevoluteConfig
 
 
 @dataclass(frozen=True)

@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field, fields
 from types import MappingProxyType
 
 from core._validation import require_finite, require_nonnegative, require_positive
-from core.morphology.linkage.packaging import ContactPad, Packaging
+from core.morphology.packaging.hardware import ContactPad, Packaging
 
 from core.optimization.linkage.config import packaging_from_mapping
 

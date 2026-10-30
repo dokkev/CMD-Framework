@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.patches import Circle, Polygon
 
-from core.morphology.linkage.packaging import distal_pad_polygon, proximal_pad_polygon
+from core.morphology.linkage.packaging import distal_pad_polygon, pip_footprint, proximal_pad_polygon
 from visualize.style import COLLIDE, INK, MUTED, shades
 
 LINK, JOINT, JOINT_EDGE, NODE = "#ff0a1e", "#ffff88", "#d01020", "#111111"
@@ -88,7 +88,7 @@ def draw_linkage(axis, linkage, packaging, sweep, i: int, hit: set[str] = frozen
 
     b, c, bp = sweep.b[i], sweep.c[i], sweep.bp[i]
     palm(axis, packaging)
-    servo(axis, packaging.pip_footprint(linkage).outline)
+    servo(axis, pip_footprint(packaging, linkage).outline)
     pad(axis, proximal_pad_polygon(linkage, packaging), "proximal_pad" in hit)
     pad(axis, distal_pad_polygon(linkage, packaging, b[None], c[None])[0], "distal_pad" in hit)
     o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)

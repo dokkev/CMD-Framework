@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from core.morphology.linkage import FingerLinkage
-from core.optimization.linkage.design import decode
+from core.morphology.linkage.design import decode
 from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 from visualize.fronts import read_rows, run_of, with_role
