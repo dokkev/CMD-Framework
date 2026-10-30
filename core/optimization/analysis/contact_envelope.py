@@ -51,6 +51,26 @@ LINKAGE_SERVO_STEP_DEG = 0.1
 """CoDe's servo sampled this finely (its flexion moves at most ``k_max`` times as fast)."""
 REVOLUTE_STEP_DEG = 0.25
 """The 2R's flexion sampled this finely, ``phi_req`` itself included."""
+COLLISION_POLICY = {
+    "model": "idealized 2.5D: solids in the XZ side view, with assumed Y-layer separation between "
+             "the links and the actuators; no 3D or stack-up check (the layers are the prototype's to validate)",
+    "checked_in_xz_projection": [
+        "proximal module - distal module",
+        "module - servo body (the PIP servo, the MCP servo)",
+        "module - joint pin housings (its own segment's and the other's)",
+        "module - links and bars of the other body (capsules, link_radius_mm)",
+        "module - the other segment's support; distal support - proximal module and support",
+        "proximal support - the servo body on its own segment",
+        "distal carrier - PIP servo",
+    ],
+    "not_checked": {
+        "link or bar - servo body": "Y-layer separation assumed (the links beside the actuators), for CoDe and the 2R alike",
+        "link - link": "Y-layer separation assumed",
+        "driven link at its actuator horn (CoDe A'-B at A'; the 2R's distal truss at A)": "the intended drive connection",
+        "module or support - its own body's links and pins at its mounting": "the intended attachment",
+    },
+}
+"""Which solids are checked against which (``metadata.json`` records it)."""
 REASONS = ("feasible", "support_exceeded", "kinematic_unreachable", "pad_pad_collision", "pad_servo_collision",
            "pad_joint_collision", "pad_linkage_collision", "pad_support_collision", "structure_collision",
            "invalid_fixed_layout")
@@ -280,5 +300,5 @@ def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg
     return records
 
 
-__all__ = ["FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REVOLUTE_STEP_DEG", "TOLERANCE_MM",
+__all__ = ["COLLISION_POLICY", "FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REVOLUTE_STEP_DEG", "TOLERANCE_MM",
            "evaluate_fit", "layout_summary", "max_flexion_deg", "motion", "reason_of", "support_rooms", "sweep"]

@@ -32,7 +32,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
-from matplotlib.patches import Polygon, Rectangle  # noqa: E402
+from matplotlib.patches import Circle, Polygon, Rectangle  # noqa: E402
 
 from core.morphology.linkage import FingerLinkage  # noqa: E402
 from core.optimization.analysis import contact_envelope as envelope  # noqa: E402
@@ -85,6 +85,16 @@ def finger(name: str, config, x) -> Finger:
     return Finger(name, {}, config, tuple(x), state)
 
 
+def draw_pins(axis, name: str, config, x, pose: float) -> None:
+    """The pin housings at their modelled radii, dashed over the joint markers."""
+
+    for centre, radius in scene(name, config, x, [pose]).solids["proximal_pad"]["pin"].disks:
+        centre = np.asarray(centre, dtype=float)
+        centre = centre[0] if centre.ndim == 2 else centre
+        axis.add_patch(Circle(centre, radius, fill=False, edgecolor=INK, linewidth=0.7, linestyle=(0, (2, 1.5)),
+                              zorder=5))
+
+
 def draw_supports(axis, name: str, config, x, pose: float) -> None:
     for polygon in scene(name, config, x, [pose]).solids["distal_pad"]["carrier"].polygons:
         polygon = np.asarray(polygon)
@@ -106,6 +116,7 @@ def layouts_figure(found: dict, source: str) -> Path:
             sketch.frame(axis, (-14.0, 124.0), (-70.0, 40.0))
             draw_supports(axis, name, carried, x, pose)
             drawn.draw(axis, pose)
+            draw_pins(axis, name, carried, x, pose)
             ok = pose == 0.0 or fit.feasible
             label = (f"φ = {pose:.1f}°" if pose == 0.0 else
                      f"φ = {pose:.1f}° (required)" if fit.feasible else
@@ -114,9 +125,9 @@ def layouts_figure(found: dict, source: str) -> Path:
         row[0].text(-12.0, 37.0, f"{NAMES[name]}\n|OC| {info['finger_length_mm']:.1f} mm; supports: proximal "
                     f"{info['support_room_mm']['proximal']:.1f}, distal {info['support_room_mm']['distal']:.1f} mm",
                     color=COLORS[name], fontsize=8, fontweight="bold", va="top")
-    figure.suptitle(f"{source}: with the reference modules (proximal {REFERENCE.proximal_length_mm:g} x "
+    figure.suptitle(f"{source}:\nwith the reference modules (proximal {REFERENCE.proximal_length_mm:g} x "
                     f"{REFERENCE.proximal_height_mm:g}, distal {REFERENCE.distal_length_mm:g} x "
-                    f"{REFERENCE.distal_height_mm:g} mm); grey: the fixed supports", color=MUTED, fontsize=9,
+                    f"{REFERENCE.distal_height_mm:g} mm); grey: the fixed supports; dashed: pin housings", color=MUTED, fontsize=9,
                     x=0.01, ha="left")
     out = OUT / "layouts.png"
     figure.savefig(out, dpi=150)
@@ -196,7 +207,7 @@ def main() -> int:
             "signed_overlap": "overlap negative by its depth (packaging.overlap_depth)",
             "link_capsule_radius_mm": getattr(first, "goal", first).link_radius_mm,
             "support_plate_height_mm": getattr(first, "goal", first).proximal_carrier_height_mm,
-            "mcp_flexion_deg": 0.0, "view": "2D side view; every modelled solid occupies the projected plane",
+            "mcp_flexion_deg": 0.0, "collision_policy": envelope.COLLISION_POLICY,
             "excluded": ["manufacturing tolerances", "bearings, shafts, brackets", "torque and transmission limits",
                          "dorsal-space requirement", "contact-face loss or accessibility"]},
     }
