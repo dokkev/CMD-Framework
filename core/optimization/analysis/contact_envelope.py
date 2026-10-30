@@ -24,7 +24,15 @@ config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
    and each pad against its own segment's pin housings (CoDe: A and A'
    proximal, B and B' distal; the 2R: the servo at A, the proximal pad).
 
-The first failure's pair names the reason (``REASONS``).
+The fixed structure itself is checked once (:func:`layout_violations`: the
+PIP servo against the MCP servo, CoDe's pin A against the servo on A', two
+pins on one body apart): an unbuildable layout is ``invalid_fixed_layout``,
+whatever the modules. Between motion samples a collision is not assumed
+away: where two neighbouring samples' least margin leaves room for the
+moving solids to touch in between (their travel bound), the interval is
+resampled until each piece moves at most ``REFINE_MM`` (the 2R:
+``revolute.evaluate._between_samples`` on the 0.05 deg verification grid,
+about as fine). The first failure's pair names the reason (``REASONS``).
 """
 
 from __future__ import annotations
@@ -51,6 +59,8 @@ LINKAGE_SERVO_STEP_DEG = 0.1
 """CoDe's servo sampled this finely (its flexion moves at most ``k_max`` times as fast)."""
 REVOLUTE_STEP_DEG = 0.25
 """The 2R's flexion sampled this finely, ``phi_req`` itself included."""
+REFINE_MM = 0.05
+"""Between samples, how far a moving solid may travel between the poses checked (CoDe's refinement)."""
 COLLISION_POLICY = {
     "model": "idealized 2.5D: solids in the XZ side view, with assumed Y-layer separation between "
              "the links and the actuators; no 3D or stack-up check (the layers are the prototype's to validate)",
@@ -95,6 +105,8 @@ class Motion:
     c: np.ndarray | None = None
     bp: np.ndarray | None = None
     linkage: FingerLinkage | None = None
+    servo_rad: np.ndarray | None = None
+    """CoDe's servo angle at each pose (to resample between them)."""
 
 
 def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
@@ -116,7 +128,8 @@ def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
     last = int(at[0]) if at.size else len(phi) - 1
     ok = bool(at.size) and bool(np.all(np.diff(phi[:last + 1]) >= -1e-9))
     window = slice(0, last + 1)
-    return Motion(phi[window], ok, sweep.b[window], sweep.c[window], sweep.bp[window], linkage)
+    return Motion(phi[window], ok, sweep.b[window], sweep.c[window], sweep.bp[window], linkage,
+                  (sense * np.arange(0.0, 2.0 * math.pi, step))[:len(phi)][window])
 
 
 def reason_of(pair: tuple[str, str]) -> str:
@@ -134,6 +147,55 @@ def reason_of(pair: tuple[str, str]) -> str:
     if any("pin" in name for name in names):
         return "pad_joint_collision"
     return "structure_collision"
+
+
+def layout_violations(mechanism: str, x, config) -> dict[str, float]:
+    """The fixed structure's own margins (mm, negative: overlap), whatever the
+    modules, as the optimization's static checks: the PIP servo against the
+    MCP servo; CoDe's pin A against the servo on A' (``a_pin_servo_check``)
+    and the two pins on each body (A and B' on the driver link, B' and B on
+    the distal one) apart, their housings at most touching."""
+
+    packaging = goal_of(config).packaging
+    clearance = packaging.body_clearance_mm
+    if mechanism == "revolute":
+        from core.optimization.revolute.evaluate import geometry
+
+        servo = geometry(x, config).distal_servo
+        return {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(servo, (0.0,)) - clearance}
+    from core.optimization.linkage.design import decode
+
+    linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
+    footprint, radius = packaging.pip_footprint(linkage), packaging.pivot_radius_mm
+    found = {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(footprint, (0.0,)) - clearance,
+             "a_pin/bp_pin": linkage.a.distance_to(linkage.bp) - radius("a") - radius("bp"),
+             "bp_pin/b_pin": linkage.bp.distance_to(linkage.b) - radius("bp") - radius("b")}
+    if packaging.a_pin_servo_check:
+        found["a_pin/pip_servo"] = (footprint.distance_to_point(np.array((linkage.a.x_mm, linkage.a.z_mm)))
+                                    - radius("a") - clearance)
+    return found
+
+
+def first_dip(params: np.ndarray, least: np.ndarray, travel: np.ndarray, least_at, refine_mm: float = REFINE_MM):
+    """Where between samples the least margin may dip below 0 unseen: the first
+    interval (up to the first failing sample) whose two margins sum to less
+    than ``travel`` (the most a moving solid moves across it), resampled by
+    ``least_at(params) -> least margins`` into pieces moving at most
+    ``refine_mm``; returns the first failing parameter found, else ``None``."""
+
+    failing = np.flatnonzero(least < -TOLERANCE_MM)
+    end = int(failing[0]) if failing.size else len(params) - 1
+    for i in range(end):
+        if least[i] + least[i + 1] >= travel[i]:
+            continue  # neither can reach 0 before meeting the other
+        count = min(int(math.ceil(travel[i] / refine_mm)), 400)
+        inner = np.linspace(params[i], params[i + 1], count + 1)[1:-1]
+        if not inner.size:
+            continue
+        dips = np.flatnonzero(least_at(inner) < -TOLERANCE_MM)
+        if dips.size:
+            return float(inner[dips[0]])
+    return None
 
 
 def _linkage_margins(found_motion: Motion, config) -> dict[tuple[str, str], np.ndarray]:
@@ -178,6 +240,42 @@ def _revolute_margins(phi_deg: np.ndarray, x, config) -> dict[tuple[str, str], n
     return margins
 
 
+def _linkage_dip(found_motion: Motion, config, margins) -> FitResult | None:
+    """A collision between CoDe's motion samples (:func:`first_dip`): the
+    distal body's points travel at most ``|dB| + |d phi| R`` (``R``: its
+    reach from ``B``), the crossing links' ends ``|dB|`` and ``|dB'|``."""
+
+    from core.morphology.linkage.packaging import distal_carrier_polygon
+
+    linkage, packaging = found_motion.linkage, config.packaging
+    b, c, bp = found_motion.b, found_motion.c, found_motion.bp
+    solids = [distal_pad_polygon(linkage, packaging, b[:1], c[:1])[0], c[:1], bp[:1]]
+    if packaging.distal_carrier_height_mm > 0.0:
+        solids.append(distal_carrier_polygon(linkage, packaging, b[:1], c[:1])[0])
+    reach = max(float(np.linalg.norm(np.asarray(solid) - b[0], axis=-1).max()) for solid in solids)
+    turn = np.abs(np.diff(np.radians(found_motion.phi_deg)))
+    travel = 1.05 * np.maximum(np.linalg.norm(np.diff(b, axis=0), axis=1) + turn * reach,
+                               np.linalg.norm(np.diff(bp, axis=0), axis=1))
+    shape = found_motion.phi_deg.shape
+    least = np.min(np.stack([np.broadcast_to(m, shape) for m in margins.values()]), axis=0)
+
+    def pose(servo: np.ndarray) -> tuple[Motion, dict]:
+        sweep = linkage.sweep_servo(servo)
+        sub = Motion(np.degrees(sweep.total_flexion_rad), True, sweep.b, sweep.c, sweep.bp, linkage, servo)
+        return sub, _linkage_margins(sub, config)
+
+    def least_at(servo: np.ndarray) -> np.ndarray:
+        sub, found = pose(servo)
+        return np.min(np.stack([np.broadcast_to(m, sub.phi_deg.shape) for m in found.values()]), axis=0)
+
+    servo = first_dip(found_motion.servo_rad, least, travel, least_at)
+    if servo is None:
+        return None
+    sub, found = pose(np.array([servo]))
+    pair = min(found, key=lambda p: float(np.broadcast_to(found[p], (1,))[0]))
+    return FitResult(False, reason_of(pair), float(sub.phi_deg[0]), "/".join(pair))
+
+
 def support_rooms(mechanism: str, x, config) -> tuple[float, float]:
     """Each support's room for a module (mm): from the module's outer end to ``A''`` / ``B''``."""
 
@@ -203,16 +301,34 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
         found_motion = found_motion or motion(mechanism, x, config, phi_req_deg)
     except ValueError:  # the design vector describes no closed four-bar
         return FitResult(False, "invalid_fixed_layout")
+    try:
+        structure = layout_violations(mechanism, x, config)
+    except ValueError:
+        return FitResult(False, "invalid_fixed_layout")
+    broken = min(structure, key=structure.get)
+    if structure[broken] < -TOLERANCE_MM:
+        return FitResult(False, "invalid_fixed_layout", collision_pair=broken)
     if (modules.proximal_length_mm > proximal_room + TOLERANCE_MM
             or modules.distal_length_mm > distal_room + TOLERANCE_MM):
         return FitResult(False, "support_exceeded")
-    margins = (_revolute_margins(found_motion.phi_deg, x, config) if mechanism == "revolute"
-               else _linkage_margins(found_motion, config))
-    stacked = np.stack([np.broadcast_to(m, found_motion.phi_deg.shape) for m in margins.values()])
+    shape = found_motion.phi_deg.shape
+    if mechanism == "revolute":
+        from core.optimization.revolute.evaluate import _between_samples, geometry
+
+        margins = _revolute_margins(found_motion.phi_deg, x, config)
+        # Between samples: the evaluator's own resampling on the verification grid.
+        moving = {p: np.broadcast_to(m, shape).copy() for p, m in margins.items() if p != ("proximal_pad", "pip_servo")}
+        margins = {**margins, **_between_samples(geometry(x, config), np.radians(found_motion.phi_deg), moving, config)}
+    else:
+        margins = _linkage_margins(found_motion, config)
+        dip = _linkage_dip(found_motion, config, margins)
+        if dip is not None:
+            return dip
+    stacked = np.stack([np.broadcast_to(m, shape) for m in margins.values()])
     failing = np.flatnonzero((stacked < -TOLERANCE_MM).any(axis=0))
     if failing.size:
         index = int(failing[0])
-        pair = min(margins, key=lambda p: float(np.broadcast_to(margins[p], found_motion.phi_deg.shape)[index]))
+        pair = min(margins, key=lambda p: float(np.broadcast_to(margins[p], shape)[index]))
         return FitResult(False, reason_of(pair), float(found_motion.phi_deg[index]), "/".join(pair))
     if not found_motion.reached:
         return FitResult(False, "kinematic_unreachable", float(found_motion.phi_deg.max()))
@@ -300,5 +416,5 @@ def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg
     return records
 
 
-__all__ = ["COLLISION_POLICY", "FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REVOLUTE_STEP_DEG", "TOLERANCE_MM",
-           "evaluate_fit", "layout_summary", "max_flexion_deg", "motion", "reason_of", "support_rooms", "sweep"]
+__all__ = ["COLLISION_POLICY", "FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REFINE_MM",
+           "REVOLUTE_STEP_DEG", "TOLERANCE_MM", "evaluate_fit", "first_dip", "layout_violations", "layout_summary", "max_flexion_deg", "motion", "reason_of", "support_rooms", "sweep"]

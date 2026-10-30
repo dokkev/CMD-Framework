@@ -188,20 +188,27 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(records)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPOSITORY_ROOT, capture_output=True, text=True).stdout
-    dirty = bool(subprocess.run(["git", "status", "--porcelain", "--", "core", "visualize"], cwd=REPOSITORY_ROOT,
+    dirty = bool(subprocess.run(["git", "status", "--porcelain", "--", "core", "visualize",
+                                 "scripts/optimize/accommodation"], cwd=REPOSITORY_ROOT,
                                 capture_output=True, text=True).stdout.strip())
     first = next(iter(found.values()))[1]
     metadata = {
         "source_commit": commit.strip(), "uncommitted_changes": dirty, "layouts_source": source,
         "layouts": {name: {**envelope.layout_summary(name, x, config, REFERENCE),
                            "max_flexion_deg": envelope.max_flexion_deg(name, x, config, REFERENCE)[0],
-                           "config": str(path.relative_to(REPOSITORY_ROOT))}
+                           "config": str(path.relative_to(REPOSITORY_ROOT)),
+                           "applied_config": load(path)[0].config_to_json(config)}
                     for name, (x, config, path) in found.items()},
         "reference_modules": REFERENCE.__dict__, "lengths_mm": LENGTHS_MM.tolist(), "heights_mm": HEIGHTS_MM.tolist(),
         "required_flexions_deg": list(FLEXIONS_DEG),
         "sampling": {"revolute_flexion_step_deg": envelope.REVOLUTE_STEP_DEG,
                      "linkage_servo_step_deg": envelope.LINKAGE_SERVO_STEP_DEG,
-                     "linkage_endpoint": "the first sample at or past the required flexion"},
+                     "linkage_endpoint": "the first sample at or past the required flexion",
+                     "between_samples": "intervals whose margins leave room for a dip resampled: the 2R on the "
+                                        "0.05 deg verification grid (revolute.evaluate._between_samples), CoDe until "
+                                        f"each piece moves at most {envelope.REFINE_MM} mm"},
+        "structure_checks": "once per layout: PIP servo - MCP servo, CoDe pin A - servo on A', two pins on one body "
+                            "(contact_envelope.layout_violations); failing: invalid_fixed_layout",
         "assumptions": {
             "clearance_mm": 0.0, "numerical_tolerance_mm": envelope.TOLERANCE_MM,
             "signed_overlap": "overlap negative by its depth (packaging.overlap_depth)",
@@ -211,7 +218,7 @@ def main() -> int:
             "excluded": ["manufacturing tolerances", "bearings, shafts, brackets", "torque and transmission limits",
                          "dorsal-space requirement", "contact-face loss or accessibility"]},
     }
-    (OUT / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    (OUT / "metadata.json").write_text(json.dumps(metadata, indent=2, default=str), encoding="utf-8")
     saved = [layouts_figure(found, source), *(heatmaps(records, flexion) for flexion in FLEXIONS_DEG),
              OUT / "accommodation.csv"]
     print("\n".join(f"saved {path}" for path in saved))

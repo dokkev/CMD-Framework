@@ -20,3 +20,5 @@ solver:
     population: 200
     generations: 600
     seeds: [0, 1, 2]
+    # Cold start (2026-10-29): no initial candidates for either mechanism.
+    warm_start: []

@@ -181,3 +181,45 @@ def test_the_reference_layouts_are_picked_by_balanced_spare_support():
             {"support_balance_mm": "5.0", "proximal_room_mm": "30", "distal_room_mm": "45"},
             {"support_balance_mm": "1.0", "proximal_room_mm": "26", "distal_room_mm": "80"}]
     assert pick.best(rows) is rows[1]  # the balance first, then the total
+
+
+def test_an_unbuildable_layout_is_invalid_whatever_the_modules():
+    # The 2R's servo on A 15 mm from O runs into the MCP servo.
+    fit = evaluate_fit("revolute", (15.0, 85.0, 30.0, 15.0, 0.0, 0.0, 90.0), base("revolute"), REFERENCE, 90.0)
+    assert fit.reason == "invalid_fixed_layout" and fit.collision_pair == "pip_servo/mcp_servo"
+    # CoDe's servo on A' 6 mm above A sits on A's pin.
+    x = list(LAYOUTS["linkage"])
+    x[3], x[4] = 42.0, 6.0
+    assert evaluate_fit("linkage", tuple(x), base("linkage"), REFERENCE, 90.0).reason == "invalid_fixed_layout"
+    # The illustrative layouts are buildable.
+    for name, layout in LAYOUTS.items():
+        assert min(envelope.layout_violations(name, layout, with_modules(base(name), REFERENCE)).values()) >= -1e-6
+
+
+def test_a_dip_between_samples_is_found():
+    # Margin |p - 50| - 1: clear at both samples 0 and 100, colliding in between.
+    params, least = np.array([0.0, 100.0]), np.array([49.0, 49.0])
+    least_at = lambda p: np.abs(p - 50.0) - 1.0  # noqa: E731
+    dip = envelope.first_dip(params, least, np.array([100.0]), least_at, refine_mm=0.5)
+    assert dip is not None and 49.0 <= dip <= 51.0
+    # Margins that cannot meet across the interval are not resampled.
+    assert envelope.first_dip(params, least, np.array([50.0]), least_at) is None
+
+
+def test_the_pick_takes_the_best_candidate_the_benchmark_passes_and_checks_the_config():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("pick", STUDY / "reference" / "pick.py")
+    pick = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pick)
+    rows = [{"support_balance_mm": "5.0", "proximal_room_mm": "40", "distal_room_mm": "30", "id": 0},
+            {"support_balance_mm": "8.0", "proximal_room_mm": "33", "distal_room_mm": "33", "id": 1}]
+    assert pick.choose(rows, lambda row: row["id"] == 0) is rows[0]  # the better one fails the benchmark
+    assert pick.choose(rows, lambda row: False) is None
+    found, config = pick.searched_config(STUDY / "reference" / "revolute.yaml")
+    assert pick.config_mismatch(found, config, config) == []
+    import dataclasses
+
+    other = dataclasses.replace(config, goal=dataclasses.replace(config.goal, required_rom_rad=2.0,
+                                                                 seeds=(5,)))
+    assert pick.config_mismatch(found, other, config) == ["goal.required_rom_rad"]  # not the seeds
