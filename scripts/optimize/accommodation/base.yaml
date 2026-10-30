@@ -91,6 +91,9 @@ goal:
       distal_carrier_height_mm: 4
       # Links and bars as capsules (side view) against the pads they do not carry.
       link_radius_mm: 3
+      # Each segment's support solid over its whole mounting line, whatever module
+      # it carries: the proximal one as the distal carrier, to A''.
+      proximal_carrier_height_mm: 4
     check:
       a_pin_and_pip_servo: true
       a_pin_and_a_prime_pin: false

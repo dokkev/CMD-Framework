@@ -58,6 +58,11 @@
 - **fixed architecture sweep:** A″·B″ 지지구조와 distal carrier(B″부터 손끝까지)를 고정하고 모듈 길이와 두께만 바꾼다 (`tradeoff.with_modules`). 지지구조보다 긴 모듈은 장착 불가.
 - **기존 결과:** 중단 전에 끝난 2R 90°와 CoDe 90°는 이전 규칙의 결과라 `output/accommodation_v0`에 보관한다. 인용하지 않는다.
 
+### 2차 리뷰 반영 (2026-10-29)
+- **proximal 지지구조:** pad 바깥 끝부터 A″까지, 장착면 위 4 mm 판으로 둔다. 모듈 길이와 무관하게 남는다 (`goal.collision.param.proximal_carrier_height_mm`, `packaging.proximal_carrier_polygon`). distal pad와 distal carrier를 상대로 충돌 검사한다. distal carrier와 proximal pad의 충돌 검사도 추가했다. 2R도 같다. linkage-v6.
+- **dorsal 공간:** 링크와 bar를 capsule 반경(3 mm)까지 포함해 잰다.
+- **overhang `null`:** 2R에서도 "제한 없음"으로 본다 (linkage와 같은 의미). 0과 구분한다.
+
 ## 결정 대기 (사용자)
 - [ ] **integrity D** 값 (`loss.integrity_depth_mm`). 근거: `visualize.study.loss_profile` 진단 (D ∈ {0, 2, 3, 5, 10, 20} mm).
 - [ ] **예산**: 진단 run 결과 보고 후 결정. 기본안 전 메커니즘 1500세대.

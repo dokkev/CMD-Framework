@@ -83,6 +83,9 @@ class RevoluteGeometry:
     distal_room_mm: float
     distal_carrier_local: np.ndarray | None = None
     """The distal pad's carrier plate in the distal frame (``None``: none)."""
+    proximal_carrier: np.ndarray | None = None
+    """The proximal support's plate in the proximal frame
+    (``goal.collision.param.proximal_carrier_height_mm``; ``None``: none)."""
     distal_mount_local: np.ndarray | None = None
     """The distal mounting line, ``B''`` then the fingertip end, in the distal
     frame (``None``: the pad's top face): the support, there whatever module it carries."""
@@ -161,7 +164,20 @@ def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
                             v["proximal_drop_mm"], servo,
                             proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
                             face(distal_length, chamfer["distal"]), proximal_room, distal_room,
-                            carrier_local(support, v["distal_drop_mm"], packaging), mount)
+                            carrier_local(support, v["distal_drop_mm"], packaging),
+                            proximal_support(start, proximal_room, v["proximal_drop_mm"], config), mount)
+
+
+def proximal_support(start_mm: float, room_mm: float, drop_mm: float, config) -> np.ndarray | None:
+    """The proximal support's plate (``goal.collision.param.proximal_carrier_height_mm``
+    dorsal of the mounting line, from the pad's outer end to ``A''``), as
+    the linkage's (``packaging.proximal_carrier_polygon``); ``None`` without one."""
+
+    height = config.goal.proximal_carrier_height_mm
+    if height is None:
+        return None
+    end = start_mm + max(room_mm, 1e-6)
+    return np.array(((start_mm, -drop_mm), (end, -drop_mm), (end, height - drop_mm), (start_mm, height - drop_mm)))
 
 
 def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
@@ -202,7 +218,8 @@ def dorsal_space_violation(geo, goal, mechanism: str) -> float:
         return 0.0
     from core.optimization.analysis.loss import dorsal_space_mm, joint_scene
 
-    return dorsal_space_mm(joint_scene(mechanism, geo, goal.packaging, [0.0])) - goal.dorsal_space_mm
+    return (dorsal_space_mm(joint_scene(mechanism, geo, goal.packaging, [0.0]), goal.link_radius_mm or 0.0)
+            - goal.dorsal_space_mm)
 
 
 def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[float, float]:
@@ -432,6 +449,13 @@ def _margins(geo: RevoluteGeometry, phi: np.ndarray, config: RevoluteConfig,
             margins[(name, "proximal_pad")] = polygon_gaps(solid, proximal, packaging) - clearance
     if goal.link_radius_mm is not None:  # the comparison model: the bars as capsules, in the side view
         margins.update(bar_capsule_margins(geo, phi, goal.link_radius_mm, clearance))
+    if geo.proximal_carrier is not None:  # the comparison model: both supports solid
+        support = np.broadcast_to(geo.proximal_carrier, (count, 4, 2))
+        margins[("distal_pad", "proximal_carrier")] = polygon_gaps(distal, support, packaging) - clearance
+        if geo.distal_carrier_local is not None:
+            carrier = geo.posed(geo.distal_carrier_local, phi)
+            margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
+            margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
     if packaging.pad_checks_mcp("distal_pad"):
         end = count
         if until_unsafe:

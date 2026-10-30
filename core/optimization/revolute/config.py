@@ -40,10 +40,11 @@ def pad_reach_mm(goal: LinkageConfig, radius_mm: float) -> tuple[float, float]:
     proximal pad's end at most ``A_x`` plus this, the distal pad's start at
     least minus this (``bpp_from_a_mm``): the joint's housing (its radius)
     plus the pad's overhang past it (``goal.pads.*.overhang_max_mm``), as the
-    linkage's past its own body. Nearer the joint, only the pads' actual
+    linkage's past its own body; no overhang limit (``None``): no reach limit. Nearer the joint, only the pads' actual
     clearance of the housing and of each other limits them."""
 
-    return (radius_mm + (goal.proximal_overhang_max_mm or 0.0), radius_mm + (goal.distal_overhang_max_mm or 0.0))
+    return tuple(math.inf if overhang is None else radius_mm + overhang
+                 for overhang in (goal.proximal_overhang_max_mm, goal.distal_overhang_max_mm))
 
 
 def joint_radius(goal: LinkageConfig, joint_servo: bool, joint_pulley: bool = False) -> float:
@@ -120,7 +121,8 @@ class RevoluteConfig:
             "a_x_mm": goal.within_share(goal.bounds["a_x_mm"], goal.proximal_length_ratio_bounds),
             "ac_length_mm": goal.within_share(goal.bounds["bc_length_mm"], goal.distal_length_ratio_bounds),
             "app_x_mm": (start + goal.minimum_proximal_support_mm, finger_high),
-            "bpp_from_a_mm": (-pad_reach_mm(goal, radius)[1], finger_high - goal.minimum_distal_support_mm),
+            "bpp_from_a_mm": (-min(pad_reach_mm(goal, radius)[1], finger_high),
+                              finger_high - goal.minimum_distal_support_mm),
             "distal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
             "proximal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
             "servo_tilt_deg": tilt,

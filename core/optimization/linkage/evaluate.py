@@ -46,7 +46,10 @@ from core.morphology.linkage.packaging import (
     pad_chamfer_mm,
     pad_margins,
     pad_spans,
+    distal_carrier_polygon,
     pip_servo_pad_gap_mm,
+    polygon_gaps,
+    proximal_carrier_polygon,
     proximal_pad_polygon,
     segment_polygon_gaps,
     usable_pad_lengths,
@@ -270,6 +273,9 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
     if config.link_radius_mm is not None:  # the comparison model: the links as capsules, in the side view
         margins.update(link_capsule_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
                                             joined("bp")[swept], config.link_radius_mm))
+    if config.proximal_carrier_height_mm is not None:  # the comparison model: both supports solid
+        margins.update(support_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
+                                       config.proximal_carrier_height_mm))
     pad = np.full(len(unsafe["closure"]), math.inf)
     pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
     # The reported clearance leaves out pairs whose margin the design does not set.
@@ -404,6 +410,28 @@ def link_capsule_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np
             for pad, bars in bodies.items() for name, (start, end) in bars.items()}
 
 
+def support_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndarray,
+                    height_mm: float) -> dict[tuple[str, str], np.ndarray]:
+    """Per-sample margin (mm) between each segment's support and the other
+    segment's pad and support: the proximal support
+    (``packaging.proximal_carrier_polygon``) against the distal pad and
+    carrier, the distal carrier against the proximal pad."""
+
+    b, c = np.atleast_2d(b), np.atleast_2d(c)
+    count = len(b)
+    support = np.broadcast_to(proximal_carrier_polygon(linkage, packaging, height_mm), (count, 4, 2))
+    polygon = proximal_pad_polygon(linkage, packaging)
+    proximal = np.broadcast_to(polygon, (count, *polygon.shape))
+    clearance = packaging.body_clearance_mm
+    margins = {("distal_pad", "proximal_carrier"): polygon_gaps(distal_pad_polygon(linkage, packaging, b, c), support,
+                                                                packaging) - clearance}
+    if packaging.distal_carrier_height_mm > 0.0:
+        carrier = distal_carrier_polygon(linkage, packaging, b, c)
+        margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
+        margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
+    return margins
+
+
 def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> float:
     """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above ``O``'s line (0: none set)."""
 
@@ -412,7 +440,8 @@ def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> flo
     from core.optimization.analysis.loss import dorsal_space_mm, linkage_scene
 
     b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp))
-    return dorsal_space_mm(linkage_scene(linkage, config.packaging, b, c, bp, [0.0])) - config.dorsal_space_mm
+    built = linkage_scene(linkage, config.packaging, b, c, bp, [0.0], config.proximal_carrier_height_mm)
+    return dorsal_space_mm(built, config.link_radius_mm or 0.0) - config.dorsal_space_mm
 
 
 def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, config: LinkageConfig,

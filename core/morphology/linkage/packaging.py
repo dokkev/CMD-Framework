@@ -673,6 +673,18 @@ def proximal_pad_polygon(linkage: FingerLinkage, packaging: Packaging) -> np.nda
     return outline + (0.0, packaging.proximal_pad_line_z(linkage.parameters))
 
 
+def proximal_carrier_polygon(linkage: FingerLinkage, packaging: Packaging, height_mm: float) -> np.ndarray:
+    """The proximal support, ``(4, 2)`` in the proximal-link frame: a plate
+    ``height_mm`` dorsal of the mounting line over its whole length, from the
+    pad's outer end to ``A''`` (there whatever module it carries), as the
+    distal one (:func:`distal_carrier_polygon`)."""
+
+    span = pad_spans(linkage.parameters, packaging)["proximal_pad"]
+    support = PadSpan(span.start_mm, span.start_mm + span.room_mm, span.room_mm)
+    outline = pad_outline(support, packaging.proximal_pad, "end", 0.0)
+    return carrier_outline(outline, height_mm) + (0.0, packaging.proximal_pad_line_z(linkage.parameters))
+
+
 def distal_pad_polygon(linkage: FingerLinkage, packaging: Packaging,
                        b: np.ndarray, c: np.ndarray) -> np.ndarray:
     """The distal pad at posed ``B`` and ``C`` (``(n, 2)``), ``(n, m, 2)``: its
@@ -1382,6 +1394,7 @@ __all__ = [
     "carrier_outline",
     "checked_pairs",
     "distal_carrier_polygon",
+    "proximal_carrier_polygon",
     "distal_pad_polygon",
     "layer_separated_pairs",
     "pad_chamfer_mm",

@@ -78,8 +78,8 @@ def _ranges(config: RevoluteConfig, length: float, tilt_deg: float):
 
     def pads(ac: float) -> tuple[tuple[float, float], tuple[float, float]]:
         a_x = length - ac
-        return ((start + goal.minimum_proximal_support_mm, a_x + proximal_reach),
-                (-distal_reach, ac - goal.minimum_distal_support_mm))
+        return ((start + goal.minimum_proximal_support_mm, min(a_x + proximal_reach, length)),
+                (-min(distal_reach, a_x), ac - goal.minimum_distal_support_mm))
 
     return ac_range, pads
 

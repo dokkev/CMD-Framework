@@ -39,6 +39,7 @@ from core.morphology.linkage.packaging import (
     fold_free_lengths,
     fold_hidden_points,
     probe_blocked,
+    proximal_carrier_polygon,
     proximal_pad_polygon,
 )
 
@@ -159,10 +160,11 @@ def integrity_free(scene: Scene, depth_mm: float, step_mm: float = PROBE_STEP_MM
     return free
 
 
-def thickness_mm(scene: Scene, pose: int = 0) -> tuple[float, float]:
+def thickness_mm(scene: Scene, pose: int = 0, bar_radius_mm: float = 0.0) -> tuple[float, float]:
     """The finger's dorsal-most and palmar-most ``z`` (mm) at the scene's
     ``pose``-th flexion (0: extended), over its own solids (:data:`FINGER`)
-    and both pads: its dorsal-palmar thickness is their difference."""
+    and both pads, the bars as capsules of ``bar_radius_mm`` (the comparison
+    model's ``link_radius_mm``): its dorsal-palmar thickness is their difference."""
 
     zs = []
     pads = Shapes([scene.solids["distal_pad"]["other_pad"].polygons[0],
@@ -173,7 +175,8 @@ def thickness_mm(scene: Scene, pose: int = 0) -> tuple[float, float]:
             zs.append((polygon[pose] if polygon.ndim == 3 else polygon)[:, 1])
         for segment in shape.segments:
             segment = np.asarray(segment, dtype=float)
-            zs.append((segment[pose] if segment.ndim == 3 else segment)[:, 1])
+            z = (segment[pose] if segment.ndim == 3 else segment)[:, 1]
+            zs.append(np.concatenate((z - bar_radius_mm, z + bar_radius_mm)))
         for centers, radius in shape.disks:
             centers = np.asarray(centers, dtype=float)
             z = (centers[pose] if centers.ndim == 2 else centers)[1]
@@ -189,12 +192,12 @@ def mounting_z_mm(scene: Scene) -> float:
     return max(float((np.asarray(p)[0] if np.ndim(p) == 3 else np.asarray(p))[:, 1].max()) for p in pads)
 
 
-def dorsal_space_mm(scene: Scene) -> float:
+def dorsal_space_mm(scene: Scene, bar_radius_mm: float = 0.0) -> float:
     """How far the finger's own solids rise above the common datum, extended
     (pose 0): the line through ``O`` along the finger (``z = 0``), whatever
     the pads' drops (each free below it)."""
 
-    return thickness_mm(scene, 0)[0]
+    return thickness_mm(scene, 0, bar_radius_mm)[0]
 
 
 def access_points(scene: Scene, side: str, depth_mm: float, step_mm: float = 0.5):
@@ -269,11 +272,13 @@ def _linkage_scene(config, x, phi_deg) -> Scene:
     reached = np.maximum.accumulate(sweep.total_flexion_rad)
     index = np.minimum(np.searchsorted(reached, np.radians(phi_deg) - 1e-9), len(reached) - 1)
     return linkage_scene(linkage, config.packaging, sweep.b[index], sweep.c[index], sweep.bp[index],
-                         np.degrees(sweep.total_flexion_rad[index]))
+                         np.degrees(sweep.total_flexion_rad[index]), config.proximal_carrier_height_mm)
 
 
-def linkage_scene(linkage: FingerLinkage, packaging, b, c, bp, phi_deg) -> Scene:
-    """The scene of a linkage at its posed ``B``, ``C`` and ``B'`` (``(n, 2)`` each), flexions ``phi_deg``."""
+def linkage_scene(linkage: FingerLinkage, packaging, b, c, bp, phi_deg,
+                  proximal_carrier_mm: float | None = None) -> Scene:
+    """The scene of a linkage at its posed ``B``, ``C`` and ``B'`` (``(n, 2)`` each), flexions ``phi_deg``;
+    ``proximal_carrier_mm``: its proximal support's plate (``packaging.proximal_carrier_polygon``), if any."""
 
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
     p = linkage.parameters
@@ -285,8 +290,10 @@ def linkage_scene(linkage: FingerLinkage, packaging, b, c, bp, phi_deg) -> Scene
              "distal_pad": (distal_face, distal_normal)}
     radius = packaging.pivot_radius_mm
     others = {
-        "carrier": Shapes([distal_carrier_polygon(linkage, packaging, b, c)] if packaging.distal_carrier_height_mm > 0
-                          else []),
+        "carrier": Shapes(([distal_carrier_polygon(linkage, packaging, b, c)]
+                           if packaging.distal_carrier_height_mm > 0 else [])
+                          + ([proximal_carrier_polygon(linkage, packaging, proximal_carrier_mm)]
+                             if proximal_carrier_mm is not None else [])),
         "link": Shapes(segments=_bars((o, a), (a, ap), (ap, o), (a, bp), (ap, b), (bp, b), (b, c))),
         "pin": Shapes(disks=[(a, radius("a")), (ap, radius("ap")), (b, radius("b")), (bp, radius("bp"))]),
         "servo": Shapes([packaging.pip_footprint(linkage).outline]),
@@ -342,6 +349,8 @@ def joint_scene(mechanism: str, geo, packaging, phi_deg) -> Scene:
             side = radius * np.array((-along[1], along[0]))
             others["pulley"] = Shapes(segments=_bars((geo.ap + side, a + side), (geo.ap - side, a - side)),
                                       disks=[(a, radius), (geo.ap, radius)])
+    if getattr(joint, "proximal_carrier", None) is not None:  # the proximal support, fixed
+        carrier.append(joint.proximal_carrier)
     others["carrier"] = Shapes(carrier)
     own = {"proximal_pad": joint.proximal_pad, "distal_pad": joint.distal_pad(phi)}
     return _scene(phi_deg, faces, own, others)

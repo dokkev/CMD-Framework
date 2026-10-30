@@ -123,7 +123,7 @@ def icr0_share_of(p: FingerLinkageParameters, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v5"
+    formulation = "linkage-v6"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -136,7 +136,10 @@ class LinkageMechanism(Mechanism):
     (2026-10-29): optional in the goal, the integrity rule
     (``goal.loss.integrity_depth_mm``): a face's point is lost when hidden in
     the fold or with any solid but its own pad within the depth in front, at
-    any pose to the required flexion; absent, v4's measure."""
+    any pose to the required flexion; absent, v4's measure. v6 (2026-10-29):
+    the distal carrier over the whole mounting line from ``B''`` (the support,
+    whatever module it carries); optional in the goal, the comparison model's
+    capsule links, proximal support plate and dorsal space."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES

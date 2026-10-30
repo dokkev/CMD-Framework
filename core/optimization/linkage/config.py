@@ -160,6 +160,11 @@ class LinkageConfig:
     of this radius, each checked against the pads it does not carry, in the
     side view (the comparison model); ``None``: the links pass beside the
     pads (the outer layer), unchecked."""
+    proximal_carrier_height_mm: float | None = None
+    """``goal.collision.param.proximal_carrier_height_mm``: the proximal support
+    as a plate this thick dorsal of the mounting line, from the pad's outer end
+    to ``A''`` whatever module it carries, checked against the distal pad and
+    carrier (the comparison model); ``None``: no such solid."""
     count_fold: bool = True
     """``goal.loss.fold``: each face less what the other hides in the fold
     (the v4 measure); false: a module mounted and clear through the motion
@@ -232,7 +237,7 @@ class LinkageConfig:
                      "finger_length": self.extended_length_bounds_mm[1]}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
-                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm"):
+                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm", "proximal_carrier_height_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
@@ -504,6 +509,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     diameters = param.table("pivot_diameter_mm")
     carrier_height = float(param.take("distal_carrier_height_mm"))
     link_radius = param.values.pop("link_radius_mm", None)  # optional
+    proximal_carrier = param.values.pop("proximal_carrier_height_mm", None)  # optional
     param.done()
     pivot = {name: float(diameters.take(key)) for key, name in PIVOT_KEYS.items()}
     diameters.done()
@@ -617,6 +623,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         icr0_share_bounds=icr0_share,
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
+        proximal_carrier_height_mm=None if proximal_carrier is None else float(proximal_carrier),
         count_fold=count_fold,
         integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,

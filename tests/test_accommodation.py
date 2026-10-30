@@ -122,3 +122,40 @@ def test_a_fixed_finger_changes_its_modules_not_its_supports(name, x):
     # Thicker modules flex no further.
     thick, thin = Modules(20.0, 10.0, 20.0, 10.0), Modules(20.0, 5.0, 20.0, 5.0)
     assert phi_max_deg(found, config, x, thick) <= phi_max_deg(found, config, x, thin)
+
+
+def test_the_proximal_support_stays_whatever_module_it_carries():
+    from core.morphology.linkage import FingerLinkage
+    from core.morphology.linkage.packaging import proximal_carrier_polygon
+    from core.optimization.analysis.loss import scene
+    from core.optimization.linkage.design import decode
+    from core.optimization.linkage.evaluate import support_margins
+
+    found, config = load(COMPARISON / "linkage_h5_flex150.yaml", "goal.collision.param.proximal_carrier_height_mm=4")
+    linkage = FingerLinkage(decode(LINKAGE_X, 0.1))
+    supports = []
+    for length in (10.0, 25.0):
+        carried = with_modules(config, Modules(length, 5.0, 20.0, 5.0))
+        polygon = proximal_carrier_polygon(linkage, carried.packaging, 4.0)
+        # From the pad's outer end to A'', 4 mm dorsal of the mounting line, whatever the module.
+        assert polygon[:, 0].min() == pytest.approx(carried.packaging.proximal_pad_start_mm)
+        assert polygon[:, 0].max() == pytest.approx(linkage.parameters.app_x_mm)
+        assert np.ptp(polygon[:, 1]) == pytest.approx(4.0)
+        supports.append(polygon)
+        assert any(np.allclose(np.asarray(p), polygon) for p in scene("linkage", carried, LINKAGE_X, [0.0])
+                   .solids["distal_pad"]["carrier"].polygons)
+    assert np.allclose(*supports)
+    # The distal pad folded onto the support is a collision, even with a short proximal module.
+    b, c = np.array([[30.0, -9.0]]), np.array([[2.8, -9.0]])  # B-C laid back, the pad through the support
+    margins = support_margins(linkage, with_modules(config, Modules(10.0, 5.0, 20.0, 5.0)).packaging, b, c, 4.0)
+    assert margins[("distal_pad", "proximal_carrier")][0] < 0.0
+
+
+def test_the_dorsal_space_counts_the_bars_capsules():
+    from core.optimization.analysis.loss import dorsal_space_mm, scene
+
+    found, config = load(COMPARISON / "linkage_h5_flex150.yaml")
+    built = scene("linkage", config, LINKAGE_X, [0.0])
+    bars = max(float(np.asarray(s)[..., 1].max()) for s in built.solids["proximal_pad"]["link"].segments)
+    assert dorsal_space_mm(built, 3.0) == pytest.approx(max(dorsal_space_mm(built), bars + 3.0))
+    assert dorsal_space_mm(built, 3.0) >= dorsal_space_mm(built)
