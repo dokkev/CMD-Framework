@@ -1,0 +1,22 @@
+# Reference layout of the revolute for the fixed-layout accommodation benchmark
+# (visualize.comparison.contact_envelope): at |OC| 100 mm, carrying the
+# reference modules (25 x 5 mm, proximal and distal) clear from 0 to 150 deg,
+# the most balanced spare support, min(S_p - 25, S_d - 25), the total support
+# breaking ties (objective support_balance). Pick it with pick.py.
+mechanism: revolute
+base: ../base.yaml
+output: output/accommodation_reference
+goal:
+  motion:
+    dip_flexion_deg: 150
+  link:
+    finger_length_mm: [99.9, 100]
+solver:
+  objectives:
+    - support_balance
+  pareto_front:
+    support_balance: 0
+  optimizer:
+    population: 200
+    generations: 600
+    seeds: [0, 1, 2]

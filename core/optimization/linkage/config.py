@@ -31,7 +31,7 @@ from core.morphology.linkage.packaging import ContactPad, Packaging
 from core.optimization.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
 
 
-OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length")
+OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")
 SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",
                  "app_offset_mm", "bpp_offset_mm")
 """The design variables ``solver.search_bounds`` gives; the rest come from the goal."""
@@ -234,7 +234,7 @@ class LinkageConfig:
             raise ValueError(f"unknown objectives in the reference point: {sorted(unknown)}")
         reference = {"transmission": 2.3, "pad_coverage": 0.0,
                      "curl": 180.0 - math.degrees(self.required_rom_rad),
-                     "finger_length": self.extended_length_bounds_mm[1]}
+                     "finger_length": self.extended_length_bounds_mm[1], "support_balance": 0.0}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
                      "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm", "proximal_carrier_height_mm"):

@@ -71,16 +71,18 @@ def test_a_module_longer_than_its_support_is_rejected(name):
 
 
 def test_touching_is_allowed_and_penetration_is_not():
-    # The 2R's proximal module on the link line, ending at the servo's housing
-    # (radius 9.5 about A): its top corner touches; 0.1 mm longer, it penetrates.
-    for end, reason in ((47.5 - 9.5, "feasible"), (47.5 - 9.4, "pad_servo_collision")):
+    # The 2R's proximal module and its support on the link line, ending at the
+    # servo's housing (radius 9.5 about A): their top corners touch; 0.1 mm
+    # longer, both penetrate it.
+    for end, feasible in ((47.5 - 9.5, True), (47.5 - 9.4, False)):
         x = (47.5, 52.5, end, 15.0, 0.0, 0.0, 90.0)
         config = base("revolute")
         length = support_rooms("revolute", x, with_modules(config, REFERENCE))[0]
         fit = evaluate_fit("revolute", x, config, Modules(length, 5.0, 25.0, 5.0), 60.0)
-        assert fit.reason == reason
-        if not fit.feasible:
-            assert fit.first_failure_deg == 0.0 and fit.collision_pair == "proximal_pad/pip_servo"
+        assert fit.feasible == feasible
+        if not feasible:
+            assert fit.first_failure_deg == 0.0 and "pip_servo" in fit.collision_pair
+            assert fit.reason in ("pad_servo_collision", "structure_collision")
 
 
 def test_each_mechanism_moves_as_it_is_built():
@@ -143,3 +145,39 @@ def test_the_sweep_needs_no_optimizer_and_writes_every_pair(monkeypatch):
     assert len(keys) == len(records)
     assert all(r["reason"] in envelope.REASONS and r["feasible"] == (r["reason"] == "feasible") for r in records)
     assert {name: tuple(x) for name, (x, _) in layouts.items()} == before
+
+
+def test_a_support_may_not_run_through_its_own_actuator():
+    # The 2R's support on the link line, run 5 mm past A, goes through the servo
+    # on A (ending on its own pin would be its mounting); the layout's own clears it.
+    config = base("revolute")
+    assert evaluate_fit("revolute", LAYOUTS["revolute"], config, REFERENCE, 90.0).feasible
+    x = (47.5, 52.5, 47.5 + 5.0, 15.0, 0.0, 0.0, 90.0)
+    fit = evaluate_fit("revolute", x, config, REFERENCE, 90.0)
+    assert not fit.feasible and fit.collision_pair == "proximal_carrier/pip_servo"
+
+
+def test_the_reference_layouts_are_picked_by_balanced_spare_support():
+    import importlib.util
+
+    from core.optimization.mechanism import mechanism, read_config_file
+
+    # The objective: the shorter spare support, the total only breaking ties
+    # (the search's own config: the reference modules 25 mm long).
+    values = read_config_file(STUDY / "reference" / "revolute.yaml")
+    found = mechanism(values.pop("mechanism"))
+    values.pop("output")
+    config = found.config_from_mapping(found.split_settings(values)[0])
+    evaluation = found.evaluate(LAYOUTS["revolute"], config)
+    report = found.report(evaluation)
+    assert report["support_balance_mm"] == pytest.approx(min(report["proximal_room_mm"] - 25.0,
+                                                             report["distal_room_mm"] - 25.0))
+    value = found.objective_values(evaluation, ("support_balance",))[0]
+    assert -value == pytest.approx(report["support_balance_mm"], abs=0.05)
+    spec = importlib.util.spec_from_file_location("pick", STUDY / "reference" / "pick.py")
+    pick = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pick)
+    rows = [{"support_balance_mm": "5.0", "proximal_room_mm": "40", "distal_room_mm": "30"},
+            {"support_balance_mm": "5.0", "proximal_room_mm": "30", "distal_room_mm": "45"},
+            {"support_balance_mm": "1.0", "proximal_room_mm": "26", "distal_room_mm": "80"}]
+    assert pick.best(rows) is rows[1]  # the balance first, then the total

@@ -43,6 +43,7 @@ from core.morphology.linkage.packaging import (
     contact_faces,
     fold_free_lengths,
     fixed_margin_pairs,
+    footprint_gaps,
     pad_chamfer_mm,
     pad_margins,
     pad_spans,
@@ -139,6 +140,10 @@ class LinkageEvaluation:
     proximal_support_length_mm: float = math.nan
     distal_support_length_mm: float = math.nan
     """Each pad's mounting length ``a-b`` (``packaging.pad_spans``)."""
+    proximal_room_mm: float = math.nan
+    distal_room_mm: float = math.nan
+    """Each support's length, from the pad's outer end to ``A''`` / ``B''``:
+    the longest module it can carry (``PadSpan.room_mm``)."""
     proximal_face_mm: float = math.nan
     distal_face_mm: float = math.nan
     """Each pad's palmar face, its ``a-b`` less the chamfer."""
@@ -169,6 +174,14 @@ class LinkageEvaluation:
     @property
     def feasible(self) -> bool:
         return self.max_violation <= 0.0
+
+    @property
+    def support_balance_mm(self) -> float:
+        """How much longer than its module the shorter-spare support is:
+        ``min(S_p - l_p, S_d - l_d)`` (the accommodation study's reference layouts)."""
+
+        return min(self.proximal_room_mm - self.proximal_support_length_mm,
+                   self.distal_room_mm - self.distal_support_length_mm)
 
     @property
     def proximal_effective_mm(self) -> float:
@@ -415,7 +428,9 @@ def support_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndar
     """Per-sample margin (mm) between each segment's support and the other
     segment's pad and support: the proximal support
     (``packaging.proximal_carrier_polygon``) against the distal pad and
-    carrier, the distal carrier against the proximal pad."""
+    carrier, the distal carrier against the proximal pad; and the proximal
+    support against the PIP servo's body on its own segment (a support may
+    end on its own pins, its mounting, not run through an actuator)."""
 
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     count = len(b)
@@ -424,7 +439,9 @@ def support_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndar
     proximal = np.broadcast_to(polygon, (count, *polygon.shape))
     clearance = packaging.body_clearance_mm
     margins = {("distal_pad", "proximal_carrier"): polygon_gaps(distal_pad_polygon(linkage, packaging, b, c), support,
-                                                                packaging) - clearance}
+                                                                packaging) - clearance,
+               ("proximal_carrier", "pip_servo"): footprint_gaps(support, packaging.pip_footprint(linkage), packaging)
+               - clearance}
     if packaging.distal_carrier_height_mm > 0.0:
         carrier = distal_carrier_polygon(linkage, packaging, b, c)
         margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
@@ -636,6 +653,7 @@ def _pad_lengths(parameters: FingerLinkageParameters, packaging) -> dict[str, fl
         length = spans[f"{side}_pad"].length_mm
         chamfer = pad_chamfer_mm(getattr(packaging, f"{side}_pad"), parameters, side)
         values[f"{side}_support_length_mm"] = length
+        values[f"{side}_room_mm"] = spans[f"{side}_pad"].room_mm
         values[f"{side}_face_mm"] = max(length - min(chamfer, length), 0.0)
     return values
 

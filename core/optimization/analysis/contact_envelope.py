@@ -199,14 +199,65 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
     return FitResult(True, "feasible")
 
 
+def max_flexion_deg(mechanism: str, x, base_config, modules: Modules, limit_deg: float = 180.0) -> tuple[float, FitResult]:
+    """How far the fixed layout flexes with ``modules``: ``limit_deg`` when it
+    fits all through, else the flexion it fails at (the first colliding pose,
+    or the most the four-bar reaches), with the failure."""
+
+    fit = evaluate_fit(mechanism, x, base_config, modules, limit_deg)
+    return (limit_deg if fit.feasible else fit.first_failure_deg if fit.first_failure_deg is not None else 0.0), fit
+
+
+def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
+    """A fixed layout as it is audited: its design vector, length, active and
+    passive joints, supports (their room for a module, their ends ``A''`` and
+    ``B''``) and the modules' mounting offsets (drops) and outer ends."""
+
+    from core.optimization.mechanism import mechanism as mechanism_of
+
+    config = with_modules(base_config, modules)
+    goal = goal_of(config)
+    rooms = support_rooms(mechanism, x, config)
+    v = dict(zip(mechanism_of(mechanism).variable_names, (float(value) for value in x)))
+    info = {"design_vector": [float(value) for value in x], "variables": v,
+            "support_room_mm": {"proximal": rooms[0], "distal": rooms[1]},
+            "proximal_module_outer_end_x_mm": goal.packaging.proximal_pad_start_mm,
+            "pip_servo": {"model_radius_mm": goal.packaging.pip_servo.radius_mm,
+                          "rear_extent_mm": goal.packaging.pip_servo.rear_extent_mm}}
+    if mechanism == "linkage":
+        from core.optimization.linkage.design import decode
+
+        p = decode(x, config.link_length_resolution_mm)
+        info.update({"finger_length_mm": math.hypot(p.b_x_mm + p.bc_length_mm, p.b_z_mm),
+                     "active_joints": {"O": [0.0, 0.0], "A'": [p.ap.x_mm, p.ap.z_mm]},
+                     "passive_joints": {"A": [p.a_x_mm, p.a_z_mm], "B": [p.b_x_mm, p.b_z_mm],
+                                        "B'": [p.bp.x_mm, p.bp.z_mm]},
+                     "pip_servo_tilt_deg": math.degrees(p.pip_servo_tilt_rad),
+                     "supports_end_x_mm": {"A''": p.app_x_mm, "B''": p.bpp_x_mm},
+                     "pad_drops_mm": {"proximal": goal.packaging.proximal_drop(p),
+                                      "distal": goal.packaging.distal_drop(p)}})
+    else:
+        info.update({"finger_length_mm": v["a_x_mm"] + v["ac_length_mm"],
+                     "active_joints": {"O": [0.0, 0.0], "A": [v["a_x_mm"], 0.0]}, "passive_joints": {},
+                     "pip_servo_tilt_deg": v["servo_tilt_deg"],
+                     "supports_end_x_mm": {"A''": v["app_x_mm"], "B''": v["a_x_mm"] + v["bpp_from_a_mm"]},
+                     "pad_drops_mm": {"proximal": v["proximal_drop_mm"], "distal": v["distal_drop_mm"]}})
+    return info
+
+
 def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg: float) -> list[dict]:
     """Experiments A (the proximal module over ``lengths_mm`` x ``heights_mm``,
     the distal at ``reference``) and B (the reverse) for each layout
-    ``{mechanism: (x, base_config)}``: one record per mechanism, experiment and module pair."""
+    ``{mechanism: (x, base_config)}``: one record per mechanism, experiment and
+    module pair; ``layout_reaches``: whether the layout carries the reference
+    pair itself through ``phi_req`` (if not, the layout falls short of the
+    flexion, whatever a module's record says)."""
 
     records = []
     for mechanism, (x, base_config) in layouts.items():
         found_motion = motion(mechanism, x, with_modules(base_config, reference), phi_req_deg)
+        # The layout itself (its reference modules) through phi_req: else no module "fits" at it.
+        reaches = evaluate_fit(mechanism, x, base_config, reference, phi_req_deg, found_motion).feasible
         for experiment in ("A", "B"):
             for length in lengths_mm:
                 for height in heights_mm:
@@ -220,7 +271,8 @@ def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg
                                     "proximal_height_mm": modules.proximal_height_mm,
                                     "distal_length_mm": modules.distal_length_mm,
                                     "distal_height_mm": modules.distal_height_mm,
-                                    "required_flexion_deg": phi_req_deg, "feasible": fit.feasible,
+                                    "required_flexion_deg": phi_req_deg, "layout_reaches": reaches,
+                                    "feasible": fit.feasible,
                                     "reason": fit.reason,
                                     "first_failure_deg": "" if fit.first_failure_deg is None else
                                     round(fit.first_failure_deg, 3),
@@ -229,4 +281,4 @@ def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg
 
 
 __all__ = ["FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REVOLUTE_STEP_DEG", "TOLERANCE_MM",
-           "evaluate_fit", "motion", "reason_of", "support_rooms", "sweep"]
+           "evaluate_fit", "layout_summary", "max_flexion_deg", "motion", "reason_of", "support_rooms", "sweep"]

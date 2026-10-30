@@ -99,6 +99,8 @@ class RevoluteMechanism(Mechanism):
             "mounted_coverage": e.mounted_coverage,
             "finger_length_mm": e.finger_length_mm,
             "icr0_share": icr0_share(self.name, e.x, self.variable_names, e.finger_length_mm),
+            "proximal_room_mm": e.proximal_room_mm, "distal_room_mm": e.distal_room_mm,
+            "support_balance_mm": e.support_balance_mm,
             "phi_max_deg": math.degrees(e.phi_max_rad),
             "safe_reach_deg": math.degrees(e.phi_safe_rad),
             "stop_reason": e.stop_reason,

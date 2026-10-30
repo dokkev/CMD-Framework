@@ -39,7 +39,14 @@ OBJECTIVES = MappingProxyType({
     "finger_length": Objective(
         value=lambda e: e.finger_length_mm, column="finger_length_mm",
         label="finger length |OC| [mm]", role="shortest", larger_is_better=False, default=False),
+    "support_balance": Objective(
+        value=lambda e: -(e.support_balance_mm + SUPPORT_TIE * (e.proximal_room_mm + e.distal_room_mm)),
+        column="support_balance_mm", label="min(S_p - l_p, S_d - l_d), the total support breaking ties [mm]",
+        role="most_support", larger_is_better=True, default=False),
 })
+SUPPORT_TIE = 1e-4
+"""Weight of the total support length in ``support_balance``: below the
+0.1 mm length grid over any finger's supports, so only a tie-breaker."""
 LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm", "apb_mm", "abp_mm")
 """As built: ``B`` from ``O`` in the extended pose, ``B'`` from ``B``, and the bars."""
 BOUND_TOLERANCE = 0.005
@@ -245,6 +252,8 @@ class LinkageMechanism(Mechanism):
             "torque_ratio_min": e.torque_ratio_min,
             "finger_length_mm": e.finger_length_mm,
             "icr0_share": icr0_share_of(e.parameters, e.finger_length_mm),
+            "proximal_room_mm": e.proximal_room_mm, "distal_room_mm": e.distal_room_mm,
+            "support_balance_mm": e.support_balance_mm,
             "required_proximal_mm": e.required_proximal_mm,
             "required_distal_mm": e.required_distal_mm,
             "phi_max_deg": math.degrees(e.phi_max_rad),

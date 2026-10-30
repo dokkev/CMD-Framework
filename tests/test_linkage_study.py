@@ -69,7 +69,7 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert config.minimum_proximal_support_mm == 30.0 and config.minimum_distal_support_mm == 35.0
     # The reference point in minimized terms: coverage negated, curl 180 - phi_req.
     assert MECHANISM.hypervolume_reference(config) == {
-        "transmission": 2.3, "pad_coverage": 0.0, "curl": 30.0, "finger_length": 110.0}
+        "transmission": 2.3, "pad_coverage": 0.0, "curl": 30.0, "finger_length": 110.0, "support_balance": 0.0}
 
 
 def test_a_misspelt_or_missing_entry_is_an_error():

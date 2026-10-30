@@ -266,6 +266,9 @@ class RevoluteEvaluation:
     distal_support_length_mm: float
     proximal_face_mm: float
     distal_face_mm: float
+    proximal_room_mm: float = math.nan
+    distal_room_mm: float = math.nan
+    """Each support's length, from the pad's outer end to ``A''`` / ``B''``."""
     proximal_depth_mm: float = math.nan
     distal_depth_mm: float = math.nan
     """How far each pad's contact face lies palmar of its segment's line
@@ -290,6 +293,14 @@ class RevoluteEvaluation:
     @property
     def feasible(self) -> bool:
         return max(self.g) <= 0.0
+
+    @property
+    def support_balance_mm(self) -> float:
+        """How much longer than its module the shorter-spare support is:
+        ``min(S_p - l_p, S_d - l_d)`` (the accommodation study's reference layouts)."""
+
+        return min(self.proximal_room_mm - self.proximal_support_length_mm,
+                   self.distal_room_mm - self.distal_support_length_mm)
 
     @property
     def proximal_effective_mm(self) -> float:
@@ -368,6 +379,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
                   proximal_support_length_mm=geo.proximal_length_mm,
                   distal_support_length_mm=geo.distal_length_mm,
                   proximal_face_mm=geo.proximal_face_mm, distal_face_mm=geo.distal_face_mm,
+                  proximal_room_mm=geo.proximal_room_mm, distal_room_mm=geo.distal_room_mm,
                   proximal_depth_mm=geo.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=geo.distal_drop_mm + packaging.distal_pad.height_mm)
     if max(static.values()) > 0.0:
@@ -452,6 +464,8 @@ def _margins(geo: RevoluteGeometry, phi: np.ndarray, config: RevoluteConfig,
     if geo.proximal_carrier is not None:  # the comparison model: both supports solid
         support = np.broadcast_to(geo.proximal_carrier, (count, 4, 2))
         margins[("distal_pad", "proximal_carrier")] = polygon_gaps(distal, support, packaging) - clearance
+        if config.joint_servo:  # not through the servo on its own segment (ending on the pin A is its mounting)
+            margins[("proximal_carrier", "pip_servo")] = footprint_gaps(support, geo.distal_servo, packaging) - clearance
         if geo.distal_carrier_local is not None:
             carrier = geo.posed(geo.distal_carrier_local, phi)
             margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance

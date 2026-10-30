@@ -63,6 +63,12 @@
 - **dorsal 공간:** 링크와 bar를 capsule 반경(3 mm)까지 포함해 잰다.
 - **overhang `null`:** 2R에서도 "제한 없음"으로 본다 (linkage와 같은 의미). 0과 구분한다.
 
+### 기준 레이아웃과 고정 레이아웃 benchmark (2026-10-29)
+- **주 실험:** 기구마다 기준 레이아웃 하나. 조건은 |OC| 100 mm, P₀ = D₀ = 25 × 5, 0–150° 연속 굽힘. 선정 기준은 max min(S_p − 25, S_d − 25)이고 동점은 S_p + S_d로 깬다 (목적 `support_balance`; `pad_coverage`와는 다르다). config는 `scripts/optimize/accommodation/reference/`, 선정은 `pick.py`, 결과는 `output/accommodation_reference/reference_layouts.json`.
+- **평가:** 선정한 레이아웃을 고정하고 120 / 150 / 170°에서 proximal과 distal을 각각 sweep한다 (`python -m visualize.comparison.contact_envelope`). 반대쪽 모듈은 25 × 5로 둔다. 레이아웃 자체가 그 각도에 못 미치는 경우(`layout_reaches`)와 모듈이 안 들어가는 경우를 구분한다. RoM마다 다시 최적화하지 않는다.
+- **지지구조 규칙:** 지지구조는 자기 핀에서 끝날 수 있다 (장착). 자기 segment의 servo 몸체는 관통할 수 없다.
+- **morphology redesign cost:** 보류.
+
 ## 결정 대기 (사용자)
 - [ ] **integrity D** 값 (`loss.integrity_depth_mm`). 근거: `visualize.study.loss_profile` 진단 (D ∈ {0, 2, 3, 5, 10, 20} mm).
 - [ ] **예산**: 진단 run 결과 보고 후 결정. 기본안 전 메커니즘 1500세대.
