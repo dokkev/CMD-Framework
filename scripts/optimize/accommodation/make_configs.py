@@ -8,8 +8,8 @@ the shortest finger that carries both modules through the required flexion.
 Experiment A varies the proximal module over LENGTHS_MM x HEIGHTS_MM with the
 distal one at REFERENCE; experiment B the distal one, the proximal at
 REFERENCE (the pair at REFERENCE, in both, is written once); each at every
-required flexion of FLEXIONS_DEG a mechanism can reach (UNREACHABLE: not
-written). Every config extends base.yaml (the comparison model, runs in
+required flexion of FLEXIONS_DEG, for every mechanism (one that finds no
+design reports none found within the bounds, not "unreachable"). Every config extends base.yaml (the comparison model, runs in
 output/accommodation/<mechanism>/<config>/). Run scripts: run_all.sh, one
 per mechanism, one per flexion, and run_reference.sh (the reference pair at
 every flexion, the first to run).
@@ -25,9 +25,6 @@ REFERENCE = (25, 5)
 """The fixed module (length, thickness) of each experiment."""
 FLEXIONS_DEG = (90, 120, 150, 180)
 """Required flexions: the result is the shortest finger at each."""
-UNREACHABLE = {"revolute": (180,)}
-"""Flexions a mechanism cannot reach at all: a fixed pivot's pads (each on
-its own segment, palmar of it) meet before the segments fold flat."""
 
 HERE = Path(__file__).resolve().parent
 
@@ -66,8 +63,6 @@ def main() -> None:
     stems = []
     for flexion in FLEXIONS_DEG:
         for mechanism in MECHANISMS:
-            if flexion in UNREACHABLE.get(mechanism, ()):
-                continue
             for proximal, distal in pairs():
                 stem = name(mechanism, proximal, distal, flexion)
                 (HERE / f"{stem}.yaml").write_text(config(mechanism, proximal, distal, flexion), encoding="utf-8")

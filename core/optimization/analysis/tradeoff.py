@@ -1,27 +1,32 @@
-"""Contact module accommodation of one fixed finger: how far it flexes with
-given proximal and distal modules.
+"""Contact module accommodation of one fixed finger (fixed architecture
+versatility): how far it flexes with given proximal and distal modules.
 
 A module is a pad block: its length along its segment and its thickness
 below the segment's mounting surface, ``(l_p, h_p)`` proximal and
-``(l_d, h_d)`` distal. The finger (pivots, links, servo, carrier, mounting
-lines) is held fixed while the modules change: each keeps its outer end
-(the proximal one at the MCP servo's clearance, ``Packaging.proximal_pad_start_mm``;
-the distal one at the fingertip) and grows toward the joint.
+``(l_d, h_d)`` distal. The finger is held fixed while the modules change
+(:func:`with_modules`): its pivots, links and servo, and its supports, the
+mounting lines to ``A''`` and ``B''`` and the distal carrier over its whole
+line. Each module keeps its outer end (the proximal one at the MCP servo's
+clearance, ``Packaging.proximal_pad_start_mm``; the distal one at the
+fingertip) and reaches toward the joint as far as its length; one longer
+than its support does not mount. (The architecture capability, the shortest
+finger re-optimized for each module pair, is the accommodation study's.)
 
 :func:`phi_max_deg` is the finger's continuous reach: from extension, the
 last pose before any check fails (pad against pad, servo or carrier; the
 linkage's closure and transmission range; the fingertip behind ``O``), the
 evaluator's ``phi_max``; the distal carrier's flexion relative to the
-proximal one, not the servo's turn. A module the finger cannot mount (off
-its own pins and housing, within its overhang, under the dorsal space) gives
-NaN. The faces' loss in the fold is not counted here: a module either fits
+proximal one, not the servo's turn. A module the finger cannot mount (on its
+support, off its own pins and housing, under the dorsal space) gives NaN.
+The faces' loss in the fold is not counted here: a module either fits
 through the motion or it does not.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,9 +35,9 @@ import numpy as np
 from core.optimization.mechanism import Mechanism, mechanism, read_config_file
 
 MODULE_OVERRIDES = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
-                    "goal.loss.integrity_depth_mm=null")
-"""What a module sweep sets on any goal: no least pad (the length is the
-sweep's), no loss rule (a module fits or not)."""
+                    "goal.loss.integrity_depth_mm=null", "goal.loss.fold=false")
+"""What a module sweep sets on any goal: no least pad (the modules set it),
+no loss rule (a module fits or not)."""
 
 
 @dataclass(frozen=True)
@@ -45,13 +50,10 @@ class Modules:
     distal_height_mm: float
 
 
-def load(path: str | Path, modules: Modules, *overrides: str):
-    """A config file's mechanism and config, its pads' thicknesses ``modules``'
-    (the lengths are set per design by :func:`with_modules`)."""
+def load(path: str | Path, *overrides: str):
+    """A config file's mechanism and config, for module sweeps (``MODULE_OVERRIDES``)."""
 
-    values = read_config_file(path, (*MODULE_OVERRIDES,
-                                     f"goal.pads.proximal.height_mm={modules.proximal_height_mm}",
-                                     f"goal.pads.distal.height_mm={modules.distal_height_mm}", *overrides))
+    values = read_config_file(path, (*MODULE_OVERRIDES, *overrides))
     found = mechanism(values.pop("mechanism"))
     values.pop("output", None)
     values, _ = found.split_settings(values)
@@ -62,22 +64,21 @@ def goal_of(config):
     return getattr(config, "goal", config)
 
 
-def with_modules(found: Mechanism, config, x: Sequence[float], modules: Modules) -> tuple[float, ...]:
-    """The design ``x`` with its pads' inner ends set for ``modules``' lengths (outer ends kept)."""
+def with_modules(config, modules: Modules):
+    """``config`` with its pads ``modules``, each of its set length and thickness
+    on the design's own support (its least length the module's too)."""
 
-    v = dict(zip(found.variable_names, (float(value) for value in x)))
-    packaging = goal_of(config).packaging
-    start, offset = packaging.proximal_pad_start_mm, packaging.distal_pad.offset_mm
-    if found.name.startswith("revolute"):
-        v["app_x_mm"] = start + modules.proximal_length_mm
-        v["bpp_from_a_mm"] = v["ac_length_mm"] - offset - modules.distal_length_mm
-    elif found.name == "linkage":
-        # A'' and B'' from A' and B' (linkage.design); the distal pad along B-C.
-        v["app_offset_mm"] = start + modules.proximal_length_mm - v["ap_x_mm"]
-        v["bpp_offset_mm"] = v["bp_x_mm"] - (v["b_x_mm"] + v["bc_length_mm"] - offset - modules.distal_length_mm)
-    else:
-        raise ValueError(f"no module sweep for {found.name!r}")
-    return tuple(v[name] for name in found.variable_names)
+    goal = goal_of(config)
+    packaging = goal.packaging
+    pads = {side: dataclasses.replace(getattr(packaging, f"{side}_pad"), length_mm=length, max_length_mm=length,
+                                      height_mm=height)
+            for side, length, height in (("proximal", modules.proximal_length_mm, modules.proximal_height_mm),
+                                         ("distal", modules.distal_length_mm, modules.distal_height_mm))}
+    goal = dataclasses.replace(goal, packaging=dataclasses.replace(packaging, proximal_pad=pads["proximal"],
+                                                                     distal_pad=pads["distal"]),
+                               minimum_proximal_support_mm=modules.proximal_length_mm,
+                               minimum_distal_support_mm=modules.distal_length_mm)
+    return dataclasses.replace(config, goal=goal) if hasattr(config, "goal") else goal
 
 
 MOUNTING = ("proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pip_servo_pad_mm", "mcp_servo_mm",
@@ -87,10 +88,10 @@ MOUNTING = ("proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pip_
 
 
 def phi_max_deg(found: Mechanism, config, x: Sequence[float], modules: Modules) -> float:
-    """How far (deg) the finger ``x`` flexes, continuously from extension,
-    carrying ``modules`` (NaN: it cannot mount them)."""
+    """How far (deg) the fixed finger ``x`` flexes, continuously from
+    extension, carrying ``modules`` (NaN: it cannot mount them)."""
 
-    evaluation = found.evaluate(with_modules(found, config, x, modules), config)
+    evaluation = found.evaluate(x, with_modules(config, modules))
     if evaluation is None:
         return math.nan
     if any(evaluation.constraints.get(name, 0.0) > 0.0 for name in MOUNTING):
@@ -102,24 +103,17 @@ def proximal_curve(found: Mechanism, config, x: Sequence[float], modules: Module
                    lengths_mm: Sequence[float]) -> np.ndarray:
     """``phi_max`` (deg) for each proximal module length, the rest of ``modules`` kept."""
 
-    return np.array([phi_max_deg(found, config, x, Modules(length, modules.proximal_height_mm,
-                                                           modules.distal_length_mm, modules.distal_height_mm))
+    return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, proximal_length_mm=length))
                      for length in lengths_mm])
 
 
-def longest_proximal_mm(found: Mechanism, config, x: Sequence[float], modules: Modules, phi_deg: float,
-                        lengths_mm: Sequence[float]) -> float:
-    """The longest of ``lengths_mm`` whose proximal module the finger carries
-    through ``phi_deg`` (NaN: none)."""
+def distal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
+                 lengths_mm: Sequence[float]) -> np.ndarray:
+    """``phi_max`` (deg) for each distal module length, the rest of ``modules`` kept."""
 
-    reach = proximal_curve(found, config, x, modules, lengths_mm)
-    fits = np.asarray(lengths_mm)[np.nan_to_num(reach, nan=-1.0) >= phi_deg - 1e-9]
-    return float(fits.max()) if fits.size else math.nan
+    return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, distal_length_mm=length))
+                     for length in lengths_mm])
 
 
-def design_vector(found: Mechanism, values: Mapping[str, float]) -> tuple[float, ...]:
-    return tuple(float(values[name]) for name in found.variable_names)
-
-
-__all__ = ["MODULE_OVERRIDES", "MOUNTING", "Modules", "design_vector", "goal_of", "load", "longest_proximal_mm",
-           "phi_max_deg", "proximal_curve", "with_modules"]
+__all__ = ["MODULE_OVERRIDES", "MOUNTING", "Modules", "distal_curve", "goal_of", "load", "phi_max_deg",
+           "proximal_curve", "with_modules"]

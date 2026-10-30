@@ -6,8 +6,9 @@ needs to carry a module pair through each required flexion
 
 ``P`` and ``D``: the module pair, ``<length>x<thickness>`` (default the
 reference, 25x5 each). Left: ``L*`` (``|OC|``, extended) against the required
-flexion, 2R and CoDe; whiskers: the seeds' own bests; a flexion a
-mechanism cannot reach marked at the top. Right: each mechanism's shortest
+flexion, 2R and CoDe; whiskers: the seeds' own bests; a flexion where a
+mechanism's runs found no feasible design marked at the top ("none found
+within the bounds", not a proof that none exists). Right: each mechanism's shortest
 finger at each required flexion, drawn at that flexion, one scale (each
 column the same flexion). Saves output/accommodation/accommodation_P<P>_D<D>.png
 and the numbers as .csv.
@@ -77,7 +78,7 @@ def main(argv: list[str]) -> int:
     axes_style(curve)
     table = []
     for r, mechanism in enumerate(mechanisms):
-        points = []
+        points, missing = [], []
         for c, flexion in enumerate(flexions):
             stem = configs.name(mechanism, proximal, distal, flexion)
             config_dir = source / mechanism / stem
@@ -88,16 +89,17 @@ def main(argv: list[str]) -> int:
             if c == 0:
                 axis.text(-12.0, 37.0, NAMES[mechanism], color=COLORS[mechanism], fontsize=9, fontweight="bold",
                           va="top")
-            unreachable = flexion in configs.UNREACHABLE.get(mechanism, ())
-            row, seeds = (None, []) if unreachable else shortest(config_dir)
+            row, seeds = shortest(config_dir)
+            ran = latest_portfolio(config_dir) is not None
             entry = {"mechanism": mechanism, "flexion_deg": flexion, "proximal": f"{proximal[0]}x{proximal[1]}",
                      "distal": f"{distal[0]}x{distal[1]}", "runs": len(seeds),
-                     "status": "unreachable" if unreachable else ("not run" if not config_dir.exists() else
-                                                                  ("no design" if row is None else "ok"))}
+                     "status": "not run" if not ran else ("none found" if row is None else "ok")}
             if row is None:
-                axis.text(0.5, 0.45, {"unreachable": "cannot reach", "not run": "not run yet",
-                                      "no design": "no feasible design"}[entry["status"]],
-                          transform=axis.transAxes, ha="center", color=COLLIDE if unreachable else MUTED, fontsize=8)
+                none = entry["status"] == "none found"
+                axis.text(0.5, 0.45, "no feasible design found\nwithin the tested bounds" if none else "not run yet",
+                          transform=axis.transAxes, ha="center", color=COLLIDE if none else MUTED, fontsize=8)
+                if none:
+                    missing.append(flexion)
                 table.append(entry)
                 continue
             length = float(row["finger_length_mm"])
@@ -115,9 +117,9 @@ def main(argv: list[str]) -> int:
             f, length, low, high = (np.array(v) for v in zip(*points))
             curve.plot(f, length, color=COLORS[mechanism], marker="o", linewidth=1.8, label=NAMES[mechanism])
             curve.vlines(f, low, high, color=COLORS[mechanism], linewidth=1.0)
-        for flexion in configs.UNREACHABLE.get(mechanism, ()):
+        for flexion in missing:
             curve.scatter([flexion], [157.0], marker="x", color=COLORS[mechanism], s=40, zorder=4)
-            curve.text(flexion, 152.0, "cannot\nreach", color=COLORS[mechanism], fontsize=7, ha="center", va="top")
+            curve.text(flexion, 152.0, "none\nfound", color=COLORS[mechanism], fontsize=7, ha="center", va="top")
     curve.set_xticks(flexions)
     curve.set_xlabel("required flexion φ_req [deg]", color=INK)
     curve.set_ylabel("shortest finger L* = |OC| [mm]", color=INK)

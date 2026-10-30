@@ -190,9 +190,11 @@ def mounting_z_mm(scene: Scene) -> float:
 
 
 def dorsal_space_mm(scene: Scene) -> float:
-    """How far the finger's own solids rise above the pads' mounting surface, extended (pose 0)."""
+    """How far the finger's own solids rise above the common datum, extended
+    (pose 0): the line through ``O`` along the finger (``z = 0``), whatever
+    the pads' drops (each free below it)."""
 
-    return thickness_mm(scene, 0)[0] - mounting_z_mm(scene)
+    return thickness_mm(scene, 0)[0]
 
 
 def access_points(scene: Scene, side: str, depth_mm: float, step_mm: float = 0.5):

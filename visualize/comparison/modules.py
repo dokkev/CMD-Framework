@@ -10,7 +10,7 @@ Right: ``phi_max`` against the proximal module's length, for each distal
 module thickness of DISTAL_HEIGHTS_MM (the distal length DISTAL_LENGTH_MM,
 the proximal thickness PROXIMAL_HEIGHT_MM). Draft: CoDe is the production
 design (made for 5 mm modules), the 2R a grid pick for the 10 mm distal
-module (``FINGERS``), the motion on a 1 deg grid. Saves
+module, its supports as long as the housing allows; each finger fixed (its supports too), only the modules change; the motion on a 1 deg grid. Saves
 output/comparison/modules.png and the curves as .csv.
 """
 
@@ -38,16 +38,17 @@ from visualize.style import COLLIDE, COLORS, INK, MUTED, REPOSITORY_ROOT, save_c
 
 STUDY = REPOSITORY_ROOT / "scripts/optimize/comparison"
 CODE_SEEDS = REPOSITORY_ROOT / "output/linkage/config/paper/portfolio_001/seeds.csv"
-REVOLUTE_X = (47.5, 52.5, 29.5, 15.0, 0.0, 0.0, 90.0)
+REVOLUTE_X = (47.5, 52.5, 38.0, 9.5, 0.0, 0.0, 90.0)
 """The 2R: A at 47.5 of |OC| 100, the pads on its link lines (drop 0), the
-servo upright (the grid's best for a 25 x 10 mm distal module through 150 deg)."""
+servo upright, its supports up to the joint's housing (A'' and B'' 9.5 from
+A): on the link line a support cannot run into the housing."""
 OVERRIDES = ("goal.link.dorsal_space_mm=34", "goal.link.proximal_length_ratio=[0.30, 0.70]",
              "goal.link.distal_length_ratio=[0.25, 0.70]")
 PROXIMAL_HEIGHT_MM = 5.0
 DISTAL_LENGTH_MM = 25.0
 DISTAL_HEIGHTS_MM = (5.0, 10.0)
 DRAWN = Modules(28.0, PROXIMAL_HEIGHT_MM, DISTAL_LENGTH_MM, 10.0)
-LENGTHS_MM = np.arange(0.0, 50.0 + 1e-9, 1.0)
+LENGTHS_MM = np.arange(1.0, 50.0 + 1e-9, 1.0)
 POSES_DEG = (0.0, 90.0, 120.0)
 NAMES = {"revolute": "2R (servo on the joint)", "linkage": "CoDe (production)"}
 
@@ -64,8 +65,8 @@ def fingers(modules: Modules):
 
     out = {}
     for name, x in (("revolute", REVOLUTE_X), ("linkage", code_design())):
-        found, config = load(STUDY / f"{name}_h5_flex150.yaml", modules, *OVERRIDES)
-        out[name] = (found, config, x, with_modules(found, config, x, modules))
+        found, config = load(STUDY / f"{name}_h5_flex150.yaml", *OVERRIDES)
+        out[name] = (found, config, x, with_modules(config, modules))
     return out
 
 
@@ -81,7 +82,7 @@ def main() -> int:
     rows = []
     for r, (name, (found, config, x, carried)) in enumerate(built.items()):
         reach = phi_max_deg(found, config, x, DRAWN)
-        drawn = finger(name, config, carried)
+        drawn = finger(name, carried, x)
         for c, pose in enumerate((*POSES_DEG, reach)):
             axis = figure.add_subplot(grid[r, c])
             sketch.frame(axis, (-14.0, 106.0), (-64.0, 34.0))
@@ -95,7 +96,7 @@ def main() -> int:
     curves = figure.add_subplot(grid[:, 4])
     for name in ("revolute", "linkage"):
         for height, alpha in zip(DISTAL_HEIGHTS_MM, (0.45, 1.0)):
-            modules = Modules(0.0, PROXIMAL_HEIGHT_MM, DISTAL_LENGTH_MM, height)
+            modules = Modules(1.0, PROXIMAL_HEIGHT_MM, DISTAL_LENGTH_MM, height)
             found, config, x, _ = fingers(modules)[name]
             reach = proximal_curve(found, config, x, modules, LENGTHS_MM)
             curves.plot(LENGTHS_MM, reach, color=COLORS[name], alpha=alpha, linewidth=1.8,

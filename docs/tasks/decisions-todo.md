@@ -50,6 +50,14 @@
 - **실험 A:** D 고정, P ∈ ℓ {15, 25, 35} × h {3, 5, 10}. **실험 B:** P 고정, D를 같은 격자로. φ마다 기구당 17 config, 합계 119 (`scripts/optimize/accommodation/`, 출력 `output/accommodation`).
 - **두 연구 질문:** architecture capability(모듈마다 다시 최적화해 L*를 구함)와 fixed architecture versatility(기구를 고정하고 모듈을 sweep, `core/optimization/analysis/tradeoff.py`).
 
+### 리뷰 반영 (2026-10-29, 기준 run 중단 후)
+- **2R setback 제거:** revolute-goal-v6, idealized-v5. pad는 joint housing까지, 그리고 그 너머로 overhang(10 mm)만큼 뻗을 수 있다. 그 안에서는 housing(servo 외형 또는 핀)과의 실제 충돌만 판정한다. CoDe의 자기 body 규칙과 같다.
+- **hyperextension 0°:** accommodation 비교는 extension부터의 굽힘만 본다. 같은 검사를 두 기구에 적용한다.
+- **2R 180° 포함:** 미리 제외하지 않는다. 해가 없으면 "no feasible design found within the tested bounds"로 보고하고, 기구학적 불가능과 구분한다. config 136개.
+- **dorsal datum:** O를 지나는 손가락 축선(z = 0) 위의 높이로 잰다. pad drop과 무관하다. 34 mm 유지 (production CoDe는 31 mm).
+- **fixed architecture sweep:** A″·B″ 지지구조와 distal carrier(B″부터 손끝까지)를 고정하고 모듈 길이와 두께만 바꾼다 (`tradeoff.with_modules`). 지지구조보다 긴 모듈은 장착 불가.
+- **기존 결과:** 중단 전에 끝난 2R 90°와 CoDe 90°는 이전 규칙의 결과라 `output/accommodation_v0`에 보관한다. 인용하지 않는다.
+
 ## 결정 대기 (사용자)
 - [ ] **integrity D** 값 (`loss.integrity_depth_mm`). 근거: `visualize.study.loss_profile` 진단 (D ∈ {0, 2, 3, 5, 10, 20} mm).
 - [ ] **예산**: 진단 run 결과 보고 후 결정. 기본안 전 메커니즘 1500세대.

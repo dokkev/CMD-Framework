@@ -152,9 +152,9 @@ class LinkageConfig:
     the bending-point control runs); ``(None, None)``: anywhere."""
     dorsal_space_mm: float | None = None
     """``goal.link.dorsal_space_mm``: how far the extended finger's own solids
-    may rise above its pads' mounting surface (their dorsal-most top face;
-    the pads' thickness lies below it; the MCP servo, in the palm, left out;
-    ``core.optimization.analysis.loss.dorsal_space_mm``); ``None``: any."""
+    may rise above the common datum, the line through ``O`` along the finger
+    (the pads, free in their drops, below it; the MCP servo, in the palm, left
+    out; ``core.optimization.analysis.loss.dorsal_space_mm``); ``None``: any."""
     link_radius_mm: float | None = None
     """``goal.collision.param.link_radius_mm``: the links and bars as capsules
     of this radius, each checked against the pads it does not carry, in the

@@ -41,9 +41,10 @@ def test_it_reads_the_linkage_goal_as_is():
     assert config.bounds["a_x_mm"] == (pytest.approx(share_low * low), pytest.approx(share_high * high))
     assert config.bounds["app_x_mm"][0] == pytest.approx(linkage.packaging.proximal_pad_start_mm + 20.0)
     assert config.bounds["servo_tilt_deg"] == (20.0, 20.0)  # the goal's PIP servo tilt
-    # Each pad on its own segment, off the servo at A.
-    assert config.bounds["bpp_from_a_mm"][0] == pytest.approx(9.5)
-    assert config.search_bounds["app_x_mm"][1] == pytest.approx(config.search_bounds["a_x_mm"][1] - 9.5)
+    # Each pad may reach the joint's housing (the servo at A) and past it by
+    # its overhang (none set here); nearer, only collisions limit it.
+    assert config.bounds["bpp_from_a_mm"][0] == pytest.approx(-9.5)
+    assert config.search_bounds["app_x_mm"][1] == pytest.approx(config.search_bounds["a_x_mm"][1] + 9.5)
 
 
 def test_the_pads_and_servo_follow_the_goal():
@@ -86,14 +87,21 @@ def test_folding_brings_the_pads_together():
     # Past the required flexion the pads, folding about A, end the safe motion.
     e = MECHANISM.evaluate(X, load())
     assert e.stop_reason == "pad_collision" and math.degrees(e.phi_safe_rad) < 180.0
-    # Each pad stays off the servo at A: the proximal one ends before it, the
-    # distal one starts past it.
+    # No setback: each pad reaches past the servo's housing by its overhang at
+    # most (none here), the housing itself a collision.
     long = list(X)
-    long[2] = 45.0 - 9.5 + 1.0
+    long[2] = 45.0 + 9.5 + 1.0
     assert MECHANISM.evaluate(long, load()).constraints["proximal_support_mm"] == pytest.approx(1.0)
     under = list(X)
-    under[3] = 9.5 - 2.0
+    under[3] = -9.5 - 2.0
     assert MECHANISM.evaluate(under, load()).constraints["distal_support_mm"] == pytest.approx(2.0)
+    # Under the joint, below the servo's housing (dropped by its radius), a pad may reach A;
+    # on the link line it runs into the servo.
+    below = list(X)
+    below[2] = 45.0
+    assert MECHANISM.evaluate(below, load()).constraints["pip_servo_pad_mm"] <= 0.0
+    below[5] = 0.0
+    assert MECHANISM.evaluate(below, load()).constraints["pip_servo_pad_mm"] > 0.0
 
 
 def test_runs_reload(tmp_path):
@@ -122,8 +130,9 @@ def test_the_search_coordinates_keep_the_lengths():
         if x is None:
             continue
         a, ac, app, bpp = x[:4]
-        assert 90.0 - 0.1 <= a + ac <= 100.0 + 0.1 and ac >= 25.0 - 0.1 and a >= floor - 0.6
-        assert app <= a + config.goal.packaging.pip_servo.radius_mm + 0.1
+        assert 90.0 - 0.1 <= a + ac <= 100.0 + 0.1 and a >= floor - 0.6
+        radius = config.goal.packaging.pip_servo.radius_mm
+        assert app <= a + radius + 0.1 and bpp >= -radius - 0.1
         assert ac - bpp >= 25.0 - 0.1
     assert problem.to_mm(problem.to_steps(X)) == pytest.approx(X, abs=0.11)
 
@@ -174,8 +183,10 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     geo = geometry(x, config)
     assert geo.proximal_pad[:, 1].max() == pytest.approx(-3.0)
     e = idealized.evaluate(x, config)
-    # Nothing at the joint but the pin: the distal pad is checked against it, not a servo.
-    assert e.constraints["mcp_servo_mm"] == 0.0 and e.constraints["pip_servo_pad_mm"] == 0.0
+    # Nothing at the joint but the pin: the pads are checked against it, not a servo.
+    assert e.constraints["mcp_servo_mm"] == 0.0 and e.constraints["pip_servo_pad_mm"] <= 0.0
+    into = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)  # the proximal pad on the line, through the pin
+    assert idealized.evaluate(into, config).constraints["pip_servo_pad_mm"] > 0.0
     packaged = MECHANISM.evaluate(X, load())
     assert e.phi_safe_rad >= packaged.phi_safe_rad
     assert idealized.config_from_json(idealized.config_to_json(config)) == config

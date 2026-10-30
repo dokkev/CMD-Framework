@@ -24,7 +24,7 @@ import numpy as np
 
 from core.morphology.linkage.packaging import Packaging, servo_floor_x
 
-from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, servo_rear
+from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm, servo_rear
 
 
 SEARCH_NAMES = ("finger_length_mm", "ac_share", "app_share", "bpp_share", "distal_drop_mm", "proximal_drop_mm",
@@ -74,12 +74,12 @@ def _ranges(config: RevoluteConfig, length: float, tilt_deg: float):
     limits = _limits(config, tilt_deg)
     ac_range = (max(limits["ac"][0], length - limits["a"][1]), min(limits["ac"][1], length - limits["a"][0]))
     start = goal.packaging.proximal_pad_start_mm
-    radius = config.joint_radius_mm
+    proximal_reach, distal_reach = pad_reach_mm(goal, config.joint_radius_mm)
 
     def pads(ac: float) -> tuple[tuple[float, float], tuple[float, float]]:
         a_x = length - ac
-        return ((start + goal.minimum_proximal_support_mm, a_x - radius),
-                (radius, ac - goal.minimum_distal_support_mm))
+        return ((start + goal.minimum_proximal_support_mm, a_x + proximal_reach),
+                (-distal_reach, ac - goal.minimum_distal_support_mm))
 
     return ac_range, pads
 

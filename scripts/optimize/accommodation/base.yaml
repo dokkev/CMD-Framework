@@ -19,7 +19,8 @@ output: output/accommodation
 goal:
   motion:
     dip_flexion_deg: 120
-    hyperextension_deg: 10
+    # From extension only: the comparison is about flexing with the modules on.
+    hyperextension_deg: 0
 
   pads:
     # The pads' ends searched (not held to the links' A and B): each pad may
@@ -54,7 +55,8 @@ goal:
 
   link:
     finger_length_mm: [40, 160]     # the objective: as short as it can be
-    # Room above the pads' mounting surface for the mechanism (the modules below it).
+    # Room for the mechanism above the common datum, the line through O along
+    # the finger (the modules, each at its own drop, below it).
     dorsal_space_mm: 34
     # Shares of the extended |OC| (requirements, the same for every mechanism).
     proximal_length_ratio: [0.35, 0.55]

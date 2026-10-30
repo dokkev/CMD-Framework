@@ -405,7 +405,7 @@ def link_capsule_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np
 
 
 def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> float:
-    """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above its pads (0: none set)."""
+    """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above ``O``'s line (0: none set)."""
 
     if config.dorsal_space_mm is None:
         return 0.0

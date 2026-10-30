@@ -52,7 +52,7 @@ from core.morphology.linkage.packaging import (
     segment_polygon_gaps,
 )
 
-from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, servo_rear
+from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm, servo_rear
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
@@ -83,6 +83,9 @@ class RevoluteGeometry:
     distal_room_mm: float
     distal_carrier_local: np.ndarray | None = None
     """The distal pad's carrier plate in the distal frame (``None``: none)."""
+    distal_mount_local: np.ndarray | None = None
+    """The distal mounting line, ``B''`` then the fingertip end, in the distal
+    frame (``None``: the pad's top face): the support, there whatever module it carries."""
 
     @property
     def finger_length_mm(self) -> float:
@@ -117,6 +120,8 @@ class RevoluteGeometry:
         """The distal pad's mounting line (its top face), ``B''`` then ``C``'s
         end, in the distal frame: the truss's two pad-side nodes."""
 
+        if self.distal_mount_local is not None:
+            return self.distal_mount_local
         top = self.distal_pad_local[:, 1].max()
         return np.array(((self.distal_pad_local[:, 0].min(), top), (self.distal_pad_local[:, 0].max(), top)))
 
@@ -136,8 +141,9 @@ def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
     start = packaging.proximal_pad_start_mm
     proximal_room = v["app_x_mm"] - start
     distal_room = v["ac_length_mm"] - distal.offset_mm - v["bpp_from_a_mm"]
-    proximal_length = min(proximal_room, proximal.max_length_mm or math.inf)
-    distal_length = min(distal_room, distal.max_length_mm or math.inf)
+    # A module of a set length (a fixed finger's module sweep), else the room's, at most its max.
+    proximal_length = proximal.length_mm or min(proximal_room, proximal.max_length_mm or math.inf)
+    distal_length = distal.length_mm or min(distal_room, distal.max_length_mm or math.inf)
     chamfer = {side: pad.chamfer_mm for side, pad in (("proximal", proximal), ("distal", distal))}  # 0: blocks
     outer = v["ac_length_mm"] - distal.offset_mm
     proximal_outline = pad_outline(PadSpan(start, start + max(proximal_length, 1e-6), proximal_room),
@@ -147,11 +153,15 @@ def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
     servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]),
                            packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
     face = lambda length, k: max(length - min(k, max(length, 0.0)), 0.0)  # noqa: E731
+    # The support: the mounting line from B'' to the fingertip end, whatever the module.
+    support = pad_outline(PadSpan(outer - max(distal_room, 1e-6), outer, distal_room), distal, "start", 0.0) \
+        - (0.0, v["distal_drop_mm"])
+    mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                             v["proximal_drop_mm"], servo,
                             proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
                             face(distal_length, chamfer["distal"]), proximal_room, distal_room,
-                            carrier_local(distal_outline, v["distal_drop_mm"], packaging))
+                            carrier_local(support, v["distal_drop_mm"], packaging), mount)
 
 
 def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
@@ -186,7 +196,7 @@ def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
 
 
 def dorsal_space_violation(geo, goal, mechanism: str) -> float:
-    """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above its pads (0: none set)."""
+    """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above ``O``'s line (0: none set)."""
 
     if goal.dorsal_space_mm is None:
         return 0.0
@@ -303,17 +313,20 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     # |OA| and BC (|AC|: no span) as shares of |OC|, as the linkage's.
     oa += goal.length_ratio_violations(geo.a_x_mm, geo.ac_length_mm, 0.0, geo.finger_length_mm)
     oa += goal.icr0_violations(geo.a_x_mm, geo.finger_length_mm)  # the pin A
+    reach = pad_reach_mm(goal, config.joint_radius_mm)
     # In stages by cost (as the linkage's): lengths and the pads' room, then
     # the servos, then the pads' polygons; a failing stage leaves the rest unchecked.
     static = {
         "extended_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),
         "proximal_length_mm": max(oa, default=0.0),
-        # At least its min, and on its own segment, off the joint's housing.
+        # At least its min, reaching past the joint's housing by its overhang at
+        # most (v6: no setback; the housing and the other pad are collisions).
         "proximal_support_mm": max(goal.minimum_proximal_support_mm - geo.proximal_length_mm,
-                                   -geo.proximal_room_mm,
-                                   x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm - config.joint_radius_mm)),
+                                   -geo.proximal_room_mm, geo.proximal_length_mm - geo.proximal_room_mm,
+                                   x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + reach[0])),
         "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
-                                 config.joint_radius_mm - x[VARIABLE_NAMES.index("bpp_from_a_mm")]),
+                                 geo.distal_length_mm - geo.distal_room_mm,
+                                 -reach[1] - x[VARIABLE_NAMES.index("bpp_from_a_mm")]),
         "dorsal_space_mm": dorsal_space_violation(geo, goal,
                                                   "revolute" if config.joint_servo else "revolute_idealized"),
     }
@@ -323,9 +336,11 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         static["mcp_servo_mm"] = -(packaging.mcp_servo_gap_mm(geo.distal_servo, mcp_angles) - clearance)
         static["pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.distal_servo, packaging)[0])
                                         - clearance) if packaging.pip_servo_pad_check else 0.0)
-    elif max(static.values()) <= 0.0:  # idealized: only a pin at A, the pads off its housing
+    elif max(static.values()) <= 0.0:  # idealized: only a pin at A, the proximal pad off its housing
         static["mcp_servo_mm"] = 0.0
-        static["pip_servo_pad_mm"] = 0.0
+        a = np.array([[geo.a_x_mm, 0.0]])
+        static["pip_servo_pad_mm"] = -(float(_polygon_to_disk(geo.proximal_pad[None], a, config.joint_radius_mm)[0])
+                                       - clearance)
     if max(static.values()) <= 0.0:
         margins_at_rest = _margins(geo, np.zeros(1), config)
         static["pad_collision_mm"] = -min(float(margin[0]) for margin in margins_at_rest.values())

@@ -704,10 +704,14 @@ def carrier_outline(pad_outline_mm: np.ndarray, height_mm: float) -> np.ndarray:
 def distal_carrier_polygon(linkage: FingerLinkage, packaging: Packaging,
                            b: np.ndarray, c: np.ndarray) -> np.ndarray:
     """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``)
-    at posed ``B`` and ``C``, ``(n, 4, 2)``, as :func:`distal_pad_polygon`."""
+    at posed ``B`` and ``C``, ``(n, 4, 2)``, as :func:`distal_pad_polygon`: over
+    the whole mounting line from ``B''`` to the fingertip end (the support,
+    there whatever module it carries; a module fills it unless its length is set)."""
 
     p = linkage.parameters
-    local = carrier_outline(pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start", 0.0),
+    span = pad_spans(p, packaging)["distal_pad"]
+    support = PadSpan(span.end_mm - span.room_mm, span.end_mm, span.room_mm)
+    local = carrier_outline(pad_outline(support, packaging.distal_pad, "start", 0.0),
                             packaging.distal_carrier_height_mm) - (0.0, packaging.distal_drop(p))
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     e = (c - b) / p.bc_length_mm
