@@ -1,0 +1,135 @@
+# Contact module accommodation study, the comparison model (2026-10-29):
+# the shortest finger (|OC|, extended) each mechanism needs to carry a
+# proximal module P = (l_p, h_p) and a distal module D = (l_d, h_d), both
+# mounted, clear of each other and of every structure through 0 to the
+# required flexion. make_configs.py writes one config per mechanism and
+# module pair (experiment A: P varied, D fixed; B: D varied, P fixed).
+#
+# An idealized model, not the prototype's: exact kinematics, the servo as its
+# outline, pins as their housings, the links and bars as capsules checked
+# against the pads they do not carry (side view), clearance 0 (touching
+# allowed, no penetration); no tolerances, bearings or stiffness. The pads'
+# faces need not line up when extended; each sits palmar of its own segment,
+# the proximal one from the MCP servo's clearance, the distal one from the
+# fingertip. No loss rule: a module either fits through the motion or not.
+# No warm start. Lengths in mm, angles in degrees.
+
+output: output/accommodation
+
+goal:
+  motion:
+    dip_flexion_deg: 120
+    hyperextension_deg: 10
+
+  pads:
+    # The pads' ends searched (not held to the links' A and B): each pad may
+    # end anywhere it clears its own pins.
+    on_links: false
+    proximal:
+      length_mm: [25, 25]         # the module, set per config
+      height_mm: 5
+      past_icr_max_mm: null
+      # The pad's top face below its link line, searched from on it to the
+      # joint's radius (null: the pad's own pivot's, A's; the 2R's and the
+      # RCJ's: their joint's), for every mechanism.
+      drop_mm: [0, null]
+      # How far the pad may run past its own body (the joint's housing, the
+      # servo, the roller), cantilevered: for every mechanism.
+      overhang_max_mm: 10
+    distal:
+      length_mm: [25, 25]
+      height_mm: 5
+      drop_mm: [0, null]
+      overhang_max_mm: 10
+
+  # What of a contact face counts (2026-10-29). integrity: a point is lost
+  # when, at any pose to the required flexion, it is hidden in the fold or
+  # any solid of the finger but its own pad (the other pad, the carrier,
+  # links, pin housings, servos, pulleys, rollers; any Y layer) lies within
+  # this depth in front of it: the objective. access: the depth of the
+  # accessibility profile, pose by pose (reports and figures only).
+  loss:
+    fold: false
+    access_depth_mm: 20
+
+  link:
+    finger_length_mm: [40, 160]     # the objective: as short as it can be
+    # Room above the pads' mounting surface for the mechanism (the modules below it).
+    dorsal_space_mm: 34
+    # Shares of the extended |OC| (requirements, the same for every mechanism).
+    proximal_length_ratio: [0.35, 0.55]
+    distal_length_ratio: [0.25, 0.55]
+    # BC: hardware (the distal pad's carrier and fingertip).
+    distal_length_mm: [25, null]
+    symmetric_four_bar: false
+    transmission_angle_deg: [30, 150]
+    # |AB| has no requirement here (a search box: watch its bound hits and the
+    # extended centre of rotation's share).
+
+  hardware:
+    pip_servo:
+      model: xm335
+      tilt_angle_deg: [0, 90]
+      tilt_step_deg: 5
+      torque_ratio_max: null
+    mcp_servo:
+      model: xm335
+    # A belt's (or tendon's) pulley envelope on a joint driven through one
+    # (revolute_parallel: on A and A'): a GT2 16-tooth timing pulley's pitch
+    # radius 5.1 mm plus the belt, 6 mm.
+    pulley_radius_mm: 6
+
+  collision:
+    param:
+      pivot_diameter_mm:
+        a: 6
+        a_prime: 10
+        b: 6
+        b_prime: 6
+      distal_carrier_height_mm: 4
+      # Links and bars as capsules (side view) against the pads they do not carry.
+      link_radius_mm: 3
+    check:
+      a_pin_and_pip_servo: true
+      a_pin_and_a_prime_pin: false
+      b_prime_pin_and_pip_servo: false
+      a_pin_and_proximal_pad: true
+      b_pin_and_distal_pad: true
+      proximal_pad_and_distal_pad: true
+      pip_servo_and_proximal_pad: true
+      mcp_servo_and_proximal_pad: true
+      distal_carrier_and_pip_servo: true
+
+solver:
+  objectives:
+    - finger_length
+
+  pareto_front:
+    finger_length: 160
+    pad_coverage: 0
+    transmission: 2.3
+    curl: null
+
+  search_bounds:
+    a_z_mm: [0, 0]
+    b_z_mm: [0, 0]
+    ap_from_a_x_mm: [-20, 30]
+    ap_from_a_z_mm: [0, 25]
+    bp_from_b_x_mm: [-50, 20]
+    bp_from_b_z_mm: [-60, 80]
+    app_offset_mm: [-60, 60]
+    bpp_offset_mm: [-60, 60]
+
+  sampling:
+    servo_step_deg: 1.0
+    verify_step_deg: 0.05
+    dip_backoff_tolerance_deg: 0.05
+
+  prototyping_resolution_mm: 0.1
+
+  optimizer:
+    algorithm: nsga2
+    population: 200
+    generations: 600
+    seeds: [0, 1, 2]
+    warm_start: []

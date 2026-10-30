@@ -856,6 +856,37 @@ def fold_hidden_points(face: np.ndarray, other_face: np.ndarray, other_normal: n
     return behind & (along >= 0.0) & (along <= other_length[:, None])
 
 
+def _point_segment_distance(p: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    d = b - a
+    t = np.clip(np.sum((p - a) * d, axis=-1) / np.maximum(np.sum(d * d, axis=-1), 1e-12), 0.0, 1.0)
+    return np.linalg.norm(p - (a + t[..., None] * d), axis=-1)
+
+
+def segment_polygon_gaps(polygons: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
+    """Distance (mm) from each segment ``start -> end`` ``(n, 2)`` to the convex
+    ``polygons`` ``(n, m, 2)``, 0 where they touch or overlap: a capsule of
+    radius ``r`` about the segment clears the polygon by this less ``r``."""
+
+    polygons = np.asarray(polygons, dtype=float)
+    start, end = (np.broadcast_to(np.asarray(v, dtype=float), (len(polygons), 2)) for v in (start, end))
+
+    def cross(o, p, q):
+        return (p[:, 0] - o[:, 0]) * (q[:, 1] - o[:, 1]) - (p[:, 1] - o[:, 1]) * (q[:, 0] - o[:, 0])
+
+    gap = np.full(len(polygons), np.inf)
+    crossing = np.zeros(len(polygons), dtype=bool)
+    for corner, following in zip(np.moveaxis(polygons, 1, 0), np.moveaxis(np.roll(polygons, -1, axis=1), 1, 0)):
+        d1, d2 = cross(start, end, corner), cross(start, end, following)
+        d3, d4 = cross(corner, following, start), cross(corner, following, end)
+        crossing |= (d1 * d2 <= 0.0) & (d3 * d4 <= 0.0) & ~((d1 == 0.0) & (d2 == 0.0))
+        gap = np.minimum.reduce([gap, _point_segment_distance(start, corner, following),
+                                 _point_segment_distance(end, corner, following),
+                                 _point_segment_distance(corner, start, end),
+                                 _point_segment_distance(following, start, end)])
+    inside = _inside(np.ascontiguousarray(start[:, None]), polygons)[:, 0]
+    return np.where(crossing | inside, 0.0, gap)
+
+
 PROBE_STEP_MM = 0.5
 """Spacing of the face points :func:`probe_free_lengths` probes."""
 
@@ -1331,6 +1362,7 @@ __all__ = [
     "contact_faces",
     "fold_free_lengths",
     "fold_hidden_points",
+    "segment_polygon_gaps",
     "probe_blocked",
     "probe_contact_lengths",
     "probe_free_lengths",

@@ -48,6 +48,7 @@ from core.morphology.linkage.packaging import (
     pad_spans,
     pip_servo_pad_gap_mm,
     proximal_pad_polygon,
+    segment_polygon_gaps,
     usable_pad_lengths,
 )
 
@@ -65,6 +66,7 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pip_servo_pad_mm",
     "proximal_support_mm",
     "distal_support_mm",
+    "dorsal_space_mm",
     "pad_collision_mm",
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
@@ -265,6 +267,9 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
     swept = slice(n_back, n_back + end + 1)
     margins = pad_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
                           joined("bp")[swept], config.mcp_samples_rad)
+    if config.link_radius_mm is not None:  # the comparison model: the links as capsules, in the side view
+        margins.update(link_capsule_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
+                                            joined("bp")[swept], config.link_radius_mm))
     pad = np.full(len(unsafe["closure"]), math.inf)
     pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
     # The reported clearance leaves out pairs whose margin the design does not set.
@@ -326,6 +331,8 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
     else:
         free = usable_pad_lengths(linkage, packaging, sweep.b[window], sweep.bp[window], sweep.c[window])
     free = {side: float(lengths.min()) for side, lengths in free.items()}
+    if not config.count_fold:  # a module clear through the motion counts whole
+        free = {side: math.inf for side in free}
     if config.integrity_depth_mm is not None:  # linkage-v5: no solid within the depth in front, at any pose
         from core.optimization.analysis.loss import integrity_free, linkage_scene
 
@@ -370,6 +377,42 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         distal_usable_length_mm=free["distal_pad"],
         **common,
     )
+
+
+def link_capsule_margins(linkage: FingerLinkage, packaging, b: np.ndarray, c: np.ndarray, bp: np.ndarray,
+                         radius_mm: float) -> dict[tuple[str, str], np.ndarray]:
+    """Per-sample margin (mm) of each pad against the bars it is not mounted
+    on, each a capsule of ``radius_mm`` about its centre line, in the side
+    view: the proximal pad against the crossing bars ``A-B'`` and ``A'-B``
+    and the distal body (``B'-B``, ``B-C``); the distal pad against the
+    crossing bars and the proximal body (``O-A``, ``A-A'``, ``A'-O``). A pad
+    against its own body's bars is its mounting, not a collision."""
+
+    b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
+    count = len(b)
+    o = np.zeros((count, 2))
+    a = np.broadcast_to((linkage.a.x_mm, linkage.a.z_mm), (count, 2))
+    ap = np.broadcast_to((linkage.ap.x_mm, linkage.ap.z_mm), (count, 2))
+    polygon = proximal_pad_polygon(linkage, packaging)
+    pads = {"proximal_pad": np.broadcast_to(polygon, (count, *polygon.shape)),
+            "distal_pad": distal_pad_polygon(linkage, packaging, b, c)}
+    crossing = {"a_bp": (a, bp), "ap_b": (ap, b)}
+    bodies = {"proximal_pad": {**crossing, "bp_b": (bp, b), "b_c": (b, c)},
+              "distal_pad": {**crossing, "o_a": (o, a), "a_ap": (a, ap), "ap_o": (ap, o)}}
+    clearance = packaging.body_clearance_mm
+    return {(pad, f"link_{name}"): segment_polygon_gaps(pads[pad], start, end) - radius_mm - clearance
+            for pad, bars in bodies.items() for name, (start, end) in bars.items()}
+
+
+def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> float:
+    """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above its pads (0: none set)."""
+
+    if config.dorsal_space_mm is None:
+        return 0.0
+    from core.optimization.analysis.loss import dorsal_space_mm, linkage_scene
+
+    b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp))
+    return dorsal_space_mm(linkage_scene(linkage, config.packaging, b, c, bp, [0.0])) - config.dorsal_space_mm
 
 
 def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, config: LinkageConfig,
@@ -439,6 +482,7 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
                                  distal.length_mm - distal.limit_mm,
                                  config.minimum_distal_support_mm - distal.length_mm,
                                  distal.length_mm - distal.room_mm),
+        "dorsal_space_mm": dorsal_space_violation(linkage, config),
     }
     servos, pads = ("mcp_servo_mm", "pip_servo_pad_mm"), ("pad_collision_mm",)
     if max(constraints.values()) > 0.0:

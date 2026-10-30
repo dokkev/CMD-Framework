@@ -182,6 +182,19 @@ def thickness_mm(scene: Scene, pose: int = 0) -> tuple[float, float]:
     return float(every.max()), float(every.min())
 
 
+def mounting_z_mm(scene: Scene) -> float:
+    """The pads' mounting surface at the scene's first pose: the dorsal-most of their top faces."""
+
+    pads = (scene.solids["distal_pad"]["other_pad"].polygons[0], scene.solids["proximal_pad"]["other_pad"].polygons[0])
+    return max(float((np.asarray(p)[0] if np.ndim(p) == 3 else np.asarray(p))[:, 1].max()) for p in pads)
+
+
+def dorsal_space_mm(scene: Scene) -> float:
+    """How far the finger's own solids rise above the pads' mounting surface, extended (pose 0)."""
+
+    return thickness_mm(scene, 0)[0] - mounting_z_mm(scene)
+
+
 def access_points(scene: Scene, side: str, depth_mm: float, step_mm: float = 0.5):
     """The probed points of ``side``'s face ``(n, k, 2)`` and which of them an
     object ``depth_mm`` deep cannot reach ``(n, k)`` (every category)."""
@@ -333,4 +346,5 @@ def joint_scene(mechanism: str, geo, packaging, phi_deg) -> Scene:
 
 
 __all__ = ["CATEGORIES", "FaceLoss", "RULES", "Scene", "Shapes", "access_points", "face_loss", "integrity_free",
-           "integrity_lost", "intrusion_mm", "joint_scene", "linkage_scene", "scene", "thickness_mm"]
+           "integrity_lost", "intrusion_mm", "joint_scene", "linkage_scene", "dorsal_space_mm", "mounting_z_mm",
+           "scene", "thickness_mm"]

@@ -37,6 +37,19 @@
 - `scripts/optimize/run.py`는 run_*/portfolio_*가 있는 출력 폴더를 거부 (`--append`로만 추가).
 - 논문 figure: heavy search보다 figure 생성 구조 먼저. 초안은 비교 study quick run(`output/comparison_quick`, seed 0, 300세대) + v4 segment, PROVISIONAL 표시. `python -m visualize.paper.build [source]`.
 
+## 2026-10-29 방향 전환: 2R vs CoDe, comparison model
+
+범위를 2R(servo를 joint에 둠)과 CoDe로 줄이고, sweep 전에 공정한 비교 조건부터 정한다. belt, ideal, RCJ, tendon, 비교 study 격자는 보류.
+
+- **Comparison model vs Prototype model 분리.** 비교에는 정확한 기구학과 단순한 점유 공간만 쓴다. servo 외형, 핀 housing, 링크와 bar는 capsule(반경 3 mm, 측면 투영), clearance 0(접촉은 허용하고 관통은 금지). 조립공차, bearing, 강성은 제외한다. prototype 결과와 섞지 않는다.
+- **간섭:** pad–pad, pad–servo, pad–링크/joint envelope, 의도하지 않은 구조–구조. 자기 몸체에 장착되는 pad–carrier/bar 접촉은 제외한다 (`goal.collision.param.link_radius_mm`).
+- **모듈:** P = (ℓp, hp), D = (ℓd, hd) 독립. 같은 실험에서는 두 기구가 같은 모듈 쌍을 쓰고, 두 모듈을 모두 단 채 평가한다. pad 정렬(coplanarity) 제약은 없다. proximal은 MCP 쪽 끝, distal은 손끝 쪽 끝을 고정하고 palmar에 둔다. overhang은 10 mm 이하.
+- **손실 규칙 없음:** 모듈이 동작 전체에서 들어가면 수용으로 본다 (`goal.loss.fold: false`).
+- **공통 구조 공간:** pad 장착면 위 dorsal 34 mm (`goal.link.dorsal_space_mm`). 이전의 총두께 35 mm 결정은 이것으로 대체한다.
+- **목적:** L*_m(P, D, φ_req) = min |OC|. φ_max는 보지 않는다. φ_req ∈ {90, 120, 150, 180}°. 2R의 180°는 config를 만들지 않는다: 고정 pivot은 pad를 펴서 접을 수 없고, smoke run(80세대)에서도 해가 없었다. 기준 모듈은 25 × 5 mm.
+- **실험 A:** D 고정, P ∈ ℓ {15, 25, 35} × h {3, 5, 10}. **실험 B:** P 고정, D를 같은 격자로. φ마다 기구당 17 config, 합계 119 (`scripts/optimize/accommodation/`, 출력 `output/accommodation`).
+- **두 연구 질문:** architecture capability(모듈마다 다시 최적화해 L*를 구함)와 fixed architecture versatility(기구를 고정하고 모듈을 sweep, `core/optimization/analysis/tradeoff.py`).
+
 ## 결정 대기 (사용자)
 - [ ] **integrity D** 값 (`loss.integrity_depth_mm`). 근거: `visualize.study.loss_profile` 진단 (D ∈ {0, 2, 3, 5, 10, 20} mm).
 - [ ] **예산**: 진단 run 결과 보고 후 결정. 기본안 전 메커니즘 1500세대.

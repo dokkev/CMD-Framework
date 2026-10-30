@@ -150,6 +150,20 @@ class LinkageConfig:
     """``goal.link.icr0_share``: where the extended pose's centre of rotation
     may lie, as a share of ``|OC|`` from ``O`` (``core.optimization.analysis.icr``;
     the bending-point control runs); ``(None, None)``: anywhere."""
+    dorsal_space_mm: float | None = None
+    """``goal.link.dorsal_space_mm``: how far the extended finger's own solids
+    may rise above its pads' mounting surface (their dorsal-most top face;
+    the pads' thickness lies below it; the MCP servo, in the palm, left out;
+    ``core.optimization.analysis.loss.dorsal_space_mm``); ``None``: any."""
+    link_radius_mm: float | None = None
+    """``goal.collision.param.link_radius_mm``: the links and bars as capsules
+    of this radius, each checked against the pads it does not carry, in the
+    side view (the comparison model); ``None``: the links pass beside the
+    pads (the outer layer), unchecked."""
+    count_fold: bool = True
+    """``goal.loss.fold``: each face less what the other hides in the fold
+    (the v4 measure); false: a module mounted and clear through the motion
+    counts whole (the comparison model's accommodation)."""
     integrity_depth_mm: float | None = None
     """``goal.loss.integrity_depth_mm``: the objective's loss rule
     (``core.optimization.analysis.loss.integrity_free``): a face's point is
@@ -218,7 +232,7 @@ class LinkageConfig:
                      "finger_length": self.extended_length_bounds_mm[1]}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
-                     "integrity_depth_mm"):
+                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
@@ -407,6 +421,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, the fold alone
     goal.done()
     integrity_depth = loss.values.pop("integrity_depth_mm", None)
+    count_fold = loss.values.pop("fold", True)
+    if not isinstance(count_fold, bool):
+        raise ValueError("goal.loss.fold must be true or false")
     access_depth = float(loss.values.pop("access_depth_mm", 20.0))
     loss.done()
     angles = {name: math.radians(float(motion.take(name)))
@@ -431,6 +448,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     proximal_ratio = _range(link.take("proximal_length_ratio"), "goal.link.proximal_length_ratio")
     distal_ratio = _range(link.take("distal_length_ratio"), "goal.link.distal_length_ratio")
     icr0_share = _range(link.values.pop("icr0_share", [None, None]), "goal.link.icr0_share")  # optional
+    dorsal_space = link.values.pop("dorsal_space_mm", None)  # optional
     angle_low, angle_high = _range(link.take("transmission_angle_deg"), "goal.link.transmission_angle_deg")
     symmetric = link.take("symmetric_four_bar")
     if not isinstance(symmetric, bool):
@@ -485,6 +503,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     collision.done()
     diameters = param.table("pivot_diameter_mm")
     carrier_height = float(param.take("distal_carrier_height_mm"))
+    link_radius = param.values.pop("link_radius_mm", None)  # optional
     param.done()
     pivot = {name: float(diameters.take(key)) for key, name in PIVOT_KEYS.items()}
     diameters.done()
@@ -596,6 +615,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         distal_overhang_max_mm=overhangs["distal"],
         pulley_radius_mm=None if pulley is None else float(pulley),
         icr0_share_bounds=icr0_share,
+        dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
+        link_radius_mm=None if link_radius is None else float(link_radius),
+        count_fold=count_fold,
         integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,
     )
