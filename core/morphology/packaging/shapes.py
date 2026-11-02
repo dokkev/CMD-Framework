@@ -227,23 +227,14 @@ class PadSpan:
         return self.end_mm - self.start_mm
 
 
-def pad_outline(span: PadSpan, pad: ContactPad, chamfer_at: str, chamfer_mm: float | None = None) -> np.ndarray:
-    """A pad in its mounting-line frame (``u`` along the line, ``v`` dorsal), ``(m, 2)``.
+def pad_outline(span: PadSpan, pad: ContactPad) -> np.ndarray:
+    """A pad in its mounting-line frame (``u`` along the line, ``v`` dorsal),
+    ``(4, 2)``: ``a-b`` the span on the line, ``c-d`` the pad's height palmar
+    of it. Counter-clockwise, convex."""
 
-    ``a-b`` is the span on the line and ``c-d`` the pad's height palmar of it;
-    the palmar corner at the ``chamfer_at`` end (``"start"`` or ``"end"``)
-    loses the pad's 45 deg chamfer. Counter-clockwise, convex.
-    """
-
-    start_mm, end_mm = span.start_mm, span.end_mm
-    chamfer = pad.chamfer_mm if chamfer_mm is None else chamfer_mm
-    t, k = pad.height_mm, min(chamfer, end_mm - start_mm)
+    start_mm, end_mm, t = span.start_mm, span.end_mm, pad.height_mm
     a, b, d, c = (start_mm, 0.0), (end_mm, 0.0), (end_mm, -t), (start_mm, -t)
-    if k <= 0.0:
-        return np.array((c, d, b, a))
-    if chamfer_at == "end":
-        return np.array((c, (end_mm - k, -t), (end_mm, -t + k), b, a))
-    return np.array(((start_mm + k, -t), d, b, a, (start_mm, -t + k)))
+    return np.array((c, d, b, a))
 
 
 def carrier_outline(pad_outline_mm: np.ndarray, height_mm: float) -> np.ndarray:

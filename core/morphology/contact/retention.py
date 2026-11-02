@@ -4,7 +4,7 @@ comparison's: ``core.optimization.retention``).
 Everything is in the proximal-segment frame (``+X`` along ``O-A``, ``+Z``
 dorsal), sampled over the swept motion: ``n`` poses, so a solid fixed to the
 proximal body is the same at every sample and one that moves is posed at each.
-The gaps reuse the linkage packaging's (``core.morphology.linkage.packaging``).
+The gaps reuse the linkage packaging's (``core.morphology.mechanism.linkage.packaging``).
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from core.morphology.packaging.shapes import (
 @dataclass(frozen=True)
 class Module:
     """One contact module: the nominal ``a-b-d-c`` block of the linkage pads
-    (``core.morphology.linkage.packaging.pad_outline``, no chamfer), its outer
+    (``core.morphology.packaging.shapes.pad_outline``), its outer
     edge ``a-c`` fixed and its joint-facing vertices ``b`` (on the mounting
     line) and ``d`` (``height`` palmar of it) retained ``line_mm`` and
     ``palmar_mm`` from that edge, at most ``nominal_mm``."""

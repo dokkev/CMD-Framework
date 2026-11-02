@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.hardware import XM335Actuator
-from core.morphology.linkage.parameters import PointXZ
+from core.morphology.finger import PointXZ
 
 
 def _xm335_radius_mm() -> float:

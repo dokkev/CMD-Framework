@@ -9,7 +9,7 @@ import pytest
 
 from core.morphology.packaging.faces import fold_free_lengths
 from core.optimization.mechanism import mechanism
-from core.morphology.linkage.packaging import pip_footprint
+from core.morphology.mechanism.linkage.packaging import pip_footprint
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
 DROPS = ("goal.pads.on_links=false", "goal.pads.proximal.drop_mm=[0, null]", "goal.pads.distal.drop_mm=[0, null]")
@@ -123,17 +123,17 @@ def test_a_linkage_with_drop_bounds_searches_its_pads_drops():
 
 
 def test_an_overhanging_pad_is_limited():
-    from core.morphology.linkage import FingerLinkage
-    from core.morphology.linkage.design import decode
+    from core.morphology.mechanism.linkage import Finger
+    from core.morphology.mechanism.linkage.design import decode
     from core.optimization.linkage.evaluate import overhang_violations
 
     found, config = load("goal.pads.proximal.overhang_max_mm=10", "goal.pads.distal.overhang_max_mm=10")
     _, strict = load("goal.pads.proximal.overhang_max_mm=0", "goal.pads.distal.overhang_max_mm=0")
-    x = [36.0, 75.0, 0.0, 40.0, 12.0, 72.0, 8.0, 20.0, 25.0, 0.0, 15.0, 5.0, 0.0, 0.0, 3.0, 3.0]
-    linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
-    p = linkage.parameters
-    front = max(p.a_x_mm + 3.0, float(pip_footprint(config.packaging, linkage).outline[:, 0].max()))
-    over = p.app_x_mm - front
+    x = [36.0, 75.0, 0.0, 40.0, 12.0, 72.0, 8.0, 20.0, 25.0, 0.0, 15.0, 5.0, 3.0, 3.0]
+    linkage = decode(x, config.link_length_resolution_mm)
+    p = linkage
+    front = max(p.joint.a.x_mm + 3.0, float(pip_footprint(config.packaging, linkage).outline[:, 0].max()))
+    over = p.proximal_end.x_mm - front
     assert over > 0.0
     assert overhang_violations(linkage, strict)[0] == pytest.approx(over)
     assert overhang_violations(linkage, config)[0] == pytest.approx(max(over - 10.0, 0.0))

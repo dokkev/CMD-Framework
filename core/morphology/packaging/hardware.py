@@ -8,8 +8,8 @@ actuator radius around the shaft and a rectangle reaching ``rear_extent_mm``
 back from it. Another servo or bearing is a different ``Packaging``. All
 checks are planar, in the proximal segment's frame (``+X`` along it, ``+Z``
 dorsal); margins are in mm, feasible when >= 0. Where a mechanism puts its
-servo, pins and pads is its own (``core.morphology.linkage.packaging``,
-``core.morphology.revolute``, ...).
+servo, pins and pads is its own (``core.morphology.mechanism.linkage.packaging``,
+``core.morphology.mechanism.revolute``, ...).
 
 **Contact pads.** Each pad is a block ``a-b-d-c`` fixed to its segment and
 free to stand out of it: ``a-b`` on the segment's mounting line, ``c-d`` its
@@ -55,26 +55,20 @@ def _xm335() -> DShapedExtrusion:
 
 @dataclass(frozen=True)
 class ContactPad:
-    """One contact pad block (provisional values).
+    """One contact pad: a plain block (provisional values).
 
     ``height_mm`` palmar of its mounting line, starting ``offset_mm`` in from
-    its outer end (``O`` or the MCP servo, or ``C``), and a 45 deg chamfer of
-    ``chamfer_mm`` at its palmar corner facing the PIP (with ``chamfer_free``
-    the design's own, 0 to ``height_mm``: ``core.morphology.linkage.packaging.pad_chamfer_mm``). ``length_mm`` fixes
-    its length, which the mounting line must have room for; ``None`` runs it
-    to ``A''`` or ``B''``, the whole room (``core.morphology.linkage.packaging.pad_spans``), cut to
-    ``max_length_mm`` when given (no module needs more).
+    its outer end (``O`` or the MCP servo, or ``C``). ``length_mm`` fixes its
+    length, which the mounting line must have room for; ``None`` runs it to
+    ``A''`` or ``B''``, the whole room (``core.morphology.mechanism.linkage.packaging.pad_spans``),
+    cut to ``max_length_mm`` when given (no module needs more).
     """
 
     height_mm: float = 5.0
     offset_mm: float = 0.0
-    chamfer_mm: float = 2.5
     length_mm: float | None = None
     max_length_mm: float | None = None
     """Most mounting length: a free pad is cut to it, a fixed one may not exceed it."""
-    chamfer_free: bool = False
-    """The chamfer is a design variable (``FingerLinkageParameters.proximal_chamfer_mm``
-    or ``distal_chamfer_mm``), at most ``height_mm``; ``chamfer_mm`` is then unused."""
 
     def __post_init__(self) -> None:
         if not self.height_mm > 0.0:
@@ -83,8 +77,6 @@ class ContactPad:
             raise ValueError("length_mm must be positive, or None")
         if not self.offset_mm >= 0.0:
             raise ValueError("offset_mm must be non-negative")
-        if not 0.0 <= self.chamfer_mm <= self.height_mm:
-            raise ValueError("chamfer_mm must be within [0, height_mm]")
         if self.max_length_mm is not None and not self.max_length_mm > 0.0:
             raise ValueError("max_length_mm must be positive, or None")
 
@@ -100,7 +92,7 @@ class Packaging:
     pads against the MCP servo). ``mcp_servo_rear`` is the unit direction of
     the MCP servo's rear body in the proximal frame at zero MCP flexion
     (``+Z``: standing dorsally). A mechanism's own placement (its pins' sizes,
-    where its servo sits) extends it (``core.morphology.linkage.LinkagePackaging``).
+    where its servo sits) extends it (``core.morphology.mechanism.linkage.LinkagePackaging``).
     """
 
     pip_servo: DShapedExtrusion = field(default_factory=_xm335)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.patches import Circle, Polygon
 
-from core.morphology.linkage.packaging import distal_pad_polygon, pip_footprint, proximal_pad_polygon
+from core.morphology.mechanism.linkage.packaging import distal_pad_polygon, pip_footprint, proximal_pad_polygon
 from visualize.style import COLLIDE, INK, MUTED, shades
 
 LINK, JOINT, JOINT_EDGE, NODE = "#ff0a1e", "#ffff88", "#d01020", "#111111"
@@ -86,12 +86,12 @@ def palm(axis, packaging) -> None:
 def draw_linkage(axis, linkage, packaging, sweep, i: int, hit: set[str] = frozenset()) -> None:
     """The crossed four-bar at sample ``i`` of its servo ``sweep``."""
 
-    b, c, bp = sweep.b[i], sweep.c[i], sweep.bp[i]
+    b, c, bp = sweep.b[i], sweep.tip[i], sweep.bp[i]
     palm(axis, packaging)
     servo(axis, pip_footprint(packaging, linkage).outline)
     pad(axis, proximal_pad_polygon(linkage, packaging), "proximal_pad" in hit)
     pad(axis, distal_pad_polygon(linkage, packaging, b[None], c[None])[0], "distal_pad" in hit)
-    o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)
+    o, a, ap = (0.0, 0.0), (linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)
     links(axis, (o, a), (o, ap), (ap, b), (a, bp), (bp, b, c, bp))
     nodes(axis, a, b, bp, c)
     active(axis, o, ap)

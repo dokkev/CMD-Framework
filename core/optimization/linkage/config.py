@@ -27,9 +27,9 @@ import numpy as np
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.hardware import DShapedExtrusion, actuator
 from core.morphology.packaging.hardware import ContactPad
-from core.morphology.linkage.packaging import LinkagePackaging
+from core.morphology.mechanism.linkage.packaging import LinkagePackaging
 
-from core.morphology.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
+from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
 
 
 OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")
@@ -41,6 +41,12 @@ RELATIVE_BOUNDS = ("ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_fro
 COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin_and_pip_servo",
                     "a_pin_and_proximal_pad", "b_pin_and_distal_pad", "proximal_pad_and_distal_pad",
                     "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad", "distal_carrier_and_pip_servo")
+DEPRECATED_VARIABLES = ("proximal_chamfer_mm", "distal_chamfer_mm")
+DEPRECATED_PAD_FIELDS = ("chamfer_mm", "chamfer_free")
+"""The pads' chamfers (deprecated 2026-10-30, plain blocks since): left out
+of the bounds and pads recorded before."""
+DEPRECATED_PACKAGING_FIELDS = ("pip_servo_at",)
+"""The PIP servo's place (deprecated 2026-10-30: always on ``A'``, the CoDe's)."""
 PIVOT_KEYS = MappingProxyType({"a": "a", "a_prime": "ap", "b": "b", "b_prime": "bp"})
 """``goal.collision.param.pivot_diameter_mm`` keys and the packaging's pivot names."""
 
@@ -125,7 +131,7 @@ class LinkageConfig:
     true unless the file says otherwise; ``False`` here for runs before it):
     the proximal pad to ``A``, the distal one from ``B`` to ``C``, so more pad
     means a shorter four-bar. ``scripts/optimize/extend_pads.py``
-    (``core.morphology.linkage.pad_extension``) then grows the pads of the
+    (``core.morphology.mechanism.linkage.pad_extension``) then grows the pads of the
     designs found as far as they keep usable."""
     symmetric_four_bar: bool = False
     """The four-bar an antiparallelogram: ``|B'B| = |A'A|`` and ``|AB'| = |A'B|``,
@@ -182,17 +188,7 @@ class LinkageConfig:
     (reports only, not the objective)."""
 
     def __post_init__(self) -> None:
-        if self.packaging.pip_servo_on_a:
-            raise ValueError("the linkage study has the PIP servo on A'")
-        given = dict(self.bounds)
-        # A free chamfer runs 0 to the pad's height (unless bounded); a fixed
-        # one leaves its variable unused, held at 0 whatever bounds say.
-        for side in ("proximal", "distal"):
-            pad, name = getattr(self.packaging, f"{side}_pad"), f"{side}_chamfer_mm"
-            if pad.chamfer_free:
-                given.setdefault(name, (0.0, pad.height_mm))
-            else:
-                given[name] = (0.0, 0.0)
+        given = {name: value for name, value in self.bounds.items() if name not in DEPRECATED_VARIABLES}
         # The pads' drops, unless searched: the packaging's (the variables held at it).
         given.setdefault("proximal_drop_mm", (self.packaging.proximal_pad_drop_mm,) * 2)
         given.setdefault("distal_drop_mm", (self.packaging.distal_pad_drop_mm,) * 2)
@@ -483,9 +479,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         overhang = pad.values.pop("overhang_max_mm", None)
         overhangs[side] = None if overhang is None else float(overhang)
         pad.done()
-        pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, chamfer_mm=0.0,
-                                                  length_mm=None, max_length_mm=high,
-                                                  chamfer_free=False))  # plain blocks
+        pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, length_mm=None,
+                                                  max_length_mm=high))
     pads.done()
 
     pip_servo, mcp_servo = hardware.table("pip_servo"), hardware.table("mcp_servo")
@@ -681,7 +676,9 @@ def packaging_from_mapping(values: Mapping[str, object]) -> LinkagePackaging:
     """A :class:`LinkagePackaging` from plain values: servos by actuator name (e.g.
     ``xm335``, ``core.hardware.ACTUATORS``) or as tables, pads as tables."""
 
-    packaging = dict(values)
+    packaging = {name: value for name, value in values.items() if name not in DEPRECATED_PACKAGING_FIELDS}
+    if values.get("pip_servo_at", "ap") != "ap":
+        raise ValueError("the PIP servo is on A' (the servo on A is no longer modelled)")
     if "pin_envelope_diameter_mm" in packaging:  # its earlier name (runs before 2026-10-21)
         packaging["pivot_clearance_diameter_mm"] = packaging.pop("pin_envelope_diameter_mm")
     for joint in ("A", "Bp"):  # as written in a config
@@ -695,10 +692,16 @@ def packaging_from_mapping(values: Mapping[str, object]) -> LinkagePackaging:
             packaging[servo] = DShapedExtrusion(**packaging[servo])
     for pad in ("proximal_pad", "distal_pad"):
         if pad in packaging and not isinstance(packaging[pad], ContactPad):
-            packaging[pad] = ContactPad(**packaging[pad])
+            packaging[pad] = ContactPad(**_plain(packaging[pad]))
     if "mcp_servo_rear" in packaging:
         packaging["mcp_servo_rear"] = tuple(packaging["mcp_servo_rear"])
     return LinkagePackaging(**packaging)
+
+
+def _plain(values: Mapping[str, object]) -> dict:
+    """A pad's values less the deprecated ones (:data:`DEPRECATED_PAD_FIELDS`)."""
+
+    return {name: value for name, value in values.items() if name not in DEPRECATED_PAD_FIELDS}
 
 
 TUPLE_FIELDS = ("transmission_angle_range_rad", "extended_length_bounds_mm", "proximal_length_bounds_mm",

@@ -29,8 +29,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import (
+from core.morphology.mechanism.linkage import Finger
+from core.morphology.mechanism.linkage.packaging import (
     contact_faces as linkage_faces,
     distal_carrier_polygon,
     distal_pad_polygon,
@@ -39,7 +39,7 @@ from core.morphology.linkage.packaging import (
     proximal_pad_polygon,
 )
 from core.morphology.packaging.faces import PROBE_STEP_MM, fold_free_lengths, fold_hidden_points, probe_blocked
-from core.morphology.revolute.solids import contact_faces
+from core.morphology.mechanism.revolute.solids import contact_faces
 
 CATEGORIES = ("other_pad", "carrier", "link", "pin", "servo", "mcp_servo", "pulley", "roller")
 """What may stand in front of a face: the other pad, the distal pad's carrier,
@@ -249,33 +249,32 @@ def _scene(phi_deg, faces, own: dict[str, list], others: dict[str, Shapes]) -> S
     return Scene(np.asarray(phi_deg, dtype=float), faces, solids)
 
 
-def linkage_scene(linkage: FingerLinkage, packaging, b, c, bp, phi_deg,
+def linkage_scene(finger: Finger, packaging, b, c, bp, phi_deg,
                   proximal_carrier_mm: float | None = None) -> Scene:
     """The scene of a linkage at its posed ``B``, ``C`` and ``B'`` (``(n, 2)`` each), flexions ``phi_deg``;
     ``proximal_carrier_mm``: its proximal support's plate (``packaging.proximal_carrier_polygon``), if any."""
 
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
-    p = linkage.parameters
-    o, a, ap = (0.0, 0.0), (p.a_x_mm, p.a_z_mm), (p.ap.x_mm, p.ap.z_mm)
-    proximal_face, proximal_normal, distal_face, distal_normal = linkage_faces(linkage, packaging, b, c)
+    o, a, ap = (0.0, 0.0), (finger.joint.a.x_mm, finger.joint.a.z_mm), (finger.joint.ap.x_mm, finger.joint.ap.z_mm)
+    proximal_face, proximal_normal, distal_face, distal_normal = linkage_faces(finger, packaging, b, c)
     count = len(b)
     faces = {"proximal_pad": (np.broadcast_to(proximal_face, (count, 2, 2)),
                               np.broadcast_to(proximal_normal, (count, 2))),
              "distal_pad": (distal_face, distal_normal)}
     radius = packaging.pivot_radius_mm
     others = {
-        "carrier": Shapes(([distal_carrier_polygon(linkage, packaging, b, c)]
+        "carrier": Shapes(([distal_carrier_polygon(finger, packaging, b, c)]
                            if packaging.distal_carrier_height_mm > 0 else [])
-                          + ([proximal_carrier_polygon(linkage, packaging, proximal_carrier_mm)]
+                          + ([proximal_carrier_polygon(finger, packaging, proximal_carrier_mm)]
                              if proximal_carrier_mm is not None else [])),
         "link": Shapes(segments=_bars((o, a), (a, ap), (ap, o), (a, bp), (ap, b), (bp, b), (b, c))),
         "pin": Shapes(disks=[(a, radius("a")), (ap, radius("ap")), (b, radius("b")), (bp, radius("bp"))]),
-        "servo": Shapes([pip_footprint(packaging, linkage).outline]),
+        "servo": Shapes([pip_footprint(packaging, finger).outline]),
         "mcp_servo": Shapes([packaging.mcp_footprint().outline]),
         "pulley": Shapes(),
         "roller": Shapes(),
     }
-    own = {"proximal_pad": proximal_pad_polygon(linkage, packaging), "distal_pad": distal_pad_polygon(linkage, packaging, b, c)}
+    own = {"proximal_pad": proximal_pad_polygon(finger, packaging), "distal_pad": distal_pad_polygon(finger, packaging, b, c)}
     return _scene(np.atleast_1d(phi_deg), faces, own, others)
 
 

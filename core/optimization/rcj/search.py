@@ -21,7 +21,7 @@ import numpy as np
 
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
-from core.morphology.rcj.solids import SERVO_REAR, finger_length_mm
+from core.morphology.mechanism.rcj.solids import SERVO_REAR, finger_length_mm
 
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 

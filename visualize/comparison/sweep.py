@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.patches import Circle  # noqa: E402
 
-from core.morphology.linkage.packaging import (  # noqa: E402
+from core.morphology.mechanism.linkage.packaging import (  # noqa: E402
 
     distal_carrier_polygon,
 
@@ -59,7 +59,7 @@ def draw_linkage(axis, linkage, packaging, phi_max_deg: float, color: str) -> No
     targets = np.arange(0.0, phi_max_deg + 1e-9, STEP_DEG)
     for phi in targets:
         i = int(index_at(sweep, math.radians(phi)))
-        b, c = sweep.b[i][None], sweep.c[i][None]
+        b, c = sweep.b[i][None], sweep.tip[i][None]
         shade = cmap(0.25 + 0.75 * phi / max(targets[-1], 1.0))
         solids.patch(axis, distal_carrier_polygon(linkage, packaging, b, c)[0], CARRIER, alpha=0.35, width=0.4)
         solids.patch(axis, distal_pad_polygon(linkage, packaging, b, c)[0], shade, alpha=0.8, width=0.5)
@@ -67,7 +67,7 @@ def draw_linkage(axis, linkage, packaging, phi_max_deg: float, color: str) -> No
     solids.patch(axis, packaging.mcp_footprint().outline, SERVO, zorder=0.5)
     solids.patch(axis, pip_footprint(packaging, linkage).outline, SERVO, zorder=0.5)
     solids.patch(axis, proximal_pad_polygon(linkage, packaging), PROXIMAL_PAD, zorder=2)
-    o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)
+    o, a, ap = (0.0, 0.0), (linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)
     solids.line(axis, (o, a, ap, o), color)
     solids.joints(axis, active=(o, ap), passive=(a,))
 

@@ -9,7 +9,7 @@ by the same angle: ``phi = theta``, so ``k = 1``, with no dead centre (a
 parallelogram from ``A'`` turning 1:1 keeps its transmission angle within
 [30, 150] deg for at most 120 deg of flexion; the belt has no such limit).
 
-Its solids are the morphology's (``core.morphology.revolute_parallel``).
+Its solids are the morphology's (``core.morphology.mechanism.revolute_parallel``).
 Every other rule is the idealized 2R's (``core.optimization.revolute``,
 ``joint_servo=False``): the pads hang at most ``A``'s pin radius below their
 segment lines, keep off its housing, and are checked against each other,
@@ -30,8 +30,8 @@ from types import MappingProxyType
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
-from core.morphology.revolute_parallel import solids
-from core.morphology.revolute_parallel.solids import ParallelGeometry
+from core.morphology.mechanism.revolute_parallel import solids
+from core.morphology.mechanism.revolute_parallel.solids import ParallelGeometry
 
 from core.optimization.revolute.evaluate import (
     UNSWEPT,
@@ -106,7 +106,6 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
                   proximal_length_mm=joint.a_x_mm, required_rom_rad=goal.required_rom_rad,
                   proximal_support_length_mm=joint.proximal_length_mm,
                   distal_support_length_mm=joint.distal_length_mm,
-                  proximal_face_mm=joint.proximal_face_mm, distal_face_mm=joint.distal_face_mm,
                   proximal_depth_mm=joint.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=joint.distal_drop_mm + packaging.distal_pad.height_mm)
     if max(static.values()) > 0.0:
@@ -138,8 +137,9 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
-        "pad_usable_mm": max(goal.minimum_proximal_support_mm - min(joint.proximal_face_mm, proximal_usable),
-                             goal.minimum_distal_support_mm - min(joint.distal_face_mm, distal_usable)),
+        "pad_usable_mm": max(
+            goal.minimum_proximal_support_mm - min(max(joint.proximal_length_mm, 0.0), proximal_usable),
+            goal.minimum_distal_support_mm - min(max(joint.distal_length_mm, 0.0), distal_usable)),
     }
     return ParallelEvaluation(
         constraints=MappingProxyType(constraints),

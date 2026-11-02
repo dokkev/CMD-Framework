@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from core.morphology.linkage.packaging import (  # noqa: E402
+from core.morphology.mechanism.linkage.packaging import (  # noqa: E402
     distal_pad_polygon,
     pad_margins,
     pip_footprint,
@@ -40,7 +40,7 @@ from visualize.style import (COLLIDE, COLORS, DISTAL_PAD, INK, MUTED, PROXIMAL_P
 def draw_linkage(axis, linkage, packaging, phi_rad: float) -> str:
     _, sweep = servo_sweep(linkage)
     i = int(index_at(sweep, phi_rad))
-    b, c, bp = sweep.b[i], sweep.c[i], sweep.bp[i]
+    b, c, bp = sweep.b[i], sweep.tip[i], sweep.bp[i]
     margins = pad_margins(linkage, packaging, b[None], c[None], bp[None], (0.0,))
     collides = {name for pair, margin in margins.items() if margin[0] < 0.0 for name in pair}
     solids.patch(axis, packaging.mcp_footprint().outline, SERVO, zorder=0.5)
@@ -51,7 +51,7 @@ def draw_linkage(axis, linkage, packaging, phi_rad: float) -> str:
         hit = name in collides
         solids.patch(axis, polygon, color, edge=COLLIDE if hit else MUTED, width=2.0 if hit else 0.8)
     solids.linkage_bars(axis, linkage, b, c, bp, COLORS["linkage"])
-    o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)
+    o, a, ap = (0.0, 0.0), (linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)
     solids.joints(axis, active=(o, ap), passive=(a, b, bp))
     return f"{math.degrees(sweep.total_flexion_rad[i]):.0f}°" + ("  collides" if collides else "")
 

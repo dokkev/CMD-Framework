@@ -10,7 +10,7 @@ links (so its ``k``) and gets the pad ends ``A''`` (toward ``B``) and
 face up to where the two faces cross in the fold) while the design stays
 feasible and flexes as far as it did (its ``phi_max``, so its curl;
 ``--to-required``: only as far as the required flexion, trading curl for
-pad): ``core.morphology.linkage.pad_extension.grow_pads``, screened every
+pad): ``core.morphology.mechanism.linkage.pad_extension.grow_pads``, screened every
 SCREEN_STEP_DEG of servo and checked on the study's verification grid.
 ``--all``: every design of the front; else its representatives
 (``balanced`` and the like).
@@ -34,8 +34,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from core.morphology.linkage.design import VARIABLE_NAMES  # noqa: E402
-from core.morphology.linkage.pad_extension import grow_pads  # noqa: E402
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES  # noqa: E402
+from core.morphology.mechanism.linkage.pad_extension import grow_pads  # noqa: E402
 from core.optimization.mechanism import mechanism  # noqa: E402
 from core.optimization.study import load_run  # noqa: E402
 

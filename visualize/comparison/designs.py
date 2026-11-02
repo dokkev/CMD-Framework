@@ -7,8 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.design import decode
+from core.morphology.mechanism.linkage.design import decode
 from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 from visualize.fronts import read_rows, run_of, with_role
@@ -24,7 +23,7 @@ def linkage_seed(seeds: Path, role: str):
     if row is None:
         raise ValueError(f"no {role} in {seeds}")
     run = run_of(seeds, row)
-    linkage = FingerLinkage(decode(run.mechanism.read_design(row), run.config.link_length_resolution_mm))
+    linkage = decode(run.mechanism.read_design(row), run.config.link_length_resolution_mm)
     return row, run.config, linkage
 
 

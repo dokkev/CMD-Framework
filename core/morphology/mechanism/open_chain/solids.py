@@ -1,7 +1,7 @@
 """The open-chain (serial 2R) finger's solids in the retention comparison,
 idealized or packaged (``core.optimization.open_chain``).
 
-The kinematics are :class:`~core.morphology.open_chain.OpenChainFinger`'s:
+The kinematics are :class:`~core.morphology.mechanism.open_chain.OpenChainFinger`'s:
 the MCP at ``O`` and the distal joint at ``A``, each segment's module palmar
 of its centreline (the mounting line), the distal one anchored at ``EE``. The
 structure is the two centrelines and the joint pin envelopes at ``O`` and
@@ -20,8 +20,8 @@ import numpy as np
 from core.morphology.contact.retention import MCP_SERVO, Disk, Housing, Module, Pair, Polygon, Segment, Solids, place
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import ServoFootprint
-from core.morphology.open_chain.model import OpenChainFinger
-from core.morphology.open_chain.parameters import OpenChainParameters
+from core.morphology.mechanism.open_chain.model import OpenChainFinger
+from core.morphology.mechanism.open_chain.parameters import OpenChainParameters
 
 
 STRUCTURE_PAIRS = (

@@ -21,13 +21,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from core.morphology.linkage.model import FingerLinkage, PipSweep
-from core.morphology.linkage.packaging import (
+from core.morphology.finger import Finger
+from core.morphology.mechanism.linkage.model import PipSweep, four_bar
+from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     assembly,
     contact_faces,
     driver_link_servo_gaps,
-    fixed_margin_pairs,
+    FIXED_MARGIN_PAIRS,
     layout,
     link_capsule_margins,
     pad_margins,
@@ -105,31 +106,37 @@ class FingerMotion:
     """Each pad's length the links leave free on ``[0, phi]``
     (``packaging.usable_pad_lengths``), or with the links bent around the pads
     (``packaging.links_clear_pads``) each face less what the other hides."""
+    icr_mm: np.ndarray | None = None
+    """The distal segment's centre of rotation at each servo sample on
+    ``[0, phi]``, ``(n, 2)`` in the proximal frame (NaN: the bars parallel)."""
     integrity_free: dict[str, float] | None = None
     """Each face's length no solid comes within the integrity depth of on
     ``[0, phi]`` (``contact.loss.integrity_free``; ``None``: not asked)."""
 
 
-def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: MotionSettings, phi_rad: float,
+def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings, phi_rad: float,
                  footprint: ServoFootprint | None = None, integrity_depth_mm: float | None = None) -> FingerMotion:
     """Sweep ``linkage`` (see the module docstring) and measure it on ``[0, phi_rad]``."""
 
-    footprint = pip_footprint(packaging, linkage) if footprint is None else footprint
+    four_bar(finger)
+    footprint = pip_footprint(packaging, finger) if footprint is None else footprint
     step = settings.servo_step_rad
-    sense = servo_sense(linkage, step)
+    sense = servo_sense(finger, step)
     forward = np.asarray(settings.servo_samples_rad)
-    sweep = linkage.sweep_servo(sense * forward)
+    sweep = finger.sweep_servo(sense * forward)
     # Hyperextension is a PIP requirement: solved by the PIP, to the stopper exactly.
     count = int(math.ceil(settings.hyperextension_rad / step - 1e-9))
-    back = linkage.sweep_pip(-np.minimum(np.arange(count + 1) * step, settings.hyperextension_rad))
-    n_back = len(back.q_pip_rad) - 1  # back samples besides 0
+    # (The stopper is on the driver link A-B', as the hyperextension has been measured.)
+    back = finger.place(four_bar(finger).sweep_driver(
+        -np.minimum(np.arange(count + 1) * step, settings.hyperextension_rad)))
+    n_back = len(back.q_driver_rad) - 1  # back samples besides 0
 
     def joined(name: str) -> np.ndarray:
         """The back samples, then the forward sweep, in increasing flexion."""
 
         return np.concatenate((getattr(back, name)[n_back:0:-1], getattr(sweep, name)))
 
-    unsafe = unsafe_conditions(linkage, footprint, joined, sense, packaging, settings)
+    unsafe = unsafe_conditions(finger, footprint, joined, sense, packaging, settings)
     total = sweep.total_flexion_rad
     # The pads from extension up to the first other unsafe sample or the curl
     # (180 deg), as far as phi_max needs them; hyperextension is linkage range only.
@@ -139,18 +146,18 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
     if curled.size:
         end = min(end, int(curled[0]))
     swept = slice(n_back, n_back + end + 1)
-    margins = pad_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
+    margins = pad_margins(finger, packaging, joined("b")[swept], joined("tip")[swept],
                           joined("bp")[swept], settings.mcp_samples_rad)
     if settings.link_radius_mm is not None:
-        margins.update(link_capsule_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
+        margins.update(link_capsule_margins(finger, packaging, joined("b")[swept], joined("tip")[swept],
                                             joined("bp")[swept], settings.link_radius_mm))
     if settings.proximal_carrier_height_mm is not None:
-        margins.update(support_margins(linkage, packaging, joined("b")[swept], joined("c")[swept],
+        margins.update(support_margins(finger, packaging, joined("b")[swept], joined("tip")[swept],
                                        settings.proximal_carrier_height_mm))
     pad = np.full(len(unsafe["closure"]), math.inf)
     pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
     # The reported clearance leaves out pairs whose margin the design does not set.
-    reported = [margin for pair, margin in margins.items() if pair not in fixed_margin_pairs(packaging)]
+    reported = [margin for pair, margin in margins.items() if pair not in FIXED_MARGIN_PAIRS]
     reported_pad = np.full(len(unsafe["closure"]), math.inf)
     if reported:
         reported_pad[swept] = np.min(np.stack(reported), axis=0)
@@ -162,7 +169,7 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
     safe_back = 0
     while safe_back < n_back and not any_unsafe[n_back - 1 - safe_back]:
         safe_back += 1
-    deepest = float(back.q_pip_rad[safe_back]) if not any_unsafe[n_back] else 0.0
+    deepest = float(back.q_driver_rad[safe_back]) if not any_unsafe[n_back] else 0.0
 
     # The safe motion from extension: up to the first unsafe sample (or the
     # sweep's end, where the four-bar stops closing).
@@ -186,7 +193,7 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
     window[:last + 1] = True
     lever, ratio, travel = servo_lever(sweep, window)
     ratio_min = least_torque_ratio(sweep, window)
-    tip_x = sweep.c[:, 0]
+    tip_x = sweep.tip[:, 0]
     least_tip = float(tip_x[window].min())
     # phi_max: the first sample any check fails at, C_x included.
     failing = forward_unsafe | (tip_x < 0.0)
@@ -196,18 +203,18 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
     window_joined = np.concatenate((np.ones(n_back, dtype=bool), window))
     margin = joined("margin_at_bp_rad")[window_joined]
     toggle = joined("margin_at_b_rad")[window_joined]
-    link = driver_link_servo_gaps(linkage, footprint, joined("bp")[window_joined])
+    link = driver_link_servo_gaps(finger, footprint, joined("bp")[window_joined])
     if packaging.links_clear_pads:  # the links bent out of the way: each face less what the other hides
-        free = fold_free_lengths(*contact_faces(linkage, packaging, sweep.b[window], sweep.c[window]))
+        free = fold_free_lengths(*contact_faces(finger, packaging, sweep.b[window], sweep.tip[window]))
     else:
-        free = usable_pad_lengths(linkage, packaging, sweep.b[window], sweep.bp[window], sweep.c[window])
+        free = usable_pad_lengths(finger, packaging, sweep.b[window], sweep.bp[window], sweep.tip[window])
     kept = None
     if integrity_depth_mm is not None:
         # Only here: the loss module (and the other mechanisms' solids it
         # reads) stays out of every evaluation that asks no integrity.
         from core.morphology.contact.loss import integrity_free, linkage_scene
 
-        kept = integrity_free(linkage_scene(linkage, packaging, sweep.b[window], sweep.c[window], sweep.bp[window],
+        kept = integrity_free(linkage_scene(finger, packaging, sweep.b[window], sweep.tip[window], sweep.bp[window],
                                             np.degrees(total[window])), integrity_depth_mm)
     return FingerMotion(
         phi_safe_rad=reach,
@@ -216,7 +223,7 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
         collision_pair=collision_pair,
         deepest_pip_rad=deepest,
         hyperextension_phi_rad=float(back.total_flexion_rad[safe_back]),
-        usable_pip_rad=float(sweep.q_pip_rad[last]),
+        usable_pip_rad=float(sweep.q_driver_rad[last]),
         usable_servo_rad=float(forward[last]),
         curl_tip_x_mm=float(tip_x[last]),
         least_tip_x_mm=least_tip,
@@ -224,24 +231,25 @@ def sweep_motion(linkage: FingerLinkage, packaging: LinkagePackaging, settings: 
         min_margin_rad=float(margin.min()),
         toggle_margin_rad=float(toggle.min()),
         driver_link_servo_clearance_mm=float(link.min()) - packaging.body_clearance_mm,
-        closes_to_rad=float(sweep.q_pip_rad[-1]),
+        closes_to_rad=float(sweep.q_driver_rad[-1]),
         lever_max_mm=lever,
         torque_ratio_max=ratio,
         torque_ratio_min=ratio_min,
         servo_travel_rad=travel,
         pad_clearance_mm=float(reported_pad[n_back:][window].min()),
         fold_free={side: float(lengths.min()) for side, lengths in free.items()},
+        icr_mm=sweep.icr[window],
         integrity_free=kept,
     )
 
 
-def servo_sense(linkage: FingerLinkage, step_rad: float) -> float:
+def servo_sense(finger: Finger, step_rad: float) -> float:
     """The sign of the PIP servo's rotation that flexes the PIP (``+1`` or ``-1``)."""
 
-    return 1.0 if linkage.sweep_servo([0.0, step_rad]).q_pip_rad[-1] >= 0.0 else -1.0
+    return 1.0 if finger.sweep_servo([0.0, step_rad]).q_driver_rad[-1] >= 0.0 else -1.0
 
 
-def unsafe_conditions(linkage: FingerLinkage, footprint: ServoFootprint, joined: Callable[[str], np.ndarray],
+def unsafe_conditions(finger: Finger, footprint: ServoFootprint, joined: Callable[[str], np.ndarray],
                       sense: float, packaging: LinkagePackaging, settings: MotionSettings) -> dict[str, np.ndarray]:
     """Per-sample unsafe flags along the joined sweep, in increasing flexion
     (the caller adds the pads). Backoffs are measured from the start of the
@@ -251,18 +259,18 @@ def unsafe_conditions(linkage: FingerLinkage, footprint: ServoFootprint, joined:
     dip_pin = layout(packaging).pair("bp_pin", "pip_servo")  # unless B' may pass the servo
     low, high = settings.transmission_angle_range_rad
     bp = joined("bp")
-    angle = transmission_angle(np.array((linkage.a.x_mm, linkage.a.z_mm)), bp, joined("b"))
-    q_dip, q_pip, servo = joined("q_dip_rad"), joined("q_pip_rad"), sense * joined("servo_rad")
+    angle = transmission_angle(np.array((finger.joint.a.x_mm, finger.joint.a.z_mm)), bp, joined("b"))
+    q_dip, q_driver, servo = joined("q_dip_rad"), joined("q_driver_rad"), sense * joined("servo_rad")
     return {
         "closure": np.zeros(len(angle), dtype=bool),
         "transmission": np.minimum(angle - low, high - angle) < 0.0,
         "dip_backoff": np.maximum.accumulate(q_dip) - q_dip > tolerance,
-        # The PIP and the servo turn together.
-        "pip_backoff": (np.maximum.accumulate(q_pip) - q_pip > tolerance)
+        # The driver link and the servo turn together.
+        "pip_backoff": (np.maximum.accumulate(q_driver) - q_driver > tolerance)
         | (np.maximum.accumulate(servo) - servo > tolerance),
         # The B' pin may cross the servo body when they sit in different Y layers.
         "dip_pin": (np.zeros(len(angle), dtype=bool) if dip_pin is None
-                    else margins(assembly(linkage, packaging), poses(linkage, joined("b"), joined("c"), bp), packaging,
+                    else margins(assembly(finger, packaging), poses(finger, joined("b"), joined("tip"), bp), packaging,
                                  [dip_pin])[dip_pin.key] < 0.0),
     }
 
@@ -290,7 +298,7 @@ def servo_lever(sweep: PipSweep, workspace: np.ndarray) -> tuple[float, float, f
     theta = sweep.servo_rad[workspace]
     if len(theta) < 3:
         return math.inf, math.inf, 0.0
-    b, c = sweep.b[workspace], sweep.c[workspace]
+    b, c = sweep.b[workspace], sweep.tip[workspace]
     bc = (c - b) / np.linalg.norm(c - b, axis=1)[:, None]
     normal = np.stack((bc[:, 1], -bc[:, 0]), axis=1)  # palmar side of BC
     levers = [np.abs(np.sum(normal * np.gradient(point, theta, axis=0), axis=1)) for point in (b, c)]

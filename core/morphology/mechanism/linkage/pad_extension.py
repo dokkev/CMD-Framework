@@ -19,7 +19,7 @@ from typing import TypeVar
 
 import numpy as np
 
-from core.morphology.linkage.design import VARIABLE_NAMES
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES
 
 EXTENSION_STEP_MM = 1.0
 EXTENSION_MAX_MM = 30.0

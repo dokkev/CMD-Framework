@@ -76,7 +76,8 @@ def test_a_design_is_evaluated_on_the_linkage_objectives():
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
     assert e.torque_ratio_max == 1.0  # direct drive
-    assert e.pad_coverage == pytest.approx((e.proximal_face_mm + e.distal_face_mm) / e.finger_length_mm)
+    supports = e.proximal_support_length_mm + e.distal_support_length_mm
+    assert e.pad_coverage == pytest.approx(supports / e.finger_length_mm)
     assert e.curl_deg == pytest.approx(180.0 - math.degrees(e.phi_max_rad))
     assert math.degrees(e.phi_safe_rad) >= 120.0
     report = MECHANISM.report(e)

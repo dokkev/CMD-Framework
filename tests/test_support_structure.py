@@ -6,8 +6,8 @@ import math
 import numpy as np
 import pytest
 
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import (
+from core.morphology.mechanism.linkage import Finger
+from core.morphology.mechanism.linkage.packaging import (
     COMPONENTS,
     LinkagePackaging,
     checked_pairs,
@@ -20,7 +20,7 @@ from core.morphology.linkage.packaging import (
 )
 from core.morphology.packaging.hardware import ContactPad
 from core.morphology.packaging.shapes import PadSpan, pad_outline, point_segment_distance
-from core.morphology.linkage.design import decode, encode
+from core.morphology.mechanism.linkage.design import decode, encode
 
 # The earlier 6.5 mm pin envelope and the default pads.
 HOUSING_ONLY = LinkagePackaging(pivot_clearance_diameter_mm=6.5)
@@ -33,64 +33,63 @@ def xz(point) -> np.ndarray:
 
 
 def test_reference_support_endpoints_project_a_prime_and_b_prime() -> None:
-    linkage = FingerLinkage(decode(GOOD))
+    linkage = decode(GOOD)
     pose = linkage.solve(0.0, 0.0)
 
-    assert (linkage.app.x_mm, linkage.app.z_mm) == (41.6, 0.0)
-    assert (linkage.bpp.x_mm, linkage.bpp.z_mm) == (63.3, 10.0)
-    assert xz(pose.app) == pytest.approx(xz(linkage.app))
-    assert xz(pose.bpp) == pytest.approx(xz(linkage.bpp))
+    assert (linkage.proximal_end.x_mm, linkage.proximal_end.z_mm) == (41.6, 0.0)
+    assert (linkage.distal_start.x_mm, linkage.distal_start.z_mm) == (63.3, 10.0)
+    assert xz(pose.proximal_end) == pytest.approx(xz(linkage.proximal_end))
+    assert xz(pose.distal_start) == pytest.approx(xz(linkage.distal_start))
     spans = pad_spans(decode(GOOD), HOUSING_ONLY)
     # The proximal pad runs on O-A'' from past the MCP servo (pad_mcp_check).
     start = HOUSING_ONLY.proximal_pad_start_mm
-    assert spans["proximal_pad"].length_mm == pytest.approx(np.linalg.norm(xz(linkage.app)) - start)
-    assert spans["distal_pad"].length_mm == pytest.approx(np.linalg.norm(xz(linkage.c) - xz(linkage.bpp)))
+    assert spans["proximal_pad"].length_mm == pytest.approx(np.linalg.norm(xz(linkage.proximal_end)) - start)
+    assert spans["distal_pad"].length_mm == pytest.approx(np.linalg.norm(xz(linkage.tip) - xz(linkage.distal_start)))
 
 
 def test_support_endpoints_ride_rigidly_on_their_bodies() -> None:
-    linkage = FingerLinkage(decode(GOOD))
+    linkage = decode(GOOD)
     reference = linkage.solve(0.0, 0.0)
 
     def distances(pose):
-        return ([np.linalg.norm(xz(pose.app) - xz(getattr(pose, name))) for name in ("o", "a", "ap")]
-                + [np.linalg.norm(xz(pose.bpp) - xz(getattr(pose, name))) for name in ("b", "c", "bp")])
+        return ([np.linalg.norm(xz(pose.proximal_end) - xz(getattr(pose, name))) for name in ("o", "a", "ap")]
+                + [np.linalg.norm(xz(pose.distal_start) - xz(getattr(pose, name))) for name in ("b", "tip", "bp")])
 
     for q_mcp, q_pip in ((0.0, 0.6), (0.7, 1.2), (-0.17, 1.6)):
         pose = linkage.solve(q_mcp, q_pip)
         assert distances(pose) == pytest.approx(distances(reference))
         # B'' stays on B-C, not on a fixed horizontal line.
-        (ux, uz), (vx, vz) = xz(pose.c) - xz(pose.b), xz(pose.bpp) - xz(pose.b)
+        (ux, uz), (vx, vz) = xz(pose.tip) - xz(pose.b), xz(pose.distal_start) - xz(pose.b)
         cross = ux * vz - uz * vx
         assert cross == pytest.approx(0.0, abs=1e-9)
-    assert linkage.solve(0.0, 1.2).bpp.z_mm != pytest.approx(linkage.bpp.z_mm, abs=1.0)
+    assert linkage.solve(0.0, 1.2).distal_start.z_mm != pytest.approx(linkage.distal_start.z_mm, abs=1.0)
 
 
 def test_pads_hang_palmar_of_their_mounting_lines_and_ride_on_their_links() -> None:
-    linkage = FingerLinkage(decode(GOOD))
-    t, k = HOUSING_ONLY.proximal_pad.height_mm, HOUSING_ONLY.proximal_pad.chamfer_mm
+    linkage = decode(GOOD)
+    t = HOUSING_ONLY.proximal_pad.height_mm
     start = HOUSING_ONLY.proximal_pad_start_mm
-    # The proximal pad: a-b on O-A'', a-c square to it, the corner d under A'' chamfered.
+    # The proximal pad: a-b on O-A'', a plain block t palmar of it.
     assert proximal_pad_polygon(linkage, HOUSING_ONLY) == pytest.approx(np.array(
-        ((start, -t), (41.6 - k, -t), (41.6, -t + k), (41.6, 0.0), (start, 0.0))))
+        ((start, -t), (41.6, -t), (41.6, 0.0), (start, 0.0))))
 
     sweep = linkage.sweep_pip(np.radians([0.0, 30.0, 70.0]))
-    distal = distal_pad_polygon(linkage, HOUSING_ONLY, sweep.b, sweep.c)
+    distal = distal_pad_polygon(linkage, HOUSING_ONLY, sweep.b, sweep.tip)
     for i in range(3):
         pose = linkage.solve(0.0, float(sweep.q_pip_rad[i]))
         pad = distal[i]
-        e = (xz(pose.c) - xz(pose.b)) / linkage.parameters.bc_length_mm
+        e = (xz(pose.tip) - xz(pose.b)) / linkage.distal.end_mm
         palmar = np.array((e[1], -e[0]))
-        # a-b is B''-C; the block is t palmar of it, chamfered at the corner c under B''.
-        assert pad[3] == pytest.approx(xz(pose.bpp))
-        assert pad[2] == pytest.approx(xz(pose.c))
-        assert pad[1] == pytest.approx(xz(pose.c) + t * palmar)
-        assert pad[0] == pytest.approx(xz(pose.bpp) + k * e + t * palmar)
-        assert pad[4] == pytest.approx(xz(pose.bpp) + (t - k) * palmar)
+        # a-b is B''-C; the block is t palmar of it.
+        assert pad[3] == pytest.approx(xz(pose.distal_start))
+        assert pad[2] == pytest.approx(xz(pose.tip))
+        assert pad[1] == pytest.approx(xz(pose.tip) + t * palmar)
+        assert pad[0] == pytest.approx(xz(pose.distal_start) + t * palmar)
 
 
 def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
     off = dataclasses.replace(HOUSING_ONLY, pad_mcp_check=False)
-    linkage = FingerLinkage(decode(GOOD))
+    linkage = decode(GOOD)
 
     # Off: the pad starts at O and the MCP servo is not checked.
     assert proximal_pad_polygon(linkage, off)[-1] == pytest.approx((0.0, 0.0))
@@ -102,7 +101,7 @@ def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
     assert pad_spans(decode(GOOD), HOUSING_ONLY)["proximal_pad"].length_mm == pytest.approx(41.6 - on_start)
     assert pad_spans(decode(GOOD), off)["proximal_pad"].length_mm == pytest.approx(41.6)
     # The default offset clears the servo over MCP hyperextension and flexion.
-    reference = [np.array([[p.x_mm, p.z_mm]]) for p in (linkage.b, linkage.c, linkage.bp)]
+    reference = [np.array([[p.x_mm, p.z_mm]]) for p in (linkage.joint.b, linkage.tip, linkage.joint.bp)]
     margins = pad_margins(linkage, HOUSING_ONLY, *reference, MCP_SAMPLES)
     assert margins[("mcp_servo", "proximal_pad")][0] >= 0.0
 
@@ -110,71 +109,65 @@ def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
 def test_pad_offsets_move_the_outer_ends_inward() -> None:
     offset = dataclasses.replace(HOUSING_ONLY, proximal_pad=ContactPad(offset_mm=3.0),
                                  distal_pad=ContactPad(offset_mm=4.0))
-    linkage = FingerLinkage(decode(GOOD))
+    linkage = decode(GOOD)
     base, moved = (pad_spans(decode(GOOD), packaging) for packaging in (HOUSING_ONLY, offset))
 
     # The proximal pad starts 3 mm further right; the distal pad starts 4 mm short of C.
     assert proximal_pad_polygon(linkage, offset)[-1][0] == pytest.approx(HOUSING_ONLY.proximal_pad_start_mm + 3.0)
-    tip = distal_pad_polygon(linkage, offset, np.array([xz(linkage.b)]), np.array([xz(linkage.c)]))[0, 2]
-    assert tip == pytest.approx(xz(linkage.c) - (4.0, 0.0))
+    tip = distal_pad_polygon(linkage, offset, np.array([xz(linkage.joint.b)]), np.array([xz(linkage.tip)]))[0, 2]
+    assert tip == pytest.approx(xz(linkage.tip) - (4.0, 0.0))
     assert moved["proximal_pad"].length_mm == pytest.approx(base["proximal_pad"].length_mm - 3.0)
     assert moved["distal_pad"].length_mm == pytest.approx(base["distal_pad"].length_mm - 4.0)
 
 
 def test_a_fixed_pad_length_sets_the_pad_and_needs_room_on_its_line() -> None:
-    from core.morphology.linkage.packaging import pad_spans
+    from core.morphology.mechanism.linkage.packaging import pad_spans
 
     fixed = dataclasses.replace(HOUSING_ONLY, proximal_pad=ContactPad(length_mm=20.0),
                                 distal_pad=ContactPad(length_mm=30.0))
-    parameters = decode(GOOD)
-    spans = pad_spans(parameters, fixed)
+    finger = decode(GOOD)
+    spans = pad_spans(finger, fixed)
 
     # Proximal: right from its start; distal: left from C. Both fit on GOOD.
     assert spans["proximal_pad"].start_mm == pytest.approx(fixed.proximal_pad_start_mm)
     assert spans["proximal_pad"].length_mm == pytest.approx(20.0)
-    assert spans["distal_pad"].end_mm == pytest.approx(parameters.bc_length_mm)
+    assert spans["distal_pad"].end_mm == pytest.approx(finger.distal.end_mm)
     assert spans["distal_pad"].length_mm == pytest.approx(30.0)
     # A pad longer than its mounting line's room shows as a span past the room.
-    too_long = pad_spans(parameters, dataclasses.replace(HOUSING_ONLY, distal_pad=ContactPad(length_mm=50.0)))
+    too_long = pad_spans(finger, dataclasses.replace(HOUSING_ONLY, distal_pad=ContactPad(length_mm=50.0)))
     assert too_long["distal_pad"].length_mm > too_long["distal_pad"].room_mm
 
 
-def test_the_pip_servo_can_sit_on_a_and_carry_the_proximal_pad() -> None:
-    on_a = dataclasses.replace(HOUSING_ONLY, pip_servo_at="a")
-    linkage = FingerLinkage(decode(GOOD))
-    body = on_a.pip_servo
+def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
+    from core.morphology.mechanism.linkage.design import read_design
+    from core.optimization.linkage.config import packaging_from_mapping
 
-    # The servo's shaft is on A, its body back along -X.
-    footprint = pip_footprint(on_a, linkage)
-    assert footprint.pivot == (36.0, 0.0) and footprint.rear == (-1.0, 0.0)
-    # The proximal pad lies on the body's palmar face, as long as the body.
-    pad = proximal_pad_polygon(linkage, on_a)
-    assert pad[:, 1].max() == pytest.approx(-body.radius_mm)
-    assert pad[:, 0].min() == pytest.approx(36.0 - body.rear_extent_mm)
-    assert pad[:, 0].max() == pytest.approx(36.0 + body.radius_mm)
-    assert pad_spans(decode(GOOD), on_a)["proximal_pad"].length_mm == pytest.approx(
-        body.rear_extent_mm + body.radius_mm)
-
-
-def test_a_chamfer_trims_only_the_palmar_corner_facing_the_pip() -> None:
-    span = PadSpan(0.0, 30.0, 30.0)
-    square = pad_outline(span, ContactPad(chamfer_mm=0.0), "end")
-    chamfered = pad_outline(span, ContactPad(), "end")
-
-    assert len(square) == 4 and len(chamfered) == 5
-    # a-b, the mounting length, is untouched.
-    assert {(0.0, 0.0), (30.0, 0.0)} <= {tuple(point) for point in chamfered}
-    encoded = encode(FingerLinkage(decode(GOOD)))
-    assert encoded[:-2] == (*GOOD, 0.0, 0.0, 0.0, 0.0)
+    block = pad_outline(PadSpan(0.0, 30.0, 30.0), ContactPad(height_mm=5.0))
+    assert block == pytest.approx(np.array(((0.0, -5.0), (30.0, -5.0), (30.0, 0.0), (0.0, 0.0))))
+    encoded = encode(decode(GOOD))
+    assert encoded[:-2] == (*GOOD, 0.0, 0.0)
     assert all(math.isnan(value) for value in encoded[-2:])  # the drops: the packaging's
+    # Runs before the chamfers went (deprecated): their chamfers are left out.
+    row = {name: str(value) for name, value in zip(("a_x_mm", "b_x_mm", "b_z_mm", "ap_x_mm", "ap_z_mm", "bp_x_mm",
+                                                    "bp_z_mm", "servo_tilt_deg", "bc_length_mm", "a_z_mm"), GOOD)}
+    assert read_design({**row, "proximal_chamfer_mm": "2.5"}) == read_design(row)
+    recorded = {"height_mm": 5.0, "chamfer_mm": 2.5, "chamfer_free": True}
+    plain = LinkagePackaging(proximal_pad=ContactPad(height_mm=5.0))
+    assert packaging_from_mapping({"proximal_pad": recorded}) == plain
+    with pytest.raises(ValueError):  # a vector of a length it never had (13: an old one with its chamfers?)
+        decode((*GOOD, 0.0, 0.0, 2.5))
+    # The PIP servo on A' (the only one modelled): a recorded "ap" is left out, "a" refused.
+    assert packaging_from_mapping({"pip_servo_at": "ap"}) == LinkagePackaging()
+    with pytest.raises(ValueError):
+        packaging_from_mapping({"pip_servo_at": "a"})
 
 
 def test_a_link_across_a_pad_ends_its_free_length() -> None:
-    from core.morphology.linkage.packaging import usable_pad_lengths
+    from core.morphology.mechanism.linkage.packaging import usable_pad_lengths
 
-    linkage = FingerLinkage(decode(GOOD))
-    spans = pad_spans(linkage.parameters, HOUSING_ONLY)
-    b, c = xz(linkage.b)[None], xz(linkage.c)[None]
+    linkage = decode(GOOD)
+    spans = pad_spans(linkage, HOUSING_ONLY)
+    b, c = xz(linkage.joint.b)[None], xz(linkage.tip)[None]
     # The driver link A-B' straight down through the proximal pad at x = A_x = 36;
     # the coupler A'-B stays dorsal of both pads.
     free = usable_pad_lengths(linkage, HOUSING_ONLY, b, np.array([[36.0, -20.0]]), c)
@@ -183,7 +176,7 @@ def test_a_link_across_a_pad_ends_its_free_length() -> None:
 
 
 def test_only_a_crossing_of_the_pad_block_counts() -> None:
-    from core.morphology.linkage.packaging import _block_extent
+    from core.morphology.mechanism.linkage.packaging import _block_extent
 
     # A 5 mm block over 10 < u < 40: a segment across it, one palmar of it.
     across = _block_extent(np.array([[20.0, 5.0]]), np.array([[30.0, -15.0]]), 10.0, 40.0, 5.0)
@@ -212,7 +205,7 @@ def test_y_layers_decide_which_pairs_are_checked() -> None:
 def test_a_link_crossing_a_pad_in_the_side_view_is_not_a_collision() -> None:
     from core.morphology.packaging.shapes import points_inside
 
-    linkage = FingerLinkage(decode(GOOD))
+    linkage = decode(GOOD)
     pad = proximal_pad_polygon(linkage, HOUSING_ONLY)
     # Flexed, the driver link A-B' passes through the proximal pad in the side view...
     pose = linkage.solve(0.0, math.radians(60.0))

@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from core.morphology.open_chain import OpenChainFinger, OpenChainParameters
+from core.morphology.mechanism.open_chain import OpenChainFinger, OpenChainParameters
 
 PARAMETERS = OpenChainParameters(proximal_length_mm=45.0, distal_length_mm=50.0, b_offset_mm=15.0)
 

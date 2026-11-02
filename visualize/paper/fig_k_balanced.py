@@ -21,8 +21,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from core.morphology.linkage import FingerLinkage  # noqa: E402
-from core.morphology.linkage.design import VARIABLE_NAMES, decode  # noqa: E402
+from core.morphology.mechanism.linkage import Finger  # noqa: E402
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES, decode  # noqa: E402
 from core.optimization.study import load_run  # noqa: E402
 from visualize.fronts import read_rows, with_role  # noqa: E402
 from visualize.motion import servo_sweep  # noqa: E402
@@ -36,13 +36,13 @@ PORTFOLIOS = (("config/portfolio_003", "balanced, current rules", COLORS["linkag
 STEP_DEG = 0.05
 
 
-def balanced(portfolio: str) -> tuple[dict[str, str], FingerLinkage]:
+def balanced(portfolio: str) -> tuple[dict[str, str], Finger]:
     row = with_role(read_rows(LINKAGE / portfolio / "seeds.csv"), "balanced")
     config = load_run(LINKAGE / row["run"]).config
-    return row, FingerLinkage(decode([float(row[n]) for n in VARIABLE_NAMES], config.link_length_resolution_mm))
+    return row, decode([float(row[n]) for n in VARIABLE_NAMES], config.link_length_resolution_mm)
 
 
-def linkage_k(row: dict[str, str], linkage: FingerLinkage) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def linkage_k(row: dict[str, str], linkage: Finger) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Servo angle and phi (deg) from extension up to the safe reach, and k."""
 
     servo, sweep = servo_sweep(linkage, STEP_DEG)
@@ -71,9 +71,9 @@ def main() -> int:
         print(f"{portfolio} {label}: k {k[within].min():.2f} .. {k[within].max():.2f} on [0, 150] deg, "
               f"servo {theta[within][-1]:.1f} deg for 150 deg, reach {phi[-1]:.1f} deg")
         if ratio is None:
-            g = float(np.linalg.norm(np.subtract((linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm))))
-            bars = (math.dist((linkage.ap.x_mm, linkage.ap.z_mm), (linkage.b.x_mm, linkage.b.z_mm))
-                    + math.dist((linkage.a.x_mm, linkage.a.z_mm), (linkage.bp.x_mm, linkage.bp.z_mm))) / 2.0
+            g = float(np.linalg.norm(np.subtract((linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm))))
+            bars = (math.dist((linkage.joint.ap.x_mm, linkage.joint.ap.z_mm), (linkage.joint.b.x_mm, linkage.joint.b.z_mm))
+                    + math.dist((linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.bp.x_mm, linkage.joint.bp.z_mm))) / 2.0
             ratio = round(g / bars, 2)
     theta, phi, k = fig_antiparallelogram.sweep(ratio)
     i, j = fig_antiparallelogram.best_window(phi, k)

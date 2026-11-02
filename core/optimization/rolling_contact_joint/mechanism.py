@@ -1,6 +1,6 @@
 """The equal-radius rolling contact joint as a retention mechanism (packaged).
 
-The ideal no-slip kinematics of ``core.morphology.rolling_contact_joint``:
+The ideal no-slip kinematics of ``core.morphology.mechanism.rolling_contact_joint``:
 the servo at the proximal roller's centre ``A`` turns the carrier ``A-B`` by
 ``theta`` and the distal phalanx ``B-C`` flexes ``phi = 2 theta``. The
 proximal module hangs palmar of ``O-A''`` (``z = 0``, as the linkage's), the
@@ -25,8 +25,8 @@ from collections.abc import Mapping
 import numpy as np
 
 from core.morphology.contact.retention import Module, Solids
-from core.morphology.rolling_contact_joint import RollingContactJointParameters
-from core.morphology.rolling_contact_joint.solids import PAIRS, joint_parameters, solids as joint_solids
+from core.morphology.mechanism.rolling_contact_joint import RollingContactJointParameters
+from core.morphology.mechanism.rolling_contact_joint.solids import PAIRS, joint_parameters, solids as joint_solids
 
 from core.optimization.retention.config import RetentionConfig
 from core.optimization.retention.mechanism import RetentionMechanism

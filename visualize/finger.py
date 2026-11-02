@@ -23,10 +23,9 @@ import numpy as np
 from matplotlib.patches import Circle
 
 import core.morphology.packaging.gaps as packaging_module
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import distal_pad_polygon, pad_margins, proximal_pad_polygon
-from core.morphology.linkage.design import decode
-from core.morphology.rcj import TORQUE_RATIO as RCJ_TORQUE_RATIO
+from core.morphology.mechanism.linkage.packaging import distal_pad_polygon, pad_margins, proximal_pad_polygon
+from core.morphology.mechanism.linkage.design import decode
+from core.morphology.mechanism.rcj import TORQUE_RATIO as RCJ_TORQUE_RATIO
 from core.optimization.study import load_run
 from visualize import sketch
 from visualize.motion import index_at, servo_sweep
@@ -48,7 +47,7 @@ class Finger:
     config: Any
     x: tuple[float, ...]
     state: Any
-    """The mechanism's own model: a ``FingerLinkage`` or a geometry."""
+    """The mechanism's own model: a ``core.morphology.finger.Finger`` or a geometry."""
 
     @property
     def label(self) -> str:
@@ -84,7 +83,7 @@ class Finger:
         phi_deg = np.asarray(phi_deg, dtype=float)
         if self.mechanism == "linkage":
             sweep, index = self._linkage_index(phi_deg)
-            return pad_margins(self.state, self.packaging, sweep.b[index], sweep.c[index], sweep.bp[index], (0.0,))
+            return pad_margins(self.state, self.packaging, sweep.b[index], sweep.tip[index], sweep.bp[index], (0.0,))
         module = {"rcj": rcj_evaluate, "revolute_parallel": parallel_evaluate}.get(self.mechanism, revolute_evaluate)
         return module._margins(self.state, np.radians(phi_deg), self.config)
 
@@ -97,20 +96,7 @@ class Finger:
         if self.mechanism == "rcj":  # the rollers' contact point, halfway along the carrier
             return (self.state.a + self.state.b(np.radians(phi_deg))) / 2.0
         sweep, index = self._linkage_index(phi_deg)
-        linkage = self.state
-        a = np.array((linkage.a.x_mm, linkage.a.z_mm))
-        ap = np.array((linkage.ap.x_mm, linkage.ap.z_mm))
-        points = []
-        for bp, b in zip(sweep.bp[index], sweep.b[index]):
-            # Where the lines of the two links A-B' and A'-B cross.
-            d1, d2 = bp - a, b - ap
-            matrix = np.array((d1, -d2)).T
-            if abs(np.linalg.det(matrix)) < 1e-9:
-                points.append((np.nan, np.nan))
-                continue
-            t = np.linalg.solve(matrix, ap - a)[0]
-            points.append(a + t * d1)
-        return np.array(points)
+        return sweep.icr[index]
 
     def k(self, phi_deg: np.ndarray) -> np.ndarray:
         """``d(phi)/d(theta)``: the servo torque per unit of distal moment held."""
@@ -127,14 +113,14 @@ class Finger:
     def tip(self, phi_deg: float) -> np.ndarray:
         if self.mechanism == "linkage":
             sweep, index = self._linkage_index(np.array([phi_deg]))
-            return sweep.c[index[0]]
+            return sweep.tip[index[0]]
         return self.state.tip(np.radians([phi_deg]))[0]
 
     def distal_pad(self, phi_deg: float) -> np.ndarray:
         if self.mechanism == "linkage":
             sweep, index = self._linkage_index(np.array([phi_deg]))
             i = index[0]
-            return distal_pad_polygon(self.state, self.packaging, sweep.b[i][None], sweep.c[i][None])[0]
+            return distal_pad_polygon(self.state, self.packaging, sweep.b[i][None], sweep.tip[i][None])[0]
         return self.state.distal_pad(np.radians([phi_deg]))[0]
 
     def proximal_pad(self) -> np.ndarray:
@@ -203,7 +189,7 @@ def finger_from_row(mechanism: str, row: dict[str, str], study: Path) -> Finger:
     config = run.config
     x = tuple(run.mechanism.read_design(row))
     if mechanism == "linkage":
-        state = FingerLinkage(decode(x, config.link_length_resolution_mm))
+        state = decode(x, config.link_length_resolution_mm)
     elif mechanism == "rcj":
         state = rcj_evaluate.geometry(x, config)
     elif mechanism == "revolute_parallel":

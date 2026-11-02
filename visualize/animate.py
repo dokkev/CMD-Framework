@@ -13,8 +13,8 @@ has no fingertip). The PIP servo sits at A' and drives A'-B; the driver link
 A-B' turns red where it comes closer than the body clearance to the PIP servo.
 
 The contact pads are drawn as the solids the linkage evaluator checks
-(``core.morphology.linkage.packaging``): blocks palmar of O-A'' and B''-C,
-chamfered toward the PIP, riding on the proximal and distal links. They turn
+(``core.morphology.mechanism.linkage.packaging``): plain blocks palmar of O-A'' and B''-C,
+riding on the proximal and distal links. They turn
 red when a checked pair comes closer than the body clearance at that pose
 (MCP at its frame angle); the status line names the closest pair.
 
@@ -39,19 +39,14 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Polygon
 
-from core.morphology.linkage import (
-    SKETCH_LINKAGE,
-    FingerLinkage,
-    PointXZ,
-    servo_clearance,
-)
-from core.morphology.linkage.design import VARIABLE_NAMES, decode, read_design
-from core.morphology.linkage.packaging import (
+from core.morphology.mechanism.linkage import SKETCH_LINKAGE, Finger, PointXZ, servo_clearance
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES, decode, read_design
+from core.morphology.mechanism.linkage.packaging import (
     COMPONENTS,
+    FIXED_MARGIN_PAIRS,
     LinkagePackaging,
     distal_drop,
     distal_pad_polygon,
-    fixed_margin_pairs,
     pad_margins,
     pip_footprint,
     proximal_drop,
@@ -70,7 +65,7 @@ OUTLINE_WIDTH = 1.6
 
 
 def load_candidate(csv_path: Path, candidate: int,
-                   app_offset_mm: float | None = None) -> tuple[FingerLinkage, float, LinkagePackaging]:
+                   app_offset_mm: float | None = None) -> tuple[Finger, float, LinkagePackaging]:
     """Return a linkage optimization candidate's linkage, the PIP flexion at the end of its
     usable range and the run's packaging."""
 
@@ -81,8 +76,10 @@ def load_candidate(csv_path: Path, candidate: int,
                 if app_offset_mm is not None:  # the proximal pad run past A'
                     x[VARIABLE_NAMES.index("app_offset_mm")] = app_offset_mm
                 config = load_config(csv_path.parent)
-                linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
-                return linkage, float(row["usable_pip_deg"]), config.packaging
+                linkage = decode(x, config.link_length_resolution_mm)
+                # The run reports the driver link's rotation; the finger is posed by its PIP.
+                usable = linkage.joint.solve_driver(math.radians(float(row["usable_pip_deg"])))
+                return linkage, math.degrees(usable.q_pip_rad), config.packaging
     raise ValueError(f"candidate {candidate} not found in {csv_path}")
 
 
@@ -94,30 +91,30 @@ def build_trajectory(mcp_rad: float, pip_rad: float, frames: int) -> list[tuple[
     return forward + forward[-2::-1]
 
 
-def link_clearance_mm(linkage: FingerLinkage, q_pip_rad: float, packaging: LinkagePackaging) -> float:
-    return servo_clearance(linkage, packaging, pip_samples_rad=(q_pip_rad,)).link_mm
+def link_clearance_mm(linkage: Finger, q_driver_rad: float, packaging: LinkagePackaging) -> float:
+    return servo_clearance(linkage, packaging, driver_samples_rad=(q_driver_rad,)).link_mm
 
 
-def pad_status(linkage: FingerLinkage, packaging: LinkagePackaging,
+def pad_status(linkage: Finger, packaging: LinkagePackaging,
                q_mcp_rad: float, q_pip_rad: float) -> tuple[float, str, bool]:
     """Least pad margin at one pose (less the fixed-margin pairs), the pair
     that sets it, and whether any checked pair collides."""
 
     sweep = linkage.sweep_pip((q_pip_rad,))
-    margins = pad_margins(linkage, packaging, sweep.b, sweep.c, sweep.bp, (q_mcp_rad,))
-    reported = {pair: margin for pair, margin in margins.items() if pair not in fixed_margin_pairs(packaging)}
+    margins = pad_margins(linkage, packaging, sweep.b, sweep.tip, sweep.bp, (q_mcp_rad,))
+    reported = {pair: margin for pair, margin in margins.items() if pair not in FIXED_MARGIN_PAIRS}
     pair, margin = min(reported.items(), key=lambda item: float(item[1][0]))
     colliding = any(float(value[0]) < 0.0 for value in margins.values())
     return float(margin[0]), "/".join(pair), colliding
 
 
 def create_animation(
-    linkage: FingerLinkage, trajectory: Sequence[tuple[float, float]], fps: int,
+    linkage: Finger, trajectory: Sequence[tuple[float, float]], fps: int,
     packaging: LinkagePackaging | None = None,
 ) -> tuple[plt.Figure, FuncAnimation, Callable[[int], object]]:
     packaging = packaging or LinkagePackaging()
     poses = [linkage.solve(q_mcp, q_pip) for q_mcp, q_pip in trajectory]
-    clearances = [link_clearance_mm(linkage, q_pip, packaging) for _, q_pip in trajectory]
+    clearances = [link_clearance_mm(linkage, pose.q_driver_rad, packaging) for pose in poses]
     pads = [pad_status(linkage, packaging, q_mcp, q_pip) for q_mcp, q_pip in trajectory]
     servo = pip_footprint(packaging, linkage).outline
     # The pad solids, posed: the proximal one turns with the MCP, the
@@ -126,7 +123,7 @@ def create_animation(
     proximal_frames = [[turn_points(proximal, -pose.q_mcp_rad)] for pose in poses]
     distal_frames = [list(distal_pad_polygon(
         linkage, packaging, np.array([[pose.b.x_mm, pose.b.z_mm]]),
-        np.array([[pose.c.x_mm, pose.c.z_mm]]))) for pose in poses]
+        np.array([[pose.tip.x_mm, pose.tip.z_mm]]))) for pose in poses]
 
     frames = []
     for pose in poses:
@@ -136,7 +133,7 @@ def create_animation(
     mcp_servo = [tuple(point) for point in packaging.mcp_footprint().outline]
 
     points = [xz for frame in frames for xz in frame] + mcp_servo
-    points += [(p.x_mm, p.z_mm) for pose in poses for p in (pose.ap, pose.bp, pose.b, pose.c)]
+    points += [(p.x_mm, p.z_mm) for pose in poses for p in (pose.ap, pose.bp, pose.b, pose.tip)]
     points += [tuple(xz) for frame in proximal_frames + distal_frames for quad in frame for xz in quad]
     xs, zs = [x for x, _ in points], [z for _, z in points]
     x_limits, z_limits = (min(xs) - 5, max(xs) + 5), (min(zs) - 5, max(zs) + 5)
@@ -209,8 +206,8 @@ def create_animation(
                         markeredgecolor=edge, markeredgewidth=2.2, zorder=5)[0]
         for name, face, edge in (("o", "#ffd400", RED), ("a", RED, BLACK),
                                  ("ap", "#ffd400", GRAY), ("bp", BLUE, BLACK),
-                                 ("b", BLUE, GRAY), ("c", BLUE, BLUE),
-                                 ("app", "white", RED), ("bpp", "white", BLUE))
+                                 ("b", BLUE, GRAY), ("tip", BLUE, BLUE),
+                                 ("proximal_end", "white", RED), ("distal_start", "white", BLUE))
     }
     labels = {
         name: axis.annotate(text, (0, 0), xytext=offset, textcoords="offset points",
@@ -219,8 +216,8 @@ def create_animation(
         for name, text, color, offset in (
             ("o", r"$O$", RED, (-12, 12)), ("a", r"$A$", RED, (0, -18)),
             ("ap", r"$A'$", RED, (0, 15)), ("bp", r"$B'$", BLUE, (0, 15)),
-            ("b", r"$B$", BLUE, (0, -18)), ("c", r"$C$", BLUE, (12, -12)),
-            ("app", r"$A''$", RED, (0, -18)), ("bpp", r"$B''$", BLUE, (0, -18)))
+            ("b", r"$B$", BLUE, (0, -18)), ("tip", r"$C$", BLUE, (12, -12)),
+            ("proximal_end", r"$A''$", RED, (0, -18)), ("distal_start", r"$B''$", BLUE, (0, -18)))
     }
     status = axis.text(0.01, 0.99, "", transform=axis.transAxes, va="top",
                        fontsize=10, fontfamily="monospace", zorder=7)
@@ -237,12 +234,8 @@ def create_animation(
 
     def transmission_text(pose) -> str:
         # The transmission angle is at the joint the driven link does not touch.
-        on_a = packaging.pip_servo_on_a
-        drive, limit = (("B", "B'") if on_a else ("B'", "B"))
-        transmission = pose.margin_at_b_rad if on_a else pose.margin_at_bp_rad
-        toggle = pose.margin_at_bp_rad if on_a else pose.margin_at_b_rad
-        return (f"transmission at {drive} {math.degrees(transmission):3.0f}°"
-                f"  limit position at {limit} {math.degrees(toggle):3.0f}°")
+        return (f"transmission at B' {math.degrees(pose.margin_at_bp_rad):3.0f}°"
+                f"  limit position at B {math.degrees(pose.margin_at_b_rad):3.0f}°")
 
     def update(index: int):
         pose = poses[index]
@@ -262,15 +255,15 @@ def create_animation(
                 patch.set_xy(shape)
         proximal.set_data(*xy((pose.o, pose.a, pose.ap, pose.o)))
         driver.set_data(*xy((pose.a, pose.bp)))
-        distal.set_data(*xy((pose.bp, pose.b, pose.c, pose.bp)))
+        distal.set_data(*xy((pose.bp, pose.b, pose.tip, pose.bp)))
         coupler.set_data(*xy((pose.ap, pose.b)))
         driver.set_color(RED if clearances[index] < 0.0 else BLACK)
         for name, marker in markers.items():
             point = getattr(pose, name)
             x, z = point.x_mm, point.z_mm
-            if name in ("app", "bpp"):  # on the pad's top face, its drop below the link line
-                start, end, drop = ((pose.o, pose.a, proximal_drop(packaging, linkage.parameters)) if name == "app"
-                                    else (pose.b, pose.c, distal_drop(packaging, linkage.parameters)))
+            if name in ("proximal_end", "distal_start"):  # on the pad's top face, its drop below the link line
+                start, end, drop = ((pose.o, pose.a, proximal_drop(packaging, linkage)) if name == "proximal_end"
+                                    else (pose.b, pose.tip, distal_drop(packaging, linkage)))
                 ux, uz = end.x_mm - start.x_mm, end.z_mm - start.z_mm
                 length = math.hypot(ux, uz) or 1.0
                 x, z = x - drop * -uz / length, z - drop * ux / length
@@ -278,7 +271,7 @@ def create_animation(
             labels[name].xy = (x, z)
         status.set_text(
             f"MCP {math.degrees(pose.q_mcp_rad):5.1f}°  PIP {math.degrees(pose.q_pip_rad):5.1f}°"
-            f"  DIP {math.degrees(pose.q_dip_rad):5.1f}°\n"
+            f"  (A-B' {math.degrees(pose.q_driver_rad):5.1f}°, DIP {math.degrees(pose.q_dip_rad):5.1f}°)\n"
             f"{'crossed' if pose.is_crossed else 'open':7s} "
             f"{transmission_text(pose)}"
             f"  link-servo clearance {clearances[index] + packaging.body_clearance_mm:5.1f} mm\n"

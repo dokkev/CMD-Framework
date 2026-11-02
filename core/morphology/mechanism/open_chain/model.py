@@ -14,8 +14,8 @@ from dataclasses import dataclass
 
 from core._validation import require_finite
 from core.geometry import RigidTransform
-from core.morphology.linkage.parameters import PointXZ
-from core.morphology.open_chain.parameters import OpenChainParameters
+from core.morphology.finger import PointXZ
+from core.morphology.mechanism.open_chain.parameters import OpenChainParameters
 
 
 FLEXION_AXIS = (0.0, 1.0, 0.0)

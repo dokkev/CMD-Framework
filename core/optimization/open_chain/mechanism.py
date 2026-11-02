@@ -1,7 +1,7 @@
 """The open-chain (serial 2R) finger as a retention mechanism, idealized or packaged.
 
-Its solids are the morphology's (``core.morphology.open_chain.solids``), on
-the same kinematics (``core.morphology.open_chain``):
+Its solids are the morphology's (``core.morphology.mechanism.open_chain.solids``), on
+the same kinematics (``core.morphology.mechanism.open_chain``):
 the MCP at ``O`` and the distal joint at ``A``, each segment's module palmar
 of its centreline (the mounting line), the distal one anchored at ``EE``. The
 structure is the two centrelines and the joint pin envelopes at ``O`` and
@@ -21,7 +21,7 @@ from collections.abc import Mapping
 import numpy as np
 
 from core.morphology.contact.retention import Module, Solids
-from core.morphology.open_chain.solids import HOUSING_PAIRS, STRUCTURE_PAIRS, solids as open_chain_solids
+from core.morphology.mechanism.open_chain.solids import HOUSING_PAIRS, STRUCTURE_PAIRS, solids as open_chain_solids
 
 from core.optimization.retention.config import RetentionConfig
 from core.optimization.retention.mechanism import RetentionMechanism

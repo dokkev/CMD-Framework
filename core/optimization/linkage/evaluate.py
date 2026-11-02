@@ -1,6 +1,6 @@
 """Evaluate one linkage design against the study's requirements.
 
-What the finger is and does is the morphology's (``core.morphology.linkage``:
+What the finger is and does is the morphology's (``core.morphology.mechanism.linkage``:
 its kinematics, packaging, measures and swept motion); this module holds
 those measurements to the goal's bounds as constraints.
 
@@ -8,7 +8,7 @@ The PIP servo sits on ``A'`` and drives the coupler ``A'-B``. ``phi = q_pip +
 q_dip`` is the distal link's rotation relative to the proximal link (180 deg:
 ``BC`` antiparallel to ``OA``). The contact pads hang palmar of ``O-A''``
 (proximal body) and ``B''-C`` (distal body), solids whose geometry and
-collision pairs ``core.morphology.linkage.packaging`` owns.
+collision pairs ``core.morphology.mechanism.linkage.packaging`` owns.
 
 - **Static checks first** (the reference pose and the packaging alone): the
   servos clear each other, the pins their neighbours, ``|OC|`` and ``|OA|``
@@ -39,10 +39,11 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.linkage import FingerLinkage, FingerLinkageParameters
-from core.morphology.linkage.measures import finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
-from core.morphology.linkage.motion import MotionSettings, sweep_motion
-from core.morphology.linkage.packaging import (
+from core.morphology.finger import Finger
+from core.morphology.mechanism.linkage.measures import finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
+from core.morphology.mechanism.linkage.model import four_bar
+from core.morphology.mechanism.linkage.motion import MotionSettings, sweep_motion
+from core.morphology.mechanism.linkage.packaging import (
     PAD_PARTS,
     assembly,
     distal_drop,
@@ -92,7 +93,7 @@ UNSWEPT = 1.0e2
 class LinkageEvaluation:
     """Constraints, objectives and diagnostics of one design."""
 
-    parameters: FingerLinkageParameters
+    finger: Finger
     constraints: Mapping[str, float]
     worst_transmission_quality: float = 0.0
     ab_mm: float = math.nan
@@ -107,7 +108,7 @@ class LinkageEvaluation:
     """The most flexion every check still allows, ``C_x`` included (at most pi)."""
     stop_reason: str = ""
     """What ends the safe motion: ``"curl"`` at 180 deg, an unsafe condition
-    (``core.morphology.linkage.motion.STOP_REASONS``), ``"closure"`` or ``"horizon"``."""
+    (``core.morphology.mechanism.linkage.motion.STOP_REASONS``), ``"closure"`` or ``"horizon"``."""
     collision_pair: str = ""
     """With ``"pad_collision"``, the first pair that collides, ``"first/second"``."""
     usable_pip_rad: float = 0.0
@@ -140,9 +141,6 @@ class LinkageEvaluation:
     distal_room_mm: float = math.nan
     """Each support's length, from the pad's outer end to ``A''`` / ``B''``:
     the longest module it can carry (``PadSpan.room_mm``)."""
-    proximal_face_mm: float = math.nan
-    distal_face_mm: float = math.nan
-    """Each pad's palmar face, its ``a-b`` less the chamfer."""
     proximal_usable_length_mm: float = math.nan
     distal_usable_length_mm: float = math.nan
     """Each pad's length the links leave free from its outer end, the least on
@@ -181,13 +179,14 @@ class LinkageEvaluation:
 
     @property
     def proximal_effective_mm(self) -> float:
-        """The proximal pad's face the links leave free all over ``[0, phi_req]``."""
+        """The proximal pad's face the links leave free all over ``[0, phi_req]``
+        (the face: its mounting length, a plain block)."""
 
-        return min(self.proximal_usable_length_mm, self.proximal_face_mm)
+        return min(self.proximal_usable_length_mm, max(self.proximal_support_length_mm, 0.0))
 
     @property
     def distal_effective_mm(self) -> float:
-        return min(self.distal_usable_length_mm, self.distal_face_mm)
+        return min(self.distal_usable_length_mm, max(self.distal_support_length_mm, 0.0))
 
     @property
     def pad_coverage(self) -> float:
@@ -215,38 +214,38 @@ class LinkageEvaluation:
         return "tip_x" if self.phi_max_rad < self.phi_safe_rad - 1e-12 else self.stop_reason
 
 
-def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> LinkageEvaluation:
+def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
     """Evaluate one design (see the module docstring). A design that fails a
     static check gets :data:`UNSWEPT` for the motion constraints; an invalid
     reference pose :data:`INVALID` for every other constraint."""
 
-    packaging = config.packaging
+    packaging, joint = config.packaging, four_bar(finger)
     common = dict(
-        ab_mm=math.hypot(parameters.b_x_mm - parameters.a_x_mm, parameters.b_z_mm - parameters.a_z_mm),
-        finger_length_mm=finger_length_mm(parameters),
-        proximal_length_mm=math.hypot(parameters.a_x_mm, parameters.a_z_mm),
+        ab_mm=math.hypot(joint.b.x_mm - joint.a.x_mm, joint.b.z_mm - joint.a.z_mm),
+        finger_length_mm=finger_length_mm(finger),
+        proximal_length_mm=math.hypot(joint.a.x_mm, joint.a.z_mm),
         required_rom_rad=config.required_rom_rad,
         required_proximal_mm=config.minimum_proximal_support_mm,
         required_distal_mm=config.minimum_distal_support_mm,
-        proximal_depth_mm=proximal_drop(packaging, parameters) + packaging.proximal_pad.height_mm,
-        distal_depth_mm=distal_drop(packaging, parameters) + packaging.distal_pad.height_mm,
-        **pad_lengths(parameters, packaging),
+        proximal_depth_mm=proximal_drop(packaging, finger) + packaging.proximal_pad.height_mm,
+        distal_depth_mm=distal_drop(packaging, finger) + packaging.distal_pad.height_mm,
+        **pad_lengths(finger, packaging),
     )
     try:
-        linkage = FingerLinkage(parameters)
+        joint.check()
     except ValueError:  # the reference pose is a dead point
         constraints = {name: INVALID for name in CONSTRAINT_NAMES}
         constraints["valid_reference"] = 1.0
-        return LinkageEvaluation(parameters, MappingProxyType(constraints), **common)
+        return LinkageEvaluation(finger, MappingProxyType(constraints), **common)
 
-    footprint = pip_footprint(packaging, linkage)
-    static = _static_constraints(linkage, footprint, config, common)
+    footprint = pip_footprint(packaging, finger)
+    static = _static_constraints(finger, footprint, config, common)
     if max(static.values()) > 0.0:
         constraints = {**static, **{name: UNSWEPT for name in MOTION_CONSTRAINTS}}
-        return LinkageEvaluation(parameters, MappingProxyType(constraints),
+        return LinkageEvaluation(finger, MappingProxyType(constraints),
                                  servo_lowest_z_mm=footprint.lowest_z_mm, **common)
 
-    motion = sweep_motion(linkage, packaging, motion_settings(config), config.required_rom_rad, footprint,
+    motion = sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad, footprint,
                           config.integrity_depth_mm)
     # Hyperextension: the PIP must reach the stopper safely; short of it, the
     # violation is the PIP still missing.
@@ -266,12 +265,13 @@ def evaluate(parameters: FingerLinkageParameters, config: LinkageConfig) -> Link
         "hyperextension_deg": hyper_violation,
         "curl_tip_x_mm": -motion.least_tip_x_mm,
         "pad_usable_mm": max(
-            config.minimum_proximal_support_mm - min(free["proximal_pad"], common["proximal_face_mm"]),
-            config.minimum_distal_support_mm - min(free["distal_pad"], common["distal_face_mm"])),
+            config.minimum_proximal_support_mm
+            - min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0)),
+            config.minimum_distal_support_mm - min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0))),
         "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
     }
     return LinkageEvaluation(
-        parameters=parameters,
+        finger=finger,
         constraints=MappingProxyType(constraints),
         worst_transmission_quality=motion.worst_transmission_quality,
         phi_safe_rad=motion.phi_safe_rad,
@@ -314,19 +314,19 @@ def motion_settings(config: LinkageConfig) -> MotionSettings:
     )
 
 
-def dorsal_space_violation(linkage: FingerLinkage, config: LinkageConfig) -> float:
+def dorsal_space_violation(finger: Finger, config: LinkageConfig) -> float:
     """How far (mm) the extended finger rises past ``goal.link.dorsal_space_mm`` above ``O``'s line (0: none set)."""
 
     if config.dorsal_space_mm is None:
         return 0.0
     from core.morphology.contact.loss import dorsal_space_mm, linkage_scene  # only with a dorsal space set
 
-    b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp))
-    built = linkage_scene(linkage, config.packaging, b, c, bp, [0.0], config.proximal_carrier_height_mm)
+    b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (finger.joint.b, finger.tip, finger.joint.bp))
+    built = linkage_scene(finger, config.packaging, b, c, bp, [0.0], config.proximal_carrier_height_mm)
     return dorsal_space_mm(built, config.link_radius_mm or 0.0) - config.dorsal_space_mm
 
 
-def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, config: LinkageConfig,
+def _static_constraints(finger: Finger, footprint: ServoFootprint, config: LinkageConfig,
                         common: Mapping[str, float]) -> dict[str, float]:
     """Constraints of the reference geometry and the packaging alone, in three
     stages by cost: lengths and pins, then the servos, then the pads' polygons.
@@ -334,10 +334,9 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     (a feasible design checks them all)."""
 
     packaging = config.packaging
-    parameters = linkage.parameters
 
     # Every gap is the packaging's (its rigid bodies and their keep-outs), in the extended pose.
-    built, rest = assembly(linkage, packaging), reference_poses(linkage, config.mcp_samples_rad)
+    built, rest = assembly(finger, packaging), reference_poses(finger, config.mcp_samples_rad)
     least = lambda *pairs: least_margin_mm(built, rest, packaging, *pairs)  # noqa: E731
 
     # 1. Lengths, pins and the pads' room: closed forms.
@@ -348,28 +347,28 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     proximal_violations = [value for value in (
         None if proximal_low is None else proximal_low - proximal_length,
         None if proximal_high is None else proximal_length - proximal_high) if value is not None]
-    spans = pad_spans(parameters, packaging)
+    spans = pad_spans(finger, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
     if packaging.pads_off_pins:  # each pad clear of its own body's pin housings, wherever it ends
         topology = (-least(("proximal_pad", "a_pin"), ("proximal_pad", "ap_pin")),
                     -least(("distal_pad", "b_pin"), ("distal_pad", "bp_pin")))
-        icr_x = linkage_icr_x(linkage)
+        icr_x = linkage_icr_x(finger)
         if config.proximal_pad_past_icr_max_mm is not None and icr_x is not None:  # not past the fold
-            topology = (max(topology[0], parameters.app_x_mm - icr_x - config.proximal_pad_past_icr_max_mm),
+            topology = (max(topology[0], finger.proximal.end_mm - icr_x - config.proximal_pad_past_icr_max_mm),
                         topology[1])
-        topology = tuple(max(value, over) for value, over in zip(topology, overhang_violations(linkage, config)))
+        topology = tuple(max(value, over) for value, over in zip(topology, overhang_violations(finger, config)))
     else:  # the pads run from A and B outward
-        topology = (parameters.a_x_mm - parameters.app_x_mm, parameters.bpp_x_mm - parameters.b_x_mm)
-    span, (span_low, span_high) = linkage.a.distance_to(linkage.b), config.joint_span_bounds_mm
+        topology = (finger.joint.a.x_mm - finger.proximal.end_mm, finger.distal.start_mm)
+    span, (span_low, span_high) = finger.joint.a.distance_to(finger.joint.b), config.joint_span_bounds_mm
     span_violations = [value for value in (None if span_low is None else span_low - span,
                                            None if span_high is None else span - span_high) if value is not None]
     # |OA| and BC as shares of |OC|, their violations in mm.
-    span_violations += config.length_ratio_violations(proximal_length, parameters.bc_length_mm, span, length)
+    span_violations += config.length_ratio_violations(proximal_length, finger.distal.end_mm, span, length)
     # The extended centre of rotation within its share of |OC| (the bending-point control).
-    span_violations += config.icr0_violations(linkage_icr_x(linkage), length)
+    span_violations += config.icr0_violations(linkage_icr_x(finger), length)
     # A clears the keep-out at the servo's shaft A'.
     pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
-                 -least(("ap_pin" if packaging.pip_servo_on_a else "a_pin", "pip_shaft")))
+                 -least(("a_pin", "pip_shaft")))
     constraints = {
         "valid_reference": 0.0,
         "pivot_pin_mm": pivot_pin,
@@ -387,7 +386,7 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
                                  distal.length_mm - distal.limit_mm,
                                  config.minimum_distal_support_mm - distal.length_mm,
                                  distal.length_mm - distal.room_mm),
-        "dorsal_space_mm": dorsal_space_violation(linkage, config),
+        "dorsal_space_mm": dorsal_space_violation(finger, config),
     }
     servos, pads = ("mcp_servo_mm", "pip_servo_pad_mm"), ("pad_collision_mm",)
     if max(constraints.values()) > 0.0:
@@ -395,7 +394,7 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
 
     # 2. The servos: the two bodies, A against the PIP servo, the PIP servo
     # and the proximal pad.
-    servo_rest = reference_poses(linkage, np.asarray(config.mcp_servo_angles_rad))
+    servo_rest = reference_poses(finger, np.asarray(config.mcp_servo_angles_rad))
     constraints["mcp_servo_mm"] = -least_margin_mm(built, servo_rest, packaging, ("mcp_servo", "pip_servo"))
     if packaging.a_pin_servo_check:
         constraints["pivot_pin_mm"] = max(pivot_pin, -least(("a_pin", "pip_servo")))
@@ -414,11 +413,11 @@ def _static_constraints(linkage: FingerLinkage, footprint: ServoFootprint, confi
     return constraints
 
 
-def overhang_violations(linkage: FingerLinkage, config: LinkageConfig) -> tuple[float, float]:
+def overhang_violations(finger: Finger, config: LinkageConfig) -> tuple[float, float]:
     """How far (mm) each pad runs past its own body (``measures.overhang_mm``)
     beyond ``goal.pads.*.overhang_max_mm`` (0 within it, or without a limit)."""
 
-    over = overhang_mm(linkage, config.packaging)
+    over = overhang_mm(finger, config.packaging)
     limits = (config.proximal_overhang_max_mm, config.distal_overhang_max_mm)
     return tuple(0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(over, limits))
 

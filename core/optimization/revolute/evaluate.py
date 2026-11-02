@@ -1,6 +1,6 @@
 """Evaluate one serial 2R (revolute) finger against the linkage study's goal.
 
-Its solids and their gaps are the morphology's (``core.morphology.revolute``);
+Its solids and their gaps are the morphology's (``core.morphology.mechanism.revolute``);
 this module holds them to the goal's bounds as constraints.
 
 The MCP is at ``O`` and the distal joint at ``A = (|OA|, 0)``; the distal
@@ -44,8 +44,8 @@ import numpy as np
 from core.morphology.contact.loss import dorsal_space_mm, integrity_free, joint_scene
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
-from core.morphology.revolute import solids
-from core.morphology.revolute.solids import (
+from core.morphology.mechanism.revolute import solids
+from core.morphology.mechanism.revolute.solids import (
     JointChecks,
     RevoluteGeometry,
     between_samples,
@@ -126,8 +126,6 @@ class RevoluteEvaluation:
     required_rom_rad: float
     proximal_support_length_mm: float
     distal_support_length_mm: float
-    proximal_face_mm: float
-    distal_face_mm: float
     proximal_room_mm: float = math.nan
     distal_room_mm: float = math.nan
     """Each support's length, from the pad's outer end to ``A''`` / ``B''``."""
@@ -166,11 +164,11 @@ class RevoluteEvaluation:
 
     @property
     def proximal_effective_mm(self) -> float:
-        return min(self.proximal_face_mm, self.proximal_usable_length_mm)
+        return min(max(self.proximal_support_length_mm, 0.0), self.proximal_usable_length_mm)
 
     @property
     def distal_effective_mm(self) -> float:
-        return min(self.distal_face_mm, self.distal_usable_length_mm)
+        return min(max(self.distal_support_length_mm, 0.0), self.distal_usable_length_mm)
 
     @property
     def pad_coverage(self) -> float:
@@ -240,7 +238,6 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
                   proximal_length_mm=geo.a_x_mm, required_rom_rad=goal.required_rom_rad,
                   proximal_support_length_mm=geo.proximal_length_mm,
                   distal_support_length_mm=geo.distal_length_mm,
-                  proximal_face_mm=geo.proximal_face_mm, distal_face_mm=geo.distal_face_mm,
                   proximal_room_mm=geo.proximal_room_mm, distal_room_mm=geo.distal_room_mm,
                   proximal_depth_mm=geo.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=geo.distal_drop_mm + packaging.distal_pad.height_mm)
@@ -276,8 +273,9 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
         # No link crosses a 2R pad: its effective length is its face less the fold (as the linkage's).
-        "pad_usable_mm": max(goal.minimum_proximal_support_mm - min(geo.proximal_face_mm, proximal_usable),
-                             goal.minimum_distal_support_mm - min(geo.distal_face_mm, distal_usable)),
+        "pad_usable_mm": max(
+            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
+            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
     }
     return RevoluteEvaluation(
         proximal_usable_length_mm=proximal_usable,

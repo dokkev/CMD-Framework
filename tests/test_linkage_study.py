@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import (
+from core.morphology.mechanism.linkage import Finger
+from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     checked_pairs,
     distal_carrier_polygon,
@@ -20,13 +20,13 @@ from core.morphology.linkage.packaging import (
     proximal_pad_polygon,
 )
 from core.morphology.packaging.shapes import separation
-from core.morphology.linkage.design import VARIABLE_NAMES, decode
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES, decode
 from core.optimization.mechanism import mechanism, read_config_file
 from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
 MECHANISM = mechanism("linkage")
-X = (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9, 0.0, 0.0)
+X = (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9)
 """A feasible design of a short run."""
 
 
@@ -65,7 +65,6 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert not packaging.pip_servo_above_oa and packaging.pip_servo_pad_check and packaging.overlap_depth
     # With pad_coverage the pads are capped at their max (null: the finger's max).
     assert packaging.proximal_pad.max_length_mm == 110.0
-    assert not packaging.proximal_pad.chamfer_free and packaging.proximal_pad.chamfer_mm == 0.0  # plain blocks
     assert config.minimum_proximal_support_mm == 30.0 and config.minimum_distal_support_mm == 35.0
     # The reference point in minimized terms: coverage negated, curl 180 - phi_req.
     assert MECHANISM.hypervolume_reference(config) == {
@@ -99,11 +98,11 @@ def test_the_tilt_is_fixed_or_searched_in_whole_degrees():
 
 def test_the_pads_hang_below_their_pivots():
     config = load()
-    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
+    linkage = decode(X, config.link_length_resolution_mm)
     proximal = proximal_pad_polygon(linkage, config.packaging)
     assert proximal[:, 1].max() == pytest.approx(-3.0)
     assert proximal[:, 1].min() == pytest.approx(-8.0)
-    b, c = linkage.b, linkage.c
+    b, c = linkage.joint.b, linkage.tip
     distal = distal_pad_polygon(linkage, config.packaging, np.array([[b.x_mm, b.z_mm]]), np.array([[c.x_mm, c.z_mm]]))
     assert distal[0, :, 1].max() == pytest.approx(b.z_mm - 3.0)
     # Off, the pads lie on their link lines again.
@@ -113,8 +112,8 @@ def test_the_pads_hang_below_their_pivots():
 
 def test_the_distal_carrier_is_checked_against_the_pip_servo():
     config = load()
-    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
-    b, c = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c))
+    linkage = decode(X, config.link_length_resolution_mm)
+    b, c = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.joint.b, linkage.tip))
     pad = distal_pad_polygon(linkage, config.packaging, b, c)[0]
     carrier = distal_carrier_polygon(linkage, config.packaging, b, c)[0]
     # Over the pad's span, from its top face 4 mm dorsally (extended: along the axis).
@@ -149,15 +148,16 @@ def test_a_design_is_evaluated_with_the_objectives():
     config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
-    spans = pad_spans(e.parameters, config.packaging)
+    spans = pad_spans(e.finger, config.packaging)
     covered = spans["proximal_pad"].length_mm + spans["distal_pad"].length_mm
     assert e.mounted_coverage == pytest.approx(covered / e.finger_length_mm)
     # The links are bent around the pads; each face counts less what the other
     # face hides in the fold, the least over [0, dip_flexion] (v4: here the
     # distal pad, from B, is never opposite the proximal one's end).
     assert config.packaging.links_clear_pads
-    assert e.proximal_effective_mm == min(e.proximal_usable_length_mm, e.proximal_face_mm)
-    assert e.proximal_effective_mm <= e.proximal_face_mm and e.distal_effective_mm <= e.distal_face_mm
+    assert e.proximal_effective_mm == min(e.proximal_usable_length_mm, e.proximal_support_length_mm)
+    assert e.proximal_effective_mm <= e.proximal_support_length_mm
+    assert e.distal_effective_mm <= e.distal_support_length_mm
     assert e.pad_coverage <= e.mounted_coverage
     # The least lengths hold on the faces.
     short = MECHANISM.evaluate(X, load("goal.pads.proximal.length_mm=[60, null]"))
@@ -205,7 +205,7 @@ def test_packaging_defaults_keep_the_older_checks():
 def test_pads_are_not_checked_in_hyperextension(monkeypatch):
     import importlib
 
-    module = importlib.import_module("core.morphology.linkage.motion")
+    module = importlib.import_module("core.morphology.mechanism.linkage.motion")
     real, calls = module.pad_margins, []
 
     def recording(linkage, packaging, b, c, bp, mcp):
@@ -215,11 +215,11 @@ def test_pads_are_not_checked_in_hyperextension(monkeypatch):
     monkeypatch.setattr(module, "pad_margins", recording)
     config = load()
     evaluation = MECHANISM.evaluate(X, config)
-    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
+    linkage = decode(X, config.link_length_resolution_mm)
     # Hyperextension is linkage range only: the pad sweep starts at extension,
     # and the MCP servo turns from MCP extension.
     sweep_b, mcp = calls[-1]
-    assert len(sweep_b) > 1 and sweep_b[0] == pytest.approx((linkage.b.x_mm, linkage.b.z_mm))
+    assert len(sweep_b) > 1 and sweep_b[0] == pytest.approx((linkage.joint.b.x_mm, linkage.joint.b.z_mm))
     assert min(mcp) == 0.0
     assert evaluation.constraints["hyperextension_deg"] == 0.0
 
@@ -329,7 +329,7 @@ def test_a_symmetric_four_bar_sets_b_prime():
 
 
 def test_the_proximal_pad_may_stop_at_the_fold():
-    from core.morphology.linkage.measures import extended_icr_x
+    from core.morphology.mechanism.linkage.measures import extended_icr_x
 
     config = load("goal.pads.proximal.past_icr_max_mm=0", "goal.pads.proximal.length_mm=[15, null]",
                   "goal.pads.distal.length_mm=[20, null]")
@@ -355,21 +355,21 @@ def test_the_four_bar_span_may_be_bounded():
 
 
 def test_a_pad_counts_up_to_where_the_faces_cross():
-    from core.morphology.linkage.packaging import face_crossing_lengths
+    from core.morphology.mechanism.linkage.packaging import face_crossing_lengths
 
     config = load()
-    linkage = FingerLinkage(decode(X, config.link_length_resolution_mm))
-    spans = pad_spans(linkage.parameters, config.packaging)
+    linkage = decode(X, config.link_length_resolution_mm)
+    spans = pad_spans(linkage, config.packaging)
     sweep = linkage.sweep_servo(np.radians([0.0, 1.0, 40.0]) * (1.0 if linkage.sweep_servo(
-        [0.0, 0.01]).q_pip_rad[-1] >= 0.0 else -1.0))
-    free = face_crossing_lengths(linkage, config.packaging, sweep.b, sweep.c)
+        [0.0, 0.01]).q_driver_rad[-1] >= 0.0 else -1.0))
+    free = face_crossing_lengths(linkage, config.packaging, sweep.b, sweep.tip)
     # Extended, the faces lie in one line: nothing is lost.
     assert free["proximal_pad"][0] == pytest.approx(spans["proximal_pad"].length_mm)
     assert free["distal_pad"][0] == pytest.approx(spans["distal_pad"].length_mm)
     # Barely flexed, they cross below the centre of rotation, between A and B.
-    p = linkage.parameters
+    p = linkage.joint
     crossing = spans["proximal_pad"].start_mm + free["proximal_pad"][1]
-    assert free["proximal_pad"][1] < spans["proximal_pad"].length_mm and p.a_x_mm < crossing < p.b_x_mm
+    assert free["proximal_pad"][1] < spans["proximal_pad"].length_mm and p.a.x_mm < crossing < p.b.x_mm
 
 
 def test_the_links_may_be_bounded_as_shares_of_the_finger():
@@ -404,9 +404,9 @@ def test_the_pads_may_be_searched_on_their_links():
         if x is None:
             continue
         try:
-            p = decode(x, config.link_length_resolution_mm)
+            linkage = decode(x, config.link_length_resolution_mm)
         except ValueError:  # the rounded bars do not close: no design
             continue
-        # The proximal pad to A, the distal from B (to the grid).
-        assert p.app_x_mm == pytest.approx(p.a_x_mm, abs=0.1)
-        assert p.bpp_x_mm == pytest.approx(p.b_x_mm, abs=0.1)  # B re-assembled, B' with it
+        # The proximal segment to A, the distal from B (to the grid).
+        assert linkage.proximal_end.x_mm == pytest.approx(linkage.joint.a.x_mm, abs=0.1)
+        assert linkage.distal_start.x_mm == pytest.approx(linkage.joint.b.x_mm, abs=0.1)  # B re-assembled, B' with it

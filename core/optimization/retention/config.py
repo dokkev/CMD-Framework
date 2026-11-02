@@ -14,7 +14,7 @@ from core.optimization.linkage.config import packaging_from_mapping
 
 
 def _nominal_packaging() -> Packaging:
-    pad = ContactPad(height_mm=5.0, offset_mm=0.0, chamfer_mm=0.0, length_mm=45.0)
+    pad = ContactPad(height_mm=5.0, offset_mm=0.0, length_mm=45.0)
     return Packaging(proximal_pad=pad, distal_pad=pad)
 
 
@@ -25,9 +25,9 @@ class RetentionConfig:
     The comparison fixes everything but ``bounds`` across mechanisms: the
     nominal modules (``packaging``'s pads: ``height_mm`` the thickness ``h``,
     ``length_mm`` the nominal length, ``offset_mm`` the outer edge in from
-    its end, no chamfer), the hardware and clearances, and the required ROM.
+    its end), the hardware and clearances, and the required ROM.
     The proximal module's outer edge is at
-    :attr:`~core.morphology.linkage.packaging.Packaging.proximal_pad_start_mm`
+    :attr:`~core.morphology.mechanism.linkage.packaging.Packaging.proximal_pad_start_mm`
     (past the MCP servo's shaft disk unless ``pad_mcp_check`` is off), the
     distal one's its offset short of the distal segment's end, whether or not
     the mechanism models the MCP servo.
@@ -68,8 +68,6 @@ class RetentionConfig:
             pad = getattr(self.packaging, name)
             if pad.length_mm is None:
                 raise ValueError(f"{name} needs its nominal length_mm")
-            if pad.chamfer_mm != 0.0:
-                raise ValueError(f"{name}: the module is the 4-vertex block, chamfer_mm must be 0")
         for name in ("required_rom_rad", "rom_step_rad", "mcp_step_rad", "resolution_mm"):
             require_positive(name, getattr(self, name))
         require_nonnegative("mcp_flexion_max_rad", self.mcp_flexion_max_rad)
@@ -178,20 +176,14 @@ def merge_pad_group(values: Mapping[str, object]) -> dict:
 
 
 def _length_range(values: dict, side: str, pad: Mapping[str, object]) -> dict:
-    """A pad entry as written: ``chamfer`` true makes the chamfer a design
-    variable (0 to the height), false gives none (``chamfer_mm`` still sets a
-    fixed one). A ``length_mm`` of ``[min, max]`` gives the least mounting
+    """A pad entry as written (a deprecated ``chamfer`` left out). A
+    ``length_mm`` of ``[min, max]`` gives the least mounting
     length (``minimum_<side>_support_mm``, set in ``values``) and the most
     (``max_length_mm``: a free pad is cut to it; null: none). A number or null
     ``length_mm`` is left as it is (fixed, or free)."""
 
     pad = dict(pad)
-    if pad.get("chamfer", False) is None:  # null: not given (a fixed chamfer_mm may follow)
-        pad.pop("chamfer")
-    if "chamfer" in pad:  # true: the chamfer is a design variable up to the height; false: none
-        if "chamfer_mm" in pad:
-            raise ValueError(f"pad {side}: give chamfer (true/false) or chamfer_mm, not both")
-        pad["chamfer_free"], pad["chamfer_mm"] = bool(pad.pop("chamfer")), 0.0
+    pad.pop("chamfer", None)
     length = pad.get("length_mm")
     if not isinstance(length, (list, tuple)):
         return pad

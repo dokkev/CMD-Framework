@@ -22,8 +22,8 @@ from types import MappingProxyType
 
 from core._validation import require_finite
 
-from core.morphology.revolute.solids import VARIABLE_NAMES as REVOLUTE_NAMES
-from core.morphology.revolute_parallel.solids import VARIABLE_NAMES
+from core.morphology.mechanism.revolute.solids import VARIABLE_NAMES as REVOLUTE_NAMES
+from core.morphology.mechanism.revolute_parallel.solids import VARIABLE_NAMES
 
 from core.optimization.linkage.config import LinkageConfig
 from core.optimization.revolute.config import RevoluteConfig

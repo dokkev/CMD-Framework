@@ -32,13 +32,12 @@ when >= 0.
 
 **Contact pads.** Each pad is a block ``a-b-d-c`` fixed to a link and free
 to stand out of it: ``a-b`` on the link's mounting line, ``c-d`` its
-height palmar of it (:class:`ContactPad`). The proximal pad rides on
+height palmar of it (``packaging.hardware.ContactPad``). The proximal pad rides on
 ``O-A-A'``: it starts at :attr:`Packaging.proximal_pad_start_mm` (``O``, past
 the MCP servo's shaft disk by the body clearance when ``pad_mcp_check``, plus
 its offset) with a square edge ``a-c`` and runs right to ``A''``. The distal
 pad rides on ``B'-B-C``: it starts its offset short of ``C`` and runs left to
-``B''``. A pad's length is not set: it ends at ``A''`` or ``B''``. The ends
-facing the PIP lose a 45 deg chamfer at their palmar corner. Without
+``B''``. A pad's length is not set: it ends at ``A''`` or ``B''``. Without
 ``pad_mcp_check`` the MCP servo is not checked.
 
 **Rigid bodies.** Each part (:data:`PARTS`) sits on a rigid body (the palm,
@@ -63,8 +62,8 @@ from typing import Sequence
 
 import numpy as np
 
-from core.morphology.linkage.model import FingerLinkage
-from core.morphology.linkage.parameters import FingerLinkageParameters
+from core.morphology.finger import Finger
+from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.packaging.assembly import (
     PALM,
     Assembly,
@@ -82,11 +81,11 @@ from core.morphology.packaging.assembly import (
 )
 from core.morphology.packaging.faces import probe_free_lengths
 from core.morphology.packaging.gaps import footprint_gaps, polygon_gaps
-from core.morphology.packaging.hardware import ContactPad, Packaging
+from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, carrier_outline, pad_outline, segment_polygon_gaps
 
 
-DEFAULT_PIP_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
+DEFAULT_DRIVER_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
 PIVOTS = ("a", "ap", "b", "bp")
 """The pivots by name: ``A``, ``A'``, ``B``, ``B'``."""
 
@@ -95,21 +94,20 @@ PIVOTS = ("a", "ap", "b", "bp")
 class LinkagePackaging(Packaging):
     """The linkage's packaging: the common hardware (:class:`Packaging`) and
     where it sits on the four-bar: each pivot's size (``A``, ``A'``, ``B``,
-    ``B'``), the PIP servo's shaft (``A'`` or ``A``) and the clearance around
-    it, the pads' drops below their pivots, and the linkage's own collision
+    ``B'``), the clearance around the PIP servo's shaft ``A'``, the pads'
+    drops below their pivots, and the linkage's own collision
     rules (see :func:`layout`)."""
 
     allow_collision_pip_servo_to_joint_a: bool = False
-    """``False``: the pin envelope of the joint off the PIP servo (``A``; ``A'``
-    with the servo on ``A``) keeps the body clearance from the virtual
-    clearance disk around the servo's shaft (``ap_clearance_diameter_mm``)."""
+    """``False``: ``A``'s pin envelope keeps the body clearance from the virtual
+    clearance disk around the servo's shaft ``A'`` (``ap_clearance_diameter_mm``)."""
     allow_collision_pip_servo_to_joint_bp: bool = True
     """``True``: the ``B'`` pin envelope may pass through the PIP servo body
     (the driver link sits in another Y layer). ``False``: it keeps the body
     clearance from the body over the motion, which ends the safe range."""
     ap_clearance_diameter_mm: float = 7.0
-    """Virtual clearance around the PIP servo's shaft (``A'``; ``A`` with the
-    servo on ``A``), what the other pivot's pin envelope keeps clear of. The
+    """Virtual clearance around the PIP servo's shaft ``A'``, what ``A``'s pin
+    envelope keeps clear of. The
     servo body itself is not checked against that pin: it rides on a bracket
     off the body."""
     pad_link_ratio_max: float | None = None
@@ -117,10 +115,6 @@ class LinkagePackaging(Packaging):
     the distal pad over ``BC``): a pad may stand out of its link by this much.
     A free-length pad is cut to it; a fixed one must not exceed it. ``None``:
     unbounded."""
-    pip_servo_at: str = "ap"
-    """Where the PIP servo's shaft is: ``"ap"`` (``A'``, driving ``A'-B``) or
-    ``"a"`` (the PIP ``A``, driving the driver link ``A-B'``; body along ``-X``,
-    no tilt, the proximal pad on its palmar face)."""
     a_pivot_diameter_mm: float | None = None
     ap_pivot_diameter_mm: float | None = None
     b_pivot_diameter_mm: float | None = None
@@ -160,8 +154,6 @@ class LinkagePackaging(Packaging):
             raise ValueError("pad_link_ratio_max must be positive, or None")
         if not self.ap_clearance_diameter_mm >= 0.0:
             raise ValueError("ap_clearance_diameter_mm must be non-negative")
-        if self.pip_servo_at not in ("ap", "a"):
-            raise ValueError("pip_servo_at must be 'ap' or 'a'")
 
     def pivot_radius_mm(self, pivot: str) -> float:
         """Radius of one pivot (``"a"``, ``"ap"``, ``"b"``, ``"bp"``) in the side
@@ -175,7 +167,7 @@ class LinkagePackaging(Packaging):
         """How far the proximal pad's top face lies palmar of ``O-A``: ``A``'s
         radius with ``proximal_pad_below_a``, else 0."""
 
-        return self.pivot_radius_mm("a") if self.proximal_pad_below_a and not self.pip_servo_on_a else 0.0
+        return self.pivot_radius_mm("a") if self.proximal_pad_below_a else 0.0
 
     @property
     def distal_pad_drop_mm(self) -> float:
@@ -183,10 +175,6 @@ class LinkagePackaging(Packaging):
         with ``distal_pad_below_b``, else 0."""
 
         return self.pivot_radius_mm("b") if self.distal_pad_below_b else 0.0
-
-    @property
-    def pip_servo_on_a(self) -> bool:
-        return self.pip_servo_at == "a"
 
 
 
@@ -273,7 +261,7 @@ def layout(packaging: LinkagePackaging) -> Layout:
         unchecked.add(("bp_pin", "pip_servo"))
     keep_outs = [KeepOut("a_pin", "bp_pin", touch=True), KeepOut("bp_pin", "b_pin", touch=True)]
     if not packaging.allow_collision_pip_servo_to_joint_a:
-        keep_outs.append(KeepOut("ap_pin" if packaging.pip_servo_on_a else "a_pin", "pip_shaft"))
+        keep_outs.append(KeepOut("a_pin", "pip_shaft"))
     if packaging.a_pin_servo_check:
         keep_outs.append(KeepOut("a_pin", "pip_servo"))
     if packaging.pip_servo_pad_check:
@@ -284,45 +272,45 @@ def layout(packaging: LinkagePackaging) -> Layout:
     return Layout(parts, JOINTS, tuple(keep_outs), frozenset(unchecked))
 
 
-def assembly(linkage: FingerLinkage, packaging: LinkagePackaging) -> Assembly:
+def assembly(finger: Finger, packaging: LinkagePackaging) -> Assembly:
     """The design's parts, each in its body's frame (the distal body's: ``B``, along ``B->C``)."""
 
+    four_bar(finger)
     radius = packaging.pivot_radius_mm
     shapes = {
-        "proximal_pad": Polygon(proximal_pad_polygon(linkage, packaging)),
+        "proximal_pad": Polygon(proximal_pad_polygon(finger, packaging)),
         "mcp_servo": Footprint(packaging.mcp_footprint()),
-        "distal_pad": Polygon(distal_pad_local(linkage, packaging)),
+        "distal_pad": Polygon(distal_pad_local(finger, packaging)),
         "bp_pin": Disk("bp", radius("bp")),
         "b_pin": Disk("b", radius("b")),
-        "pip_servo": Footprint(pip_footprint(packaging, linkage)),
+        "pip_servo": Footprint(pip_footprint(packaging, finger)),
         "a_pin": Disk("a", radius("a")),
         "ap_pin": Disk("ap", radius("ap")),
         "driver_link": Bar("a", "bp"),
         "coupler": Bar("ap", "b"),
-        "pip_shaft": Disk("a" if packaging.pip_servo_on_a else "ap", packaging.ap_clearance_diameter_mm / 2.0),
+        "pip_shaft": Disk("ap", packaging.ap_clearance_diameter_mm / 2.0),
     }
     if packaging.distal_carrier_height_mm > 0.0:
-        shapes["distal_carrier"] = Polygon(distal_carrier_local(linkage, packaging))
+        shapes["distal_carrier"] = Polygon(distal_carrier_local(finger, packaging))
     return Assembly(layout(packaging), shapes)
 
 
-def poses(linkage: FingerLinkage, b: np.ndarray, c: np.ndarray, bp: np.ndarray,
+def poses(finger: Finger, b: np.ndarray, c: np.ndarray, bp: np.ndarray,
           mcp_samples_rad: Sequence[float] = (0.0,)) -> Poses:
     """The bodies at the posed ``B``, ``C`` and ``B'`` (``(n, 2)``), the palm over ``mcp_samples_rad``."""
 
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
-    p = linkage.parameters
-    return Poses(len(b), origin={"distal": b}, axis={"distal": (c - b) / p.bc_length_mm},
-                 points={"o": np.zeros(2), "a": np.array((linkage.a.x_mm, linkage.a.z_mm)),
-                         "ap": np.array((linkage.ap.x_mm, linkage.ap.z_mm)), "b": b, "bp": bp, "c": c},
+    return Poses(len(b), origin={"distal": b}, axis={"distal": (c - b) / finger.distal.end_mm},
+                 points={"o": np.zeros(2), "a": np.array((finger.joint.a.x_mm, finger.joint.a.z_mm)),
+                         "ap": np.array((finger.joint.ap.x_mm, finger.joint.ap.z_mm)), "b": b, "bp": bp, "c": c},
                  mcp_samples_rad=mcp_samples_rad)
 
 
-def reference_poses(linkage: FingerLinkage, mcp_samples_rad: Sequence[float] = (0.0,)) -> Poses:
+def reference_poses(finger: Finger, mcp_samples_rad: Sequence[float] = (0.0,)) -> Poses:
     """The extended pose (one sample)."""
 
-    b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.b, linkage.c, linkage.bp))
-    return poses(linkage, b, c, bp, mcp_samples_rad)
+    b, c, bp = (np.array([[point.x_mm, point.z_mm]]) for point in (finger.joint.b, finger.tip, finger.joint.bp))
+    return poses(finger, b, c, bp, mcp_samples_rad)
 
 
 def least_margin_mm(built: Assembly, rest: Poses, packaging: LinkagePackaging, *pairs: tuple[str, str]) -> float:
@@ -342,49 +330,49 @@ def gap_mm(built: Assembly, rest: Poses, packaging: LinkagePackaging, first: str
 
 # Joint and servo clearances, as single queries (servo_clearance, the figures).
 
-def pin_overlap_mm(linkage: FingerLinkage, packaging: LinkagePackaging) -> float:
+def pin_overlap_mm(finger: Finger, packaging: LinkagePackaging) -> float:
     """How deep the housings of two pins on one link overlap (``A`` and
     ``B'``, the driver link; ``B'`` and ``B``), the deeper; touching is 0,
     apart negative."""
 
-    return -least_margin_mm(assembly(linkage, packaging), reference_poses(linkage), packaging,
+    return -least_margin_mm(assembly(finger, packaging), reference_poses(finger), packaging,
                             ("a_pin", "bp_pin"), ("bp_pin", "b_pin"))
 
 
-def own_pin_gaps(linkage: FingerLinkage, packaging: LinkagePackaging) -> tuple[float, float]:
+def own_pin_gaps(finger: Finger, packaging: LinkagePackaging) -> tuple[float, float]:
     """Each pad's least gap to the pin housings of its own body, extended:
     the proximal pad to ``A`` and ``A'``, the distal pad to ``B`` and ``B'``."""
 
-    built, rest = assembly(linkage, packaging), reference_poses(linkage)
+    built, rest = assembly(finger, packaging), reference_poses(finger)
     gap = lambda pad, pin: gap_mm(built, rest, packaging, pad, pin)  # noqa: E731
     return (min(gap("proximal_pad", "a_pin"), gap("proximal_pad", "ap_pin")),
             min(gap("distal_pad", "b_pin"), gap("distal_pad", "bp_pin")))
 
 
-def a_pin_servo_gap_mm(linkage: FingerLinkage, packaging: LinkagePackaging) -> float:
+def a_pin_servo_gap_mm(finger: Finger, packaging: LinkagePackaging) -> float:
     """Gap between ``A``'s pin housing and the PIP servo's body."""
 
-    return gap_mm(assembly(linkage, packaging), reference_poses(linkage), packaging, "a_pin", "pip_servo")
+    return gap_mm(assembly(finger, packaging), reference_poses(finger), packaging, "a_pin", "pip_servo")
 
 
-def bp_pin_servo_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
+def bp_pin_servo_margins(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
                          bp: np.ndarray) -> np.ndarray:
     """Per-sample margin of ``B'``'s pin housing beyond the PIP servo's body
     and the body clearance (negative: too near), checked or not."""
 
-    found = margins(assembly(linkage, packaging), poses(linkage, b, c, bp), packaging, [Pair("bp_pin", "pip_servo")])
+    found = margins(assembly(finger, packaging), poses(finger, b, c, bp), packaging, [Pair("bp_pin", "pip_servo")])
     return found[("bp_pin", "pip_servo")]
 
 
-def driver_link_servo_gaps(linkage: FingerLinkage, footprint: ServoFootprint, bp: np.ndarray) -> np.ndarray:
+def driver_link_servo_gaps(finger: Finger, footprint: ServoFootprint, bp: np.ndarray) -> np.ndarray:
     """Per-sample gap of the driver link ``A-B'`` (at the posed ``B'``) to the
     PIP servo in the side view (reported only: they sit in different layers)."""
 
-    a = np.array((linkage.a.x_mm, linkage.a.z_mm))
+    a = np.array((finger.joint.a.x_mm, finger.joint.a.z_mm))
     return footprint.distance_to_segments(np.broadcast_to(a, np.shape(bp)), bp)
 
 
-def link_capsule_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
+def link_capsule_margins(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
                          bp: np.ndarray, radius_mm: float) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin (mm) of each pad against the bars it is not mounted
     on, each a capsule of ``radius_mm`` about its centre line, in the side
@@ -396,11 +384,11 @@ def link_capsule_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b:
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
     count = len(b)
     o = np.zeros((count, 2))
-    a = np.broadcast_to((linkage.a.x_mm, linkage.a.z_mm), (count, 2))
-    ap = np.broadcast_to((linkage.ap.x_mm, linkage.ap.z_mm), (count, 2))
-    polygon = proximal_pad_polygon(linkage, packaging)
+    a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
+    ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
+    polygon = proximal_pad_polygon(finger, packaging)
     pads = {"proximal_pad": np.broadcast_to(polygon, (count, *polygon.shape)),
-            "distal_pad": distal_pad_polygon(linkage, packaging, b, c)}
+            "distal_pad": distal_pad_polygon(finger, packaging, b, c)}
     crossing = {"a_bp": (a, bp), "ap_b": (ap, b)}
     bodies = {"proximal_pad": {**crossing, "bp_b": (bp, b), "b_c": (b, c)},
               "distal_pad": {**crossing, "o_a": (o, a), "a_ap": (a, ap), "ap_o": (ap, o)}}
@@ -409,7 +397,7 @@ def link_capsule_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b:
             for pad, bars in bodies.items() for name, (start, end) in bars.items()}
 
 
-def support_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
+def support_margins(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
                     height_mm: float) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin (mm) between each segment's support and the other
     segment's pad and support: the proximal support
@@ -420,16 +408,16 @@ def support_margins(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.n
 
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     count = len(b)
-    support = np.broadcast_to(proximal_carrier_polygon(linkage, packaging, height_mm), (count, 4, 2))
-    polygon = proximal_pad_polygon(linkage, packaging)
+    support = np.broadcast_to(proximal_carrier_polygon(finger, packaging, height_mm), (count, 4, 2))
+    polygon = proximal_pad_polygon(finger, packaging)
     proximal = np.broadcast_to(polygon, (count, *polygon.shape))
     clearance = packaging.body_clearance_mm
-    margins = {("distal_pad", "proximal_carrier"): polygon_gaps(distal_pad_polygon(linkage, packaging, b, c), support,
+    margins = {("distal_pad", "proximal_carrier"): polygon_gaps(distal_pad_polygon(finger, packaging, b, c), support,
                                                                 packaging) - clearance,
-               ("proximal_carrier", "pip_servo"): footprint_gaps(support, pip_footprint(packaging, linkage), packaging)
+               ("proximal_carrier", "pip_servo"): footprint_gaps(support, pip_footprint(packaging, finger), packaging)
                - clearance}
     if packaging.distal_carrier_height_mm > 0.0:
-        carrier = distal_carrier_polygon(linkage, packaging, b, c)
+        carrier = distal_carrier_polygon(finger, packaging, b, c)
         margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
         margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
     return margins
@@ -458,12 +446,13 @@ class ServoClearance:
 
 
 def servo_clearance(
-    linkage: FingerLinkage,
+    finger: Finger,
     packaging: LinkagePackaging | None = None,
-    pip_samples_rad: Sequence[float] = DEFAULT_PIP_SAMPLES_RAD,
+    driver_samples_rad: Sequence[float] = DEFAULT_DRIVER_SAMPLES_RAD,
     mcp_samples_rad: Sequence[float] = (0.0,),
 ) -> ServoClearance:
-    """Return the servo clearance margins over the increasing PIP samples.
+    """Return the servo clearance margins over the increasing driver-link
+    rotations ``driver_samples_rad`` (the link ``A-B'`` about ``A``).
 
     The pins and link are checked up to the last sample that closes. The PIP
     servo is checked against the MCP servo body at each MCP flexion sample;
@@ -471,14 +460,14 @@ def servo_clearance(
     """
 
     packaging = packaging or LinkagePackaging()
-    footprint = pip_footprint(packaging, linkage)
-    sweep = linkage.sweep_pip(pip_samples_rad)
+    footprint = pip_footprint(packaging, finger)
+    sweep = finger.place(four_bar(finger).sweep_driver(driver_samples_rad))
     clearance = packaging.body_clearance_mm
-    link = driver_link_servo_gaps(linkage, footprint, sweep.bp)
-    dip = bp_pin_servo_margins(linkage, packaging, sweep.b, sweep.c, sweep.bp)
+    link = driver_link_servo_gaps(finger, footprint, sweep.bp)
+    dip = bp_pin_servo_margins(finger, packaging, sweep.b, sweep.tip, sweep.bp)
     return ServoClearance(
         mcp_servo_mm=packaging.mcp_servo_gap_mm(footprint, mcp_samples_rad) - clearance,
-        pin_mm=pivot_pin_gap_mm(packaging, linkage) - clearance,
+        pin_mm=pivot_pin_gap_mm(packaging, finger) - clearance,
         dip_pin_mm=(math.inf if packaging.allow_collision_pip_servo_to_joint_bp or not dip.size
                     else float(dip.min())),
         link_mm=(float(link.min()) if link.size else math.inf) - clearance,
@@ -488,13 +477,8 @@ def servo_clearance(
 FIXED_MARGIN_PAIRS = (("mcp_servo", "proximal_pad"),)
 """Checked pairs whose margin is set by definition, not by the design: the
 proximal pad starts the body clearance (plus its offset) past the MCP servo's
-shaft disk. Still checked; left out of the reported least margin. (With the
-PIP servo on ``A`` the pad starts at that servo instead: see
-:func:`fixed_margin_pairs`.)"""
+shaft disk. Still checked; left out of the reported least margin."""
 
-
-def fixed_margin_pairs(packaging: LinkagePackaging) -> tuple[tuple[str, str], ...]:
-    return () if packaging.pip_servo_on_a else FIXED_MARGIN_PAIRS
 
 
 def checked_pairs(packaging: LinkagePackaging) -> tuple[tuple[str, str], ...]:
@@ -509,122 +493,107 @@ def layer_separated_pairs(packaging: LinkagePackaging) -> tuple[tuple[str, str],
     return layout(packaging).separated(PADS)
 
 
-def pad_spans(parameters: FingerLinkageParameters, packaging: LinkagePackaging) -> dict[str, PadSpan]:
+def pad_spans(finger: Finger, packaging: LinkagePackaging) -> dict[str, PadSpan]:
     """Where each pad sits: the one place pad lengths are defined.
 
-    The proximal pad runs right from :attr:`Packaging.proximal_pad_start_mm`,
-    the distal pad left from its offset short of ``C``; each for its
-    ``length_mm``, or to ``A''`` / ``B''`` when that is ``None`` (cut to
-    ``pad_link_ratio_max`` times its link). With the PIP
-    servo on ``A`` the proximal pad lies on the servo body's palmar face, from
-    its rear end (plus the pad's offset) to its front.
+    Each pad lies on its segment (``finger.proximal``, ``finger.distal``):
+    the proximal pad runs right from :attr:`Packaging.proximal_pad_start_mm`
+    to where its segment ends (``A''``), the distal pad left from its offset
+    short of the fingertip to where its segment starts (``B''``); each for
+    its ``length_mm``, or the whole room when that is ``None`` (cut to
+    ``pad_link_ratio_max`` times its link, ``|OA|`` or ``BC``, and to its
+    ``max_length_mm``). The proximal pad's ``x`` from ``O``, the distal
+    pad's along ``BC`` from ``B``.
     """
 
     proximal, distal = packaging.proximal_pad, packaging.distal_pad
-    ratio = packaging.pad_link_ratio_max
-    proximal_limit = math.inf if ratio is None else ratio * math.hypot(parameters.a_x_mm, parameters.a_z_mm)
-    distal_limit = math.inf if ratio is None else ratio * parameters.bc_length_mm
+    ratio, a = packaging.pad_link_ratio_max, finger.joint.a
+    proximal_limit = math.inf if ratio is None else ratio * math.hypot(a.x_mm, a.z_mm)
+    distal_limit = math.inf if ratio is None else ratio * finger.distal.end_mm
     if proximal.max_length_mm is not None:  # no module needs more (morphology goal)
         proximal_limit = min(proximal_limit, proximal.max_length_mm)
     if distal.max_length_mm is not None:
         distal_limit = min(distal_limit, distal.max_length_mm)
-    if packaging.pip_servo_on_a:
-        body = packaging.pip_servo
-        outer = parameters.a_x_mm - body.rear_extent_mm + proximal.offset_mm
-        room = parameters.a_x_mm + body.radius_mm - outer
-    else:
-        outer = packaging.proximal_pad_start_mm
-        room = parameters.app_x_mm - outer
+    outer = packaging.proximal_pad_start_mm
+    room = finger.proximal.end_mm - outer
     length = proximal.length_mm or min(room, proximal_limit)  # a free pad is cut to the limit
     proximal_span = PadSpan(outer, outer + length, room, proximal_limit)
-    outer = parameters.bc_length_mm - distal.offset_mm
-    room = outer - (parameters.bpp_x_mm - parameters.b_x_mm)
+    outer = finger.distal.end_mm - distal.offset_mm
+    room = outer - finger.distal.start_mm
     length = distal.length_mm or min(room, distal_limit)
     distal_span = PadSpan(outer - length, outer, room, distal_limit)
     return {"proximal_pad": proximal_span, "distal_pad": distal_span}
 
 
-def pad_chamfer_mm(pad: ContactPad, parameters: FingerLinkageParameters, side: str) -> float:
-    """The chamfer a pad has in this design: its own (``chamfer_free``) or the packaging's."""
-
-    if pad.chamfer_free:
-        return min(getattr(parameters, f"{side}_chamfer_mm"), pad.height_mm)
-    return pad.chamfer_mm
-
-
-def proximal_pad_polygon(linkage: FingerLinkage, packaging: LinkagePackaging) -> np.ndarray:
+def proximal_pad_polygon(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:
     """The proximal pad in the proximal-link frame, ``(m, 2)``: its span on
-    ``O-A''``, chamfered at the end facing the PIP."""
+    ``O-A''``."""
 
-    span = pad_spans(linkage.parameters, packaging)["proximal_pad"]
-    outline = pad_outline(span, packaging.proximal_pad, "end",
-                          pad_chamfer_mm(packaging.proximal_pad, linkage.parameters, "proximal"))
-    return outline + (0.0, proximal_pad_line_z(packaging, linkage.parameters))
+    span = pad_spans(finger, packaging)["proximal_pad"]
+    outline = pad_outline(span, packaging.proximal_pad)
+    return outline + (0.0, proximal_pad_line_z(packaging, finger))
 
 
-def proximal_carrier_polygon(linkage: FingerLinkage, packaging: LinkagePackaging, height_mm: float) -> np.ndarray:
+def proximal_carrier_polygon(finger: Finger, packaging: LinkagePackaging, height_mm: float) -> np.ndarray:
     """The proximal support, ``(4, 2)`` in the proximal-link frame: a plate
     ``height_mm`` dorsal of the mounting line over its whole length, from the
     pad's outer end to ``A''`` (there whatever module it carries), as the
     distal one (:func:`distal_carrier_polygon`)."""
 
-    span = pad_spans(linkage.parameters, packaging)["proximal_pad"]
+    span = pad_spans(finger, packaging)["proximal_pad"]
     support = PadSpan(span.start_mm, span.start_mm + span.room_mm, span.room_mm)
-    outline = pad_outline(support, packaging.proximal_pad, "end", 0.0)
-    return carrier_outline(outline, height_mm) + (0.0, proximal_pad_line_z(packaging, linkage.parameters))
+    outline = pad_outline(support, packaging.proximal_pad)
+    return carrier_outline(outline, height_mm) + (0.0, proximal_pad_line_z(packaging, finger))
 
 
-def distal_pad_local(linkage: FingerLinkage, packaging: LinkagePackaging) -> np.ndarray:
+def distal_pad_local(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:
     """The distal pad in the distal frame (``u`` from ``B`` along ``B->C``, ``v`` dorsal), ``(m, 2)``."""
 
-    p = linkage.parameters
-    local = pad_outline(pad_spans(p, packaging)["distal_pad"], packaging.distal_pad, "start",
-                        pad_chamfer_mm(packaging.distal_pad, p, "distal"))
-    return local - (0.0, distal_drop(packaging, p))
+    local = pad_outline(pad_spans(finger, packaging)["distal_pad"], packaging.distal_pad)
+    return local - (0.0, distal_drop(packaging, finger))
 
 
-def distal_pad_polygon(linkage: FingerLinkage, packaging: LinkagePackaging,
+def distal_pad_polygon(finger: Finger, packaging: LinkagePackaging,
                        b: np.ndarray, c: np.ndarray) -> np.ndarray:
     """The distal pad at posed ``B`` and ``C`` (``(n, 2)``), ``(n, m, 2)``: its
-    span on ``B''-C``, chamfered at the end facing the PIP.
+    span on ``B''-C``.
 
     Fixed in the distal link: a point ``u`` along and ``v`` dorsal of ``BC``
     from ``B`` in the reference pose is ``B + u e + v n`` at every pose, ``e``
     the unit ``B->C`` and ``n`` it turned toward ``+Z``.
     """
 
-    return _posed(linkage, distal_pad_local(linkage, packaging), b, c)
+    return _posed(finger, distal_pad_local(finger, packaging), b, c)
 
 
-def _posed(linkage: FingerLinkage, local: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
+def _posed(finger: Finger, local: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
     b, c = np.atleast_2d(b), np.atleast_2d(c)
-    e = (c - b) / linkage.parameters.bc_length_mm
+    e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
     return b[:, None] + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
 
 
-def distal_carrier_local(linkage: FingerLinkage, packaging: LinkagePackaging) -> np.ndarray:
+def distal_carrier_local(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:
     """The distal pad's carrier plate in the distal frame, ``(4, 2)``."""
 
-    p = linkage.parameters
-    span = pad_spans(p, packaging)["distal_pad"]
+    span = pad_spans(finger, packaging)["distal_pad"]
     support = PadSpan(span.end_mm - span.room_mm, span.end_mm, span.room_mm)
-    return carrier_outline(pad_outline(support, packaging.distal_pad, "start", 0.0),
-                           packaging.distal_carrier_height_mm) - (0.0, distal_drop(packaging, p))
+    return carrier_outline(pad_outline(support, packaging.distal_pad),
+                           packaging.distal_carrier_height_mm) - (0.0, distal_drop(packaging, finger))
 
 
-def distal_carrier_polygon(linkage: FingerLinkage, packaging: LinkagePackaging,
+def distal_carrier_polygon(finger: Finger, packaging: LinkagePackaging,
                            b: np.ndarray, c: np.ndarray) -> np.ndarray:
     """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``)
     at posed ``B`` and ``C``, ``(n, 4, 2)``, as :func:`distal_pad_polygon`: over
     the whole mounting line from ``B''`` to the fingertip end (the support,
     there whatever module it carries; a module fills it unless its length is set)."""
 
-    return _posed(linkage, distal_carrier_local(linkage, packaging), b, c)
+    return _posed(finger, distal_carrier_local(finger, packaging), b, c)
 
 
 def usable_pad_lengths(
-    linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, bp: np.ndarray, c: np.ndarray,
+    finger: Finger, packaging: LinkagePackaging, b: np.ndarray, bp: np.ndarray, c: np.ndarray,
 ) -> dict[str, np.ndarray]:
     """Per-sample length of each pad's face the links leave free, from its outer end.
 
@@ -639,17 +608,16 @@ def usable_pad_lengths(
     Samples are four-bar poses in the proximal-link frame (``(n, 2)``).
     """
 
-    p = linkage.parameters
     b, bp, c = np.atleast_2d(b), np.atleast_2d(bp), np.atleast_2d(c)
     count = len(b)
-    a = np.broadcast_to((p.a_x_mm, p.a_z_mm), (count, 2))
-    ap = np.broadcast_to((p.ap.x_mm, p.ap.z_mm), (count, 2))
+    a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
+    ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
     radius = packaging.pivot_radius_mm
     links = [_trimmed(a, bp, radius("a"), radius("bp")), _trimmed(ap, b, radius("ap"), radius("b"))]
-    spans = pad_spans(p, packaging)
+    spans = pad_spans(finger, packaging)
 
     proximal = spans["proximal_pad"]  # frame: x along the mounting line, z dorsal of it
-    line = np.array((0.0, proximal_pad_line_z(packaging, p)))
+    line = np.array((0.0, proximal_pad_line_z(packaging, finger)))
     near = np.full(count, np.inf)
     for start, end in links:
         low, _ = _block_extent(start - line, end - line, proximal.start_mm, proximal.end_mm,
@@ -658,12 +626,12 @@ def usable_pad_lengths(
     proximal_free = np.where(np.isfinite(near), near - proximal.start_mm, proximal.length_mm)
 
     distal = spans["distal_pad"]  # frame: u along B->C from B, v dorsal
-    e = (c - b) / p.bc_length_mm
+    e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
 
     def local(points: np.ndarray) -> np.ndarray:  # v from the pad's top face
         rel = points - b
-        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + distal_drop(packaging, p)), axis=1)
+        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + distal_drop(packaging, finger)), axis=1)
 
     far = np.full(count, -np.inf)
     for start, end in links:
@@ -674,7 +642,7 @@ def usable_pad_lengths(
     return {"proximal_pad": np.maximum(proximal_free, 0.0), "distal_pad": np.maximum(distal_free, 0.0)}
 
 
-def probe_contact_lengths(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
+def probe_contact_lengths(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
                           bp: np.ndarray, depth_mm: float, solids: str = "all") -> dict[str, np.ndarray]:
     """Each contact face's reachable length (:func:`probe_free_lengths`) at
     the posed ``B``, ``C`` and ``B'`` (``(n, 2)``), MCP at 0, against the
@@ -684,22 +652,21 @@ def probe_contact_lengths(linkage: FingerLinkage, packaging: LinkagePackaging, b
     ``"hardware"``, all but the pads (the distal carrier, the links ``A-B'``
     and ``A'-B``, the four pins' housings, the PIP and MCP servos)."""
 
-    p = linkage.parameters
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
     count = len(b)
-    proximal_face, proximal_normal, distal_face, distal_normal = contact_faces(linkage, packaging, b, c)
-    proximal = np.broadcast_to(proximal_pad_polygon(linkage, packaging), (count, *proximal_pad_polygon(linkage,
+    proximal_face, proximal_normal, distal_face, distal_normal = contact_faces(finger, packaging, b, c)
+    proximal = np.broadcast_to(proximal_pad_polygon(finger, packaging), (count, *proximal_pad_polygon(finger,
                                                                                                     packaging).shape))
-    distal = distal_pad_polygon(linkage, packaging, b, c)
+    distal = distal_pad_polygon(finger, packaging, b, c)
     shared_polygons, segments, disks = [], [], []
     if solids not in ("all", "pads", "hardware"):
         raise ValueError(f"solids must be all, pads or hardware, not {solids!r}")
     if solids != "pads":
         if packaging.distal_carrier_height_mm > 0.0:
-            shared_polygons.append(distal_carrier_polygon(linkage, packaging, b, c))
-        shared_polygons += [pip_footprint(packaging, linkage).outline, packaging.mcp_footprint().outline]
-        a = np.broadcast_to((p.a_x_mm, p.a_z_mm), (count, 2))
-        ap = np.broadcast_to((p.ap.x_mm, p.ap.z_mm), (count, 2))
+            shared_polygons.append(distal_carrier_polygon(finger, packaging, b, c))
+        shared_polygons += [pip_footprint(packaging, finger).outline, packaging.mcp_footprint().outline]
+        a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
+        ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
         segments = [np.stack((a, bp), axis=1), np.stack((ap, b), axis=1)]
         disks = [(a, packaging.pivot_radius_mm("a")), (ap, packaging.pivot_radius_mm("ap")),
                  (b, packaging.pivot_radius_mm("b")), (bp, packaging.pivot_radius_mm("bp"))]
@@ -711,26 +678,25 @@ def probe_contact_lengths(linkage: FingerLinkage, packaging: LinkagePackaging, b
     return {"proximal_pad": proximal_free, "distal_pad": distal_free}
 
 
-def contact_faces(linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray):
+def contact_faces(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray):
     """The linkage's two contact faces as :func:`fold_free_lengths` takes them:
     the proximal one fixed, the distal one at the posed ``B`` and ``C``."""
 
-    p = linkage.parameters
     b, c = np.atleast_2d(b), np.atleast_2d(c)
-    spans = pad_spans(p, packaging)
+    spans = pad_spans(finger, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    face_z = proximal_pad_line_z(packaging, p) - packaging.proximal_pad.height_mm
+    face_z = proximal_pad_line_z(packaging, finger) - packaging.proximal_pad.height_mm
     proximal_face = np.array(((proximal.start_mm, face_z), (proximal.end_mm, face_z)))
-    e = (c - b) / p.bc_length_mm
+    e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-    face_v = -distal_drop(packaging, p) - packaging.distal_pad.height_mm  # dorsal of BC
+    face_v = -distal_drop(packaging, finger) - packaging.distal_pad.height_mm  # dorsal of BC
     outer = b + distal.end_mm * e + face_v * n
     inner = b + distal.start_mm * e + face_v * n
     return proximal_face, np.array((0.0, -1.0)), np.stack((outer, inner), axis=1), -n
 
 
 def face_crossing_lengths(
-    linkage: FingerLinkage, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
+    finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
 ) -> dict[str, np.ndarray]:
     """Per-sample length of each pad's face outside the fold, from its outer end.
 
@@ -743,13 +709,12 @@ def face_crossing_lengths(
     proximal-link frame, given by the posed ``B`` and ``C`` (``(n, 2)``).
     """
 
-    p = linkage.parameters
     b, c = np.atleast_2d(b), np.atleast_2d(c)
-    spans = pad_spans(p, packaging)
+    spans = pad_spans(finger, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    face_z = proximal_pad_line_z(packaging, p) - packaging.proximal_pad.height_mm
-    face_v = -distal_drop(packaging, p) - packaging.distal_pad.height_mm  # dorsal of BC
-    e = (c - b) / p.bc_length_mm
+    face_z = proximal_pad_line_z(packaging, finger) - packaging.proximal_pad.height_mm
+    face_v = -distal_drop(packaging, finger) - packaging.distal_pad.height_mm  # dorsal of BC
+    e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
     # The distal face's line, B + u e + face_v n, meets z = face_z at u.
     rise = face_z - b[:, 1] - face_v * n[:, 1]
@@ -803,7 +768,7 @@ def _block_extent(start: np.ndarray, end: np.ndarray, low: float, high: float,
 
 
 def pad_margins(
-    linkage: FingerLinkage,
+    finger: Finger,
     packaging: LinkagePackaging,
     b: np.ndarray,
     c: np.ndarray,
@@ -819,62 +784,55 @@ def pad_margins(
     are in mm, clear when >= 0.
     """
 
-    built = assembly(linkage, packaging)
-    return margins(built, poses(linkage, b, c, bp, mcp_samples_rad), packaging, built.layout.pairs_with(PAD_PARTS))
+    built = assembly(finger, packaging)
+    return margins(built, poses(finger, b, c, bp, mcp_samples_rad), packaging, built.layout.pairs_with(PAD_PARTS))
 
 
-def pip_servo_pad_gap_mm(linkage: FingerLinkage, packaging: LinkagePackaging) -> float:
+def pip_servo_pad_gap_mm(finger: Finger, packaging: LinkagePackaging) -> float:
     """Gap between the PIP servo body and the proximal pad (both fixed in the
     proximal frame), signed as ``packaging.gaps.footprint_gaps``."""
 
-    found = margins(assembly(linkage, packaging), reference_poses(linkage), packaging,
+    found = margins(assembly(finger, packaging), reference_poses(finger), packaging,
                     [Pair("pip_servo", "proximal_pad", "touch")])
     return float(found[("pip_servo", "proximal_pad")][0])
 
 
-def proximal_drop(packaging: LinkagePackaging, parameters: FingerLinkageParameters) -> float:
-    """The proximal pad's drop below ``O-A`` in a design: its own, or the packaging's."""
+def proximal_drop(packaging: LinkagePackaging, finger: Finger) -> float:
+    """The proximal pad's drop below ``O-A`` in a design: its segment's, or the packaging's."""
 
-    own = parameters.proximal_drop_mm
-    return packaging.proximal_pad_drop_mm if own is None or packaging.pip_servo_on_a else own
+    own = finger.proximal.drop_mm
+    return packaging.proximal_pad_drop_mm if own is None else own
 
 
-def distal_drop(packaging: LinkagePackaging, parameters: FingerLinkageParameters) -> float:
-    """The distal pad's drop below ``B-C`` in a design: its own, or the packaging's."""
+def distal_drop(packaging: LinkagePackaging, finger: Finger) -> float:
+    """The distal pad's drop below ``B-C`` in a design: its segment's, or the packaging's."""
 
-    own = parameters.distal_drop_mm
+    own = finger.distal.drop_mm
     return packaging.distal_pad_drop_mm if own is None else own
 
 
-def proximal_pad_line_z(packaging: LinkagePackaging, parameters: FingerLinkageParameters) -> float:
-    """``z`` of the proximal pad's mounting line: ``O-A''`` (less
-    :attr:`proximal_pad_drop_mm`), or the palmar face of the PIP servo on ``A``."""
+def proximal_pad_line_z(packaging: LinkagePackaging, finger: Finger) -> float:
+    """``z`` of the proximal pad's mounting line: ``O-A''`` less its drop."""
 
-    if packaging.pip_servo_on_a:
-        return parameters.a_z_mm - packaging.pip_servo.radius_mm
-    return -proximal_drop(packaging, parameters)
+    return -proximal_drop(packaging, finger)
 
 
-def pivot_pin_gap_mm(packaging: LinkagePackaging, linkage: FingerLinkage) -> float:
-    """Gap between the pin envelope of the pivot off the PIP servo (``A``, or
-    ``A'`` with the servo on ``A``) and the virtual clearance disk around the
-    servo's shaft: ``|AA'|`` less both radii."""
+def pivot_pin_gap_mm(packaging: LinkagePackaging, finger: Finger) -> float:
+    """Gap between ``A``'s pin envelope and the virtual clearance disk around
+    the PIP servo's shaft ``A'``: ``|AA'|`` less both radii."""
 
-    return (math.hypot(linkage.a.x_mm - linkage.ap.x_mm, linkage.a.z_mm - linkage.ap.z_mm)
-            - packaging.pivot_radius_mm("ap" if packaging.pip_servo_on_a else "a")
+    return (math.hypot(finger.joint.a.x_mm - finger.joint.ap.x_mm, finger.joint.a.z_mm - finger.joint.ap.z_mm)
+            - packaging.pivot_radius_mm("a")
             - packaging.ap_clearance_diameter_mm / 2.0)
 
 
-def pip_footprint(packaging: LinkagePackaging, linkage: FingerLinkage) -> ServoFootprint:
-    """The PIP servo on ``A'``, rear body along ``-X`` tilted dorsally; or on
-    ``A`` (``pip_servo_at``), rear body along ``-X`` (the tilt is ignored)."""
+def pip_footprint(packaging: LinkagePackaging, finger: Finger) -> ServoFootprint:
+    """The PIP servo on ``A'``, its rear body along ``-X`` tilted dorsally
+    (``finger.servo``: how it is mounted)."""
 
-    if packaging.pip_servo_on_a:
-        return ServoFootprint((linkage.a.x_mm, linkage.a.z_mm), (-1.0, 0.0),
-                              packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
-    tilt = linkage.parameters.pip_servo_tilt_rad
+    tilt = finger.servo.tilt_rad
     return ServoFootprint(
-        (linkage.ap.x_mm, linkage.ap.z_mm),
+        (finger.joint.ap.x_mm, finger.joint.ap.z_mm),
         (-math.cos(tilt), math.sin(tilt)),
         packaging.pip_servo.radius_mm,
         packaging.pip_servo.rear_extent_mm,
@@ -885,7 +843,7 @@ __all__ = [
     "COMPONENTS",
     "LinkagePackaging",
     "PIVOTS",
-    "DEFAULT_PIP_SAMPLES_RAD",
+    "DEFAULT_DRIVER_SAMPLES_RAD",
     "FIXED_MARGIN_PAIRS",
     "JOINTS",
     "LAYERS",
@@ -906,14 +864,12 @@ __all__ = [
     "distal_pad_polygon",
     "driver_link_servo_gaps",
     "face_crossing_lengths",
-    "fixed_margin_pairs",
     "gap_mm",
     "layer_separated_pairs",
     "layout",
     "least_margin_mm",
     "link_capsule_margins",
     "own_pin_gaps",
-    "pad_chamfer_mm",
     "pad_margins",
     "pad_spans",
     "pin_overlap_mm",

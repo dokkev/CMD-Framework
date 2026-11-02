@@ -1,7 +1,7 @@
 """How any finger mechanism is packaged: the hardware (servos, pin housings,
 contact pads, clearances), the planar solids it makes and the gaps between
 them, and what of a contact face is hidden. A mechanism places these on its
-own links (``core.morphology.linkage.packaging``, ``core.morphology.revolute``, ...).
+own links (``core.morphology.mechanism.linkage.packaging``, ``core.morphology.mechanism.revolute``, ...).
 
 - ``hardware``: :class:`Packaging` and :class:`ContactPad`
 - ``shapes``: polygons, disks, segments, the servo's section (:class:`ServoFootprint`), a pad's outline

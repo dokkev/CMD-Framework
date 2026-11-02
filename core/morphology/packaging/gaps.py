@@ -110,7 +110,7 @@ def proximal_pad_mcp_gap(polygon: np.ndarray, packaging: Packaging, mcp_samples_
 
     The pad starts at the servo by construction, so near the servo it is the
     same block in every design: its start, line and height are the study's.
-    When the pad (chamfer included) ends beyond the servo's reach and the exact
+    When the pad ends beyond the servo's reach and the exact
     band, only that block can come near the servo, and its gap is solved once
     per study (:func:`_proximal_block_gap`); otherwise the whole pad is checked.
     """

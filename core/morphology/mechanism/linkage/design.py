@@ -1,9 +1,8 @@
 """Design vector of the 2-DoF finger linkage: A_x, B (x, z), A', B', the PIP
 servo's dorsal tilt (degrees, on the same 0.1 grid), BC (the middle + distal
-phalanx), A_z, ``A''_x - A'_x``, ``B'_x - B''_x``, the two pads' chamfers
-and their drops below their link lines (the last seven added later, so older
-vectors read with them at ``DEFAULT_VALUES``: 0, and the drops NaN, the
-packaging's; a chamfer counts only where the pad's chamfer is free).
+phalanx), A_z, ``A''_x - A'_x``, ``B'_x - B''_x`` and the two pads' drops
+below their link lines (the last five added later, so older vectors read
+with them at ``DEFAULT_VALUES``: 0, and the drops NaN, the packaging's).
 
 With a machining resolution every part keeps its own dimensions on the grid:
 the proximal link ``A`` and ``A'`` from ``O``, the distal link ``B'`` from ``B``
@@ -20,8 +19,9 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 
-from core.morphology.linkage.model import FingerLinkage
-from core.morphology.linkage.parameters import FingerLinkageParameters, PointXZ
+from core._validation import require_positive
+from core.morphology.finger import Finger, PointXZ, Segment, ServoMount
+from core.morphology.mechanism.linkage.model import FourBar
 
 
 VARIABLE_NAMES: tuple[str, ...] = (
@@ -37,51 +37,59 @@ VARIABLE_NAMES: tuple[str, ...] = (
     "a_z_mm",
     "app_offset_mm",
     "bpp_offset_mm",
-    "proximal_chamfer_mm",
-    "distal_chamfer_mm",
     "proximal_drop_mm",
     "distal_drop_mm",
 )
 DEFAULT_VALUES = {"a_z_mm": 0.0, "app_offset_mm": 0.0, "bpp_offset_mm": 0.0,
-                  "proximal_chamfer_mm": 0.0, "distal_chamfer_mm": 0.0,
                   "proximal_drop_mm": math.nan, "distal_drop_mm": math.nan}
 """Values of variables added later, for design vectors written before them."""
+LEGACY_CHAMFERED_LENGTH = 16
+"""A vector with the deprecated pads' chamfers (after the offsets), which ``decode`` drops.
+A 14-value vector is the current layout (the drops), never the chamfered one without drops."""
 
 
 def decode(
     x: Sequence[float], link_length_resolution_mm: float | None = None
-) -> FingerLinkageParameters:
-    """Map an ordered design vector to linkage parameters.
+) -> Finger:
+    """Map an ordered design vector to the finger: its four-bar, its segments
+    (the proximal one to ``A'' = A'_x + app_offset``, the distal one from
+    ``B'' = B'_x - bpp_offset`` to ``C``, ``BC`` past ``B``) and the servo's tilt.
 
     With ``link_length_resolution_mm``, ``|A'B|`` and ``|AB'|`` are rounded to
     multiples of it and ``B`` is re-solved (see the module docstring);
     ``ValueError`` when the rounded bars no longer close.
     """
 
-    missing = VARIABLE_NAMES[len(x):]
-    if len(x) > len(VARIABLE_NAMES) or any(name not in DEFAULT_VALUES for name in missing):
+    if len(x) == LEGACY_CHAMFERED_LENGTH:
+        x = (*x[:12], *x[14:])  # the two deprecated pad chamfers, between the offsets and the drops
+    if not 9 <= len(x) <= 12 and len(x) != len(VARIABLE_NAMES):
         raise ValueError(f"design vector has {len(x)} values; expected {len(VARIABLE_NAMES)}")
+    missing = VARIABLE_NAMES[len(x):]
     x = (*x, *(DEFAULT_VALUES[name] for name in missing))  # vectors from before a variable
     (a_x, b_x, b_z, ap_x, ap_z, bp_x, bp_z, tilt_deg, bc_length_mm, a_z, app_offset, bpp_offset,
-     proximal_chamfer, distal_chamfer, proximal_drop, distal_drop) = (float(v) for v in x)
+     proximal_drop, distal_drop) = (float(v) for v in x)
     ap, bp = PointXZ(ap_x, ap_z), PointXZ(bp_x, bp_z)
     if link_length_resolution_mm is not None:
         b_x, b_z, bp = _assemble((a_x, a_z), (b_x, b_z), ap, bp, link_length_resolution_mm)
-    return FingerLinkageParameters(
-        a_x_mm=a_x,
-        a_z_mm=a_z,
-        b_x_mm=b_x,
-        b_z_mm=b_z,
-        ap=ap,
-        bp=bp,
-        bc_length_mm=bc_length_mm,
-        pip_servo_tilt_rad=math.radians(tilt_deg),
-        app_offset_mm=app_offset,
-        bpp_offset_mm=bpp_offset,
-        proximal_chamfer_mm=proximal_chamfer,
-        distal_chamfer_mm=distal_chamfer,
-        proximal_drop_mm=None if math.isnan(proximal_drop) else proximal_drop,
-        distal_drop_mm=None if math.isnan(distal_drop) else distal_drop,
+    return make_finger(PointXZ(a_x, a_z), ap, PointXZ(b_x, b_z), bp, bc_length_mm, app_offset, bpp_offset,
+                       math.radians(tilt_deg), None if math.isnan(proximal_drop) else proximal_drop,
+                       None if math.isnan(distal_drop) else distal_drop)
+
+
+def make_finger(a: PointXZ, ap: PointXZ, b: PointXZ, bp: PointXZ, bc_length_mm: float, app_offset_mm: float = 0.0,
+                bpp_offset_mm: float = 0.0, tilt_rad: float = 0.0, proximal_drop_mm: float | None = None,
+                distal_drop_mm: float | None = None) -> Finger:
+    """A CoDe finger from its extended pose: the four-bar's points (the
+    proximal frame), ``|BC|``, ``A''`` ``app_offset_mm`` past ``A'_x`` and
+    ``B''`` ``bpp_offset_mm`` short of ``B'_x`` (where the segments end and
+    start), the servo's tilt and the pads' drops."""
+
+    require_positive("bc_length_mm", bc_length_mm)
+    return Finger(
+        proximal=Segment(0.0, ap.x_mm + app_offset_mm, proximal_drop_mm),
+        distal=Segment((bp.x_mm - bpp_offset_mm) - b.x_mm, bc_length_mm, distal_drop_mm),
+        joint=FourBar(a=a, ap=ap, b=b, bp=bp),
+        servo=ServoMount(tilt_rad),
     )
 
 
@@ -112,21 +120,21 @@ def _assemble(
     return float(nearest[0]), float(nearest[1]), PointXZ(float(built_bp[0]), float(built_bp[1]))
 
 
-def encode(linkage: FingerLinkage) -> tuple[float, ...]:
-    """Return the design vector of a linkage."""
+def encode(finger: Finger) -> tuple[float, ...]:
+    """Return the design vector of a linkage finger."""
 
-    p = linkage.parameters
-    return (p.a_x_mm, p.b_x_mm, p.b_z_mm, p.ap.x_mm, p.ap.z_mm, p.bp.x_mm, p.bp.z_mm,
-            round(math.degrees(p.pip_servo_tilt_rad), 9), p.bc_length_mm, p.a_z_mm, p.app_offset_mm,
-            p.bpp_offset_mm, p.proximal_chamfer_mm, p.distal_chamfer_mm,
-            math.nan if p.proximal_drop_mm is None else p.proximal_drop_mm,
-            math.nan if p.distal_drop_mm is None else p.distal_drop_mm)
+    f, j = finger, finger.joint
+    return (j.a.x_mm, j.b.x_mm, j.b.z_mm, j.ap.x_mm, j.ap.z_mm, j.bp.x_mm, j.bp.z_mm,
+            round(f.servo.tilt_deg, 9), f.distal.end_mm, j.a.z_mm, round(f.proximal.end_mm - j.ap.x_mm, 9),
+            round(j.bp.x_mm - f.distal_start.x_mm, 9),
+            math.nan if f.proximal.drop_mm is None else f.proximal.drop_mm,
+            math.nan if f.distal.drop_mm is None else f.distal.drop_mm)
 
 
 def read_design(row: Mapping[str, str]) -> list[float]:
-    """Design vector of a CSV row, filling variables the row predates."""
+    """Design vector of a CSV row (by name), filling variables the row predates."""
 
     return [float(row[name]) if row.get(name, "") != "" else DEFAULT_VALUES[name] for name in VARIABLE_NAMES]
 
 
-__all__ = ["DEFAULT_VALUES", "VARIABLE_NAMES", "decode", "encode", "read_design"]
+__all__ = ["DEFAULT_VALUES", "VARIABLE_NAMES", "decode", "encode", "make_finger", "read_design"]

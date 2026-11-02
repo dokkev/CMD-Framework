@@ -16,7 +16,7 @@ from types import MappingProxyType
 
 from core._validation import require_finite
 
-from core.morphology.revolute.solids import VARIABLE_NAMES
+from core.morphology.mechanism.revolute.solids import VARIABLE_NAMES
 
 from core.optimization.linkage.config import LinkageConfig
 

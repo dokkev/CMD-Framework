@@ -15,9 +15,9 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Any
 
-from core.morphology.linkage import FingerLinkageParameters
-from core.morphology.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
-from core.morphology.linkage.measures import extended_icr_x
+from core.morphology.mechanism.linkage import FourBar
+from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
+from core.morphology.mechanism.linkage.measures import extended_icr_x
 
 from core.optimization.linkage.config import LinkageConfig, config_from_goal, config_from_json, config_to_json
 from core.optimization.linkage import search
@@ -54,11 +54,11 @@ BOUND_TOLERANCE = 0.005
 """A variable is at a bound within this share of its search range."""
 
 
-def link_values(p: FingerLinkageParameters) -> tuple[float, ...]:
+def link_values(p: FourBar) -> tuple[float, ...]:
     return (
-        p.b_x_mm, p.b_z_mm, p.bp.x_mm - p.b_x_mm, p.bp.z_mm - p.b_z_mm,
-        math.hypot(p.b_x_mm - p.ap.x_mm, p.b_z_mm - p.ap.z_mm),
-        math.hypot(p.bp.x_mm - p.a_x_mm, p.bp.z_mm - p.a_z_mm),
+        p.b.x_mm, p.b.z_mm, p.bp.x_mm - p.b.x_mm, p.bp.z_mm - p.b.z_mm,
+        math.hypot(p.b.x_mm - p.ap.x_mm, p.b.z_mm - p.ap.z_mm),
+        math.hypot(p.bp.x_mm - p.a.x_mm, p.bp.z_mm - p.a.z_mm),
     )
 
 
@@ -121,10 +121,10 @@ def resolve_preset(values: dict[str, Any]) -> str | None:
     return str(name)
 
 
-def icr0_share_of(p: FingerLinkageParameters, finger_length_mm: float) -> float:
+def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
     """The extended centre of rotation's share of ``|OC|`` (NaN: the bars parallel)."""
 
-    found = extended_icr_x((p.a_x_mm, p.a_z_mm), (p.ap.x_mm, p.ap.z_mm), (p.b_x_mm, p.b_z_mm),
+    found = extended_icr_x((p.a.x_mm, p.a.z_mm), (p.ap.x_mm, p.ap.z_mm), (p.b.x_mm, p.b.z_mm),
                            (p.bp.x_mm, p.bp.z_mm))
     return math.nan if found is None else float(found) / finger_length_mm
 
@@ -231,10 +231,10 @@ class LinkageMechanism(Mechanism):
 
     def evaluate(self, x: Sequence[float], config: LinkageConfig) -> LinkageEvaluation | None:
         try:
-            parameters = decode(x, config.link_length_resolution_mm)
+            finger = decode(x, config.link_length_resolution_mm)
         except ValueError:  # B not beyond A, or the rounded bars do not close
             return None
-        evaluation = evaluate(parameters, config)
+        evaluation = evaluate(finger, config)
         return dataclasses.replace(evaluation, bound_hits=bound_hits(x, config, evaluation.finger_length_mm))
 
     def read_design(self, row: Mapping[str, str]) -> list[float]:
@@ -252,7 +252,7 @@ class LinkageMechanism(Mechanism):
             "distal_usable_length_mm": e.distal_usable_length_mm,
             "torque_ratio_min": e.torque_ratio_min,
             "finger_length_mm": e.finger_length_mm,
-            "icr0_share": icr0_share_of(e.parameters, e.finger_length_mm),
+            "icr0_share": icr0_share_of(e.finger.joint, e.finger_length_mm),
             "proximal_room_mm": e.proximal_room_mm, "distal_room_mm": e.distal_room_mm,
             "support_balance_mm": e.support_balance_mm,
             "required_proximal_mm": e.required_proximal_mm,
@@ -263,10 +263,8 @@ class LinkageMechanism(Mechanism):
             "collision_pair": e.collision_pair,
             "proximal_support_length_mm": e.proximal_support_length_mm,
             "distal_support_length_mm": e.distal_support_length_mm,
-            "app_offset_used_mm": e.parameters.app_offset_mm,
-            "bpp_offset_used_mm": e.parameters.bpp_offset_mm,
-            "proximal_face_mm": e.proximal_face_mm,
-            "distal_face_mm": e.distal_face_mm,
+            "app_offset_used_mm": round(e.finger.proximal.end_mm - e.finger.joint.ap.x_mm, 9),
+            "bpp_offset_used_mm": round(e.finger.joint.bp.x_mm - e.finger.distal_start.x_mm, 9),
             "proximal_depth_mm": e.proximal_depth_mm,
             "distal_depth_mm": e.distal_depth_mm,
             "pad_clearance_mm": e.pad_clearance_mm,
@@ -279,7 +277,7 @@ class LinkageMechanism(Mechanism):
             "driver_link_servo_clearance_mm": e.driver_link_servo_clearance_mm,
             "servo_lowest_z_mm": e.servo_lowest_z_mm,
             "bound_hits": ";".join(e.bound_hits),
-            **dict(zip(LINK_COLUMNS, link_values(e.parameters))),
+            **dict(zip(LINK_COLUMNS, link_values(e.finger.joint))),
             "phi_max_stop": e.phi_max_stop,
             "dip_flexion_deg": math.degrees(e.required_rom_rad),
             "usable_pip_deg": math.degrees(e.usable_pip_rad),

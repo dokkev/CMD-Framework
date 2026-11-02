@@ -25,7 +25,7 @@ import numpy as np
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
 
-from core.morphology.revolute.solids import servo_rear
+from core.morphology.mechanism.revolute.solids import servo_rear
 
 from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 

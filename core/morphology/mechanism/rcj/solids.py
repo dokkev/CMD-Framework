@@ -7,7 +7,7 @@ proximal segment, the distal one on ``B``, fixed to the distal segment
 (``|AB| = 2r``) by ``theta``; the distal segment then turns by
 ``phi = 2 theta`` relative to the proximal one (the same ``phi`` as the
 linkage's ``q_pip + q_dip`` and the 2R's), so ``k = 2`` throughout
-(``core.morphology.rcj``'s kinematics). Ideal no-slip rolling: the crossed
+(``core.morphology.mechanism.rcj``'s kinematics). Ideal no-slip rolling: the crossed
 cables that hold it are not modelled (provisional, as the retention study's
 RCJ).
 
@@ -40,7 +40,7 @@ import numpy as np
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk
-from core.morphology.revolute.solids import carrier_local
+from core.morphology.mechanism.revolute.solids import carrier_local
 
 
 VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm",
@@ -81,8 +81,6 @@ class RcjGeometry:
     servo: ServoFootprint
     proximal_length_mm: float
     distal_length_mm: float
-    proximal_face_mm: float
-    distal_face_mm: float
     proximal_room_mm: float
     distal_room_mm: float
     proximal_drop_mm: float = 0.0
@@ -149,18 +147,15 @@ def geometry(x: Sequence[float], packaging: Packaging) -> RcjGeometry:
     distal_room = v["bc_length_mm"] - distal.offset_mm - v["bpp_from_b_mm"]
     proximal_length = min(proximal_room, proximal.max_length_mm or math.inf)
     distal_length = min(distal_room, distal.max_length_mm or math.inf)
-    chamfer = {side: pad.chamfer_mm for side, pad in (("proximal", proximal), ("distal", distal))}  # 0: blocks
     outer = v["bc_length_mm"] - distal.offset_mm
-    proximal_outline = pad_outline(PadSpan(start, start + max(proximal_length, 1e-6), proximal_room),
-                                   proximal, "end", chamfer["proximal"]) - (0.0, v["proximal_drop_mm"])
+    proximal_span = PadSpan(start, start + max(proximal_length, 1e-6), proximal_room)
+    proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
-    distal_outline = pad_outline(distal_span, distal, "start", chamfer["distal"]) - (0.0, v["distal_drop_mm"])
+    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
     servo = ServoFootprint((v["a_x_mm"], 0.0), SERVO_REAR,
                            packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
-    face = lambda length, k: max(length - min(k, max(length, 0.0)), 0.0)  # noqa: E731
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
-                       servo, proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
-                       face(distal_length, chamfer["distal"]), proximal_room, distal_room, v["proximal_drop_mm"],
+                       servo, proximal_length, distal_length, proximal_room, distal_room, v["proximal_drop_mm"],
                        carrier_local(distal_outline, v["distal_drop_mm"], packaging))
 
 

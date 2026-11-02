@@ -14,8 +14,8 @@ import pytest  # noqa: E402
 
 import core.morphology.packaging.gaps as packaging_module  # noqa: E402
 import visualize  # noqa: E402
-from core.morphology.linkage import SKETCH_LINKAGE  # noqa: E402
-from core.morphology.linkage.packaging import LinkagePackaging  # noqa: E402
+from core.morphology.mechanism.linkage import SKETCH_LINKAGE  # noqa: E402
+from core.morphology.mechanism.linkage.packaging import LinkagePackaging  # noqa: E402
 from visualize import sketch, solids  # noqa: E402
 from visualize.motion import collisions, index_at, linkage_margins, servo_sweep  # noqa: E402
 
@@ -50,7 +50,7 @@ def test_the_sketch_linkage_draws_at_every_flexion():
         for k in range(len(phi)):
             sketch.draw_linkage(left, SKETCH_LINKAGE, packaging, sweep, int(index[k]), collisions(margins, k))
         i = int(index[-1])
-        solids.linkage_bars(right, SKETCH_LINKAGE, sweep.b[i], sweep.c[i], sweep.bp[i], "#2a78d6")
+        solids.linkage_bars(right, SKETCH_LINKAGE, sweep.b[i], sweep.tip[i], sweep.bp[i], "#2a78d6")
         sketch.frame(left)
         assert left.patches and right.lines
     finally:

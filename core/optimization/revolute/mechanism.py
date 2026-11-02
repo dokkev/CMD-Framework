@@ -108,8 +108,6 @@ class RevoluteMechanism(Mechanism):
             "phi_max_stop": e.phi_max_stop,
             "proximal_support_length_mm": e.proximal_support_length_mm,
             "distal_support_length_mm": e.distal_support_length_mm,
-            "proximal_face_mm": e.proximal_face_mm,
-            "distal_face_mm": e.distal_face_mm,
             "proximal_usable_length_mm": e.proximal_usable_length_mm,
             "distal_usable_length_mm": e.distal_usable_length_mm,
             "proximal_depth_mm": e.proximal_depth_mm,

@@ -62,7 +62,7 @@ def linkage_bars(axis, linkage, b, c, bp, color, alpha=1.0, width=2.4) -> None:
     """The crossed four-bar's links: the proximal body ``O-A-A'`` and the
     distal ``B'-B-C`` in ``color``, the rocker ``A-B'`` dark, the crank ``A'-B`` grey."""
 
-    o, a, ap = (0.0, 0.0), (linkage.a.x_mm, linkage.a.z_mm), (linkage.ap.x_mm, linkage.ap.z_mm)
+    o, a, ap = (0.0, 0.0), (linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)
     line(axis, (o, a, ap, o), color, alpha, width)
     line(axis, (a, bp), INK, alpha, width)
     line(axis, (ap, b), MUTED, alpha, width)

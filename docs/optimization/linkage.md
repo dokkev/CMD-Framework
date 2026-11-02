@@ -87,13 +87,12 @@ A''=(A'_x+\delta_{A''},\,0),\qquad B''=(B'_x,\,B_z).
 
 `A''`는 `A'`를 proximal mounting line(`x`축)에 정사영한 점에서 `δ_{A''} ≥ 0`만큼 distal로 간 점이고(`δ = 0`이면 `A'` 바로 아래), `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
 
-**Pad 형상.** Pad는 기존 링크(proximal `O–A–A'`, distal `B'–B–C`)에 붙는 블록 `a–b–d–c`이며, 링크 밖으로 돌출할 수 있다. `a–b`는 장착선 위, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다. 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 세 값으로 정한다(`ContactPad`):
+**Pad 형상.** Pad는 기존 링크(proximal `O–A–A'`, distal `B'–B–C`)에 붙는 사각 블록 `a–b–d–c`이며, 링크 밖으로 돌출할 수 있다. `a–b`는 장착선 위, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다. 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
 
 | 값 | 의미 |
 |---|---|
 | `height_mm` | 장착선에서 palmar 쪽 높이 (z) |
 | `offset_mm` | 바깥 끝에서 안쪽으로 시작점 offset (x) |
-| `chamfer_mm` | PIP 쪽 palmar 모서리의 chamfer 길이; 각도는 45° 고정 |
 
 길이(x)는 정하지 않는다: 시작점에서 `A''`(proximal) 또는 `B''`(distal)까지이며, 이 길이가 F2다.
 
@@ -105,12 +104,12 @@ B''(q)=B(q)+\frac{B'_x-B_x}{BC}\big(C(q)-B(q)\big).
 \]
 
   움직이는 `B'`을 매 자세에서 고정된 수평선에 다시 투영하지 않는다(그러면 `B''`가 body 위에서 미끄러진다). Pad의 모든 점이 같은 방식(`B + u·e + v·n`, `e`는 `B→C` 단위벡터, `v <= 0`)으로 움직인다.
-- **Chamfer**: PIP를 향한 끝(proximal의 `d–b`, distal의 `a–c`)은 직선일 필요가 없다. palmar 모서리(`d`, `c`)를 `chamfer_mm`의 45° chamfer로 깎는다(기본 2.5 mm, 0이면 직각, height 이하). `a–b` 장착 길이는 바뀌지 않는다.
+- **Chamfer (deprecated, 2026-10-29)**: pad는 사각 블록이다. 예전 run의 `chamfer_mm`, `chamfer_free`, chamfer 설계변수는 읽을 때 무시한다(16개짜리 설계벡터의 12–13번째 값).
 - `A'–b`, `B'–a` 점선은 reference일 뿐 형상이 아니다. Coupler(`A'–B`)와 middle link(`A–B'`)는 다른 층이라 pad와 충돌하지 않는다.
 - **장착 길이**: `L_P = A'_x − (proximal pad 시작 x)`, `L_D = B_x + BC − (distal offset) − B'_x`. offset은 설계와 무관한 상수라 F2 순위에는 영향이 없다.
 - PIP servo는 기존대로 `OA` 선 위(`oa_interface`, `z >= 0`)에 있다. 같은 body인 proximal pad와는 이 제약으로만 분리된다.
-- 구현: 끝점은 `FingerLinkage.app/bpp`, `FingerPose.app/bpp` (`core/morphology/linkage/model.py`). Pad는 장착선 좌표계의 한 윤곽 `pad_outline`을 `proximal_pad_polygon`(proximal 링크)과 `distal_pad_polygon`(distal 링크)이 각자 자세에 붙인다 (`core/morphology/linkage/packaging.py`). 시각화(`visualize/animate.py`, `visualize/sketch.py`)도 같은 함수를 쓴다.
-- **잠정 치수** (config `pad`): 각 pad height 5 mm, offset 0, chamfer 2.5 mm, `allow_collision_with_mcp_servo: false`. 실제 pad/tactile module이 정해지면 바꾼다.
+- 구현: 끝점은 `Finger.proximal_end/distal_start`(`core/morphology/finger.py`, 마디의 끝과 시작), `FingerPose.proximal_end/distal_start` (`core/morphology/mechanism/linkage/model.py`). Pad는 장착선 좌표계의 한 윤곽 `pad_outline`을 `proximal_pad_polygon`(proximal 링크)과 `distal_pad_polygon`(distal 링크)이 각자 자세에 붙인다 (`core/morphology/mechanism/linkage/packaging.py`). 시각화(`visualize/animate.py`, `visualize/sketch.py`)도 같은 함수를 쓴다.
+- **잠정 치수** (config `pad`): 각 pad height 5 mm, offset 0, `allow_collision_with_mcp_servo: false`. 실제 pad/tactile module이 정해지면 바꾼다.
 
 **Y-layer (2.5D).** 각 solid는 XZ quad와 `|y|` 구간을 가진다(`COMPONENTS`).
 
@@ -161,7 +160,6 @@ L_P = A'_x - (\text{proximal pad 시작 } x),\qquad L_D = B_x + BC - (\text{dist
 §2.1 pad의 **장착 길이**(`a–b`)는 설계변수에서 따라 나오는 값이고, 요구조건으로 다룬다:
 
 - config의 `pad.proximal.length_mm`, `pad.distal.length_mm`(장착 길이 a–b, A″/B″ 포함): `null`이면 자유 길이, 숫자면 고정 길이, `[최소, 최대]`면 범위다(현재 `[30, null]`, `[40, null]`). 범위의 최소는 수용해야 할 가장 긴 module, 즉 최소 pad 길이(`minimum_*_support_mm`)다. 최대는 그보다 긴 module이 없다는 뜻으로, 자유 길이 pad를 거기서 자른다(`ContactPad.max_length_mm`, null이면 자르지 않음).
-- `pad.*.chamfer`: `true`면 PIP 쪽 palmar 모서리의 45° chamfer 길이가 pad별 설계변수(`proximal_chamfer_mm`, `distal_chamfer_mm`, 0~pad 높이)가 된다. chamfer는 접촉 면을 줄이는 대신 관절 쪽 공간을 만든다. `false`면 사각 pad이고, 예전 형식의 고정값 `chamfer_mm`도 그대로 읽는다(`chamfer: null`이면 지정 안 함).
 - `pad.allow_longer_pad_than_link`: `false`면 pad가 자기 링크(`|OA|`, `BC`)보다 길 수 없다. 자유 길이 pad는 링크 길이로 잘리고 고정 길이 pad는 넘으면 위반이다. 현재 `true`(제한 없음).
 - Pad는 간섭 검사에 참여하므로 충돌하면 안전 굽힘 범위가 끝난다(F2에 반영). 목적이 아니라서 pad를 늘릴 압력은 없다.
 - `|AB|`(`ab_mm`)와 링크가 pad 블록을 지나가지 않는 길이(`*_usable_length_mm`)는 diagnostic이다.
@@ -295,10 +293,10 @@ Portfolio 효과를 검증할 때는 같은 총 평가 예산으로 **NSGA-II ×
 ## 6. 메커니즘 비교에서의 위치
 
 ```text
-주어진 pad requirement (최소 길이, 높이, offset, chamfer, MCP servo clearance)
+주어진 pad requirement (최소 길이, 높이, offset, MCP servo clearance)
    ├─ Linkage (four-bar, PIP servo at A')   ← 이 문서
-   ├─ Open chain (serial 2R, core/morphology/open_chain)
-   └─ RCJ (equal-radius rolling contact, core/morphology/rolling_contact_joint)
+   ├─ Open chain (serial 2R, core/morphology/mechanism/open_chain)
+   └─ RCJ (equal-radius rolling contact, core/morphology/mechanism/rolling_contact_joint)
                      ↓
 같은 pad requirement 아래 transmission · curl · packaging 비교
 ```

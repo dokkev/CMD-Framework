@@ -42,7 +42,7 @@ def test_a_design_is_swept_and_reported():
     e = MECHANISM.evaluate(X, load())
     assert e.torque_ratio_max == 2.0
     # The faces (30 and 28 mm) less what each hides of the other folded to 150 deg.
-    assert (e.proximal_face_mm, e.distal_face_mm) == pytest.approx((30.0, 28.0))
+    assert (e.proximal_support_length_mm, e.distal_support_length_mm) == pytest.approx((30.0, 28.0))
     assert e.proximal_effective_mm == pytest.approx(min(30.0, e.proximal_usable_length_mm))
     assert e.distal_effective_mm == pytest.approx(min(28.0, e.distal_usable_length_mm))
     assert 20.0 < e.proximal_effective_mm < 30.0 and 20.0 < e.distal_effective_mm < 28.0

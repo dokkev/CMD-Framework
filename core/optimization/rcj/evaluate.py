@@ -1,6 +1,6 @@
 """Evaluate one rolling contact joint (RCJ) finger against the linkage study's goal.
 
-Its solids and their gaps are the morphology's (``core.morphology.rcj``);
+Its solids and their gaps are the morphology's (``core.morphology.mechanism.rcj``);
 this module holds them to the goal's bounds as constraints.
 
 The MCP is at ``O``. Two rollers of one radius ``r`` roll on each other
@@ -10,7 +10,7 @@ proximal segment, the distal one on ``B``, fixed to the distal segment
 (``|AB| = 2r``) by ``theta``; the distal segment then turns by
 ``phi = 2 theta`` relative to the proximal one (the same ``phi`` as the
 linkage's ``q_pip + q_dip`` and the 2R's), so ``k = 2`` throughout
-(``core.morphology.rcj``'s kinematics). Ideal no-slip rolling: the crossed
+(``core.morphology.mechanism.rcj``'s kinematics). Ideal no-slip rolling: the crossed
 cables that hold it are not modelled (provisional, as the retention study's
 RCJ).
 
@@ -43,8 +43,8 @@ import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
-from core.morphology.rcj import solids
-from core.morphology.rcj.solids import TORQUE_RATIO, RcjGeometry
+from core.morphology.mechanism.rcj import solids
+from core.morphology.mechanism.rcj.solids import TORQUE_RATIO, RcjGeometry
 
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 from core.optimization.revolute.evaluate import (
@@ -127,7 +127,6 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                   proximal_length_mm=geo.a_x_mm, required_rom_rad=goal.required_rom_rad,
                   proximal_support_length_mm=geo.proximal_length_mm,
                   distal_support_length_mm=geo.distal_length_mm,
-                  proximal_face_mm=geo.proximal_face_mm, distal_face_mm=geo.distal_face_mm,
                   proximal_depth_mm=geo.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=geo.distal_drop_mm + packaging.distal_pad.height_mm,
                   roller_radius_mm=r)
@@ -161,8 +160,9 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
-        "pad_usable_mm": max(goal.minimum_proximal_support_mm - min(geo.proximal_face_mm, proximal_usable),
-                             goal.minimum_distal_support_mm - min(geo.distal_face_mm, distal_usable)),
+        "pad_usable_mm": max(
+            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
+            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
         "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
     }
     return RcjEvaluation(

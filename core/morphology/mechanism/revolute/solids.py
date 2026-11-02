@@ -67,8 +67,6 @@ class RevoluteGeometry:
     distal_servo: ServoFootprint
     proximal_length_mm: float
     distal_length_mm: float
-    proximal_face_mm: float
-    distal_face_mm: float
     proximal_room_mm: float
     distal_room_mm: float
     distal_carrier_local: np.ndarray | None = None
@@ -138,23 +136,20 @@ def geometry(x: Sequence[float], packaging: Packaging,
     # A module of a set length (a fixed finger's module sweep), else the room's, at most its max.
     proximal_length = proximal.length_mm or min(proximal_room, proximal.max_length_mm or math.inf)
     distal_length = distal.length_mm or min(distal_room, distal.max_length_mm or math.inf)
-    chamfer = {side: pad.chamfer_mm for side, pad in (("proximal", proximal), ("distal", distal))}  # 0: blocks
     outer = v["ac_length_mm"] - distal.offset_mm
-    proximal_outline = pad_outline(PadSpan(start, start + max(proximal_length, 1e-6), proximal_room),
-                                   proximal, "end", chamfer["proximal"]) - (0.0, v["proximal_drop_mm"])
+    proximal_span = PadSpan(start, start + max(proximal_length, 1e-6), proximal_room)
+    proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
-    distal_outline = pad_outline(distal_span, distal, "start", chamfer["distal"]) - (0.0, v["distal_drop_mm"])
+    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
     servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]),
                            packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
-    face = lambda length, k: max(length - min(k, max(length, 0.0)), 0.0)  # noqa: E731
     # The support: the mounting line from B'' to the fingertip end, whatever the module.
-    support = pad_outline(PadSpan(outer - max(distal_room, 1e-6), outer, distal_room), distal, "start", 0.0) \
+    support = pad_outline(PadSpan(outer - max(distal_room, 1e-6), outer, distal_room), distal) \
         - (0.0, v["distal_drop_mm"])
     mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                             v["proximal_drop_mm"], servo,
-                            proximal_length, distal_length, face(proximal_length, chamfer["proximal"]),
-                            face(distal_length, chamfer["distal"]), proximal_room, distal_room,
+                            proximal_length, distal_length, proximal_room, distal_room,
                             carrier_local(support, v["distal_drop_mm"], packaging),
                             proximal_support(start, proximal_room, v["proximal_drop_mm"], proximal_carrier_height_mm),
                             mount)

@@ -21,8 +21,7 @@ hold by construction:
    length (and at most ``proximal_pad_past_icr_max_mm`` past the extended
    centre of rotation), ``B''_x`` from ``A''_x`` (the pads side by side) to the same
    (:func:`search_names`); with ``pads_on_links``, not searched: the proximal
-   pad ends at ``A`` and the distal one starts at ``B``. The pads are plain
-   blocks: the design vector's chamfers are held at 0. 6. The pads' drops
+   pad ends at ``A`` and the distal one starts at ``B``. 6. The pads' drops
    below their link lines themselves, when searched (``goal.pads.*.drop_mm``);
    else NaN in the design vector: the packaging's.
 
@@ -41,8 +40,8 @@ import numpy as np
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
 
-from core.morphology.linkage.design import VARIABLE_NAMES
-from core.morphology.linkage.measures import extended_icr_x, symmetric_bp
+from core.morphology.mechanism.linkage.design import VARIABLE_NAMES
+from core.morphology.mechanism.linkage.measures import extended_icr_x, symmetric_bp
 
 from core.optimization.linkage.config import LinkageConfig
 
@@ -217,7 +216,6 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         "bp_x_mm": bp_x, "bp_z_mm": bp_z,
         "servo_tilt_deg": tilt,
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
-        "proximal_chamfer_mm": 0.0, "distal_chamfer_mm": 0.0,
         **{name: grid(v[name]) if name in v else math.nan for name in ("proximal_drop_mm", "distal_drop_mm")},
     }
     return tuple(design[name] for name in VARIABLE_NAMES)

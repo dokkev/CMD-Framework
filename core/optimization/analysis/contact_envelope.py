@@ -12,7 +12,7 @@ config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
    vector, the pivots, the servo, ``A''``, ``B''`` and both supports' plates
    unchanged); a module longer than its support's room is ``support_exceeded``;
 2. the motion: the 2R turning about ``A``; CoDe solved by its four-bar
-   (``FingerLinkage.sweep_servo``), ``phi = q_pip + q_dip`` the distal
+   (``Finger.sweep_servo``), ``phi = q_pip + q_dip`` the distal
    carrier's rotation relative to the proximal one (not the servo's turn),
    sampled to the first pose at or past ``phi_req`` (``kinematic_unreachable``
    if the four-bar stops closing or turns back short of it);
@@ -42,8 +42,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from core.morphology.linkage import FingerLinkage
-from core.morphology.linkage.packaging import distal_drop, distal_pad_polygon, pad_margins, pad_spans, pip_footprint, proximal_drop, proximal_pad_polygon
+from core.morphology.mechanism.linkage import Finger
+from core.morphology.mechanism.linkage.packaging import distal_drop, distal_pad_polygon, pad_margins, pad_spans, pip_footprint, proximal_drop, proximal_pad_polygon
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
 from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
@@ -99,7 +99,7 @@ class Motion:
     b: np.ndarray | None = None
     c: np.ndarray | None = None
     bp: np.ndarray | None = None
-    linkage: FingerLinkage | None = None
+    linkage: Finger | None = None
     servo_rad: np.ndarray | None = None
     """CoDe's servo angle at each pose (to resample between them)."""
 
@@ -110,11 +110,11 @@ def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
     if mechanism == "revolute":
         phi = np.append(np.arange(0.0, phi_req_deg, REVOLUTE_STEP_DEG), phi_req_deg)
         return Motion(phi, True)
-    from core.morphology.linkage.design import decode
+    from core.morphology.mechanism.linkage.design import decode
 
-    linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
+    linkage = decode(x, config.link_length_resolution_mm)
     step = math.radians(LINKAGE_SERVO_STEP_DEG)
-    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_pip_rad[-1] >= 0.0 else -1.0
+    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_driver_rad[-1] >= 0.0 else -1.0
     sweep = linkage.sweep_servo(sense * np.arange(0.0, 2.0 * math.pi, step))
     phi = np.degrees(sweep.total_flexion_rad)
     reached = np.maximum.accumulate(phi)
@@ -123,7 +123,7 @@ def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
     last = int(at[0]) if at.size else len(phi) - 1
     ok = bool(at.size) and bool(np.all(np.diff(phi[:last + 1]) >= -1e-9))
     window = slice(0, last + 1)
-    return Motion(phi[window], ok, sweep.b[window], sweep.c[window], sweep.bp[window], linkage,
+    return Motion(phi[window], ok, sweep.b[window], sweep.tip[window], sweep.bp[window], linkage,
                   (sense * np.arange(0.0, 2.0 * math.pi, step))[:len(phi)][window])
 
 
@@ -158,15 +158,15 @@ def layout_violations(mechanism: str, x, config) -> dict[str, float]:
 
         servo = geometry(x, config).distal_servo
         return {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(servo, (0.0,)) - clearance}
-    from core.morphology.linkage.design import decode
+    from core.morphology.mechanism.linkage.design import decode
 
-    linkage = FingerLinkage(decode(x, config.link_length_resolution_mm))
+    linkage = decode(x, config.link_length_resolution_mm)
     footprint, radius = pip_footprint(packaging, linkage), packaging.pivot_radius_mm
     found = {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(footprint, (0.0,)) - clearance,
-             "a_pin/bp_pin": linkage.a.distance_to(linkage.bp) - radius("a") - radius("bp"),
-             "bp_pin/b_pin": linkage.bp.distance_to(linkage.b) - radius("bp") - radius("b")}
+             "a_pin/bp_pin": linkage.joint.a.distance_to(linkage.joint.bp) - radius("a") - radius("bp"),
+             "bp_pin/b_pin": linkage.joint.bp.distance_to(linkage.joint.b) - radius("bp") - radius("b")}
     if packaging.a_pin_servo_check:
-        found["a_pin/pip_servo"] = (footprint.distance_to_point(np.array((linkage.a.x_mm, linkage.a.z_mm)))
+        found["a_pin/pip_servo"] = (footprint.distance_to_point(np.array((linkage.joint.a.x_mm, linkage.joint.a.z_mm)))
                                     - radius("a") - clearance)
     return found
 
@@ -194,7 +194,7 @@ def first_dip(params: np.ndarray, least: np.ndarray, travel: np.ndarray, least_a
 
 
 def _linkage_margins(found_motion: Motion, config) -> dict[tuple[str, str], np.ndarray]:
-    from core.morphology.linkage.packaging import link_capsule_margins, support_margins
+    from core.morphology.mechanism.linkage.packaging import link_capsule_margins, support_margins
 
     linkage, packaging = found_motion.linkage, config.packaging
     b, c, bp = found_motion.b, found_motion.c, found_motion.bp
@@ -211,8 +211,8 @@ def _linkage_margins(found_motion: Motion, config) -> dict[tuple[str, str], np.n
     # The proximal pad against the PIP servo on A' (one body with it).
     margins[("proximal_pad", "pip_servo")] = footprint_gaps(proximal, pip_footprint(packaging, linkage), packaging) \
         - packaging.body_clearance_mm
-    for pad, polygon, pins in (("proximal_pad", proximal, (("a", (linkage.a.x_mm, linkage.a.z_mm)),
-                                                            ("ap", (linkage.ap.x_mm, linkage.ap.z_mm)))),
+    for pad, polygon, pins in (("proximal_pad", proximal, (("a", (linkage.joint.a.x_mm, linkage.joint.a.z_mm)),
+                                                            ("ap", (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)))),
                                ("distal_pad", distal, (("b", b), ("bp", bp)))):
         for name, centre in pins:
             centre = np.broadcast_to(np.asarray(centre, dtype=float), (count, 2))
@@ -240,7 +240,7 @@ def _linkage_dip(found_motion: Motion, config, margins) -> FitResult | None:
     distal body's points travel at most ``|dB| + |d phi| R`` (``R``: its
     reach from ``B``), the crossing links' ends ``|dB|`` and ``|dB'|``."""
 
-    from core.morphology.linkage.packaging import distal_carrier_polygon
+    from core.morphology.mechanism.linkage.packaging import distal_carrier_polygon
 
     linkage, packaging = found_motion.linkage, config.packaging
     b, c, bp = found_motion.b, found_motion.c, found_motion.bp
@@ -256,7 +256,7 @@ def _linkage_dip(found_motion: Motion, config, margins) -> FitResult | None:
 
     def pose(servo: np.ndarray) -> tuple[Motion, dict]:
         sweep = linkage.sweep_servo(servo)
-        sub = Motion(np.degrees(sweep.total_flexion_rad), True, sweep.b, sweep.c, sweep.bp, linkage, servo)
+        sub = Motion(np.degrees(sweep.total_flexion_rad), True, sweep.b, sweep.tip, sweep.bp, linkage, servo)
         return sub, _linkage_margins(sub, config)
 
     def least_at(servo: np.ndarray) -> np.ndarray:
@@ -279,7 +279,7 @@ def support_rooms(mechanism: str, x, config) -> tuple[float, float]:
 
         geo = geometry(x, config)
         return geo.proximal_room_mm, geo.distal_room_mm
-    from core.morphology.linkage.design import decode
+    from core.morphology.mechanism.linkage.design import decode
 
     spans = pad_spans(decode(x, config.link_length_resolution_mm), config.packaging)
     return spans["proximal_pad"].room_mm, spans["distal_pad"].room_mm
@@ -356,17 +356,18 @@ def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
             "pip_servo": {"model_radius_mm": goal.packaging.pip_servo.radius_mm,
                           "rear_extent_mm": goal.packaging.pip_servo.rear_extent_mm}}
     if mechanism == "linkage":
-        from core.morphology.linkage.design import decode
+        from core.morphology.mechanism.linkage.design import decode
 
-        p = decode(x, config.link_length_resolution_mm)
-        info.update({"finger_length_mm": math.hypot(p.b_x_mm + p.bc_length_mm, p.b_z_mm),
+        f = decode(x, config.link_length_resolution_mm)
+        p = f.joint
+        info.update({"finger_length_mm": math.hypot(p.b.x_mm + f.distal.end_mm, p.b.z_mm),
                      "active_joints": {"O": [0.0, 0.0], "A'": [p.ap.x_mm, p.ap.z_mm]},
-                     "passive_joints": {"A": [p.a_x_mm, p.a_z_mm], "B": [p.b_x_mm, p.b_z_mm],
+                     "passive_joints": {"A": [p.a.x_mm, p.a.z_mm], "B": [p.b.x_mm, p.b.z_mm],
                                         "B'": [p.bp.x_mm, p.bp.z_mm]},
-                     "pip_servo_tilt_deg": math.degrees(p.pip_servo_tilt_rad),
-                     "supports_end_x_mm": {"A''": p.app_x_mm, "B''": p.bpp_x_mm},
-                     "pad_drops_mm": {"proximal": proximal_drop(goal.packaging, p),
-                                      "distal": distal_drop(goal.packaging, p)}})
+                     "pip_servo_tilt_deg": f.servo.tilt_deg,
+                     "supports_end_x_mm": {"A''": f.proximal.end_mm, "B''": p.b.x_mm + f.distal.start_mm},
+                     "pad_drops_mm": {"proximal": proximal_drop(goal.packaging, f),
+                                      "distal": distal_drop(goal.packaging, f)}})
     else:
         info.update({"finger_length_mm": v["a_x_mm"] + v["ac_length_mm"],
                      "active_joints": {"O": [0.0, 0.0], "A": [v["a_x_mm"], 0.0]}, "passive_joints": {},

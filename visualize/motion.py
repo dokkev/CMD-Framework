@@ -7,7 +7,7 @@ import math
 
 import numpy as np
 
-from core.morphology.linkage.packaging import pad_margins
+from core.morphology.mechanism.linkage.packaging import pad_margins
 
 SERVO_STEP_DEG = 0.05
 
@@ -17,7 +17,7 @@ def servo_sweep(linkage, step_deg: float = SERVO_STEP_DEG):
     the evaluator does) and the linkage's sweep over them."""
 
     step = math.radians(step_deg)
-    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_pip_rad[-1] >= 0.0 else -1.0
+    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_driver_rad[-1] >= 0.0 else -1.0
     servo = sense * np.arange(0.0, math.pi, step)
     return servo, linkage.sweep_servo(servo)
 
@@ -45,5 +45,5 @@ def linkage_margins(linkage, packaging, step_deg: float):
     _, sweep = servo_sweep(linkage)
     index = index_at(sweep, np.radians(np.arange(0.0, 180.0 + 1e-9, step_deg)))
     phi = np.degrees(sweep.total_flexion_rad[index])
-    margins = pad_margins(linkage, packaging, sweep.b[index], sweep.c[index], sweep.bp[index], (0.0,))
+    margins = pad_margins(linkage, packaging, sweep.b[index], sweep.tip[index], sweep.bp[index], (0.0,))
     return phi, margins, sweep, index

@@ -1,5 +1,5 @@
 """The serial 2R driven from a servo on ``A'`` through a belt: the 2R's
-solids (``core.morphology.revolute``, its joint ``A`` holding only its pin)
+solids (``core.morphology.mechanism.revolute``, its joint ``A`` holding only its pin)
 with the servo and the drive pulley on ``A' = A + (dx, dz)``.
 
 The servo's body is laid back along ``-X`` tilted dorsally (as the
@@ -19,7 +19,7 @@ import numpy as np
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import ServoFootprint
-from core.morphology.revolute.solids import (
+from core.morphology.mechanism.revolute.solids import (
     VARIABLE_NAMES as REVOLUTE_NAMES,
     JointChecks,
     RevoluteGeometry,

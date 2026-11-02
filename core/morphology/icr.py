@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 
-from core.morphology.linkage.measures import extended_icr_x
+from core.morphology.mechanism.linkage.measures import extended_icr_x
 
 
 def icr0_x_mm(mechanism: str, x: Sequence[float], variable_names: Sequence[str]) -> float:

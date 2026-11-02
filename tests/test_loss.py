@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.morphology.linkage.packaging import contact_faces
+from core.morphology.mechanism.linkage.packaging import contact_faces
 from core.morphology.packaging.faces import fold_free_lengths, fold_hidden_points
 from core.morphology.contact.loss import CATEGORIES, face_loss, integrity_free, intrusion_mm
 from core.optimization.analysis.scene import scene
@@ -15,7 +15,7 @@ from core.optimization.study import load_yaml
 CONFIGS = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
 PHI = np.arange(0.0, 151.0, 10.0)
 DESIGNS = {
-    "linkage": (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9, 0.0, 0.0),
+    "linkage": (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9),
     "revolute": (45.0, 55.0, 30.0, 29.0, 9.5, 9.5, 20.0),
     "revolute_idealized": (45.0, 55.0, 30.0, 29.0, 3.0, 3.0, 0.0),
     "revolute_parallel": (50.0, 50.0, 39.5, 25.0, 3.0, 3.0, 20.0, 5.0, 15.0),
@@ -127,7 +127,7 @@ def test_the_loss_depths_are_read_from_the_goal():
 
 FEASIBLE = {
     "revolute": (51.1, 48.9, 41.6, 18.7, 0.0, 0.0, 90.0),
-    "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 0.0, 0.0, 3.0, 3.0),
+    "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 3.0, 3.0),
 }
 """A design of each mechanism feasible on the production goal with any pad length."""
 
