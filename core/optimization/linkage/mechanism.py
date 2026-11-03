@@ -131,7 +131,7 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v6"
+    formulation = "linkage-v7"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -147,7 +147,13 @@ class LinkageMechanism(Mechanism):
     any pose to the required flexion; absent, v4's measure. v6 (2026-10-29):
     the distal carrier over the whole mounting line from ``B''`` (the support,
     whatever module it carries); optional in the goal, the comparison model's
-    capsule links, proximal support plate and dorsal space."""
+    capsule links, proximal support plate and dorsal space. v7 (2026-11-03):
+    the pins are bearing housings, checked against the PIP servo and the
+    contact interfaces only; gaps within ``MARGIN_TOLERANCE_MM`` of zero are
+    no violation (``violation_mm``); the length ratios read the segments
+    (``|OA''|``, ``|B''C|``); each contact interface starts on the line
+    tangent to its link's pin clearance, parallel to the link (no drops, no
+    carriers)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES

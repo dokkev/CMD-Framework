@@ -87,7 +87,7 @@ A''=(A'_x+\delta_{A''},\,0),\qquad B''=(B'_x,\,B_z).
 
 `A''`는 `A'`를 proximal mounting line(`x`축)에 정사영한 점에서 `δ_{A''} ≥ 0`만큼 distal로 간 점이고(`δ = 0`이면 `A'` 바로 아래), `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
 
-**Pad 형상 (contact interface space).** Pad는 각 링크의 contact interface space로, 사각 블록 `a–b–d–c`이며 링크 밖으로 돌출할 수 있다. `a–b`는 자기 링크 핀의 clearance 원(proximal은 `A`, distal은 `B`)에 접하고 링크선(`OA`, `BC`)과 평행한 선 위에 있고, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다(`LinkagePackaging.interface_offset_mm`). 모듈과 장착부는 모두 이 공간 안에 있다고 보고 따로 모델링하지 않는다(2026-11-03: drop 설정과 distal carrier 판 삭제). 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
+**Pad 형상 (contact interface space).** Pad는 각 링크의 contact interface space로, 사각 블록 `a–b–d–c`이며 링크 밖으로 돌출할 수 있다. `a–b`는 자기 링크 핀의 clearance 원(proximal은 `A`, distal은 `B`)에 접하고 링크선(`OA`, `BC`)과 평행한 선 위에 있고, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다(`LinkagePackaging.interface_offset_mm`). 모듈과 장착부는 모두 이 공간 안에 있다고 보고 따로 모델링하지 않는다(2026-11-03: drop 설정과 distal carrier 판 삭제, formulation `linkage-v7`). 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
 
 | 값 | 의미 |
 |---|---|
