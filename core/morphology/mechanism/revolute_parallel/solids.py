@@ -50,12 +50,11 @@ class ParallelGeometry:
         return np.array((self.joint.a_x_mm, 0.0))
 
 
-def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float,
-             proximal_carrier_height_mm: float | None = None) -> ParallelGeometry:
-    """The solids of a design vector (``proximal_carrier_height_mm`` as the 2R's)."""
+def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float) -> ParallelGeometry:
+    """The solids of a design vector (the 2R's, then the servo on ``A'``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    joint = revolute_geometry(tuple(x[:len(REVOLUTE_NAMES)]), packaging, proximal_carrier_height_mm)
+    joint = revolute_geometry(tuple(x[:len(REVOLUTE_NAMES)]), packaging)
     ap = np.array((joint.a_x_mm + v["ap_from_a_x_mm"], v["ap_from_a_z_mm"]))
     servo = packaging.pip_servo
     tilt = math.radians(v["servo_tilt_deg"])
@@ -67,8 +66,8 @@ def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float,
 def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
             until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
     """The idealized 2R's pairs (the pads, the joint, the MCP servo; ``checks``
-    the joint's, no servo on it), then the servo against the distal pad and
-    its carrier (the pulleys, in the outer layer, meet neither pad)."""
+    the joint's, no servo on it), then the servo against the distal pad (the
+    pulleys, in the outer layer, meet neither pad)."""
 
     packaging = checks.packaging
     clearance = packaging.body_clearance_mm
@@ -77,9 +76,6 @@ def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
     margins = {
         ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
     }
-    if joint.distal_carrier_local is not None:
-        margins[("distal_carrier", "pip_servo")] = (
-            footprint_gaps(joint.posed(joint.distal_carrier_local, phi), geo.servo, packaging) - clearance)
     margins = {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
     return {**revolute_margins(joint, phi, checks, until_unsafe=until_unsafe), **margins}
 

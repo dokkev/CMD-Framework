@@ -131,7 +131,7 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v7"
+    formulation = "linkage-v8"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -153,7 +153,14 @@ class LinkageMechanism(Mechanism):
     no violation (``violation_mm``); the length ratios read the segments
     (``|OA''|``, ``|B''C|``); each contact interface starts on the line
     tangent to its link's pin clearance, parallel to the link (no drops, no
-    carriers)."""
+    carriers). v8 (2026-11-03): each pad counts at the required flexion only,
+    from its outer end to where the other pad's face line crosses its own
+    (``packaging.face_crossing_lengths``; v4 to v7: on ``[0, phi_req]``, less
+    what the other face's segment hides), self-collision left to the checks;
+    the pads' ends searched (``goal.pads.on_links`` false) and the segment
+    ratios without maxima; no pad mounted past where it counts
+    (``pad_waste_mm``); a pad within its link, clear of its pins and the
+    PIP servo, on the link line (``packaging.pad_offsets``), else tangent to its pin."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES

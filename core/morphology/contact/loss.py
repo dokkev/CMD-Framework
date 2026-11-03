@@ -286,7 +286,8 @@ def joint_scene(mechanism: str, geo, packaging, phi_deg) -> Scene:
                               np.broadcast_to(proximal_normal, (count, 2))),
              "distal_pad": (distal_face, distal_normal)}
     near, far = np.moveaxis(joint.posed(joint.distal_mount, phi), 1, 0)
-    carrier = [] if joint.distal_carrier_local is None else [joint.posed(joint.distal_carrier_local, phi)]
+    local = getattr(joint, "distal_carrier_local", None)  # the RCJ's; the 2R has none
+    carrier = [] if local is None else [joint.posed(local, phi)]
     mcp = packaging.mcp_footprint().outline
     if mechanism == "rcj":
         a, b = geo.a, geo.b(phi)

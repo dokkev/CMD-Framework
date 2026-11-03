@@ -44,6 +44,7 @@ from core.morphology.mechanism.linkage.measures import finger_length_mm, linkage
 from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.mechanism.linkage.motion import MotionSettings, sweep_motion
 from core.morphology.mechanism.linkage.packaging import (
+    pad_offsets,
     PADS,
     assembly,
     least_margin_mm,
@@ -73,16 +74,26 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
 )
 """Constraints of the reference geometry alone, checked before any sweep."""
 MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm",
-                                       "torque_ratio")
+                                       "pad_waste_mm", "torque_ratio")
 """``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
 it reaches it); the hyperextension still missing; how far ``C`` passes behind
 ``O``; how far either pad's effective length (the face no link crosses on
 ``[0, phi_req]``, or with ``packaging.links_clear_pads`` the face outside
 where the two faces cross) falls short of its least length: the module must
-be usable;
-how far ``k_max`` exceeds its limit (``config.torque_ratio_max``, 0 without one)."""
+be usable; how far either pad is mounted past where it counts
+(:func:`pad_waste_mm`); how far ``k_max`` exceeds its limit (``config.torque_ratio_max``, 0 without one)."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
+
+
+def pad_waste_mm(supports_mm: tuple[float, float], usable_mm: tuple[float, float], tolerance_mm: float) -> float:
+    """How far (mm) either pad is mounted past what of it counts (its
+    usable length: at the required flexion, to where the other face's line
+    crosses it), less ``tolerance_mm`` (the grid's resolution): a pad past
+    the crossing only adds a solid to collide (``<= 0``: none wasted)."""
+
+    waste = [max(support, 0.0) - min(max(support, 0.0), usable) for support, usable in zip(supports_mm, usable_mm)]
+    return max(waste) - tolerance_mm
 """Violation assigned to every other constraint of an invalid reference design."""
 UNSWEPT = 1.0e2
 """Violation assigned to the motion constraints of a design that fails a static one."""
@@ -219,6 +230,7 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
     reference pose :data:`INVALID` for every other constraint."""
 
     packaging, joint = config.packaging, four_bar(finger)
+    offsets = pad_offsets(finger, packaging)
     common = dict(
         ab_mm=math.hypot(joint.b.x_mm - joint.a.x_mm, joint.b.z_mm - joint.a.z_mm),
         finger_length_mm=finger_length_mm(finger),
@@ -226,8 +238,8 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
         required_rom_rad=config.required_rom_rad,
         required_proximal_mm=config.minimum_proximal_support_mm,
         required_distal_mm=config.minimum_distal_support_mm,
-        proximal_depth_mm=packaging.interface_offset_mm("proximal_pad") + packaging.proximal_pad.height_mm,
-        distal_depth_mm=packaging.interface_offset_mm("distal_pad") + packaging.distal_pad.height_mm,
+        proximal_depth_mm=offsets["proximal_pad"] + packaging.proximal_pad.height_mm,
+        distal_depth_mm=offsets["distal_pad"] + packaging.distal_pad.height_mm,
         **pad_lengths(finger, packaging),
     )
     try:
@@ -267,6 +279,8 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
             config.minimum_proximal_support_mm
             - min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0)),
             config.minimum_distal_support_mm - min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0))),
+        "pad_waste_mm": pad_waste_mm((common["proximal_support_length_mm"], common["distal_support_length_mm"]),
+                                     (free["proximal_pad"], free["distal_pad"]), config.resolution_mm),
         "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
     }
     return LinkageEvaluation(
@@ -423,6 +437,7 @@ def overhang_violations(finger: Finger, config: LinkageConfig) -> tuple[float, f
 
 
 __all__ = [
+    "pad_waste_mm",
     "CONSTRAINT_NAMES",
     "INVALID",
     "MOTION_CONSTRAINTS",

@@ -22,7 +22,9 @@ from core.optimization.revolute_parallel.config import VARIABLE_NAMES, ParallelC
 from core.optimization.revolute_parallel.evaluate import CONSTRAINT_NAMES, ParallelEvaluation, evaluate
 
 JOINT = len(revolute_search.SEARCH_NAMES)
-"""The 2R's coordinates (and design variables) come first."""
+"""The 2R's coordinates come first, then the belt's."""
+JOINT_VARIABLES = len(revolute_search.VARIABLE_NAMES)
+"""The 2R's design variables come first (its drops among them, not searched)."""
 SEARCH_NAMES = (*revolute_search.SEARCH_NAMES, "ap_from_a_x_mm", "ap_from_a_z_mm")
 
 
@@ -35,7 +37,7 @@ def bound_hits(x: Sequence[float], config: ParallelConfig, finger_length_mm: flo
 
 class ParallelMechanism(RevoluteMechanism):
     name = "revolute_parallel"
-    formulation = "revolute-parallel-goal-v5"
+    formulation = "revolute-parallel-goal-v6"
     """The 2R with its servo on ``A'``, as the linkage's (2026-10-27).
     v2 (2026-10-28): the idealized 2R's v3 joint and pads (v1 runs predate
     them), ``|OA|`` and ``BC`` held to the goal's shares of ``|OC|``. v3
@@ -46,7 +48,8 @@ class ParallelMechanism(RevoluteMechanism):
     links (not checked against the pads); the servo's tilt searched, ``A``'s
     pin and the distal pad's carrier checked against the servo, the fold and
     the hyperextension, as the linkage's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5. v5 (2026-10-29): the 2R's search ranges for the pads' ends (no setback: each pad reaches the joint's housing and past it by its overhang (``goal.pads.*.overhang_max_mm``), the housing a collision (``pad_reach_mm``)),
-    its own pad rules unchanged (shelved)."""
+    its own pad rules unchanged (shelved). v6 (2026-11-03): the 2R's v7, the
+    pads tangent to the pin's housing at ``A`` (the pulleys in the outer layer)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 
@@ -87,7 +90,8 @@ class ParallelMechanism(RevoluteMechanism):
         pass
 
     def from_design(self, x: Sequence[float], config: ParallelConfig) -> tuple[float, ...]:
-        return (*revolute_search.from_design(x[:JOINT], config.base), *(float(value) for value in x[JOINT:]))
+        return (*revolute_search.from_design(x[:JOINT_VARIABLES], config.base),
+                *(float(value) for value in x[JOINT_VARIABLES:]))
 
     def refine(self, config: ParallelConfig, step_rad: float) -> ParallelConfig:
         goal = dataclasses.replace(config.goal, servo_step_rad=step_rad)

@@ -47,6 +47,7 @@ from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     distal_pad_polygon,
     pad_margins,
+    pad_offsets,
     pip_footprint,
     proximal_pad_polygon,
 )
@@ -262,7 +263,7 @@ def create_animation(
             if name in ("proximal_end", "distal_start"):  # on the pad's top face, tangent to its link's pin
                 start, end, pad = ((pose.o, pose.a, "proximal_pad") if name == "proximal_end"
                                    else (pose.b, pose.tip, "distal_pad"))
-                offset = packaging.interface_offset_mm(pad)
+                offset = pad_offsets(linkage, packaging)[pad]
                 ux, uz = end.x_mm - start.x_mm, end.z_mm - start.z_mm
                 length = math.hypot(ux, uz) or 1.0
                 x, z = x - offset * -uz / length, z - offset * ux / length

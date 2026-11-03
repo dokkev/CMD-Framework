@@ -27,6 +27,9 @@ CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage
 MECHANISM = mechanism("linkage")
 X = (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9)
 """A feasible design of a short run."""
+TRIMMED = (*X[:10], -4.7, X[11])
+""":data:`X` with its proximal pad ending where its face line meets the
+distal face's at the required flexion (none of it wasted, ``pad_waste_mm``)."""
 
 
 PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[30, null]",
@@ -138,7 +141,8 @@ def test_pad_pairs_follow_the_checks():
 
 def test_a_design_is_evaluated_with_the_objectives():
     config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
-    e = MECHANISM.evaluate(X, config)
+    assert MECHANISM.evaluate(X, config).constraints["pad_waste_mm"] > 0.0  # mounted past the crossing
+    e = MECHANISM.evaluate(TRIMMED, config)
     assert e.feasible
     spans = pad_spans(e.finger, config.packaging)
     covered = spans["proximal_pad"].length_mm + spans["distal_pad"].length_mm
@@ -152,7 +156,7 @@ def test_a_design_is_evaluated_with_the_objectives():
     assert e.distal_effective_mm <= e.distal_support_length_mm
     assert e.pad_coverage <= e.mounted_coverage
     # The least lengths hold on the faces.
-    short = MECHANISM.evaluate(X, load("goal.pads.proximal.length_mm=[60, null]"))
+    short = MECHANISM.evaluate(TRIMMED, load("goal.pads.proximal.length_mm=[60, null]"))
     assert short.constraints["proximal_support_mm"] > 0.0 and not short.feasible
     assert e.curl_deg == pytest.approx(180.0 - math.degrees(e.phi_max_rad))
     assert MECHANISM.objective_values(e, config.objectives) == pytest.approx(
@@ -170,11 +174,11 @@ def test_the_transmission_range_bounds_the_motion():
 
 def test_k_max_may_be_limited():
     pads = ("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
-    free = MECHANISM.evaluate(X, load(*pads))
+    free = MECHANISM.evaluate(TRIMMED, load(*pads))
     assert free.feasible and free.constraints["torque_ratio"] == 0.0
     k = free.torque_ratio_max
     for limit, feasible in ((k + 0.01, True), (k - 0.01, False)):
-        e = MECHANISM.evaluate(X, load(*pads, f"goal.hardware.pip_servo.torque_ratio_max={limit}"))
+        e = MECHANISM.evaluate(TRIMMED, load(*pads, f"goal.hardware.pip_servo.torque_ratio_max={limit}"))
         assert e.constraints["torque_ratio"] == pytest.approx(k - limit)
         assert e.feasible is feasible
 
@@ -403,3 +407,41 @@ def test_the_pads_may_be_searched_on_their_links():
         # The proximal segment to A, the distal from B (to the grid).
         assert linkage.proximal_end.x_mm == pytest.approx(linkage.joint.a.x_mm, abs=0.1)
         assert linkage.distal_start.x_mm == pytest.approx(linkage.joint.b.x_mm, abs=0.1)  # B re-assembled, B' with it
+
+
+def test_the_objective_counts_each_pad_outside_the_fold_at_the_required_flexion():
+    from core.morphology.mechanism.linkage.packaging import face_crossing_lengths
+
+    config = load()
+    e = MECHANISM.evaluate(X, config)
+    assert e.phi_safe_rad >= config.required_rom_rad  # swept past the required flexion
+    linkage = decode(X, config.link_length_resolution_mm)
+    spans = pad_spans(linkage, config.packaging)
+    # The required flexion on the servo grid: the first sample at or past it.
+    sense = 1.0 if linkage.sweep_servo([0.0, 0.01]).q_driver_rad[-1] >= 0.0 else -1.0
+    sweep = linkage.sweep_servo(sense * np.arange(0.0, math.pi, config.servo_step_rad))
+    last = int(np.flatnonzero(sweep.total_flexion_rad >= config.required_rom_rad - 1e-12)[0])
+    free = face_crossing_lengths(linkage, config.packaging, sweep.b[last:last + 1], sweep.tip[last:last + 1])
+    assert e.proximal_effective_mm == pytest.approx(min(free["proximal_pad"][0], spans["proximal_pad"].length_mm))
+    assert e.distal_effective_mm == pytest.approx(min(free["distal_pad"][0], spans["distal_pad"].length_mm))
+    assert e.pad_coverage == pytest.approx((e.proximal_effective_mm + e.distal_effective_mm) / e.finger_length_mm)
+
+
+def test_a_pad_within_its_link_sits_on_the_link_line():
+    from core.morphology.mechanism.linkage.packaging import pad_offsets, proximal_pad_polygon
+
+    config = load()
+    r = config.packaging.interface_offset_mm("proximal_pad")
+    # Running under A (A'' past it), the proximal pad starts tangent to A's pin housing.
+    under = decode(X, config.link_length_resolution_mm)
+    assert under.proximal_end.x_mm > under.joint.a.x_mm and pad_offsets(under, config.packaging)["proximal_pad"] == r
+    # Ending more than the housing's radius short of A, it sits on O-A.
+    within = decode((*X[:10], -10.0, X[11]), config.link_length_resolution_mm)
+    assert within.proximal_end.x_mm < within.joint.a.x_mm - r
+    assert pad_offsets(within, config.packaging)["proximal_pad"] == 0.0
+    assert proximal_pad_polygon(within, config.packaging)[:, 1].max() == pytest.approx(0.0)
+    # The distal pad likewise, starting past B by more than B's radius.
+    past_b = decode((*X[:11], -18.0), config.link_length_resolution_mm)
+    assert past_b.distal_start.x_mm > past_b.joint.b.x_mm + r
+    assert pad_offsets(past_b, config.packaging)["distal_pad"] == 0.0
+    assert pad_offsets(under, config.packaging)["distal_pad"] == r

@@ -14,12 +14,14 @@ from core.optimization.study import load_yaml
 ROOT = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
 PINNED = ("goal.link.finger_length_mm=[90, 100]", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.motion.dip_flexion_deg=120",
-          "goal.hardware.pip_servo.tilt_angle_deg=20")
+          "goal.hardware.pip_servo.tilt_angle_deg=90")
 """The study these tests were written for, whatever the config file now asks."""
 MECHANISM = mechanism("revolute")
-X = (45.0, 55.0, 30.0, 29.0, 9.5, 9.5, 20.0)
+X = (45.0, 55.0, 30.0, 29.0, 0.0, 0.0, 90.0)
 """A feasible design (pads near their min, |OC| 100, the distal pad level
-with the proximal one, the servo tilted as the linkage's)."""
+with the proximal one, both on their segments' lines (the servo's shaft is
+the joint), the servo standing dorsal: the pads clear its rounded front,
+9.5 mm either side of A)."""
 
 
 def load(*overrides: str):
@@ -36,11 +38,12 @@ def test_it_reads_the_linkage_goal_as_is():
     # the pads start past their min.
     assert config.bounds["ac_length_mm"] == linkage.within_share(linkage.bounds["bc_length_mm"],
                                                                  linkage.distal_length_ratio_bounds)
-    low, high = linkage.extended_length_bounds_mm
-    share_low, share_high = linkage.proximal_length_ratio_bounds
-    assert config.bounds["a_x_mm"] == (pytest.approx(share_low * low), pytest.approx(share_high * high))
+    assert config.bounds["a_x_mm"] == pytest.approx(linkage.within_share(linkage.bounds["a_x_mm"],
+                                                                         linkage.proximal_length_ratio_bounds))
+    assert config.bounds["a_x_mm"][0] == pytest.approx(linkage.proximal_length_ratio_bounds[0]
+                                                       * linkage.extended_length_bounds_mm[0])
     assert config.bounds["app_x_mm"][0] == pytest.approx(linkage.packaging.proximal_pad_start_mm + 20.0)
-    assert config.bounds["servo_tilt_deg"] == (20.0, 20.0)  # the goal's PIP servo tilt
+    assert config.bounds["servo_tilt_deg"] == (90.0, 90.0)  # the goal's PIP servo tilt
     # Each pad may reach the joint's housing (the servo at A) and past it by
     # its overhang: no limit set here (as the linkage's), only collisions and the finger.
     assert config.bounds["bpp_from_a_mm"][0] == pytest.approx(-100.0)
@@ -55,12 +58,12 @@ def test_the_pads_and_servo_follow_the_goal():
     config = load()
     geo = geometry(X, config)
     packaging = config.goal.packaging
-    # The proximal pad on the distal servo's palmar face, the distal pad lined
-    # up with it below A-C; each laid from its outer end.
-    assert geo.proximal_pad[:, 1].max() == pytest.approx(-packaging.pip_servo.radius_mm)
+    # The proximal pad on O-A (the servo a collision), the distal pad lined
+    # up with it on A-C; each laid from its outer end.
+    assert geo.proximal_pad[:, 1].max() == pytest.approx(0.0)
     assert geo.proximal_pad[:, 0].min() == pytest.approx(packaging.proximal_pad_start_mm)
     assert geo.distal_pad_local[:, 0].max() == pytest.approx(55.0)  # at C
-    assert geo.distal_pad_local[:, 1].max() == pytest.approx(-packaging.pip_servo.radius_mm)  # aligned
+    assert geo.distal_pad_local[:, 1].max() == pytest.approx(0.0)  # aligned
     # Flexed by phi about A, the distal pad keeps its distance to A.
     rest, bent = geo.distal_pad([0.0])[0], geo.distal_pad([math.radians(90.0)])[0]
     a = np.array((45.0, 0.0))
@@ -68,16 +71,24 @@ def test_the_pads_and_servo_follow_the_goal():
     assert geo.tip([math.radians(90.0)])[0] == pytest.approx((45.0, -55.0))
     # The distal servo on A, laid back along -X, tilted dorsally.
     assert geo.distal_servo.pivot == (45.0, 0.0)
-    assert geo.distal_servo.rear == pytest.approx((-math.cos(math.radians(20.0)), math.sin(math.radians(20.0))))
+    assert geo.distal_servo.rear == pytest.approx((0.0, 1.0), abs=1e-12)  # standing dorsal
+
+
+SHORT_PADS = ("goal.pads.proximal.length_mm=[5, null]", "goal.pads.distal.length_mm=[5, null]")
+"""Pads of any useful length (the fold, not the least lengths, sets them)."""
 
 
 def test_a_design_is_evaluated_on_the_linkage_objectives():
-    config = load()
+    config = load(*SHORT_PADS)
+    # On the lines at 120 deg the faces cross 5 / tan 30 deg = 8.7 mm from A,
+    # inside the servo's front (9.5 mm): no pad clear of the servo is wasted.
+    assert MECHANISM.evaluate(X, config).constraints["pad_waste_mm"] < 0.0
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
     assert e.torque_ratio_max == 1.0  # direct drive
-    supports = e.proximal_support_length_mm + e.distal_support_length_mm
-    assert e.pad_coverage == pytest.approx(supports / e.finger_length_mm)
+    effective = e.proximal_effective_mm + e.distal_effective_mm
+    assert e.pad_coverage == pytest.approx(effective / e.finger_length_mm)
+    assert effective == pytest.approx(e.proximal_support_length_mm + e.distal_support_length_mm, abs=0.1)
     assert e.curl_deg == pytest.approx(180.0 - math.degrees(e.phi_max_rad))
     assert math.degrees(e.phi_safe_rad) >= 120.0
     report = MECHANISM.report(e)
@@ -101,13 +112,16 @@ def test_folding_brings_the_pads_together():
     assert MECHANISM.evaluate(under, no_overhang).constraints["distal_support_mm"] == pytest.approx(2.0)
     # No overhang limit (null, as the linkage's): no reach limit either.
     assert MECHANISM.evaluate(long, load()).constraints["proximal_support_mm"] <= 0.0
-    # Under the joint, below the servo's housing (dropped by its radius), a pad may reach A;
-    # on the link line it runs into the servo.
-    below = list(X)
-    below[2] = 45.0
-    assert MECHANISM.evaluate(below, load()).constraints["pip_servo_pad_mm"] <= 0.0
-    below[5] = 0.0
-    assert MECHANISM.evaluate(below, load()).constraints["pip_servo_pad_mm"] > 0.0
+    # On O-A, the proximal pad clears the servo's rounded front (9.5 mm about
+    # A) only 9.5 mm short of A, whatever drop the vector holds.
+    short_of = list(X)
+    short_of[2] = 45.0 - 9.6
+    assert MECHANISM.evaluate(short_of, load()).constraints["pip_servo_pad_mm"] <= 0.0
+    short_of[5] = 9.5
+    assert MECHANISM.evaluate(short_of, load()).constraints["pip_servo_pad_mm"] <= 0.0
+    under = list(X)
+    under[2] = 45.0
+    assert MECHANISM.evaluate(under, load()).constraints["pip_servo_pad_mm"] > 0.0
 
 
 def test_runs_reload(tmp_path):
@@ -130,7 +144,7 @@ def test_the_search_coordinates_keep_the_lengths():
     config = load()
     problem = MechanismProblem(MECHANISM, config)
     rng = np.random.default_rng(0)
-    floor = search.least_a_x(config.goal.packaging, tuple(config.goal.mcp_servo_angles_rad))
+    floor = search.least_a_x(config.goal.packaging, tuple(config.goal.mcp_servo_angles_rad), 90.0)  # standing
     for _ in range(200):
         x = problem.to_mm(np.round(problem.xl + rng.random(problem.n_var) * (problem.xu - problem.xl)))
         if x is None:
@@ -146,28 +160,47 @@ FIXED_PADS = ("goal.pads.proximal.length_mm=[20, 20]", "goal.pads.distal.length_
               "goal.link.finger_length_mm=[60, 300]")
 
 
-def test_the_distal_pad_hangs_its_searched_drop_below_a_c():
+def test_each_pad_starts_tangent_to_the_joints_housing():
     from core.optimization.revolute import geometry
 
     config = load()
-    assert config.bounds["distal_drop_mm"] == (0.0, 9.5)  # down to the servo's palmar face
-    for drop in (0.0, 4.0, 9.5):
-        x = (*X[:4], drop, *X[5:])
+    assert config.bounds["distal_drop_mm"] == config.bounds["proximal_drop_mm"] == (0.0, 0.0)  # on the lines
+    for drop in (0.0, 4.0, 9.5):  # whatever the vector holds (searched before 2026-11-03)
+        x = (*X[:4], drop, drop, *X[6:])
         geo = geometry(x, config)
-        assert geo.distal_pad_local[:, 1].max() == pytest.approx(-drop)
-        assert geo.distal_mount == pytest.approx(np.array(((29.0, -drop), (55.0, -drop))))
+        assert geo.distal_pad_local[:, 1].max() == pytest.approx(0.0)
+        assert geo.proximal_pad[:, 1].max() == pytest.approx(0.0)
+        assert geo.distal_mount == pytest.approx(np.array(((29.0, 0.0), (55.0, 0.0))))
         # The finger's thickness at the distal pad: from A-C to the pad's face.
-        assert MECHANISM.evaluate(x, config).distal_depth_mm == pytest.approx(drop + 5.0)
-    # Searched as itself: the design comes back from its coordinates.
-    x = (*X[:4], 4.0, 2.0, 20.0)
+        assert MECHANISM.evaluate(x, config).distal_depth_mm == pytest.approx(5.0)
+    # Not searched: the design comes back from its coordinates with the housing's drops.
+    assert len(MECHANISM.search_names(config)) == 5
+    x = X
     assert MECHANISM.to_design(MECHANISM.from_design(x, config), config) == pytest.approx(x)
 
 
+def test_each_pad_counts_outside_the_fold_at_the_required_flexion():
+    from core.morphology.mechanism.revolute.solids import crossing_free
+    from core.optimization.revolute import geometry
+
+    # Folded to 150 deg the faces, 5 mm palmar of the shaft, cross on the
+    # bisector 5 / tan(15 deg) = 18.7 mm from A along each segment, past the servo's front.
+    config = load(*SHORT_PADS, "goal.motion.dip_flexion_deg=150")
+    long = (60.0, 40.0, 50.0, 10.0, 0.0, 0.0, 90.0)
+    e = MECHANISM.evaluate(long, config)
+    phi = np.asarray(config.goal.servo_samples_rad)
+    last = phi[np.flatnonzero(phi >= config.goal.required_rom_rad - 1e-12)[0]]
+    free = crossing_free(geometry(long, config), [last])
+    assert e.proximal_usable_length_mm == pytest.approx(free["proximal_pad"][0])
+    assert e.proximal_usable_length_mm == pytest.approx(60.0 - 5.0 / math.tan(math.radians(15.0)) - 9.5, abs=0.3)
+    assert e.distal_usable_length_mm == pytest.approx(min(free["distal_pad"][0], 30.0))
+
+
 def test_a_collision_between_samples_is_caught_on_the_optimization_grid():
-    # The pads graze each other near 154 deg for well under the 1 deg step:
+    # The pads graze each other near 153.7 deg, between the 1 deg steps:
     # the coarse sweep finds what the verification grid does.
     overrides = (*FIXED_PADS, "goal.motion.dip_flexion_deg=180")
-    x = (52.0, 58.0, 42.5, 33.0, 0.0, 4.0, 20.0)
+    x = (52.0, 58.0, 42.0, 33.0, 0.0, 0.0, 90.0)
     coarse = load(*overrides)
     fine = MECHANISM.refine(coarse, coarse.goal.verify_step_rad)
     found, verified = MECHANISM.evaluate(x, coarse), MECHANISM.evaluate(x, fine)
@@ -182,7 +215,7 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     idealized = mechanism("revolute_idealized")
     config = load_yaml(idealized, ROOT / "linkage" / "config.yaml", PINNED)[0]
     assert not config.joint_servo and config.joint_radius_mm == 3.0  # A's pin housing, 6 mm
-    assert config.bounds["distal_drop_mm"] == (0.0, 3.0)
+    assert config.bounds["distal_drop_mm"] == (3.0, 3.0)  # tangent to the pin's housing
     assert config.bounds["servo_tilt_deg"] == (0.0, 0.0)  # no servo to tilt
     x = (*X[:4], 3.0, 3.0, 0.0)
     geo = geometry(x, config)
@@ -190,8 +223,6 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     e = idealized.evaluate(x, config)
     # Nothing at the joint but the pin: the pads are checked against it, not a servo.
     assert e.constraints["mcp_servo_mm"] == 0.0 and e.constraints["pip_servo_pad_mm"] <= 0.0
-    into = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)  # the proximal pad on the line, through the pin
-    assert idealized.evaluate(into, config).constraints["pip_servo_pad_mm"] > 0.0
-    packaged = MECHANISM.evaluate(X, load())
-    assert e.phi_safe_rad >= packaged.phi_safe_rad
+    under = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)  # the proximal pad to A, tangent to the pin whatever the drops
+    assert idealized.evaluate(under, config).constraints["pip_servo_pad_mm"] <= 0.0
     assert idealized.config_from_json(idealized.config_to_json(config)) == config

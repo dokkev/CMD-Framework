@@ -46,11 +46,14 @@ goal:
   # pin clearance (A's for the proximal pad, B's for the distal one; half
   # goal.collision.param.pivot_diameter_mm) and parallel to the link line
   # (O-A, B-C); length and A'' / B'' are measured along that line.
-  # Searched with each pad on its own link only (the proximal pad to A, the
-  # distal one from B to C), so more pad means a shorter four-bar;
-  # scripts/optimize/extend_pads.py then grows the found designs' pads as far
-  # as they stay usable. (on_links: false here searches the pads' ends too.)
+  # The pads' ends A'' and B'' are searched with the links (on_links: false):
+  # each pad may run past its joint (the proximal one past A toward B, the
+  # distal one back past B toward A) as far as it pays in coverage against
+  # the curl it costs. (on_links: true searches each pad on its own link
+  # only, A'' at A and B'' at B; scripts/optimize/extend_pads.py then grows
+  # them afterwards.)
   pads:
+    on_links: false
     proximal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
       # outer end (the MCP servo side; for the distal pad, C), the rest of the
@@ -83,13 +86,15 @@ goal:
     # The finger's segments, |OA''| (the MCP O to where the proximal body ends)
     # and |B''C| (where the distal body starts to the fingertip C), and |AB|
     # (the four-bar's span along the finger) as shares of the extended |OC|,
-    # [min, max] (null: no limit; before 2026-11-03 |OA| and BC). |AB| at most 0.35 of
+    # [min, max] (null: no limit; before 2026-11-03 |OA| and BC, each at
+    # most 0.55; the maxima dropped 2026-11-03, the pads' ends searched: a
+    # max on |OA''| or |B''C| capped the pads, not the finger). |AB| at most 0.35 of
     # it, a shorter four-bar (above 0.40 the |OA| and BC minimums bind it
     # anyway, as |OA| and BC then; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
     # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
     # distal_length_mm and joint_span_mm, optional, bound them in mm.)
-    proximal_length_ratio: [0.35, 0.55]
-    distal_length_ratio: [0.25, 0.55]
+    proximal_length_ratio: [0.35, null]
+    distal_length_ratio: [0.25, null]
     joint_span_ratio: [null, 0.35]
     # true: the four-bar an antiparallelogram, |B'B| = |A'A| and |AB'| = |A'B|
     # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
@@ -106,7 +111,7 @@ goal:
       model: xm335              # core.hardware.ACTUATORS
       # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
       # searched every tilt_step_deg from min.
-      tilt_angle_deg: [0, 35]
+      tilt_angle_deg: [0, 90]
       tilt_step_deg: 5
       # The most k_max allowed: the PIP servo's torque per distal moment held,
       # the worst on [0, motion.dip_flexion_deg] (the serial 2R's is 1, the

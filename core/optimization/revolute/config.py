@@ -22,10 +22,11 @@ from core.optimization.linkage.config import LinkageConfig
 
 
 DISTAL_DROP_MIN_MM = 0.0
-"""Each pad's top face may be searched below its segment's line from on the
-line down to the joint's palmar face (the servo's radius, 9.5 mm for the
-XM335; the idealized 2R's: its pin housing's): the fingertip no deeper than
-the proximal segment can be (deeper, the optimum at little flexion is a hook)."""
+"""Before 2026-11-03 each pad's top face was searched below its segment's
+line from on it down to the joint's palmar face; now each pad's contact
+interface space starts on the line tangent to ``A``'s pin housing
+(:func:`interface_radius`; ``evaluate.interfaced``), the drops' bounds that
+radius alone."""
 
 
 def pad_reach_mm(goal: LinkageConfig, radius_mm: float) -> tuple[float, float]:
@@ -55,6 +56,15 @@ def joint_radius(goal: LinkageConfig, joint_servo: bool, joint_pulley: bool = Fa
     return max(pin, goal.pulley_radius_mm)
 
 
+def interface_radius(goal: LinkageConfig, joint_servo: bool, joint_pulley: bool = False) -> float:
+    """The pads' line below the segments (:attr:`RevoluteConfig.interface_radius_mm`):
+    on them for the 2R-DD (the servo's shaft is the joint, no bearing
+    housing to clear; the servo itself a collision), else tangent to ``A``'s
+    pin housing (or the pulley on it)."""
+
+    return 0.0 if joint_servo else joint_radius(goal, joint_servo, joint_pulley)
+
+
 @dataclass(frozen=True)
 class RevoluteConfig:
     goal: LinkageConfig
@@ -75,6 +85,15 @@ class RevoluteConfig:
         housing (or the pulley, when larger)."""
 
         return joint_radius(self.goal, self.joint_servo, self.joint_pulley)
+
+    @property
+    def interface_radius_mm(self) -> float:
+        """Where the pads' contact interface spaces start, below the segments'
+        lines (:func:`interface_radius`): on them for the 2R-DD, its servo a
+        collision; else tangent to ``A``'s pin housing, as the linkage's pads
+        to their pins (2026-11-03). With a pulley on the joint, its envelope."""
+
+        return interface_radius(self.goal, self.joint_servo, self.joint_pulley)
 
     def __post_init__(self) -> None:
         if set(self.bounds) != set(VARIABLE_NAMES):
@@ -108,8 +127,9 @@ class RevoluteConfig:
             "app_x_mm": (start + goal.minimum_proximal_support_mm, finger_high),
             "bpp_from_a_mm": (-min(pad_reach_mm(goal, radius)[1], finger_high),
                               finger_high - goal.minimum_distal_support_mm),
-            "distal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
-            "proximal_drop_mm": (DISTAL_DROP_MIN_MM, radius),
+            # Tangent to the pin's housing, not searched.
+            "distal_drop_mm": (interface_radius(goal, joint_servo, joint_pulley),) * 2,
+            "proximal_drop_mm": (interface_radius(goal, joint_servo, joint_pulley),) * 2,
             "servo_tilt_deg": tilt,
         }
         return cls(goal, bounds, joint_servo, joint_pulley)
@@ -170,4 +190,4 @@ class RevoluteConfig:
         return self.goal.hypervolume_reference
 
 
-__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "pad_reach_mm"]
+__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "interface_radius", "joint_radius", "pad_reach_mm"]

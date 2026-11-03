@@ -7,9 +7,12 @@ proximal one as the linkage's ``q_pip + q_dip``. The distal servo's shaft is
 on ``A`` (:attr:`JointChecks.joint_servo`), its body fixed to the proximal
 segment and laid back along ``-X`` tilted dorsally by ``servo_tilt_deg``;
 without it (the idealized 2R) only ``A``'s pin housing stands at the joint.
-Each pad sits on its own segment, a drop below its line; the distal pad on a
-carrier plate (``packaging.distal_carrier_height_mm``). The distal phalanx is
-a truss from ``A`` to the pad's two ends, in other layers than the servo.
+Each pad is its segment's contact interface space, a block from a line
+parallel to the segment's line a drop below it (the study sets the drop to
+the joint's radius: tangent to ``A``'s housing, as the linkage's to its
+pins); the module and its mounting are within it (no carrier, 2026-11-03).
+The distal phalanx is a truss from ``A`` to the pad's two ends, in other
+layers than the servo.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from core.morphology.packaging.faces import fold_free_lengths
+from core.morphology.packaging.faces import crossing_free_lengths, fold_free_lengths
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import (
@@ -69,11 +72,6 @@ class RevoluteGeometry:
     distal_length_mm: float
     proximal_room_mm: float
     distal_room_mm: float
-    distal_carrier_local: np.ndarray | None = None
-    """The distal pad's carrier plate in the distal frame (``None``: none)."""
-    proximal_carrier: np.ndarray | None = None
-    """The proximal support's plate in the proximal frame
-    (``goal.collision.param.proximal_carrier_height_mm``; ``None``: none)."""
     distal_mount_local: np.ndarray | None = None
     """The distal mounting line, ``B''`` then the fingertip end, in the distal
     frame (``None``: the pad's top face): the support, there whatever module it carries."""
@@ -102,9 +100,7 @@ class RevoluteGeometry:
         """The distal pad's farthest point from ``A``: how fast it moves per
         radian of ``phi``, at most."""
 
-        solids = self.distal_pad_local if self.distal_carrier_local is None else np.vstack(
-            (self.distal_pad_local, self.distal_carrier_local))
-        return float(np.hypot(solids[:, 0], solids[:, 1]).max())
+        return float(np.hypot(self.distal_pad_local[:, 0], self.distal_pad_local[:, 1]).max())
 
     @property
     def distal_mount(self) -> np.ndarray:
@@ -123,10 +119,8 @@ class RevoluteGeometry:
         return np.stack((self.a_x_mm + self.ac_length_mm * np.cos(phi), -self.ac_length_mm * np.sin(phi)), axis=1)
 
 
-def geometry(x: Sequence[float], packaging: Packaging,
-             proximal_carrier_height_mm: float | None = None) -> RevoluteGeometry:
-    """The solids of a design vector; ``proximal_carrier_height_mm``: the
-    proximal support as a plate (:func:`proximal_support`), if any."""
+def geometry(x: Sequence[float], packaging: Packaging) -> RevoluteGeometry:
+    """The solids of a design vector (its drops as given; the study sets them, ``evaluate.geometry``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
     proximal, distal = packaging.proximal_pad, packaging.distal_pad
@@ -143,33 +137,18 @@ def geometry(x: Sequence[float], packaging: Packaging,
     distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
     servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]),
                            packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
-    # The support: the mounting line from B'' to the fingertip end, whatever the module.
-    support = pad_outline(PadSpan(outer - max(distal_room, 1e-6), outer, distal_room), distal) \
-        - (0.0, v["distal_drop_mm"])
+    # The mounting line from B'' to the fingertip end, whatever the module.
     mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                             v["proximal_drop_mm"], servo,
-                            proximal_length, distal_length, proximal_room, distal_room,
-                            carrier_local(support, v["distal_drop_mm"], packaging),
-                            proximal_support(start, proximal_room, v["proximal_drop_mm"], proximal_carrier_height_mm),
-                            mount)
-
-
-def proximal_support(start_mm: float, room_mm: float, drop_mm: float, height: float | None) -> np.ndarray | None:
-    """The proximal support's plate (``height`` mm dorsal of the mounting
-    line, from the pad's outer end to ``A''``), as the linkage's
-    (``packaging.proximal_carrier_polygon``); ``None`` without one."""
-
-    if height is None:
-        return None
-    end = start_mm + max(room_mm, 1e-6)
-    return np.array(((start_mm, -drop_mm), (end, -drop_mm), (end, height - drop_mm), (start_mm, height - drop_mm)))
+                            proximal_length, distal_length, proximal_room, distal_room, mount)
 
 
 def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
-    """The distal pad's carrier plate (``packaging.distal_carrier_height_mm``
-    dorsal of the pad's top face, over its span) in the distal frame, as the
-    linkage's (``packaging.distal_carrier_polygon``); ``None`` without one."""
+    """A distal pad's carrier plate (``packaging.distal_carrier_height_mm``
+    dorsal of the pad's top face, over its span) in the distal frame; the
+    RCJ's (``core.morphology.mechanism.rcj``; the 2R has none since
+    2026-11-03); ``None`` without one."""
 
     if packaging.distal_carrier_height_mm <= 0.0:
         return None
@@ -192,9 +171,19 @@ def contact_faces(geo, phi_rad: np.ndarray):
 
 
 def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
-    """Each face's length the other leaves unhidden at ``phi`` (``(n,)`` each)."""
+    """Each face's length the other leaves unhidden at ``phi`` (``(n,)`` each;
+    the v4 to v6 measure, kept for the loss diagnostics)."""
 
     return fold_free_lengths(*contact_faces(geo, np.atleast_1d(phi_rad)))
+
+
+def crossing_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
+    """Each face's length outside the fold at ``phi`` (``(n,)`` each): from
+    its outer end to where the other face's line crosses it
+    (``packaging.faces.crossing_free_lengths``, as the linkage's)."""
+
+    proximal_face, _, distal_face, _ = contact_faces(geo, np.atleast_1d(phi_rad))
+    return crossing_free_lengths(proximal_face, distal_face)
 
 
 @dataclass(frozen=True)
@@ -228,9 +217,6 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
     moving = {"distal_pad": distal}
     margins = {}
-    if checks.joint_servo and geo.distal_carrier_local is not None:
-        margins[("distal_carrier", "pip_servo")] = (
-            footprint_gaps(geo.posed(geo.distal_carrier_local, phi), geo.distal_servo, packaging) - clearance)
     for name, solid in moving.items():
         if checks.joint_servo:
             margins[(name, "pip_servo")] = footprint_gaps(solid, geo.distal_servo, packaging) - clearance
@@ -241,15 +227,6 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
             margins[(name, "proximal_pad")] = polygon_gaps(solid, proximal, packaging) - clearance
     if checks.link_radius_mm is not None:  # the comparison model: the bars as capsules, in the side view
         margins.update(bar_capsule_margins(geo, phi, checks.link_radius_mm, clearance))
-    if geo.proximal_carrier is not None:  # the comparison model: both supports solid
-        support = np.broadcast_to(geo.proximal_carrier, (count, 4, 2))
-        margins[("distal_pad", "proximal_carrier")] = polygon_gaps(distal, support, packaging) - clearance
-        if checks.joint_servo:  # not through the servo on its own segment (ending on the pin A is its mounting)
-            margins[("proximal_carrier", "pip_servo")] = footprint_gaps(support, geo.distal_servo, packaging) - clearance
-        if geo.distal_carrier_local is not None:
-            carrier = geo.posed(geo.distal_carrier_local, phi)
-            margins[("distal_carrier", "proximal_carrier")] = polygon_gaps(carrier, support, packaging) - clearance
-            margins[("distal_carrier", "proximal_pad")] = polygon_gaps(carrier, proximal, packaging) - clearance
     if packaging.pad_checks_mcp("distal_pad"):
         end = count
         if until_unsafe:
@@ -336,5 +313,5 @@ def hyperextension_margin(geo, hyperextension_rad: float, step_rad: float,
 
 
 __all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples",
-           "carrier_local", "contact_faces", "fold_free", "geometry", "hyperextension_margin", "margins",
-           "proximal_support", "servo_rear"]
+           "carrier_local", "contact_faces", "crossing_free", "fold_free", "geometry", "hyperextension_margin",
+           "margins", "servo_rear"]

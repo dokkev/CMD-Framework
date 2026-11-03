@@ -41,11 +41,20 @@ def test_equal_rollers_roll_the_distal_segment_twice_as_far_as_the_carrier():
 def test_a_design_is_swept_and_reported():
     e = MECHANISM.evaluate(X, load())
     assert e.torque_ratio_max == 2.0
-    # The faces (30 and 28 mm) less what each hides of the other folded to 150 deg.
+    # The faces (30 and 28 mm), each to where the other's line crosses it folded to 150 deg.
     assert (e.proximal_support_length_mm, e.distal_support_length_mm) == pytest.approx((30.0, 28.0))
     assert e.proximal_effective_mm == pytest.approx(min(30.0, e.proximal_usable_length_mm))
     assert e.distal_effective_mm == pytest.approx(min(28.0, e.distal_usable_length_mm))
-    assert 20.0 < e.proximal_effective_mm < 30.0 and 20.0 < e.distal_effective_mm < 28.0
+    from core.morphology.mechanism.revolute.solids import crossing_free
+    from core.optimization.rcj import geometry
+
+    config = load()
+    phi = np.asarray(config.goal.servo_samples_rad)
+    last = phi[np.flatnonzero(phi >= config.goal.required_rom_rad - 1e-12)[0]]
+    free = crossing_free(geometry(X, config), [last])
+    assert e.proximal_usable_length_mm == pytest.approx(free["proximal_pad"][0])
+    assert e.distal_usable_length_mm == pytest.approx(free["distal_pad"][0])
+    assert 0.0 < e.distal_effective_mm < e.proximal_effective_mm < 30.0
     assert 0.0 < math.degrees(e.phi_safe_rad) < 180.0 and e.collision_pair
     report = MECHANISM.report(e)
     assert report["roller_radius_mm"] == 9.5 and report["proximal_depth_mm"] == pytest.approx(14.5)

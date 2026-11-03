@@ -12,24 +12,23 @@ back along ``-X`` tilted dorsally by ``servo_tilt_deg``; it drives the joint
 directly, so ``k = 1``.
 
 Every rule is the linkage's goal (``core.optimization.linkage.config``),
-but for where the pads sit: each on its own segment and off the joint's
-housing (a fixed pivot's crease, padless in practice), the servo's radius
-(the idealized 2R's: its pin's) either side of ``A``. The proximal pad hangs
-a searched drop below ``O-A`` (``proximal_drop_mm``), laid from the MCP
-servo to ``A''``, at most ``A_x`` less the housing's radius; the distal pad
-a searched drop below ``A-C`` (``distal_drop_mm``), laid from ``C`` to
-``B''``, at least that radius past ``A``. The distal phalanx is a truss of
+but for where the pads sit: each is its segment's contact interface space,
+starting on ``O-A`` and ``A-C`` for the 2R-DD (its servo's shaft is the
+joint, the servo a collision, as the linkage's PIP servo) and tangent to
+``A``'s pin housing for the others, parallel to the segments (:func:`interfaced`; the drops were searched before 2026-11-03). The
+proximal pad is laid from the MCP servo to ``A''``, the distal one from
+``C`` to ``B''``, each as far toward and past the joint as its overhang
+allows (``pad_reach_mm``). The distal phalanx is a truss of
 links from ``A`` to the pad's two ends, in other layers than the servo (as
 the linkage's links), so only the pad is checked. No clearance, overlaps by depth; checked over
 ``[0, 180 deg]`` from extension: the distal pad against the proximal pad,
 the distal servo and the MCP servo (MCP flexion up to its max); statically
 the proximal pad against the distal servo and the MCP servo, and the two
 servos (MCP hyperextension to extension). No link crosses a pad, so a pad's
-effective length is its face less what the other face hides in the fold
-(``packaging.fold_free_lengths``, as the linkage's). As the linkage's, the
-distal pad sits on a carrier plate (``goal.collision.param.distal_carrier_height_mm``)
-checked against the joint's servo, and the joint must hyperextend
-(``goal.motion.hyperextension_deg``) with every pair clear.
+effective length is its face at the required flexion up to where the other
+face's line crosses it (``solids.crossing_free``, as the linkage's v8). No
+carrier (the module and its mounting within the pad); the joint must
+hyperextend (``goal.motion.hyperextension_deg``) with every pair clear.
 """
 
 from __future__ import annotations
@@ -49,25 +48,42 @@ from core.morphology.mechanism.revolute.solids import (
     JointChecks,
     RevoluteGeometry,
     between_samples,
-    fold_free,
+    crossing_free,
     hyperextension_margin,
 )
 
+from core.optimization.linkage.evaluate import pad_waste_mm
 from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
                       "proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm")
+MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "pad_waste_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
 
-def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
-    """The solids of a design vector, with the study's packaging and supports."""
+DROPS = (VARIABLE_NAMES.index("distal_drop_mm"), VARIABLE_NAMES.index("proximal_drop_mm"))
 
-    goal = config.goal
-    return solids.geometry(x, goal.packaging)
+
+def interfaced(x: Sequence[float], joint_radius_mm: float) -> tuple[float, ...]:
+    """``x`` with each pad's contact interface space starting its drop
+    ``RevoluteConfig.interface_radius_mm`` below its segment's line (the
+    2R-DD's on it, the others' tangent to ``A``'s pin housing),
+    whatever drops the vector holds (searched before 2026-11-03), as the
+    linkage's pads start tangent to their pins; the servo on the joint is
+    the checks' (the pads against it, statically and through the motion)."""
+
+    y = [float(value) for value in x]
+    for index in DROPS:
+        y[index] = float(joint_radius_mm)
+    return tuple(y)
+
+
+def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
+    """The solids of a design vector, with the study's packaging, its pads tangent to the pin's housing."""
+
+    return solids.geometry(interfaced(x, config.interface_radius_mm), config.goal.packaging)
 
 
 def joint_checks(config: RevoluteConfig) -> JointChecks:
@@ -88,17 +104,19 @@ def dorsal_space_violation(geo, goal, mechanism: str) -> float:
 
 
 def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[float, float]:
-    """Each face's length kept through the flexions ``phi`` (the window to
-    the required flexion): less the fold at each, or with
+    """Each face's usable length on the flexions ``phi`` (the window to the
+    required flexion): at the window's last (the required flexion) from its
+    outer end to where the other face's line crosses it (``solids.crossing_free``,
+    as the linkage's v8; the self-collision is the checks'), or with
     ``goal.integrity_depth_mm`` the integrity rule
     (``core.morphology.contact.loss.integrity_free``) over the
-    ``mechanism``'s solids."""
+    ``mechanism``'s solids through the window."""
 
     if goal.integrity_depth_mm is None and not goal.count_fold:  # a module clear through the motion counts whole
         return math.inf, math.inf
     if goal.integrity_depth_mm is None:
-        free = fold_free(getattr(geo, "joint", geo), phi_rad)
-        return float(free["proximal_pad"].min()), float(free["distal_pad"].min())
+        free = crossing_free(getattr(geo, "joint", geo), np.atleast_1d(phi_rad)[-1:])
+        return float(free["proximal_pad"][0]), float(free["distal_pad"][0])
     kept = integrity_free(joint_scene(mechanism, geo, goal.packaging, np.degrees(phi_rad)), goal.integrity_depth_mm)
     return kept["proximal_pad"], kept["distal_pad"]
 
@@ -144,7 +162,7 @@ class RevoluteEvaluation:
     bound_hits: tuple[str, ...] = ()
     proximal_usable_length_mm: float = math.inf
     distal_usable_length_mm: float = math.inf
-    """Each face's length the other face leaves unhidden in the fold, the least on ``[0, phi_req]``."""
+    """Each face's length outside the fold at the required flexion (:func:`usable_lengths`)."""
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -276,6 +294,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         "pad_usable_mm": max(
             goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
             goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
+        "pad_waste_mm": pad_waste_mm((geo.proximal_length_mm, geo.distal_length_mm), (proximal_usable, distal_usable),
+                                     goal.resolution_mm),
     }
     return RevoluteEvaluation(
         proximal_usable_length_mm=proximal_usable,
@@ -309,4 +329,4 @@ def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.nda
 
 
 __all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "evaluate", "geometry", "hyperextension_violation",
-           "joint_checks", "usable_lengths"]
+           "interfaced", "joint_checks", "usable_lengths"]

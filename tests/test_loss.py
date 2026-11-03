@@ -126,7 +126,7 @@ def test_the_loss_depths_are_read_from_the_goal():
 
 
 FEASIBLE = {
-    "revolute": (51.1, 48.9, 41.6, 18.7, 0.0, 0.0, 90.0),
+    "revolute": (64.2, 31.3, 25.6, 30.7, 9.5, 9.5, 0.0),  # the pads tangent to the servo's housing
     "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 3.0, 3.0),
 }
 """A design of each mechanism feasible on the production goal with any pad length."""
@@ -150,11 +150,8 @@ def test_every_evaluator_keeps_the_integrity_rules_length(name):
     kept = integrity_free(scene(name, config, FEASIBLE[name], phi), 3.0)
     assert evaluation.proximal_usable_length_mm == pytest.approx(kept["proximal_pad"], abs=1.0)
     assert evaluation.distal_usable_length_mm == pytest.approx(kept["distal_pad"], abs=1.0)
-    # The fold alone (no depth) keeps at least as much.
-    _, fold = integrity_config(name, "goal.loss.integrity_depth_mm=null")
-    plain = found.evaluate(FEASIBLE[name], fold)
-    assert evaluation.proximal_usable_length_mm <= plain.proximal_usable_length_mm + 0.5
-    assert evaluation.distal_usable_length_mm <= plain.distal_usable_length_mm + 0.5
+    # (Without a depth the faces count to their lines' crossing at the
+    # required flexion, a different measure: neither bounds the other.)
 
 
 def test_the_probe_meets_what_stands_within_its_depth():

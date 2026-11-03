@@ -136,8 +136,10 @@ class LinkageConfig:
     pads stop at too (its pin); past it the pad hangs unsupported under the
     four-bar. ``None``: no limit. The distal pad may run back as far as it fits."""
     pads_on_links: bool = False
-    """Searched with each pad on its own link only (``goal.pads.on_links``,
-    true unless the file says otherwise; ``False`` here for runs before it):
+    """Searched with each pad on its own link only (``goal.pads.on_links``;
+    false, the default since 2026-11-03, searches the pads' ends ``A''`` and
+    ``B''`` with the links, so the optimizer trades a pad grown past its
+    joint against the curl it costs):
     the proximal pad to ``A``, the distal one from ``B`` to ``C``, so more pad
     means a shorter four-bar. ``scripts/optimize/extend_pads.py``
     (``core.morphology.mechanism.linkage.pad_extension``) then grows the pads of the
@@ -455,7 +457,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     angle = (math.radians(0.0 if angle_low is None else angle_low),
              math.radians(180.0 if angle_high is None else angle_high))
 
-    on_links = pads.values.pop("on_links", True)  # the default since 2026-10-27
+    on_links = pads.values.pop("on_links", False)  # the pads' ends searched (2026-11-03; on links 2026-10-27 to then)
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
     pad_values, overhangs = {}, {}

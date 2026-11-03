@@ -8,9 +8,10 @@ ones set (as ``core.optimization.linkage.search``):
 3. ``A''_x`` a share of ``[the pad's start + its least length, A_x - the
    joint's radius]``;
 4. ``B''`` from ``A`` a share of ``[the joint's radius, |AC| - its least length]``;
-5. the distal pad's drop below ``A-C`` and 6. the proximal pad's below
-   ``O-A`` themselves (from on the line to the joint's radius below it);
-7. the distal servo's tilt itself, in whole degrees.
+5. the distal servo's tilt itself, in whole degrees.
+
+The pads' drops are not searched: each pad's contact interface space starts
+tangent to the joint's housing (``evaluate.interfaced``; searched before 2026-11-03).
 
 Lengths are rounded to the prototyping resolution; empty ranges describe no design.
 """
@@ -30,8 +31,7 @@ from core.morphology.mechanism.revolute.solids import servo_rear
 from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 
 
-SEARCH_NAMES = ("finger_length_mm", "ac_share", "app_share", "bpp_share", "distal_drop_mm", "proximal_drop_mm",
-                "servo_tilt_deg")
+SEARCH_NAMES = ("finger_length_mm", "ac_share", "app_share", "bpp_share", "servo_tilt_deg")
 SHARE_STEP = 0.001
 TILT_STEP_DEG = 1.0
 
@@ -55,8 +55,7 @@ def _limits(config: RevoluteConfig, tilt_deg: float) -> dict[str, tuple[float, f
 
 def search_box(config: RevoluteConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
     box = {"finger_length_mm": config.goal.extended_length_bounds_mm, "ac_share": (0.0, 1.0),
-           "app_share": (0.0, 1.0), "bpp_share": (0.0, 1.0), "distal_drop_mm": config.bounds["distal_drop_mm"],
-           "proximal_drop_mm": config.bounds["proximal_drop_mm"], "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
+           "app_share": (0.0, 1.0), "bpp_share": (0.0, 1.0), "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
     return tuple(box[name][0] for name in SEARCH_NAMES), tuple(box[name][1] for name in SEARCH_NAMES)
 
 
@@ -103,7 +102,8 @@ def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[flo
     design = {"a_x_mm": grid(length - ac), "ac_length_mm": ac,
               "app_x_mm": grid(p_low + v["app_share"] * (p_high - p_low)),
               "bpp_from_a_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
-              "distal_drop_mm": grid(v["distal_drop_mm"]), "proximal_drop_mm": grid(v["proximal_drop_mm"]),
+              "distal_drop_mm": config.bounds["distal_drop_mm"][0],
+              "proximal_drop_mm": config.bounds["proximal_drop_mm"][0],
               "servo_tilt_deg": tilt}
     return tuple(design[name] for name in VARIABLE_NAMES)
 
@@ -119,8 +119,7 @@ def from_design(x: Sequence[float], config: RevoluteConfig) -> tuple[float, ...]
 
     coordinates = {"finger_length_mm": length, "ac_share": share(d["ac_length_mm"], *ac_range),
                    "app_share": share(d["app_x_mm"], p_low, p_high),
-                   "bpp_share": share(d["bpp_from_a_mm"], d_low, d_high), "distal_drop_mm": d["distal_drop_mm"],
-                   "proximal_drop_mm": d["proximal_drop_mm"], "servo_tilt_deg": d["servo_tilt_deg"]}
+                   "bpp_share": share(d["bpp_from_a_mm"], d_low, d_high), "servo_tilt_deg": d["servo_tilt_deg"]}
     return tuple(coordinates[name] for name in SEARCH_NAMES)
 
 

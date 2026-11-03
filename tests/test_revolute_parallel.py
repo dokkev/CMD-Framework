@@ -16,9 +16,10 @@ MECHANISM = mechanism("revolute_parallel")
 STUDY = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[20, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",
          "goal.motion.dip_flexion_deg=110", "goal.hardware.pulley_radius_mm=6")
-X = (50.0, 50.0, 39.5, 25.0, 3.0, 3.0, 20.0, 5.0, 15.0)
-"""|OA| = |AC| = 50, pads 30 + 25 mm 3 mm below their lines, the servo tilted
-20 deg on A', 15 mm above and 5 past A."""
+X = (50.0, 50.0, 38.6, 25.0, 3.0, 3.0, 20.0, 5.0, 15.0)
+"""|OA| = |AC| = 50, pads 29.1 + 25 mm (the proximal one to where the faces
+cross at 120 deg) 3 mm below their lines, the servo tilted 20 deg on A', 15 mm
+above and 5 past A."""
 
 
 def load(*overrides: str):
@@ -75,7 +76,7 @@ def test_the_search_coordinates_round_trip():
     config = load("goal.hardware.pip_servo.tilt_angle_deg=[0, 90]")
     assert MECHANISM.to_design(MECHANISM.from_design(X, config), config) == pytest.approx(X)
     lower, upper = MECHANISM.search_box(config)
-    assert len(lower) == len(upper) == len(MECHANISM.search_names(config)) == 9
+    assert len(lower) == len(upper) == len(MECHANISM.search_names(config)) == 7  # the drops not searched
     assert MECHANISM.config_from_json(MECHANISM.config_to_json(config)) == config
 
 

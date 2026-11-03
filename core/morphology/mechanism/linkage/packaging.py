@@ -15,10 +15,12 @@ The checks, each a gap beyond its solids or a margin beyond the clearance:
   as capsules (:func:`link_capsule_margins`).
 
 Each pad is its segment's contact interface space: a block ``height_mm``
-deep (the module and its mounting together), starting on the line tangent to
-its link's pin clearance (``A``'s for the proximal pad, ``B``'s for the
-distal one) and parallel to the link line (``OA``, ``BC``)
-(:meth:`LinkagePackaging.interface_offset_mm`).
+deep (the module and its mounting together), parallel to the link line
+(``OA``, ``BC``), starting on it when the pad, there, clears its own body's
+pin housings and (the proximal pad) the PIP servo, within its link; else on
+the line tangent to its link's pin clearance (``A``'s for the proximal pad,
+``B``'s for the distal one), running under the pin (:func:`pad_offsets`;
+:meth:`LinkagePackaging.interface_offset_mm` the tangent one).
 
 The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 ``A'`` and drives the coupler ``A'-B``; sitting dorsal of ``OA``, it leaves
@@ -165,8 +167,9 @@ class LinkagePackaging(Packaging):
 
     def interface_offset_mm(self, pad: str) -> float:
         """How far palmar of its link line (``OA``, ``BC``) a pad's contact
-        interface space starts: on the line tangent to its link's pin
-        clearance (``A``'s, ``B``'s), parallel to the link line."""
+        interface space starts when it runs under its link's pin: on the line
+        tangent to the pin's clearance (``A``'s, ``B``'s), parallel to the link
+        line (:func:`pad_offsets`: on the link line where it clears them)."""
 
         return self.pivot_radius_mm({"proximal_pad": "a", "distal_pad": "b"}[pad])
 
@@ -481,20 +484,50 @@ def pad_spans(finger: Finger, packaging: LinkagePackaging) -> dict[str, PadSpan]
     return {"proximal_pad": proximal_span, "distal_pad": distal_span}
 
 
+def pad_offsets(finger: Finger, packaging: LinkagePackaging) -> dict[str, float]:
+    """How far palmar of its link line each pad's contact interface space
+    starts (2026-11-03): on the line (0) when the pad there clears its own
+    body's pin housings by the body clearance (the proximal pad ``A`` and
+    ``A'``, and the PIP servo; the distal pad ``B`` and ``B'``), as the
+    2R-DD's pads on theirs: a pad within its link needs no room under a pin.
+    Else on the line tangent to its link's pin clearance
+    (:meth:`LinkagePackaging.interface_offset_mm`), running under the pin."""
+
+    from core.morphology.packaging.gaps import footprint_gaps
+    from core.morphology.packaging.shapes import polygon_to_disk
+
+    spans, joint, clearance = pad_spans(finger, packaging), finger.joint, packaging.body_clearance_mm
+    radius = packaging.pivot_radius_mm
+    proximal = pad_outline(spans["proximal_pad"], packaging.proximal_pad)[None]
+    clear = min(float(polygon_to_disk(proximal, joint.a.array[None], radius("a"))[0]),
+                float(polygon_to_disk(proximal, joint.ap.array[None], radius("ap"))[0]))
+    if packaging.pip_servo_pad_check:
+        clear = min(clear, float(footprint_gaps(proximal, pip_footprint(packaging, finger), packaging)[0]))
+    b, c, bp = joint.b.array, finger.tip.array, joint.bp.array
+    e = (c - b) / np.linalg.norm(c - b)
+    n = np.array((-e[1], e[0]))
+    bp_local = np.array((np.dot(bp - b, e), np.dot(bp - b, n)))
+    distal = pad_outline(spans["distal_pad"], packaging.distal_pad)[None]
+    distal_clear = min(float(polygon_to_disk(distal, np.zeros((1, 2)), radius("b"))[0]),
+                       float(polygon_to_disk(distal, bp_local[None], radius("bp"))[0]))
+    return {"proximal_pad": 0.0 if clear >= clearance else packaging.interface_offset_mm("proximal_pad"),
+            "distal_pad": 0.0 if distal_clear >= clearance else packaging.interface_offset_mm("distal_pad")}
+
+
 def proximal_pad_polygon(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:
     """The proximal pad in the proximal-link frame, ``(m, 2)``: its span on
-    ``O-A''``."""
+    ``O-A''``, :func:`pad_offsets` below ``OA``."""
 
     span = pad_spans(finger, packaging)["proximal_pad"]
     outline = pad_outline(span, packaging.proximal_pad)
-    return outline + (0.0, -packaging.interface_offset_mm("proximal_pad"))
+    return outline + (0.0, -pad_offsets(finger, packaging)["proximal_pad"])
 
 
 def distal_pad_local(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:
     """The distal pad in the distal frame (``u`` from ``B`` along ``B->C``, ``v`` dorsal), ``(m, 2)``."""
 
     local = pad_outline(pad_spans(finger, packaging)["distal_pad"], packaging.distal_pad)
-    return local - (0.0, packaging.interface_offset_mm("distal_pad"))
+    return local - (0.0, pad_offsets(finger, packaging)["distal_pad"])
 
 
 def distal_pad_polygon(finger: Finger, packaging: LinkagePackaging,
@@ -542,7 +575,8 @@ def usable_pad_lengths(
     spans = pad_spans(finger, packaging)
 
     proximal = spans["proximal_pad"]  # frame: x along the mounting line, z dorsal of it
-    line = np.array((0.0, -packaging.interface_offset_mm("proximal_pad")))
+    offsets = pad_offsets(finger, packaging)
+    line = np.array((0.0, -offsets["proximal_pad"]))
     near = np.full(count, np.inf)
     for start, end in links:
         low, _ = _block_extent(start - line, end - line, proximal.start_mm, proximal.end_mm,
@@ -554,7 +588,7 @@ def usable_pad_lengths(
     e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
 
-    top = packaging.interface_offset_mm("distal_pad")
+    top = offsets["distal_pad"]
 
     def local(points: np.ndarray) -> np.ndarray:  # v from the pad's top face
         rel = points - b
@@ -610,11 +644,12 @@ def contact_faces(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c:
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     spans = pad_spans(finger, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    face_z = -packaging.interface_offset_mm("proximal_pad") - packaging.proximal_pad.height_mm
+    offsets = pad_offsets(finger, packaging)
+    face_z = -offsets["proximal_pad"] - packaging.proximal_pad.height_mm
     proximal_face = np.array(((proximal.start_mm, face_z), (proximal.end_mm, face_z)))
     e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-    face_v = -packaging.interface_offset_mm("distal_pad") - packaging.distal_pad.height_mm  # dorsal of BC
+    face_v = -offsets["distal_pad"] - packaging.distal_pad.height_mm  # dorsal of BC
     outer = b + distal.end_mm * e + face_v * n
     inner = b + distal.start_mm * e + face_v * n
     return proximal_face, np.array((0.0, -1.0)), np.stack((outer, inner), axis=1), -n
@@ -637,8 +672,9 @@ def face_crossing_lengths(
     b, c = np.atleast_2d(b), np.atleast_2d(c)
     spans = pad_spans(finger, packaging)
     proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    face_z = -packaging.interface_offset_mm("proximal_pad") - packaging.proximal_pad.height_mm
-    face_v = -packaging.interface_offset_mm("distal_pad") - packaging.distal_pad.height_mm  # dorsal of BC
+    offsets = pad_offsets(finger, packaging)
+    face_z = -offsets["proximal_pad"] - packaging.proximal_pad.height_mm
+    face_v = -offsets["distal_pad"] - packaging.distal_pad.height_mm  # dorsal of BC
     e = (c - b) / finger.distal.end_mm
     n = np.stack((-e[:, 1], e[:, 0]), axis=1)
     # The distal face's line, B + u e + face_v n, meets z = face_z at u.
@@ -745,6 +781,7 @@ def pip_footprint(packaging: LinkagePackaging, finger: Finger) -> ServoFootprint
 
 
 __all__ = [
+    "pad_offsets",
     "COMPONENTS",
     "LinkagePackaging",
     "PIVOTS",
