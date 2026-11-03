@@ -4,7 +4,7 @@ the proximal one, and its share of the finger, ``|O -> ICR0| / |OC|``.
 
 The 2R's is its pin ``A``; the RCJ's the rollers' contact point, ``A + r``
 along the finger; the linkage's where the bars ``A-B'`` and ``A'-B`` cross
-(as ``visualize.finger.Finger.icr`` at 0 deg).
+(as ``visualize.finger.FingerView.icr`` at 0 deg).
 """
 
 from __future__ import annotations

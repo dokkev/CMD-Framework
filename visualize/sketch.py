@@ -1,8 +1,9 @@
 """The schematic finger in the flexion plane: servos as boxes, servo-driven
 joints yellow, links red, pads green (a pad that collides outlined red).
 
-Each function draws on a Matplotlib axis in the proximal frame (``O`` at
-the origin, ``+X`` distal, ``+Z`` dorsal), in mm.
+The pieces each mechanism's view (``visualize.finger.mechanism``) draws its
+finger from. Each function draws on a Matplotlib axis in the proximal frame
+(``O`` at the origin, ``+X`` distal, ``+Z`` dorsal), in mm.
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.patches import Circle, Polygon
 
-from core.morphology.mechanism.linkage.packaging import distal_pad_polygon, pip_footprint, proximal_pad_polygon
 from visualize.style import COLLIDE, INK, MUTED, shades
 
 LINK, JOINT, JOINT_EDGE, NODE = "#ff0a1e", "#ffff88", "#d01020", "#111111"
@@ -81,34 +81,6 @@ def palm(axis, packaging) -> None:
     outline = packaging.mcp_footprint().outline
     ground(axis, outline)
     servo(axis, outline)
-
-
-def draw_linkage(axis, linkage, packaging, sweep, i: int, hit: set[str] = frozenset()) -> None:
-    """The crossed four-bar at sample ``i`` of its servo ``sweep``."""
-
-    b, c, bp = sweep.b[i], sweep.tip[i], sweep.bp[i]
-    palm(axis, packaging)
-    servo(axis, pip_footprint(packaging, linkage).outline)
-    pad(axis, proximal_pad_polygon(linkage, packaging), "proximal_pad" in hit)
-    pad(axis, distal_pad_polygon(linkage, packaging, b[None], c[None])[0], "distal_pad" in hit)
-    o, a, ap = (0.0, 0.0), (linkage.joint.a.x_mm, linkage.joint.a.z_mm), (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)
-    links(axis, (o, a), (o, ap), (ap, b), (a, bp), (bp, b, c, bp))
-    nodes(axis, a, b, bp, c)
-    active(axis, o, ap)
-
-
-def draw_revolute(axis, geo, packaging, phi_rad: float, hit: set[str] = frozenset()) -> None:
-    """The serial 2R with its servo on the joint, flexed by ``phi_rad``."""
-
-    palm(axis, packaging)
-    servo(axis, geo.distal_servo.outline)
-    pad(axis, geo.proximal_pad, "proximal_pad" in hit)
-    pad(axis, geo.distal_pad([phi_rad])[0], "distal_pad" in hit)
-    a = np.array((geo.a_x_mm, 0.0))
-    near, far = geo.posed(geo.distal_mount, [phi_rad])[0]
-    links(axis, ((0.0, 0.0), a), (a, near, far, a))  # the distal phalanx: a truss to the pad's ends
-    nodes(axis, near, far)
-    active(axis, (0.0, 0.0), a)
 
 
 def pad_trail(axis, polygons, levels, color: str, *, alpha: float = 0.8, linewidth: float = 0.4,

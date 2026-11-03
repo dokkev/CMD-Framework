@@ -24,7 +24,7 @@ import numpy as np  # noqa: E402
 
 from core.morphology.mechanism.linkage.measures import extended_icr_x  # noqa: E402
 from visualize import sketch  # noqa: E402
-from visualize.finger import finger_from_row  # noqa: E402
+from visualize.finger import view_from_row  # noqa: E402
 from visualize.fronts import latest_portfolio, read_rows, with_role  # noqa: E402
 from visualize.style import COLORS, INK, MUTED, save, use  # noqa: E402
 
@@ -39,7 +39,7 @@ def main(argv: list[str]) -> int:
     run_dir = Path(argv[0]).resolve()
     role = argv[1] if len(argv) > 1 else "balanced"
     row = with_role(read_rows(latest_portfolio(run_dir)), role)
-    finger = finger_from_row("linkage", row, run_dir)
+    finger = view_from_row(row, run_dir, "linkage")
     p = finger.state
     icr_x = extended_icr_x((p.joint.a.x_mm, p.joint.a.z_mm), (p.joint.ap.x_mm, p.joint.ap.z_mm), (p.joint.b.x_mm, p.joint.b.z_mm), (p.joint.bp.x_mm, p.joint.bp.z_mm))
     app_x, bpp_x = p.proximal_end.x_mm, p.distal_start.x_mm

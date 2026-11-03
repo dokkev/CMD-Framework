@@ -9,7 +9,10 @@ Shared pieces:
 - ``motion``: a linkage swept by its servo, sampled at a flexion, its gaps along the sweep
 - ``gaps``: each checked pair's gap against the flexion
 - ``fronts``: a study's verified fronts (``portfolio_NNN/seeds.csv``) and their runs
-- ``finger``: any mechanism's design behind one interface (pose, gaps, ICR, ``k``, sketch)
+- ``finger``: any mechanism's design behind one view, built as the finger is:
+  what every finger shares (palm, pads, gaps, ICR, ``k``) and each
+  mechanism's joint view (``finger.mechanism.<name>``); ``python -m visualize.finger``
+  draws a front's design or any design vector through its motion
 
 Figures, each run from the repository root as ``python -m visualize.<package>.<module>``:
 

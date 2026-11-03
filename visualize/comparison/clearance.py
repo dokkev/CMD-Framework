@@ -24,31 +24,27 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-import core.morphology.packaging.gaps as packaging_module  # noqa: E402
-from core.optimization.revolute import geometry  # noqa: E402
-from core.optimization.revolute.evaluate import _margins  # noqa: E402
 from visualize import sketch  # noqa: E402
 from visualize.comparison.designs import DEFAULT_SEEDS, linkage_seed, matched_revolute  # noqa: E402
+from visualize.finger import FingerView, view_of  # noqa: E402
+from visualize.finger.mechanism import FourBarView  # noqa: E402
 from visualize.gaps import STEP_DEG, clearance_axes  # noqa: E402
-from visualize.motion import collisions, linkage_margins  # noqa: E402
 from visualize.style import COLORS, INK, save_comparison  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
-    # Every gap exact (the checks bound the far ones from below only).
-    packaging_module.EXACT_BAND_MM = 1.0e6
     seeds = Path(argv[0]) if argv else DEFAULT_SEEDS
     role = argv[1] if len(argv) > 1 else "balanced"
     row, config, linkage = linkage_seed(seeds, role)
     proximal, distal = round(float(row["proximal_effective_mm"])), round(float(row["distal_effective_mm"]))
     finger = round(float(row["finger_length_mm"]), 1)
     _, revolute_config, (x, revolute) = matched_revolute(finger, proximal, distal)
-    geo = geometry(x, revolute_config)
+    views = {"linkage": FingerView("linkage", FourBarView(linkage, config.packaging), row),
+             "revolute": view_of("revolute", revolute_config, x)}
     linkage_max, revolute_max = float(row["phi_max_deg"]), math.degrees(revolute.phi_max_rad)
-
-    phi_l, margins_l, sweep, index = linkage_margins(linkage, config.packaging, STEP_DEG)
+    phi_l = np.arange(0.0, views["linkage"].reachable_deg() + 1e-9, STEP_DEG)
     phi_r = np.arange(0.0, 180.0 + 1e-9, STEP_DEG)
-    margins_r = _margins(geo, np.radians(phi_r), revolute_config)
+    margins_l, margins_r = views["linkage"].margins(phi_l), views["revolute"].margins(phi_r)
 
     figure = plt.figure(figsize=(17.0, 8.0), facecolor="white", constrained_layout=True)
     grid = figure.add_gridspec(2, 4, width_ratios=(1.0, 1.0, 1.0, 1.25))
@@ -57,12 +53,7 @@ def main(argv: list[str]) -> int:
                                                          ("revolute", phi_r, margins_r, revolute_max))):
         sketches = [figure.add_subplot(grid[r, c]) for c in range(3)]
         for axis, pose in zip(sketches, (0.0, 90.0, phi_max)):
-            k = int(np.argmin(np.abs(phis - pose)))
-            hit = collisions(margins, k)
-            if name == "linkage":
-                sketch.draw_linkage(axis, linkage, config.packaging, sweep, index[k], hit)
-            else:
-                sketch.draw_revolute(axis, geo, revolute_config.goal.packaging, math.radians(pose), hit)
+            views[name].draw(axis, pose)
             sketch.frame(axis, (-16.0, 102.0), (-60.0, 30.0))
             axis.set_title(f"{pose:.0f}°", color=INK, fontsize=10, loc="left")
         if name == "linkage":
