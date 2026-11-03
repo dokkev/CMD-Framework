@@ -16,6 +16,7 @@ from core.morphology.finger import Finger
 from core.optimization.mechanism import mechanism as find_mechanism
 from core.optimization.study import load_run
 from visualize import sketch
+from visualize.finger import solid
 from visualize.style import LABELS
 
 EXACT_BAND_MM = 1.0e6
@@ -33,6 +34,9 @@ def exact_gaps():
     finally:
         packaging_module.EXACT_BAND_MM = band
 
+DISTAL_PARTS = frozenset(("distal_pad", "distal_roller", "distal_carrier", "b_pin", "bp_pin"))
+"""The parts riding on the distal segment: a pair with none of them keeps
+its gap through the motion (the MCP held at 0), so it says nothing of the pose."""
 REACH_STEP_DEG = 0.05
 """The flexion grid a joint's reach is found on."""
 K_STEP_RAD = 1.0e-4
@@ -68,8 +72,14 @@ class JointView(Protocol):
 
     def proximal_pad(self) -> np.ndarray: ...
 
-    def draw(self, axis, phi_deg: float, hit: set[str]) -> None:
-        """The joint's own parts (its servo, links, rollers, nodes), not the palm or the pads."""
+    def draw_solid(self, axis, phi_deg: float, hit: set[str]) -> None:
+        """The joint's own parts as solids (``visualize.finger.solid``), not the palm or the pads."""
+
+    def draw_sketch(self, axis, phi_deg: float, hit: set[str]) -> None:
+        """The joint's own parts as the paper's schematic (``visualize.sketch``)."""
+
+    def status(self, phi_deg: float) -> list[str]:
+        """The joint's own readings at the flexion, one line each (none: ``[]``)."""
 
 
 class KinematicJoint:
@@ -121,6 +131,15 @@ class KinematicJoint:
     def tip(self, phi_deg: float) -> np.ndarray:
         return np.asarray(self.sweep([phi_deg]).tip[0], dtype=float)
 
+    def distal_start(self, phi_deg: float) -> np.ndarray:
+        """Where the distal segment's body starts (``B''``), on its posed line (the finger's own)."""
+
+        phi = math.radians(min(phi_deg, self.reachable_deg()))
+        return np.asarray(self.finger.kinematics([phi]).distal_start[0], dtype=float)
+
+    def status(self, phi_deg: float) -> list[str]:
+        return []
+
 
 @dataclass
 class FingerView:
@@ -167,10 +186,16 @@ class FingerView:
         with exact_gaps():
             return self.joint.margins(np.atleast_1d(np.asarray(phi_deg, dtype=float)))
 
-    def collisions(self, phi_deg: float) -> set[str]:
+    def gaps(self, phi_deg: float) -> dict[tuple[str, str], float]:
+        """Each checked pair's gap at ``phi_deg`` (the finite ones)."""
+
+        return {pair: float(margin[0]) for pair, margin in self.margins([phi_deg]).items() if np.isfinite(margin[0])}
+
+    def collisions(self, phi_deg: float, gaps: dict[tuple[str, str], float] | None = None) -> set[str]:
         """The parts of every pair whose gap is negative at ``phi_deg``."""
 
-        return {name for pair, margin in self.margins([phi_deg]).items() if margin[0] < 0.0 for name in pair}
+        gaps = self.gaps(phi_deg) if gaps is None else gaps
+        return {name for pair, gap in gaps.items() if gap < 0.0 for name in pair}
 
     def icr(self, phi_deg) -> np.ndarray:
         return self.joint.icr(np.atleast_1d(np.asarray(phi_deg, dtype=float)))
@@ -187,15 +212,51 @@ class FingerView:
     def proximal_pad(self) -> np.ndarray:
         return self.joint.proximal_pad()
 
-    def draw(self, axis, phi_deg: float, hit: set[str] | None = None) -> None:
-        """The sketch at one flexion: the palm, the joint's parts and the pads;
-        ``hit`` outlined red (``None``: the parts colliding there)."""
+    def closest(self, phi_deg: float, gaps: dict[tuple[str, str], float] | None = None,
+                ) -> tuple[tuple[str, str], float] | None:
+        """The pair the motion brings closest at ``phi_deg`` and its gap: of
+        the pairs with a distal part (:data:`DISTAL_PARTS`; the others keep
+        theirs throughout), unless a pair collides, then the deepest
+        collision of any; ``None``: no pair measured."""
 
-        hit = self.collisions(phi_deg) if hit is None else set(hit)
-        sketch.palm(axis, self.packaging)
-        self.joint.draw(axis, phi_deg, hit)
-        sketch.pad(axis, self.proximal_pad(), "proximal_pad" in hit)
-        sketch.pad(axis, self.distal_pad(phi_deg), "distal_pad" in hit)
+        gaps = self.gaps(phi_deg) if gaps is None else gaps
+        colliding = {pair: gap for pair, gap in gaps.items() if gap < 0.0}
+        moving = colliding or {pair: gap for pair, gap in gaps.items() if DISTAL_PARTS & set(pair)}
+        return min(moving.items(), key=lambda item: item[1]) if moving else None
+
+    def draw(self, axis, phi_deg: float, hit: set[str] | None = None, style: str = "solid") -> None:
+        """The finger at one flexion: the palm, the joint's parts and the pads,
+        ``hit`` marked as colliding (``None``: the parts colliding there).
+
+        ``style``: ``solid``, the parts in their collision groups' colours on
+        a mm grid, the points named and the pose's readings in a corner
+        (``visualize.finger.solid``); ``sketch``, the paper's schematic
+        (``visualize.sketch``, framed by the caller)."""
+
+        gaps = self.gaps(phi_deg) if hit is None or style == "solid" else {}
+        hit = self.collisions(phi_deg, gaps) if hit is None else set(hit)
+        if style == "sketch":
+            sketch.palm(axis, self.packaging)
+            self.joint.draw_sketch(axis, phi_deg, hit)
+            sketch.pad(axis, self.proximal_pad(), "proximal_pad" in hit)
+            sketch.pad(axis, self.distal_pad(phi_deg), "distal_pad" in hit)
+            return
+        if style != "solid":
+            raise ValueError(f"style {style!r}: solid or sketch")
+        solid.servo(axis, self.packaging.mcp_footprint().outline, "palm", "mcp_servo" in hit)
+        self.joint.draw_solid(axis, phi_deg, hit)
+        solid.pad(axis, self.proximal_pad(), "proximal", "proximal_pad" in hit)
+        solid.pad(axis, self.distal_pad(phi_deg), "distal", "distal_pad" in hit)
+        found = self.closest(phi_deg, gaps)
+        if found is None:
+            closest = "closest   -"
+        else:
+            (pair, gap) = found
+            closest = f"{'COLLISION' if gap < 0.0 else 'closest'} {gap:5.1f} mm ({'/'.join(pair)})"
+        solid.status(axis, [f"phi {phi_deg:5.1f}°  k {float(self.k([phi_deg])[0]):4.2f}",
+                            *self.joint.status(phi_deg), closest])
+        solid.legend(axis)
+        solid.plane(axis)
 
 
 def view_of(mechanism: str, config: Any, x, row: dict[str, str] | None = None) -> FingerView:

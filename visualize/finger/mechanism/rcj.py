@@ -11,6 +11,7 @@ import numpy as np
 
 from core.morphology.mechanism.rcj import TORQUE_RATIO
 from visualize import sketch
+from visualize.finger import solid
 
 # The module, not the package's evaluate() of the same name.
 evaluate = importlib.import_module("core.optimization.rcj.evaluate")
@@ -57,7 +58,7 @@ class RollerView:
     def proximal_pad(self) -> np.ndarray:
         return self.geometry.proximal_pad
 
-    def draw(self, axis, phi_deg: float, hit: set[str]) -> None:
+    def draw_sketch(self, axis, phi_deg: float, hit: set[str]) -> None:
         geo, phi = self.geometry, math.radians(phi_deg)
         sketch.servo(axis, geo.servo.outline)
         b = geo.b([phi])[0]
@@ -67,6 +68,27 @@ class RollerView:
         sketch.links(axis, ((0.0, 0.0), geo.a), (geo.a, b), (b, near, far, b))
         sketch.nodes(axis, b, near, far)
         sketch.active(axis, (0.0, 0.0), geo.a)
+
+    def status(self, phi_deg: float) -> list[str]:
+        return []
+
+    def draw_solid(self, axis, phi_deg: float, hit: set[str]) -> None:
+        """The servo on ``A``, the proximal roller (proximal) and the distal
+        one (distal), the carrier ``A-B`` grey, ``O-A`` red and the distal truss blue."""
+
+        geo, phi = self.geometry, math.radians(phi_deg)
+        b = geo.b([phi])[0]
+        near, far = geo.posed(geo.distal_mount, [phi])[0]
+        solid.servo(axis, geo.servo.outline, "proximal", "pip_servo" in hit)
+        solid.roller(axis, geo.a, geo.roller_radius_mm, "proximal", "proximal_roller" in hit)
+        solid.roller(axis, b, geo.roller_radius_mm, "distal", "distal_roller" in hit)
+        solid.link(axis, ((0.0, 0.0), geo.a), solid.RED)
+        solid.link(axis, (geo.a, b), solid.GRAY, zorder=3)
+        solid.link(axis, (b, near, far, b), solid.BLUE)
+        solid.point(axis, (0.0, 0.0), solid.YELLOW, solid.RED, "$O$", offset=(-12, 12))
+        solid.point(axis, geo.a, solid.YELLOW, solid.GRAY, "$A$", solid.RED)
+        solid.point(axis, b, solid.BLUE, solid.GRAY, "$B$", solid.BLUE)
+        solid.point(axis, self.tip(phi_deg), solid.BLUE, solid.BLUE, "$C$", offset=(12, -12))
 
 
 __all__ = ["RollerView"]

@@ -53,7 +53,7 @@ def main(argv: list[str]) -> int:
                                                          ("revolute", phi_r, margins_r, revolute_max))):
         sketches = [figure.add_subplot(grid[r, c]) for c in range(3)]
         for axis, pose in zip(sketches, (0.0, 90.0, phi_max)):
-            views[name].draw(axis, pose)
+            views[name].draw(axis, pose, style="sketch")
             sketch.frame(axis, (-16.0, 102.0), (-60.0, 30.0))
             axis.set_title(f"{pose:.0f}°", color=INK, fontsize=10, loc="left")
         if name == "linkage":

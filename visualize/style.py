@@ -23,12 +23,12 @@ COLORS = {"revolute_idealized": "#8a8984", "revolute": "#eb6834", "revolute_para
 MARKERS = {"revolute_idealized": "D", "revolute": "s", "revolute_parallel": "v", "rcj": "^", "linkage": "o"}
 DASHES = {"revolute_idealized": (0, (3, 2)), "revolute": "-", "revolute_parallel": (0, (6, 2)), "rcj": "-",
           "linkage": "-"}
-LABELS = {"revolute_idealized": "2R, ideal (no joint servo)", "revolute": "2R, servo at joint",
+LABELS = {"revolute_idealized": "2R, ideal (no joint servo)", "revolute": "2R-DD (servo at joint)",
           "revolute_parallel": "2R, servo on A' (belt)", "rcj": "RCJ (rolling contact)",
           "linkage": "CoDe (crossed four-bar)"}
-SHORT_LABELS = {"revolute_idealized": "2R ideal", "revolute": "2R", "revolute_parallel": "2R belt",
+SHORT_LABELS = {"revolute_idealized": "2R ideal", "revolute": "2R-DD", "revolute_parallel": "2R belt",
                 "rcj": "RCJ", "linkage": "CoDe"}
-NAMES = {"linkage": "CoDe linkage", "revolute": "Serial 2R"}
+NAMES = {"linkage": "CoDe linkage", "revolute": "2R-DD"}
 """The two-mechanism comparisons' names."""
 
 INK, MUTED, GRID = "#1f1f1e", "#6b6a66", "#e6e5e0"

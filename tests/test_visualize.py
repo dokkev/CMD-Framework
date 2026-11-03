@@ -66,7 +66,7 @@ def test_the_sketch_linkage_draws_at_every_flexion():
     figure, (left, right) = plt.subplots(1, 2)
     try:
         for k, pose in enumerate(phi):
-            view.draw(left, pose)
+            view.draw(left, pose, style="sketch")
             assert view.collisions(pose) == collisions(margins, k)
         i = int(index[-1])
         solids.linkage_bars(right, SKETCH_LINKAGE, sweep.b[i], sweep.tip[i], sweep.bp[i], "#2a78d6")
@@ -107,3 +107,12 @@ def test_every_mechanism_has_a_view(name):
         assert axis.patches and axis.lines
     finally:
         plt.close(figure)
+
+
+def test_the_closest_pair_is_one_the_motion_moves_unless_one_collides():
+    view = FingerView("linkage", FourBarView(SKETCH_LINKAGE, LinkagePackaging()))
+    fixed, moving = ("mcp_servo", "proximal_pad"), ("distal_pad", "proximal_pad")
+    assert view.closest(0.0, {fixed: 0.5, moving: 3.0}) == (moving, 3.0)
+    assert view.closest(0.0, {fixed: -0.2, moving: 3.0}) == (fixed, -0.2)  # a collision, wherever it is
+    assert view.closest(0.0, {}) is None
+    assert view.collisions(0.0, {fixed: -0.2, moving: 3.0}) == set(fixed)

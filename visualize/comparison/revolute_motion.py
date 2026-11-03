@@ -45,14 +45,14 @@ def main(argv: list[str]) -> int:
     grid = figure.add_gridspec(2, len(poses) + 1)
     for c, pose in enumerate(poses):
         axis = figure.add_subplot(grid[0, c])
-        view.draw(axis, pose)
+        view.draw(axis, pose, style="sketch")
         sketch.frame(axis, XLIM, YLIM)
         axis.set_title(f"{pose:.0f}°", color=INK, fontsize=10, loc="left")
 
     # The distal pad every 10 deg, darker with flexion, on one sketch.
     axis = figure.add_subplot(grid[0, len(poses)])
     trail = np.arange(0.0, to_deg + 1e-9, 10.0)
-    view.draw(axis, 0.0, set())
+    view.draw(axis, 0.0, set(), style="sketch")
     sketch.pad_trail(axis, [view.distal_pad(pose) for pose in trail],
                      0.25 + 0.75 * trail / max(to_deg, 1.0), COLORS["revolute"], alpha=0.85, linewidth=0.5,
                      zorder=2.5)

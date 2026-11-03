@@ -12,7 +12,8 @@ joint is, how it moves and how its parts are drawn is its mechanism's view
     view.margins(phi_deg)   # each checked pair's gap, (n,) per pair
     view.icr(phi_deg)       # the distal segment's instantaneous centre of rotation
     view.k(phi_deg)         # d(phi)/d(theta_servo): servo torque per distal moment
-    view.draw(axis, phi)    # the sketch at one flexion, colliding parts outlined red
+    view.draw(axis, phi)    # the finger at one flexion as its parts, colliding ones hatched red
+    view.draw(axis, phi, style="sketch")   # the paper's schematic (framed by the caller)
 
 From the command line (``python -m visualize.finger``): a front's design or a
 design vector through its motion, see ``visualize.finger.__main__``.

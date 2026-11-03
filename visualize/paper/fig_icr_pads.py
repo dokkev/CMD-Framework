@@ -47,7 +47,7 @@ def main(argv: list[str]) -> int:
     figure, axes = plt.subplots(1, len(POSES_DEG), figsize=(3.3 * len(POSES_DEG), 3.2), constrained_layout=True)
     for axis, pose in zip(axes, POSES_DEG):
         pose = min(pose, end)
-        finger.draw(axis, pose)
+        finger.draw(axis, pose, style="sketch")
         sketch.icr_path(axis, finger.icr(np.linspace(0.0, max(pose, 1e-6), 121)), size=26, end=COLORS["rcj"])
         axis.axvline(icr_x, color=COLORS["revolute"], linestyle=(0, (4, 2)), linewidth=1.0, zorder=1)
         axis.scatter([app_x], [-p.joint.a.z_mm - 3.0], marker="|", s=120, color=COLORS["revolute"], zorder=9)
