@@ -30,7 +30,7 @@ from core.morphology.mechanism.linkage import (
     sweep_motion,
 )
 from core.morphology.mechanism.linkage.model import four_bar
-from core.morphology.mechanism.linkage.packaging import JOINTS, NOT_YET_CHECKED, PARTS, assembly, pad_spans
+from core.morphology.mechanism.linkage.packaging import JOINTS, PARTS, PIN_CHECKED, PINS, assembly, pad_spans
 from core.morphology.packaging import (
     PALM,
     Assembly,
@@ -60,9 +60,9 @@ PRODUCTION_B, PRODUCTION_BP = PointXZ(75.0, 0.0), PointXZ(60.0, 10.0)
 PRODUCTION = LinkagePackaging(
     pivot_clearance_diameter_mm=6.0, body_clearance_mm=0.0, a_pivot_diameter_mm=6.0, ap_pivot_diameter_mm=10.0,
     b_pivot_diameter_mm=6.0, bp_pivot_diameter_mm=6.0, ap_clearance_diameter_mm=10.0, pad_mcp_clearance_mm=0.0,
-    allow_collision_pip_servo_to_joint_a=True, proximal_pad_below_a=True, distal_pad_below_b=True,
+    allow_collision_pip_servo_to_joint_a=True,
     pip_servo_above_oa=False, pip_servo_pad_check=True, a_pin_servo_check=True, links_clear_pads=True,
-    pads_off_pins=True, distal_carrier_height_mm=4.0, overlap_depth=True)
+    pads_off_pins=True, overlap_depth=True)
 
 
 def toy_layout(**changes) -> Layout:
@@ -178,9 +178,14 @@ def test_the_linkage_lays_its_parts_out_by_the_rule():
         bodies = set(joint.bodies)
         assert not any(joint.pin in pair.key and {layout_.part(n).body for n in pair.key} & bodies - {
             layout_.part(joint.pin).body} for pair in layout_.pairs)
-    # Without the exemptions, the rule would check the not yet checked pairs too.
-    every = {pair.key for pair in Layout(layout_.parts, layout_.joints).pairs}
-    assert NOT_YET_CHECKED <= every and not NOT_YET_CHECKED & {pair.key for pair in layout_.pairs}
+    # A pin's housing is checked against the PIP servo and the pads only, and
+    # the distal carrier against the MCP servo and the proximal pad.
+    for pair in layout_.pairs:
+        pin = set(pair.key) & set(PINS)
+        assert not pin or set(pair.key) - pin <= PIN_CHECKED
+    checked = {pair.key for pair in layout_.pairs}
+    assert {("b_pin", "pip_servo"), ("b_pin", "proximal_pad"), ("a_pin", "distal_pad")} <= checked
+    assert not {("a_pin", "coupler"), ("a_pin", "mcp_servo"), ("a_pin", "b_pin")} & checked
 
 
 def test_a_finger_is_its_segments_its_joint_and_its_servo():
@@ -245,7 +250,7 @@ def test_a_linkage_is_checked_and_swept_without_a_study():
     linkage = decode(X, 0.1)
     rest = reference_poses(linkage)
     found = pad_margins(linkage, PRODUCTION, *(rest.points[name] for name in ("b", "c", "bp")))
-    assert set(found) == set(checked_pairs(PRODUCTION)) | {("distal_carrier", "pip_servo")}
+    assert set(found) == set(checked_pairs(PRODUCTION))
     assert min(float(margin.min()) for margin in found.values()) >= 0.0
     step = math.radians(1.0)
     settings = MotionSettings(servo_samples_rad=tuple(np.arange(0.0, math.pi + 1e-9, step)), servo_step_rad=step,
@@ -323,7 +328,7 @@ def test_the_2r_is_a_pin_its_finger_owns():
     finger = revolute.decode(x)
     assert isinstance(finger.joint, revolute.Pin) and finger.icr == PointXZ(40.0, 0.0)
     assert finger.tip == PointXZ(70.0, 0.0) and finger.proximal_end == PointXZ(34.0, 0.0) and finger.distal_start == PointXZ(44.0, 0.0)
-    assert finger.distal.drop_mm == 3.0 and finger.servo == ServoMount(math.radians(10.0))
+    assert finger.servo == ServoMount(math.radians(10.0))
     geo = revolute.geometry(x, PRODUCTION)
     q = np.radians(np.arange(0.0, 151.0, 10.0))
     kinematics = finger.kinematics(q)
@@ -370,3 +375,11 @@ def test_the_finger_pip_is_the_distal_segments_flexion_from_the_proximal():
     by_driver = finger.place(finger.joint.sweep_driver(by_pip.q_driver_rad))
     assert by_pip.q_pip_rad == pytest.approx(q)
     assert by_driver.tip == pytest.approx(by_pip.tip) and by_driver.q_pip_rad == pytest.approx(q)
+
+
+def test_a_margin_within_rounding_of_touching_is_no_violation():
+    from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, violation_mm
+
+    assert violation_mm(-1e-16) == 0.0 and violation_mm(1e-16) == 0.0
+    assert violation_mm(2.0) == -2.0 and violation_mm(-0.5) == 0.5
+    assert violation_mm(-2 * MARGIN_TOLERANCE_MM) > 0.0

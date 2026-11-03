@@ -45,11 +45,9 @@ from core.morphology.mechanism.linkage.packaging import (
     COMPONENTS,
     FIXED_MARGIN_PAIRS,
     LinkagePackaging,
-    distal_drop,
     distal_pad_polygon,
     pad_margins,
     pip_footprint,
-    proximal_drop,
     proximal_pad_polygon,
 )
 from core.morphology.packaging.shapes import turn_points
@@ -178,8 +176,8 @@ def create_animation(
 
     outlines = []
     for name, component in COMPONENTS.items():
-        if component.body not in GROUP_COLORS or name in ("distal_carrier", "pip_shaft"):
-            continue  # the link plates, in other layers; the carrier and the shaft's clearance, not drawn
+        if component.body not in GROUP_COLORS or name == "pip_shaft":
+            continue  # the link plates, in other layers; the shaft's clearance, not drawn
         if name == "mcp_servo" and not (packaging.pad_checks_mcp("proximal_pad")
                                         or packaging.pad_checks_mcp("distal_pad")):
             continue
@@ -261,12 +259,13 @@ def create_animation(
         for name, marker in markers.items():
             point = getattr(pose, name)
             x, z = point.x_mm, point.z_mm
-            if name in ("proximal_end", "distal_start"):  # on the pad's top face, its drop below the link line
-                start, end, drop = ((pose.o, pose.a, proximal_drop(packaging, linkage)) if name == "proximal_end"
-                                    else (pose.b, pose.tip, distal_drop(packaging, linkage)))
+            if name in ("proximal_end", "distal_start"):  # on the pad's top face, tangent to its link's pin
+                start, end, pad = ((pose.o, pose.a, "proximal_pad") if name == "proximal_end"
+                                   else (pose.b, pose.tip, "distal_pad"))
+                offset = packaging.interface_offset_mm(pad)
                 ux, uz = end.x_mm - start.x_mm, end.z_mm - start.z_mm
                 length = math.hypot(ux, uz) or 1.0
-                x, z = x - drop * -uz / length, z - drop * ux / length
+                x, z = x - offset * -uz / length, z - offset * ux / length
             marker.set_data((x,), (z,))
             labels[name].xy = (x, z)
         status.set_text(

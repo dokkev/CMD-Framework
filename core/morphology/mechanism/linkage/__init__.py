@@ -15,7 +15,7 @@ study or a requirement (``core.optimization.linkage`` holds those).
 - ``pad_extension``: growing the pads along their links, the links kept
 
     linkage = decode(x)
-    packaging = LinkagePackaging(distal_carrier_height_mm=4.0, overlap_depth=True)
+    packaging = LinkagePackaging(overlap_depth=True)
     margins = pad_margins(linkage, packaging, b, c, bp)            # one per checked pair
     motion = sweep_motion(linkage, packaging, settings, math.radians(150.0))
 """

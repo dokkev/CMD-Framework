@@ -13,7 +13,6 @@ from core.morphology.mechanism.linkage import Finger
 from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     checked_pairs,
-    distal_carrier_polygon,
     distal_pad_polygon,
     pad_margins,
     pad_spans,
@@ -56,10 +55,10 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert [math.degrees(v) for v in config.transmission_angle_range_rad] == pytest.approx([30.0, 150.0])
     assert config.pip_servo_tilt_rad == pytest.approx(math.radians(20.0))
     assert config.bounds["bc_length_mm"] == (25.0, 110.0)
-    # Pivots at their own sizes, pads below A and B, no clearance anywhere.
+    # Pivots at their own sizes, the pads' spaces tangent to A's and B's, no clearance anywhere.
     assert [packaging.pivot_radius_mm(p) for p in ("a", "ap", "b", "bp")] == [3.0, 5.0, 3.0, 3.0]
     assert packaging.ap_clearance_diameter_mm == 10.0
-    assert packaging.proximal_pad_drop_mm == 3.0 and packaging.distal_pad_drop_mm == 3.0
+    assert packaging.interface_offset_mm("proximal_pad") == 3.0 and packaging.interface_offset_mm("distal_pad") == 3.0
     assert packaging.body_clearance_mm == 0.0 and packaging.mcp_pad_clearance_mm == 0.0
     assert packaging.proximal_pad_start_mm == packaging.mcp_servo.radius_mm
     assert not packaging.pip_servo_above_oa and packaging.pip_servo_pad_check and packaging.overlap_depth
@@ -105,24 +104,17 @@ def test_the_pads_hang_below_their_pivots():
     b, c = linkage.joint.b, linkage.tip
     distal = distal_pad_polygon(linkage, config.packaging, np.array([[b.x_mm, b.z_mm]]), np.array([[c.x_mm, c.z_mm]]))
     assert distal[0, :, 1].max() == pytest.approx(b.z_mm - 3.0)
-    # Off, the pads lie on their link lines again.
-    flat = dataclasses.replace(config.packaging, proximal_pad_below_a=False)
-    assert proximal_pad_polygon(linkage, flat)[:, 1].max() == pytest.approx(0.0)
 
 
-def test_the_distal_carrier_is_checked_against_the_pip_servo():
-    config = load()
+def test_the_removed_carrier_and_pad_hangs_are_ignored_in_a_goal():
+    # The pads are the contact interface spaces: no carrier, no hang to choose.
+    config = load("goal.collision.check.distal_carrier_and_pip_servo=true",
+                  "goal.collision.check.a_pin_and_proximal_pad=false",
+                  "goal.collision.param.distal_carrier_height_mm=4", "goal.pads.distal.drop_mm=[0, 1]")
+    assert config.packaging == load().packaging and config.bounds == load().bounds
     linkage = decode(X, config.link_length_resolution_mm)
     b, c = (np.array([[point.x_mm, point.z_mm]]) for point in (linkage.joint.b, linkage.tip))
-    pad = distal_pad_polygon(linkage, config.packaging, b, c)[0]
-    carrier = distal_carrier_polygon(linkage, config.packaging, b, c)[0]
-    # Over the pad's span, from its top face 4 mm dorsally (extended: along the axis).
-    assert (carrier[:, 0].min(), carrier[:, 0].max()) == pytest.approx((pad[:, 0].min(), pad[:, 0].max()))
-    assert (carrier[:, 1].min(), carrier[:, 1].max()) == pytest.approx((pad[:, 1].max(), pad[:, 1].max() + 4.0))
-    assert ("distal_carrier", "pip_servo") in pad_margins(linkage, config.packaging, b, c, b)
-    off = load("goal.collision.check.distal_carrier_and_pip_servo=false").packaging
-    assert off.distal_carrier_height_mm == 0.0
-    assert ("distal_carrier", "pip_servo") not in pad_margins(linkage, off, b, c, b)
+    assert not any("carrier" in name for pair in pad_margins(linkage, config.packaging, b, c, b) for name in pair)
 
 
 def test_overlap_is_negative_touching_zero():
@@ -197,7 +189,7 @@ def test_the_pip_servo_may_come_down_to_the_pad_but_not_into_it():
 
 def test_packaging_defaults_keep_the_older_checks():
     packaging = LinkagePackaging()
-    assert packaging.proximal_pad_drop_mm == 0.0 and packaging.distal_pad_drop_mm == 0.0
+    assert packaging.interface_offset_mm("proximal_pad") == packaging.pivot_radius_mm("a")
     assert packaging.pip_servo_above_oa and not packaging.pip_servo_pad_check and not packaging.overlap_depth
     assert all(packaging.pivot_radius_mm(p) == packaging.pin_radius_mm for p in ("a", "ap", "b", "bp"))
 
@@ -373,14 +365,15 @@ def test_a_pad_counts_up_to_where_the_faces_cross():
 
 
 def test_the_links_may_be_bounded_as_shares_of_the_finger():
+    # The finger's segments: |OA''| and |B''C|.
     e = MECHANISM.evaluate(X, load())
-    oc, oa, bc = e.finger_length_mm, X[0], X[VARIABLE_NAMES.index("bc_length_mm")]
-    low = MECHANISM.evaluate(X, load(f"goal.link.proximal_length_ratio=[{(oa + 2.0) / oc}, null]"))
+    oc, proximal, distal = e.finger_length_mm, e.finger.proximal.length_mm, e.finger.distal.length_mm
+    low = MECHANISM.evaluate(X, load(f"goal.link.proximal_length_ratio=[{(proximal + 2.0) / oc}, null]"))
     assert low.constraints["proximal_length_mm"] == pytest.approx(2.0, abs=1e-6)
-    high = MECHANISM.evaluate(X, load(f"goal.link.distal_length_ratio=[null, {(bc - 3.0) / oc}]"))
+    high = MECHANISM.evaluate(X, load(f"goal.link.distal_length_ratio=[null, {(distal - 3.0) / oc}]"))
     assert high.constraints["proximal_length_mm"] == pytest.approx(3.0, abs=1e-6)
     assert MECHANISM.evaluate(X, load("goal.link.proximal_length_ratio=[0.2, 0.5]",
-                                      "goal.link.distal_length_ratio=[0.2, 0.4]")).constraints[
+                                      "goal.link.distal_length_ratio=[0.2, 0.45]")).constraints[
         "proximal_length_mm"] <= 0.0
 
 

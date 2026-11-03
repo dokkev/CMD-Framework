@@ -21,9 +21,7 @@ hold by construction:
    length (and at most ``proximal_pad_past_icr_max_mm`` past the extended
    centre of rotation), ``B''_x`` from ``A''_x`` (the pads side by side) to the same
    (:func:`search_names`); with ``pads_on_links``, not searched: the proximal
-   pad ends at ``A`` and the distal one starts at ``B``. 6. The pads' drops
-   below their link lines themselves, when searched (``goal.pads.*.drop_mm``);
-   else NaN in the design vector: the packaging's.
+   pad ends at ``A`` and the distal one starts at ``B``.
 
 Every position is rounded to the prototyping resolution. Coordinates whose
 ranges are empty describe no design (``None``).
@@ -71,7 +69,6 @@ def search_names(config: LinkageConfig) -> tuple[str, ...]:
         names = SEARCH_NAMES[:-2]
     else:
         names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
-    names = (*names, *config.searched_drops)
     return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED))
 
 
@@ -135,7 +132,6 @@ def search_box(config: LinkageConfig) -> tuple[tuple[float, ...], tuple[float, .
         "servo_tilt_from_min_deg": (0.0, float(tilts_deg(config)[-1] - bounds["servo_tilt_deg"][0])),
         **{name: bounds[name] for name in ("app_offset_mm", "bpp_offset_mm")},
         **{name: (0.0, 1.0) for name in PAD_SHARE_NAMES},
-        **{name: bounds[name] for name in ("proximal_drop_mm", "distal_drop_mm")},
     }
     names = search_names(config)
     return tuple(box[name][0] for name in names), tuple(box[name][1] for name in names)
@@ -216,7 +212,6 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         "bp_x_mm": bp_x, "bp_z_mm": bp_z,
         "servo_tilt_deg": tilt,
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
-        **{name: grid(v[name]) if name in v else math.nan for name in ("proximal_drop_mm", "distal_drop_mm")},
     }
     return tuple(design[name] for name in VARIABLE_NAMES)
 
@@ -241,7 +236,6 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
         "servo_tilt_from_min_deg": float(round((d["servo_tilt_deg"] - config.bounds["servo_tilt_deg"][0])
                                                / config.tilt_step_deg) * config.tilt_step_deg),
         **{name: d[name] for name in ("bc_length_mm", "b_z_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
-        **{name: d[name] for name in config.searched_drops},
     }
     if config.packaging.pads_off_pins and not config.pads_on_links:
         icr_x = extended_icr_x((d["a_x_mm"], d["a_z_mm"]), (d["ap_x_mm"], d["ap_z_mm"]),

@@ -3,8 +3,8 @@
 Each segment has its own frame: its origin on the joint at its proximal end
 (the proximal segment's: the MCP, :attr:`Finger.origin`), ``+X`` along the
 segment, ``+Z`` dorsal. A segment spans ``start_mm`` to ``end_mm`` along its
-axis: its body as far as it reaches, whatever its joint's parts; its contact
-pad hangs ``drop_mm`` palmar of its line. A joint (:class:`Joint`, e.g. the
+axis: its body as far as it reaches, whatever its joint's parts (where its
+contact interface sits is the packaging's). A joint (:class:`Joint`, e.g. the
 CoDe's four-bar ``core.morphology.mechanism.linkage.FourBar`` or the 2R's
 pin ``core.morphology.mechanism.revolute.Pin``) poses the distal segment's
 frame on the proximal one; a servo mount (:class:`ServoMount`) says how the
@@ -32,7 +32,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from core._validation import require_finite, require_nonnegative
+from core._validation import require_finite
 
 
 @dataclass(frozen=True)
@@ -88,14 +88,10 @@ class Segment:
     """Where the body starts along the axis."""
     end_mm: float
     """Where it ends (the distal segment's end: the fingertip)."""
-    drop_mm: float | None = None
-    """How far its pad's top face lies palmar of its line; ``None``: the packaging's."""
 
     def __post_init__(self) -> None:
         require_finite("start_mm", self.start_mm)
         require_finite("end_mm", self.end_mm)
-        if self.drop_mm is not None:
-            require_nonnegative("drop_mm", self.drop_mm)
 
     @property
     def length_mm(self) -> float:

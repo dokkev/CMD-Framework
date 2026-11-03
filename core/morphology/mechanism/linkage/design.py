@@ -1,8 +1,10 @@
 """Design vector of the 2-DoF finger linkage: A_x, B (x, z), A', B', the PIP
 servo's dorsal tilt (degrees, on the same 0.1 grid), BC (the middle + distal
-phalanx), A_z, ``A''_x - A'_x``, ``B'_x - B''_x`` and the two pads' drops
-below their link lines (the last five added later, so older vectors read
-with them at ``DEFAULT_VALUES``: 0, and the drops NaN, the packaging's).
+phalanx), A_z, ``A''_x - A'_x`` and ``B'_x - B''_x`` (the last three added
+later, so older vectors read with them at ``DEFAULT_VALUES``: 0). Vectors
+written with the pads' drops (two more values, removed 2026-11-03: the
+contact interface spaces start on the line tangent to their link's pin) or
+also the pads' chamfers (two more, before the drops) read without them.
 
 With a machining resolution every part keeps its own dimensions on the grid:
 the proximal link ``A`` and ``A'`` from ``O``, the distal link ``B'`` from ``B``
@@ -37,15 +39,13 @@ VARIABLE_NAMES: tuple[str, ...] = (
     "a_z_mm",
     "app_offset_mm",
     "bpp_offset_mm",
-    "proximal_drop_mm",
-    "distal_drop_mm",
 )
-DEFAULT_VALUES = {"a_z_mm": 0.0, "app_offset_mm": 0.0, "bpp_offset_mm": 0.0,
-                  "proximal_drop_mm": math.nan, "distal_drop_mm": math.nan}
+DEFAULT_VALUES = {"a_z_mm": 0.0, "app_offset_mm": 0.0, "bpp_offset_mm": 0.0}
 """Values of variables added later, for design vectors written before them."""
+LEGACY_DROPS_LENGTH = 14
+"""A vector with the pads' drops after the offsets (2026-10-28 to 2026-11-03), which ``decode`` leaves out."""
 LEGACY_CHAMFERED_LENGTH = 16
-"""A vector with the deprecated pads' chamfers (after the offsets), which ``decode`` drops.
-A 14-value vector is the current layout (the drops), never the chamfered one without drops."""
+"""A vector with the pads' chamfers after the offsets, then the drops, which ``decode`` leaves out."""
 
 
 def decode(
@@ -60,34 +60,31 @@ def decode(
     ``ValueError`` when the rounded bars no longer close.
     """
 
-    if len(x) == LEGACY_CHAMFERED_LENGTH:
-        x = (*x[:12], *x[14:])  # the two deprecated pad chamfers, between the offsets and the drops
-    if not 9 <= len(x) <= 12 and len(x) != len(VARIABLE_NAMES):
+    if len(x) in (LEGACY_DROPS_LENGTH, LEGACY_CHAMFERED_LENGTH):
+        x = x[:12]  # the deprecated chamfers and drops, after the offsets
+    if not 9 <= len(x) <= len(VARIABLE_NAMES):
         raise ValueError(f"design vector has {len(x)} values; expected {len(VARIABLE_NAMES)}")
     missing = VARIABLE_NAMES[len(x):]
     x = (*x, *(DEFAULT_VALUES[name] for name in missing))  # vectors from before a variable
-    (a_x, b_x, b_z, ap_x, ap_z, bp_x, bp_z, tilt_deg, bc_length_mm, a_z, app_offset, bpp_offset,
-     proximal_drop, distal_drop) = (float(v) for v in x)
+    a_x, b_x, b_z, ap_x, ap_z, bp_x, bp_z, tilt_deg, bc_length_mm, a_z, app_offset, bpp_offset = (float(v) for v in x)
     ap, bp = PointXZ(ap_x, ap_z), PointXZ(bp_x, bp_z)
     if link_length_resolution_mm is not None:
         b_x, b_z, bp = _assemble((a_x, a_z), (b_x, b_z), ap, bp, link_length_resolution_mm)
     return make_finger(PointXZ(a_x, a_z), ap, PointXZ(b_x, b_z), bp, bc_length_mm, app_offset, bpp_offset,
-                       math.radians(tilt_deg), None if math.isnan(proximal_drop) else proximal_drop,
-                       None if math.isnan(distal_drop) else distal_drop)
+                       math.radians(tilt_deg))
 
 
 def make_finger(a: PointXZ, ap: PointXZ, b: PointXZ, bp: PointXZ, bc_length_mm: float, app_offset_mm: float = 0.0,
-                bpp_offset_mm: float = 0.0, tilt_rad: float = 0.0, proximal_drop_mm: float | None = None,
-                distal_drop_mm: float | None = None) -> Finger:
+                bpp_offset_mm: float = 0.0, tilt_rad: float = 0.0) -> Finger:
     """A CoDe finger from its extended pose: the four-bar's points (the
     proximal frame), ``|BC|``, ``A''`` ``app_offset_mm`` past ``A'_x`` and
     ``B''`` ``bpp_offset_mm`` short of ``B'_x`` (where the segments end and
-    start), the servo's tilt and the pads' drops."""
+    start) and the servo's tilt."""
 
     require_positive("bc_length_mm", bc_length_mm)
     return Finger(
-        proximal=Segment(0.0, ap.x_mm + app_offset_mm, proximal_drop_mm),
-        distal=Segment((bp.x_mm - bpp_offset_mm) - b.x_mm, bc_length_mm, distal_drop_mm),
+        proximal=Segment(0.0, ap.x_mm + app_offset_mm),
+        distal=Segment((bp.x_mm - bpp_offset_mm) - b.x_mm, bc_length_mm),
         joint=FourBar(a=a, ap=ap, b=b, bp=bp),
         servo=ServoMount(tilt_rad),
     )
@@ -126,9 +123,7 @@ def encode(finger: Finger) -> tuple[float, ...]:
     f, j = finger, finger.joint
     return (j.a.x_mm, j.b.x_mm, j.b.z_mm, j.ap.x_mm, j.ap.z_mm, j.bp.x_mm, j.bp.z_mm,
             round(f.servo.tilt_deg, 9), f.distal.end_mm, j.a.z_mm, round(f.proximal.end_mm - j.ap.x_mm, 9),
-            round(j.bp.x_mm - f.distal_start.x_mm, 9),
-            math.nan if f.proximal.drop_mm is None else f.proximal.drop_mm,
-            math.nan if f.distal.drop_mm is None else f.distal.drop_mm)
+            round(j.bp.x_mm - f.distal_start.x_mm, 9))
 
 
 def read_design(row: Mapping[str, str]) -> list[float]:

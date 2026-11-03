@@ -68,10 +68,12 @@ def test_support_endpoints_ride_rigidly_on_their_bodies() -> None:
 def test_pads_hang_palmar_of_their_mounting_lines_and_ride_on_their_links() -> None:
     linkage = decode(GOOD)
     t = HOUSING_ONLY.proximal_pad.height_mm
+    r = HOUSING_ONLY.interface_offset_mm("proximal_pad")
     start = HOUSING_ONLY.proximal_pad_start_mm
-    # The proximal pad: a-b on O-A'', a plain block t palmar of it.
+    # The proximal pad: a-b along O-A'', a plain block t deep from the line
+    # tangent to A's housing (r palmar of OA).
     assert proximal_pad_polygon(linkage, HOUSING_ONLY) == pytest.approx(np.array(
-        ((start, -t), (41.6, -t), (41.6, 0.0), (start, 0.0))))
+        ((start, -r - t), (41.6, -r - t), (41.6, -r), (start, -r))))
 
     sweep = linkage.sweep_pip(np.radians([0.0, 30.0, 70.0]))
     distal = distal_pad_polygon(linkage, HOUSING_ONLY, sweep.b, sweep.tip)
@@ -80,11 +82,12 @@ def test_pads_hang_palmar_of_their_mounting_lines_and_ride_on_their_links() -> N
         pad = distal[i]
         e = (xz(pose.tip) - xz(pose.b)) / linkage.distal.end_mm
         palmar = np.array((e[1], -e[0]))
-        # a-b is B''-C; the block is t palmar of it.
-        assert pad[3] == pytest.approx(xz(pose.distal_start))
-        assert pad[2] == pytest.approx(xz(pose.tip))
-        assert pad[1] == pytest.approx(xz(pose.tip) + t * palmar)
-        assert pad[0] == pytest.approx(xz(pose.distal_start) + t * palmar)
+        # a-b is B''-C, r palmar of BC (tangent to B's housing); the block t deep from there.
+        r = HOUSING_ONLY.interface_offset_mm("distal_pad")
+        assert pad[3] == pytest.approx(xz(pose.distal_start) + r * palmar)
+        assert pad[2] == pytest.approx(xz(pose.tip) + r * palmar)
+        assert pad[1] == pytest.approx(xz(pose.tip) + (r + t) * palmar)
+        assert pad[0] == pytest.approx(xz(pose.distal_start) + (r + t) * palmar)
 
 
 def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
@@ -92,11 +95,12 @@ def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
     linkage = decode(GOOD)
 
     # Off: the pad starts at O and the MCP servo is not checked.
-    assert proximal_pad_polygon(linkage, off)[-1] == pytest.approx((0.0, 0.0))
+    r = HOUSING_ONLY.interface_offset_mm("proximal_pad")
+    assert proximal_pad_polygon(linkage, off)[-1] == pytest.approx((0.0, -r))
     assert not any("mcp_servo" in pair for pair in checked_pairs(off))
     # On: it starts past the servo's shaft disk, and both pads are checked against the servo.
     on_start = HOUSING_ONLY.mcp_servo.radius_mm + HOUSING_ONLY.body_clearance_mm
-    assert proximal_pad_polygon(linkage, HOUSING_ONLY)[-1] == pytest.approx((on_start, 0.0))
+    assert proximal_pad_polygon(linkage, HOUSING_ONLY)[-1] == pytest.approx((on_start, -r))
     assert {("mcp_servo", "proximal_pad"), ("distal_pad", "mcp_servo")} <= set(checked_pairs(HOUSING_ONLY))
     assert pad_spans(decode(GOOD), HOUSING_ONLY)["proximal_pad"].length_mm == pytest.approx(41.6 - on_start)
     assert pad_spans(decode(GOOD), off)["proximal_pad"].length_mm == pytest.approx(41.6)
@@ -115,7 +119,7 @@ def test_pad_offsets_move_the_outer_ends_inward() -> None:
     # The proximal pad starts 3 mm further right; the distal pad starts 4 mm short of C.
     assert proximal_pad_polygon(linkage, offset)[-1][0] == pytest.approx(HOUSING_ONLY.proximal_pad_start_mm + 3.0)
     tip = distal_pad_polygon(linkage, offset, np.array([xz(linkage.joint.b)]), np.array([xz(linkage.tip)]))[0, 2]
-    assert tip == pytest.approx(xz(linkage.tip) - (4.0, 0.0))
+    assert tip == pytest.approx(xz(linkage.tip) - (4.0, HOUSING_ONLY.interface_offset_mm("distal_pad")))
     assert moved["proximal_pad"].length_mm == pytest.approx(base["proximal_pad"].length_mm - 3.0)
     assert moved["distal_pad"].length_mm == pytest.approx(base["distal_pad"].length_mm - 4.0)
 
@@ -144,9 +148,7 @@ def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
 
     block = pad_outline(PadSpan(0.0, 30.0, 30.0), ContactPad(height_mm=5.0))
     assert block == pytest.approx(np.array(((0.0, -5.0), (30.0, -5.0), (30.0, 0.0), (0.0, 0.0))))
-    encoded = encode(decode(GOOD))
-    assert encoded[:-2] == (*GOOD, 0.0, 0.0)
-    assert all(math.isnan(value) for value in encoded[-2:])  # the drops: the packaging's
+    assert encode(decode(GOOD)) == (*GOOD, 0.0, 0.0)
     # Runs before the chamfers went (deprecated): their chamfers are left out.
     row = {name: str(value) for name, value in zip(("a_x_mm", "b_x_mm", "b_z_mm", "ap_x_mm", "ap_z_mm", "bp_x_mm",
                                                     "bp_z_mm", "servo_tilt_deg", "bc_length_mm", "a_z_mm"), GOOD)}
@@ -208,7 +210,7 @@ def test_a_link_crossing_a_pad_in_the_side_view_is_not_a_collision() -> None:
     linkage = decode(GOOD)
     pad = proximal_pad_polygon(linkage, HOUSING_ONLY)
     # Flexed, the driver link A-B' passes through the proximal pad in the side view...
-    pose = linkage.solve(0.0, math.radians(60.0))
+    pose = linkage.solve(0.0, math.radians(140.0))
     along = np.linspace(0.0, 1.0, 50)[:, None]
     link = xz(pose.a) + along * (xz(pose.bp) - xz(pose.a))
     assert points_inside(link[None], pad[None]).any()

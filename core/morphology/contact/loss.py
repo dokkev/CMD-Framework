@@ -32,10 +32,8 @@ import numpy as np
 from core.morphology.mechanism.linkage import Finger
 from core.morphology.mechanism.linkage.packaging import (
     contact_faces as linkage_faces,
-    distal_carrier_polygon,
     distal_pad_polygon,
     pip_footprint,
-    proximal_carrier_polygon,
     proximal_pad_polygon,
 )
 from core.morphology.packaging.faces import PROBE_STEP_MM, fold_free_lengths, fold_hidden_points, probe_blocked
@@ -249,10 +247,9 @@ def _scene(phi_deg, faces, own: dict[str, list], others: dict[str, Shapes]) -> S
     return Scene(np.asarray(phi_deg, dtype=float), faces, solids)
 
 
-def linkage_scene(finger: Finger, packaging, b, c, bp, phi_deg,
-                  proximal_carrier_mm: float | None = None) -> Scene:
-    """The scene of a linkage at its posed ``B``, ``C`` and ``B'`` (``(n, 2)`` each), flexions ``phi_deg``;
-    ``proximal_carrier_mm``: its proximal support's plate (``packaging.proximal_carrier_polygon``), if any."""
+def linkage_scene(finger: Finger, packaging, b, c, bp, phi_deg) -> Scene:
+    """The scene of a linkage at its posed ``B``, ``C`` and ``B'`` (``(n, 2)`` each), flexions ``phi_deg``
+    (no carrier: its pads are its contact interface spaces)."""
 
     b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
     o, a, ap = (0.0, 0.0), (finger.joint.a.x_mm, finger.joint.a.z_mm), (finger.joint.ap.x_mm, finger.joint.ap.z_mm)
@@ -263,10 +260,7 @@ def linkage_scene(finger: Finger, packaging, b, c, bp, phi_deg,
              "distal_pad": (distal_face, distal_normal)}
     radius = packaging.pivot_radius_mm
     others = {
-        "carrier": Shapes(([distal_carrier_polygon(finger, packaging, b, c)]
-                           if packaging.distal_carrier_height_mm > 0 else [])
-                          + ([proximal_carrier_polygon(finger, packaging, proximal_carrier_mm)]
-                             if proximal_carrier_mm is not None else [])),
+        "carrier": Shapes(),
         "link": Shapes(segments=_bars((o, a), (a, ap), (ap, o), (a, bp), (ap, b), (bp, b), (b, c))),
         "pin": Shapes(disks=[(a, radius("a")), (ap, radius("ap")), (b, radius("b")), (bp, radius("bp"))]),
         "servo": Shapes([pip_footprint(packaging, finger).outline]),

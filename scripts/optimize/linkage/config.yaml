@@ -41,10 +41,11 @@ goal:
     # pads and the PIP servo are checked against the MCP servo there only.
     hyperextension_deg: 10
 
-  # The contact modules each pad must carry. A pad's top face lies on its
-  # link line (O-A or B-C), or a housing radius below it when it must clear
-  # its pivot (goal.collision); length and A'' / B'' are measured along
-  # that face.
+  # The contact modules each pad must carry. Each pad is its link's contact
+  # interface space: a block that starts on the line tangent to its link's
+  # pin clearance (A's for the proximal pad, B's for the distal one; half
+  # goal.collision.param.pivot_diameter_mm) and parallel to the link line
+  # (O-A, B-C); length and A'' / B'' are measured along that line.
   # Searched with each pad on its own link only (the proximal pad to A, the
   # distal one from B to C), so more pad means a shorter four-bar;
   # scripts/optimize/extend_pads.py then grows the found designs' pads as far
@@ -60,7 +61,7 @@ goal:
       #        goal.link.finger_length_mm's max (no pad outgrows the finger).
       # The length is searched in [min, max]; [L, L] is exactly L.
       length_mm: [20, null]
-      # Palmar of the mounting line, the mounting interface included. One
+      # How deep the space is, the module and its mounting together. One
       # value per study (a range would always end at its min); sweep it to
       # see what thickness costs. The pad is a plain block (no chamfer: a
       # chamfer only shortens the contact face).
@@ -79,12 +80,12 @@ goal:
   link:
     # |OC| in the extended pose.
     finger_length_mm: [90, 100]
-    # |OA| (the MCP O to the proximal link's PIP pivot A, which stands for the
-    # PIP: the four-bar has none), BC (the distal link's pivot B to the
-    # fingertip C) and |AB| (the four-bar's span along the finger) as shares
-    # of the extended |OC|, [min, max] (null: no limit). |AB| at most 0.35 of
+    # The finger's segments, |OA''| (the MCP O to where the proximal body ends)
+    # and |B''C| (where the distal body starts to the fingertip C), and |AB|
+    # (the four-bar's span along the finger) as shares of the extended |OC|,
+    # [min, max] (null: no limit; before 2026-11-03 |OA| and BC). |AB| at most 0.35 of
     # it, a shorter four-bar (above 0.40 the |OA| and BC minimums bind it
-    # anyway; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
+    # anyway, as |OA| and BC then; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
     # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
     # distal_length_mm and joint_span_mm, optional, bound them in mm.)
     proximal_length_ratio: [0.35, 0.55]
@@ -120,8 +121,8 @@ goal:
     # Sizes and ranges the checks use.
     param:
       # Each pivot's size, its tolerance included. Half of A's / B's is also how
-      # far the proximal / distal pad hangs below its link line to clear it.
-      #   A is 9 mm in fact but kept at 6, which sets the proximal pad's drop (3 mm).
+      # far palmar of its link line the proximal / distal pad starts.
+      #   A is 9 mm in fact but kept at 6, which starts the proximal pad 3 mm below OA.
       #   A' is 7 mm in fact; 10 keeps the A-A' check as for the real pins
       #   (3 + 5 = 4.5 + 3.5). The cost: the distal pad is checked against a
       #   smaller A (1.5 mm less radius) and a larger A' (1.5 mm more) than real.
@@ -130,9 +131,6 @@ goal:
         a_prime: 10
         b: 6
         b_prime: 6
-      # The distal pad's carrier plate: over the pad's span, this thick dorsal
-      # of its top face (goal.collision.check.distal_carrier_and_pip_servo).
-      distal_carrier_height_mm: 4
 
     # Which pairs are checked.
     check:
@@ -146,11 +144,6 @@ goal:
       a_pin_and_a_prime_pin: false
       # The middle link A-B' sits in another Y layer than the servo.
       b_prime_pin_and_pip_servo: false
-      # Each pad clears its own link's pivot: true hangs the pad half that
-      # pivot's diameter below its link line (touching allowed); false keeps it
-      # on the line, over the pivot.
-      a_pin_and_proximal_pad: true
-      b_pin_and_distal_pad: true
       proximal_pad_and_distal_pad: true
       # The PIP servo body and the proximal pad (one body, still kept apart):
       # true lets the servo come down to the pad's top face, A's radius below
@@ -161,11 +154,6 @@ goal:
       # radius) and checks it against the MCP servo; false starts it at O,
       # unchecked.
       mcp_servo_and_proximal_pad: true
-      # The distal pad's carrier plate and the PIP servo body. The rest of the
-      # distal link (between the joint and the pad) is a bracket beside the
-      # servo, in other Y layers: unchecked. (The serial 2R has no carrier: its
-      # distal phalanx is a truss of links, in other layers.)
-      distal_carrier_and_pip_servo: true
       # Always checked, not options: the pads against the pivots of both bodies
       # (each pad ending anywhere, short of its own pins or past them), the
       # distal pad against the PIP and MCP servos, and the two servo bodies

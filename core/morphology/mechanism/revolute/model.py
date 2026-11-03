@@ -130,26 +130,26 @@ class Pin:
 
 
 def make_finger(a_x_mm: float, ac_length_mm: float, app_x_mm: float, bpp_from_a_mm: float,
-                tilt_rad: float = 0.0, proximal_drop_mm: float | None = None,
-                distal_drop_mm: float | None = None) -> Finger:
+                tilt_rad: float = 0.0) -> Finger:
     """The 2R finger: its proximal segment ``O`` to ``A''``, the pin at
     ``A = (a_x_mm, 0)``, its distal segment ``B''`` (``bpp_from_a_mm`` past
     ``A``) to ``C`` (``ac_length_mm``), the servo tilted dorsally by ``tilt_rad``."""
 
     require_positive("ac_length_mm", ac_length_mm)
     return Finger(
-        proximal=Segment(0.0, app_x_mm, proximal_drop_mm),
-        distal=Segment(bpp_from_a_mm, ac_length_mm, distal_drop_mm),
+        proximal=Segment(0.0, app_x_mm),
+        distal=Segment(bpp_from_a_mm, ac_length_mm),
         joint=Pin(PointXZ(a_x_mm, 0.0)),
         servo=ServoMount(tilt_rad),
     )
 
 
 def decode(x: Sequence[float]) -> Finger:
-    """The finger of a 2R design vector (``solids.VARIABLE_NAMES``)."""
+    """The finger of a 2R design vector (``solids.VARIABLE_NAMES``; its pads'
+    drops, the 2R's own packaging, are not the finger's)."""
 
-    a_x, ac, app_x, bpp_from_a, distal_drop, proximal_drop, tilt_deg = (float(value) for value in x)
-    return make_finger(a_x, ac, app_x, bpp_from_a, math.radians(tilt_deg), proximal_drop, distal_drop)
+    a_x, ac, app_x, bpp_from_a, _, _, tilt_deg = (float(value) for value in x)
+    return make_finger(a_x, ac, app_x, bpp_from_a, math.radians(tilt_deg))
 
 
 __all__ = ["Pin", "PinPose", "PinSweep", "decode", "make_finger"]

@@ -87,11 +87,11 @@ A''=(A'_x+\delta_{A''},\,0),\qquad B''=(B'_x,\,B_z).
 
 `A''`는 `A'`를 proximal mounting line(`x`축)에 정사영한 점에서 `δ_{A''} ≥ 0`만큼 distal로 간 점이고(`δ = 0`이면 `A'` 바로 아래), `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
 
-**Pad 형상.** Pad는 기존 링크(proximal `O–A–A'`, distal `B'–B–C`)에 붙는 사각 블록 `a–b–d–c`이며, 링크 밖으로 돌출할 수 있다. `a–b`는 장착선 위, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다. 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
+**Pad 형상 (contact interface space).** Pad는 각 링크의 contact interface space로, 사각 블록 `a–b–d–c`이며 링크 밖으로 돌출할 수 있다. `a–b`는 자기 링크 핀의 clearance 원(proximal은 `A`, distal은 `B`)에 접하고 링크선(`OA`, `BC`)과 평행한 선 위에 있고, `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다(`LinkagePackaging.interface_offset_mm`). 모듈과 장착부는 모두 이 공간 안에 있다고 보고 따로 모델링하지 않는다(2026-11-03: drop 설정과 distal carrier 판 삭제). 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
 
 | 값 | 의미 |
 |---|---|
-| `height_mm` | 장착선에서 palmar 쪽 높이 (z) |
+| `height_mm` | 핀에 접하는 선에서 palmar 쪽 깊이 (z) |
 | `offset_mm` | 바깥 끝에서 안쪽으로 시작점 offset (x) |
 
 길이(x)는 정하지 않는다: 시작점에서 `A''`(proximal) 또는 `B''`(distal)까지이며, 이 길이가 F2다.
@@ -105,6 +105,7 @@ B''(q)=B(q)+\frac{B'_x-B_x}{BC}\big(C(q)-B(q)\big).
 
   움직이는 `B'`을 매 자세에서 고정된 수평선에 다시 투영하지 않는다(그러면 `B''`가 body 위에서 미끄러진다). Pad의 모든 점이 같은 방식(`B + u·e + v·n`, `e`는 `B→C` 단위벡터, `v <= 0`)으로 움직인다.
 - **Chamfer (deprecated, 2026-10-29)**: pad는 사각 블록이다. 예전 run의 `chamfer_mm`, `chamfer_free`, chamfer 설계변수는 읽을 때 무시한다(16개짜리 설계벡터의 12–13번째 값).
+- **Drop, carrier (deprecated, 2026-11-03)**: 예전 run의 pad drop 설계변수(14·16개짜리 설계벡터의 마지막 두 값), `goal.pads.*.drop_mm`, `goal.collision.check.{a_pin_and_proximal_pad, b_pin_and_distal_pad, distal_carrier_and_pip_servo}`, `goal.collision.param.{distal,proximal}_carrier_height_mm`은 읽을 때 무시한다.
 - `A'–b`, `B'–a` 점선은 reference일 뿐 형상이 아니다. Coupler(`A'–B`)와 middle link(`A–B'`)는 다른 층이라 pad와 충돌하지 않는다.
 - **장착 길이**: `L_P = A'_x − (proximal pad 시작 x)`, `L_D = B_x + BC − (distal offset) − B'_x`. offset은 설계와 무관한 상수라 F2 순위에는 영향이 없다.
 - PIP servo는 기존대로 `OA` 선 위(`oa_interface`, `z >= 0`)에 있다. 같은 body인 proximal pad와는 이 제약으로만 분리된다.

@@ -11,7 +11,7 @@ STEP_DEG = 0.25
 SHOWN_BELOW_MM = 15.0
 """A pair is plotted when it comes this close somewhere in [0, 180 deg]."""
 SHORT = {"distal_pad": "D pad", "proximal_pad": "P pad", "pip_servo": "PIP servo", "mcp_servo": "MCP servo",
-         "a_pin": "A pin", "ap_pin": "A' pin", "b_pin": "B pin", "bp_pin": "B' pin", "distal_carrier": "D carrier",
+         "a_pin": "A pin", "ap_pin": "A' pin", "b_pin": "B pin", "bp_pin": "B' pin",
          "proximal_roller": "P roller", "distal_roller": "D roller"}
 PAIR_COLORS = ["#2a78d6", "#eb6834", "#1f9e74", "#8a5cd1", "#c9a227", "#d63d8f", "#5b6b7f", "#41a7c9"]
 """Fixed order, one per pair as first met."""

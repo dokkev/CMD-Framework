@@ -39,14 +39,22 @@ SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_fro
 RELATIVE_BOUNDS = ("ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm")
 """``A'`` from ``A`` and ``B'`` from ``B``, as searched (:mod:`~core.optimization.linkage.search`)."""
 COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin_and_pip_servo",
-                    "a_pin_and_proximal_pad", "b_pin_and_distal_pad", "proximal_pad_and_distal_pad",
-                    "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad", "distal_carrier_and_pip_servo")
-DEPRECATED_VARIABLES = ("proximal_chamfer_mm", "distal_chamfer_mm")
+                    "proximal_pad_and_distal_pad", "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad")
+DEPRECATED_CHECKS = ("a_pin_and_proximal_pad", "b_pin_and_distal_pad", "distal_carrier_and_pip_servo")
+"""Checks removed 2026-11-03, ignored in a goal: the contact interface spaces
+start on the line tangent to their link's pin (no drop to choose), and the
+distal carrier is gone."""
+DEPRECATED_PARAMS = ("distal_carrier_height_mm", "proximal_carrier_height_mm")
+"""The carriers' plates (removed 2026-11-03), ignored in a goal."""
+DEPRECATED_VARIABLES = ("proximal_chamfer_mm", "distal_chamfer_mm", "proximal_drop_mm", "distal_drop_mm")
 DEPRECATED_PAD_FIELDS = ("chamfer_mm", "chamfer_free")
 """The pads' chamfers (deprecated 2026-10-30, plain blocks since): left out
-of the bounds and pads recorded before."""
-DEPRECATED_PACKAGING_FIELDS = ("pip_servo_at",)
-"""The PIP servo's place (deprecated 2026-10-30: always on ``A'``, the CoDe's)."""
+of the bounds and pads recorded before. (``DEPRECATED_VARIABLES`` also has
+the pads' drops, removed 2026-11-03.)"""
+DEPRECATED_PACKAGING_FIELDS = ("pip_servo_at", "proximal_pad_below_a", "distal_pad_below_b")
+"""The PIP servo's place (deprecated 2026-10-30: always on ``A'``, the CoDe's)
+and the pads hung below their pins or not (2026-11-03: always, the contact
+interface spaces start on the line tangent to their link's pin)."""
 PIVOT_KEYS = MappingProxyType({"a": "a", "a_prime": "ap", "b": "b", "b_prime": "bp"})
 """``goal.collision.param.pivot_diameter_mm`` keys and the packaging's pivot names."""
 
@@ -87,7 +95,8 @@ class LinkageConfig:
     proximal_length_ratio_bounds: tuple[float | None, float | None] = (None, None)
     distal_length_ratio_bounds: tuple[float | None, float | None] = (None, None)
     joint_span_ratio_bounds: tuple[float | None, float | None] = (None, None)
-    """``|OA|``, ``BC`` and ``|AB|`` as shares of the extended ``|OC|``
+    """The finger's segments (``|OA''|``, ``|B''C|``; 2026-11-03, before:
+    ``|OA|``, ``BC``) and ``|AB|`` as shares of the extended ``|OC|``
     (``goal.link.proximal_length_ratio`` / ``distal_length_ratio`` /
     ``joint_span_ratio``; ``None``: no limit), with the ``_mm`` bounds besides."""
     joint_span_bounds_mm: tuple[float | None, float | None] = (None, None)
@@ -161,18 +170,13 @@ class LinkageConfig:
     dorsal_space_mm: float | None = None
     """``goal.link.dorsal_space_mm``: how far the extended finger's own solids
     may rise above the common datum, the line through ``O`` along the finger
-    (the pads, free in their drops, below it; the MCP servo, in the palm, left
+    (the pads below it; the MCP servo, in the palm, left
     out; ``core.morphology.contact.loss.dorsal_space_mm``); ``None``: any."""
     link_radius_mm: float | None = None
     """``goal.collision.param.link_radius_mm``: the links and bars as capsules
     of this radius, each checked against the pads it does not carry, in the
     side view (the comparison model); ``None``: the links pass beside the
     pads (the outer layer), unchecked."""
-    proximal_carrier_height_mm: float | None = None
-    """``goal.collision.param.proximal_carrier_height_mm``: the proximal support
-    as a plate this thick dorsal of the mounting line, from the pad's outer end
-    to ``A''`` whatever module it carries, checked against the distal pad and
-    carrier (the comparison model); ``None``: no such solid."""
     count_fold: bool = True
     """``goal.loss.fold``: each face less what the other hides in the fold
     (the v4 measure); false: a module mounted and clear through the motion
@@ -189,9 +193,6 @@ class LinkageConfig:
 
     def __post_init__(self) -> None:
         given = {name: value for name, value in self.bounds.items() if name not in DEPRECATED_VARIABLES}
-        # The pads' drops, unless searched: the packaging's (the variables held at it).
-        given.setdefault("proximal_drop_mm", (self.packaging.proximal_pad_drop_mm,) * 2)
-        given.setdefault("distal_drop_mm", (self.packaging.distal_pad_drop_mm,) * 2)
         for name, value in DEFAULT_VALUES.items():  # a variable left out: fixed
             given.setdefault(name, (value, value))
         if self.pip_servo_tilt_rad is not None:  # an input: the variable is held at it
@@ -235,7 +236,7 @@ class LinkageConfig:
                      "finger_length": self.extended_length_bounds_mm[1], "support_balance": 0.0}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
-                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm", "proximal_carrier_height_mm"):
+                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
@@ -299,19 +300,13 @@ class LinkageConfig:
                 self._extended_pad_bounds(bounds, narrow)
 
     @property
-    def searched_drops(self) -> tuple[str, ...]:
-        """The pads' drops searched (``goal.pads.*.drop_mm``), not held at the packaging's."""
-
-        return tuple(name for name in ("proximal_drop_mm", "distal_drop_mm")
-                     if self.bounds[name][0] < self.bounds[name][1])
-
-    @property
     def _pads_on_axis(self) -> bool:
         """Whether ``A``, ``B`` and both free-length pads lie on the ``x`` axis when extended."""
 
         packaging = self.packaging
         return (packaging.pad_link_ratio_max is None
-                and self.bounds["proximal_drop_mm"] == (0.0, 0.0) and self.bounds["distal_drop_mm"] == (0.0, 0.0)
+                and packaging.interface_offset_mm("proximal_pad") == 0.0
+                and packaging.interface_offset_mm("distal_pad") == 0.0
                 and self.bounds["a_z_mm"] == (0.0, 0.0) and self.bounds["b_z_mm"] == (0.0, 0.0)
                 and packaging.proximal_pad.length_mm is None and packaging.distal_pad.length_mm is None)
 
@@ -377,7 +372,7 @@ class LinkageConfig:
 
     def length_ratio_violations(self, proximal_mm: float, distal_mm: float, span_mm: float,
                                 finger_mm: float) -> list[float]:
-        """How far (mm) ``|OA|``, ``BC`` and ``|AB|`` lie outside their shares
+        """How far (mm) the proximal and distal lengths and the span lie outside their shares
         of the extended ``|OC|`` (``goal.link.*_ratio``), one value per bound
         set (each mechanism's constraint: none positive)."""
 
@@ -463,7 +458,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     on_links = pads.values.pop("on_links", True)  # the default since 2026-10-27
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
-    pad_values, drops, overhangs = {}, {}, {}
+    pad_values, overhangs = {}, {}
     for side in ("proximal", "distal"):
         pad = pads.table(side)
         low, high = _range(pad.take("length_mm"), f"goal.pads.{side}.length_mm", scalar=True)
@@ -474,8 +469,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         if side == "proximal":
             past_icr = pad.take("past_icr_max_mm")
             past_icr = None if past_icr is None else float(past_icr)
-        # Optional (absent: the packaging's drop, no overhang limit).
-        drops[side] = _range(pad.values.pop("drop_mm"), f"goal.pads.{side}.drop_mm") if "drop_mm" in pad.values else None
+        pad.values.pop("drop_mm", None)  # removed 2026-11-03: the space starts on the line tangent to the pin
+        # Optional (absent: no overhang limit).
         overhang = pad.values.pop("overhang_max_mm", None)
         overhangs[side] = None if overhang is None else float(overhang)
         pad.done()
@@ -504,12 +499,14 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     param, check = collision.table("param"), collision.table("check")
     collision.done()
     diameters = param.table("pivot_diameter_mm")
-    carrier_height = float(param.take("distal_carrier_height_mm"))
     link_radius = param.values.pop("link_radius_mm", None)  # optional
-    proximal_carrier = param.values.pop("proximal_carrier_height_mm", None)  # optional
+    for name in DEPRECATED_PARAMS:
+        param.values.pop(name, None)
     param.done()
     pivot = {name: float(diameters.take(key)) for key, name in PIVOT_KEYS.items()}
     diameters.done()
+    for name in DEPRECATED_CHECKS:
+        check.values.pop(name, None)
     checks = {name: check.take(name) for name in COLLISION_CHECKS}
     check.done()
     for name, value in checks.items():
@@ -527,14 +524,11 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         allow_collision_pip_servo_to_joint_a=not checks["a_pin_and_a_prime_pin"],
         a_pin_servo_check=checks["a_pin_and_pip_servo"],
         allow_collision_pip_servo_to_joint_bp=not checks["b_prime_pin_and_pip_servo"],
-        proximal_pad_below_a=checks["a_pin_and_proximal_pad"],
-        distal_pad_below_b=checks["b_pin_and_distal_pad"],
         pad_pad_check=checks["proximal_pad_and_distal_pad"],
         pads_off_pins=True,  # each pad clear of its own pins, ending anywhere (2026-10-27)
         links_clear_pads=True,  # the links bent around the pads: every face usable (2026-10-27)
         pip_servo_above_oa=False, pip_servo_pad_check=checks["pip_servo_and_proximal_pad"],
         pad_mcp_check=checks["mcp_servo_and_proximal_pad"], distal_pad_mcp_check=True,
-        distal_carrier_height_mm=carrier_height if checks["distal_carrier_and_pip_servo"] else 0.0,
     )
 
     reference = solver.table("pareto_front")
@@ -570,12 +564,6 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         dx, dz = relative[f"{point}_from_{base}_x_mm"], relative[f"{point}_from_{base}_z_mm"]
         bounds[f"{point}_x_mm"] = (x_base[0] + dx[0], x_base[1] + dx[1])
         bounds[f"{point}_z_mm"] = (z_base[0] + dz[0], z_base[1] + dz[1])
-    # The pads' drops when searched: [min, max], max null: the pad's own pivot's radius.
-    for side, pivot in (("proximal", "a"), ("distal", "b")):
-        if drops[side] is not None:
-            low, high = drops[side]
-            bounds[f"{side}_drop_mm"] = (0.0 if low is None else low,
-                                         packaging.pivot_radius_mm(pivot) if high is None else high)
     tilt_rad = None
     if tilt_low == tilt_high:  # fixed
         tilt_rad = math.radians(tilt_low)
@@ -620,7 +608,6 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         icr0_share_bounds=icr0_share,
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
-        proximal_carrier_height_mm=None if proximal_carrier is None else float(proximal_carrier),
         count_fold=count_fold,
         integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,
@@ -741,6 +728,7 @@ def config_from_json(values: dict) -> LinkageConfig:
 
 __all__ = [
     "COLLISION_CHECKS",
+    "DEPRECATED_CHECKS",
     "OBJECTIVE_NAMES",
     "RELATIVE_BOUNDS",
     "SEARCH_BOUNDS",

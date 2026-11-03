@@ -45,6 +45,15 @@ pads to the parts of other bodies."""
 
 
 MARGIN_TOLERANCE_MM = 1e-9
+"""A margin this near 0 (mm) is clear: a part set exactly the clearance away
+must not fail by rounding."""
+
+
+def violation_mm(margin_mm: float) -> float:
+    """A margin as a constraint's violation (mm, > 0 violated): ``-margin``,
+    0 within :data:`MARGIN_TOLERANCE_MM` of touching."""
+
+    return 0.0 if abs(margin_mm) < MARGIN_TOLERANCE_MM else -margin_mm
 
 
 
@@ -231,4 +240,5 @@ __all__ = [
     "PIN_SPACING_MM",
     "PIVOT_CLEARANCE_DIAMETER_MM",
     "Packaging",
+    "violation_mm",
 ]

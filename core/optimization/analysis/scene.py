@@ -32,7 +32,7 @@ def _linkage_scene(config, x, phi_deg) -> Scene:
     reached = np.maximum.accumulate(sweep.total_flexion_rad)
     index = np.minimum(np.searchsorted(reached, np.radians(phi_deg) - 1e-9), len(reached) - 1)
     return linkage_scene(linkage, config.packaging, sweep.b[index], sweep.tip[index], sweep.bp[index],
-                         np.degrees(sweep.total_flexion_rad[index]), config.proximal_carrier_height_mm)
+                         np.degrees(sweep.total_flexion_rad[index]))
 
 
 def _joint_scene(mechanism: str, config, x, phi_deg) -> Scene:

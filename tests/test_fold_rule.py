@@ -1,5 +1,5 @@
 """What a contact face loses in the fold (packaging.fold_free_lengths), and the
-linkage options it goes with (pad drops, overhang)."""
+linkage options it goes with (overhang)."""
 
 import math
 from pathlib import Path
@@ -12,7 +12,6 @@ from core.optimization.mechanism import mechanism
 from core.morphology.mechanism.linkage.packaging import pip_footprint
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
-DROPS = ("goal.pads.on_links=false", "goal.pads.proximal.drop_mm=[0, null]", "goal.pads.distal.drop_mm=[0, null]")
 PIVOT = np.array((50.0, 0.0))
 
 
@@ -107,19 +106,10 @@ def load(*overrides):
     return found, load_yaml(found, CONFIG, overrides)[0]
 
 
-def test_a_linkage_with_drop_bounds_searches_its_pads_drops():
-    found, config = load(*DROPS)
-    assert config.searched_drops == ("proximal_drop_mm", "distal_drop_mm")
-    assert config.bounds["proximal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("a"))
-    assert config.bounds["distal_drop_mm"] == (0.0, config.packaging.pivot_radius_mm("b"))
-    names = found.search_names(config)
-    assert names[-2:] == ("proximal_drop_mm", "distal_drop_mm")
-    # The production study holds them at its packaging's (NaN in the design).
-    from core.optimization.study import load_yaml
-
-    production = load_yaml(found, CONFIG, ())[0]
-    assert production.searched_drops == ()
-    assert production.bounds["proximal_drop_mm"] == (production.packaging.proximal_pad_drop_mm,) * 2
+def test_a_pads_drop_is_no_longer_searched():
+    # Removed 2026-11-03: each pad starts on the line tangent to its link's pin.
+    found, config = load("goal.pads.on_links=false", "goal.pads.proximal.drop_mm=[0, null]")
+    assert not any("drop" in name for name in (*found.search_names(config), *config.bounds))
 
 
 def test_an_overhanging_pad_is_limited():

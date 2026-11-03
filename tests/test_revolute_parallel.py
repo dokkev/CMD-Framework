@@ -62,12 +62,12 @@ def test_the_joint_pin_pulleys_and_carrier_are_checked():
     # The distal pad 2 mm past A: inside the pin's housing.
     near = MECHANISM.evaluate((*X[:3], 2.0, *X[4:]), config)
     assert near.constraints["distal_support_mm"] > 0.0
-    # The distal pad's carrier is checked against the servo, as the linkage's.
+    # No distal carrier since 2026-11-03 (the goal's pads are contact interface spaces).
     from core.optimization.revolute_parallel import geometry
     from core.optimization.revolute_parallel.evaluate import _margins
 
     margins = _margins(geometry(X, config), np.radians([0.0, 60.0]), config)
-    assert ("distal_carrier", "pip_servo") in margins
+    assert ("distal_carrier", "pip_servo") not in margins
     assert not any("pulley" in name for pair in margins for name in pair)  # outer layer
 
 

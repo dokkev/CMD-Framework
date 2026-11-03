@@ -26,15 +26,9 @@ import numpy as np  # noqa: E402
 from matplotlib.patches import Circle  # noqa: E402
 
 from core.morphology.mechanism.linkage.packaging import (  # noqa: E402
-
-    distal_carrier_polygon,
-
     distal_pad_polygon,
-
     pip_footprint,
-
     proximal_pad_polygon,
-
 )
 from core.optimization.revolute import geometry  # noqa: E402
 from core.optimization.revolute.evaluate import _margins  # noqa: E402
@@ -44,7 +38,6 @@ from visualize.motion import index_at, servo_sweep  # noqa: E402
 from visualize.style import COLLIDE, COLORS, INK, PROXIMAL_PAD, SERVO, save_comparison, shades  # noqa: E402
 
 STEP_DEG = 10.0
-CARRIER = "#9aa3b5"
 
 
 def _frame(axis, title: str) -> None:
@@ -61,7 +54,6 @@ def draw_linkage(axis, linkage, packaging, phi_max_deg: float, color: str) -> No
         i = int(index_at(sweep, math.radians(phi)))
         b, c = sweep.b[i][None], sweep.tip[i][None]
         shade = cmap(0.25 + 0.75 * phi / max(targets[-1], 1.0))
-        solids.patch(axis, distal_carrier_polygon(linkage, packaging, b, c)[0], CARRIER, alpha=0.35, width=0.4)
         solids.patch(axis, distal_pad_polygon(linkage, packaging, b, c)[0], shade, alpha=0.8, width=0.5)
         solids.line(axis, (b[0], c[0]), color, alpha=0.25)
     solids.patch(axis, packaging.mcp_footprint().outline, SERVO, zorder=0.5)

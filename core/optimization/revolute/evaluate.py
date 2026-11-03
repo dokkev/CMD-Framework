@@ -67,7 +67,7 @@ def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
     """The solids of a design vector, with the study's packaging and supports."""
 
     goal = config.goal
-    return solids.geometry(x, goal.packaging, goal.proximal_carrier_height_mm)
+    return solids.geometry(x, goal.packaging)
 
 
 def joint_checks(config: RevoluteConfig) -> JointChecks:

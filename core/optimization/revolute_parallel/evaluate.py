@@ -54,7 +54,7 @@ def geometry(x: Sequence[float], config: ParallelConfig) -> ParallelGeometry:
     """The solids of a design vector, with the study's packaging and supports."""
 
     goal = config.goal
-    return solids.geometry(x, goal.packaging, config.pulley_radius_mm, goal.proximal_carrier_height_mm)
+    return solids.geometry(x, goal.packaging, config.pulley_radius_mm)
 
 
 @dataclass(frozen=True)

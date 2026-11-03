@@ -20,8 +20,7 @@ config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
    an overlap negative by its depth, touching 0, clearance 0), feasible when
    none falls below ``-TOLERANCE_MM``: the evaluators' own pairs
    (``packaging.pad_margins`` / ``revolute.evaluate._margins``), the bars as
-   capsules (``link_radius_mm``), the supports (``proximal_carrier_height_mm``),
-   and each pad against its own segment's pin housings (CoDe: A and A'
+   capsules (``link_radius_mm``), and each pad against its own segment's pin housings (CoDe: A and A'
    proximal, B and B' distal; the 2R: the servo at A, the proximal pad).
 
 The fixed structure itself is checked once (:func:`layout_violations`: the
@@ -43,7 +42,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.mechanism.linkage import Finger
-from core.morphology.mechanism.linkage.packaging import distal_drop, distal_pad_polygon, pad_margins, pad_spans, pip_footprint, proximal_drop, proximal_pad_polygon
+from core.morphology.mechanism.linkage.packaging import distal_pad_polygon, pad_margins, pad_spans, pip_footprint, proximal_pad_polygon
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
 from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
@@ -194,15 +193,13 @@ def first_dip(params: np.ndarray, least: np.ndarray, travel: np.ndarray, least_a
 
 
 def _linkage_margins(found_motion: Motion, config) -> dict[tuple[str, str], np.ndarray]:
-    from core.morphology.mechanism.linkage.packaging import link_capsule_margins, support_margins
+    from core.morphology.mechanism.linkage.packaging import link_capsule_margins
 
     linkage, packaging = found_motion.linkage, config.packaging
     b, c, bp = found_motion.b, found_motion.c, found_motion.bp
     margins = dict(pad_margins(linkage, packaging, b, c, bp, (0.0,)))
     if config.link_radius_mm is not None:
         margins.update(link_capsule_margins(linkage, packaging, b, c, bp, config.link_radius_mm))
-    if config.proximal_carrier_height_mm is not None:
-        margins.update(support_margins(linkage, packaging, b, c, config.proximal_carrier_height_mm))
     # Each pad against its own segment's pin housings (one body: unchecked by pad_margins).
     count = len(b)
     proximal = np.broadcast_to(proximal_pad_polygon(linkage, packaging), (count, 4, 2))
@@ -240,13 +237,9 @@ def _linkage_dip(found_motion: Motion, config, margins) -> FitResult | None:
     distal body's points travel at most ``|dB| + |d phi| R`` (``R``: its
     reach from ``B``), the crossing links' ends ``|dB|`` and ``|dB'|``."""
 
-    from core.morphology.mechanism.linkage.packaging import distal_carrier_polygon
-
     linkage, packaging = found_motion.linkage, config.packaging
     b, c, bp = found_motion.b, found_motion.c, found_motion.bp
     solids = [distal_pad_polygon(linkage, packaging, b[:1], c[:1])[0], c[:1], bp[:1]]
-    if packaging.distal_carrier_height_mm > 0.0:
-        solids.append(distal_carrier_polygon(linkage, packaging, b[:1], c[:1])[0])
     reach = max(float(np.linalg.norm(np.asarray(solid) - b[0], axis=-1).max()) for solid in solids)
     turn = np.abs(np.diff(np.radians(found_motion.phi_deg)))
     travel = 1.05 * np.maximum(np.linalg.norm(np.diff(b, axis=0), axis=1) + turn * reach,
@@ -366,8 +359,8 @@ def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
                                         "B'": [p.bp.x_mm, p.bp.z_mm]},
                      "pip_servo_tilt_deg": f.servo.tilt_deg,
                      "supports_end_x_mm": {"A''": f.proximal.end_mm, "B''": p.b.x_mm + f.distal.start_mm},
-                     "pad_drops_mm": {"proximal": proximal_drop(goal.packaging, f),
-                                      "distal": distal_drop(goal.packaging, f)}})
+                     "pad_drops_mm": {"proximal": goal.packaging.interface_offset_mm("proximal_pad"),
+                                      "distal": goal.packaging.interface_offset_mm("distal_pad")}})
     else:
         info.update({"finger_length_mm": v["a_x_mm"] + v["ac_length_mm"],
                      "active_joints": {"O": [0.0, 0.0], "A": [v["a_x_mm"], 0.0]}, "passive_joints": {},

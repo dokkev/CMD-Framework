@@ -34,7 +34,6 @@ from core.morphology.mechanism.linkage.packaging import (
     pad_margins,
     pip_footprint,
     poses,
-    support_margins,
     usable_pad_lengths,
 )
 from core.morphology.packaging.assembly import margins
@@ -61,9 +60,6 @@ class MotionSettings:
     link_radius_mm: float | None = None
     """The links and bars as capsules of this radius against the pads they are
     not mounted on, in the side view (``None``: not checked)."""
-    proximal_carrier_height_mm: float | None = None
-    """The proximal support as a solid plate (``packaging.proximal_carrier_polygon``)
-    checked against the other segment (``None``: not checked)."""
 
 
 @dataclass(frozen=True)
@@ -151,9 +147,6 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
     if settings.link_radius_mm is not None:
         margins.update(link_capsule_margins(finger, packaging, joined("b")[swept], joined("tip")[swept],
                                             joined("bp")[swept], settings.link_radius_mm))
-    if settings.proximal_carrier_height_mm is not None:
-        margins.update(support_margins(finger, packaging, joined("b")[swept], joined("tip")[swept],
-                                       settings.proximal_carrier_height_mm))
     pad = np.full(len(unsafe["closure"]), math.inf)
     pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
     # The reported clearance leaves out pairs whose margin the design does not set.
@@ -256,7 +249,9 @@ def unsafe_conditions(finger: Finger, footprint: ServoFootprint, joined: Callabl
     sweep (deepest hyperextension); the servo angle is signed to rise with flexion."""
 
     tolerance = settings.dip_backoff_tolerance_rad
-    dip_pin = layout(packaging).pair("bp_pin", "pip_servo")  # unless B' may pass the servo
+    # The distal body's pins off the servo body (B' unless it may pass the servo).
+    dip_pins = [pair for pair in (layout(packaging).pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin"))
+                if pair is not None]
     low, high = settings.transmission_angle_range_rad
     bp = joined("bp")
     angle = transmission_angle(np.array((finger.joint.a.x_mm, finger.joint.a.z_mm)), bp, joined("b"))
@@ -268,10 +263,10 @@ def unsafe_conditions(finger: Finger, footprint: ServoFootprint, joined: Callabl
         # The driver link and the servo turn together.
         "pip_backoff": (np.maximum.accumulate(q_driver) - q_driver > tolerance)
         | (np.maximum.accumulate(servo) - servo > tolerance),
-        # The B' pin may cross the servo body when they sit in different Y layers.
-        "dip_pin": (np.zeros(len(angle), dtype=bool) if dip_pin is None
-                    else margins(assembly(finger, packaging), poses(finger, joined("b"), joined("tip"), bp), packaging,
-                                 [dip_pin])[dip_pin.key] < 0.0),
+        "dip_pin": (np.zeros(len(angle), dtype=bool) if not dip_pins
+                    else np.min(np.stack(list(margins(assembly(finger, packaging),
+                                                      poses(finger, joined("b"), joined("tip"), bp), packaging,
+                                                      dip_pins).values())), axis=0) < 0.0),
     }
 
 
