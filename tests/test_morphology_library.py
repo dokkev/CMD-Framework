@@ -386,3 +386,15 @@ def test_a_margin_within_rounding_of_touching_is_no_violation():
     assert violation_mm(-1e-16) == 0.0 and violation_mm(1e-16) == 0.0
     assert violation_mm(2.0) == -2.0 and violation_mm(-0.5) == 0.5
     assert violation_mm(-2 * MARGIN_TOLERANCE_MM) > 0.0
+
+
+def test_a_distal_dead_point_fails_the_reference_check_not_the_sweep():
+    # B' on the line from A' - (B - B') to A: the driver assembles, the distal
+    # segment has no flexion branch. The check must say so (an evaluation then
+    # marks the design invalid) rather than the sweep raising mid-search.
+    from core.morphology.finger import PointXZ
+    from core.morphology.mechanism.linkage.model import FourBar
+
+    joint = FourBar(PointXZ(10.0, 0.0), PointXZ(10.0, 10.0), PointXZ(30.0, 0.0), PointXZ(20.0, -5.0))
+    with pytest.raises(ValueError, match="dead point of the distal segment"):
+        joint.check()

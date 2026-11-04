@@ -206,9 +206,12 @@ class FourBar:
         return (1 if side > 0.0 else -1), (1 if servo_side > 0.0 else -1)
 
     def check(self) -> None:
-        """``ValueError`` when the reference pose is a dead point (no assembly branch)."""
+        """``ValueError`` when the reference pose is a dead point: of the driver
+        (no assembly branch) or of the distal segment (no flexion branch, which
+        :meth:`sweep_pip` solves by)."""
 
         self._branches
+        self._flexion_branch
 
     @property
     def is_crossed(self) -> bool:
