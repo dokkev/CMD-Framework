@@ -31,7 +31,8 @@ from pymoo.indicators.hv import HV  # noqa: E402
 from core.optimization.study import load_run, non_dominated  # noqa: E402
 from visualize.style import INK, MUTED, axes_style, save, use  # noqa: E402
 
-ALGORITHM_COLORS = {"nsga2": "#2a78d6", "smsemoa": "#eb6834", "agemoea": "#1f9e74"}
+ALGORITHM_COLORS = {"nsga2": "#2a78d6", "smsemoa": "#eb6834", "agemoea": "#1f9e74", "agemoea2": "#7b4fd6",
+                    "spea2": "#c2417a", "nsga3": "#8a6d1f"}
 SEED_DASHES = ("-", (0, (5, 2)), (0, (1.5, 1.5)))
 CHECKPOINTS = 60
 """Generations the fronts are measured at (log spaced, plus the first and last)."""

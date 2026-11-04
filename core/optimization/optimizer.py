@@ -96,6 +96,19 @@ def initial_population(problem, warm_start: np.ndarray, settings: OptimizerSetti
     return np.vstack((seeds, np.round(lhs)))
 
 
+def reference_directions(n_obj: int, population_size: int) -> np.ndarray:
+    """Das-Dennis directions with the most partitions whose count fits in the population."""
+
+    from math import comb
+
+    from pymoo.util.ref_dirs import get_reference_directions
+
+    partitions = 1
+    while comb(partitions + 1 + n_obj - 1, n_obj - 1) <= population_size:
+        partitions += 1
+    return get_reference_directions("das-dennis", n_obj, n_partitions=partitions)
+
+
 class PymooOptimizer(Optimizer):
     """A pymoo multi-objective algorithm with grid-rounding SBX and PM.
 
@@ -103,13 +116,18 @@ class PymooOptimizer(Optimizer):
     ``mutation_eta`` (20).
     """
 
-    def __init__(self, name: str, algorithm: str) -> None:
+    def __init__(self, name: str, algorithm: str, reference_directions: bool = False) -> None:
         self.name, self.algorithm = name, algorithm
         """``module:Class`` of the pymoo algorithm."""
+        self.reference_directions = reference_directions
+        """The algorithm takes reference directions (NSGA-III): Das-Dennis, as
+        many as fit in the population."""
 
-    def _algorithm(self, settings: OptimizerSettings, sampling: np.ndarray, **operators):
+    def _algorithm(self, settings: OptimizerSettings, sampling: np.ndarray, n_obj: int = 2, **operators):
         module, kind = self.algorithm.split(":")
         kind = getattr(importlib.import_module(module), kind)
+        if self.reference_directions:
+            operators["ref_dirs"] = reference_directions(n_obj, settings.population_size)
         return kind(pop_size=settings.population_size, sampling=sampling, **operators)
 
     def minimize(self, problem, initial: np.ndarray, settings: OptimizerSettings) -> OptimizerResult:
@@ -126,7 +144,7 @@ class PymooOptimizer(Optimizer):
             raise ValueError(f"unknown {self.name} options {sorted(options)}")
         result = minimize(
             problem,
-            self._algorithm(settings, initial, crossover=crossover, mutation=mutation),
+            self._algorithm(settings, initial, problem.n_obj, crossover=crossover, mutation=mutation),
             termination=("n_gen", settings.generations),
             seed=settings.seed,
             verbose=False,
@@ -139,6 +157,9 @@ OPTIMIZERS: dict[str, Optimizer] = {
     "nsga2": PymooOptimizer("nsga2", "pymoo.algorithms.moo.nsga2:NSGA2"),
     "smsemoa": PymooOptimizer("smsemoa", "pymoo.algorithms.moo.sms:SMSEMOA"),
     "agemoea": PymooOptimizer("agemoea", "pymoo.algorithms.moo.age:AGEMOEA"),  # needs numba
+    "agemoea2": PymooOptimizer("agemoea2", "pymoo.algorithms.moo.age2:AGEMOEA2"),  # needs numba
+    "spea2": PymooOptimizer("spea2", "pymoo.algorithms.moo.spea2:SPEA2"),
+    "nsga3": PymooOptimizer("nsga3", "pymoo.algorithms.moo.nsga3:NSGA3", reference_directions=True),
 }
 """Every optimizer, by the name configs use. All are multi-objective."""
 
