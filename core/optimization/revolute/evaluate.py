@@ -57,7 +57,8 @@ from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pa
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
-                      "proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pad_collision_mm")
+                      "proximal_support_mm", "distal_support_mm", "mount_depth_mm", "dorsal_space_mm",
+                      "pad_collision_mm")
 MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "pad_waste_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
@@ -202,6 +203,18 @@ class RevoluteEvaluation:
         return "tip_x" if self.phi_max_rad < self.phi_safe_rad - 1e-12 else self.stop_reason
 
 
+def mount_depth_violation(x: Sequence[float], config: RevoluteConfig) -> float:
+    """How far the drops are from the mounting policy's (mm; 0 when they are searched)."""
+
+    if config.goal.mount_policy == "searched":
+        return 0.0
+    from core.optimization.mounting import revolute_mounting
+
+    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    cap = max(config.goal.bounds["proximal_mount_offset_mm"][1], config.goal.bounds["distal_mount_offset_mm"][1])
+    return revolute_mounting(x, config).violation_mm((v["proximal_drop_mm"], v["distal_drop_mm"]), cap)
+
+
 def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     """Evaluate one design (static checks first; a design failing one is not swept)."""
 
@@ -232,6 +245,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
                                  -reach[1] - x[VARIABLE_NAMES.index("bpp_from_a_mm")]),
         "dorsal_space_mm": dorsal_space_violation(geo, goal,
                                                   "revolute" if config.joint_servo else "revolute_idealized"),
+        "mount_depth_mm": mount_depth_violation(x, config),
     }
     stages = (("mcp_servo_mm", "pip_servo_pad_mm"), ("pad_collision_mm",))
     if max(static.values()) <= 0.0 and config.joint_servo:

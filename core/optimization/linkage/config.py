@@ -33,6 +33,8 @@ from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NA
 
 
 OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")
+MOUNT_POLICIES = ("searched", "shallowest_supported")
+"""``goal.pads.mount_policy``: the mounting depths searched, or each the least its pad's own hardware needs."""
 SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",
                  "app_offset_mm", "bpp_offset_mm")
 """The design variables ``solver.search_bounds`` gives; the rest come from the goal."""
@@ -135,6 +137,14 @@ class LinkageConfig:
     (``goal.pads.proximal.past_icr_max_mm``): the fold, which a fixed pivot's
     pads stop at too (its pin); past it the pad hangs unsupported under the
     four-bar. ``None``: no limit. The distal pad may run back as far as it fits."""
+    mount_policy: str = "searched"
+    """How each pad's mounting depth below its reference line is set
+    (``goal.pads.mount_policy``, 2026-11-04): ``searched``, a design variable
+    on ``mount_offset_mm``; ``shallowest_supported``, not searched but the
+    least depth (on the resolution grid, at most ``mount_offset_mm``'s max)
+    that clears the pad's own joint hardware, within what that hardware
+    supports (``core.optimization.mounting``; with ``align_mount_offsets``,
+    both at the deeper of the two)."""
     align_mount_offsets: bool = False
     """The two pads' mounting offsets held equal (``goal.pads.align_mount_offsets``,
     2026-11-04): one offset searched on both ranges' overlap, both pads' mounting
@@ -491,6 +501,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
     align = pads.values.pop("align_mount_offsets", False)  # one offset for both pads (2026-11-04)
+    mount_policy = pads.values.pop("mount_policy", "searched")
+    if mount_policy not in MOUNT_POLICIES:
+        raise ValueError(f"goal.pads.mount_policy must be one of {MOUNT_POLICIES}")
     if not isinstance(align, bool):
         raise ValueError("goal.pads.align_mount_offsets must be true or false")
     pad_values, overhangs, mount_offsets = {}, {}, {}
@@ -650,6 +663,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         proximal_pad_past_icr_max_mm=past_icr,
         pads_on_links=on_links,
         align_mount_offsets=align,
+        mount_policy=mount_policy,
         warm_start=warm_start,
         relative_bounds=relative,
         proximal_overhang_max_mm=overhangs["proximal"],

@@ -20,10 +20,18 @@ goal:
     distal_length_ratio: [null, null]
     joint_span_ratio: [null, null]
   pads:
-    # Both pads mounted at one offset below their link lines (searched).
-    align_mount_offsets: true
-    # The study's own mounting-depth range, set here so a production change
-    # does not move it.
+    # Each pad's mounting depth below its reference line set, not searched:
+    # 0 when the pad does not reach its own joint hardware (case A), else the
+    # least depth that clears it, no deeper than that hardware reaches below
+    # the line on the pad's own body (case B: CoDe's pin housings; the
+    # 2R-DD's servo for its proximal pad; its distal pad hangs from a truss
+    # off the output and has none, unless aligned); deeper needs a spacer and
+    # is no design (case C, core.optimization.mounting). The two depths are
+    # independent.
+    mount_policy: shallowest_supported
+    align_mount_offsets: false
+    # The study's own mounting-depth range (the most allowed), set here so a
+    # production change does not move it.
     proximal:
       mount_offset_mm: [0, 10]
     distal:

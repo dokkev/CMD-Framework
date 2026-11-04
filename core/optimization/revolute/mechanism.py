@@ -28,7 +28,7 @@ def bound_hits(x: Sequence[float], config: RevoluteConfig, finger_length_mm: flo
 
 class RevoluteMechanism(Mechanism):
     name = "revolute"
-    formulation = "revolute-goal-v10"
+    formulation = "revolute-goal-v11"
     """The 2R on the linkage's goal (2026-10-26): direct drive at ``A``
     (``k = 1``), the distal servo on ``A`` laid back along ``-X``;
     v2: the distal pad's drop searched, the distal phalanx a truss of links;
@@ -48,7 +48,8 @@ class RevoluteMechanism(Mechanism):
     segments ``|OA''|`` and ``|B''C|`` (``evaluate.segment_lengths``), as the
     linkage's, not on ``|OA|`` and ``|AC|``, which they no longer narrow.
     v9 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
-    v10 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset."""
+    v10 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset.
+    v11 (2026-11-04): the constraint ``mount_depth_mm`` (the pads' depths against ``goal.pads.mount_policy``: 0 when searched, the production's, whose designs are unchanged; ``shallowest_supported`` sets each depth, the study's, ``core.optimization.mounting``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -74,7 +75,7 @@ class RevoluteMechanism(Mechanism):
     # Searched in core.optimization.revolute.search's coordinates.
 
     def search_names(self, config: RevoluteConfig) -> tuple[str, ...]:
-        return search.SEARCH_NAMES
+        return search.search_names(config)
 
     def search_box(self, config: RevoluteConfig) -> tuple[Sequence[float], Sequence[float]]:
         return search.search_box(config)
@@ -136,13 +137,13 @@ class RevoluteMechanism(Mechanism):
 
 class IdealizedRevoluteMechanism(RevoluteMechanism):
     name = "revolute_idealized"
-    formulation = "revolute-idealized-goal-v9"
+    formulation = "revolute-idealized-goal-v10"
     """The 2R without its distal servo (2026-10-27): driven from elsewhere,
     only ``A``'s pin at the joint; the kinematic bound of a fixed pivot.
     v3 (2026-10-28): the goal's link shares, the fold, the carrier and the
     hyperextension, as the 2R's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5.
     v5 (2026-10-29): no setback: each pad reaches the joint's housing and past it by its overhang (``goal.pads.*.overhang_max_mm``), the housing a collision (``pad_reach_mm``), the proximal pad checked against the pin.
-    v6 (2026-11-03): the 2R's v7, the pads tangent to the pin's housing. v7: the 2R's v8. v8: its v9. v9: its v10."""
+    v6 (2026-11-03): the 2R's v7, the pads tangent to the pin's housing. v7: the 2R's v8. v8: its v9. v9: its v10. v10: its v11."""
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> RevoluteConfig:
         return RevoluteConfig.from_goal(config_from_goal(values), joint_servo=False)

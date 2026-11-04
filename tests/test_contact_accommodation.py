@@ -152,3 +152,29 @@ def test_equal_inputs_give_equal_results(results, tmp_path):
     manifest = json.loads((second / "manifest.json").read_text())
     assert manifest["source"]["commit"] and manifest["required_flexion_deg"] == [90.0, 120.0]
     assert manifest["cores"]["cores"] == CORES and "pip_servo" in manifest["physical_rules"]
+
+
+def test_a_module_needing_another_depth_is_not_remounted(tmp_path):
+    # A core built under the study's policy: its distal pad under B, 3 mm deep.
+    policy = [*RULES, "goal.pads.mount_policy=shallowest_supported"]
+    core = {"id": "code_b", "mechanism": "linkage", "config": "scripts/optimize/linkage/config.yaml",
+            "overrides": policy, "x": [*CODE_X[:11], -5.0, 0.0, 3.0]}
+    modules = {"baseline": {"proximal": {"length_mm": 20, "thickness_mm": 3},
+                            "distal": {"length_mm": 35, "thickness_mm": 3}},
+               "modules": {"under_b": {}, "thick_under_b": {"distal": {"thickness_mm": 6}},
+                           "short_of_b": {"distal": {"length_mm": 20}}}}
+    output = study.run(write_study(tmp_path, [core], modules), ROOT)
+    with (output / "assembly_results.csv").open(encoding="utf-8", newline="") as stream:
+        rows = {row["module_id"]: row for row in csv.DictReader(stream) if row["required_flexion_deg"] == "90.0"}
+    for row in rows.values():  # the core's depths, whatever the module
+        assert (row["proximal_mount_depth_mm"], row["distal_mount_depth_mm"]) == ("0.0", "3.0")
+        assert row["proximal_native_support_mm"] == "0.0"
+    for name in ("under_b", "thick_under_b"):  # the same least depth: carried
+        assert (rows[name]["proximal_mount_case"], rows[name]["distal_mount_case"]) == ("A", "B")
+        assert rows[name]["distal_required_depth_mm"] == "3.0" and rows[name]["reason"] != "mount_depth_changed"
+    short = rows["short_of_b"]  # it would mount on the line: not remounted, no design on this core
+    assert short["distal_required_depth_mm"] == "0.0" and short["distal_mount_case"] == "A"
+    assert short["reason"] == "mount_depth_changed" and short["feasible"] == "False"
+    assert short["mounted"] == "False" and short["max_safe_flexion_deg"] == ""
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["mounting_policy"]["policy"] == ["shallowest_supported"]

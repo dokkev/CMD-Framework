@@ -54,7 +54,10 @@ class ParallelMechanism(RevoluteMechanism):
     constraint_names = CONSTRAINT_NAMES
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> ParallelConfig:
-        return ParallelConfig.from_goal(config_from_goal(values))
+        goal = config_from_goal(values)
+        if goal.mount_policy != "searched":
+            raise ValueError("goal.pads.mount_policy: the belt 2R searches its drops (no mounting policy)")
+        return ParallelConfig.from_goal(goal)
 
     def config_to_json(self, config: ParallelConfig) -> dict[str, Any]:
         return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds)}

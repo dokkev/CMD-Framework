@@ -69,10 +69,13 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
     "pip_servo_pad_mm",
     "proximal_support_mm",
     "distal_support_mm",
+    "mount_depth_mm",
     "dorsal_space_mm",
     "pad_collision_mm",
 )
-"""Constraints of the reference geometry alone, checked before any sweep."""
+"""Constraints of the reference geometry alone, checked before any sweep.
+``mount_depth_mm``: how far the pads' mounting depths are from what
+``config.mount_policy`` sets (0 when searched)."""
 MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm",
                                        "pad_waste_mm", "torque_ratio")
 """``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
@@ -346,6 +349,17 @@ def dorsal_space_violation(finger: Finger, config: LinkageConfig) -> float:
     return dorsal_space_mm(built, config.link_radius_mm or 0.0) - config.dorsal_space_mm
 
 
+def mount_depth_violation(finger: Finger, config: LinkageConfig) -> float:
+    """How far the pads' depths are from the mounting policy's (mm; 0 when they are searched)."""
+
+    if config.mount_policy == "searched":
+        return 0.0
+    from core.optimization.mounting import linkage_mounting
+
+    cap = max(config.bounds["proximal_mount_offset_mm"][1], config.bounds["distal_mount_offset_mm"][1])
+    return linkage_mounting(finger, config).violation_mm(finger.pad_offsets_mm, cap)
+
+
 def _static_constraints(finger: Finger, footprint: ServoFootprint, config: LinkageConfig,
                         common: Mapping[str, float]) -> dict[str, float]:
     """Constraints of the reference geometry and the packaging alone, in three
@@ -409,6 +423,7 @@ def _static_constraints(finger: Finger, footprint: ServoFootprint, config: Linka
                                  config.minimum_distal_support_mm - distal.length_mm,
                                  distal.length_mm - distal.room_mm),
         "dorsal_space_mm": dorsal_space_violation(finger, config),
+        "mount_depth_mm": mount_depth_violation(finger, config),
     }
     servos, pads = ("mcp_servo_mm", "pip_servo_pad_mm"), ("pad_collision_mm",)
     if max(constraints.values()) > 0.0:

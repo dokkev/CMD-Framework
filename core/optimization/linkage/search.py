@@ -39,7 +39,7 @@ import numpy as np
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
 
-from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
+from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode
 from core.morphology.mechanism.linkage.measures import extended_icr_x, symmetric_bp
 
 from core.optimization.linkage.config import LinkageConfig
@@ -56,6 +56,8 @@ FLOOR_MARGIN_MM = 0.5
 """How far below the solved floor the search starts (the table is sampled)."""
 PAD_SHARE_NAMES = ("app_share", "bpp_share")
 """The pad offsets' coordinates with the pads only kept off their own pins."""
+MOUNT_NAMES = ("proximal_mount_offset_mm", "distal_mount_offset_mm")
+"""The mounting depths: searched, or set by ``config.mount_policy``."""
 
 
 SYMMETRIC_DROPPED = ("bp_from_b_x_mm", "bp_from_b_z_mm")
@@ -72,7 +74,8 @@ def search_names(config: LinkageConfig) -> tuple[str, ...]:
     else:
         names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
     return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED)
-                 and not (config.align_mount_offsets and name == "distal_mount_offset_mm"))
+                 and not (config.align_mount_offsets and name == "distal_mount_offset_mm")
+                 and not (config.mount_policy != "searched" and name in MOUNT_NAMES))
 
 
 def _pad_ranges(config: LinkageConfig, b_x: float, bc: float,
@@ -205,6 +208,9 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
     v = dict(zip(search_names(config), (float(c) for c in coordinates)))
     if config.align_mount_offsets:
         v["distal_mount_offset_mm"] = v["proximal_mount_offset_mm"]
+    if config.mount_policy != "searched":  # set below, once the pads' ends are: here the deepest allowed
+        for name in MOUNT_NAMES:
+            v[name] = config.bounds[name][1]
     resolution = config.resolution_mm
     grid = lambda value: _on_grid(value, resolution)  # noqa: E731
     b_x = grid(math.sqrt(max(v["finger_length_mm"] ** 2 - v["b_z_mm"] ** 2, 0.0)) - v["bc_length_mm"])
@@ -252,6 +258,19 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
         **{name: grid(v[name]) for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm")},
     }
+    x = tuple(design[name] for name in VARIABLE_NAMES)
+    if config.mount_policy == "searched":
+        return x
+    # Each pad at the least depth its own hardware needs, within what it supports.
+    from core.optimization.mounting import linkage_mounting
+
+    try:
+        found = linkage_mounting(decode(x, config.link_length_resolution_mm), config)
+    except ValueError:  # the rounded bars do not close: the evaluation says so
+        return x
+    if not found.supported:
+        return None
+    design.update(zip(MOUNT_NAMES, found.depths_mm))
     return tuple(design[name] for name in VARIABLE_NAMES)
 
 
@@ -284,8 +303,9 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
         icr_x = extended_icr_x((d["a_x_mm"], d["a_z_mm"]), (d["ap_x_mm"], d["ap_z_mm"]),
                                (d["b_x_mm"], d["b_z_mm"]), (d["bp_x_mm"], d["bp_z_mm"]))
         (p_low, p_high), d_high = _pad_ranges(config, d["b_x_mm"], d["bc_length_mm"], icr_x)
-        proximal_most, distal_least = _clear_of_pins(config, d["a_x_mm"], d["a_z_mm"], d["b_x_mm"],
-                                                     (d["proximal_mount_offset_mm"], d["distal_mount_offset_mm"]))
+        offsets = (tuple(config.bounds[name][1] for name in MOUNT_NAMES) if config.mount_policy != "searched"
+                   else (d["proximal_mount_offset_mm"], d["distal_mount_offset_mm"]))  # as to_design ranges the ends
+        proximal_most, distal_least = _clear_of_pins(config, d["a_x_mm"], d["a_z_mm"], d["b_x_mm"], offsets)
         app = d["ap_x_mm"] + d["app_offset_mm"]
         coordinates["app_share"] = share(app, p_low, min(p_high, proximal_most))
         coordinates["bpp_share"] = share(d["bp_x_mm"] - d["bpp_offset_mm"], max(app, distal_least), d_high)

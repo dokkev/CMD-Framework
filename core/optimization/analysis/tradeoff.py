@@ -84,7 +84,7 @@ def with_modules(config, modules: Modules):
 
 MOUNTING = ("proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pip_servo_pad_mm", "mcp_servo_mm",
             "pad_collision_mm", "pivot_pin_mm", "pin_spacing_mm", "extended_length_mm", "valid_reference",
-            "a_pin_servo_mm", "pad_drop_mm", "roller_pad_mm")
+            "a_pin_servo_mm", "pad_drop_mm", "roller_pad_mm", "mount_depth_mm")
 """Checks of the extended finger with its modules: failing one, it cannot carry them."""
 
 

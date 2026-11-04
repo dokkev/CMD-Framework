@@ -32,6 +32,7 @@ from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pa
 
 SEARCH_NAMES = ("finger_length_mm", "ac_share", "app_share", "bpp_share", "distal_drop_mm", "proximal_drop_mm",
                 "servo_tilt_deg")
+DROP_NAMES = ("distal_drop_mm", "proximal_drop_mm")
 SHARE_STEP = 0.001
 TILT_STEP_DEG = 1.0
 
@@ -53,16 +54,25 @@ def _limits(config: RevoluteConfig, tilt_deg: float) -> dict[str, tuple[float, f
     return {"a": (max(a_low, floor), a_high), "ac": config.bounds["ac_length_mm"]}
 
 
+def search_names(config: RevoluteConfig) -> tuple[str, ...]:
+    """:data:`SEARCH_NAMES`, without the drops when the goal's mounting policy sets them."""
+
+    if config.goal.mount_policy == "searched":
+        return SEARCH_NAMES
+    return tuple(name for name in SEARCH_NAMES if name not in DROP_NAMES)
+
+
 def search_box(config: RevoluteConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
     box = {"finger_length_mm": config.goal.extended_length_bounds_mm, "ac_share": (0.0, 1.0),
            "app_share": (0.0, 1.0), "bpp_share": (0.0, 1.0), "distal_drop_mm": config.bounds["distal_drop_mm"],
            "proximal_drop_mm": config.bounds["proximal_drop_mm"], "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
-    return tuple(box[name][0] for name in SEARCH_NAMES), tuple(box[name][1] for name in SEARCH_NAMES)
+    names = search_names(config)
+    return tuple(box[name][0] for name in names), tuple(box[name][1] for name in names)
 
 
 def search_steps(config: RevoluteConfig) -> tuple[float, ...]:
     return tuple(SHARE_STEP if name.endswith("_share") else TILT_STEP_DEG if name == "servo_tilt_deg"
-                 else config.resolution_mm for name in SEARCH_NAMES)
+                 else config.resolution_mm for name in search_names(config))
 
 
 def _tilt(value: float, config: RevoluteConfig) -> float:
@@ -88,7 +98,8 @@ def _ranges(config: RevoluteConfig, length: float, tilt_deg: float):
 
 
 def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[float, ...] | None:
-    v = dict(zip(SEARCH_NAMES, (float(c) for c in coordinates)))
+    v = {name: 0.0 for name in DROP_NAMES}  # set below when the policy sets them
+    v.update(zip(search_names(config), (float(c) for c in coordinates)))
     if config.goal.align_mount_offsets:  # the goal's rule: the distal drop sets both
         v["proximal_drop_mm"] = v["distal_drop_mm"]
     resolution = config.resolution_mm
@@ -107,6 +118,16 @@ def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[flo
               "bpp_from_a_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
               "distal_drop_mm": grid(v["distal_drop_mm"]), "proximal_drop_mm": grid(v["proximal_drop_mm"]),
               "servo_tilt_deg": tilt}
+    x = tuple(design[name] for name in VARIABLE_NAMES)
+    if config.goal.mount_policy == "searched":
+        return x
+    # Each pad at the least depth the joint's servo needs, within what it supports.
+    from core.optimization.mounting import revolute_mounting
+
+    found = revolute_mounting(x, config)
+    if not found.supported:
+        return None
+    design["proximal_drop_mm"], design["distal_drop_mm"] = found.depths_mm
     return tuple(design[name] for name in VARIABLE_NAMES)
 
 
@@ -125,7 +146,7 @@ def from_design(x: Sequence[float], config: RevoluteConfig) -> tuple[float, ...]
                    "app_share": share(d["app_x_mm"], p_low, p_high),
                    "bpp_share": share(d["bpp_from_a_mm"], d_low, d_high), "distal_drop_mm": d["distal_drop_mm"],
                    "proximal_drop_mm": d["proximal_drop_mm"], "servo_tilt_deg": d["servo_tilt_deg"]}
-    return tuple(coordinates[name] for name in SEARCH_NAMES)
+    return tuple(coordinates[name] for name in search_names(config))
 
 
-__all__ = ["SEARCH_NAMES", "TILT_STEP_DEG", "from_design", "least_a_x", "search_box", "search_steps", "to_design"]
+__all__ = ["DROP_NAMES", "SEARCH_NAMES", "search_names", "TILT_STEP_DEG", "from_design", "least_a_x", "search_box", "search_steps", "to_design"]

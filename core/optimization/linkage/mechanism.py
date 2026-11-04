@@ -131,7 +131,7 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v12"
+    formulation = "linkage-v13"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -168,7 +168,8 @@ class LinkageMechanism(Mechanism):
     (2026-11-04): every pad mounted on its link line (offset 0, as the
     2R-DD's), its pins and the servo collisions only; no pad runs under its pin.
     v11 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
-    v12 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset."""
+    v12 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset.
+    v13 (2026-11-04): the constraint ``mount_depth_mm`` (the pads' depths against ``goal.pads.mount_policy``: 0 when searched, the production's, whose designs are unchanged; ``shallowest_supported`` sets each depth, the study's, ``core.optimization.mounting``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES

@@ -36,6 +36,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from core.optimization.analysis.contact_envelope import (  # noqa: E402
     COLLISION_POLICY,
+    FitResult,
     evaluate_fit,
     layout_summary,
     max_flexion_deg,
@@ -43,14 +44,16 @@ from core.optimization.analysis.contact_envelope import (  # noqa: E402
 )
 from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+from core.optimization.mounting import TOLERANCE_MM, mounting  # noqa: E402
 from core.optimization.study import load_run, load_yaml  # noqa: E402
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "config.yaml"
 DIGITS = 6
 """Results are rounded to this many decimals (equal inputs, equal files)."""
 SIDES = ("proximal", "distal")
-UNMOUNTED = ("support_exceeded", "invalid_fixed_layout")
-"""Failures before any motion: the module does not mount, or the core cannot be built."""
+UNMOUNTED = ("support_exceeded", "invalid_fixed_layout", "mount_depth_changed")
+"""Failures before any motion: the module does not mount, the core cannot be
+built, or the module would need another mounting depth than the core's."""
 
 
 @dataclass(frozen=True)
@@ -125,9 +128,12 @@ def physical_rules(core: CoreDesign) -> dict[str, Any]:
     """What every core must share: the packaging (servos, pins, clearances,
     which pairs are checked), less the pads the modules set."""
 
-    rules = dataclasses.asdict(goal_of(core.config).packaging)
+    goal = goal_of(core.config)
+    rules = dataclasses.asdict(goal.packaging)
     for side in SIDES:
         rules.pop(f"{side}_pad", None)
+    rules["mount_policy"] = goal.mount_policy
+    rules["mount_offset_range_mm"] = [list(goal.bounds[f"{side}_mount_offset_mm"]) for side in SIDES]
     return json.loads(json.dumps(rules, default=str))
 
 
@@ -225,12 +231,24 @@ def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg,
         except ValueError:  # no closed four-bar: evaluate_fit reports it
             motions = {}
         for pair in catalog:
+            # The module on the frozen core: the depths the policy would give it, against the core's.
+            # One that does not mount at all says so first.
+            found = _mounting(core, pair)
+            changed = found is not None and (not found.supported or any(
+                required is None or abs(required - depth) > TOLERANCE_MM
+                for required, depth in zip(found.depths_mm, depths)))
+
+            def remounted(fit: FitResult) -> FitResult:
+                return FitResult(False, "mount_depth_changed") if changed and fit.reason not in UNMOUNTED else fit
+
             reach, reach_fit = max_flexion_deg(core.mechanism, core.x, core.config, pair.modules, limit_deg,
                                                motions.get(limit_deg))
+            reach_fit = remounted(reach_fit)
             if reach_fit.reason in UNMOUNTED:  # no motion to speak of: not 0 deg
                 reach = math.nan
             for deg in flexions_deg:
-                fit = evaluate_fit(core.mechanism, core.x, core.config, pair.modules, deg, motions.get(deg))
+                fit = remounted(evaluate_fit(core.mechanism, core.x, core.config, pair.modules, deg,
+                                             motions.get(deg)))
                 proximal, distal, share = coverage(core, pair, deg) if fit.feasible else (math.nan,) * 3
                 records.append({
                     "assembly_id": f"{core.core_id}__{pair.module_id}__phi{deg:g}",
@@ -241,6 +259,12 @@ def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg,
                     "proximal_thickness_mm": pair.proximal_thickness_mm,
                     "distal_length_mm": pair.distal_length_mm, "distal_thickness_mm": pair.distal_thickness_mm,
                     "proximal_mount_depth_mm": depths[0], "distal_mount_depth_mm": depths[1],
+                    "proximal_mount_case": "" if found is None else found.cases[0],
+                    "distal_mount_case": "" if found is None else found.cases[1],
+                    "proximal_required_depth_mm": None if found is None else found.depths_mm[0],
+                    "distal_required_depth_mm": None if found is None else found.depths_mm[1],
+                    "proximal_native_support_mm": None if found is None else found.native_mm[0],
+                    "distal_native_support_mm": None if found is None else found.native_mm[1],
                     "proximal_contact_depth_mm": depths[0] + pair.proximal_thickness_mm,
                     "distal_contact_depth_mm": depths[1] + pair.distal_thickness_mm,
                     "finger_length_mm": float(finger_length),
@@ -252,6 +276,23 @@ def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg,
                     "proximal_effective_mm": proximal, "distal_effective_mm": distal, "contact_coverage": share,
                 })
     return [{key: _round(value) for key, value in record.items()} for record in records]
+
+
+def _mounting(core: CoreDesign, pair: ModulePair):
+    """The mounting policy's depths for ``pair`` on ``core`` (``None``: the
+    core's depths are searched, not set by a policy)."""
+
+    config = with_modules(core.config, pair.modules)
+    if goal_of(config).mount_policy == "searched":
+        return None
+    if core.mechanism == "linkage":
+        from core.morphology.mechanism.linkage.design import decode
+
+        try:
+            decode(core.x, config.link_length_resolution_mm)
+        except ValueError:  # no closed four-bar: evaluate_fit reports it
+            return None
+    return mounting(core.mechanism, core.x, config)  # another mechanism: no policy, an error
 
 
 # Output -----------------------------------------------------------------------
@@ -308,8 +349,16 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = N
         "required_flexion_deg": flexions, "max_flexion_limit_deg": limit,
         "physical_rules": rules, "collision_policy": COLLISION_POLICY,
         "mounting_depth": "each core's own (its design vector), below its reference lines (CoDe: OA, BC; "
-                          "2R-DD: its segments' lines), carried by the segment's body down to its joint hardware "
-                          "(pin housings, the servo); the module's thickness below it",
+                          "2R-DD: its segments' lines), the module's thickness below it, held for every module",
+        "mounting_policy": {
+            "policy": sorted({goal_of(core.config).mount_policy for core in cores}),
+            "rule": "shallowest_supported: each pad, independently, at the least depth on the resolution grid "
+                    "clearing its own joint hardware (case A: 0, the pad short of it; case B: under it, no deeper "
+                    "than that hardware reaches: CoDe's pin housings, the 2R-DD's servo); deeper (case C, a "
+                    "spacer) is no design (core.optimization.mounting)",
+            "module_replacement": "a module whose own least depth differs from the core's is "
+                                  "mount_depth_changed: not remounted, infeasible on the frozen core",
+        },
         "source": _git_commit(),
         "counts": {"cores": len(cores), "modules": len(catalog), "flexions": len(flexions)},
     }, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")

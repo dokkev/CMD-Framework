@@ -1,13 +1,8 @@
 # 2R-DD (servo at the joint A), its servo laid along the proximal segment
-# (0 deg). The proximal pad then fits only under the servo (9.5 mm down);
-# with the offsets aligned the distal pad would hang as deep and fold into
-# the proximal one before the required flexion: no design (quick run,
-# 2026-11-04). The offsets are therefore each the pad's own here.
+# (0 deg): the proximal pad then runs under the servo's body.
 base: base.yaml
 mechanism: revolute
 goal:
-  pads:
-    align_mount_offsets: false
   hardware:
     pip_servo:
       tilt_angle_deg: 0

@@ -48,12 +48,35 @@ segment's line for the 2R-DD.
 
 - `d_proximal_mm` and `d_distal_mm` are measured palmar of those lines.
 - The contact face lies at `d + thickness`.
-- The depths belong to the core: they come from its design vector, are
-  searched in stage A and are held fixed in stage B.
 
-The segment's body carries the mounting surface down to its joint hardware:
-the pin housings for CoDe (3 mm) and the servo for the 2R-DD. A depth set
-by that clearance therefore needs no extra structure.
+The study sets each depth by a policy instead of searching it
+(`goal.pads.mount_policy: shallowest_supported`, `core.optimization.mounting`).
+The two pads are set independently.
+
+- **Case A:** the pad does not reach its own joint hardware, so `d = 0`.
+- **Case B:** the pad runs under that hardware, so `d` is the least depth on
+  the resolution grid that clears it. The depth depends on the pad's length
+  and placement, and the evaluators' own collision checks decide it. The
+  hardware supports the pad only on its own body:
+  - CoDe: the pin housings of the pad's segment;
+  - 2R-DD proximal pad: the servo, which sits on the proximal body;
+  - 2R-DD distal pad: none, since it hangs from a truss off the output at A
+    and the servo only sets its clearance. With `align_mount_offsets`, both
+    pads take one depth (the deeper least one), and the distal pad is then
+    carried to the servo's reach.
+- **Case C:** a depth deeper than the hardware reaches below the line (the
+  segment's native support) would need a spacer. The design is rejected.
+
+The depths are the core's: they are written into its design vector and held
+for every module. A module that would need another depth than the core's
+(for example a distal module too short to reach under B) is reported as
+`mount_depth_changed`. It is not remounted.
+
+The rows record, for each pad:
+- the depth;
+- the depth that module would need;
+- its case (A, B or C);
+- its native support.
 
 ## Physical rules
 
