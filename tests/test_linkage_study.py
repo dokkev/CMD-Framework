@@ -198,7 +198,7 @@ def test_packaging_defaults_keep_the_older_checks():
     assert all(packaging.pivot_radius_mm(p) == packaging.pin_radius_mm for p in ("a", "ap", "b", "bp"))
 
 
-def test_pads_are_not_checked_in_hyperextension(monkeypatch):
+def test_the_pads_are_checked_through_the_hyperextension(monkeypatch):
     import importlib
 
     module = importlib.import_module("core.morphology.mechanism.linkage.motion")
@@ -212,12 +212,16 @@ def test_pads_are_not_checked_in_hyperextension(monkeypatch):
     config = load()
     evaluation = MECHANISM.evaluate(X, config)
     linkage = decode(X, config.link_length_resolution_mm)
-    # Hyperextension is linkage range only: the pad sweep starts at extension,
-    # and the MCP servo turns from MCP extension.
-    sweep_b, mcp = calls[-1]
-    assert len(sweep_b) > 1 and sweep_b[0] == pytest.approx((linkage.joint.b.x_mm, linkage.joint.b.z_mm))
-    assert min(mcp) == 0.0
+    extended = (linkage.joint.b.x_mm, linkage.joint.b.z_mm)
+    # The flexion from extension, then the hyperextension back to the stopper
+    # (the MCP servo turning from MCP extension in both).
+    forward, back = calls[-2:]
+    assert len(forward[0]) > 1 and forward[0][0] == pytest.approx(extended)
+    assert len(back[0]) > 1 and min(forward[1]) == min(back[1]) == 0.0
+    assert not np.any(np.all(np.isclose(back[0], extended), axis=1))  # back samples only
+    # Measured as the distal segment's rotation back (the 2R's phi): to the stopper.
     assert evaluation.constraints["hyperextension_deg"] == 0.0
+    assert evaluation.hyperextension_phi_rad == pytest.approx(-config.hyperextension_rad)
 
 
 def test_runs_record_the_mechanism_and_reload(tmp_path):
@@ -445,3 +449,49 @@ def test_a_pad_within_its_link_sits_on_the_link_line():
     assert past_b.distal_start.x_mm > past_b.joint.b.x_mm + r
     assert pad_offsets(past_b, config.packaging)["distal_pad"] == 0.0
     assert pad_offsets(under, config.packaging)["distal_pad"] == r
+
+
+def test_a_crossing_at_the_distal_faces_end_is_still_a_crossing():
+    from core.morphology.packaging.faces import crossing_free_lengths
+
+    # Inclined faces whose lines cross exactly at the distal face's inner end
+    # (u = 0 there): the proximal face counts to the crossing, not whole.
+    proximal = np.array(((0.0, -5.0), (30.0, -5.0)))
+    distal = np.array(((35.0, -25.0), (15.0, -5.0)))
+    free = crossing_free_lengths(proximal, distal)
+    assert free["proximal_pad"][0] == pytest.approx(15.0)
+    nudged = crossing_free_lengths(proximal, distal + (0.0, 1e-6))
+    assert nudged["proximal_pad"][0] == pytest.approx(15.0, abs=1e-4)  # continuous
+
+
+def test_the_search_does_not_bound_a_by_the_segment_ratio():
+    from core.optimization.study import MechanismProblem
+
+    # The ratio bounds |OA''| (A'' set by the pad's end, after A): A itself may
+    # lie short of the share, as the evaluation allows, with the pad past it.
+    config = load("goal.link.proximal_length_ratio=[0.35, null]")
+    problem = MechanismProblem(MECHANISM, config)
+    rng = np.random.default_rng(0)
+    short = 0
+    for _ in range(300):
+        x = problem.to_mm(np.round(problem.xl + rng.random(problem.n_var) * (problem.xu - problem.xl)))
+        if x is None:
+            continue
+        d = dict(zip(VARIABLE_NAMES, x))
+        length = math.hypot(d["b_x_mm"] + d["bc_length_mm"], d["b_z_mm"])
+        short += d["a_x_mm"] < 0.35 * length - 1.0
+    assert short > 0
+
+
+def test_a_fixed_layout_keeps_its_mounting_when_its_modules_change():
+    from core.morphology.mechanism.linkage.packaging import pad_offsets
+    from core.optimization.analysis.tradeoff import Modules, mounting_offsets, with_modules
+
+    config = load()
+    under = decode(X, config.link_length_resolution_mm)  # its proximal pad runs under A
+    held = mounting_offsets("linkage", X, config)
+    assert held == (3.0, 3.0)
+    # A module short of A would sit on O-A were the layout re-mounted; held, it stays below.
+    short = Modules(10.0, 5.0, 20.0, 5.0)
+    assert pad_offsets(under, with_modules(config, short).packaging)["proximal_pad"] == 0.0
+    assert pad_offsets(under, with_modules(config, short, held).packaging)["proximal_pad"] == 3.0

@@ -152,10 +152,9 @@ def _ranges(config: LinkageConfig, b_x: float, ap_z: float, tilt_deg: float, len
     span_low, span_high = config.joint_span_bounds_mm  # |AB|, A and B on the axis extended
     a_low = a_low if span_high is None else max(a_low, b_x - span_high)
     a_high = a_high if span_low is None else min(a_high, b_x - span_low)
-    ratio_low, ratio_high = config.proximal_length_ratio_bounds  # |OA| / |OC|, A on the axis
+    # (The segment ratios bound |OA''| and |B''C|, which the pads' ends set
+    # after A: the evaluation checks them, the search does not narrow A by them.)
     if length is not None:
-        a_low = a_low if ratio_low is None else max(a_low, ratio_low * length)
-        a_high = a_high if ratio_high is None else min(a_high, ratio_high * length)
         span_low, span_high = config.joint_span_ratio_bounds  # |AB| / |OC|
         a_low = a_low if span_high is None else max(a_low, b_x - span_high * length)
         a_high = a_high if span_low is None else min(a_high, b_x - span_low * length)

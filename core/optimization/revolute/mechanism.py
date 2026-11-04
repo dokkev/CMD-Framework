@@ -28,7 +28,7 @@ def bound_hits(x: Sequence[float], config: RevoluteConfig, finger_length_mm: flo
 
 class RevoluteMechanism(Mechanism):
     name = "revolute"
-    formulation = "revolute-goal-v7"
+    formulation = "revolute-goal-v8"
     """The 2R on the linkage's goal (2026-10-26): direct drive at ``A``
     (``k = 1``), the distal servo on ``A`` laid back along ``-X``;
     v2: the distal pad's drop searched, the distal phalanx a truss of links;
@@ -44,7 +44,9 @@ class RevoluteMechanism(Mechanism):
     (``evaluate.interfaced``; the drops no longer searched), no carrier, each
     pad counted at the required flexion to where the other's face line
     crosses it and none mounted past that (``pad_waste_mm``), the segment
-    ratios without maxima."""
+    ratios without maxima. v8 (2026-11-03): the segment ratios on the
+    segments ``|OA''|`` and ``|B''C|`` (``evaluate.segment_lengths``), as the
+    linkage's, not on ``|OA|`` and ``|AC|``, which they no longer narrow."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -130,13 +132,13 @@ class RevoluteMechanism(Mechanism):
 
 class IdealizedRevoluteMechanism(RevoluteMechanism):
     name = "revolute_idealized"
-    formulation = "revolute-idealized-goal-v6"
+    formulation = "revolute-idealized-goal-v7"
     """The 2R without its distal servo (2026-10-27): driven from elsewhere,
     only ``A``'s pin at the joint; the kinematic bound of a fixed pivot.
     v3 (2026-10-28): the goal's link shares, the fold, the carrier and the
     hyperextension, as the 2R's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5.
     v5 (2026-10-29): no setback: each pad reaches the joint's housing and past it by its overhang (``goal.pads.*.overhang_max_mm``), the housing a collision (``pad_reach_mm``), the proximal pad checked against the pin.
-    v6 (2026-11-03): the 2R's v7, the pads tangent to the pin's housing."""
+    v6 (2026-11-03): the 2R's v7, the pads tangent to the pin's housing. v7: the 2R's v8."""
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> RevoluteConfig:
         return RevoluteConfig.from_goal(config_from_goal(values), joint_servo=False)

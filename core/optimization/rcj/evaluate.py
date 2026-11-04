@@ -93,8 +93,10 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     oa_low, oa_high = goal.proximal_length_bounds_mm
     oa = [value for value in (None if oa_low is None else oa_low - geo.a_x_mm,
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
-    # |OA|, BC and |AB| = 2r as shares of |OC|, as the linkage's.
-    oa += goal.length_ratio_violations(geo.a_x_mm, geo.bc_length_mm, 2.0 * r, geo.finger_length_mm)
+    # The segments |OA''| and |B''C| and |AB| = 2r as shares of |OC|, as the linkage's.
+    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    oa += goal.length_ratio_violations(v["app_x_mm"], v["bc_length_mm"] - v["bpp_from_b_mm"], 2.0 * r,
+                                       geo.finger_length_mm)
     oa += goal.icr0_violations(geo.a_x_mm + r, geo.finger_length_mm)  # the rollers' contact
     static = {
         "extended_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),

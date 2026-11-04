@@ -40,6 +40,7 @@ from core.optimization.revolute.evaluate import (
     hyperextension_violation,
     joint_checks,
     interfaced,
+    segment_lengths,
     usable_lengths,
 )
 from core.optimization.linkage.evaluate import pad_waste_mm
@@ -80,7 +81,7 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     oa_low, oa_high = goal.proximal_length_bounds_mm
     oa = [value for value in (None if oa_low is None else oa_low - joint.a_x_mm,
                               None if oa_high is None else joint.a_x_mm - oa_high) if value is not None]
-    oa += goal.length_ratio_violations(joint.a_x_mm, joint.ac_length_mm, 0.0, joint.finger_length_mm)
+    oa += goal.length_ratio_violations(*segment_lengths(x), 0.0, joint.finger_length_mm)
     oa += goal.icr0_violations(joint.a_x_mm, joint.finger_length_mm)  # the pin A
     static = {
         "extended_length_mm": max(length_low - joint.finger_length_mm, joint.finger_length_mm - length_high),

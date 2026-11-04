@@ -14,7 +14,8 @@ from core.optimization.study import load_yaml
 ROOT = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
 PINNED = ("goal.link.finger_length_mm=[90, 100]", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.motion.dip_flexion_deg=120",
-          "goal.hardware.pip_servo.tilt_angle_deg=90")
+          "goal.hardware.pip_servo.tilt_angle_deg=90", "goal.link.proximal_length_ratio=[null, null]",
+          "goal.link.distal_length_ratio=[null, null]")
 """The study these tests were written for, whatever the config file now asks."""
 MECHANISM = mechanism("revolute")
 X = (45.0, 55.0, 30.0, 29.0, 0.0, 0.0, 90.0)
@@ -34,14 +35,11 @@ def test_it_reads_the_linkage_goal_as_is():
     assert config.goal == linkage
     assert config.objectives == linkage.objectives and config.seeds == linkage.seeds
     assert MECHANISM.hypervolume_reference(config) == mechanism("linkage").hypervolume_reference(linkage)
-    # |OA| and |AC| take the linkage's A_x and BC bounds within their shares of |OC|;
-    # the pads start past their min.
-    assert config.bounds["ac_length_mm"] == linkage.within_share(linkage.bounds["bc_length_mm"],
-                                                                 linkage.distal_length_ratio_bounds)
-    assert config.bounds["a_x_mm"] == pytest.approx(linkage.within_share(linkage.bounds["a_x_mm"],
-                                                                         linkage.proximal_length_ratio_bounds))
-    assert config.bounds["a_x_mm"][0] == pytest.approx(linkage.proximal_length_ratio_bounds[0]
-                                                       * linkage.extended_length_bounds_mm[0])
+    # |OA| and |AC| take the linkage's A_x and BC bounds as they are (the
+    # segment ratios bound |OA''| and |B''C|: checked, not narrowed by); the
+    # pads start past their min.
+    assert config.bounds["ac_length_mm"] == tuple(linkage.bounds["bc_length_mm"])
+    assert config.bounds["a_x_mm"] == tuple(linkage.bounds["a_x_mm"])
     assert config.bounds["app_x_mm"][0] == pytest.approx(linkage.packaging.proximal_pad_start_mm + 20.0)
     assert config.bounds["servo_tilt_deg"] == (90.0, 90.0)  # the goal's PIP servo tilt
     # Each pad may reach the joint's housing (the servo at A) and past it by
@@ -49,7 +47,8 @@ def test_it_reads_the_linkage_goal_as_is():
     assert config.bounds["bpp_from_a_mm"][0] == pytest.approx(-100.0)
     limited = load("goal.pads.proximal.overhang_max_mm=0", "goal.pads.distal.overhang_max_mm=2")
     assert limited.bounds["bpp_from_a_mm"][0] == pytest.approx(-11.5)
-    assert limited.search_bounds["app_x_mm"][1] == pytest.approx(limited.search_bounds["a_x_mm"][1] + 9.5)
+    assert limited.search_bounds["app_x_mm"][1] == pytest.approx(
+        min(limited.search_bounds["a_x_mm"][1] + 9.5, limited.goal.extended_length_bounds_mm[1]))
 
 
 def test_the_pads_and_servo_follow_the_goal():
@@ -226,3 +225,14 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     under = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)  # the proximal pad to A, tangent to the pin whatever the drops
     assert idealized.evaluate(under, config).constraints["pip_servo_pad_mm"] <= 0.0
     assert idealized.config_from_json(idealized.config_to_json(config)) == config
+
+
+def test_the_segment_ratios_bound_the_segments_as_the_linkages():
+    from core.optimization.revolute.evaluate import segment_lengths
+
+    # |OA''| = A''_x and |B''C| = |AC| - B'' from A, as shares of |OC| (here 100).
+    assert segment_lengths(X) == pytest.approx((30.0, 26.0))
+    config = load("goal.link.proximal_length_ratio=[0.35, null]")
+    assert MECHANISM.evaluate(X, config).constraints["proximal_length_mm"] == pytest.approx(5.0)
+    config = load("goal.link.distal_length_ratio=[0.25, null]")
+    assert MECHANISM.evaluate(X, config).constraints["proximal_length_mm"] <= 0.0

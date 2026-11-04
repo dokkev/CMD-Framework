@@ -88,7 +88,7 @@ from core.morphology.packaging.assembly import (
     Poses,
     margins,
 )
-from core.morphology.packaging.faces import probe_free_lengths
+from core.morphology.packaging.faces import crossing_free_lengths, probe_free_lengths
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, segment_polygon_gaps
 
@@ -139,6 +139,11 @@ class LinkagePackaging(Packaging):
     contact faces cross in the fold instead (``face_crossing_lengths``).
     Always so in the goal/solver study (2026-10-27); ``False`` (runs before
     it): up to the first link crossing it (``usable_pad_lengths``)."""
+    pad_offsets_mm: tuple[float, float] | None = None
+    """A fixed mounting: the proximal and the distal pad's start lines below
+    ``OA`` and ``BC`` whatever the modules (the fixed-layout analysis keeps a
+    design's own, ``tradeoff.with_modules``); ``None``: :func:`pad_offsets`
+    places them by where each pad ends."""
     pads_off_pins: bool = False
     """Each pad keeps clear of its own body's pin housings (the proximal pad
     of ``A`` and ``A'``, the distal pad of ``B`` and ``B'``) and may end
@@ -493,6 +498,9 @@ def pad_offsets(finger: Finger, packaging: LinkagePackaging) -> dict[str, float]
     Else on the line tangent to its link's pin clearance
     (:meth:`LinkagePackaging.interface_offset_mm`), running under the pin."""
 
+    if packaging.pad_offsets_mm is not None:  # a fixed mounting
+        return dict(zip(PADS, (float(value) for value in packaging.pad_offsets_mm)))
+
     from core.morphology.packaging.gaps import footprint_gaps
     from core.morphology.packaging.shapes import polygon_to_disk
 
@@ -663,29 +671,15 @@ def face_crossing_lengths(
     The two contact faces, extended, cross where the finger folds: past that
     point each face lies inside the V the other one closes, facing it, where
     no object reaches. Each pad counts from its outer end (``a`` of the
-    proximal pad, the ``C`` end of the distal one) to the crossing. Barely
-    flexed, the faces cross below the centre of rotation; extended (the faces
-    in line, or parallel) neither loses any. Samples are four-bar poses in the
-    proximal-link frame, given by the posed ``B`` and ``C`` (``(n, 2)``).
+    proximal pad, the ``C`` end of the distal one) to the crossing; faces in
+    line or parallel lose nothing. The linkage's faces
+    (:func:`contact_faces`) measured by the one rule every mechanism's are
+    (``packaging.faces.crossing_free_lengths``). Samples are four-bar poses in
+    the proximal-link frame, given by the posed ``B`` and ``C`` (``(n, 2)``).
     """
 
-    b, c = np.atleast_2d(b), np.atleast_2d(c)
-    spans = pad_spans(finger, packaging)
-    proximal, distal = spans["proximal_pad"], spans["distal_pad"]
-    offsets = pad_offsets(finger, packaging)
-    face_z = -offsets["proximal_pad"] - packaging.proximal_pad.height_mm
-    face_v = -offsets["distal_pad"] - packaging.distal_pad.height_mm  # dorsal of BC
-    e = (c - b) / finger.distal.end_mm
-    n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-    # The distal face's line, B + u e + face_v n, meets z = face_z at u.
-    rise = face_z - b[:, 1] - face_v * n[:, 1]
-    crossing = np.abs(e[:, 1]) > 1e-9
-    u = np.where(crossing, rise / np.where(crossing, e[:, 1], 1.0), np.inf)
-    x = b[:, 0] + u * e[:, 0] + face_v * n[:, 0]
-    in_line = ~crossing | (np.abs(rise) < 1e-9)  # extended: one line, no fold
-    proximal_free = np.where(in_line, proximal.length_mm, np.clip(x - proximal.start_mm, 0.0, proximal.length_mm))
-    distal_free = np.where(in_line, distal.length_mm, np.clip(distal.end_mm - u, 0.0, distal.length_mm))
-    return {"proximal_pad": proximal_free, "distal_pad": distal_free}
+    proximal_face, _, distal_face, _ = contact_faces(finger, packaging, b, c)
+    return crossing_free_lengths(proximal_face, distal_face)
 
 
 def _trimmed(start: np.ndarray, end: np.ndarray, radius: float,

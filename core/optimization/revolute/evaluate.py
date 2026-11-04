@@ -66,6 +66,14 @@ UNSWEPT = 1.0e2
 DROPS = (VARIABLE_NAMES.index("distal_drop_mm"), VARIABLE_NAMES.index("proximal_drop_mm"))
 
 
+def segment_lengths(x: Sequence[float]) -> tuple[float, float]:
+    """The 2R's segments, as the linkage's: ``|OA''|`` (``O`` to where the
+    proximal body ends) and ``|B''C|`` (where the distal body starts to ``C``)."""
+
+    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    return v["app_x_mm"], v["ac_length_mm"] - v["bpp_from_a_mm"]
+
+
 def interfaced(x: Sequence[float], joint_radius_mm: float) -> tuple[float, ...]:
     """``x`` with each pad's contact interface space starting its drop
     ``RevoluteConfig.interface_radius_mm`` below its segment's line (the
@@ -216,8 +224,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     oa_low, oa_high = goal.proximal_length_bounds_mm
     oa = [value for value in (None if oa_low is None else oa_low - geo.a_x_mm,
                               None if oa_high is None else geo.a_x_mm - oa_high) if value is not None]
-    # |OA| and BC (|AC|: no span) as shares of |OC|, as the linkage's.
-    oa += goal.length_ratio_violations(geo.a_x_mm, geo.ac_length_mm, 0.0, geo.finger_length_mm)
+    # The segments |OA''| and |B''C| (no span) as shares of |OC|, as the linkage's.
+    oa += goal.length_ratio_violations(*segment_lengths(x), 0.0, geo.finger_length_mm)
     oa += goal.icr0_violations(geo.a_x_mm, geo.finger_length_mm)  # the pin A
     reach = pad_reach_mm(goal, config.joint_radius_mm)
     # In stages by cost (as the linkage's): lengths and the pads' room, then
@@ -329,4 +337,4 @@ def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.nda
 
 
 __all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "evaluate", "geometry", "hyperextension_violation",
-           "interfaced", "joint_checks", "usable_lengths"]
+           "interfaced", "joint_checks", "segment_lengths", "usable_lengths"]

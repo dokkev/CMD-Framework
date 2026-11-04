@@ -37,7 +37,7 @@ def bound_hits(x: Sequence[float], config: ParallelConfig, finger_length_mm: flo
 
 class ParallelMechanism(RevoluteMechanism):
     name = "revolute_parallel"
-    formulation = "revolute-parallel-goal-v6"
+    formulation = "revolute-parallel-goal-v7"
     """The 2R with its servo on ``A'``, as the linkage's (2026-10-27).
     v2 (2026-10-28): the idealized 2R's v3 joint and pads (v1 runs predate
     them), ``|OA|`` and ``BC`` held to the goal's shares of ``|OC|``. v3
@@ -49,7 +49,7 @@ class ParallelMechanism(RevoluteMechanism):
     pin and the distal pad's carrier checked against the servo, the fold and
     the hyperextension, as the linkage's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5. v5 (2026-10-29): the 2R's search ranges for the pads' ends (no setback: each pad reaches the joint's housing and past it by its overhang (``goal.pads.*.overhang_max_mm``), the housing a collision (``pad_reach_mm``)),
     its own pad rules unchanged (shelved). v6 (2026-11-03): the 2R's v7, the
-    pads tangent to the pin's housing at ``A`` (the pulleys in the outer layer)."""
+    pads tangent to the pin's housing at ``A`` (the pulleys in the outer layer). v7: the 2R's v8."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 

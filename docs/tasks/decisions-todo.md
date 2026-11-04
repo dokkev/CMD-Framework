@@ -5,6 +5,11 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-11-03 (linkage-v9, revolute-goal-v8, idealized-v7, parallel-v7, rcj-goal-v5), 외부 리뷰 반영:
+  - 길이 비율은 segment(|OA″|, |B″C|) 기준으로 모든 메커니즘에 일관되게 적용. linkage 탐색은 더 이상 A_x를 비율로 좁히지 않음(평가가 허용하는 설계를 탐색이 미리 빼던 문제). 2R·RCJ도 OA·AC 대신 segment로 검사하고 탐색 범위도 비율로 좁히지 않음.
+  - linkage hyperextension: driver 각이 아니라 distal 상대 회전각(2R의 φ)으로 재고, 되돌아가는 구간에서도 pad 충돌 검사(예전엔 펴진 자세부터만 검사).
+  - linkage의 pad 교차 계산을 공통 `faces.crossing_free_lengths`로 통일(전용 함수의 `rise == 0` 특수 처리가 교차를 놓쳐 pad 전체를 세던 경우 제거).
+  - fixed-layout 분석(`tradeoff.with_modules`, contact envelope)은 설계의 장착면을 고정: 모듈이 바뀌어도 pad 시작선(offset)은 원래 설계의 것(`tradeoff.mounting_offsets`, `LinkagePackaging.pad_offsets_mm`). 보고의 `pad_drops_mm`도 그 값.
 - 2026-11-03: linkage pad도 자기 링크 안에 들어가면 링크선에 붙임(`packaging.pad_offsets`): 그 자리에서 자기 몸체 핀 housing(proximal: A, A′, distal: B, B′)과 PIP servo(proximal)를 body clearance 이상 피하면 offset 0, 아니면(핀 아래를 지나면) 핀 clearance에 접하는 선(3 mm). 2R-DD와 같은 원칙: 시작선은 링크선, 하드웨어는 충돌. pad를 핀 양쪽으로 나누는 것은 하지 않음(핀 너머 조각은 요구 굴곡에서 접힌 V 안쪽이라 거의 빠짐).
 - 2026-11-03: 2R-DD(servo at joint, 코드의 `revolute`)는 pad를 OA·AC 링크선에 바로 붙임(drop 0): servo 축이 관절이라 따로 bearing housing이 없음. servo 앞쪽 원(9.5 mm)은 충돌 검사로만 다룸(pad가 A 양쪽 9.5 mm 안으로 못 들어옴). idealized·belt는 A 핀 housing(3 mm)에 접함. servo 기울기 범위 `goal.hardware.pip_servo.tilt_angle_deg` [0, 90](linkage와 공유).
 - 2026-11-03: 교차점 너머로 장착된 pad는 낭비로 보고 제약 `pad_waste_mm`으로 막음(장착 길이 − 유효 길이 ≤ 해상도 0.1 mm). linkage와 2R 계열·RCJ 모두. 교차점은 링크 형상과 pad 면 깊이로만 정해지고 pad 길이와 무관해서, pad 끝(탐색 변수)만 맞추면 됨. 같은 날 formulation(linkage-v8, revolute-goal-v7 등)에 포함. `output/v8/`의 탐색 run들은 이 제약 전 코드로 돌아서 다시 돌려야 함.

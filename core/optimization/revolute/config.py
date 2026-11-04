@@ -122,8 +122,9 @@ class RevoluteConfig:
         else:
             tilt = tuple(goal.bounds["servo_tilt_deg"])
         bounds = {
-            "a_x_mm": goal.within_share(goal.bounds["a_x_mm"], goal.proximal_length_ratio_bounds),
-            "ac_length_mm": goal.within_share(goal.bounds["bc_length_mm"], goal.distal_length_ratio_bounds),
+            # (The segment ratios bound |OA''| and |B''C|, set by the pads' ends: checked, not narrowed by.)
+            "a_x_mm": tuple(goal.bounds["a_x_mm"]),
+            "ac_length_mm": tuple(goal.bounds["bc_length_mm"]),
             "app_x_mm": (start + goal.minimum_proximal_support_mm, finger_high),
             "bpp_from_a_mm": (-min(pad_reach_mm(goal, radius)[1], finger_high),
                               finger_high - goal.minimum_distal_support_mm),

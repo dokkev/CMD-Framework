@@ -14,7 +14,8 @@ from core.optimization.study import load_yaml
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
 MECHANISM = mechanism("rcj")
 STUDY = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
-         "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]")
+         "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",
+         "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]")
 X = (52.0, 9.5, 29.0, 39.5, 1.0, 9.5, 9.5)
 """|OA| 52, r 9.5, BC 29: the proximal pad 30 mm, the distal 28 mm, both at the rollers' bottom."""
 

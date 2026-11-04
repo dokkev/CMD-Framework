@@ -129,13 +129,15 @@ FEASIBLE = {
     "revolute": (64.2, 31.3, 25.6, 30.7, 9.5, 9.5, 0.0),  # the pads tangent to the servo's housing
     "linkage": (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 3.0, 3.0),
 }
-"""A design of each mechanism feasible on the production goal with any pad length."""
+"""A design of each mechanism feasible on the production goal with any pad length and segment."""
 
 
 def integrity_config(name, *overrides):
     found = mechanism(name)
     return found, load_yaml(found, CONFIGS / "linkage" / "config.yaml",
                             ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
+                             "goal.link.proximal_length_ratio=[null, null]",
+                             "goal.link.distal_length_ratio=[null, null]",
                              "goal.loss.integrity_depth_mm=3", *overrides))[0]
 
 

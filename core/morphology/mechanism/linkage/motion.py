@@ -122,10 +122,11 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
     sense = servo_sense(finger, step)
     forward = np.asarray(settings.servo_samples_rad)
     sweep = finger.sweep_servo(sense * forward)
-    # Hyperextension is a PIP requirement: solved by the PIP, to the stopper exactly.
+    # Hyperextension is a PIP requirement: the distal segment turned back
+    # relative to the proximal one (the 2R's phi), to the stopper exactly
+    # (2026-11-03; before, the driver link A-B' by as much).
     count = int(math.ceil(settings.hyperextension_rad / step - 1e-9))
-    # (The stopper is on the driver link A-B', as the hyperextension has been measured.)
-    back = finger.place(four_bar(finger).sweep_driver(
+    back = finger.place(four_bar(finger).sweep_pip(
         -np.minimum(np.arange(count + 1) * step, settings.hyperextension_rad)))
     n_back = len(back.q_driver_rad) - 1  # back samples besides 0
 
@@ -137,7 +138,8 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
     unsafe = unsafe_conditions(finger, footprint, joined, sense, packaging, settings)
     total = sweep.total_flexion_rad
     # The pads from extension up to the first other unsafe sample or the curl
-    # (180 deg), as far as phi_max needs them; hyperextension is linkage range only.
+    # (180 deg), as far as phi_max needs them; and back to the stopper, the
+    # finger hyperextending with its pads (as the 2R's).
     other = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[n_back:])
     end = int(other[0]) if other.size else len(total) - 1
     curled = np.flatnonzero(total >= math.pi)
@@ -151,6 +153,14 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
                                             joined("bp")[swept], settings.link_radius_mm))
     pad = np.full(len(unsafe["closure"]), math.inf)
     pad[swept] = np.min(np.stack(list(margins.values())), axis=0)
+    if n_back:
+        hyper = slice(0, n_back)
+        back_margins = pad_margins(finger, packaging, joined("b")[hyper], joined("tip")[hyper], joined("bp")[hyper],
+                                   settings.mcp_samples_rad)
+        if settings.link_radius_mm is not None:
+            back_margins.update(link_capsule_margins(finger, packaging, joined("b")[hyper], joined("tip")[hyper],
+                                                     joined("bp")[hyper], settings.link_radius_mm))
+        pad[hyper] = np.min(np.stack(list(back_margins.values())), axis=0)
     # The reported clearance leaves out pairs whose margin the design does not set.
     reported = [margin for pair, margin in margins.items() if pair not in FIXED_MARGIN_PAIRS]
     reported_pad = np.full(len(unsafe["closure"]), math.inf)
@@ -164,7 +174,7 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
     safe_back = 0
     while safe_back < n_back and not any_unsafe[n_back - 1 - safe_back]:
         safe_back += 1
-    deepest = float(back.q_driver_rad[safe_back]) if not any_unsafe[n_back] else 0.0
+    deepest = float(back.q_pip_rad[safe_back]) if not any_unsafe[n_back] else 0.0
 
     # The safe motion from extension: up to the first unsafe sample (or the
     # sweep's end, where the four-bar stops closing).
