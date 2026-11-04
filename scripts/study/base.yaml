@@ -14,9 +14,20 @@ goal:
     dip_flexion_deg: 120
   link:
     finger_length_mm: [80, 90]
+    # No anatomical proportions: the segments and the four-bar's span are
+    # left to the physical constraints (production bounds them by ratio).
+    proximal_length_ratio: [null, null]
+    distal_length_ratio: [null, null]
+    joint_span_ratio: [null, null]
   pads:
     # Both pads mounted at one offset below their link lines (searched).
     align_mount_offsets: true
+    # The study's own mounting-depth range, set here so a production change
+    # does not move it.
+    proximal:
+      mount_offset_mm: [0, 10]
+    distal:
+      mount_offset_mm: [0, 10]
 
 solver:
   optimizer:

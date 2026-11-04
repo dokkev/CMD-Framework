@@ -1,0 +1,154 @@
+"""The contact accommodation study (scripts/study/contact_accommodation/run.py):
+frozen cores carrying module pairs, on two small fixture cores."""
+
+from __future__ import annotations
+
+import csv
+import dataclasses
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+from core.optimization.analysis.contact_envelope import evaluate_fit
+from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("contact_accommodation_run",
+                                              ROOT / "scripts" / "study" / "contact_accommodation" / "run.py")
+study = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = study  # dataclasses look their module up
+spec.loader.exec_module(study)
+
+RULES = ["goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
+         "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
+         "goal.collision.check.a_pin_and_a_prime_pin=true", "goal.hardware.pip_servo.tilt_angle_deg=10",
+         "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
+         "goal.link.distal_length_mm=[25, null]", "goal.link.joint_span_ratio=[null, null]",
+         "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]",
+         "goal.pads.on_links=false", "goal.motion.dip_flexion_deg=120"]
+"""One set of physical rules for both fixture cores."""
+CODE_X = [40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1, 0.0, 3.0]
+"""The linkage study's fixture design, its distal pad mounted 3 mm below BC."""
+DD_X = [45.0, 55.0, 30.0, 29.0, 4.0, 4.0, 90.0]
+"""The 2R-DD fixture design, both pads mounted 4 mm below their segments' lines."""
+CORES = [{"id": "code", "mechanism": "linkage", "config": "scripts/optimize/linkage/config.yaml",
+          "overrides": RULES, "x": CODE_X},
+         {"id": "dd", "mechanism": "revolute", "config": "scripts/optimize/linkage/config.yaml",
+          "overrides": RULES, "x": DD_X}]
+MODULES = {"baseline": {"proximal": {"length_mm": 20, "thickness_mm": 3},
+                        "distal": {"length_mm": 20, "thickness_mm": 3}},
+           "modules": {"baseline": {}, "too_long": {"proximal": {"length_mm": 80}},
+                       "thick": {"proximal": {"thickness_mm": 16}, "distal": {"thickness_mm": 16}}},
+           "sweeps": {"distal": {"sides": ["distal"], "length_mm": [15, 25], "thickness_mm": [3, 8]}}}
+
+
+def write_study(folder: Path, cores=CORES, modules=MODULES) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "cores.yaml").write_text(yaml.safe_dump({"cores": cores}))
+    (folder / "modules.yaml").write_text(yaml.safe_dump(modules))
+    config = folder / "config.yaml"
+    config.write_text(yaml.safe_dump({"cores": str(folder / "cores.yaml"), "modules": str(folder / "modules.yaml"),
+                                      "required_flexion_deg": [90, 120], "max_flexion_limit_deg": 180,
+                                      "output": str(folder / "out")}))
+    return config
+
+
+@pytest.fixture(scope="module")
+def results(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("study")
+    output = study.run(write_study(folder), ROOT)
+    with (output / "assembly_results.csv").open(encoding="utf-8", newline="") as stream:
+        return output, list(csv.DictReader(stream))
+
+
+def test_every_module_pair_is_evaluated_on_both_mechanisms(results):
+    _, rows = results
+    by_mechanism = {}
+    for row in rows:
+        by_mechanism.setdefault(row["mechanism"], set()).add((row["module_id"], row["required_flexion_deg"]))
+    assert set(by_mechanism) == {"linkage", "revolute"}
+    assert by_mechanism["linkage"] == by_mechanism["revolute"]
+    assert len(by_mechanism["linkage"]) == (3 + 4) * 2
+
+
+def test_a_module_changes_neither_the_core_nor_its_mounting_depths():
+    cores = [study.load_core(spec, ROOT) for spec in CORES]
+    frozen = [dataclasses.replace(core) for core in cores]
+    catalog = study.module_catalog(MODULES)
+    study.assemblies(cores, catalog, [120.0], 180.0)
+    assert cores == frozen  # the design vectors and their configs, as loaded
+    reference = catalog[0].modules
+    assert study.mounting_depths(cores[0], reference) == (0.0, 3.0)
+    assert study.mounting_depths(cores[1], reference) == (4.0, 4.0)
+    for core in cores:  # whatever the module carried
+        depths = study.mounting_depths(core, reference)
+        assert all(study.mounting_depths(core, pair.modules) == depths for pair in catalog)
+
+
+def test_the_rows_carry_the_cores_depths_below_the_modules(results):
+    _, rows = results
+    expected = {"code": (0.0, 3.0), "dd": (4.0, 4.0)}
+    for row in rows:
+        proximal, distal = expected[row["core_id"]]
+        assert (float(row["proximal_mount_depth_mm"]), float(row["distal_mount_depth_mm"])) == (proximal, distal)
+        assert float(row["proximal_contact_depth_mm"]) == pytest.approx(proximal + float(row["proximal_thickness_mm"]))
+        assert float(row["distal_contact_depth_mm"]) == pytest.approx(distal + float(row["distal_thickness_mm"]))
+
+
+def test_the_collision_checks_use_the_modules_dimensions_on_the_mounting_depth():
+    from core.morphology.mechanism.linkage.design import decode
+    from core.morphology.mechanism.linkage.packaging import distal_pad_local
+
+    code = study.load_core(CORES[0], ROOT)
+    finger = decode(code.x, code.config.link_length_resolution_mm)
+    for thickness in (3.0, 16.0):
+        config = with_modules(code.config, Modules(20.0, thickness, 20.0, thickness))
+        pad = distal_pad_local(finger, goal_of(config).packaging)
+        assert pad[:, 1].max() == pytest.approx(-3.0) and pad[:, 1].min() == pytest.approx(-3.0 - thickness)
+    # The thin pair clears the fold at 120 deg; the thick one, on the same core, does not.
+    thin = evaluate_fit("linkage", code.x, code.config, Modules(20.0, 3.0, 20.0, 3.0), 120.0)
+    thick = evaluate_fit("linkage", code.x, code.config, Modules(20.0, 16.0, 20.0, 16.0), 120.0)
+    assert thin.feasible and not thick.feasible
+    assert thick.collision_pair == "distal_pad/proximal_pad" and thick.first_failure_deg < 120.0
+
+
+def test_the_maximum_flexion_is_reported_for_feasible_and_failing_assemblies(results):
+    _, rows = results
+    rows = {row["assembly_id"]: row for row in rows}
+    fits = rows["code__baseline__phi120"]
+    assert fits["feasible"] == "True" and float(fits["max_safe_flexion_deg"]) >= 120.0
+    assert fits["first_failure_deg"] == "" and float(fits["contact_coverage"]) > 0.0
+    fails = rows["code__thick__phi120"]
+    assert fails["feasible"] == "False" and fails["reason"] == "pad_pad_collision"
+    assert float(fails["max_safe_flexion_deg"]) == pytest.approx(float(fails["first_failure_deg"]), abs=0.1)
+    assert float(fails["max_safe_flexion_deg"]) < 120.0 and fails["contact_coverage"] == ""
+    # The same thick pair still fits through 90 deg.
+    assert rows["code__thick__phi90"]["feasible"] == "True"
+
+
+def test_a_module_that_does_not_mount_is_reported_and_the_study_goes_on(results):
+    _, rows = results
+    too_long = [row for row in rows if row["module_id"] == "too_long"]
+    assert too_long and all(row["reason"] == "support_exceeded" and row["mounted"] == "False"
+                            and row["max_safe_flexion_deg"] == "" for row in too_long)
+    assert any(row["feasible"] == "True" for row in rows)
+
+
+def test_cores_under_different_physical_rules_are_not_compared(tmp_path):
+    cores = [CORES[0], {**CORES[1], "overrides": [*RULES, "goal.collision.check.proximal_pad_and_distal_pad=false"]}]
+    with pytest.raises(ValueError, match="different physical rules"):
+        study.run(write_study(tmp_path, cores), ROOT)
+
+
+def test_equal_inputs_give_equal_results(results, tmp_path):
+    first, _ = results
+    second = study.run(write_study(tmp_path), ROOT)
+    for name in ("assembly_results.csv", "core_designs.csv", "module_catalog.csv"):
+        assert (first / name).read_bytes() == (second / name).read_bytes()
+    manifest = json.loads((second / "manifest.json").read_text())
+    assert manifest["source"]["commit"] and manifest["required_flexion_deg"] == [90.0, 120.0]
+    assert manifest["cores"]["cores"] == CORES and "pip_servo" in manifest["physical_rules"]

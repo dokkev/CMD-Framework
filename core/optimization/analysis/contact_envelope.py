@@ -330,12 +330,14 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
     return FitResult(True, "feasible")
 
 
-def max_flexion_deg(mechanism: str, x, base_config, modules: Modules, limit_deg: float = 180.0) -> tuple[float, FitResult]:
+def max_flexion_deg(mechanism: str, x, base_config, modules: Modules, limit_deg: float = 180.0,
+                    found_motion: Motion | None = None) -> tuple[float, FitResult]:
     """How far the fixed layout flexes with ``modules``: ``limit_deg`` when it
     fits all through, else the flexion it fails at (the first colliding pose,
-    or the most the four-bar reaches), with the failure."""
+    or the most the four-bar reaches), with the failure (``found_motion``: the
+    layout's :func:`motion` to ``limit_deg``, reused)."""
 
-    fit = evaluate_fit(mechanism, x, base_config, modules, limit_deg)
+    fit = evaluate_fit(mechanism, x, base_config, modules, limit_deg, found_motion)
     return (limit_deg if fit.feasible else fit.first_failure_deg if fit.first_failure_deg is not None else 0.0), fit
 
 

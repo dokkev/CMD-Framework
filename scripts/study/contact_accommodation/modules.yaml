@@ -1,0 +1,36 @@
+# Contact module pairs (mm). Each module is the existing rectangular pad
+# block: its length along its segment from its outer end, its thickness
+# below the core's mounting surface. Every pair is applied to every core.
+# A side not given takes the baseline's.
+baseline:
+  proximal: {length_mm: 20, thickness_mm: 3}
+  distal: {length_mm: 20, thickness_mm: 3}
+
+# Named pairs.
+modules:
+  baseline: {}
+  long:
+    proximal: {length_mm: 35}
+    distal: {length_mm: 35}
+  thick:
+    proximal: {thickness_mm: 8}
+    distal: {thickness_mm: 8}
+  long_thick:
+    proximal: {length_mm: 35, thickness_mm: 8}
+    distal: {length_mm: 35, thickness_mm: 8}
+
+# Grids from the baseline: the listed sides take every length x thickness,
+# the other side the baseline's. Ids: <sweep>_L<length>_T<thickness>.
+sweeps:
+  proximal:
+    sides: [proximal]
+    length_mm: [15, 20, 25, 30, 35, 40, 45]
+    thickness_mm: [3, 5, 8]
+  distal:
+    sides: [distal]
+    length_mm: [15, 20, 25, 30, 35, 40, 45]
+    thickness_mm: [3, 5, 8]
+  combined:
+    sides: [proximal, distal]
+    length_mm: [15, 20, 25, 30, 35, 40, 45]
+    thickness_mm: [3, 5, 8]
