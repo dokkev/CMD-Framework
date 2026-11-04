@@ -5,6 +5,10 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-11-04 (linkage-v11, revolute-goal-v9, idealized-v8, parallel-v8, rcj-goal-v6): 요구조건 계층.
+  - Level 1 finger(|OC|, φ_req), Level 2 contact module(pad 최소 길이, 두께), Level 3 segment 비례(length ratio, joint span ratio), Level 4 mechanism(링크, servo, 핀). 충돌·closure·구동 한계 같은 물리적 feasibility는 계층과 무관하게 항상 hard.
+  - 상위 요구를 위해 하위 요구를 완화할 수 있고 반대는 안 됨. 요구조건은 그것이 속한 물리적 대상에 귀속(finger 길이는 finger, pad는 module, 비례는 segment, 간섭은 mechanism).
+  - 구현: segment에 module 요구(pad 최소 길이 > 0, 또는 고정 길이)가 있으면 그 segment의 하한은 module이 정함(이미 support 제약으로 강제). segment 비례 하한은 그때 hard 제약에서 빠지고, 부족량을 `proximal_ratio_shortfall_mm`/`distal_ratio_shortfall_mm`로 보고(`LinkageConfig.module_sets_segment`, `length_ratio_shortfalls`). module 요구가 없으면 비례 하한은 여전히 hard. 비례 상한과 joint span 비율은 그대로 hard(지금 module과 겹치지 않음). YAML 구조는 그대로(계층형 migration은 나중).
 - 2026-11-04 (linkage-v10): contact interface 장착 기준선을 하나로 통일. CoDe(OA, BC)와 2R-DD(OA, AC) 모두 장착면이 링크선 위(offset 항상 0), 두께는 palmar 쪽. 핀·servo·링크는 충돌 제약으로만 다루고 pad를 내려서 피하지 않음(자기 핀 아래를 지나는 pad는 infeasible). 2026-11-03의 조건부 offset(핀 아래면 3 mm)과 fixed-layout의 offset 고정(`pad_offsets_mm`, `mounting_offsets`)은 없앰: 기준선이 하나라 모듈을 바꿔도 변하지 않음. idealized·belt 2R은 그대로(A 핀 housing에 접함).
 - 2026-11-03 (linkage-v9, revolute-goal-v8, idealized-v7, parallel-v7, rcj-goal-v5), 외부 리뷰 반영:
   - 길이 비율은 segment(|OA″|, |B″C|) 기준으로 모든 메커니즘에 일관되게 적용. linkage 탐색은 더 이상 A_x를 비율로 좁히지 않음(평가가 허용하는 설계를 탐색이 미리 빼던 문제). 2R·RCJ도 OA·AC 대신 segment로 검사하고 탐색 범위도 비율로 좁히지 않음.

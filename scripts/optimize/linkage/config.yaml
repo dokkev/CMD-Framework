@@ -93,6 +93,12 @@ goal:
     # anyway, as |OA| and BC then; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
     # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
     # distal_length_mm and joint_span_mm, optional, bound them in mm.)
+    # Requirement hierarchy (2026-11-04): finger (length, flexion), then the
+    # contact modules (goal.pads), then these proportions, then the mechanism;
+    # physical feasibility (collisions, closure) always. Where a pad's least
+    # length is set (> 0), it, not the segment's least share, bounds that
+    # segment from below: the share gives way, its shortfall reported
+    # (*_ratio_shortfall_mm). Without a module the least share is a constraint.
     proximal_length_ratio: [0.35, null]
     distal_length_ratio: [0.25, null]
     joint_span_ratio: [null, 0.35]

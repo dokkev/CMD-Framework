@@ -127,7 +127,10 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         static["pad_collision_mm"] = -min(float(margin[0]) for margin in margins_at_rest.values())
     for name in stages[0] + stages[1]:
         static.setdefault(name, UNSWEPT)
+    shortfalls = goal.length_ratio_shortfalls(v["app_x_mm"], v["bc_length_mm"] - v["bpp_from_b_mm"],
+                                              geo.finger_length_mm)
     common = dict(x=tuple(float(value) for value in x), finger_length_mm=geo.finger_length_mm,
+                  proximal_ratio_shortfall_mm=shortfalls[0], distal_ratio_shortfall_mm=shortfalls[1],
                   proximal_length_mm=geo.a_x_mm, required_rom_rad=goal.required_rom_rad,
                   proximal_support_length_mm=geo.proximal_length_mm,
                   distal_support_length_mm=geo.distal_length_mm,

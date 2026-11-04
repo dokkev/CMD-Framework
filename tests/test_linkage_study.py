@@ -383,13 +383,34 @@ def test_the_links_may_be_bounded_as_shares_of_the_finger():
     # The finger's segments: |OA''| and |B''C|.
     e = MECHANISM.evaluate(X, load())
     oc, proximal, distal = e.finger_length_mm, e.finger.proximal.length_mm, e.finger.distal.length_mm
-    low = MECHANISM.evaluate(X, load(f"goal.link.proximal_length_ratio=[{(proximal + 2.0) / oc}, null]"))
+    # With no contact module on the segment, its least share is a constraint.
+    free = "goal.pads.proximal.length_mm=[0, null]"
+    low = MECHANISM.evaluate(X, load(free, f"goal.link.proximal_length_ratio=[{(proximal + 2.0) / oc}, null]"))
     assert low.constraints["proximal_length_mm"] == pytest.approx(2.0, abs=1e-6)
+    assert low.proximal_ratio_shortfall_mm == 0.0
     high = MECHANISM.evaluate(X, load(f"goal.link.distal_length_ratio=[null, {(distal - 3.0) / oc}]"))
     assert high.constraints["proximal_length_mm"] == pytest.approx(3.0, abs=1e-6)
     assert MECHANISM.evaluate(X, load("goal.link.proximal_length_ratio=[0.2, 0.5]",
                                       "goal.link.distal_length_ratio=[0.2, 0.45]")).constraints[
         "proximal_length_mm"] <= 0.0
+
+
+def test_a_contact_module_sets_its_segments_least_length():
+    # The requirement hierarchy: the module's least length (here 20 mm on the
+    # proximal segment) bounds the segment from below, not its proportion,
+    # which gives way and is reported; physical feasibility holds either way.
+    e = MECHANISM.evaluate(X, load())
+    oc, proximal = e.finger_length_mm, e.finger.proximal.length_mm
+    ratio = f"goal.link.proximal_length_ratio=[{(proximal + 2.0) / oc}, null]"
+    relaxed = MECHANISM.evaluate(X, load(ratio))
+    assert relaxed.feasible and relaxed.constraints["proximal_length_mm"] <= 0.0
+    assert relaxed.proximal_ratio_shortfall_mm == pytest.approx(2.0, abs=1e-6)
+    assert MECHANISM.report(relaxed)["proximal_ratio_shortfall_mm"] == pytest.approx(2.0, abs=1e-6)
+    # A module the segment cannot carry is still infeasible, whatever the proportion.
+    big = MECHANISM.evaluate(X, load(ratio, "goal.pads.proximal.length_mm=[40, null]"))
+    assert not big.feasible and big.constraints["proximal_support_mm"] > 0.0
+    # The distal segment keeps its own: no module relaxes what is not its own.
+    assert relaxed.distal_ratio_shortfall_mm == 0.0
 
 
 def test_the_four_bar_span_may_be_bounded_as_a_share():

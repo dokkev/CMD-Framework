@@ -131,7 +131,7 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v10"
+    formulation = "linkage-v11"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -166,7 +166,8 @@ class LinkageMechanism(Mechanism):
     by the shared rule (``faces.crossing_free_lengths``); the search no longer
     bounds ``A`` by the proximal segment ratio (it bounds ``|OA''|``). v10
     (2026-11-04): every pad mounted on its link line (offset 0, as the
-    2R-DD's), its pins and the servo collisions only; no pad runs under its pin."""
+    2R-DD's), its pins and the servo collisions only; no pad runs under its pin.
+    v11 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -264,6 +265,8 @@ class LinkageMechanism(Mechanism):
             "torque_ratio_max": e.torque_ratio_max,
             "pad_coverage": e.pad_coverage,
             "curl_deg": e.curl_deg,
+            "proximal_ratio_shortfall_mm": e.proximal_ratio_shortfall_mm,
+            "distal_ratio_shortfall_mm": e.distal_ratio_shortfall_mm,
             "proximal_effective_mm": e.proximal_effective_mm,
             "distal_effective_mm": e.distal_effective_mm,
             "mounted_coverage": e.mounted_coverage,

@@ -372,19 +372,45 @@ class LinkageConfig:
         count = int(math.floor(self.servo_horizon_rad / self.servo_step_rad + 1e-9)) + 1
         return tuple(index * self.servo_step_rad for index in range(count))
 
+    def module_sets_segment(self, side: str) -> bool:
+        """Whether a contact module requirement (``goal.pads.<side>.length_mm``'s
+        min, or a fixed length) bounds the ``side`` segment from below: then it,
+        not the segment's ratio, sets that bound (the requirement hierarchy,
+        2026-11-04: finger, then the contact modules, then the segments'
+        proportions, then the mechanism; physical feasibility always)."""
+
+        minimum = self.minimum_proximal_support_mm if side == "proximal" else self.minimum_distal_support_mm
+        return minimum > 0.0 or getattr(self.packaging, f"{side}_pad").length_mm is not None
+
     def length_ratio_violations(self, proximal_mm: float, distal_mm: float, span_mm: float,
                                 finger_mm: float) -> list[float]:
-        """How far (mm) the proximal and distal lengths and the span lie outside their shares
+        """How far (mm) the proximal and distal segments and the span lie outside their shares
         of the extended ``|OC|`` (``goal.link.*_ratio``), one value per bound
-        set (each mechanism's constraint: none positive)."""
+        set (each mechanism's constraint: none positive). A segment's least
+        share is left out where a contact module sets that segment's bound
+        (:meth:`module_sets_segment`; :meth:`length_ratio_shortfalls` reports it)."""
 
         violations = []
-        for value, (low, high) in ((proximal_mm, self.proximal_length_ratio_bounds),
-                                   (distal_mm, self.distal_length_ratio_bounds),
-                                   (span_mm, self.joint_span_ratio_bounds)):
+        for side, value, (low, high) in (("proximal", proximal_mm, self.proximal_length_ratio_bounds),
+                                         ("distal", distal_mm, self.distal_length_ratio_bounds),
+                                         (None, span_mm, self.joint_span_ratio_bounds)):
+            if side is not None and self.module_sets_segment(side):
+                low = None  # the module's requirement wins: the proportion a preference here
             violations += [v for v in (None if low is None else low * finger_mm - value,
                                        None if high is None else value - high * finger_mm) if v is not None]
         return violations
+
+    def length_ratio_shortfalls(self, proximal_mm: float, distal_mm: float, finger_mm: float) -> tuple[float, float]:
+        """How far (mm, 0 or more) each segment falls short of its least share
+        of ``|OC|`` where a contact module relaxed it (else 0: a constraint
+        then): how far the anatomical proportion gave way to the module."""
+
+        shortfalls = []
+        for side, value, (low, _) in (("proximal", proximal_mm, self.proximal_length_ratio_bounds),
+                                      ("distal", distal_mm, self.distal_length_ratio_bounds)):
+            relaxed = low is not None and self.module_sets_segment(side)
+            shortfalls.append(max(low * finger_mm - value, 0.0) if relaxed else 0.0)
+        return shortfalls[0], shortfalls[1]
 
     def icr0_violations(self, icr_x_mm: float | None, finger_mm: float) -> list[float]:
         """How far (mm) the extended centre of rotation at ``icr_x_mm`` lies

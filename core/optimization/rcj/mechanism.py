@@ -25,7 +25,7 @@ def bound_hits(x: Sequence[float], config: RcjConfig, finger_length_mm: float) -
 
 class RcjMechanism(RevoluteMechanism):
     name = "rcj"
-    formulation = "rcj-goal-v5"
+    formulation = "rcj-goal-v6"
     """The RCJ on the linkage's goal (2026-10-27): equal rollers, the servo on
     the proximal roller's centre driving the carrier (``k = 2``), laid back
     along ``-X`` as the 2R's; ideal no-slip rolling, the cables not modelled
@@ -38,7 +38,7 @@ class RcjMechanism(RevoluteMechanism):
     ``usable_lengths``, as the linkage's v8) and none mounted past that
     (``pad_waste_mm``), the segment ratios without maxima
     (its own pads, drops and carrier unchanged). v5: the segment ratios on
-    ``|OA''|`` and ``|B''C|``, as the linkage's and the 2R's."""
+    ``|OA''|`` and ``|B''C|``, as the linkage's and the 2R's. v6 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 

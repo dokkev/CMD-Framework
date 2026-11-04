@@ -232,7 +232,12 @@ def test_the_segment_ratios_bound_the_segments_as_the_linkages():
 
     # |OA''| = A''_x and |B''C| = |AC| - B'' from A, as shares of |OC| (here 100).
     assert segment_lengths(X) == pytest.approx((30.0, 26.0))
-    config = load("goal.link.proximal_length_ratio=[0.35, null]")
+    # No proximal module: the least share is a constraint.
+    config = load("goal.link.proximal_length_ratio=[0.35, null]", "goal.pads.proximal.length_mm=[0, null]")
     assert MECHANISM.evaluate(X, config).constraints["proximal_length_mm"] == pytest.approx(5.0)
+    # A proximal module (20 mm): it sets the segment's bound, the share gives way and is reported.
+    relaxed = MECHANISM.evaluate(X, load("goal.link.proximal_length_ratio=[0.35, null]"))
+    assert relaxed.constraints["proximal_length_mm"] <= 0.0
+    assert relaxed.proximal_ratio_shortfall_mm == pytest.approx(5.0)
     config = load("goal.link.distal_length_ratio=[0.25, null]")
     assert MECHANISM.evaluate(X, config).constraints["proximal_length_mm"] <= 0.0
