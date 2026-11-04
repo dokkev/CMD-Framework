@@ -3,6 +3,7 @@
 
     python scripts/optimize/run.py                                     # scripts/optimize/linkage/config.yaml
     python scripts/optimize/run.py <config> --append   # into a folder that has runs already
+    python scripts/optimize/run.py scripts/study/<file>.yaml   # the paper's mechanism comparison
 
 The config file is the only input. Its folder names the mechanism
 (``scripts/optimize/<mechanism>/``; a top-level ``mechanism:`` entry

@@ -1,0 +1,8 @@
+# CoDe (crossed four-bar), the PIP servo laid back 10 deg: the prototype's
+# layout, the servo against the MCP servo's body.
+base: base.yaml
+mechanism: linkage
+goal:
+  hardware:
+    pip_servo:
+      tilt_angle_deg: 10

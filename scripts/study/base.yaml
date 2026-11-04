@@ -1,0 +1,25 @@
+# The paper's mechanism comparison: one goal, one search budget, every
+# mechanism. Each file here extends this one and names its mechanism and
+# what it changes (the PIP servo's tilt, ...):
+#
+#   python scripts/optimize/run.py scripts/study/<file>.yaml
+#
+# runs to output/study/<mechanism>/<file name>/ (run_NNN, portfolio_NNN).
+# Change the goal here, for every mechanism at once, not in one file.
+base: ../optimize/linkage/config.yaml
+output: output/study
+
+goal:
+  motion:
+    dip_flexion_deg: 120
+  link:
+    finger_length_mm: [80, 90]
+  pads:
+    # Both pads mounted at one offset below their link lines (searched).
+    align_mount_offsets: true
+
+solver:
+  optimizer:
+    preset: search
+    # No warm start: the production samples were drawn under another goal.
+    warm_start: []
