@@ -76,7 +76,7 @@ def test_the_search_coordinates_round_trip():
     config = load("goal.hardware.pip_servo.tilt_angle_deg=[0, 90]")
     assert MECHANISM.to_design(MECHANISM.from_design(X, config), config) == pytest.approx(X)
     lower, upper = MECHANISM.search_box(config)
-    assert len(lower) == len(upper) == len(MECHANISM.search_names(config)) == 7  # the drops not searched
+    assert len(lower) == len(upper) == len(MECHANISM.search_names(config)) == 9  # the drops: the mounting offsets, searched
     assert MECHANISM.config_from_json(MECHANISM.config_to_json(config)) == config
 
 

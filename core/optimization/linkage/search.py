@@ -19,7 +19,8 @@ hold by construction:
    pad's end a share of its range, along the extended finger: ``A''_x`` from
    the pad's start plus its least length to ``C`` less the distal pad's least
    length (and at most ``proximal_pad_past_icr_max_mm`` past the extended
-   centre of rotation), ``B''_x`` from ``A''_x`` (the pads side by side) to the same
+   centre of rotation), ``B''_x`` from ``A''_x`` (the pads side by side) to the same,
+   each pad, on its link line, off its own joint's pin (:func:`_clear_of_pins`)
    (:func:`search_names`); with ``pads_on_links``, not searched: the proximal
    pad ends at ``A`` and the distal one starts at ``B``.
 
@@ -38,15 +39,15 @@ import numpy as np
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
 
-from core.morphology.mechanism.linkage.design import VARIABLE_NAMES
+from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
 from core.morphology.mechanism.linkage.measures import extended_icr_x, symmetric_bp
 
 from core.optimization.linkage.config import LinkageConfig
 
 
 SEARCH_NAMES = ("finger_length_mm", "bc_length_mm", "b_z_mm", "a_z_mm", "ap_from_a_z_mm", "ap_x_share",
-                "a_x_share", "bp_from_b_x_mm", "bp_from_b_z_mm", "servo_tilt_from_min_deg", "app_offset_mm",
-                "bpp_offset_mm")
+                "a_x_share", "bp_from_b_x_mm", "bp_from_b_z_mm", "servo_tilt_from_min_deg",
+                "proximal_mount_offset_mm", "distal_mount_offset_mm", "app_offset_mm", "bpp_offset_mm")
 SHARE_STEP = 0.001
 """Grid step of a share of a range."""
 FLOOR_STEP_MM = 0.5
@@ -63,13 +64,15 @@ SYMMETRIC_DROPPED = ("bp_from_b_x_mm", "bp_from_b_z_mm")
 
 def search_names(config: LinkageConfig) -> tuple[str, ...]:
     """:data:`SEARCH_NAMES`, the pad offsets as shares with the pads off their
-    pins, without ``B'`` in a symmetric four-bar."""
+    pins, without ``B'`` in a symmetric four-bar, without the distal mounting
+    offset when the two are aligned (the proximal one sets both)."""
 
     if config.pads_on_links:  # the pads set by the links
         names = SEARCH_NAMES[:-2]
     else:
         names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
-    return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED))
+    return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED)
+                 and not (config.align_mount_offsets and name == "distal_mount_offset_mm"))
 
 
 def _pad_ranges(config: LinkageConfig, b_x: float, bc: float,
@@ -83,6 +86,33 @@ def _pad_ranges(config: LinkageConfig, b_x: float, bc: float,
     past = config.proximal_pad_past_icr_max_mm
     proximal_last = last if past is None or icr_x is None else min(last, icr_x + past)
     return (packaging.proximal_pad_start_mm + config.minimum_proximal_support_mm, proximal_last), last
+
+
+def _reach_into_block(center_z: float, radius: float, top: float, bottom: float) -> float:
+    """How far along the line a disk of ``radius`` at height ``center_z``
+    reaches into a block between ``bottom`` and ``top`` (0: it misses it)."""
+
+    if center_z - radius >= top or center_z + radius <= bottom:
+        return 0.0
+    nearest = min(max(center_z, bottom), top)  # the block's height nearest the centre
+    return math.sqrt(max(radius ** 2 - (center_z - nearest) ** 2, 0.0))
+
+
+def _clear_of_pins(config: LinkageConfig, a_x: float, a_z: float, b_x: float,
+                   offsets: tuple[float, float] = (0.0, 0.0)) -> tuple[float, float]:
+    """The most ``A''_x`` and the least ``B''_x`` that keep each pad, mounted
+    ``offsets`` below its link line, off its own joint's pin housing (``A``
+    on its axis ``a_z`` above the proximal line, ``B`` on ``B-C``): short of
+    the pin where its housing reaches into the pad's block, anywhere when the
+    pad hangs below it (a deep enough offset). The evaluation checks the
+    housings (``pads_off_pins``); the search does not offer pads it would
+    always reject, whose violation (the housing's radius) shows no way out."""
+
+    packaging, radius = config.packaging, config.packaging.pivot_radius_mm
+    proximal_reach = _reach_into_block(a_z, radius("a"), -offsets[0], -offsets[0] - packaging.proximal_pad.height_mm)
+    distal_reach = _reach_into_block(0.0, radius("b"), -offsets[1], -offsets[1] - packaging.distal_pad.height_mm)
+    return (a_x - proximal_reach if proximal_reach > 0.0 else math.inf,
+            b_x + distal_reach if distal_reach > 0.0 else -math.inf)
 
 
 @functools.lru_cache(maxsize=256)
@@ -130,7 +160,8 @@ def search_box(config: LinkageConfig) -> tuple[tuple[float, ...], tuple[float, .
         "bp_from_b_x_mm": relative["bp_from_b_x_mm"],
         "bp_from_b_z_mm": relative["bp_from_b_z_mm"],
         "servo_tilt_from_min_deg": (0.0, float(tilts_deg(config)[-1] - bounds["servo_tilt_deg"][0])),
-        **{name: bounds[name] for name in ("app_offset_mm", "bpp_offset_mm")},
+        **{name: bounds[name] for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm",
+                                           "app_offset_mm", "bpp_offset_mm")},
         **{name: (0.0, 1.0) for name in PAD_SHARE_NAMES},
     }
     names = search_names(config)
@@ -172,6 +203,8 @@ def _on_grid(value: float, resolution: float) -> float:
 
 def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[float, ...] | None:
     v = dict(zip(search_names(config), (float(c) for c in coordinates)))
+    if config.align_mount_offsets:
+        v["distal_mount_offset_mm"] = v["proximal_mount_offset_mm"]
     resolution = config.resolution_mm
     grid = lambda value: _on_grid(value, resolution)  # noqa: E731
     b_x = grid(math.sqrt(max(v["finger_length_mm"] ** 2 - v["b_z_mm"] ** 2, 0.0)) - v["bc_length_mm"])
@@ -201,24 +234,34 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
     elif config.packaging.pads_off_pins:
         icr_x = extended_icr_x((a_x, v["a_z_mm"]), (ap_x, ap_z), (b_x, v["b_z_mm"]), (bp_x, bp_z))
         (p_low, p_high), d_high = _pad_ranges(config, b_x, v["bc_length_mm"], icr_x)
+        offsets = (grid(v["proximal_mount_offset_mm"]), grid(v["distal_mount_offset_mm"]))
+        proximal_most, distal_least = _clear_of_pins(config, a_x, v["a_z_mm"], b_x, offsets)
+        p_high = min(p_high, proximal_most)
         if p_high < p_low:
             return None
         app = grid(p_low + v["app_share"] * (p_high - p_low))
+        d_low = max(app, distal_least)
+        if d_high < d_low:
+            return None
         v["app_offset_mm"] = grid(app - ap_x)
-        v["bpp_offset_mm"] = grid(bp_x - grid(app + v["bpp_share"] * (d_high - app)))
+        v["bpp_offset_mm"] = grid(bp_x - grid(d_low + v["bpp_share"] * (d_high - d_low)))
     design = {
         "a_x_mm": a_x, "b_x_mm": b_x, "b_z_mm": v["b_z_mm"], "ap_x_mm": ap_x, "ap_z_mm": ap_z,
         "bp_x_mm": bp_x, "bp_z_mm": bp_z,
         "servo_tilt_deg": tilt,
         **{name: v[name] for name in ("bc_length_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
+        **{name: grid(v[name]) for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm")},
     }
     return tuple(design[name] for name in VARIABLE_NAMES)
 
 
 def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
-    """Search coordinates of a design (the shares clipped to their ranges)."""
+    """Search coordinates of a design (the shares clipped to their ranges;
+    variables the vector predates at their defaults)."""
 
-    d = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    d = {**DEFAULT_VALUES, **dict(zip(VARIABLE_NAMES, (float(value) for value in x)))}
+    if config.align_mount_offsets:  # a design with its own offsets: the proximal one for both
+        d["distal_mount_offset_mm"] = d["proximal_mount_offset_mm"]
     ap_range, a_range = _ranges(config, d["b_x_mm"], d["ap_z_mm"], d["servo_tilt_deg"],
                                 math.hypot(d["b_x_mm"] + d["bc_length_mm"], d["b_z_mm"]))
 
@@ -234,15 +277,18 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
         "bp_from_b_z_mm": d["bp_z_mm"] - d["b_z_mm"],
         "servo_tilt_from_min_deg": float(round((d["servo_tilt_deg"] - config.bounds["servo_tilt_deg"][0])
                                                / config.tilt_step_deg) * config.tilt_step_deg),
-        **{name: d[name] for name in ("bc_length_mm", "b_z_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm")},
+        **{name: d[name] for name in ("bc_length_mm", "b_z_mm", "a_z_mm", "app_offset_mm", "bpp_offset_mm",
+                                      "proximal_mount_offset_mm", "distal_mount_offset_mm")},
     }
     if config.packaging.pads_off_pins and not config.pads_on_links:
         icr_x = extended_icr_x((d["a_x_mm"], d["a_z_mm"]), (d["ap_x_mm"], d["ap_z_mm"]),
                                (d["b_x_mm"], d["b_z_mm"]), (d["bp_x_mm"], d["bp_z_mm"]))
         (p_low, p_high), d_high = _pad_ranges(config, d["b_x_mm"], d["bc_length_mm"], icr_x)
+        proximal_most, distal_least = _clear_of_pins(config, d["a_x_mm"], d["a_z_mm"], d["b_x_mm"],
+                                                     (d["proximal_mount_offset_mm"], d["distal_mount_offset_mm"]))
         app = d["ap_x_mm"] + d["app_offset_mm"]
-        coordinates["app_share"] = share(app, p_low, p_high)
-        coordinates["bpp_share"] = share(d["bp_x_mm"] - d["bpp_offset_mm"], app, d_high)
+        coordinates["app_share"] = share(app, p_low, min(p_high, proximal_most))
+        coordinates["bpp_share"] = share(d["bp_x_mm"] - d["bpp_offset_mm"], max(app, distal_least), d_high)
     return tuple(coordinates[name] for name in search_names(config))
 
 

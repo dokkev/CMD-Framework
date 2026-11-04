@@ -95,7 +95,11 @@ def test_every_mechanism_has_a_view(name):
     found = mechanism(name)
     config = load_yaml(found, CONFIG, () if name == "linkage" else OPEN)[0]
     low, high = map(np.asarray, found.search_box(config))
-    x = found.to_design(np.round((low + high) / 2.0), config)
+    steps = np.asarray(found.search_steps(config))
+    rng = np.random.default_rng(0)
+    x = found.to_design(np.round((low + high) / 2.0 / steps) * steps, config)
+    while x is None:  # the middle of the box may leave no room for a pad clear of its pins
+        x = found.to_design(np.round((low + rng.random(len(low)) * (high - low)) / steps) * steps, config)
     view = view_of(name, config, x)
     pose = min(45.0, view.reachable_deg())
     assert view.margins([0.0, pose]) and view.tip(pose).shape == (2,)

@@ -190,6 +190,11 @@ class Finger:
     servo: ServoMount = field(default_factory=ServoMount)
     middle: Segment | None = None
     """Between the proximal and distal segments, for a three-joint finger (``None``: two joints)."""
+    pad_offsets_mm: tuple[float, float] = (0.0, 0.0)
+    """How far palmar of the proximal and the distal segment's line each
+    contact interface's mounting surface lies (``d``, 0 or more; the module's
+    thickness runs palmar of it): the segment's line the one datum, the
+    offset a design choice (2026-11-04)."""
 
     def __post_init__(self) -> None:
         for name in ("proximal", "distal"):
@@ -199,6 +204,8 @@ class Finger:
             raise NotImplementedError("a three-joint finger (a middle segment) is not modelled yet")
         if not isinstance(self.servo, ServoMount):
             raise TypeError("servo must be a ServoMount")
+        if len(self.pad_offsets_mm) != 2 or not all(math.isfinite(d) and d >= 0.0 for d in self.pad_offsets_mm):
+            raise ValueError("pad_offsets_mm must be two offsets, 0 or more")
 
     # The segments' points in the extended pose, in the proximal frame.
 

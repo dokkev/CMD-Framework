@@ -13,9 +13,9 @@ directly, so ``k = 1``.
 
 Every rule is the linkage's goal (``core.optimization.linkage.config``),
 but for where the pads sit: each is its segment's contact interface space,
-starting on ``O-A`` and ``A-C`` for the 2R-DD (its servo's shaft is the
-joint, the servo a collision, as the linkage's PIP servo) and tangent to
-``A``'s pin housing for the others, parallel to the segments (:func:`interfaced`; the drops were searched before 2026-11-03). The
+mounted a searched offset (its drop) below ``O-A`` or ``A-C`` on the goal's
+range (``goal.pads.*.mount_offset_mm``, the linkage's: 2026-11-04), the
+joint's servo and pin housing collisions, parallel to the segments. The
 proximal pad is laid from the MCP servo to ``A''``, the distal one from
 ``C`` to ``B''``, each as far toward and past the joint as its overhang
 allows (``pad_reach_mm``). The distal phalanx is a truss of
@@ -63,9 +63,6 @@ CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
 
-DROPS = (VARIABLE_NAMES.index("distal_drop_mm"), VARIABLE_NAMES.index("proximal_drop_mm"))
-
-
 def segment_lengths(x: Sequence[float]) -> tuple[float, float]:
     """The 2R's segments, as the linkage's: ``|OA''|`` (``O`` to where the
     proximal body ends) and ``|B''C|`` (where the distal body starts to ``C``)."""
@@ -74,24 +71,11 @@ def segment_lengths(x: Sequence[float]) -> tuple[float, float]:
     return v["app_x_mm"], v["ac_length_mm"] - v["bpp_from_a_mm"]
 
 
-def interfaced(x: Sequence[float], joint_radius_mm: float) -> tuple[float, ...]:
-    """``x`` with each pad's contact interface space starting its drop
-    ``RevoluteConfig.interface_radius_mm`` below its segment's line (the
-    2R-DD's on it, the others' tangent to ``A``'s pin housing),
-    whatever drops the vector holds (searched before 2026-11-03), as the
-    linkage's pads start tangent to their pins; the servo on the joint is
-    the checks' (the pads against it, statically and through the motion)."""
-
-    y = [float(value) for value in x]
-    for index in DROPS:
-        y[index] = float(joint_radius_mm)
-    return tuple(y)
-
-
 def geometry(x: Sequence[float], config: RevoluteConfig) -> RevoluteGeometry:
-    """The solids of a design vector, with the study's packaging, its pads tangent to the pin's housing."""
+    """The solids of a design vector, with the study's packaging, each pad
+    mounted its drop (its searched offset) below its segment's line."""
 
-    return solids.geometry(interfaced(x, config.interface_radius_mm), config.goal.packaging)
+    return solids.geometry(x, config.goal.packaging)
 
 
 def joint_checks(config: RevoluteConfig) -> JointChecks:
@@ -344,4 +328,4 @@ def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.nda
 
 
 __all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "evaluate", "geometry", "hyperextension_violation",
-           "interfaced", "joint_checks", "segment_lengths", "usable_lengths"]
+           "joint_checks", "segment_lengths", "usable_lengths"]

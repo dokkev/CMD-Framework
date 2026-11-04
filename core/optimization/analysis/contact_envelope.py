@@ -373,9 +373,7 @@ def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
                      "active_joints": {"O": [0.0, 0.0], "A": [v["a_x_mm"], 0.0]}, "passive_joints": {},
                      "pip_servo_tilt_deg": v["servo_tilt_deg"],
                      "supports_end_x_mm": {"A''": v["app_x_mm"], "B''": v["a_x_mm"] + v["bpp_from_a_mm"]},
-                     # The joint sets them (the vector's drops are not read since 2026-11-03).
-                     "pad_drops_mm": {side: getattr(config, "interface_radius_mm", v[f"{side}_drop_mm"])
-                                      for side in ("proximal", "distal")}})
+                     "pad_drops_mm": {"proximal": v["proximal_drop_mm"], "distal": v["distal_drop_mm"]}})
     return info
 
 

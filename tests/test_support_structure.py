@@ -148,7 +148,7 @@ def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
 
     block = pad_outline(PadSpan(0.0, 30.0, 30.0), ContactPad(height_mm=5.0))
     assert block == pytest.approx(np.array(((0.0, -5.0), (30.0, -5.0), (30.0, 0.0), (0.0, 0.0))))
-    assert encode(decode(GOOD)) == (*GOOD, 0.0, 0.0)
+    assert encode(decode(GOOD)) == (*GOOD, 0.0, 0.0, 0.0, 0.0)  # (the offsets, then the mounting offsets)
     # Runs before the chamfers went (deprecated): their chamfers are left out.
     row = {name: str(value) for name, value in zip(("a_x_mm", "b_x_mm", "b_z_mm", "ap_x_mm", "ap_z_mm", "bp_x_mm",
                                                     "bp_z_mm", "servo_tilt_deg", "bc_length_mm", "a_z_mm"), GOOD)}
@@ -156,8 +156,8 @@ def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
     recorded = {"height_mm": 5.0, "chamfer_mm": 2.5, "chamfer_free": True}
     plain = LinkagePackaging(proximal_pad=ContactPad(height_mm=5.0))
     assert packaging_from_mapping({"proximal_pad": recorded}) == plain
-    with pytest.raises(ValueError):  # a vector of a length it never had (13: an old one with its chamfers?)
-        decode((*GOOD, 0.0, 0.0, 2.5))
+    with pytest.raises(ValueError):  # a vector of a length it never had (15)
+        decode((*GOOD, 0.0, 0.0, 2.5, 2.5, 1.0))
     # The PIP servo on A' (the only one modelled): a recorded "ap" is left out, "a" refused.
     assert packaging_from_mapping({"pip_servo_at": "ap"}) == LinkagePackaging()
     with pytest.raises(ValueError):

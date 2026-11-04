@@ -87,7 +87,7 @@ A''=(A'_x+\delta_{A''},\,0),\qquad B''=(B'_x,\,B_z).
 
 `A''`는 `A'`를 proximal mounting line(`x`축)에 정사영한 점에서 `δ_{A''} ≥ 0`만큼 distal로 간 점이고(`δ = 0`이면 `A'` 바로 아래), `B''`는 `B'`를 distal mounting line(`BC`)에 정사영한 점이다. 둘 다 회전 관절이 아니라 body에 고정된 끝점이다.
 
-**Pad 형상 (contact interface space).** Pad는 각 링크의 contact interface space로, 사각 블록 `a–b–d–c`이며 링크 밖으로 돌출할 수 있다. `a–b`(장착면)는 링크선(`OA`, `BC`) 위에 있다(offset 0, 2026-11-04, 2R-DD도 같음). 두께는 거기서 palmar 쪽이다. 핀 housing, servo, 링크는 충돌 검사로만 다루고, pad를 내려서 피하지 않는다: 자기 핀 아래를 지나는 pad는 성립하지 않는다. `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다(`LinkagePackaging.interface_offset_mm`). 모듈과 장착부는 모두 이 공간 안에 있다고 보고 따로 모델링하지 않는다(2026-11-03: drop 설정과 distal carrier 판 삭제, formulation `linkage-v7`). 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
+**Pad 형상 (contact interface space).** Pad는 각 링크의 contact interface space로, 사각 블록 `a–b–d–c`이며 링크 밖으로 돌출할 수 있다. `a–b`(장착면)는 링크선(`OA`, `BC`: 단일 기준선)에서 offset d만큼 palmar 쪽에 있고, 두께 h는 거기서 다시 palmar 쪽이다(면 깊이 D = d + h). d는 설계 변수로 `goal.pads.*.mount_offset_mm` 범위에서 탐색하며(2026-11-04, 2R도 같은 범위), 핀 housing·servo·링크는 어떤 d에서도 충돌 검사로 다룬다: 링크선 근처에 두면 pad가 자기 핀 앞에서 끝나야 하고, 핀 아래로 내리면 핀 너머로 늘릴 수 있지만 면이 깊어져 접힘에서 더 잃는다. `c–d`는 그로부터 palmar(`−Z`) 쪽으로 height만큼 내려간다(`LinkagePackaging.interface_offset_mm`). 모듈과 장착부는 모두 이 공간 안에 있다고 보고 따로 모델링하지 않는다(2026-11-03: drop 설정과 distal carrier 판 삭제, formulation `linkage-v7`). 각 pad는 config `packaging.proximal_pad`, `packaging.distal_pad`의 두 값으로 정한다(`ContactPad`):
 
 | 값 | 의미 |
 |---|---|

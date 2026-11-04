@@ -236,12 +236,15 @@ def test_the_linkage_needs_a_four_bar_joint():
 
 def test_the_design_vector_reads_its_past_layouts():
     current = decode(X, 0.1)
-    # 16: with the deprecated chamfers between the offsets and the drops.
-    assert encode(decode((*X[:12], 2.5, 2.5, *X[12:]), 0.1)) == pytest.approx(encode(current))
+    # 14: the drops of 2026-10-28 to 11-03 read as the mounting offsets (the same place).
+    assert current.pad_offsets_mm == pytest.approx(tuple(X[12:14])) and encode(current)[12:] == pytest.approx(X[12:14])
+    # 16: with the deprecated chamfers between the offsets and the drops: neither read.
+    chamfered = decode((*X[:12], 2.5, 2.5, *X[12:]), 0.1)
+    assert encode(chamfered)[:12] == pytest.approx(encode(current)[:12]) and chamfered.pad_offsets_mm == (0.0, 0.0)
     # Before the offsets and the drops: those at their defaults.
     assert encode(decode(X[:12], 0.1))[:12] == pytest.approx(encode(current)[:12])
-    assert all(math.isnan(v) for v in encode(decode(X[:12], 0.1))[12:])
-    for length in (8, 13, 15, 17):
+    assert encode(decode(X[:12], 0.1))[12:] == (0.0, 0.0)  # on the link lines
+    for length in (8, 15, 17):
         with pytest.raises(ValueError):
             decode((*X, 0.0, 0.0, 0.0)[:length], 0.1)
 

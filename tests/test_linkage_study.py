@@ -267,7 +267,16 @@ def test_the_search_coordinates_keep_the_simple_constraints():
         assert 90.0 - 0.1 <= d["b_x_mm"] + d["bc_length_mm"] <= 110.0 + 0.1
         assert d["ap_x_mm"] >= search.least_ap_x(config, d["ap_z_mm"], d["servo_tilt_deg"]) - 0.1
         assert all(abs(v * 10 - round(v * 10)) < 1e-6 for v in d.values() if v == v)  # on the 0.1 mm grid (NaN: the packaging's drop)
-    assert designs > 200
+        # Each pad ends off its own joint's pin (A, B: 3 mm) unless hung below it.
+        finger = decode(x)  # (unrounded: a design whose bars do not close is the evaluation's to reject)
+        proximal_most, distal_least = search._clear_of_pins(config, d["a_x_mm"], d["a_z_mm"], d["b_x_mm"],
+                                                            finger.pad_offsets_mm)
+        assert finger.proximal_end.x_mm <= proximal_most + 0.11
+        assert finger.distal_start.x_mm >= distal_least - 0.11
+        if min(finger.pad_offsets_mm) < 3.0:  # on or near the line: short of the pin's housing
+            assert min(proximal_most - d["a_x_mm"], d["b_x_mm"] - distal_least) < 0.0
+    # (A short A leaves no room for the proximal pad clear of A's pin: no design there.)
+    assert designs > 60
     # A design maps to coordinates and back.
     assert problem.to_mm(problem.to_steps(X))[:len(X)] == pytest.approx(X, abs=0.11)  # (then the drops: NaN)
 
@@ -517,3 +526,66 @@ def test_a_fixed_layout_keeps_its_mounting_when_its_modules_change():
         pad = proximal_pad_polygon(linkage, with_modules(config, modules).packaging)
         assert pad[:, 1].max() == pytest.approx(0.0)
         assert pad[:, 1].min() == pytest.approx(-modules.proximal_height_mm)
+
+def test_the_mounting_offset_is_a_design_variable_below_the_one_datum():
+    from core.morphology.mechanism.linkage.packaging import pad_offsets, proximal_pad_polygon
+    from core.optimization.analysis.tradeoff import Modules, with_modules
+
+    config = load()
+    names = list(VARIABLE_NAMES)
+    assert config.bounds["proximal_mount_offset_mm"] == config.bounds["distal_mount_offset_mm"] == (0.0, 10.0)
+    base = (*X, 0.0, 0.0)  # X on the link lines
+    # The mounting surface d below O-A, the face d + h: the face's depth reported.
+    hung = list(base)
+    hung[names.index("proximal_mount_offset_mm")] = 4.0
+    finger = decode(hung, config.link_length_resolution_mm)
+    pad = proximal_pad_polygon(finger, config.packaging)
+    assert pad[:, 1].max() == pytest.approx(-4.0) and pad[:, 1].min() == pytest.approx(-9.0)
+    assert MECHANISM.evaluate(hung, config).proximal_depth_mm == pytest.approx(9.0)
+    # Run under A (2 mm past it): on the line it meets A's housing; hung below
+    # the housing (3 mm), it clears it. The offset is chosen, never set to clear.
+    under = list(base)
+    under[names.index("app_offset_mm")] += 5.0
+    assert MECHANISM.evaluate(under, config).constraints["proximal_support_mm"] == pytest.approx(3.0)
+    under[names.index("proximal_mount_offset_mm")] = 3.5
+    assert MECHANISM.evaluate(under, config).constraints["proximal_support_mm"] <= 0.0
+    # A fixed layout keeps its offset whatever the module.
+    for modules in (Modules(10.0, 5.0, 20.0, 5.0), Modules(25.0, 8.0, 25.0, 8.0)):
+        held = proximal_pad_polygon(finger, with_modules(config, modules).packaging)
+        assert held[:, 1].max() == pytest.approx(-4.0)
+        assert held[:, 1].min() == pytest.approx(-4.0 - modules.proximal_height_mm)
+        assert pad_offsets(finger, with_modules(config, modules).packaging)["proximal_pad"] == 4.0
+    # Held at a number, it is not searched ([0, 0]: on the line, the link-line formulation).
+    on_line = load("goal.pads.proximal.mount_offset_mm=0", "goal.pads.distal.mount_offset_mm=0")
+    assert on_line.bounds["proximal_mount_offset_mm"] == (0.0, 0.0)
+
+
+def test_aligned_mounting_offsets_search_one_offset_for_both_pads():
+    from core.optimization.linkage.search import from_design, search_box, search_names, to_design
+
+    free = load()
+    assert "distal_mount_offset_mm" in search_names(free)
+    aligned = load("goal.pads.align_mount_offsets=true", "goal.pads.proximal.mount_offset_mm=[0,6]",
+                   "goal.pads.distal.mount_offset_mm=[2,10]")
+    assert aligned.align_mount_offsets
+    # One offset, on the overlap of the two ranges.
+    assert aligned.bounds["proximal_mount_offset_mm"] == aligned.bounds["distal_mount_offset_mm"] == (2.0, 6.0)
+    names = search_names(aligned)
+    assert "distal_mount_offset_mm" not in names
+    low, high = search_box(aligned)
+    rng = np.random.default_rng(0)
+    decoded = 0
+    for _ in range(300):
+        design = to_design(rng.uniform(low, high), aligned)
+        if design is None:
+            continue
+        decoded += 1
+        d = dict(zip(VARIABLE_NAMES, design))
+        assert d["proximal_mount_offset_mm"] == d["distal_mount_offset_mm"]
+        assert 2.0 <= d["proximal_mount_offset_mm"] <= 6.0
+        assert len(from_design(design, aligned)) == len(names)
+    assert decoded > 0
+    # Ranges that do not overlap cannot be aligned.
+    with pytest.raises(ValueError, match="do not overlap"):
+        load("goal.pads.align_mount_offsets=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
+             "goal.pads.distal.mount_offset_mm=[2,10]")

@@ -135,6 +135,10 @@ class LinkageConfig:
     (``goal.pads.proximal.past_icr_max_mm``): the fold, which a fixed pivot's
     pads stop at too (its pin); past it the pad hangs unsupported under the
     four-bar. ``None``: no limit. The distal pad may run back as far as it fits."""
+    align_mount_offsets: bool = False
+    """The two pads' mounting offsets held equal (``goal.pads.align_mount_offsets``,
+    2026-11-04): one offset searched on both ranges' overlap, both pads' mounting
+    surfaces then the same distance below their link lines. False: each its own."""
     pads_on_links: bool = False
     """Searched with each pad on its own link only (``goal.pads.on_links``;
     false, the default since 2026-11-03, searches the pads' ends ``A''`` and
@@ -486,7 +490,10 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     on_links = pads.values.pop("on_links", False)  # the pads' ends searched (2026-11-03; on links 2026-10-27 to then)
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
-    pad_values, overhangs = {}, {}
+    align = pads.values.pop("align_mount_offsets", False)  # one offset for both pads (2026-11-04)
+    if not isinstance(align, bool):
+        raise ValueError("goal.pads.align_mount_offsets must be true or false")
+    pad_values, overhangs, mount_offsets = {}, {}, {}
     for side in ("proximal", "distal"):
         pad = pads.table(side)
         low, high = _range(pad.take("length_mm"), f"goal.pads.{side}.length_mm", scalar=True)
@@ -498,6 +505,13 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
             past_icr = pad.take("past_icr_max_mm")
             past_icr = None if past_icr is None else float(past_icr)
         pad.values.pop("drop_mm", None)  # removed 2026-11-03: the space starts at a set line (the link's)
+        # The mounting surface's offset below the link line, searched in [min, max]
+        # (2026-11-04; a number: held at it; absent: on the line).
+        raw = pad.values.pop("mount_offset_mm", 0.0)
+        mount_offsets[side] = _bounds(raw if isinstance(raw, (list, tuple)) else [raw, raw],
+                                      f"goal.pads.{side}.mount_offset_mm")
+        if mount_offsets[side][0] < 0.0:
+            raise ValueError(f"goal.pads.{side}.mount_offset_mm: an offset is 0 or more (palmar of the line)")
         # Optional (absent: no overhang limit).
         overhang = pad.values.pop("overhang_max_mm", None)
         overhangs[side] = None if overhang is None else float(overhang)
@@ -505,6 +519,12 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, length_mm=None,
                                                   max_length_mm=high))
     pads.done()
+    if align:  # both on the overlap of their ranges
+        low = max(mount_offsets["proximal"][0], mount_offsets["distal"][0])
+        high = min(mount_offsets["proximal"][1], mount_offsets["distal"][1])
+        if high < low:
+            raise ValueError("goal.pads.align_mount_offsets: the pads' mount_offset_mm ranges do not overlap")
+        mount_offsets = {"proximal": (low, high), "distal": (low, high)}
 
     pip_servo, mcp_servo = hardware.table("pip_servo"), hardware.table("mcp_servo")
     pulley = hardware.values.pop("pulley_radius_mm", None)  # optional
@@ -586,6 +606,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     bounds["bc_length_mm"] = (resolution if distal_low is None else distal_low,
                               finger_high if distal_high is None else distal_high)
     bounds["b_x_mm"] = (0.0, finger_high)
+    bounds["proximal_mount_offset_mm"], bounds["distal_mount_offset_mm"] = mount_offsets["proximal"], mount_offsets["distal"]
     # The absolute box A' and B' span from A and B.
     for point, base, x_base, z_base in (("ap", "a", bounds["a_x_mm"], bounds["a_z_mm"]),
                                         ("bp", "b", bounds["b_x_mm"], bounds["b_z_mm"])):
@@ -628,6 +649,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         symmetric_four_bar=symmetric,
         proximal_pad_past_icr_max_mm=past_icr,
         pads_on_links=on_links,
+        align_mount_offsets=align,
         warm_start=warm_start,
         relative_bounds=relative,
         proximal_overhang_max_mm=overhangs["proximal"],
@@ -745,6 +767,8 @@ def config_from_json(values: dict) -> LinkageConfig:
     known = {f.name for f in fields(LinkageConfig)}
     values = {name: value for name, value in values.items() if name in known}
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
+    for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):  # runs before 2026-11-04: on the lines
+        values["bounds"].setdefault(name, (0.0, 0.0))
     for name in TUPLE_FIELDS:
         if values.get(name) is not None:
             values[name] = tuple(values[name])

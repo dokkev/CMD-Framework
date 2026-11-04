@@ -15,11 +15,11 @@ The checks, each a gap beyond its solids or a margin beyond the clearance:
   as capsules (:func:`link_capsule_margins`).
 
 Each pad is its segment's contact interface space: a block ``height_mm``
-deep (the module and its mounting together) whose mounting surface lies on
-its link line (``OA``, ``BC``), the thickness palmar of it (:func:`pad_offsets`,
-2026-11-04: before, a pad running under its pin started tangent to the pin's
-clearance). Its own body's pin housings, the PIP servo and the links are
-collisions: a pad there does not fit.
+deep (the module and its mounting together) whose mounting surface lies the
+design's offset ``d`` palmar of its link line (``OA``, ``BC``: the one datum),
+the thickness palmar of that (:func:`pad_offsets`; 2026-11-04). Its own
+body's pin housings, the PIP servo and the links are collisions: a pad there
+does not fit, whatever its offset.
 
 The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 ``A'`` and drives the coupler ``A'-B``; sitting dorsal of ``OA``, it leaves
@@ -165,9 +165,8 @@ class LinkagePackaging(Packaging):
         return (self.pivot_clearance_diameter_mm if diameter is None else diameter) / 2.0
 
     def interface_offset_mm(self, pad: str) -> float:
-        """How far palmar of its link line (``OA``, ``BC``) a pad's mounting
-        surface lies: none, the nominal mounting datum of every design and
-        module (2026-11-04; the pins and servos are collisions)."""
+        """The nominal mounting offset below a link line: none (a design's own
+        are its ``Finger.pad_offsets_mm``, :func:`pad_offsets`)."""
 
         if pad not in PADS:
             raise ValueError(f"no pad {pad!r}")
@@ -485,13 +484,13 @@ def pad_spans(finger: Finger, packaging: LinkagePackaging) -> dict[str, PadSpan]
 
 
 def pad_offsets(finger: Finger, packaging: LinkagePackaging) -> dict[str, float]:
-    """How far palmar of its link line each pad's mounting surface lies:
-    none (2026-11-04), whatever the design or the modules; the pad's
-    thickness runs palmar from the line, and the pins, the servos and the
-    links are collisions (a pad under its pin does not fit), not a reason to
-    move it (:meth:`LinkagePackaging.interface_offset_mm`)."""
+    """How far palmar of its link line (the one datum) each pad's mounting
+    surface lies: the design's offsets (``Finger.pad_offsets_mm``, searched
+    since 2026-11-04; 0 when not given), whatever the modules; the pad's
+    thickness runs palmar of it. The pins, the servos and the links stay
+    collisions: an offset is chosen, never set to clear them."""
 
-    return {pad: packaging.interface_offset_mm(pad) for pad in PADS}
+    return dict(zip(PADS, (float(value) for value in finger.pad_offsets_mm)))
 
 
 def proximal_pad_polygon(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:

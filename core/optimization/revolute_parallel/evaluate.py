@@ -39,7 +39,6 @@ from core.optimization.revolute.evaluate import (
     _between_samples,
     hyperextension_violation,
     joint_checks,
-    interfaced,
     segment_lengths,
     usable_lengths,
 )
@@ -56,8 +55,7 @@ CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 def geometry(x: Sequence[float], config: ParallelConfig) -> ParallelGeometry:
     """The solids of a design vector, with the study's packaging and supports."""
 
-    return solids.geometry(interfaced(x, config.base.interface_radius_mm), config.goal.packaging,
-                           config.pulley_radius_mm)
+    return solids.geometry(x, config.goal.packaging, config.pulley_radius_mm)
 
 
 @dataclass(frozen=True)

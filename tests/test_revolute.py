@@ -163,18 +163,20 @@ def test_each_pad_mounts_on_its_segment_line():
     from core.optimization.revolute import geometry
 
     config = load()
-    assert config.bounds["distal_drop_mm"] == config.bounds["proximal_drop_mm"] == (0.0, 0.0)  # on the lines
-    for drop in (0.0, 4.0, 9.5):  # whatever the vector holds (searched before 2026-11-03)
+    # Each pad's mounting offset below its segment's line: the drop, searched on
+    # the goal's range, the linkage's own (the same freedom for every mechanism).
+    assert config.bounds["distal_drop_mm"] == config.bounds["proximal_drop_mm"] == (0.0, 10.0)
+    assert config.bounds["proximal_drop_mm"] == tuple(config.goal.bounds["proximal_mount_offset_mm"])
+    for drop in (0.0, 4.0, 9.5):
         x = (*X[:4], drop, drop, *X[6:])
         geo = geometry(x, config)
-        assert geo.distal_pad_local[:, 1].max() == pytest.approx(0.0)
-        assert geo.proximal_pad[:, 1].max() == pytest.approx(0.0)
-        assert geo.distal_mount == pytest.approx(np.array(((29.0, 0.0), (55.0, 0.0))))
+        assert geo.distal_pad_local[:, 1].max() == pytest.approx(-drop)
+        assert geo.proximal_pad[:, 1].max() == pytest.approx(-drop)
+        assert geo.distal_mount == pytest.approx(np.array(((29.0, -drop), (55.0, -drop))))
         # The finger's thickness at the distal pad: from A-C to the pad's face.
-        assert MECHANISM.evaluate(x, config).distal_depth_mm == pytest.approx(5.0)
-    # Not searched: the design comes back from its coordinates with the housing's drops.
-    assert len(MECHANISM.search_names(config)) == 5
-    x = X
+        assert MECHANISM.evaluate(x, config).distal_depth_mm == pytest.approx(drop + 5.0)
+    assert len(MECHANISM.search_names(config)) == 7
+    x = (*X[:4], 4.0, 2.0, *X[6:])
     assert MECHANISM.to_design(MECHANISM.from_design(x, config), config) == pytest.approx(x)
 
 
@@ -214,7 +216,7 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     idealized = mechanism("revolute_idealized")
     config = load_yaml(idealized, ROOT / "linkage" / "config.yaml", PINNED)[0]
     assert not config.joint_servo and config.joint_radius_mm == 3.0  # A's pin housing, 6 mm
-    assert config.bounds["distal_drop_mm"] == (3.0, 3.0)  # tangent to the pin's housing
+    assert config.bounds["distal_drop_mm"] == (0.0, 10.0)  # the goal's mounting offsets, as every mechanism's
     assert config.bounds["servo_tilt_deg"] == (0.0, 0.0)  # no servo to tilt
     x = (*X[:4], 3.0, 3.0, 0.0)
     geo = geometry(x, config)
@@ -222,8 +224,11 @@ def test_the_idealized_2r_has_only_a_pin_at_the_joint():
     e = idealized.evaluate(x, config)
     # Nothing at the joint but the pin: the pads are checked against it, not a servo.
     assert e.constraints["mcp_servo_mm"] == 0.0 and e.constraints["pip_servo_pad_mm"] <= 0.0
-    under = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)  # the proximal pad to A, tangent to the pin whatever the drops
-    assert idealized.evaluate(under, config).constraints["pip_servo_pad_mm"] <= 0.0
+    # The proximal pad to A: on its line it meets the pin; hung its radius below, it clears it.
+    on_line = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, 0.0)
+    assert idealized.evaluate(on_line, config).constraints["pip_servo_pad_mm"] > 0.0
+    hung = (*X[:2], 45.0, *X[3:4], 0.0, 3.0, 0.0)
+    assert idealized.evaluate(hung, config).constraints["pip_servo_pad_mm"] <= 0.0
     assert idealized.config_from_json(idealized.config_to_json(config)) == config
 
 
@@ -241,3 +246,41 @@ def test_the_segment_ratios_bound_the_segments_as_the_linkages():
     assert relaxed.proximal_ratio_shortfall_mm == pytest.approx(5.0)
     config = load("goal.link.distal_length_ratio=[0.25, null]")
     assert MECHANISM.evaluate(X, config).constraints["proximal_length_mm"] <= 0.0
+
+
+def test_the_2r_dd_shares_the_linkages_mounting_offsets_and_datum():
+    from core.optimization.revolute import geometry
+
+    # The same range (the goal's), the same datum (the segment's line), the
+    # same depth d + h; the joint's servo a collision at any offset.
+    config = load()
+    assert config.bounds["proximal_drop_mm"] == tuple(config.goal.bounds["proximal_mount_offset_mm"])
+    assert config.bounds["distal_drop_mm"] == tuple(config.goal.bounds["distal_mount_offset_mm"])
+    x = (*X[:4], 4.0, 4.0, *X[6:])
+    assert geometry(x, config).proximal_pad[:, 1].min() == pytest.approx(-9.0)
+    assert MECHANISM.evaluate(x, config).proximal_depth_mm == pytest.approx(9.0)
+    # Under the servo's rounded front (9.5 mm about A): through it on the line, clear hung below it.
+    under = (*X[:2], 45.0, *X[3:4], 0.0, 0.0, *X[6:])
+    assert MECHANISM.evaluate(under, config).constraints["pip_servo_pad_mm"] > 0.0
+    hung = (*X[:2], 45.0, *X[3:4], 0.0, 9.5, *X[6:])
+    assert MECHANISM.evaluate(hung, config).constraints["pip_servo_pad_mm"] <= 0.0
+
+
+def test_aligned_mounting_offsets_hold_the_2r_dds_drops_equal():
+    from core.optimization.revolute.config import VARIABLE_NAMES
+    from core.optimization.revolute.search import SEARCH_NAMES, search_box, to_design
+
+    config = load("goal.pads.align_mount_offsets=true")
+    low, high = search_box(config)
+    rng = np.random.default_rng(0)
+    decoded = 0
+    for _ in range(200):
+        coordinates = rng.uniform(low, high)
+        design = to_design(coordinates, config)
+        if design is None:
+            continue
+        decoded += 1
+        d = dict(zip(VARIABLE_NAMES, design))
+        assert d["proximal_drop_mm"] == d["distal_drop_mm"]
+        assert d["distal_drop_mm"] == pytest.approx(coordinates[SEARCH_NAMES.index("distal_drop_mm")], abs=0.06)
+    assert decoded > 0

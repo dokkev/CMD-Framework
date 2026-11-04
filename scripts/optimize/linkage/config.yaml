@@ -42,10 +42,13 @@ goal:
     hyperextension_deg: 10
 
   # The contact modules each pad must carry. Each pad is its link's contact
-  # interface space: a block mounted on the link line (O-A, B-C; offset 0,
-  # the 2R-DD's too), its thickness palmar of it; length and A'' / B'' are
-  # measured along that line. The pins and the servos are collisions: a pad
-  # does not run under its own pin.
+  # interface space: a block whose mounting surface lies mount_offset_mm
+  # palmar of the link line (O-A, B-C; the one datum), its thickness palmar
+  # of that; length and A'' / B'' are measured along that line. The offset is
+  # a design variable on the same range for every mechanism (the 2R's
+  # segments too): mounted on the line, a pad must end short of its own pin;
+  # hung below it, it may run under the pin and its face lies deeper (the
+  # fold costs more). The pins and the servos are collisions either way.
   # The pads' ends A'' and B'' are searched with the links (on_links: false):
   # each pad may run past its joint (the proximal one past A toward B, the
   # distal one back past B toward A) as far as it pays in coverage against
@@ -54,6 +57,10 @@ goal:
   # them afterwards.)
   pads:
     on_links: false
+    # true: the two pads' mounting offsets (mount_offset_mm below) held equal,
+    # one offset searched on the overlap of their ranges (the 2R-DD's drops
+    # too); false: each pad its own offset.
+    align_mount_offsets: false
     proximal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
       # outer end (the MCP servo side; for the distal pad, C), the rest of the
@@ -64,6 +71,10 @@ goal:
       #        goal.link.finger_length_mm's max (no pad outgrows the finger).
       # The length is searched in [min, max]; [L, L] is exactly L.
       length_mm: [20, null]
+      # The mounting surface's offset below the link line, [min, max] searched
+      # (a number: held at it; [0, 0]: on the line). Up to the 2R-DD's servo
+      # radius (9.5 mm) and a little more, so its pads too may pass under it.
+      mount_offset_mm: [0, 10]
       # How deep the space is, the module and its mounting together. One
       # value per study (a range would always end at its min); sweep it to
       # see what thickness costs. The pad is a plain block (no chamfer: a
@@ -75,6 +86,7 @@ goal:
       past_icr_max_mm: null
     distal:
       length_mm: [25, null]
+      mount_offset_mm: [0, 10]
       height_mm: 5
 
   # The finger's links, each [min, max] (null: no limit). Requirements on the

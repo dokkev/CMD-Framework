@@ -5,6 +5,9 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-11-04: 두 pad의 장착 offset을 같게 묶는 옵션 `goal.pads.align_mount_offsets`(기본 false). true면 두 범위가 겹치는 구간에서 offset 하나를 탐색해 두 pad에 같이 쓰고, 겹치지 않으면 config 오류. 2R-DD는 distal drop이 두 drop을 정함. 옵션이라 formulation은 그대로.
+- 2026-11-04 (linkage-v12, revolute-goal-v10, idealized-v9, parallel-v9): 장착 offset을 설계 변수로. 기준선은 링크선 하나(단일 datum)로 두고, 각 pad의 장착면 offset d_p, d_d ≥ 0을 탐색(면 깊이 D = d + h). 같은 범위를 모든 메커니즘에(`goal.pads.*.mount_offset_mm`, 운영 [0, 10]: 2R-DD servo 반지름 9.5까지 덮음). 핀·servo·링크는 어떤 d에서도 hard 충돌. 전략 A(d = 0, 핀 앞에서 끝)와 B(d ≥ 핀 반지름, 핀 아래로 연장, 접힘 손실 증가)를 optimizer가 직접 비교. 최종 설계의 d는 설계 벡터에 있으므로 fixed-layout 모듈 교체에서도 그대로(어댑터 재설계 없음). linkage 설계 벡터 14개(`proximal_mount_offset_mm`, `distal_mount_offset_mm`, `Finger.pad_offsets_mm`), 2R은 기존 drop 두 칸을 다시 탐색. 링크선 고정 비교는 `mount_offset_mm: 0`.
+- 2026-11-04: linkage 탐색의 pad 끝 범위를 자기 관절 핀 밖으로 제한(`search._clear_of_pins`: A″_x ≤ A_x − r_A, B″_x ≥ B_x + r_B). v10부터 pad가 링크선 위라 핀 아래를 지날 수 없는데, 탐색이 그 영역을 계속 제안했고 위반값(핀 반지름)이 일정해 방향을 못 잡음: v11 quick run이 feasible 0개. 범위 제한 뒤 quick run front 1,697개. 평가 규칙은 그대로(formulation 유지).
 - 2026-11-04 (linkage-v11, revolute-goal-v9, idealized-v8, parallel-v8, rcj-goal-v6): 요구조건 계층.
   - Level 1 finger(|OC|, φ_req), Level 2 contact module(pad 최소 길이, 두께), Level 3 segment 비례(length ratio, joint span ratio), Level 4 mechanism(링크, servo, 핀). 충돌·closure·구동 한계 같은 물리적 feasibility는 계층과 무관하게 항상 hard.
   - 상위 요구를 위해 하위 요구를 완화할 수 있고 반대는 안 됨. 요구조건은 그것이 속한 물리적 대상에 귀속(finger 길이는 finger, pad는 module, 비례는 segment, 간섭은 mechanism).
