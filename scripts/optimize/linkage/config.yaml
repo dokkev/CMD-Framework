@@ -42,10 +42,10 @@ goal:
     hyperextension_deg: 10
 
   # The contact modules each pad must carry. Each pad is its link's contact
-  # interface space: a block that starts on the line tangent to its link's
-  # pin clearance (A's for the proximal pad, B's for the distal one; half
-  # goal.collision.param.pivot_diameter_mm) and parallel to the link line
-  # (O-A, B-C); length and A'' / B'' are measured along that line.
+  # interface space: a block mounted on the link line (O-A, B-C; offset 0,
+  # the 2R-DD's too), its thickness palmar of it; length and A'' / B'' are
+  # measured along that line. The pins and the servos are collisions: a pad
+  # does not run under its own pin.
   # The pads' ends A'' and B'' are searched with the links (on_links: false):
   # each pad may run past its joint (the proximal one past A toward B, the
   # distal one back past B toward A) as far as it pays in coverage against

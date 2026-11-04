@@ -15,12 +15,11 @@ The checks, each a gap beyond its solids or a margin beyond the clearance:
   as capsules (:func:`link_capsule_margins`).
 
 Each pad is its segment's contact interface space: a block ``height_mm``
-deep (the module and its mounting together), parallel to the link line
-(``OA``, ``BC``), starting on it when the pad, there, clears its own body's
-pin housings and (the proximal pad) the PIP servo, within its link; else on
-the line tangent to its link's pin clearance (``A``'s for the proximal pad,
-``B``'s for the distal one), running under the pin (:func:`pad_offsets`;
-:meth:`LinkagePackaging.interface_offset_mm` the tangent one).
+deep (the module and its mounting together) whose mounting surface lies on
+its link line (``OA``, ``BC``), the thickness palmar of it (:func:`pad_offsets`,
+2026-11-04: before, a pad running under its pin started tangent to the pin's
+clearance). Its own body's pin housings, the PIP servo and the links are
+collisions: a pad there does not fit.
 
 The PIP servo rides on the proximal link with its shaft (along ``Y``) on
 ``A'`` and drives the coupler ``A'-B``; sitting dorsal of ``OA``, it leaves
@@ -139,11 +138,6 @@ class LinkagePackaging(Packaging):
     contact faces cross in the fold instead (``face_crossing_lengths``).
     Always so in the goal/solver study (2026-10-27); ``False`` (runs before
     it): up to the first link crossing it (``usable_pad_lengths``)."""
-    pad_offsets_mm: tuple[float, float] | None = None
-    """A fixed mounting: the proximal and the distal pad's start lines below
-    ``OA`` and ``BC`` whatever the modules (the fixed-layout analysis keeps a
-    design's own, ``tradeoff.with_modules``); ``None``: :func:`pad_offsets`
-    places them by where each pad ends."""
     pads_off_pins: bool = False
     """Each pad keeps clear of its own body's pin housings (the proximal pad
     of ``A`` and ``A'``, the distal pad of ``B`` and ``B'``) and may end
@@ -171,12 +165,13 @@ class LinkagePackaging(Packaging):
         return (self.pivot_clearance_diameter_mm if diameter is None else diameter) / 2.0
 
     def interface_offset_mm(self, pad: str) -> float:
-        """How far palmar of its link line (``OA``, ``BC``) a pad's contact
-        interface space starts when it runs under its link's pin: on the line
-        tangent to the pin's clearance (``A``'s, ``B``'s), parallel to the link
-        line (:func:`pad_offsets`: on the link line where it clears them)."""
+        """How far palmar of its link line (``OA``, ``BC``) a pad's mounting
+        surface lies: none, the nominal mounting datum of every design and
+        module (2026-11-04; the pins and servos are collisions)."""
 
-        return self.pivot_radius_mm({"proximal_pad": "a", "distal_pad": "b"}[pad])
+        if pad not in PADS:
+            raise ValueError(f"no pad {pad!r}")
+        return 0.0
 
 
 
@@ -490,36 +485,13 @@ def pad_spans(finger: Finger, packaging: LinkagePackaging) -> dict[str, PadSpan]
 
 
 def pad_offsets(finger: Finger, packaging: LinkagePackaging) -> dict[str, float]:
-    """How far palmar of its link line each pad's contact interface space
-    starts (2026-11-03): on the line (0) when the pad there clears its own
-    body's pin housings by the body clearance (the proximal pad ``A`` and
-    ``A'``, and the PIP servo; the distal pad ``B`` and ``B'``), as the
-    2R-DD's pads on theirs: a pad within its link needs no room under a pin.
-    Else on the line tangent to its link's pin clearance
-    (:meth:`LinkagePackaging.interface_offset_mm`), running under the pin."""
+    """How far palmar of its link line each pad's mounting surface lies:
+    none (2026-11-04), whatever the design or the modules; the pad's
+    thickness runs palmar from the line, and the pins, the servos and the
+    links are collisions (a pad under its pin does not fit), not a reason to
+    move it (:meth:`LinkagePackaging.interface_offset_mm`)."""
 
-    if packaging.pad_offsets_mm is not None:  # a fixed mounting
-        return dict(zip(PADS, (float(value) for value in packaging.pad_offsets_mm)))
-
-    from core.morphology.packaging.gaps import footprint_gaps
-    from core.morphology.packaging.shapes import polygon_to_disk
-
-    spans, joint, clearance = pad_spans(finger, packaging), finger.joint, packaging.body_clearance_mm
-    radius = packaging.pivot_radius_mm
-    proximal = pad_outline(spans["proximal_pad"], packaging.proximal_pad)[None]
-    clear = min(float(polygon_to_disk(proximal, joint.a.array[None], radius("a"))[0]),
-                float(polygon_to_disk(proximal, joint.ap.array[None], radius("ap"))[0]))
-    if packaging.pip_servo_pad_check:
-        clear = min(clear, float(footprint_gaps(proximal, pip_footprint(packaging, finger), packaging)[0]))
-    b, c, bp = joint.b.array, finger.tip.array, joint.bp.array
-    e = (c - b) / np.linalg.norm(c - b)
-    n = np.array((-e[1], e[0]))
-    bp_local = np.array((np.dot(bp - b, e), np.dot(bp - b, n)))
-    distal = pad_outline(spans["distal_pad"], packaging.distal_pad)[None]
-    distal_clear = min(float(polygon_to_disk(distal, np.zeros((1, 2)), radius("b"))[0]),
-                       float(polygon_to_disk(distal, bp_local[None], radius("bp"))[0]))
-    return {"proximal_pad": 0.0 if clear >= clearance else packaging.interface_offset_mm("proximal_pad"),
-            "distal_pad": 0.0 if distal_clear >= clearance else packaging.interface_offset_mm("distal_pad")}
+    return {pad: packaging.interface_offset_mm(pad) for pad in PADS}
 
 
 def proximal_pad_polygon(finger: Finger, packaging: LinkagePackaging) -> np.ndarray:

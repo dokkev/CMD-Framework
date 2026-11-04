@@ -5,9 +5,8 @@ A module is a pad block: its length along its segment and its thickness
 below the segment's mounting surface, ``(l_p, h_p)`` proximal and
 ``(l_d, h_d)`` distal. The finger is held fixed while the modules change
 (:func:`with_modules`): its pivots, links and servo, and its supports, the
-mounting lines to ``A''`` and ``B''`` and, for the linkage, where they sit
-below its links (:func:`mounting_offsets`: the design's own, whatever the
-modules; a shorter module does not move up onto the link line). Each module keeps its outer end (the proximal one at the MCP servo's
+mounting lines to ``A''`` and ``B''`` on its links' lines (the mounting
+datum, the same for every module: ``packaging.pad_offsets``). Each module keeps its outer end (the proximal one at the MCP servo's
 clearance, ``Packaging.proximal_pad_start_mm``; the distal one at the
 fingertip) and reaches toward the joint as far as its length; one longer
 than its support does not mount. (The architecture capability, the shortest
@@ -65,28 +64,10 @@ def goal_of(config):
     return getattr(config, "goal", config)
 
 
-def mounting_offsets(found: Mechanism | str, x: Sequence[float], config) -> tuple[float, float] | None:
-    """Where the linkage design ``x`` mounts its pads below ``OA`` and ``BC``
-    under ``config`` (its own modules; ``packaging.pad_offsets``), to hold
-    while the modules change; ``None`` for the other mechanisms (theirs are
-    set by their joint alone)."""
-
-    name = found if isinstance(found, str) else found.name
-    if name != "linkage":
-        return None
-    from core.morphology.mechanism.linkage.design import decode
-    from core.morphology.mechanism.linkage.packaging import pad_offsets
-
-    goal = goal_of(config)
-    offsets = pad_offsets(decode(x, goal.link_length_resolution_mm), goal.packaging)
-    return offsets["proximal_pad"], offsets["distal_pad"]
-
-
-def with_modules(config, modules: Modules, offsets: tuple[float, float] | None = None):
+def with_modules(config, modules: Modules):
     """``config`` with its pads ``modules``, each of its set length and thickness
     on the design's own support (its least length the module's too), mounted
-    ``offsets`` below the links (:func:`mounting_offsets`; ``None``: as each
-    module ends)."""
+    on its link line as every module is."""
 
     goal = goal_of(config)
     packaging = goal.packaging
@@ -94,9 +75,8 @@ def with_modules(config, modules: Modules, offsets: tuple[float, float] | None =
                                       height_mm=height)
             for side, length, height in (("proximal", modules.proximal_length_mm, modules.proximal_height_mm),
                                          ("distal", modules.distal_length_mm, modules.distal_height_mm))}
-    fixed = {} if offsets is None else {"pad_offsets_mm": tuple(float(value) for value in offsets)}
     goal = dataclasses.replace(goal, packaging=dataclasses.replace(packaging, proximal_pad=pads["proximal"],
-                                                                     distal_pad=pads["distal"], **fixed),
+                                                                     distal_pad=pads["distal"]),
                                minimum_proximal_support_mm=modules.proximal_length_mm,
                                minimum_distal_support_mm=modules.distal_length_mm)
     return dataclasses.replace(config, goal=goal) if hasattr(config, "goal") else goal
@@ -112,7 +92,7 @@ def phi_max_deg(found: Mechanism, config, x: Sequence[float], modules: Modules) 
     """How far (deg) the fixed finger ``x`` flexes, continuously from
     extension, carrying ``modules`` (NaN: it cannot mount them)."""
 
-    evaluation = found.evaluate(x, with_modules(config, modules, mounting_offsets(found, x, config)))
+    evaluation = found.evaluate(x, with_modules(config, modules))
     if evaluation is None:
         return math.nan
     if any(evaluation.constraints.get(name, 0.0) > 0.0 for name in MOUNTING):
@@ -137,4 +117,4 @@ def distal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
 
 
 __all__ = ["MODULE_OVERRIDES", "MOUNTING", "Modules", "distal_curve", "goal_of", "load", "phi_max_deg",
-           "mounting_offsets", "proximal_curve", "with_modules"]
+           "proximal_curve", "with_modules"]

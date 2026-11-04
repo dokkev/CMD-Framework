@@ -3,7 +3,7 @@ servo's dorsal tilt (degrees, on the same 0.1 grid), BC (the middle + distal
 phalanx), A_z, ``A''_x - A'_x`` and ``B'_x - B''_x`` (the last three added
 later, so older vectors read with them at ``DEFAULT_VALUES``: 0). Vectors
 written with the pads' drops (two more values, removed 2026-11-03: the
-contact interface spaces start on the line tangent to their link's pin) or
+contact interface spaces start at a set line, their link's since 2026-11-04) or
 also the pads' chamfers (two more, before the drops) read without them.
 
 With a machining resolution every part keeps its own dimensions on the grid:

@@ -25,17 +25,18 @@ from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
 MECHANISM = mechanism("linkage")
-X = (34.3, 76.0, 0.0, 39.7, 7.7, 61.8, 14.5, 20.0, 25.0, 0.0, 9.7, 2.9)
-"""A feasible design of a short run."""
-TRIMMED = (*X[:10], -4.7, X[11])
-""":data:`X` with its proximal pad ending where its face line meets the
-distal face's at the required flexion (none of it wasted, ``pad_waste_mm``)."""
+X = (40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1)
+"""A feasible design of a short run (linkage-v10, 2026-11-04): both pads on
+their link lines, the proximal one short of A, the distal one past B."""
+TRIMMED = X
+""":data:`X`, none of its pads past where its face meets the other's at the
+required flexion (``pad_waste_mm``)."""
 
 
-PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[30, null]",
-          "goal.pads.distal.length_mm=[35, null]", "goal.collision.check.a_pin_and_pip_servo=false",
+PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
+          "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
-          "goal.hardware.pip_servo.tilt_angle_deg=20",
+          "goal.hardware.pip_servo.tilt_angle_deg=10",
           "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
           "goal.link.distal_length_mm=[25, null]", "goal.link.joint_span_ratio=[null, null]",
           "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]",
@@ -56,18 +57,18 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert math.degrees(config.required_rom_rad) == pytest.approx(150.0)
     assert config.extended_length_bounds_mm == (90.0, 110.0)
     assert [math.degrees(v) for v in config.transmission_angle_range_rad] == pytest.approx([30.0, 150.0])
-    assert config.pip_servo_tilt_rad == pytest.approx(math.radians(20.0))
+    assert config.pip_servo_tilt_rad == pytest.approx(math.radians(10.0))
     assert config.bounds["bc_length_mm"] == (25.0, 110.0)
-    # Pivots at their own sizes, the pads' spaces tangent to A's and B's, no clearance anywhere.
+    # Pivots at their own sizes, the pads mounted on the link lines, no clearance anywhere.
     assert [packaging.pivot_radius_mm(p) for p in ("a", "ap", "b", "bp")] == [3.0, 5.0, 3.0, 3.0]
     assert packaging.ap_clearance_diameter_mm == 10.0
-    assert packaging.interface_offset_mm("proximal_pad") == 3.0 and packaging.interface_offset_mm("distal_pad") == 3.0
+    assert packaging.interface_offset_mm("proximal_pad") == 0.0 and packaging.interface_offset_mm("distal_pad") == 0.0
     assert packaging.body_clearance_mm == 0.0 and packaging.mcp_pad_clearance_mm == 0.0
     assert packaging.proximal_pad_start_mm == packaging.mcp_servo.radius_mm
     assert not packaging.pip_servo_above_oa and packaging.pip_servo_pad_check and packaging.overlap_depth
     # With pad_coverage the pads are capped at their max (null: the finger's max).
     assert packaging.proximal_pad.max_length_mm == 110.0
-    assert config.minimum_proximal_support_mm == 30.0 and config.minimum_distal_support_mm == 35.0
+    assert config.minimum_proximal_support_mm == 20.0 and config.minimum_distal_support_mm == 25.0
     # The reference point in minimized terms: coverage negated, curl 180 - phi_req.
     assert MECHANISM.hypervolume_reference(config) == {
         "transmission": 2.3, "pad_coverage": 0.0, "curl": 30.0, "finger_length": 110.0, "support_balance": 0.0}
@@ -98,15 +99,17 @@ def test_the_tilt_is_fixed_or_searched_in_whole_degrees():
     assert MechanismProblem(MECHANISM, searched).xu[search.SEARCH_NAMES.index("servo_tilt_from_min_deg")] == 20
 
 
-def test_the_pads_hang_below_their_pivots():
+def test_the_pads_mount_on_their_link_lines():
+    # The mounting surface on O-A and B-C (offset 0), the 5 mm thickness palmar of it.
     config = load()
     linkage = decode(X, config.link_length_resolution_mm)
     proximal = proximal_pad_polygon(linkage, config.packaging)
-    assert proximal[:, 1].max() == pytest.approx(-3.0)
-    assert proximal[:, 1].min() == pytest.approx(-8.0)
+    assert proximal[:, 1].max() == pytest.approx(0.0)
+    assert proximal[:, 1].min() == pytest.approx(-5.0)
     b, c = linkage.joint.b, linkage.tip
     distal = distal_pad_polygon(linkage, config.packaging, np.array([[b.x_mm, b.z_mm]]), np.array([[c.x_mm, c.z_mm]]))
-    assert distal[0, :, 1].max() == pytest.approx(b.z_mm - 3.0)
+    assert distal[0, :, 1].max() == pytest.approx(b.z_mm, abs=0.05)  # B-C barely tilted
+    assert MECHANISM.evaluate(X, config).distal_depth_mm == pytest.approx(5.0)
 
 
 def test_the_removed_carrier_and_pad_hangs_are_ignored_in_a_goal():
@@ -141,7 +144,6 @@ def test_pad_pairs_follow_the_checks():
 
 def test_a_design_is_evaluated_with_the_objectives():
     config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
-    assert MECHANISM.evaluate(X, config).constraints["pad_waste_mm"] > 0.0  # mounted past the crossing
     e = MECHANISM.evaluate(TRIMMED, config)
     assert e.feasible
     spans = pad_spans(e.finger, config.packaging)
@@ -193,7 +195,7 @@ def test_the_pip_servo_may_come_down_to_the_pad_but_not_into_it():
 
 def test_packaging_defaults_keep_the_older_checks():
     packaging = LinkagePackaging()
-    assert packaging.interface_offset_mm("proximal_pad") == packaging.pivot_radius_mm("a")
+    assert packaging.interface_offset_mm("proximal_pad") == packaging.interface_offset_mm("distal_pad") == 0.0
     assert packaging.pip_servo_above_oa and not packaging.pip_servo_pad_check and not packaging.overlap_depth
     assert all(packaging.pivot_radius_mm(p) == packaging.pin_radius_mm for p in ("a", "ap", "b", "bp"))
 
@@ -277,10 +279,12 @@ def test_older_studies_are_searched_in_the_design_vector():
 
 
 def test_a_may_be_kept_out_of_the_pip_servo_body():
-    # X's A' sits 7.7 mm over A: A's housing (3 mm) lies inside the servo's
-    # rounded front (9.5 mm), allowed only with the check off.
-    assert MECHANISM.evaluate(X, load()).constraints["pivot_pin_mm"] <= 0.0
-    checked = MECHANISM.evaluate(X, load("goal.collision.check.a_pin_and_pip_servo=true"))
+    # A' 8 mm over A: A's housing (3 mm) lies inside the servo's rounded
+    # front (9.5 mm), allowed only with the check off.
+    x = list(X)
+    x[VARIABLE_NAMES.index("ap_z_mm")] = 8.0
+    assert MECHANISM.evaluate(x, load()).constraints["pivot_pin_mm"] <= 0.0
+    checked = MECHANISM.evaluate(x, load("goal.collision.check.a_pin_and_pip_servo=true"))
     assert not checked.feasible
     # A's centre is inside the body (its distance 0): the violation is its whole radius.
     assert checked.constraints["pivot_pin_mm"] == pytest.approx(3.0)
@@ -289,17 +293,18 @@ def test_a_may_be_kept_out_of_the_pip_servo_body():
 def test_the_pads_may_be_kept_off_their_own_pins():
     off = load("goal.pads.proximal.length_mm=[20, null]", "goal.pads.distal.length_mm=[20, null]")
     names = list(VARIABLE_NAMES)
-    # X's pads run under A and B, hung their radius below: clear of them.
+    # X's pads, on their link lines, end short of A and start past B: clear of them.
     e = MECHANISM.evaluate(X, off)
     assert e.constraints["proximal_support_mm"] <= 0.0 and e.constraints["distal_support_mm"] <= 0.0
-    # B' brought down into the distal pad's span (61.8 - 2.9 on): the pad must keep off it.
+    # Run under its pin on the line, a pad meets the housing: it does not fit
+    # (the pad is not moved down to clear it).
+    # The housing's whole radius (3 mm) inside the pad's block: the violation.
     x = list(X)
-    x[names.index("bp_z_mm")] = -5.0
-    assert MECHANISM.evaluate(x, off).constraints["distal_support_mm"] > 0.0
-    # Ended short of A, the proximal pad is as clear.
+    x[names.index("app_offset_mm")] += 5.0  # A'' 2 mm past A
+    assert MECHANISM.evaluate(x, off).constraints["proximal_support_mm"] == pytest.approx(3.0)
     x = list(X)
-    x[names.index("app_offset_mm")] = 30.0 - 39.7
-    assert MECHANISM.evaluate(x, off).constraints["proximal_support_mm"] <= 0.0
+    x[names.index("bpp_offset_mm")] += 5.0  # B'' 2 mm behind B
+    assert MECHANISM.evaluate(x, off).constraints["distal_support_mm"] == pytest.approx(3.0)
 
 
 def test_a_symmetric_four_bar_sets_b_prime():
@@ -331,15 +336,17 @@ def test_a_symmetric_four_bar_sets_b_prime():
 def test_the_proximal_pad_may_stop_at_the_fold():
     from core.morphology.mechanism.linkage.measures import extended_icr_x
 
-    config = load("goal.pads.proximal.past_icr_max_mm=0", "goal.pads.proximal.length_mm=[15, null]",
-                  "goal.pads.distal.length_mm=[20, null]")
     d = dict(zip(VARIABLE_NAMES, X))
     icr_x = extended_icr_x((d["a_x_mm"], 0.0), (d["ap_x_mm"], d["ap_z_mm"]), (d["b_x_mm"], 0.0),
                            (d["bp_x_mm"], d["bp_z_mm"]))
     assert d["a_x_mm"] < icr_x < d["b_x_mm"]  # between the joints, where the bars cross
+    # A limit short of A (a pad on O-A cannot pass under A anyway): A'' 1 mm past it.
+    limit = d["a_x_mm"] - 5.0
+    config = load(f"goal.pads.proximal.past_icr_max_mm={limit - icr_x}", "goal.pads.proximal.length_mm=[15, null]",
+                  "goal.pads.distal.length_mm=[20, null]")
     names = list(VARIABLE_NAMES)
     x = list(X)
-    x[names.index("app_offset_mm")] = icr_x + 1.0 - d["ap_x_mm"]  # A'' 1 mm past it
+    x[names.index("app_offset_mm")] = limit + 1.0 - d["ap_x_mm"]
     assert MECHANISM.evaluate(x, config).constraints["proximal_support_mm"] == pytest.approx(1.0, abs=0.15)
     x[names.index("app_offset_mm")] -= 2.0
     assert MECHANISM.evaluate(x, config).constraints["proximal_support_mm"] <= 0.0
@@ -366,10 +373,10 @@ def test_a_pad_counts_up_to_where_the_faces_cross():
     # Extended, the faces lie in one line: nothing is lost.
     assert free["proximal_pad"][0] == pytest.approx(spans["proximal_pad"].length_mm)
     assert free["distal_pad"][0] == pytest.approx(spans["distal_pad"].length_mm)
-    # Barely flexed, they cross below the centre of rotation, between A and B.
-    p = linkage.joint
-    crossing = spans["proximal_pad"].start_mm + free["proximal_pad"][1]
-    assert free["proximal_pad"][1] < spans["proximal_pad"].length_mm and p.a.x_mm < crossing < p.b.x_mm
+    # Barely flexed, they cross below the centre of rotation, between A and B:
+    # past the proximal pad, which ends short of A; folded further, nearer.
+    assert free["proximal_pad"][1] == pytest.approx(spans["proximal_pad"].length_mm)
+    assert free["proximal_pad"][2] <= free["proximal_pad"][1]
 
 
 def test_the_links_may_be_bounded_as_shares_of_the_finger():
@@ -431,25 +438,20 @@ def test_the_objective_counts_each_pad_outside_the_fold_at_the_required_flexion(
     assert e.pad_coverage == pytest.approx((e.proximal_effective_mm + e.distal_effective_mm) / e.finger_length_mm)
 
 
-def test_a_pad_within_its_link_sits_on_the_link_line():
-    from core.morphology.mechanism.linkage.packaging import pad_offsets, proximal_pad_polygon
+def test_every_pad_mounts_on_its_link_line_whatever_it_meets():
+    from core.morphology.mechanism.linkage.packaging import pad_offsets
 
     config = load()
-    r = config.packaging.interface_offset_mm("proximal_pad")
-    # Running under A (A'' past it), the proximal pad starts tangent to A's pin housing.
-    under = decode(X, config.link_length_resolution_mm)
-    assert under.proximal_end.x_mm > under.joint.a.x_mm and pad_offsets(under, config.packaging)["proximal_pad"] == r
-    # Ending more than the housing's radius short of A, it sits on O-A.
-    within = decode((*X[:10], -10.0, X[11]), config.link_length_resolution_mm)
-    assert within.proximal_end.x_mm < within.joint.a.x_mm - r
-    assert pad_offsets(within, config.packaging)["proximal_pad"] == 0.0
-    assert proximal_pad_polygon(within, config.packaging)[:, 1].max() == pytest.approx(0.0)
-    # The distal pad likewise, starting past B by more than B's radius.
-    past_b = decode((*X[:11], -18.0), config.link_length_resolution_mm)
-    assert past_b.distal_start.x_mm > past_b.joint.b.x_mm + r
-    assert pad_offsets(past_b, config.packaging)["distal_pad"] == 0.0
-    assert pad_offsets(under, config.packaging)["distal_pad"] == r
-
+    names = list(VARIABLE_NAMES)
+    within = decode(X, config.link_length_resolution_mm)
+    under = list(X)
+    under[names.index("app_offset_mm")] += 5.0  # the proximal pad 2 mm past A, under its pin
+    under_a = decode(under, config.link_length_resolution_mm)
+    # One datum: no offset, short of A or under it (the pin a collision, not a reason to move the pad).
+    for finger in (within, under_a):
+        assert pad_offsets(finger, config.packaging) == {"proximal_pad": 0.0, "distal_pad": 0.0}
+    assert MECHANISM.evaluate(X, config).feasible
+    assert not MECHANISM.evaluate(under, config).feasible
 
 def test_a_crossing_at_the_distal_faces_end_is_still_a_crossing():
     from core.morphology.packaging.faces import crossing_free_lengths
@@ -484,14 +486,13 @@ def test_the_search_does_not_bound_a_by_the_segment_ratio():
 
 
 def test_a_fixed_layout_keeps_its_mounting_when_its_modules_change():
-    from core.morphology.mechanism.linkage.packaging import pad_offsets
-    from core.optimization.analysis.tradeoff import Modules, mounting_offsets, with_modules
+    from core.morphology.mechanism.linkage.packaging import proximal_pad_polygon
+    from core.optimization.analysis.tradeoff import Modules, with_modules
 
     config = load()
-    under = decode(X, config.link_length_resolution_mm)  # its proximal pad runs under A
-    held = mounting_offsets("linkage", X, config)
-    assert held == (3.0, 3.0)
-    # A module short of A would sit on O-A were the layout re-mounted; held, it stays below.
-    short = Modules(10.0, 5.0, 20.0, 5.0)
-    assert pad_offsets(under, with_modules(config, short).packaging)["proximal_pad"] == 0.0
-    assert pad_offsets(under, with_modules(config, short, held).packaging)["proximal_pad"] == 3.0
+    linkage = decode(X, config.link_length_resolution_mm)
+    # Shorter or thicker modules: the same mounting surface on O-A, the thickness palmar of it.
+    for modules in (Modules(10.0, 5.0, 20.0, 5.0), Modules(25.0, 8.0, 25.0, 8.0)):
+        pad = proximal_pad_polygon(linkage, with_modules(config, modules).packaging)
+        assert pad[:, 1].max() == pytest.approx(0.0)
+        assert pad[:, 1].min() == pytest.approx(-modules.proximal_height_mm)

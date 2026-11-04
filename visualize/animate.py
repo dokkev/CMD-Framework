@@ -260,7 +260,7 @@ def create_animation(
         for name, marker in markers.items():
             point = getattr(pose, name)
             x, z = point.x_mm, point.z_mm
-            if name in ("proximal_end", "distal_start"):  # on the pad's top face, tangent to its link's pin
+            if name in ("proximal_end", "distal_start"):  # on the pad's mounting surface (the link line)
                 start, end, pad = ((pose.o, pose.a, "proximal_pad") if name == "proximal_end"
                                    else (pose.b, pose.tip, "distal_pad"))
                 offset = pad_offsets(linkage, packaging)[pad]

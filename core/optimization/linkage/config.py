@@ -42,8 +42,8 @@ COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin
                     "proximal_pad_and_distal_pad", "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad")
 DEPRECATED_CHECKS = ("a_pin_and_proximal_pad", "b_pin_and_distal_pad", "distal_carrier_and_pip_servo")
 """Checks removed 2026-11-03, ignored in a goal: the contact interface spaces
-start on the line tangent to their link's pin (no drop to choose), and the
-distal carrier is gone."""
+start at a set line (no drop to choose; their link's since 2026-11-04, each
+pad kept off its own pins by ``pads_off_pins``), and the distal carrier is gone."""
 DEPRECATED_PARAMS = ("distal_carrier_height_mm", "proximal_carrier_height_mm")
 """The carriers' plates (removed 2026-11-03), ignored in a goal."""
 DEPRECATED_VARIABLES = ("proximal_chamfer_mm", "distal_chamfer_mm", "proximal_drop_mm", "distal_drop_mm")
@@ -53,8 +53,8 @@ of the bounds and pads recorded before. (``DEPRECATED_VARIABLES`` also has
 the pads' drops, removed 2026-11-03.)"""
 DEPRECATED_PACKAGING_FIELDS = ("pip_servo_at", "proximal_pad_below_a", "distal_pad_below_b")
 """The PIP servo's place (deprecated 2026-10-30: always on ``A'``, the CoDe's)
-and the pads hung below their pins or not (2026-11-03: always, the contact
-interface spaces start on the line tangent to their link's pin)."""
+and the pads hung below their pins or not (2026-11-03: always; since
+2026-11-04 every pad is mounted on its link line, the pins collisions)."""
 PIVOT_KEYS = MappingProxyType({"a": "a", "a_prime": "ap", "b": "b", "b_prime": "bp"})
 """``goal.collision.param.pivot_diameter_mm`` keys and the packaging's pivot names."""
 
@@ -471,7 +471,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         if side == "proximal":
             past_icr = pad.take("past_icr_max_mm")
             past_icr = None if past_icr is None else float(past_icr)
-        pad.values.pop("drop_mm", None)  # removed 2026-11-03: the space starts on the line tangent to the pin
+        pad.values.pop("drop_mm", None)  # removed 2026-11-03: the space starts at a set line (the link's)
         # Optional (absent: no overhang limit).
         overhang = pad.values.pop("overhang_max_mm", None)
         overhangs[side] = None if overhang is None else float(overhang)

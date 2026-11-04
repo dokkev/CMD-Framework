@@ -52,7 +52,7 @@ from core.morphology.mechanism.linkage.packaging import (
 )
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
-from core.optimization.analysis.tradeoff import Modules, goal_of, mounting_offsets, with_modules
+from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
 
 TOLERANCE_MM = 1e-6
 """Numerical only: a margin this far below 0 still counts as touching (not an assembly clearance)."""
@@ -290,7 +290,7 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
     """Whether the fixed layout ``x`` carries ``modules`` from extension to
     ``phi_req_deg`` (``found_motion``: the layout's :func:`motion`, reused)."""
 
-    config = with_modules(base_config, modules, mounting_offsets(mechanism, x, base_config))
+    config = with_modules(base_config, modules)
     try:
         proximal_room, distal_room = support_rooms(mechanism, x, config)
         found_motion = found_motion or motion(mechanism, x, config, phi_req_deg)
@@ -346,7 +346,7 @@ def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
 
     from core.optimization.mechanism import mechanism as mechanism_of
 
-    config = with_modules(base_config, modules, mounting_offsets(mechanism, x, base_config))
+    config = with_modules(base_config, modules)
     goal = goal_of(config)
     rooms = support_rooms(mechanism, x, config)
     v = dict(zip(mechanism_of(mechanism).variable_names, (float(value) for value in x)))
@@ -366,7 +366,7 @@ def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
                                         "B'": [p.bp.x_mm, p.bp.z_mm]},
                      "pip_servo_tilt_deg": f.servo.tilt_deg,
                      "supports_end_x_mm": {"A''": f.proximal.end_mm, "B''": p.b.x_mm + f.distal.start_mm},
-                     # Where the pads mount below OA and BC: the layout's own, held for every module.
+                     # Where the pads mount below OA and BC: on the lines, for every module.
                      "pad_drops_mm": dict(zip(("proximal", "distal"), pad_offsets(f, goal.packaging).values()))})
     else:
         info.update({"finger_length_mm": v["a_x_mm"] + v["ac_length_mm"],
@@ -389,8 +389,7 @@ def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg
 
     records = []
     for mechanism, (x, base_config) in layouts.items():
-        found_motion = motion(mechanism, x, with_modules(base_config, reference,
-                                                        mounting_offsets(mechanism, x, base_config)), phi_req_deg)
+        found_motion = motion(mechanism, x, with_modules(base_config, reference), phi_req_deg)
         # The layout itself (its reference modules) through phi_req: else no module "fits" at it.
         reaches = evaluate_fit(mechanism, x, base_config, reference, phi_req_deg, found_motion).feasible
         for experiment in ("A", "B"):

@@ -159,7 +159,7 @@ FIXED_PADS = ("goal.pads.proximal.length_mm=[20, 20]", "goal.pads.distal.length_
               "goal.link.finger_length_mm=[60, 300]")
 
 
-def test_each_pad_starts_tangent_to_the_joints_housing():
+def test_each_pad_mounts_on_its_segment_line():
     from core.optimization.revolute import geometry
 
     config = load()
