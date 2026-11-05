@@ -4,10 +4,13 @@ set (as ``core.optimization.revolute.search``):
 1. ``|OC|``;
 2. the rollers' radius ``r`` itself;
 3. ``BC`` a share of the range keeping ``|OA| = |OC| - 2r - BC`` within its
-   bounds, the least ``|OA|`` also keeping the servo off the MCP servo;
+   bounds, the least ``|OA|`` also keeping the servo (at the tilt, 8.) off
+   the MCP servo;
 4. ``A''_x`` a share of ``[the pad's start + its least length, A_x + r + the overhang]``;
 5. ``B''`` from ``B`` a share of ``[-(its reach behind B), BC - its least length]``;
-6. the distal and 7. the proximal pad's drops, each a share of ``[0, r]``.
+6. the distal and 7. the proximal pad's drops, each a share of ``[0, r]``
+   (set, not searched, under the study's mounting policy);
+8. the servo's tilt itself, in whole degrees (the goal's PIP servo's, as the 2R's).
 
 Lengths are rounded to the prototyping resolution; empty ranges describe no design.
 """
@@ -21,38 +24,58 @@ import numpy as np
 
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
-from core.morphology.mechanism.rcj.solids import SERVO_REAR, finger_length_mm
+from core.morphology.mechanism.rcj.solids import finger_length_mm
+from core.morphology.mechanism.revolute.solids import servo_rear
 
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 
 
 SEARCH_NAMES = ("finger_length_mm", "roller_radius_mm", "bc_share", "app_share", "bpp_share", "drop_share",
-                "proximal_drop_share")
+                "proximal_drop_share", "servo_tilt_deg")
+DROP_NAMES = ("drop_share", "proximal_drop_share")
 SHARE_STEP = 0.001
+TILT_STEP_DEG = 1.0
 
 
-@functools.lru_cache(maxsize=64)
-def least_a_x(packaging: Packaging, angles: tuple[float, ...]) -> float:
-    """The least ``|OA|`` keeping the servo on ``A`` clear of the MCP servo."""
+def search_names(config: RcjConfig) -> tuple[str, ...]:
+    """:data:`SEARCH_NAMES`, without the drops when the goal's mounting policy sets them."""
 
-    return servo_floor_x(packaging, 0.0, SERVO_REAR, angles)
+    if config.goal.mount_policy == "searched":
+        return SEARCH_NAMES
+    return tuple(name for name in SEARCH_NAMES if name not in DROP_NAMES)
+
+
+@functools.lru_cache(maxsize=256)
+def least_a_x(packaging: Packaging, angles: tuple[float, ...], tilt_deg: float = 0.0) -> float:
+    """The least ``|OA|`` keeping the servo on ``A`` (tilted by ``tilt_deg``) clear of the MCP servo."""
+
+    return servo_floor_x(packaging, 0.0, servo_rear(tilt_deg), angles)
+
+
+def _tilt(value: float, config: RcjConfig) -> float:
+    """``value`` on the whole-degree grid from the least tilt, within the bounds."""
+
+    low, high = config.bounds["servo_tilt_deg"]
+    return float(min(low + round((value - low) / TILT_STEP_DEG) * TILT_STEP_DEG, high))
 
 
 def search_box(config: RcjConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
     box = {"finger_length_mm": config.goal.extended_length_bounds_mm,
-           "roller_radius_mm": config.bounds["roller_radius_mm"]}
-    return (tuple(box.get(name, (0.0, 1.0))[0] for name in SEARCH_NAMES),
-            tuple(box.get(name, (0.0, 1.0))[1] for name in SEARCH_NAMES))
+           "roller_radius_mm": config.bounds["roller_radius_mm"], "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
+    names = search_names(config)
+    return (tuple(box.get(name, (0.0, 1.0))[0] for name in names),
+            tuple(box.get(name, (0.0, 1.0))[1] for name in names))
 
 
 def search_steps(config: RcjConfig) -> tuple[float, ...]:
-    return tuple(SHARE_STEP if name.endswith("_share") else config.resolution_mm for name in SEARCH_NAMES)
+    return tuple(SHARE_STEP if name.endswith("_share") else TILT_STEP_DEG if name == "servo_tilt_deg"
+                 else config.resolution_mm for name in search_names(config))
 
 
-def _ranges(config: RcjConfig, length: float, r: float):
+def _ranges(config: RcjConfig, length: float, r: float, tilt_deg: float):
     goal = config.goal
     a_low, a_high = goal.bounds["a_x_mm"]
-    a_low = max(a_low, least_a_x(goal.packaging, tuple(goal.mcp_servo_angles_rad)) - 0.5)  # sampled: stay below it
+    a_low = max(a_low, least_a_x(goal.packaging, tuple(goal.mcp_servo_angles_rad), tilt_deg) - 0.5)  # sampled
     bc_low, bc_high = config.bounds["bc_length_mm"]
     bc_range = (max(bc_low, length - 2.0 * r - a_high), min(bc_high, length - 2.0 * r - a_low))
     start = goal.packaging.proximal_pad_start_mm
@@ -66,11 +89,13 @@ def _ranges(config: RcjConfig, length: float, r: float):
 
 
 def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, ...] | None:
-    v = dict(zip(SEARCH_NAMES, (float(c) for c in coordinates)))
+    v = {name: 0.0 for name in DROP_NAMES}  # set below when the policy sets them
+    v.update(zip(search_names(config), (float(c) for c in coordinates)))
     resolution = config.resolution_mm
     grid = lambda value: round(round(value / resolution) * resolution, 9)  # noqa: E731
     length, r = v["finger_length_mm"], grid(v["roller_radius_mm"])
-    bc_range, pads = _ranges(config, length, r)
+    tilt = _tilt(v["servo_tilt_deg"], config)
+    bc_range, pads = _ranges(config, length, r, tilt)
     if bc_range[1] < bc_range[0]:
         return None
     bc = grid(bc_range[0] + v["bc_share"] * (bc_range[1] - bc_range[0]))
@@ -81,7 +106,17 @@ def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, .
               "app_x_mm": grid(p_low + v["app_share"] * (p_high - p_low)),
               "bpp_from_b_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
               "distal_drop_mm": min(grid(v["drop_share"] * r), r),
-              "proximal_drop_mm": min(grid(v["proximal_drop_share"] * r), r)}
+              "proximal_drop_mm": min(grid(v["proximal_drop_share"] * r), r), "servo_tilt_deg": tilt}
+    x = tuple(design[name] for name in VARIABLE_NAMES)
+    if config.goal.mount_policy == "searched":
+        return x
+    # Each pad at the least depth its own roller (and the servo) needs, within what they carry.
+    from core.optimization.mounting import rcj_mounting
+
+    found = rcj_mounting(x, config)
+    if not found.supported:
+        return None
+    design["proximal_drop_mm"], design["distal_drop_mm"] = found.depths_mm
     return tuple(design[name] for name in VARIABLE_NAMES)
 
 
@@ -89,7 +124,7 @@ def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
     d = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
     r = d["roller_radius_mm"]
     length = finger_length_mm(d["a_x_mm"], r, d["bc_length_mm"])
-    bc_range, pads = _ranges(config, length, r)
+    bc_range, pads = _ranges(config, length, r, d["servo_tilt_deg"])
     (p_low, p_high), (d_low, d_high) = pads(d["bc_length_mm"])
 
     def share(value: float, low: float, high: float) -> float:
@@ -100,8 +135,8 @@ def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
                    "app_share": share(d["app_x_mm"], p_low, p_high),
                    "bpp_share": share(d["bpp_from_b_mm"], d_low, d_high),
                    "drop_share": share(d["distal_drop_mm"], 0.0, r),
-                   "proximal_drop_share": share(d["proximal_drop_mm"], 0.0, r)}
-    return tuple(coordinates[name] for name in SEARCH_NAMES)
+                   "proximal_drop_share": share(d["proximal_drop_mm"], 0.0, r), "servo_tilt_deg": d["servo_tilt_deg"]}
+    return tuple(coordinates[name] for name in search_names(config))
 
 
-__all__ = ["SEARCH_NAMES", "from_design", "least_a_x", "search_box", "search_steps", "to_design"]
+__all__ = ["DROP_NAMES", "SEARCH_NAMES", "TILT_STEP_DEG", "search_names", "from_design", "least_a_x", "search_box", "search_steps", "to_design"]

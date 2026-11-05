@@ -3,14 +3,16 @@ least depth its own joint hardware needs, within what that hardware supports."""
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from core.optimization.analysis.tradeoff import Modules, with_modules
 from core.optimization.linkage.search import from_design, search_names, to_design
 from core.optimization.mechanism import mechanism
-from core.optimization.mounting import mounting
+from core.optimization.mounting import footprint_reach_mm, mounting
 from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
@@ -76,30 +78,51 @@ def test_the_2r_dds_servo_supports_its_distal_pad_only_when_the_depths_are_align
     # Aligned: one depth for both pads, the deeper least one, the distal pad
     # carried to the servo's reach.
     _, aligned = load("goal.pads.align_mount_offsets=true")
-    both = [45.0, 55.0, 40.0, 4.0, 0.0, 0.0, 90.0]  # the proximal pad under the servo too
+    both = [45.0, 55.0, 44.0, 4.0, 0.0, 0.0, 90.0]  # the proximal pad under the servo's lowest too
     found = mounting("revolute", both, aligned)
     servo = aligned.goal.packaging.pip_servo.radius_mm
-    assert found.depths_mm == (8.7, 8.7) and found.native_mm == (pytest.approx(servo), pytest.approx(servo))
+    assert found.depths_mm == (servo, servo) and found.native_mm == (pytest.approx(servo), pytest.approx(servo))
     assert found.cases == ("B", "B")
-    x = [45.0, 55.0, 40.0, 4.0, 8.7, 8.7, 90.0]
+    x = [45.0, 55.0, 44.0, 4.0, servo, servo, 90.0]
     assert REVOLUTE.evaluate(x, aligned).constraints["mount_depth_mm"] == 0.0
+    # The proximal pad only partly under it: the servo carries it no deeper
+    # than its housing reaches over the pad, short of the distal pad's depth.
+    found = mounting("revolute", [45.0, 55.0, 40.0, 4.0, 0.0, 0.0, 90.0], aligned)
+    assert found.depths_mm == (8.7, 8.7) and found.native_mm == (8.1, pytest.approx(servo))
+    assert found.cases == ("C", "B")
     # A proximal pad short of the servo would hang at that depth with nothing over it.
     assert mounting("revolute", under, aligned).cases == ("C", "B")
 
 
-def test_a_depth_beyond_the_native_support_is_no_design():
-    code, _ = load()
-    # A' low: the PIP servo hangs below OA over the proximal pad's end, short
-    # of A. Only a spacer would carry the pad under it (case C).
+def test_a_servo_housing_carries_its_own_segments_pad_as_deep_as_it_reaches_over_it():
+    code, dd = load()
+    # CoDe: A' low, the PIP servo hangs below OA over the proximal pad's end,
+    # short of A. The servo is fixed on the proximal segment: it carries the
+    # pad (2026-11-05), at the least depth clearing it.
     low = [*CODE[:4], 6.0, *CODE[5:10], -6.9, *CODE[11:]]
     found = mounting("linkage", low, code)
-    assert found.cases[0] == "C" and found.native_mm[0] == 0.0 and not found.supported
-    for depth in (0.0, found.depths_mm[0]):  # neither on the line nor hung under the servo
-        x = [*low[:12], depth, 0.0]
-        assert LINKAGE.evaluate(x, code).constraints["mount_depth_mm"] > 0.0
-    # Nor deeper than the allowed range: B's housing needs 3 mm, 2 are allowed.
+    assert found.cases == ("B", "A") and found.depths_mm[0] == found.native_mm[0] == 2.5
+    assert LINKAGE.evaluate([*low[:12], 0.0, 0.0], code).constraints["mount_depth_mm"] == pytest.approx(2.5)
+    assert LINKAGE.evaluate([*low[:12], 2.5, 0.0], code).constraints["mount_depth_mm"] == 0.0
+    # The 2R-DD's alike: the servo's footprint over the pad, not its whole reach.
+    partly = mounting("revolute", [45.0, 55.0, 40.0, 29.0, 0.0, 0.0, 90.0], dd)  # its end 5 mm short of A
+    assert partly.native_mm[0] == 8.1 < dd.goal.packaging.pip_servo.radius_mm
+
+
+def test_a_housing_reaches_only_over_the_span_it_shares_with_the_pad():
+    disk = np.array([(10.0 * math.cos(t), 10.0 * math.sin(t)) for t in np.linspace(0.0, 2.0 * math.pi, 721)])
+    assert footprint_reach_mm(disk, (-20.0, 20.0), 0.0) == pytest.approx(10.0)  # under its lowest point
+    assert footprint_reach_mm(disk, (-20.0, -6.0), 0.0) == pytest.approx(8.0, abs=1e-3)  # 6 mm short of it
+    assert footprint_reach_mm(disk, (-20.0, -6.0), 0.5) == pytest.approx(8.5, abs=1e-3)  # plus the clearance
+    assert footprint_reach_mm(disk, (12.0, 20.0), 0.5) == 0.0  # the pad skirts it: nothing over the pad
+
+
+def test_a_depth_beyond_the_native_support_is_no_design():
+    # Deeper than the allowed range: B's housing needs 3 mm, 2 are allowed.
     capped, _ = load("goal.pads.distal.mount_offset_mm=[0, 2]")
-    assert mounting("linkage", CODE_UNDER_B, capped).cases[1] == "C"
+    found = mounting("linkage", CODE_UNDER_B, capped)
+    assert found.cases[1] == "C" and not found.supported
+    assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 2.0], capped).constraints["mount_depth_mm"] > 0.0
 
 
 def test_an_evaluated_design_must_carry_the_policys_depths():
@@ -148,3 +171,29 @@ def test_the_2r_dd_searches_no_depth_and_the_belt_2r_takes_no_policy():
     assert len(revolute_names(dd)) == len(revolute_names(load("goal.pads.mount_policy=searched")[1])) - 2
     with pytest.raises(ValueError, match="belt 2R"):
         load_yaml(mechanism("revolute_parallel"), CONFIG, RULES)
+
+
+RCJ = mechanism("rcj")
+RCJ_X = [36.0, 9.5, 35.0, 36.0, 8.6, 0.0, 0.0, 10.0]
+"""The proximal pad to A (under its roller and the servo, tilted 10 deg), the distal one 8.6 mm past B (under its roller's side)."""
+
+
+def test_the_rcj_mounts_each_pad_under_its_own_roller():
+    from core.optimization.mounting import disk_reach_mm
+
+    config = load_yaml(RCJ, CONFIG, (*RULES,))[0]
+    found = mounting("rcj", RCJ_X, config)
+    # The proximal pad reaches A: the roller's (and the servo's) lowest point, r below OA.
+    assert found.cases == ("B", "B") and found.depths_mm[0] == found.native_mm[0] == 9.5
+    # The distal pad starts 8.6 mm past B: as deep as the roller's side there, sqrt(9.5^2 - 8.6^2).
+    assert found.depths_mm[1] == found.native_mm[1] == pytest.approx(4.1)
+    assert disk_reach_mm((0.0, 0.0), 9.5, (8.6, 30.0)) == pytest.approx((9.5 ** 2 - 8.6 ** 2) ** 0.5)
+    x = [*RCJ_X[:5], *found.depths_mm[::-1], 10.0]  # distal_drop_mm, proximal_drop_mm, the tilt
+    assert RCJ.evaluate(x, config).constraints["mount_depth_mm"] == 0.0
+    assert RCJ.evaluate(RCJ_X, config).constraints["mount_depth_mm"] == pytest.approx(9.5)
+    # The search sets them: no drop searched, and its designs carry the policy's depths.
+    assert not any("drop" in name for name in RCJ.search_names(config))
+    assert RCJ.to_design(RCJ.from_design(x, config), config) == tuple(x)
+    # A roller larger than the depth range allows (r 12 > 10 mm): a spacer, no design.
+    big = mounting("rcj", [33.0, 12.0, 33.0, 33.0, 8.6, 0.0, 0.0, 10.0], config)
+    assert big.cases[0] == "C" and not big.supported

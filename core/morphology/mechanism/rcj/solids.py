@@ -12,7 +12,7 @@ cables that hold it are not modelled (provisional, as the retention study's
 RCJ).
 
 Packaging, in one plane, by the linkage's rules: the servo lies back along
-``-X`` from ``A`` (``SERVO_REAR``; its rounded front within the roller); the proximal pad hangs a
+``-X`` from ``A``, tilted dorsally by ``servo_tilt_deg`` (its rounded front within the roller); the proximal pad hangs a
 searched drop below ``O-A`` (at most ``r``), laid from the MCP servo to
 ``A''``, at most ``A_x + r`` (plus ``goal.pads.proximal.overhang_max_mm``);
 the distal pad hangs a searched drop below ``B-C`` (at most ``r``), laid
@@ -40,22 +40,22 @@ import numpy as np
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk
-from core.morphology.mechanism.revolute.solids import carrier_local
+from core.morphology.mechanism.revolute.solids import carrier_local, servo_rear
 
 
 VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm",
-                  "proximal_drop_mm")
+                  "proximal_drop_mm", "servo_tilt_deg")
 """``|OA|``, the rollers' radius ``r`` (``|AB| = 2r``), ``BC``, the proximal
 pad's end ``A''_x``, the distal pad's joint end ``B''`` from ``B`` along
 ``B->C`` (negative: behind ``B``), and how far below ``B-C`` and ``O-A``
 the distal and the proximal pad's top faces lie (each at most ``r``, the
-joint's radius, as the 2R's; each pad clears its own roller). The pads are
-plain blocks."""
+joint's radius, as the 2R's; each pad clears its own roller), and the
+servo's dorsal tilt from ``-X`` (degrees, as the 2R's ``servo_tilt_deg``;
+2026-11-05, 0 in a vector without it: the earlier fixed layout). The pads
+are plain blocks."""
 SERVO_REAR = (-1.0, 0.0)
-"""The servo on ``A`` lies back along ``-X``, untilted, as the 2R's: within
-the roller's depth (``r`` is at least its radius), so no thicker than the
-rollers; standing dorsal it would only add height, and it never meets a pad
-either way (the pads hang a roller radius below ``O-A``)."""
+"""The servo on ``A`` laid back along ``-X`` untilted (``servo_tilt_deg`` 0):
+within the roller's depth (``r`` is at least its radius)."""
 TORQUE_RATIO = 2.0
 """``d(phi)/d(theta)`` of equal rollers: two units of servo torque per unit of distal moment."""
 
@@ -152,7 +152,7 @@ def geometry(x: Sequence[float], packaging: Packaging) -> RcjGeometry:
     proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
     distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
-    servo = ServoFootprint((v["a_x_mm"], 0.0), SERVO_REAR,
+    servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v.get("servo_tilt_deg", 0.0)),
                            packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                        servo, proximal_length, distal_length, proximal_room, distal_room, v["proximal_drop_mm"],

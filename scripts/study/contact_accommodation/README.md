@@ -15,10 +15,12 @@ contact modules than the direct-drive serial 2R (2R-DD, mechanism
   - a run's `pareto.csv` row by its candidate number;
   - a design vector under a config file.
 
-  The cores are four roles each of CoDe at a 10 deg servo tilt and of the
-  2R-DD at 0 and 90 deg. The comparison is therefore between those servo
-  layouts, not the mechanism families at large. A design two roles share is
-  evaluated once. The cores come from the `scripts/study/*.yaml` runs, all
+  The cores are CoDe at a 10 deg servo tilt in four roles, and the 2R-DD at
+  0 and 90 deg in three: its servo drives the joint directly, its torque
+  ratio is 1 for every design, so `best_transmission` would pick an
+  arbitrary one. The comparison is therefore between those servo layouts,
+  not the mechanism families at large. A design two roles share (a seed's
+  role `most_pad;balanced`) is evaluated once. The cores come from the `scripts/study/*.yaml` runs, all
   under one goal (`scripts/study/base.yaml`) on the study's own baseline,
   `scripts/study/baseline.yaml`. That baseline is a frozen copy of the
   production config, so a production change does not move the study. The
@@ -40,7 +42,8 @@ contact modules than the direct-drive serial 2R (2R-DD, mechanism
   - whether the modules mount on the core's supports;
   - whether the assembly stays clear from extension to the required flexion
     (`contact_envelope.evaluate_fit`), with the first failing pose and pair;
-  - the maximum safe flexion (`contact_envelope.max_flexion_deg`);
+  - the maximum safe flexion (`contact_envelope.max_flexion_deg`), the
+    least of the core's own limit and the module's first failure;
   - when it fits, the pads' effective lengths and the coverage at that
     flexion, as the mechanism's own evaluation counts them (each face up to
     where the two faces cross).
@@ -48,6 +51,21 @@ contact modules than the direct-drive serial 2R (2R-DD, mechanism
   A failed assembly is reported as infeasible. It is not redesigned.
   An assembly also fails where the fingertip passes behind the MCP
   (`C_x < 0`, `tip_behind_mcp`), as in the optimization's evaluators.
+
+  The core's own limit is what no module changes. For the 2R-DD it is the
+  flexion asked for. CoDe's motion is the evaluator's safe motion less the
+  pads:
+  1. its rising branch only, to the four-bar's closure or its first most
+     flexion (the poses after it turn back), `kinematic_unreachable` short
+     of the flexion asked for;
+  2. on it, the optimizer's mechanism limits: the transmission angle at B',
+     the DIP and the PIP turning with the servo, the distal pins clear of
+     the PIP servo (`mechanism_limit`, the limit in `collision_pair`).
+
+  The pads' collisions depend on the module, so each module's are checked
+  on that motion with its own dimensions. The servo is sampled every
+  0.1 deg (the optimizer's evaluator every 1 deg, so its limit can fall up
+  to one of its steps short of the study's).
 
   What this shows is which module requirements a fixed core accommodates
   without changing its morphology. It does not show the cost of
@@ -71,7 +89,9 @@ The two pads are set independently.
   the resolution grid that clears it. The depth depends on the pad's length
   and placement, and the evaluators' own collision checks decide it. The
   hardware supports the pad only on its own body:
-  - CoDe: the pin housings of the pad's segment;
+  - CoDe: the pin housings of the pad's segment, and for the proximal pad
+    the PIP servo, which is fixed on the proximal segment (never the distal
+    pad's);
   - 2R-DD proximal pad: the servo, which sits on the proximal body;
   - 2R-DD distal pad: none, since it hangs from a truss off the output at A
     and the servo only sets its clearance. With `align_mount_offsets`, both
@@ -79,6 +99,11 @@ The two pads are set independently.
     carried to the servo's reach.
 - **Case C:** a depth deeper than the hardware reaches below the line (the
   segment's native support) would need a spacer. The design is rejected.
+
+A pin housing reaches as deep as its disk. A servo housing reaches as deep
+as its footprint's lowest point over the pad's span along the line, not its
+whole reach, and carries nothing where the two do not overlap. Both include
+the clearance and are rounded up to the depths' grid.
 
 The depths are the core's: they are written into its design vector and held
 for every module. A module goes on the core's surfaces when, for each pad,
@@ -99,15 +124,18 @@ The rows record, for each pad:
 
 ## Physical rules
 
-All cores must be checked under the same packaging: the servos, the pins,
-the clearances and which pairs are checked. If they are not, `run.py`
-stops. The checks are the idealized 2.5D side view of `contact_envelope`
+All cores must be checked under the same packaging (the servos, the pins,
+the clearances and which pairs are checked) and the same mounting and
+collision settings (policy, alignment, depth range and grid, link radius,
+MCP poses). If they are not, `run.py` stops. The manifest lists the link
+checks only when a link radius is set. The checks are the idealized 2.5D side view of `contact_envelope`
 (`COLLISION_POLICY`, recorded in the manifest).
 
 ## Run
 
 ```
 python scripts/optimize/run.py scripts/study/code_tilt10.yaml      # the cores' runs first
+python scripts/optimize/run.py scripts/study/2r_dd_tilt0.yaml
 python scripts/optimize/run.py scripts/study/2r_dd_tilt90.yaml
 python scripts/study/contact_accommodation/run.py                  # then the study
 ```

@@ -25,8 +25,8 @@ def load(path: Path):
     return found, found.config_from_mapping(values)
 
 
-def test_the_study_compares_the_code_and_the_2r_dd():
-    assert {mechanism(read_config_file(path)["mechanism"]).name for path in FILES} == {"linkage", "revolute"}
+def test_the_study_compares_the_code_the_2r_dd_and_the_rcj():
+    assert {mechanism(read_config_file(path)["mechanism"]).name for path in FILES} == {"linkage", "revolute", "rcj"}
 
 
 @pytest.mark.parametrize("path", FILES, ids=[path.stem for path in FILES])

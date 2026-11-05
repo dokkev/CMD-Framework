@@ -20,6 +20,7 @@ to the config's ``output``.
 
 from __future__ import annotations
 
+import copy
 import csv
 import dataclasses
 import json
@@ -90,10 +91,14 @@ class ModulePair:
 
 # Stage A: the cores ---------------------------------------------------------
 
-def _row(path: Path, column: str, value: str) -> dict[str, str]:
+def _row(path: Path, column: str, value: str, joined: bool = False) -> dict[str, str]:
+    """The first row whose ``column`` is ``value`` (``joined``: one of its
+    ``;``-joined values, as a seed picked for two roles, ``most_pad;balanced``)."""
+
     with path.open(encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
-            if row.get(column) == value:
+            found = row.get(column) or ""
+            if value in (found.split(";") if joined else (found,)):
                 return row
     raise ValueError(f"{path}: no row with {column} = {value}")
 
@@ -105,7 +110,7 @@ def load_core(spec: dict[str, Any], root: Path = REPOSITORY_ROOT) -> CoreDesign:
     if "portfolio" in spec or "run" in spec:
         if "portfolio" in spec:
             portfolio = root / spec["portfolio"]
-            row = _row(portfolio / "seeds.csv", "seed_role", str(spec["role"]))
+            row = _row(portfolio / "seeds.csv", "seed_role", str(spec["role"]), joined=True)
             run = load_run(portfolio.parent.parent / row["run"])
             source = f"{spec['portfolio']}/seeds.csv#{spec['role']}"
         else:
@@ -155,8 +160,29 @@ def physical_rules(core: CoreDesign) -> dict[str, Any]:
     for side in SIDES:
         rules.pop(f"{side}_pad", None)
     rules["mount_policy"] = goal.mount_policy
+    rules["align_mount_offsets"] = goal.align_mount_offsets
     rules["mount_offset_range_mm"] = [list(goal.bounds[f"{side}_mount_offset_mm"]) for side in SIDES]
+    rules["resolution_mm"] = goal.resolution_mm
+    # What the collision checks include: the bars as capsules, the MCP servo's poses.
+    rules["link_radius_mm"] = goal.link_radius_mm
+    rules["mcp_samples_rad"] = [float(value) for value in goal.mcp_samples_rad]
     return json.loads(json.dumps(rules, default=str))
+
+
+def collision_policy(link_radius_mm: float | None) -> dict[str, Any]:
+    """``COLLISION_POLICY`` as these cores are checked: the links and bars
+    only as capsules when ``link_radius_mm`` is set (else not checked)."""
+
+    policy = copy.deepcopy(COLLISION_POLICY)
+    links = next(item for item in policy["checked_in_xz_projection"] if "link_radius_mm" in item)
+    if link_radius_mm is None:
+        policy["checked_in_xz_projection"].remove(links)
+        policy["not_checked"]["module - links and bars of the other body"] = (
+            "goal.collision.param.link_radius_mm unset, for CoDe and the 2R-DD alike")
+    else:
+        policy["checked_in_xz_projection"][policy["checked_in_xz_projection"].index(links)] = \
+            links.replace("link_radius_mm", f"link_radius_mm = {link_radius_mm:g}")
+    return policy
 
 
 def check_equivalent(cores: list[CoreDesign]) -> dict[str, Any]:
@@ -386,15 +412,16 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = N
         "config": {"path": str(config_path), "values": config},
         "cores": cores_values, "modules": modules_values,
         "required_flexion_deg": flexions, "max_flexion_limit_deg": limit,
-        "physical_rules": rules, "collision_policy": COLLISION_POLICY,
+        "physical_rules": rules, "collision_policy": collision_policy(rules["link_radius_mm"]),
         "mounting_depth": "each core's own (its design vector), below its reference lines (CoDe: OA, BC; "
                           "2R-DD: its segments' lines), the module's thickness below it, held for every module",
         "mounting_policy": {
             "policy": sorted({goal_of(core.config).mount_policy for core in cores}),
             "rule": "shallowest_supported: each pad, independently, at the least depth on the resolution grid "
                     "clearing its own joint hardware (case A: 0, the pad short of it; case B: under it, no deeper "
-                    "than that hardware reaches: CoDe's pin housings, the 2R-DD's servo); deeper (case C, a "
-                    "spacer) is no design (core.optimization.mounting)",
+                    "than that hardware reaches: CoDe's pin housings and, for the proximal pad, its PIP servo; the "
+                    "2R-DD's servo for its proximal pad; a servo by its footprint over the pad); deeper (case C, "
+                    "a spacer) is no design (core.optimization.mounting)",
             "module_replacement": "on the core's frozen depths: each pad's least depth at most the core's, and "
                                   "the core's within the native support under that module "
                                   "(d_req <= d_core <= d_native); else mount_incompatible, not remounted",

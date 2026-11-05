@@ -25,7 +25,7 @@ def bound_hits(x: Sequence[float], config: RcjConfig, finger_length_mm: float) -
 
 class RcjMechanism(RevoluteMechanism):
     name = "rcj"
-    formulation = "rcj-goal-v6"
+    formulation = "rcj-goal-v7"
     """The RCJ on the linkage's goal (2026-10-27): equal rollers, the servo on
     the proximal roller's centre driving the carrier (``k = 2``), laid back
     along ``-X`` as the 2R's; ideal no-slip rolling, the cables not modelled
@@ -38,7 +38,8 @@ class RcjMechanism(RevoluteMechanism):
     ``usable_lengths``, as the linkage's v8) and none mounted past that
     (``pad_waste_mm``), the segment ratios without maxima
     (its own pads, drops and carrier unchanged). v5: the segment ratios on
-    ``|OA''|`` and ``|B''C|``, as the linkage's and the 2R's. v6 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``)."""
+    ``|OA''|`` and ``|B''C|``, as the linkage's and the 2R's. v6 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
+    v7 (2026-11-05): the servo's tilt a design variable (``servo_tilt_deg``, the goal's PIP servo's, as the 2R's; a run without it was untilted); the constraint ``mount_depth_mm`` (the pads' drops against ``goal.pads.mount_policy``: 0 when searched, whose designs are unchanged; ``shallowest_supported``, the study's, sets each drop by the roller and servo it runs under, ``core.optimization.mounting``)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 
@@ -52,7 +53,7 @@ class RcjMechanism(RevoluteMechanism):
         return RcjConfig(config_from_json(values["goal"]), {name: tuple(pair) for name, pair in values["bounds"].items()})
 
     def search_names(self, config: RcjConfig) -> tuple[str, ...]:
-        return search.SEARCH_NAMES
+        return search.search_names(config)
 
     def search_box(self, config: RcjConfig) -> tuple[Sequence[float], Sequence[float]]:
         return search.search_box(config)
@@ -64,7 +65,13 @@ class RcjMechanism(RevoluteMechanism):
         return search.to_design(coordinates, config)
 
     def prepare(self, config: RcjConfig) -> None:
-        search.least_a_x(config.goal.packaging, tuple(config.goal.mcp_servo_angles_rad))
+        pass  # search.least_a_x is cached per tilt as it is met
+
+    def read_design(self, row: Mapping[str, str]) -> list[float]:
+        """A row's design vector; a row of a run before the tilt (rcj-goal-v6) was untilted."""
+
+        return [float(row.get(name) or 0.0) if name == "servo_tilt_deg" else float(row[name])
+                for name in self.variable_names]
 
     def from_design(self, x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
         return search.from_design(x, config)

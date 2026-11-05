@@ -2,9 +2,10 @@
 distal contact module both fit and stay clear from extension to a required
 flexion, the mechanism never changed.
 
-A geometry-only check, apart from the optimization's design requirements
-(no torque, transmission-angle, dorsal-space or fingertip limits): only
-mounting on the fixed supports, the motion's closure and solid penetration.
+A geometry check, apart from the optimization's design requirements (no
+torque, dorsal-space or pad-length limits): mounting on the fixed supports,
+the motion's mechanism limits (as the optimizer's), solid penetration and
+the fingertip ahead of the MCP.
 For a layout (a complete, fixed design vector ``x`` and its comparison
 config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
 
@@ -14,8 +15,15 @@ config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
 2. the motion: the 2R turning about ``A``; CoDe solved by its four-bar
    (``Finger.sweep_servo``), ``phi = q_pip + q_dip`` the distal
    carrier's rotation relative to the proximal one (not the servo's turn),
-   sampled to the first pose at or past ``phi_req`` (``kinematic_unreachable``
-   if the four-bar stops closing or turns back short of it);
+   sampled to the first pose at or past ``phi_req``. CoDe's motion is the
+   evaluator's safe motion less the pads (2026-11-05): its rising branch,
+   to the four-bar's closure or its first most flexion
+   (``kinematic_unreachable`` short of ``phi_req``), and on it the
+   optimizer's mechanism limits, which no module changes: the transmission
+   angle at ``B'``, the DIP and the PIP turning with the servo, the distal
+   pins clear of the PIP servo (``mechanism_limit``,
+   ``linkage.motion.unsafe_conditions``). A module's safe flexion is the
+   least of that and its own first failure below;
 3. every checked pair's signed margin over those poses (``overlap_depth``:
    an overlap negative by its depth, touching 0, clearance 0), feasible when
    none falls below ``-TOLERANCE_MM``, and the fingertip never passes
@@ -84,9 +92,11 @@ COLLISION_POLICY = {
     },
 }
 """Which solids are checked against which (``metadata.json`` records it)."""
-REASONS = ("feasible", "support_exceeded", "kinematic_unreachable", "pad_pad_collision", "pad_servo_collision",
-           "pad_joint_collision", "pad_linkage_collision", "pad_support_collision", "structure_collision",
-           "tip_behind_mcp", "invalid_fixed_layout")
+REASONS = ("feasible", "support_exceeded", "kinematic_unreachable", "mechanism_limit", "pad_pad_collision",
+           "pad_servo_collision", "pad_joint_collision", "pad_linkage_collision", "pad_support_collision",
+           "structure_collision", "tip_behind_mcp", "invalid_fixed_layout")
+KINEMATIC_STOPS = ("", "closure", "turns_back", "horizon")
+"""Motion stops that are the four-bar's geometry (``kinematic_unreachable``), not a limit the optimizer sets."""
 
 
 @dataclass(frozen=True)
@@ -110,6 +120,11 @@ class Motion:
     linkage: Finger | None = None
     servo_rad: np.ndarray | None = None
     """CoDe's servo angle at each pose (to resample between them)."""
+    stop: str = ""
+    """Short of ``phi_req``, what ends the motion: the four-bar's ``closure``
+    or ``turns_back`` (``kinematic_unreachable``), else one of the
+    optimizer's mechanism limits (``mechanism_limit``: ``transmission``,
+    ``dip_backoff``, ``pip_backoff``, ``dip_pin``)."""
 
 
 def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
@@ -120,19 +135,35 @@ def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
         return Motion(phi, True)
     from core.morphology.mechanism.linkage.design import decode
 
+    from core.morphology.mechanism.linkage.motion import STOP_REASONS, servo_sense, unsafe_conditions
+    from core.optimization.linkage.evaluate import motion_settings
+
     linkage = decode(x, config.link_length_resolution_mm)
     step = math.radians(LINKAGE_SERVO_STEP_DEG)
-    sense = 1.0 if linkage.sweep_servo([0.0, step]).q_driver_rad[-1] >= 0.0 else -1.0
-    sweep = linkage.sweep_servo(sense * np.arange(0.0, 2.0 * math.pi, step))
+    sense = servo_sense(linkage, step)
+    servo = sense * np.arange(0.0, 2.0 * math.pi, step)
+    sweep = linkage.sweep_servo(servo)
     phi = np.degrees(sweep.total_flexion_rad)
-    reached = np.maximum.accumulate(phi)
-    at = np.flatnonzero(reached >= phi_req_deg - 1e-9)
-    # Past the four-bar's closure, or turning back short of phi_req: not reached.
-    last = int(at[0]) if at.size else len(phi) - 1
-    ok = bool(at.size) and bool(np.all(np.diff(phi[:last + 1]) >= -1e-9))
+    # 1. The rising branch: to the four-bar's closure, or to its first most
+    # flexion, where it turns back (the poses after are the return branch).
+    falls = np.flatnonzero(np.diff(phi) < -1e-9)
+    end = int(falls[0]) if falls.size else len(phi) - 1
+    stop = "turns_back" if falls.size else "closure" if len(phi) < len(servo) else "horizon"
+    # 2. On it, the optimizer's own mechanism limits (the evaluator's safe
+    # motion less the pads, which each module's own check covers): the
+    # transmission angle at B', the DIP and the PIP turning with the servo,
+    # the distal pins clear of the PIP servo.
+    unsafe = unsafe_conditions(linkage, pip_footprint(config.packaging, linkage), lambda name: getattr(sweep, name),
+                               sense, config.packaging, motion_settings(config))
+    flagged = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[:end + 1])
+    if flagged.size:
+        end = int(flagged[0]) - 1  # the last safe pose (the evaluator's phi_safe)
+        stop = next(name for name in STOP_REASONS if name in unsafe and unsafe[name][flagged[0]])
+    at = np.flatnonzero(phi[:max(end, 0) + 1] >= phi_req_deg - 1e-9) if end >= 0 else np.array([], dtype=int)
+    last = int(at[0]) if at.size else max(end, 0)
     window = slice(0, last + 1)
-    return Motion(phi[window], ok, sweep.b[window], sweep.tip[window], sweep.bp[window], linkage,
-                  (sense * np.arange(0.0, 2.0 * math.pi, step))[:len(phi)][window])
+    return Motion(phi[window], bool(at.size), sweep.b[window], sweep.tip[window], sweep.bp[window], linkage,
+                  servo[:len(phi)][window], "" if at.size else stop)
 
 
 def reason_of(pair: tuple[str, str]) -> str:
@@ -337,7 +368,9 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
     if tip is not None:
         return tip
     if not found_motion.reached:
-        return FitResult(False, "kinematic_unreachable", float(found_motion.phi_deg.max()))
+        if found_motion.stop in KINEMATIC_STOPS:
+            return FitResult(False, "kinematic_unreachable", float(found_motion.phi_deg.max()))
+        return FitResult(False, "mechanism_limit", float(found_motion.phi_deg.max()), found_motion.stop)
     return FitResult(True, "feasible")
 
 

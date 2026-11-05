@@ -15,7 +15,7 @@ cables that hold it are not modelled (provisional, as the retention study's
 RCJ).
 
 Packaging, in one plane, by the linkage's rules: the servo lies back along
-``-X`` from ``A`` (``SERVO_REAR``; its rounded front within the roller); the proximal pad hangs a
+``-X`` from ``A``, tilted dorsally by ``servo_tilt_deg`` (its rounded front within the roller); the proximal pad hangs a
 searched drop below ``O-A`` (at most ``r``), laid from the MCP servo to
 ``A''``, at most ``A_x + r`` (plus ``goal.pads.proximal.overhang_max_mm``);
 the distal pad hangs a searched drop below ``B-C`` (at most ``r``), laid
@@ -58,8 +58,8 @@ from core.optimization.revolute.evaluate import (
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "pad_drop_mm", "mcp_servo_mm",
-                      "pip_servo_pad_mm", "proximal_support_mm", "distal_support_mm", "roller_pad_mm",
-                      "pad_collision_mm")
+                      "pip_servo_pad_mm", "proximal_support_mm", "distal_support_mm", "mount_depth_mm",
+                      "roller_pad_mm", "pad_collision_mm")
 MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "pad_waste_mm",
                       "torque_ratio")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
@@ -79,6 +79,18 @@ class RcjEvaluation(RevoluteEvaluation):
     @property
     def g(self) -> tuple[float, ...]:
         return tuple(self.constraints[name] for name in CONSTRAINT_NAMES)
+
+
+def mount_depth_violation(x: Sequence[float], config: RcjConfig) -> float:
+    """How far the drops are from the mounting policy's (mm; 0 when they are searched)."""
+
+    if config.goal.mount_policy == "searched":
+        return 0.0
+    from core.optimization.mounting import rcj_mounting
+
+    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    cap = max(config.goal.bounds["proximal_mount_offset_mm"][1], config.goal.bounds["distal_mount_offset_mm"][1])
+    return rcj_mounting(x, config).violation_mm((v["proximal_drop_mm"], v["distal_drop_mm"]), cap)
 
 
 def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
@@ -110,6 +122,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                                    x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + proximal_reach(goal, r))),
         "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
                                  -x[VARIABLE_NAMES.index("bpp_from_b_mm")] - distal_reach(goal, r)),
+        "mount_depth_mm": mount_depth_violation(x, config),
     }
     stages = (("mcp_servo_mm", "pip_servo_pad_mm", "roller_pad_mm"), ("pad_collision_mm",))
     if max(static.values()) <= 0.0:
@@ -196,4 +209,4 @@ def _margins(geo: RcjGeometry, phi: np.ndarray, config: RcjConfig,
     return solids.margins(geo, phi, goal.packaging, goal.mcp_samples_rad, until_unsafe)
 
 
-__all__ = ["CONSTRAINT_NAMES", "RcjEvaluation", "evaluate", "geometry"]
+__all__ = ["CONSTRAINT_NAMES", "RcjEvaluation", "evaluate", "geometry", "mount_depth_violation"]

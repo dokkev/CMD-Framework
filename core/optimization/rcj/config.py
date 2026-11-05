@@ -12,6 +12,7 @@ This is not the retention study's RCJ (``core.optimization.rolling_contact_joint
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -55,6 +56,9 @@ class RcjConfig:
 
         finger_high = goal.extended_length_bounds_mm[1]
         radius = goal.packaging.pip_servo.radius_mm
+        # The servo's tilt, as the 2R's: the goal's PIP servo's, fixed or searched.
+        tilt = ((round(math.degrees(goal.pip_servo_tilt_rad), 9),) * 2 if goal.pip_servo_tilt_rad is not None
+                else tuple(goal.bounds["servo_tilt_deg"]))
         start = goal.packaging.proximal_pad_start_mm
         bounds = {
             # (The segment ratios bound |OA''| and |B''C|, set by the pads' ends: checked, not narrowed by.)
@@ -65,6 +69,7 @@ class RcjConfig:
             "bpp_from_b_mm": (-distal_reach(goal, ROLLER_RADIUS_MAX_MM), finger_high - goal.minimum_distal_support_mm),
             "distal_drop_mm": (0.0, max(radius, ROLLER_RADIUS_MAX_MM)),
             "proximal_drop_mm": (0.0, max(radius, ROLLER_RADIUS_MAX_MM)),
+            "servo_tilt_deg": tilt,
         }
         return cls(goal, bounds)
 

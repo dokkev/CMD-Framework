@@ -16,7 +16,7 @@ MECHANISM = mechanism("rcj")
 STUDY = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",
          "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]")
-X = (52.0, 9.5, 29.0, 39.5, 1.0, 9.5, 9.5)
+X = (52.0, 9.5, 29.0, 39.5, 1.0, 9.5, 9.5, 0.0)
 """|OA| 52, r 9.5, BC 29: the proximal pad 30 mm, the distal 28 mm, both at the rollers' bottom."""
 
 
@@ -63,15 +63,15 @@ def test_a_design_is_swept_and_reported():
 
 def test_each_pad_clears_its_own_roller():
     # On B-C (drop 0) from 1 mm past B the distal pad is inside the distal roller.
-    inside = MECHANISM.evaluate((*X[:5], 0.0, 9.5), load())
+    inside = MECHANISM.evaluate((*X[:5], 0.0, 9.5, 0.0), load())
     assert inside.constraints["roller_pad_mm"] == pytest.approx(8.5)
-    clear = MECHANISM.evaluate((*X[:4], 9.5, 0.0, 9.5), load())
+    clear = MECHANISM.evaluate((*X[:4], 9.5, 0.0, 9.5, 0.0), load())
     assert clear.constraints["roller_pad_mm"] <= 0.0
     # The proximal pad, ending under the proximal roller, clears it only a radius below O-A.
-    assert MECHANISM.evaluate((*X[:3], 50.0, *X[4:6], 5.0), load()).constraints["roller_pad_mm"] > 0.0
+    assert MECHANISM.evaluate((*X[:3], 50.0, *X[4:6], 5.0, 0.0), load()).constraints["roller_pad_mm"] > 0.0
     # Each drop is at most r.
-    assert MECHANISM.evaluate((*X[:5], 10.0, 9.5), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
-    assert MECHANISM.evaluate((*X[:6], 10.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
+    assert MECHANISM.evaluate((*X[:5], 10.0, 9.5, 0.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
+    assert MECHANISM.evaluate((*X[:6], 10.0, 0.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
 
 
 def test_k_is_held_against_the_goals_limit():
@@ -85,3 +85,19 @@ def test_the_search_coordinates_round_trip():
     assert MECHANISM.to_design(MECHANISM.from_design(X, config), config) == pytest.approx(X)
     lower, upper = MECHANISM.search_box(config)
     assert len(lower) == len(MECHANISM.search_names(config)) == len(upper)
+
+
+def test_the_servo_tilts_as_the_2rs():
+    from core.optimization.rcj import geometry
+
+    config = load("goal.hardware.pip_servo.tilt_angle_deg=45")
+    assert config.bounds["servo_tilt_deg"] == (45.0, 45.0)
+    x = (*X[:7], 45.0)
+    rear = geometry(x, config).servo.rear
+    assert rear == pytest.approx((-np.cos(np.radians(45.0)), np.sin(np.radians(45.0))))
+    # Searched in whole degrees, the tilt kept through the search's coordinates.
+    assert MECHANISM.search_names(config)[-1] == "servo_tilt_deg"
+    assert MECHANISM.to_design(MECHANISM.from_design(x, config), config)[-1] == 45.0
+    # A row of a run before the tilt reads as untilted.
+    row = {name: str(value) for name, value in zip(MECHANISM.variable_names, (*X[:7], 0.0)) if name != "servo_tilt_deg"}
+    assert MECHANISM.read_design(row)[-1] == 0.0

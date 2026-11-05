@@ -213,3 +213,65 @@ def test_the_fingertip_passing_behind_the_mcp_ends_the_safe_flexion():
     assert fit.reason == "tip_behind_mcp" and fit.collision_pair == "tip/mcp"
     assert reach == pytest.approx(180.0 - _math.degrees(_math.acos(45.0 / 55.0)), abs=0.3)
     assert evaluate_fit("revolute", dd.x, dd.config, Modules(15.0, 1.0, 15.0, 1.0), 120.0).feasible
+
+
+CODE_TURNS_BACK = (52.5, 87.4, 0.0, 49.6, 12.3, 83.0, 4.8, 40.0, 12.5, 0.0, -0.1, 24.7, 0.0, 3.0)
+"""A CoDe design whose flexion peaks at 167.6 deg on the servo's sweep and then falls back."""
+
+
+def test_codes_motion_ends_where_its_four_bar_turns_back():
+    import dataclasses
+    import math as _math
+
+    from core.optimization.analysis.contact_envelope import motion
+
+    code = study.load_core(CORES[0], ROOT)
+    # The optimizer's limits out of the way: the four-bar's own turn alone ends the motion.
+    loose = dataclasses.replace(code.config, dip_backoff_tolerance_rad=_math.pi,
+                                transmission_angle_range_rad=(0.0, _math.pi))
+    found = motion("linkage", CODE_TURNS_BACK, loose, 180.0)
+    assert not found.reached and found.stop == "turns_back"
+    assert found.phi_deg.max() == pytest.approx(167.55, abs=0.01) and found.phi_deg[-1] == found.phi_deg.max()
+    fit = evaluate_fit("linkage", CODE_TURNS_BACK, loose, Modules(20.0, 3.0, 20.0, 3.0), 180.0, found)
+    assert fit.reason in ("kinematic_unreachable", "pad_pad_collision") and fit.first_failure_deg <= 167.56
+
+
+def test_codes_motion_stops_at_the_optimizers_mechanism_limits():
+    import math as _math
+
+    from core.optimization.analysis.contact_envelope import max_flexion_deg
+    from core.optimization.analysis.tradeoff import with_modules
+    from core.optimization.mechanism import mechanism
+
+    code = study.load_core(CORES[0], ROOT)
+    thin = Modules(15.0, 1.0, 15.0, 1.0)
+    reach, fit = max_flexion_deg("linkage", code.x, code.config, thin)
+    assert fit.reason == "mechanism_limit" and fit.collision_pair == "dip_backoff"
+    # The evaluator stops there too, on its coarser servo grid (a step short at most).
+    found = mechanism("linkage").evaluate(code.x, with_modules(code.config, thin))
+    assert found.stop_reason == "dip_backoff"
+    assert 0.0 <= reach - _math.degrees(found.phi_safe_rad) <= 2.0
+    # The design that turns back: its limit, not its return branch's collisions.
+    reach, fit = max_flexion_deg("linkage", CODE_TURNS_BACK, code.config, Modules(20.0, 3.0, 20.0, 3.0))
+    found = mechanism("linkage").evaluate(CODE_TURNS_BACK, with_modules(code.config, Modules(20.0, 3.0, 20.0, 3.0)))
+    assert fit.reason == "mechanism_limit" and reach == pytest.approx(_math.degrees(found.phi_safe_rad), abs=0.5)
+
+
+def test_a_role_is_found_among_the_roles_one_seed_holds(tmp_path):
+    seeds = tmp_path / "seeds.csv"
+    seeds.write_text("seed_role,run,candidate\nmost_pad;balanced,run_001,1\nmost_curl,run_001,2\n")
+    assert study._row(seeds, "seed_role", "balanced", joined=True)["candidate"] == "1"
+    assert study._row(seeds, "seed_role", "most_curl", joined=True)["candidate"] == "2"
+    with pytest.raises(ValueError, match="no row"):
+        study._row(seeds, "seed_role", "best_transmission", joined=True)
+
+
+def test_the_manifest_lists_the_link_checks_only_when_they_run(results):
+    output, _ = results
+    manifest = json.loads((output / "manifest.json").read_text())
+    rules, policy = manifest["physical_rules"], manifest["collision_policy"]
+    assert {"link_radius_mm", "mcp_samples_rad", "align_mount_offsets", "resolution_mm"} <= rules.keys()
+    listed = any("link_radius_mm" in item for item in policy["checked_in_xz_projection"])
+    assert listed == (rules["link_radius_mm"] is not None)
+    assert study.collision_policy(2.0)["checked_in_xz_projection"] != study.collision_policy(None)[
+        "checked_in_xz_projection"]

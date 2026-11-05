@@ -1,0 +1,10 @@
+# RCJ (equal rollers rolling without slip; the servo on the proximal
+# roller's centre A drives the carrier A-B, k = 2), its servo tilted 45 deg
+# from -X, as the 2R-DD's. Ideal no-slip kinematics: the crossed cables are
+# not modelled, so every design is provisional.
+base: base.yaml
+mechanism: rcj
+goal:
+  hardware:
+    pip_servo:
+      tilt_angle_deg: 45

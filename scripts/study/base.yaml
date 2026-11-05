@@ -23,9 +23,11 @@ goal:
     # Each pad's mounting depth below its reference line set, not searched:
     # 0 when the pad does not reach its own joint hardware (case A), else the
     # least depth that clears it, no deeper than that hardware reaches below
-    # the line on the pad's own body (case B: CoDe's pin housings; the
-    # 2R-DD's servo for its proximal pad; its distal pad hangs from a truss
-    # off the output and has none, unless aligned); deeper needs a spacer and
+    # the line on the pad's own body (case B: CoDe's pin housings and, for
+    # the proximal pad, its PIP servo; the 2R-DD's servo for its proximal
+    # pad, its distal pad hanging from a truss off the output with none,
+    # unless aligned; the RCJ's rollers, each its own segment's, and its
+    # servo for the proximal pad); deeper needs a spacer and
     # is no design (case C, core.optimization.mounting). The two depths are
     # independent.
     mount_policy: shallowest_supported

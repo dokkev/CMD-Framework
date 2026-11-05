@@ -12,9 +12,11 @@
 # once (manifest: duplicate_cores).
 #
 # Each architecture at the servo layouts it is compared at: CoDe at 10 deg
-# (the prototype's), the 2R-DD laid back (0 deg) and standing (90 deg). Four
-# roles each, spanning the front. The sources are the scripts/study runs (not
-# run yet, 2026-11-04).
+# (the prototype's), the 2R-DD laid back (0 deg) and standing (90 deg). CoDe
+# takes four roles, the 2R-DD three: its servo drives the joint directly, so
+# its torque ratio is 1 for every design and best_transmission would pick an
+# arbitrary one (2026-11-05). The sources are the scripts/study runs (not run
+# yet).
 cores:
   - {id: code_tilt10_balanced, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
      role: balanced}
@@ -28,15 +30,11 @@ cores:
      role: balanced}
   - {id: 2r_dd_tilt0_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
      role: most_pad}
-  - {id: 2r_dd_tilt0_best_transmission, mechanism: revolute,
-     portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: best_transmission}
   - {id: 2r_dd_tilt0_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
      role: most_curl}
   - {id: 2r_dd_tilt90_balanced, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
      role: balanced}
   - {id: 2r_dd_tilt90_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
      role: most_pad}
-  - {id: 2r_dd_tilt90_best_transmission, mechanism: revolute,
-     portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001, role: best_transmission}
   - {id: 2r_dd_tilt90_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
      role: most_curl}
