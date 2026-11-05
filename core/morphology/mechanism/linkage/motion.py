@@ -26,8 +26,9 @@ from core.morphology.mechanism.linkage.model import PipSweep, four_bar
 from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     assembly,
+    contact_faces,
+    link_kept_lengths,
     driver_link_servo_gaps,
-    face_crossing_lengths,
     FIXED_MARGIN_PAIRS,
     layout,
     link_capsule_margins,
@@ -37,6 +38,7 @@ from core.morphology.mechanism.linkage.packaging import (
     usable_pad_lengths,
 )
 from core.morphology.packaging.assembly import margins
+from core.morphology.packaging.faces import crossing_free_lengths
 from core.morphology.packaging.shapes import ServoFootprint
 
 STOP_REASONS = ("closure", "transmission", "dip_backoff", "pip_backoff", "dip_pin", "pad_collision")
@@ -113,9 +115,15 @@ class FingerMotion:
 
 
 def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings, phi_rad: float,
-                 footprint: ServoFootprint | None = None, integrity_depth_mm: float | None = None) -> FingerMotion:
-    """Sweep ``linkage`` (see the module docstring) and measure it on ``[0, phi_rad]``."""
+                 footprint: ServoFootprint | None = None, integrity_depth_mm: float | None = None,
+                 links_block_face: bool = False) -> FingerMotion:
+    """Sweep ``linkage`` (see the module docstring) and measure it on ``[0, phi_rad]``
+    (``links_block_face``: each face less where a crossing link lies in front
+    of it at ``phi_rad``, ``packaging.link_kept_lengths``; with the links bent
+    around the pads only, as it measures them)."""
 
+    if links_block_face and not packaging.links_clear_pads:
+        raise ValueError("links_block_face needs packaging.links_clear_pads (the links bent around the pads)")
     four_bar(finger)
     footprint = pip_footprint(packaging, finger) if footprint is None else footprint
     step = settings.servo_step_rad
@@ -213,9 +221,13 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
         # The links bent out of the way: at the required flexion (the window's
         # last sample) each face from its outer end to where the other face's
         # line crosses it; past the crossing it lies in the fold, facing the other.
-        free = face_crossing_lengths(finger, packaging, sweep.b[last:last + 1], sweep.tip[last:last + 1])
+        b, bp, tip = sweep.b[last:last + 1], sweep.bp[last:last + 1], sweep.tip[last:last + 1]
+        faces = contact_faces(finger, packaging, b, tip)
+        free = crossing_free_lengths(faces[0], faces[2])
         if not at.size:  # the four-bar closes short of the required flexion: no pad measured there
             free = {side: np.zeros(1) for side in free}
+        elif links_block_face:  # nor where a link stands in front of a face
+            free = link_kept_lengths(finger, b, bp, faces, free)
     else:
         free = usable_pad_lengths(finger, packaging, sweep.b[window], sweep.bp[window], sweep.tip[window])
     kept = None

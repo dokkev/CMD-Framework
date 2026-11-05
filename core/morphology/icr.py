@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 
+from core.morphology.mechanism import base_mechanism
 from core.morphology.mechanism.linkage.measures import extended_icr_x
 
 
@@ -21,7 +22,7 @@ def icr0_x_mm(mechanism: str, x: Sequence[float], variable_names: Sequence[str])
     v: Mapping[str, float] = dict(zip(variable_names, (float(value) for value in x)))
     if mechanism.startswith("revolute"):
         return v["a_x_mm"]
-    if mechanism == "rcj":
+    if base_mechanism(mechanism) == "rcj":
         return v["a_x_mm"] + v["roller_radius_mm"]
     if mechanism == "linkage":
         found = extended_icr_x((v["a_x_mm"], v.get("a_z_mm", 0.0)), (v["ap_x_mm"], v["ap_z_mm"]),

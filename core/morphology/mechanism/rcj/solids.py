@@ -27,6 +27,10 @@ pad against the proximal pad, the proximal roller, the servo and the MCP
 servo (MCP flexion up to its max), the distal roller against the proximal
 pad; statically the proximal pad against the servo and the MCP servo, and
 the two servos. A pad's effective length is its face.
+
+The idealized RCJ (``joint_servo`` off) has no servo on ``A``: it is driven
+from elsewhere, so only the rollers stand at the joint, each at least the
+pin's housing it turns on; the servo's pairs are not checked.
 """
 
 from __future__ import annotations
@@ -78,7 +82,8 @@ class RcjGeometry:
     proximal_pad: np.ndarray
     distal_pad_local: np.ndarray
     distal_drop_mm: float
-    servo: ServoFootprint
+    servo: ServoFootprint | None
+    """The servo on ``A`` (``None``: the idealized RCJ, none)."""
     proximal_length_mm: float
     distal_length_mm: float
     proximal_room_mm: float
@@ -136,8 +141,8 @@ class RcjGeometry:
         return self.posed(np.array(((self.bc_length_mm, 0.0),)), phi_rad)[:, 0]
 
 
-def geometry(x: Sequence[float], packaging: Packaging) -> RcjGeometry:
-    """The solids of a design vector."""
+def geometry(x: Sequence[float], packaging: Packaging, joint_servo: bool = True) -> RcjGeometry:
+    """The solids of a design vector (``joint_servo`` off: no servo on ``A``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
     proximal, distal = packaging.proximal_pad, packaging.distal_pad
@@ -153,7 +158,7 @@ def geometry(x: Sequence[float], packaging: Packaging) -> RcjGeometry:
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
     distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
     servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v.get("servo_tilt_deg", 0.0)),
-                           packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
+                           packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm) if joint_servo else None
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                        servo, proximal_length, distal_length, proximal_room, distal_room, v["proximal_drop_mm"],
                        carrier_local(distal_outline, v["distal_drop_mm"], packaging))
@@ -170,11 +175,13 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     r = geo.roller_radius_mm
     distal = geo.distal_pad(phi)
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
-    margins = {
+    margins = {} if geo.servo is None else {
         ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
         **({} if geo.distal_carrier_local is None else {
             ("distal_carrier", "pip_servo"): footprint_gaps(geo.posed(geo.distal_carrier_local, phi), geo.servo,
                                                             packaging) - clearance}),
+    }
+    margins |= {
         ("distal_pad", "proximal_roller"): polygon_to_disk(distal, np.broadcast_to(geo.a, (count, 2)), r) - clearance,
         ("distal_roller", "proximal_pad"): polygon_to_disk(proximal, geo.b(phi), r) - clearance,
     }

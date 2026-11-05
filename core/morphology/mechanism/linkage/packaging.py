@@ -87,7 +87,7 @@ from core.morphology.packaging.assembly import (
     Poses,
     margins,
 )
-from core.morphology.packaging.faces import crossing_free_lengths, probe_free_lengths
+from core.morphology.packaging.faces import crossing_free_lengths, probe_blocked, probe_free_lengths
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, segment_polygon_gaps
 
@@ -653,6 +653,41 @@ def face_crossing_lengths(
     return crossing_free_lengths(proximal_face, distal_face)
 
 
+LINK_REACH_MM = 1000.0
+"""How far in front of a face the links are looked for: any distance."""
+
+
+def link_kept_lengths(
+    finger: Finger, b: np.ndarray, bp: np.ndarray, faces, free: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """Per-sample length of each pad's face kept: within ``free`` (from its
+    outer end, the fold's crossing), less where a crossing link (the driver
+    ``A-B'`` or the coupler ``A'-B``) lies in front of it.
+
+    With the links bent around the pads (``links_clear_pads``) a link
+    through a pad's block is out of the way, but a link passing palmar of a
+    face, at any distance, stands over it: no object reaches that part (the
+    study's rule, ``goal.loss.links_block_face``, 2026-11-05). The kept points
+    are summed, in one piece or not. Samples are four-bar poses given by the
+    posed ``B`` and ``B'`` (``(n, 2)``) and their :func:`contact_faces`.
+    """
+
+    b, bp = np.atleast_2d(b), np.atleast_2d(bp)
+    count = len(b)
+    a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
+    ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
+    links = [np.stack((a, bp), axis=1), np.stack((ap, b), axis=1)]
+    proximal_face, proximal_normal, distal_face, distal_normal = faces
+    kept = {}
+    for side, face, normal in (("proximal_pad", np.broadcast_to(proximal_face, (count, 2, 2)), proximal_normal),
+                               ("distal_pad", distal_face, distal_normal)):
+        length, blocked = probe_blocked(face, normal, LINK_REACH_MM, segments=links)
+        share = (np.arange(blocked.shape[1]) + 0.5) / blocked.shape[1]
+        folded = share[None, :] * length[:, None] > np.asarray(free[side], dtype=float)[:, None]
+        kept[side] = length * (1.0 - (blocked | folded).mean(axis=1))
+    return kept
+
+
 def _trimmed(start: np.ndarray, end: np.ndarray, radius: float,
              end_radius: float | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Segments ``start-end`` shortened by ``radius`` at the start and
@@ -764,6 +799,7 @@ __all__ = [
     "bp_pin_servo_margins",
     "checked_pairs",
     "contact_faces",
+    "link_kept_lengths",
     "distal_pad_local",
     "distal_pad_polygon",
     "driver_link_servo_gaps",

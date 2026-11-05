@@ -60,7 +60,8 @@ class RollerView:
 
     def draw_sketch(self, axis, phi_deg: float, hit: set[str]) -> None:
         geo, phi = self.geometry, math.radians(phi_deg)
-        sketch.servo(axis, geo.servo.outline)
+        if geo.servo is not None:  # the idealized RCJ has none
+            sketch.servo(axis, geo.servo.outline)
         b = geo.b([phi])[0]
         for center, name in ((geo.a, "proximal_roller"), (b, "distal_roller")):
             sketch.roller(axis, center, geo.roller_radius_mm, name in hit)
@@ -79,7 +80,8 @@ class RollerView:
         geo, phi = self.geometry, math.radians(phi_deg)
         b = geo.b([phi])[0]
         near, far = geo.posed(geo.distal_mount, [phi])[0]
-        solid.servo(axis, geo.servo.outline, "proximal", "pip_servo" in hit)
+        if geo.servo is not None:  # the idealized RCJ has none
+            solid.servo(axis, geo.servo.outline, "proximal", "pip_servo" in hit)
         solid.roller(axis, geo.a, geo.roller_radius_mm, "proximal", "proximal_roller" in hit)
         solid.roller(axis, b, geo.roller_radius_mm, "distal", "distal_roller" in hit)
         solid.link(axis, ((0.0, 0.0), geo.a), solid.RED)

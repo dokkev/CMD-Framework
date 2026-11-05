@@ -197,3 +197,18 @@ def test_the_rcj_mounts_each_pad_under_its_own_roller():
     # A roller larger than the depth range allows (r 12 > 10 mm): a spacer, no design.
     big = mounting("rcj", [33.0, 12.0, 33.0, 33.0, 8.6, 0.0, 0.0, 10.0], config)
     assert big.cases[0] == "C" and not big.supported
+
+
+def test_the_idealized_rcj_mounts_its_pads_under_its_rollers_alone():
+    rcj = load_yaml(RCJ, CONFIG, (*RULES,))[0]
+    ideal = load_yaml(mechanism("rcj_idealized"), CONFIG, (*RULES,))[0]
+    # The proximal pad ending 6 mm short of A: under the untilted servo's floor, 9.5 mm;
+    # without the servo, under the roller's side alone, sqrt(9.5^2 - 6^2) = 7.37.
+    short = [36.0, 9.5, 35.0, 30.0, 8.6, 0.0, 0.0, 0.0]
+    assert mounting("rcj", short, rcj).depths_mm[0] == 9.5
+    found = mounting("rcj_idealized", short, ideal)
+    assert found.depths_mm[0] == found.native_mm[0] == pytest.approx(7.4)
+    # Its rollers as small as A's pin housing: the pads as shallow as they are.
+    assert ideal.bounds["roller_radius_mm"][0] == ideal.goal.packaging.pivot_radius_mm("a") == 3.0
+    small = mounting("rcj_idealized", [36.0, 4.0, 35.0, 36.0, 8.6, 0.0, 0.0, 0.0], ideal)
+    assert small.depths_mm == (4.0, 0.0) and small.cases == ("B", "A")

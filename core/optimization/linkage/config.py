@@ -203,6 +203,14 @@ class LinkageConfig:
     lost when, at any pose to the required flexion, it is hidden in the fold
     or any solid but its own pad lies within this depth in front of it.
     ``None``: the fold alone, as measured before linkage-v5."""
+    links_block_face: bool = False
+    """``goal.loss.links_block_face``: at the required flexion, each face
+    also loses where a crossing link (the driver ``A-B'`` or the coupler
+    ``A'-B``) lies in front of it, at any distance
+    (``packaging.link_kept_lengths``; the study's rule, 2026-11-05). The
+    linkage's alone: the other mechanisms have no crossing links. False: the
+    links bent around the pads leave every face outside the fold. Not with
+    ``integrity_depth_mm``, whose lengths replace the fold's."""
     access_depth_mm: float = 20.0
     """``goal.loss.access_depth_mm``: the depth of the accessibility profile
     (reports only, not the objective)."""
@@ -465,6 +473,12 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     if not isinstance(count_fold, bool):
         raise ValueError("goal.loss.fold must be true or false")
     access_depth = float(loss.values.pop("access_depth_mm", 20.0))
+    links_block_face = loss.values.pop("links_block_face", False)
+    if not isinstance(links_block_face, bool):
+        raise ValueError("goal.loss.links_block_face must be true or false")
+    if links_block_face and integrity_depth is not None:
+        raise ValueError("goal.loss.links_block_face and integrity_depth_mm: the integrity's lengths would drop "
+                         "the links' (not supported together)")
     loss.done()
     angles = {name: math.radians(float(motion.take(name)))
               for name in ("dip_flexion_deg", "hyperextension_deg")}
@@ -673,6 +687,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
         count_fold=count_fold,
+        links_block_face=links_block_face,
         integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,
     )

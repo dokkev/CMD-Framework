@@ -75,7 +75,8 @@ def search_steps(config: RcjConfig) -> tuple[float, ...]:
 def _ranges(config: RcjConfig, length: float, r: float, tilt_deg: float):
     goal = config.goal
     a_low, a_high = goal.bounds["a_x_mm"]
-    a_low = max(a_low, least_a_x(goal.packaging, tuple(goal.mcp_servo_angles_rad), tilt_deg) - 0.5)  # sampled
+    if config.joint_servo:  # the idealized RCJ has no servo to keep off the MCP servo
+        a_low = max(a_low, least_a_x(goal.packaging, tuple(goal.mcp_servo_angles_rad), tilt_deg) - 0.5)  # sampled
     bc_low, bc_high = config.bounds["bc_length_mm"]
     bc_range = (max(bc_low, length - 2.0 * r - a_high), min(bc_high, length - 2.0 * r - a_low))
     start = goal.packaging.proximal_pad_start_mm

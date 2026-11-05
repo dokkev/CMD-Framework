@@ -52,14 +52,13 @@ from core.morphology.mechanism.revolute.solids import (
     hyperextension_margin,
 )
 
-from core.optimization.linkage.evaluate import pad_waste_mm
 from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
                       "proximal_support_mm", "distal_support_mm", "mount_depth_mm", "dorsal_space_mm",
                       "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "pad_waste_mm")
+MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
 
@@ -307,8 +306,6 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         "pad_usable_mm": max(
             goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
             goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
-        "pad_waste_mm": pad_waste_mm((geo.proximal_length_mm, geo.distal_length_mm), (proximal_usable, distal_usable),
-                                     goal.resolution_mm),
     }
     return RevoluteEvaluation(
         proximal_usable_length_mm=proximal_usable,

@@ -39,6 +39,13 @@ goal:
     distal:
       mount_offset_mm: [0, 10]
 
+  loss:
+    # CoDe only: at the required flexion, where a crossing link (the driver
+    # A-B' or the coupler A'-B) passes in front of a pad's contact face
+    # (palmar past it, at any distance) is no contact face (2026-11-05:
+    # without it the search put B on C, the coupler sweeping across the pads).
+    links_block_face: true
+
 solver:
   optimizer:
     preset: search

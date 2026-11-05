@@ -101,3 +101,48 @@ def test_the_servo_tilts_as_the_2rs():
     # A row of a run before the tilt reads as untilted.
     row = {name: str(value) for name, value in zip(MECHANISM.variable_names, (*X[:7], 0.0)) if name != "servo_tilt_deg"}
     assert MECHANISM.read_design(row)[-1] == 0.0
+
+
+def test_the_idealized_rcj_has_no_servo_and_rollers_down_to_the_pin():
+    from core.optimization.rcj import geometry
+
+    ideal = mechanism("rcj_idealized")
+    config = load_yaml(ideal, CONFIG, STUDY)[0]
+    assert not config.joint_servo and config.bounds["servo_tilt_deg"] == (0.0, 0.0)
+    assert config.bounds["roller_radius_mm"][0] == config.goal.packaging.pivot_radius_mm("a") == 3.0
+    # The pins at A and B fit on the carrier: |AB| = 2r at least their spacing, 6 mm.
+    assert 2.0 * config.bounds["roller_radius_mm"][0] >= config.goal.packaging.pin_spacing_mm == 6.0
+    # A larger pin at B widens the least roller with it.
+    widened = load_yaml(ideal, CONFIG, (*STUDY, "goal.collision.param.pivot_diameter_mm.b=8"))[0]
+    assert widened.bounds["roller_radius_mm"][0] == 4.0
+    x = (52.0, 4.0, 40.0, 39.5, 1.0, 4.0, 4.0, 0.0)  # |OC| 100, rollers of 4 mm
+    assert geometry(x, config).servo is None
+    e = ideal.evaluate(x, config)
+    assert e.constraints["pip_servo_pad_mm"] == 0.0
+    # No servo to keep off the MCP servo: its proximal roller is, 52 mm out, far clear of it.
+    from core.optimization.rcj.evaluate import roller_mcp_gap_mm
+
+    assert e.constraints["mcp_servo_mm"] < -30.0
+    # Pulled back to |OA| 10 mm, the roller runs into the MCP servo (its 9.5 mm front about O).
+    near = geometry((10.0, 4.0, 82.0, 39.5, 1.0, 4.0, 4.0, 0.0), config)
+    assert roller_mcp_gap_mm(near, config.goal.packaging, config.goal.mcp_servo_angles_rad) < 0.0
+    assert e.torque_ratio_max == 2.0 and e.roller_radius_mm == 4.0
+    # The same design with the servo is checked against it; the idealized one has no such pair.
+    packaged = MECHANISM.evaluate(x, load())
+    assert packaged.constraints["mcp_servo_mm"] != 0.0 or packaged.constraints["pip_servo_pad_mm"] != 0.0
+    assert ideal.config_from_json(ideal.config_to_json(config)).joint_servo is False
+
+
+def test_the_idealized_rcj_is_seen_as_rollers_by_every_analysis():
+    from core.morphology.mechanism import base_mechanism
+    from core.optimization.analysis.scene import scene
+    from core.optimization.mounting import mounting
+
+    ideal = mechanism("rcj_idealized")
+    config = load_yaml(ideal, CONFIG, STUDY)[0]
+    x = (52.0, 4.0, 40.0, 39.5, 1.0, 4.0, 4.0, 0.0)
+    assert base_mechanism("rcj_idealized") == "rcj" and base_mechanism("linkage") == "linkage"
+    built = scene("rcj_idealized", config, x, [0.0, 90.0])
+    solids = built.solids["proximal_pad"]
+    assert len(solids["roller"].disks) == 2 and not solids["servo"].polygons and not solids["pin"].disks
+    assert mounting("rcj_idealized", x, config).depths_mm is not None

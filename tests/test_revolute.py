@@ -81,7 +81,9 @@ def test_a_design_is_evaluated_on_the_linkage_objectives():
     config = load(*SHORT_PADS)
     # On the lines at 120 deg the faces cross 5 / tan 30 deg = 8.7 mm from A,
     # inside the servo's front (9.5 mm): no pad clear of the servo is wasted.
-    assert MECHANISM.evaluate(X, config).constraints["pad_waste_mm"] < 0.0
+    e = MECHANISM.evaluate(X, config)
+    assert e.proximal_usable_length_mm >= e.proximal_support_length_mm - 0.1
+    assert e.distal_usable_length_mm >= e.distal_support_length_mm - 0.1
     e = MECHANISM.evaluate(X, config)
     assert e.feasible
     assert e.torque_ratio_max == 1.0  # direct drive

@@ -42,11 +42,10 @@ from types import MappingProxyType
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
-from core.morphology.packaging.shapes import polygon_to_disk
+from core.morphology.packaging.shapes import polygon_to_disk, turn_points
 from core.morphology.mechanism.rcj import solids
 from core.morphology.mechanism.rcj.solids import TORQUE_RATIO, RcjGeometry
 
-from core.optimization.linkage.evaluate import pad_waste_mm
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
 from core.optimization.revolute.evaluate import (
     UNSWEPT,
@@ -60,13 +59,12 @@ from core.optimization.revolute.evaluate import (
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "pad_drop_mm", "mcp_servo_mm",
                       "pip_servo_pad_mm", "proximal_support_mm", "distal_support_mm", "mount_depth_mm",
                       "roller_pad_mm", "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "pad_waste_mm",
-                      "torque_ratio")
+MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "torque_ratio")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 def geometry(x: Sequence[float], config: RcjConfig) -> RcjGeometry:
     """The solids of a design vector, with the study's packaging."""
 
-    return solids.geometry(x, config.goal.packaging)
+    return solids.geometry(x, config.goal.packaging, config.joint_servo)
 
 
 @dataclass(frozen=True)
@@ -79,6 +77,16 @@ class RcjEvaluation(RevoluteEvaluation):
     @property
     def g(self) -> tuple[float, ...]:
         return tuple(self.constraints[name] for name in CONSTRAINT_NAMES)
+
+
+def roller_mcp_gap_mm(geo: RcjGeometry, packaging, mcp_samples_rad) -> float:
+    """Least gap (mm) from the proximal roller to the MCP servo over the MCP
+    flexion samples (negative: overlapping; at least ``-r``)."""
+
+    mcp = packaging.mcp_footprint()
+    # Turning the MCP servo by +q is turning the roller by -q about O.
+    centres = np.concatenate([turn_points(geo.a[None], -q) for q in mcp_samples_rad])
+    return float(mcp.distance_to_segments(centres, centres).min()) - geo.roller_radius_mm
 
 
 def mount_depth_violation(x: Sequence[float], config: RcjConfig) -> float:
@@ -127,9 +135,12 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     stages = (("mcp_servo_mm", "pip_servo_pad_mm", "roller_pad_mm"), ("pad_collision_mm",))
     if max(static.values()) <= 0.0:
         mcp_angles = np.asarray(goal.mcp_servo_angles_rad)
-        static["mcp_servo_mm"] = -(packaging.mcp_servo_gap_mm(geo.servo, mcp_angles) - clearance)
+        # The servo on A against the MCP servo (the idealized RCJ: its proximal roller, which the servo enclosed).
+        static["mcp_servo_mm"] = (-(roller_mcp_gap_mm(geo, packaging, mcp_angles) - clearance) if geo.servo is None
+                                  else -(packaging.mcp_servo_gap_mm(geo.servo, mcp_angles) - clearance))
         static["pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
-                                        - clearance) if packaging.pip_servo_pad_check else 0.0)
+                                        - clearance) if packaging.pip_servo_pad_check and geo.servo is not None
+                                      else 0.0)
         # Each pad on its own roller's body: touching, not inside.
         static["roller_pad_mm"] = -min(
             float(polygon_to_disk(geo.proximal_pad[None], geo.a[None], r)[0]),
@@ -183,8 +194,6 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         "pad_usable_mm": max(
             goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
             goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
-        "pad_waste_mm": pad_waste_mm((geo.proximal_length_mm, geo.distal_length_mm), (proximal_usable, distal_usable),
-                                     goal.resolution_mm),
         "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
     }
     return RcjEvaluation(
@@ -209,4 +218,4 @@ def _margins(geo: RcjGeometry, phi: np.ndarray, config: RcjConfig,
     return solids.margins(geo, phi, goal.packaging, goal.mcp_samples_rad, until_unsafe)
 
 
-__all__ = ["CONSTRAINT_NAMES", "RcjEvaluation", "evaluate", "geometry", "mount_depth_violation"]
+__all__ = ["CONSTRAINT_NAMES", "RcjEvaluation", "evaluate", "geometry", "mount_depth_violation", "roller_mcp_gap_mm"]

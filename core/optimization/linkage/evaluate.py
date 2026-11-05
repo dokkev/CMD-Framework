@@ -77,26 +77,15 @@ STATIC_CONSTRAINTS: tuple[str, ...] = (
 ``mount_depth_mm``: how far the pads' mounting depths are from what
 ``config.mount_policy`` sets (0 when searched)."""
 MOTION_CONSTRAINTS: tuple[str, ...] = ("rom_deg", "hyperextension_deg", "curl_tip_x_mm", "pad_usable_mm",
-                                       "pad_waste_mm", "torque_ratio")
+                                       "torque_ratio")
 """``rom_deg``: how far short of ``phi_req`` the safe motion stops (``<= 0``:
 it reaches it); the hyperextension still missing; how far ``C`` passes behind
 ``O``; how far either pad's effective length (the face no link crosses on
 ``[0, phi_req]``, or with ``packaging.links_clear_pads`` the face outside
 where the two faces cross) falls short of its least length: the module must
-be usable; how far either pad is mounted past where it counts
-(:func:`pad_waste_mm`); how far ``k_max`` exceeds its limit (``config.torque_ratio_max``, 0 without one)."""
+be usable; how far ``k_max`` exceeds its limit (``config.torque_ratio_max``, 0 without one)."""
 CONSTRAINT_NAMES: tuple[str, ...] = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 INVALID = 1.0e3
-
-
-def pad_waste_mm(supports_mm: tuple[float, float], usable_mm: tuple[float, float], tolerance_mm: float) -> float:
-    """How far (mm) either pad is mounted past what of it counts (its
-    usable length: at the required flexion, to where the other face's line
-    crosses it), less ``tolerance_mm`` (the grid's resolution): a pad past
-    the crossing only adds a solid to collide (``<= 0``: none wasted)."""
-
-    waste = [max(support, 0.0) - min(max(support, 0.0), usable) for support, usable in zip(supports_mm, usable_mm)]
-    return max(waste) - tolerance_mm
 """Violation assigned to every other constraint of an invalid reference design."""
 UNSWEPT = 1.0e2
 """Violation assigned to the motion constraints of a design that fails a static one."""
@@ -268,7 +257,7 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
                                  servo_lowest_z_mm=footprint.lowest_z_mm, **common)
 
     motion = sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad, footprint,
-                          config.integrity_depth_mm)
+                          config.integrity_depth_mm, config.links_block_face)
     # Hyperextension: the PIP must reach the stopper safely; short of it, the
     # violation is the PIP still missing.
     hyper_violation = max(0.0, math.degrees(config.hyperextension_rad + motion.deepest_pip_rad))
@@ -290,8 +279,6 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
             config.minimum_proximal_support_mm
             - min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0)),
             config.minimum_distal_support_mm - min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0))),
-        "pad_waste_mm": pad_waste_mm((common["proximal_support_length_mm"], common["distal_support_length_mm"]),
-                                     (free["proximal_pad"], free["distal_pad"]), config.resolution_mm),
         "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
     }
     return LinkageEvaluation(
@@ -460,7 +447,6 @@ def overhang_violations(finger: Finger, config: LinkageConfig) -> tuple[float, f
 
 
 __all__ = [
-    "pad_waste_mm",
     "CONSTRAINT_NAMES",
     "INVALID",
     "MOTION_CONSTRAINTS",

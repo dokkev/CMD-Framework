@@ -10,6 +10,7 @@ from collections.abc import Sequence
 import numpy as np
 
 from core.morphology.contact.loss import Scene, joint_scene, linkage_scene
+from core.morphology.mechanism import base_mechanism
 from core.morphology.mechanism.linkage.design import decode
 from core.morphology.mechanism.linkage.motion import servo_sense
 
@@ -36,8 +37,7 @@ def _linkage_scene(config, x, phi_deg) -> Scene:
 
 
 def _joint_scene(mechanism: str, config, x, phi_deg) -> Scene:
-    module = importlib.import_module(
-        f"core.optimization.{'revolute' if mechanism == 'revolute_idealized' else mechanism}.evaluate")
+    module = importlib.import_module(f"core.optimization.{base_mechanism(mechanism)}.evaluate")
     return joint_scene(mechanism, module.geometry(x, config), config.goal.packaging, phi_deg)
 
 

@@ -22,11 +22,12 @@ from core._validation import require_finite
 from core.morphology.mechanism.rcj.solids import VARIABLE_NAMES
 
 from core.optimization.linkage.config import LinkageConfig
+from core.optimization.revolute.config import joint_radius
 
 
 ROLLER_RADIUS_MAX_MM = 20.0
 """The largest roller searched; the least is the servo's radius (the roller
-holds the servo's shaft and rounded front)."""
+holds the servo's shaft and rounded front), or the idealized RCJ's pin housing."""
 DISTAL_PAD_REACH_MM = 20.0
 """How far behind ``B`` the distal pad's joint end may be searched, without
 ``goal.pads.distal.overhang_max_mm`` (with it: past the distal roller by
@@ -36,6 +37,10 @@ class RcjConfig:
     goal: LinkageConfig
     """The goal and solver as the linkage reads them."""
     bounds: Mapping[str, tuple[float, float]]
+    joint_servo: bool = True
+    """The servo on ``A`` (packaged). ``False``: the idealized RCJ, driven from
+    elsewhere, its rollers at least ``A``'s pin housing (and no tilt), as the
+    idealized 2R's."""
 
     def __post_init__(self) -> None:
         if set(self.bounds) != set(VARIABLE_NAMES):
@@ -49,16 +54,26 @@ class RcjConfig:
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
 
     @classmethod
-    def from_goal(cls, goal: LinkageConfig) -> "RcjConfig":
+    def from_goal(cls, goal: LinkageConfig, joint_servo: bool = True) -> "RcjConfig":
         """The RCJ's search box from the goal: ``|OA|`` and ``BC`` as the
-        linkage's ``A_x`` and ``BC``, the rollers from the servo's radius,
-        the pads within the finger."""
+        linkage's ``A_x`` and ``BC``; the rollers from the largest of what
+        they hold at ``A`` (the servo's radius, or with ``joint_servo`` off
+        the pin's housing), ``B``'s pin housing and half the two pins'
+        spacing (``|AB| = 2r``), to :data:`ROLLER_RADIUS_MAX_MM`; the pads
+        within the finger."""
 
         finger_high = goal.extended_length_bounds_mm[1]
-        radius = goal.packaging.pip_servo.radius_mm
-        # The servo's tilt, as the 2R's: the goal's PIP servo's, fixed or searched.
-        tilt = ((round(math.degrees(goal.pip_servo_tilt_rad), 9),) * 2 if goal.pip_servo_tilt_rad is not None
-                else tuple(goal.bounds["servo_tilt_deg"]))
+        # The rollers hold the pins at A and B: each at least its pin's housing,
+        # and |AB| = 2r at least the two pins' spacing (their housings touching).
+        radius = max(joint_radius(goal, joint_servo), goal.packaging.pivot_radius_mm("b"),
+                     goal.packaging.pin_spacing_mm / 2.0)
+        # The servo's tilt, as the 2R's: the goal's PIP servo's, fixed or searched (none without it).
+        if not joint_servo:
+            tilt = (0.0, 0.0)
+        elif goal.pip_servo_tilt_rad is not None:
+            tilt = (round(math.degrees(goal.pip_servo_tilt_rad), 9),) * 2
+        else:
+            tilt = tuple(goal.bounds["servo_tilt_deg"])
         start = goal.packaging.proximal_pad_start_mm
         bounds = {
             # (The segment ratios bound |OA''| and |B''C|, set by the pads' ends: checked, not narrowed by.)
@@ -71,7 +86,7 @@ class RcjConfig:
             "proximal_drop_mm": (0.0, max(radius, ROLLER_RADIUS_MAX_MM)),
             "servo_tilt_deg": tilt,
         }
-        return cls(goal, bounds)
+        return cls(goal, bounds, joint_servo)
 
     @property
     def search_bounds(self) -> Mapping[str, tuple[float, float]]:

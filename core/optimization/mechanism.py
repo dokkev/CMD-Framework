@@ -243,6 +243,7 @@ MECHANISMS = {
     "open_chain_idealized": "core.optimization.open_chain.mechanism:IDEALIZED",
     "open_chain_packaged": "core.optimization.open_chain.mechanism:PACKAGED",
     "rcj": "core.optimization.rcj.mechanism",
+    "rcj_idealized": "core.optimization.rcj.mechanism:IDEALIZED",
     "revolute": "core.optimization.revolute.mechanism",
     "revolute_idealized": "core.optimization.revolute.mechanism:IDEALIZED",
     "revolute_parallel": "core.optimization.revolute_parallel.mechanism",

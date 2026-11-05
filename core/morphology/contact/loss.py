@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from core.morphology.mechanism import base_mechanism
 from core.morphology.mechanism.linkage import Finger
 from core.morphology.mechanism.linkage.packaging import (
     contact_faces as linkage_faces,
@@ -289,10 +290,11 @@ def joint_scene(mechanism: str, geo, packaging, phi_deg) -> Scene:
     local = getattr(joint, "distal_carrier_local", None)  # the RCJ's; the 2R has none
     carrier = [] if local is None else [joint.posed(local, phi)]
     mcp = packaging.mcp_footprint().outline
-    if mechanism == "rcj":
+    if base_mechanism(mechanism) == "rcj":
         a, b = geo.a, geo.b(phi)
         others = {"link": Shapes(segments=_bars(((0.0, 0.0), a), (a, b), (b, near), (b, far), (near, far))),
-                  "pin": Shapes(), "servo": Shapes([geo.servo.outline]), "mcp_servo": Shapes([mcp]),
+                  "pin": Shapes(), "mcp_servo": Shapes([mcp]),
+                  "servo": Shapes([] if geo.servo is None else [geo.servo.outline]),  # none: the idealized RCJ
                   "pulley": Shapes(),
                   "roller": Shapes(disks=[(a, geo.roller_radius_mm), (b, geo.roller_radius_mm)])}
     else:

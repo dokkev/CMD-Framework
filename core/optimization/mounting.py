@@ -354,7 +354,7 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
         geo = at(depths)
         r = geo.roller_radius_mm
         proximal = float(polygon_to_disk(geo.proximal_pad[None], geo.a[None], r)[0])
-        if packaging.pip_servo_pad_check:
+        if packaging.pip_servo_pad_check and geo.servo is not None:
             proximal = min(proximal, float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
                            - clearance)
         distal = float(polygon_to_disk(geo.distal_pad_local[None], np.zeros((1, 2)), r)[0])
@@ -372,7 +372,7 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
     # Each roller is its own segment's body, the servo the proximal one's: each
     # carries its pad as deep as it reaches over the pad.
     proximal = disk_reach_mm(centers[0], r, spans[0])
-    if packaging.pip_servo_pad_check:
+    if packaging.pip_servo_pad_check and geo.servo is not None:
         proximal = max(proximal, footprint_reach_mm(geo.servo.outline, spans[0], clearance))
     distal = disk_reach_mm(centers[1], r, spans[1])
     at_rest = clear((0.0, 0.0))
@@ -413,13 +413,16 @@ def _cached(key: tuple, config, solve: Callable[[], Mounting]) -> Mounting:
 def mounting(mechanism: str, x: Sequence[float], config) -> Mounting:
     """The mounting a design's pads get under the policy, whatever its vector's depths say."""
 
-    if mechanism == "linkage":
+    from core.morphology.mechanism import base_mechanism
+
+    base = base_mechanism(mechanism)  # a variant mounts as its base, its config telling the parts apart
+    if base == "linkage":
         from core.morphology.mechanism.linkage.design import decode
 
         return linkage_mounting(decode(x, config.link_length_resolution_mm), config)
-    if mechanism == "revolute":
+    if base == "revolute":
         return revolute_mounting(x, config)
-    if mechanism == "rcj":
+    if base == "rcj":
         return rcj_mounting(x, config)
     raise ValueError(f"no mounting policy for mechanism {mechanism!r}")
 

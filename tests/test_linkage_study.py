@@ -30,7 +30,7 @@ X = (40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1)
 their link lines, the proximal one short of A, the distal one past B."""
 TRIMMED = X
 """:data:`X`, none of its pads past where its face meets the other's at the
-required flexion (``pad_waste_mm``)."""
+required flexion."""
 
 
 PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
