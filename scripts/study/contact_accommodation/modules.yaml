@@ -18,6 +18,20 @@ modules:
   long_thick:
     proximal: {length_mm: 35, thickness_mm: 8}
     distal: {length_mm: 35, thickness_mm: 8}
+  # Asymmetric pairs: the two pads fold onto each other, so a pair is not
+  # the sum of its one-sided sweeps.
+  asym_long_proximal:
+    proximal: {length_mm: 40, thickness_mm: 3}
+    distal: {length_mm: 20, thickness_mm: 8}
+  asym_long_distal:
+    proximal: {length_mm: 20, thickness_mm: 8}
+    distal: {length_mm: 40, thickness_mm: 3}
+  asym_proximal_heavy:
+    proximal: {length_mm: 45, thickness_mm: 5}
+    distal: {length_mm: 15, thickness_mm: 3}
+  asym_distal_heavy:
+    proximal: {length_mm: 15, thickness_mm: 3}
+    distal: {length_mm: 45, thickness_mm: 8}
 
 # Grids from the baseline: the listed sides take every length x thickness,
 # the other side the baseline's. Ids: <sweep>_L<length>_T<thickness>.

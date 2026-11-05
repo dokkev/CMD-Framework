@@ -15,11 +15,17 @@ contact modules than the direct-drive serial 2R (2R-DD, mechanism
   - a run's `pareto.csv` row by its candidate number;
   - a design vector under a config file.
 
-  The cores come from the `scripts/study/*.yaml` runs, all under the one
-  goal in `scripts/study/base.yaml`. That goal sets the finger length, the
-  required flexion and the same mounting-depth range for both mechanisms,
-  and drops the segment and four-bar span ratios. The production config is
-  not used.
+  The cores are four roles each of CoDe at a 10 deg servo tilt and of the
+  2R-DD at 0 and 90 deg. The comparison is therefore between those servo
+  layouts, not the mechanism families at large. A design two roles share is
+  evaluated once. The cores come from the `scripts/study/*.yaml` runs, all
+  under one goal (`scripts/study/base.yaml`) on the study's own baseline,
+  `scripts/study/baseline.yaml`. That baseline is a frozen copy of the
+  production config, so a production change does not move the study. The
+  goal sets the finger length, the required flexion and the mounting
+  policy, and drops the segment and four-bar span ratios.
+  `code_tilt10_ta10.yaml` relaxes CoDe's transmission-angle limit
+  (30-150 to 10-170 deg) for a sensitivity run.
 - **B. Modules** (`modules.yaml`). A module is the rectangular pad block:
   a length along its segment from its outer end, and a thickness below the
   core's mounting surface. The catalog includes:
@@ -40,6 +46,13 @@ contact modules than the direct-drive serial 2R (2R-DD, mechanism
     where the two faces cross).
 
   A failed assembly is reported as infeasible. It is not redesigned.
+  An assembly also fails where the fingertip passes behind the MCP
+  (`C_x < 0`, `tip_behind_mcp`), as in the optimization's evaluators.
+
+  What this shows is which module requirements a fixed core accommodates
+  without changing its morphology. It does not show the cost of
+  redesigning a core for a module that does not fit. The collision model is
+  the idealized 2.5D side view, with Y layers assumed, not a 3D stack-up.
 
 ## Mounting depth
 
@@ -68,9 +81,15 @@ The two pads are set independently.
   segment's native support) would need a spacer. The design is rejected.
 
 The depths are the core's: they are written into its design vector and held
-for every module. A module that would need another depth than the core's
-(for example a distal module too short to reach under B) is reported as
-`mount_depth_changed`. It is not remounted.
+for every module. A module goes on the core's surfaces when, for each pad,
+`d_required <= d_core <= d_native`: the module needs no deeper surface than
+the core's, and the core's surface (off the line) still sits on hardware
+that carries it under that module. Otherwise the assembly is reported as
+`mount_incompatible`, and the module is not remounted. Two examples:
+- A distal module too short to reach under B leaves the core's 3 mm
+  surface over nothing, so it is incompatible.
+- A module needing 2.5 mm, on a 3 mm core surface under a 3 mm housing,
+  fits. Its collisions are then checked at 3 mm.
 
 The rows record, for each pad:
 - the depth;

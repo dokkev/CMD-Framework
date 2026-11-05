@@ -51,9 +51,9 @@ DEFAULT_CONFIG = Path(__file__).resolve().parent / "config.yaml"
 DIGITS = 6
 """Results are rounded to this many decimals (equal inputs, equal files)."""
 SIDES = ("proximal", "distal")
-UNMOUNTED = ("support_exceeded", "invalid_fixed_layout", "mount_depth_changed")
+UNMOUNTED = ("support_exceeded", "invalid_fixed_layout", "mount_incompatible")
 """Failures before any motion: the module does not mount, the core cannot be
-built, or the module would need another mounting depth than the core's."""
+built, or the core's mounting surfaces cannot carry it (:func:`compatible`)."""
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,9 @@ class CoreDesign:
     source: str
     role: str | None = None
     source_commit: str | None = None
+    source_run: str | None = None
+    """The run the design came from (from the repository root), and its row there."""
+    candidate: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,8 +113,12 @@ def load_core(spec: dict[str, Any], root: Path = REPOSITORY_ROOT) -> CoreDesign:
             row = _row(run.directory / "pareto.csv", "candidate", str(spec["candidate"]))
             source = f"{spec['run']}/pareto.csv#{spec['candidate']}"
         found = run.mechanism
+        directory = run.directory.resolve()
+        source_run = str(directory.relative_to(root.resolve())) if directory.is_relative_to(root.resolve()) \
+            else str(directory)
         core = CoreDesign(core_id, found.name, tuple(float(v) for v in found.read_design(row)), run.config,
-                          run.formulation, source, spec.get("role"), run.metadata.get("source_git_commit"))
+                          run.formulation, source, spec.get("role"), run.metadata.get("source_git_commit"),
+                          source_run, str(row["candidate"]))
     elif "x" in spec:
         found = mechanism(spec["mechanism"])
         config, _ = load_yaml(found, root / spec["config"], tuple(spec.get("overrides", ())))
@@ -122,6 +129,21 @@ def load_core(spec: dict[str, Any], root: Path = REPOSITORY_ROOT) -> CoreDesign:
     if spec.get("mechanism") not in (None, core.mechanism):
         raise ValueError(f"core {core_id}: its source is a {core.mechanism} design, not {spec['mechanism']}")
     return core
+
+
+def distinct(cores: list[CoreDesign]) -> tuple[list[CoreDesign], dict[str, str]]:
+    """The cores without repeats (two roles picking one design, say): the first
+    kept, each repeat's id mapped to it."""
+
+    kept, seen, duplicates = [], {}, {}
+    for core in cores:
+        key = (core.mechanism, core.x)
+        if key in seen:
+            duplicates[core.core_id] = seen[key]
+        else:
+            seen[key] = core.core_id
+            kept.append(core)
+    return kept, duplicates
 
 
 def physical_rules(core: CoreDesign) -> dict[str, Any]:
@@ -231,15 +253,14 @@ def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg,
         except ValueError:  # no closed four-bar: evaluate_fit reports it
             motions = {}
         for pair in catalog:
-            # The module on the frozen core: the depths the policy would give it, against the core's.
-            # One that does not mount at all says so first.
+            # The module on the frozen core's mounting surfaces: each deep enough for
+            # it, and still on the hardware that carries it there. One that does not
+            # mount at all says so first.
             found = _mounting(core, pair)
-            changed = found is not None and (not found.supported or any(
-                required is None or abs(required - depth) > TOLERANCE_MM
-                for required, depth in zip(found.depths_mm, depths)))
+            incompatible = found is not None and not compatible(found, depths)
 
             def remounted(fit: FitResult) -> FitResult:
-                return FitResult(False, "mount_depth_changed") if changed and fit.reason not in UNMOUNTED else fit
+                return FitResult(False, "mount_incompatible") if incompatible and fit.reason not in UNMOUNTED else fit
 
             reach, reach_fit = max_flexion_deg(core.mechanism, core.x, core.config, pair.modules, limit_deg,
                                                motions.get(limit_deg))
@@ -278,6 +299,21 @@ def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg,
     return [{key: _round(value) for key, value in record.items()} for record in records]
 
 
+def compatible(found, depths: tuple[float, float]) -> bool:
+    """Whether a module goes on the core's frozen mounting surfaces: for each
+    pad, the least depth it needs at most the core's (``d_req <= d_core``),
+    and the core's within what the hardware it runs under supports there
+    (``d_core <= d_native``; a surface on the line needs none). The collisions
+    at the core's depths are then the motion's to check."""
+
+    for required, native, depth in zip(found.depths_mm, found.native_mm, depths):
+        if required is None or required > depth + TOLERANCE_MM:
+            return False  # it needs to hang deeper than the core's surface
+        if depth > TOLERANCE_MM and depth > native + TOLERANCE_MM:
+            return False  # the surface, off the line, over nothing that carries it there
+    return True
+
+
 def _mounting(core: CoreDesign, pair: ModulePair):
     """The mounting policy's depths for ``pair`` on ``core`` (``None``: the
     core's depths are searched, not set by a policy)."""
@@ -305,6 +341,7 @@ def core_rows(cores: list[CoreDesign], reference: Modules) -> list[dict]:
         rows.append({"core_id": core.core_id, "mechanism": core.mechanism, "role": core.role or "",
                      "formulation": core.formulation or "", "source": core.source,
                      "source_commit": core.source_commit or "",
+                     "source_run": core.source_run or "", "candidate": core.candidate or "",
                      "finger_length_mm": _round(float(layout["finger_length_mm"])),
                      "proximal_mount_depth_mm": _round(depths[0]), "distal_mount_depth_mm": _round(depths[1]),
                      "design_vector": json.dumps([_round(v) for v in core.x]),
@@ -323,7 +360,9 @@ def _git_commit() -> dict[str, Any]:
     def git(*args: str) -> str:
         return subprocess.run(("git", *args), cwd=REPOSITORY_ROOT, capture_output=True, text=True).stdout.strip()
 
-    return {"commit": git("rev-parse", "HEAD") or None, "dirty": bool(git("status", "--porcelain", "--", "core"))}
+    # The code and every study file (configs, cores, catalog) count.
+    return {"commit": git("rev-parse", "HEAD") or None,
+            "dirty": bool(git("status", "--porcelain", "--", "core", "scripts/study"))}
 
 
 def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = None) -> Path:
@@ -332,7 +371,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = N
     config = read_config_file(config_path)
     cores_values = read_config_file(root / config["cores"])
     modules_values = read_config_file(root / config["modules"])
-    cores = [load_core(spec, root) for spec in cores_values["cores"]]
+    cores, duplicates = distinct([load_core(spec, root) for spec in cores_values["cores"]])
     rules = check_equivalent(cores)
     catalog = module_catalog(modules_values)
     flexions = [float(deg) for deg in config["required_flexion_deg"]]
@@ -356,10 +395,12 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = N
                     "clearing its own joint hardware (case A: 0, the pad short of it; case B: under it, no deeper "
                     "than that hardware reaches: CoDe's pin housings, the 2R-DD's servo); deeper (case C, a "
                     "spacer) is no design (core.optimization.mounting)",
-            "module_replacement": "a module whose own least depth differs from the core's is "
-                                  "mount_depth_changed: not remounted, infeasible on the frozen core",
+            "module_replacement": "on the core's frozen depths: each pad's least depth at most the core's, and "
+                                  "the core's within the native support under that module "
+                                  "(d_req <= d_core <= d_native); else mount_incompatible, not remounted",
         },
         "source": _git_commit(),
+        "duplicate_cores": duplicates,
         "counts": {"cores": len(cores), "modules": len(catalog), "flexions": len(flexions)},
     }, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     return output

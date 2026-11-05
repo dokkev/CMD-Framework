@@ -1,0 +1,7 @@
+# CoDe as code_tilt10, its transmission angle allowed over [10, 170] deg
+# instead of [30, 150]: how much the four-bar's transmission limit, which the
+# 2R-DD has no counterpart of, narrows CoDe's designs (a sensitivity run).
+base: code_tilt10.yaml
+goal:
+  link:
+    transmission_angle_deg: [10, 170]

@@ -1,0 +1,289 @@
+# The study's own baseline: a frozen copy of scripts/optimize/linkage/config.yaml
+# at 6ccab53 (2026-11-04), so a production change does not move the study.
+# Change the study here (or in base.yaml), not in the production file.
+
+# CoDe finger design study (core/optimization/linkage).
+#
+#   python scripts/optimize/run.py
+#
+# This file is the study's only input. For another condition, write a file
+# that extends this one (base: ../linkage/config.yaml) and run it:
+#   python scripts/optimize/run.py path/to/that.yaml
+#
+# One run per seed in solver.optimizer.seeds, then the runs verified on
+# solver.sampling.verify_step_deg and merged (output/linkage/portfolio_NNN/
+# seeds.csv). Every entry below is required; an
+# unknown one is an error.
+#
+# Two levels, by who sets them:
+#   goal    what the finger must do, carry and keep clear (the user; the GUI's form)
+#   solver  how the design is searched (defaults suffice; an advanced tab)
+# Requirements live in goal; solver only limits the search.
+# Lengths in mm, angles in degrees.
+#
+# Fixed in the code, not options:
+#   - no stopper margin past goal.motion.dip_flexion_deg;
+#   - the fingertip C stays ahead of the MCP (x >= 0, MCP at 0) while flexing;
+#   - the servos are taken at their model's nominal size, with no tolerance;
+#   - each pad's length is searched in [min, max] (goal.pads.*.length_mm).
+
+
+# 1. Goal ---------------------------------------------------------------------
+
+goal:
+  # The ranges of motion the finger must reach safely.
+  motion:
+    # Distal flexion. The four-bar's instantaneous centre of rotation moves as
+    # it flexes, so the angle is taken about the virtual remote centre of
+    # rotation of OA and BC: the rotation of the line BC relative to the line
+    # OA (0 extended, 180 antiparallel), which is phi = q_pip + q_dip in the
+    # code. The least required, and always usable: feasibility and k_max are
+    # judged on [0, dip_flexion_deg] only (no stopper margin); past it only
+    # the curl objective looks, at how far the finger would stay safe.
+    dip_flexion_deg: 150
+    # PIP hyperextension (the stopper at -10 deg). The MCP is held at 0: the
+    # pads and the PIP servo are checked against the MCP servo there only.
+    hyperextension_deg: 10
+
+  # The contact modules each pad must carry. Each pad is its link's contact
+  # interface space: a block whose mounting surface lies mount_offset_mm
+  # palmar of the link line (O-A, B-C; the one datum), its thickness palmar
+  # of that; length and A'' / B'' are measured along that line. The offset is
+  # a design variable on the same range for every mechanism (the 2R's
+  # segments too): mounted on the line, a pad must end short of its own pin;
+  # hung below it, it may run under the pin and its face lies deeper (the
+  # fold costs more). The pins and the servos are collisions either way.
+  # The pads' ends A'' and B'' are searched with the links (on_links: false):
+  # each pad may run past its joint (the proximal one past A toward B, the
+  # distal one back past B toward A) as far as it pays in coverage against
+  # the curl it costs. (on_links: true searches each pad on its own link
+  # only, A'' at A and B'' at B; scripts/optimize/extend_pads.py then grows
+  # them afterwards.)
+  pads:
+    on_links: false
+    # true: the two pads' mounting offsets (mount_offset_mm below) held equal,
+    # one offset searched on the overlap of their ranges (the 2R-DD's drops
+    # too); false: each pad its own offset.
+    align_mount_offsets: false
+    proximal:
+      # Mounting length a-b (A'' included), [min, max], laid from the pad's
+      # outer end (the MCP servo side; for the distal pad, C), the rest of the
+      # line toward the joint left empty.
+      #   min  a constraint: the module to carry (0: none).
+      #   max  a goal and a cap: the pad is never longer, and the longer the
+      #        better up to it. null: the finger's own limit,
+      #        goal.link.finger_length_mm's max (no pad outgrows the finger).
+      # The length is searched in [min, max]; [L, L] is exactly L.
+      length_mm: [20, null]
+      # The mounting surface's offset below the link line, [min, max] searched
+      # (a number: held at it; [0, 0]: on the line). Up to the 2R-DD's servo
+      # radius (9.5 mm) and a little more, so its pads too may pass under it.
+      mount_offset_mm: [0, 10]
+      # How deep the space is, the module and its mounting together. One
+      # value per study (a range would always end at its min); sweep it to
+      # see what thickness costs. The pad is a plain block (no chamfer: a
+      # chamfer only shortens the contact face).
+      height_mm: 5
+      # How far A'' may lie past the extended pose's centre of rotation (mm;
+      # A-B' crossing A'-B). null: no limit, the faces' crossing (pad_coverage)
+      # already leaves out what folds in.
+      past_icr_max_mm: null
+    distal:
+      length_mm: [25, null]
+      mount_offset_mm: [0, 10]
+      height_mm: 5
+
+  # The finger's links, each [min, max] (null: no limit). Requirements on the
+  # finger's size, not objectives: the front may sit on them (the run reports
+  # it), which then says the size limit binds.
+  link:
+    # |OC| in the extended pose.
+    finger_length_mm: [90, 100]
+    # The finger's segments, |OA''| (the MCP O to where the proximal body ends)
+    # and |B''C| (where the distal body starts to the fingertip C), and |AB|
+    # (the four-bar's span along the finger) as shares of the extended |OC|,
+    # [min, max] (null: no limit; before 2026-11-03 |OA| and BC, each at
+    # most 0.55; the maxima dropped 2026-11-03, the pads' ends searched: a
+    # max on |OA''| or |B''C| capped the pads, not the finger). |AB| at most 0.35 of
+    # it, a shorter four-bar (above 0.40 the |OA| and BC minimums bind it
+    # anyway, as |OA| and BC then; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
+    # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
+    # distal_length_mm and joint_span_mm, optional, bound them in mm.)
+    # Requirement hierarchy (2026-11-04): finger (length, flexion), then the
+    # contact modules (goal.pads), then these proportions, then the mechanism;
+    # physical feasibility (collisions, closure) always. Where a pad's least
+    # length is set (> 0), it, not the segment's least share, bounds that
+    # segment from below: the share gives way, its shortfall reported
+    # (*_ratio_shortfall_mm). Without a module the least share is a constraint.
+    proximal_length_ratio: [0.35, null]
+    distal_length_ratio: [0.25, null]
+    joint_span_ratio: [null, 0.35]
+    # true: the four-bar an antiparallelogram, |B'B| = |A'A| and |AB'| = |A'B|
+    # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
+    # A'A, as a rolling contact joint's.
+    symmetric_four_bar: false
+    # Transmission angle at B' (between B'->A and B'->B) over the whole
+    # motion, hyperextension included, [min, max] ([30, 150] is v1/v2's 30 deg
+    # margin from 0 and 180).
+    transmission_angle_deg: [30, 150]
+
+  # The actuators the finger is built around.
+  hardware:
+    pip_servo:
+      model: xm335              # core.hardware.ACTUATORS
+      # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
+      # searched every tilt_step_deg from min.
+      tilt_angle_deg: [0, 90]
+      tilt_step_deg: 5
+      # The most k_max allowed: the PIP servo's torque per distal moment held,
+      # the worst on [0, motion.dip_flexion_deg] (the serial 2R's is 1, the
+      # RCJ's 2). null: no limit (k_max is then only an objective, if listed).
+      torque_ratio_max: null
+    mcp_servo:
+      model: xm335
+
+  # Collision checks. No clearance is added: touching is allowed, and the
+  # tolerances are part of the sizes below and of the pads.
+  collision:
+    # Sizes and ranges the checks use.
+    param:
+      # Each pivot's size, its tolerance included. Half of A's / B's is also how
+      # far palmar of its link line the proximal / distal pad starts.
+      #   A is 9 mm in fact but kept at 6, which starts the proximal pad 3 mm below OA.
+      #   A' is 7 mm in fact; 10 keeps the A-A' check as for the real pins
+      #   (3 + 5 = 4.5 + 3.5). The cost: the distal pad is checked against a
+      #   smaller A (1.5 mm less radius) and a larger A' (1.5 mm more) than real.
+      pivot_diameter_mm:
+        a: 6
+        a_prime: 10
+        b: 6
+        b_prime: 6
+
+    # Which pairs are checked.
+    check:
+      # true: must not collide over the motion; false: may overlap in the side
+      # view (separate Y layers, or a joint interface).
+      # A's housing and the PIP servo body (2026-10-27: on; A no longer hangs
+      # off the servo on a bracket inside its outline).
+      a_pin_and_pip_servo: true
+      # A's housing and the keep-out around the servo shaft at A' (10 mm, within
+      # the servo's 19 mm front: implied by a_pin_and_pip_servo, so off).
+      a_pin_and_a_prime_pin: false
+      # The middle link A-B' sits in another Y layer than the servo.
+      b_prime_pin_and_pip_servo: false
+      proximal_pad_and_distal_pad: true
+      # The PIP servo body and the proximal pad (one body, still kept apart):
+      # true lets the servo come down to the pad's top face, A's radius below
+      # OA (this replaces the old rule "the servo stays above OA"); false lets
+      # them overlap (separate Y layers).
+      pip_servo_and_proximal_pad: true
+      # true starts the proximal pad at the MCP servo's shaft disk (its model's
+      # radius) and checks it against the MCP servo; false starts it at O,
+      # unchecked.
+      mcp_servo_and_proximal_pad: true
+      # Always checked, not options: the pads against the pivots of both bodies
+      # (each pad ending anywhere, short of its own pins or past them), the
+      # distal pad against the PIP and MCP servos, and the two servo bodies
+      # against each other.
+
+
+# 2. Solver -------------------------------------------------------------------
+
+solver:
+  # What the front trades off:
+  #   transmission   k_max on [0, goal.motion.dip_flexion_deg], minimized
+  #   pad_coverage   (L_p,eff + L_d,eff) / |OC|, maximized: the share of the
+  #                  fully extended finger (MCP at 0, phi 0) the two pads'
+  #                  effective faces cover. A pad's effective length is its
+  #                  face (a-b, so at most its max) from its outer end up to
+  #                  where the two contact faces, extended, cross, the least
+  #                  over [0, dip_flexion_deg]: past it a face lies inside the
+  #                  fold, facing the other. The links (A-B', A'-B) are bent
+  #                  around the pads and take nothing (2026-10-27; before, the
+  #                  face up to the first link crossing it). A longer finger lengthens the
+  #                  denominator too, so it pays only for packing more pad into
+  #                  the same length; with the pads at their max it favours a
+  #                  shorter finger (goal.link.finger_length_mm's min then
+  #                  matters).
+  #   curl           180 deg - phi_max, minimized: phi_max the most flexion that stays
+  #                  safe (C_x >= 0 included). goal.motion.dip_flexion_deg
+  #                  stays the least required, and k_max is still taken on
+  #                  [0, dip_flexion_deg], so curling further costs no k_max.
+  # Any of them, also finger_length (|OC|, when shorter is better than the
+  # range goal.link.finger_length_mm already asks for). Each one added makes
+  # the front a dimension bigger and the search slower to converge (two
+  # needed 1000 generations x 3+ seeds).
+  objectives:
+    - transmission
+    - pad_coverage
+    - curl
+
+  # The Pareto front's hypervolume reference point, per objective: the worst
+  # value that still counts, to compare fronts (seeds, runs, conditions) on
+  # one number. One study keeps one point (finger_length, when optimized:
+  # goal.link.finger_length_mm's max).
+  pareto_front:
+    transmission: 2.3
+    pad_coverage: 0               # no pad
+    curl: null                    # null: 180 - dip_flexion_deg (just the required flexion)
+
+  # Where the optimizer looks for the variables no requirement bounds. Search
+  # limits, not requirements: keep them wide enough that the front does not
+  # sit on them (the run reports bound hits). A' and B' are searched relative
+  # to A and B. The rest come from the goal, searched so that it holds:
+  #   |OC|            goal.link.finger_length_mm (B_x = |OC| - BC)
+  #   BC              goal.link.distal_length_mm (if given)
+  #   A_x = |OA|      goal.link.proximal_length_mm (if given) and _ratio, |AB|'s, between O and B
+  #   A'_x            from the least that keeps the PIP servo off the MCP servo
+  # A null max there is taken as finger_length_mm's max.
+  search_bounds:
+    a_z_mm: [0, 0]                # A on the proximal axis
+    b_z_mm: [0, 0]                # BC on the axis when extended
+    ap_from_a_x_mm: [-20, 30]     # A'_x - A_x
+    ap_from_a_z_mm: [0, 25]       # A'_z - A_z
+    bp_from_b_x_mm: [-50, 20]     # B'_x - B_x (extended)
+    bp_from_b_z_mm: [-60, 80]     # B'_z - B_z
+    # The pads may end short of A' and B' or past them: searched as shares of
+    # where they fit (core.optimization.linkage.search), these bound the box.
+    app_offset_mm: [-60, 60]      # A''_x - A'_x: the proximal pad past A'
+    bpp_offset_mm: [-60, 60]      # B'_x - B''_x: the distal pad past B'
+
+  # Motion sampling.
+  sampling:
+    servo_step_deg: 1.0           # optimization grid
+    verify_step_deg: 0.05         # fine grid for verifying the front
+    dip_backoff_tolerance_deg: 0.05
+
+  # Resolution the prototype is made to: each part's dimensions are rounded
+  # to it (B re-assembled from the rounded bars).
+  prototyping_resolution_mm: 0.1
+
+  optimizer:
+    # Which preset runs (output/linkage/<config name>/<preset>/):
+    #   quick   a look in about a minute, for trends while exploring
+    #   search  the full study, to settle a design (about 15 min)
+    #   paper   the search run until its hypervolume levels off, for the
+    #           paper's convergence figure (visualize.paper.fig_convergence;
+    #           about 45 min)
+    preset: paper
+    presets:
+      quick:
+        algorithm: smsemoa
+        population: 200
+        generations: 300
+        seeds: [0]
+      search:
+        # One or a list (scripts/optimize/run.py runs each with every seed),
+        # merged into one verified front.
+        algorithm: [nsga2, smsemoa, agemoea]
+        population: 200
+        generations: 1000
+        seeds: [0, 1, 2]
+      paper:
+        algorithm: [nsga2, smsemoa, agemoea]
+        population: 200
+        generations: 3000
+        seeds: [0, 1, 2]
+    # Feasible designs sampled under this goal (scripts/optimize/sample_seeds.py).
+    warm_start:
+      - output/linkage/config/samples/seeds.csv

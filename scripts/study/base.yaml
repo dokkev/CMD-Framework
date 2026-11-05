@@ -6,7 +6,7 @@
 #
 # runs to output/study/<mechanism>/<file name>/ (run_NNN, portfolio_NNN).
 # Change the goal here, for every mechanism at once, not in one file.
-base: ../optimize/linkage/config.yaml
+base: baseline.yaml
 output: output/study
 
 goal:

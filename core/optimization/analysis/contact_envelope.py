@@ -18,7 +18,9 @@ config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
    if the four-bar stops closing or turns back short of it);
 3. every checked pair's signed margin over those poses (``overlap_depth``:
    an overlap negative by its depth, touching 0, clearance 0), feasible when
-   none falls below ``-TOLERANCE_MM``: the evaluators' own pairs
+   none falls below ``-TOLERANCE_MM``, and the fingertip never passes
+   behind the MCP (``C_x < 0``, ``tip_behind_mcp``, the evaluators'
+   ``curl_tip_x_mm``): the evaluators' own pairs
    (``packaging.pad_margins`` / ``revolute.evaluate._margins``), the bars as
    capsules (``link_radius_mm``), and each pad against its own segment's pin housings (CoDe: A and A'
    proximal, B and B' distal; the 2R: the servo at A, the proximal pad).
@@ -84,7 +86,7 @@ COLLISION_POLICY = {
 """Which solids are checked against which (``metadata.json`` records it)."""
 REASONS = ("feasible", "support_exceeded", "kinematic_unreachable", "pad_pad_collision", "pad_servo_collision",
            "pad_joint_collision", "pad_linkage_collision", "pad_support_collision", "structure_collision",
-           "invalid_fixed_layout")
+           "tip_behind_mcp", "invalid_fixed_layout")
 
 
 @dataclass(frozen=True)
@@ -314,17 +316,26 @@ def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: 
         # Between samples: the evaluator's own resampling on the verification grid.
         moving = {p: np.broadcast_to(m, shape).copy() for p, m in margins.items() if p != ("proximal_pad", "pip_servo")}
         margins = {**margins, **_between_samples(geometry(x, config), np.radians(found_motion.phi_deg), moving, config)}
+        tip_x = geometry(x, config).tip(np.radians(found_motion.phi_deg))[:, 0]
     else:
         margins = _linkage_margins(found_motion, config)
+        tip_x = found_motion.c[:, 0]
+    # The fingertip behind the MCP (C_x < 0), as the evaluators' curl_tip_x_mm: the pose is no finger's.
+    behind = np.flatnonzero(tip_x < -TOLERANCE_MM)
+    tip = (FitResult(False, "tip_behind_mcp", float(found_motion.phi_deg[behind[0]]), "tip/mcp")
+           if behind.size else None)
+    if mechanism != "revolute":
         dip = _linkage_dip(found_motion, config, margins)
-        if dip is not None:
+        if dip is not None and (tip is None or dip.first_failure_deg <= tip.first_failure_deg):
             return dip
     stacked = np.stack([np.broadcast_to(m, shape) for m in margins.values()])
     failing = np.flatnonzero((stacked < -TOLERANCE_MM).any(axis=0))
-    if failing.size:
+    if failing.size and (tip is None or failing[0] <= behind[0]):
         index = int(failing[0])
         pair = min(margins, key=lambda p: float(np.broadcast_to(margins[p], shape)[index]))
         return FitResult(False, reason_of(pair), float(found_motion.phi_deg[index]), "/".join(pair))
+    if tip is not None:
+        return tip
     if not found_motion.reached:
         return FitResult(False, "kinematic_unreachable", float(found_motion.phi_deg.max()))
     return FitResult(True, "feasible")

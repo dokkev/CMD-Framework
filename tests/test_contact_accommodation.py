@@ -154,7 +154,7 @@ def test_equal_inputs_give_equal_results(results, tmp_path):
     assert manifest["cores"]["cores"] == CORES and "pip_servo" in manifest["physical_rules"]
 
 
-def test_a_module_needing_another_depth_is_not_remounted(tmp_path):
+def test_a_module_the_cores_surfaces_cannot_carry_is_not_remounted(tmp_path):
     # A core built under the study's policy: its distal pad under B, 3 mm deep.
     policy = [*RULES, "goal.pads.mount_policy=shallowest_supported"]
     core = {"id": "code_b", "mechanism": "linkage", "config": "scripts/optimize/linkage/config.yaml",
@@ -171,10 +171,45 @@ def test_a_module_needing_another_depth_is_not_remounted(tmp_path):
         assert row["proximal_native_support_mm"] == "0.0"
     for name in ("under_b", "thick_under_b"):  # the same least depth: carried
         assert (rows[name]["proximal_mount_case"], rows[name]["distal_mount_case"]) == ("A", "B")
-        assert rows[name]["distal_required_depth_mm"] == "3.0" and rows[name]["reason"] != "mount_depth_changed"
+        assert rows[name]["distal_required_depth_mm"] == "3.0" and rows[name]["reason"] != "mount_incompatible"
     short = rows["short_of_b"]  # it would mount on the line: not remounted, no design on this core
     assert short["distal_required_depth_mm"] == "0.0" and short["distal_mount_case"] == "A"
-    assert short["reason"] == "mount_depth_changed" and short["feasible"] == "False"
+    assert short["reason"] == "mount_incompatible" and short["feasible"] == "False"
     assert short["mounted"] == "False" and short["max_safe_flexion_deg"] == ""
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest["mounting_policy"]["policy"] == ["shallowest_supported"]
+
+
+def test_a_module_fits_a_frozen_surface_at_least_as_deep_as_it_needs_and_still_carried():
+    from core.optimization.mounting import Mounting
+
+    core_depths = (0.0, 3.0)
+    # Needs 2.5 mm under a 3 mm housing: the core's 3 mm surface carries it.
+    assert study.compatible(Mounting((0.0, 2.5), (0.0, 3.0)), core_depths)
+    # Needs 4 mm: the core's surface is too shallow.
+    assert not study.compatible(Mounting((0.0, 4.0), (0.0, 4.0)), core_depths)
+    # Too short to reach the housing: the core's 3 mm surface hangs over nothing.
+    assert not study.compatible(Mounting((0.0, 0.0), (0.0, 0.0)), core_depths)
+    # A surface on the line needs no support.
+    assert study.compatible(Mounting((0.0, 0.0), (0.0, 0.0)), (0.0, 0.0))
+    assert not study.compatible(Mounting((None, 0.0), (0.0, 0.0)), (0.0, 0.0))
+
+
+def test_repeated_cores_are_evaluated_once_and_recorded(tmp_path):
+    cores = [CORES[0], {**CORES[0], "id": "code_again"}, CORES[1]]
+    output = study.run(write_study(tmp_path, cores, {**MODULES, "sweeps": {}}), ROOT)
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["duplicate_cores"] == {"code_again": "code"} and manifest["counts"]["cores"] == 2
+
+
+def test_the_fingertip_passing_behind_the_mcp_ends_the_safe_flexion():
+    import math as _math
+
+    from core.optimization.analysis.contact_envelope import max_flexion_deg
+
+    dd = study.load_core(CORES[1], ROOT)
+    # |OA| 45 < |AC| 55: C_x = 45 + 55 cos(phi) turns negative past 180 - acos(45 / 55), short of any collision.
+    reach, fit = max_flexion_deg("revolute", dd.x, dd.config, Modules(15.0, 1.0, 15.0, 1.0))
+    assert fit.reason == "tip_behind_mcp" and fit.collision_pair == "tip/mcp"
+    assert reach == pytest.approx(180.0 - _math.degrees(_math.acos(45.0 / 55.0)), abs=0.3)
+    assert evaluate_fit("revolute", dd.x, dd.config, Modules(15.0, 1.0, 15.0, 1.0), 120.0).feasible

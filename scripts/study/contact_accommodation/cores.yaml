@@ -7,17 +7,36 @@
 #   run + candidate        a pareto.csv row by its candidate number
 #   config + x (+ overrides)  a design vector under a config file
 # `mechanism`, when given, is checked against the source. Every core must be
-# checked under the same physical rules (packaging), or the study stops.
+# checked under the same physical rules (packaging, mounting policy), or the
+# study stops. A role picking a design another already picked is evaluated
+# once (manifest: duplicate_cores).
 #
-# The sources below are the scripts/study runs (not run yet, 2026-11-04).
+# Each architecture at the servo layouts it is compared at: CoDe at 10 deg
+# (the prototype's), the 2R-DD laid back (0 deg) and standing (90 deg). Four
+# roles each, spanning the front. The sources are the scripts/study runs (not
+# run yet, 2026-11-04).
 cores:
-  - {id: code_balanced, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001, role: balanced}
-  - {id: code_most_pad, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001, role: most_pad}
-  - {id: code_best_transmission, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
-     role: best_transmission}
+  - {id: code_tilt10_balanced, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+     role: balanced}
+  - {id: code_tilt10_most_pad, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+     role: most_pad}
+  - {id: code_tilt10_best_transmission, mechanism: linkage,
+     portfolio: output/study/linkage/code_tilt10/portfolio_001, role: best_transmission}
+  - {id: code_tilt10_most_curl, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+     role: most_curl}
+  - {id: 2r_dd_tilt0_balanced, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+     role: balanced}
+  - {id: 2r_dd_tilt0_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+     role: most_pad}
+  - {id: 2r_dd_tilt0_best_transmission, mechanism: revolute,
+     portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: best_transmission}
+  - {id: 2r_dd_tilt0_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+     role: most_curl}
   - {id: 2r_dd_tilt90_balanced, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
      role: balanced}
   - {id: 2r_dd_tilt90_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
      role: most_pad}
   - {id: 2r_dd_tilt90_best_transmission, mechanism: revolute,
      portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001, role: best_transmission}
+  - {id: 2r_dd_tilt90_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
+     role: most_curl}
