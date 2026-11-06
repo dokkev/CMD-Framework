@@ -42,7 +42,7 @@ from types import MappingProxyType
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
-from core.morphology.packaging.shapes import polygon_to_disk, turn_points
+from core.morphology.packaging.shapes import polygon_to_disk
 from core.morphology.mechanism.rcj import solids
 from core.morphology.mechanism.rcj.solids import TORQUE_RATIO, RcjGeometry
 
@@ -83,10 +83,7 @@ def roller_mcp_gap_mm(geo: RcjGeometry, packaging, mcp_samples_rad) -> float:
     """Least gap (mm) from the proximal roller to the MCP servo over the MCP
     flexion samples (negative: overlapping; at least ``-r``)."""
 
-    mcp = packaging.mcp_footprint()
-    # Turning the MCP servo by +q is turning the roller by -q about O.
-    centres = np.concatenate([turn_points(geo.a[None], -q) for q in mcp_samples_rad])
-    return float(mcp.distance_to_segments(centres, centres).min()) - geo.roller_radius_mm
+    return float(solids.roller_mcp_gaps(geo.a, geo.roller_radius_mm, packaging, mcp_samples_rad)[0])
 
 
 def mount_depth_violation(x: Sequence[float], config: RcjConfig) -> float:
@@ -135,9 +132,11 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     stages = (("mcp_servo_mm", "pip_servo_pad_mm", "roller_pad_mm"), ("pad_collision_mm",))
     if max(static.values()) <= 0.0:
         mcp_angles = np.asarray(goal.mcp_servo_angles_rad)
-        # The servo on A against the MCP servo (the idealized RCJ: its proximal roller, which the servo enclosed).
-        static["mcp_servo_mm"] = (-(roller_mcp_gap_mm(geo, packaging, mcp_angles) - clearance) if geo.servo is None
-                                  else -(packaging.mcp_servo_gap_mm(geo.servo, mcp_angles) - clearance))
+        # The servo on A and the proximal roller, which may outgrow the servo's front, against the
+        # MCP servo (the idealized RCJ: the roller alone).
+        roller = -(roller_mcp_gap_mm(geo, packaging, mcp_angles) - clearance)
+        static["mcp_servo_mm"] = (roller if geo.servo is None
+                                  else max(roller, -(packaging.mcp_servo_gap_mm(geo.servo, mcp_angles) - clearance)))
         static["pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
                                         - clearance) if packaging.pip_servo_pad_check and geo.servo is not None
                                       else 0.0)

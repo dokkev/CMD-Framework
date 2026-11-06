@@ -163,14 +163,32 @@ def test_the_policy_is_the_studys_and_one_per_pad():
     assert found.depths_mm == (3.0, 3.0) and found.cases[1] == "B"
 
 
-def test_the_2r_dd_searches_no_depth_and_the_belt_2r_takes_no_policy():
+def test_the_2r_dd_searches_no_depth():
     from core.optimization.revolute.search import search_names as revolute_names
 
     code, dd = load()
     assert not any("drop" in name for name in revolute_names(dd))
     assert len(revolute_names(dd)) == len(revolute_names(load("goal.pads.mount_policy=searched")[1])) - 2
-    with pytest.raises(ValueError, match="belt 2R"):
-        load_yaml(mechanism("revolute_parallel"), CONFIG, RULES)
+
+
+def test_the_belt_2rs_servo_on_a_prime_carries_the_proximal_pad_running_under_it():
+    belt = mechanism("revolute_parallel")
+    config = load_yaml(belt, CONFIG, (*RULES, "goal.hardware.pulley_radius_mm=6"))[0]
+    # The proximal pad ends 3 mm short of A (clear of its pin); the servo on A' 5 mm above A
+    # reaches 4.2 mm below OA over it: the pad mounts that deep, on the servo's housing.
+    low = [45.0, 45.0, 42.0, 3.0, 0.0, 0.0, 10.0, 0.0, 5.0]
+    found = mounting("revolute_parallel", low, config)
+    assert found.cases == ("B", "A") and found.depths_mm == found.native_mm == (4.2, 0.0)
+    # The idealized 2R (A's pin alone) puts it on the line; so does the servo 15 mm up.
+    ideal = load_yaml(mechanism("revolute_idealized"), CONFIG, RULES)[0]
+    assert mounting("revolute_idealized", low[:7], ideal).depths_mm == (0.0, 0.0)
+    assert mounting("revolute_parallel", [*low[:8], 15.0], config).depths_mm == (0.0, 0.0)
+    # The search sets the drops: none searched, its designs at the policy's depths.
+    assert not any("drop" in name for name in belt.search_names(config))
+    x = [*low[:4], 0.0, 4.2, *low[6:]]  # distal_drop_mm, proximal_drop_mm
+    assert belt.evaluate(x, config).constraints["mount_depth_mm"] == 0.0
+    assert belt.evaluate(low, config).constraints["mount_depth_mm"] == pytest.approx(4.2)
+    assert belt.to_design(belt.from_design(x, config), config) == pytest.approx(tuple(x))
 
 
 RCJ = mechanism("rcj")

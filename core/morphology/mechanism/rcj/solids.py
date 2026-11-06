@@ -43,7 +43,7 @@ import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import Packaging
-from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk
+from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk, turn_points
 from core.morphology.mechanism.revolute.solids import carrier_local, servo_rear
 
 
@@ -164,6 +164,20 @@ def geometry(x: Sequence[float], packaging: Packaging, joint_servo: bool = True)
                        carrier_local(distal_outline, v["distal_drop_mm"], packaging))
 
 
+def roller_mcp_gaps(centres: np.ndarray, radius_mm: float, packaging: Packaging,
+                    mcp_samples_rad: Sequence[float]) -> np.ndarray:
+    """Least gap (mm) of rollers centred at ``centres`` ``(n, 2)`` (proximal
+    frame) to the MCP servo over the MCP flexion samples, ``(n,)`` (negative:
+    overlapping, at least ``-radius_mm``)."""
+
+    mcp = packaging.mcp_footprint()
+    centres = np.atleast_2d(np.asarray(centres, dtype=float))
+    # Turning the MCP servo by +q is turning the finger by -q about O.
+    gaps = [mcp.distance_to_segments(turned, turned)
+            for turned in (turn_points(centres, -q) for q in mcp_samples_rad)]
+    return np.min(np.stack(gaps), axis=0) - radius_mm
+
+
 def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples_rad: Sequence[float],
             until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair beyond the clearance, the pads
@@ -184,6 +198,8 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     margins |= {
         ("distal_pad", "proximal_roller"): polygon_to_disk(distal, np.broadcast_to(geo.a, (count, 2)), r) - clearance,
         ("distal_roller", "proximal_pad"): polygon_to_disk(proximal, geo.b(phi), r) - clearance,
+        # The distal roller swings down past the palm as the finger curls (2026-11-05).
+        ("distal_roller", "mcp_servo"): roller_mcp_gaps(geo.b(phi), r, packaging, mcp_samples_rad) - clearance,
     }
     if packaging.pad_pad_check:
         margins[("distal_pad", "proximal_pad")] = polygon_gaps(distal, proximal, packaging) - clearance
@@ -201,4 +217,5 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     return {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
 
 
-__all__ = ["SERVO_REAR", "TORQUE_RATIO", "VARIABLE_NAMES", "RcjGeometry", "finger_length_mm", "geometry", "margins"]
+__all__ = ["SERVO_REAR", "TORQUE_RATIO", "VARIABLE_NAMES", "RcjGeometry", "finger_length_mm", "geometry", "margins",
+           "roller_mcp_gaps"]

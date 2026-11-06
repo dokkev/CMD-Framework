@@ -208,8 +208,9 @@ class LinkageConfig:
     also loses where a crossing link (the driver ``A-B'`` or the coupler
     ``A'-B``) lies in front of it, at any distance
     (``packaging.link_kept_lengths``; the study's rule, 2026-11-05). The
-    linkage's alone: the other mechanisms have no crossing links. False: the
-    links bent around the pads leave every face outside the fold. Not with
+    linkage's and, for its belt and pulleys, the belt 2R's
+    (``revolute_parallel.evaluate.belt_kept_lengths``). False: the links bent
+    around the pads leave every face outside the fold. Not with
     ``integrity_depth_mm``, whose lengths replace the fold's."""
     access_depth_mm: float = 20.0
     """``goal.loss.access_depth_mm``: the depth of the accessibility profile

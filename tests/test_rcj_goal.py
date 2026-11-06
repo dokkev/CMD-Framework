@@ -146,3 +146,23 @@ def test_the_idealized_rcj_is_seen_as_rollers_by_every_analysis():
     solids = built.solids["proximal_pad"]
     assert len(solids["roller"].disks) == 2 and not solids["servo"].polygons and not solids["pin"].disks
     assert mounting("rcj_idealized", x, config).depths_mm is not None
+
+
+def test_the_rollers_are_checked_against_the_mcp_servo():
+    from core.morphology.mechanism.rcj.solids import roller_mcp_gaps
+    from core.optimization.rcj import geometry
+    from core.optimization.rcj.evaluate import _margins
+
+    config = load()
+    packaging, angles = config.goal.packaging, config.goal.mcp_servo_angles_rad
+    # A roller is a disk: its gap is its centre's distance to the servo, less its radius.
+    far, near = roller_mcp_gaps(np.array(((60.0, 0.0), (15.0, 0.0))), 9.5, packaging, angles)
+    assert far > 30.0 and near < 0.0
+    assert roller_mcp_gaps(np.array(((60.0, 0.0),)), 20.0, packaging, angles)[0] == pytest.approx(far - 10.5)
+    # The distal roller is checked through the motion, as the pads are.
+    margins = _margins(geometry(X, config), np.radians([0.0, 90.0, 180.0]), config)
+    assert ("distal_roller", "mcp_servo") in margins
+    # A roller larger than the servo's front sticks out of it: checked as itself (r 20 at |OA| 25).
+    big = (25.0, 20.0, 35.0, 30.0, 1.0, 0.0, 0.0, 0.0)
+    e = MECHANISM.evaluate(big, load("goal.pads.proximal.length_mm=[0, null]"))
+    assert e.constraints["mcp_servo_mm"] > 0.0

@@ -1,0 +1,13 @@
+# The serial 2R driven through a belt from a servo on A' (revolute_parallel,
+# k = 1): the servo where CoDe's PIP servo is, searched relative to A, tilted
+# 10 deg as CoDe's (code_tilt10.yaml), so the two compare at one servo layout.
+# The belt and its pulleys (6 mm, as decided 2026-10-28) run in the outer layer:
+# no collision with the pads, but where they stand in front of a contact face
+# at the required flexion it is no contact face (goal.loss.links_block_face).
+base: base.yaml
+mechanism: revolute_parallel
+goal:
+  hardware:
+    pulley_radius_mm: 6
+    pip_servo:
+      tilt_angle_deg: 10

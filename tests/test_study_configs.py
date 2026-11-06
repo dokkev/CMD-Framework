@@ -27,7 +27,7 @@ def load(path: Path):
 
 def test_the_study_compares_the_code_the_2r_dd_and_the_rcj():
     assert ({mechanism(read_config_file(path)["mechanism"]).name for path in FILES}
-            == {"linkage", "revolute", "rcj", "rcj_idealized"})
+            == {"linkage", "revolute", "revolute_parallel", "rcj", "rcj_idealized"})
 
 
 @pytest.mark.parametrize("path", FILES, ids=[path.stem for path in FILES])

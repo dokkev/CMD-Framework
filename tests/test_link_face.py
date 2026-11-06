@@ -110,3 +110,21 @@ def test_a_pad_past_where_it_counts_is_left_out_of_the_coverage_not_forbidden():
     # The distal pad mounted past what the coupler leaves: that part counts for nothing, nothing more.
     assert e.distal_support_length_mm > e.distal_usable_length_mm
     assert e.distal_effective_mm == pytest.approx(e.distal_usable_length_mm)
+
+
+def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
+    import math
+
+    from core.optimization.revolute_parallel.evaluate import belt_kept_lengths, geometry
+
+    belt = mechanism("revolute_parallel")
+    config = load_yaml(belt, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
+                       ("goal.hardware.pulley_radius_mm=6", "goal.loss.links_block_face=true"))[0]
+    # A at 45 mm, A' 15 mm above it; the proximal face 5 mm below OA, the pulley on A 6 mm round:
+    # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 41.7 mm on.
+    for app_x, lost in ((41.0, 0.0), (42.0, 0.3)):
+        geo = geometry([45.0, 45.0, app_x, 3.0, 0.0, 0.0, 10.0, 0.0, 15.0], config)
+        proximal, distal = belt_kept_lengths(geo, math.radians(120.0), (1e3, 1e3), config.goal)
+        assert proximal == pytest.approx(geo.joint.proximal_length_mm - lost, abs=0.3)  # probed every 0.5 mm
+        # The distal pad starts 3 mm past A: the pulley on A takes its first few tenths.
+        assert geo.joint.distal_length_mm - 1.0 < distal < geo.joint.distal_length_mm

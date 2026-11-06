@@ -5,6 +5,8 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-11-05: belt 2R(`revolute_parallel`, revolute-parallel-goal-v11)을 study에 추가(`scripts/study/belt_2r_tilt10.yaml`, servo는 A′에 CoDe와 같은 tilt 10°, pulley 6 mm). 장착 깊이 정책 지원: proximal pad는 A pin과 A′ servo(proximal 몸체, footprint가 pad span 위로 내려오는 만큼)를, distal pad는 ideal 2R처럼 받침 없음. 링크 규칙(`links_block_face`)을 belt에도 적용: proximal 면은 belt 줄과 두 pulley, distal 면은 A pulley가 앞을 지나는 구간을 뺌(`belt_kept_lengths`).
+- 2026-11-05: RCJ roller와 MCP servo 간섭 검사 보강(rcj-goal-v9, rcj-idealized-goal-v2). proximal roller는 servo가 있어도 따로 검사(roller는 최대 20 mm로 servo 앞 9.5 mm보다 커질 수 있음), distal roller는 굽히는 동안 검사(`("distal_roller", "mcp_servo")`).
 - 2026-11-05: `pad_waste_mm` 제약 삭제(전 메커니즘, production과 study 모두; linkage-v14, revolute-goal-v12, revolute-idealized-goal-v11, revolute-parallel-goal-v10, rcj-goal-v8). φ_req에서 셀 수 없는 부분(fold 교차점 너머, coupler에 끊긴 부분)에 pad를 달아도 infeasible이 아니고, 그 부분이 coverage에서 빠질 뿐. φ_req보다 덜 굽힌 상태에서는 쓸 수 있기 때문. `pad_usable_mm`(module 최소 길이는 실제로 쓸 수 있어야 함)은 그대로 제약.
 - 2026-11-05: CoDe 링크 규칙(`goal.loss.links_block_face`, study만 켬, linkage-v14). φ_req에서 교차 링크(coupler A′B와 driver A-B′)가 pad 접촉면 앞(법선 방향, 거리 무관)을 지나는 구간은 접촉면으로 세지 않음(`packaging.link_kept_lengths`). 남는 점은 한 조각이 아니어도 합산. `integrity_depth_mm`과 같이 쓸 수 없고, `links_clear_pads`가 필요. 이 규칙 없이 돈 study CoDe는 모든 설계가 B를 C에 붙여(BC 0.1 mm) coupler가 pad 앞을 가로질렀음. BC 비율 하한은 검토 후 채택 안 함.
 - 2026-11-05: ideal RCJ는 servo 대신 proximal roller를 MCP servo와 검사(`mcp_servo_mm`, `rcj.evaluate.roller_mcp_gap_mm`). 변형 메커니즘 이름(`revolute_idealized`, `rcj_idealized`)은 `core.morphology.mechanism.base_mechanism` 하나로 기본 메커니즘에 매핑(장면, 장착, ICR).

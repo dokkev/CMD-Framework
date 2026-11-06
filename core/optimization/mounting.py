@@ -250,7 +250,24 @@ def revolute_mounting(x: Sequence[float], config) -> Mounting:
     return _cached(("revolute", bare), config, lambda: _revolute_mounting(bare, config))
 
 
-def _revolute_mounting(x: Sequence[float], config) -> Mounting:
+def parallel_mounting(x: Sequence[float], config) -> Mounting:
+    """The belt 2R's mounting: the idealized 2R's (``A``'s pin), the servo on
+    ``A'`` also on the proximal body (as CoDe's PIP servo): the proximal pad
+    clear of it, carried by it as deep as its footprint reaches over the pad."""
+
+    from core.morphology.mechanism.revolute.solids import VARIABLE_NAMES as JOINT_NAMES
+    from core.morphology.mechanism.revolute_parallel.solids import VARIABLE_NAMES
+    from core.optimization.revolute_parallel.evaluate import geometry
+
+    bare = tuple(0.0 if name in ("proximal_drop_mm", "distal_drop_mm") else float(value)
+                 for name, value in zip(VARIABLE_NAMES, x))
+    servo = geometry(bare, config).servo  # on A', the drops aside
+    return _cached(("revolute_parallel", bare), config,
+                   lambda: _revolute_mounting(bare[:len(JOINT_NAMES)], config.base, servo))
+
+
+def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
+    """``servo``: a servo footprint on the proximal body besides the joint's (the belt 2R's on ``A'``)."""
 
     from core.morphology.packaging.gaps import footprint_gaps
     from core.morphology.packaging.shapes import polygon_to_disk
@@ -277,6 +294,8 @@ def _revolute_mounting(x: Sequence[float], config) -> Mounting:
             proximal = float(footprint_gaps(geo.proximal_pad[None], geo.distal_servo, packaging)[0])
         else:  # the servo and the proximal pad in separate layers, as the evaluator takes them
             proximal = math.inf
+        if servo is not None and packaging.pip_servo_pad_check:
+            proximal = min(proximal, float(footprint_gaps(geo.proximal_pad[None], servo, packaging)[0]))
         distal = float(polygon_to_disk(geo.distal_pad_local[None], np.zeros((1, 2)), radius)[0])
         return proximal - clearance, distal - clearance
 
@@ -298,6 +317,8 @@ def _revolute_mounting(x: Sequence[float], config) -> Mounting:
     # reaches over the pad (2026-11-05, as CoDe's PIP servo); A's pin as its disk.
     under = (footprint_reach_mm(geo.distal_servo.outline, spans[0], clearance) if config.joint_servo
              else reach)
+    if servo is not None and packaging.pip_servo_pad_check:  # the belt 2R's servo on A', on the proximal body
+        under = max(under, footprint_reach_mm(servo.outline, spans[0], clearance))
     native = (under if not clear((0.0, 0.0))[0] else 0.0, reach if goal.align_mount_offsets else 0.0)
     depths = shallowest(clear, guesses, _caps(goal), goal.resolution_mm)
     return Mounting(_aligned(depths) if goal.align_mount_offsets else tuple(depths),
@@ -420,6 +441,8 @@ def mounting(mechanism: str, x: Sequence[float], config) -> Mounting:
         from core.morphology.mechanism.linkage.design import decode
 
         return linkage_mounting(decode(x, config.link_length_resolution_mm), config)
+    if mechanism == "revolute_parallel":
+        return parallel_mounting(x, config)
     if base == "revolute":
         return revolute_mounting(x, config)
     if base == "rcj":
@@ -427,4 +450,4 @@ def mounting(mechanism: str, x: Sequence[float], config) -> Mounting:
     raise ValueError(f"no mounting policy for mechanism {mechanism!r}")
 
 
-__all__ = ["Mounting", "clearing_depth_mm", "disk_reach_mm", "footprint_reach_mm", "linkage_mounting", "mounting", "rcj_mounting", "revolute_mounting", "shallowest"]
+__all__ = ["Mounting", "clearing_depth_mm", "disk_reach_mm", "footprint_reach_mm", "linkage_mounting", "mounting", "parallel_mounting", "rcj_mounting", "revolute_mounting", "shallowest"]

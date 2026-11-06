@@ -46,7 +46,8 @@ from core.optimization.revolute_parallel.config import VARIABLE_NAMES, ParallelC
 
 
 STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "mcp_servo_mm", "pip_servo_pad_mm",
-                      "a_pin_servo_mm", "proximal_support_mm", "distal_support_mm", "pad_collision_mm")
+                      "a_pin_servo_mm", "proximal_support_mm", "distal_support_mm", "mount_depth_mm",
+                      "pad_collision_mm")
 MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 
@@ -64,6 +65,44 @@ class ParallelEvaluation(RevoluteEvaluation):
     @property
     def g(self) -> tuple[float, ...]:
         return tuple(self.constraints[name] for name in CONSTRAINT_NAMES)
+
+
+def belt_kept_lengths(geo: ParallelGeometry, phi_rad: float, free: tuple[float, float], goal) -> tuple[float, float]:
+    """Each face's length kept at ``phi_rad`` (the required flexion): within
+    ``free`` (from its outer end, the fold's crossing), less where the belt's
+    drive lies in front of it, at any distance (``goal.loss.links_block_face``,
+    as CoDe's crossing links): the proximal face against the belt and both
+    pulleys, on its own body; the distal face against the pulley on ``A``
+    (the rest of the belt is the proximal body's, across the fold)."""
+
+    from core.morphology.contact.loss import joint_scene
+    from core.morphology.mechanism.linkage.packaging import LINK_REACH_MM
+    from core.morphology.packaging.faces import probe_blocked
+
+    scene = joint_scene("revolute_parallel", geo, goal.packaging, [math.degrees(phi_rad)])
+    belt = scene.solids["proximal_pad"]["pulley"]
+    a_pulley = [disk for disk in belt.disks if np.allclose(disk[0], geo.a)]
+    kept = []
+    for side, segments, disks, limit in (("proximal_pad", belt.segments, belt.disks, free[0]),
+                                         ("distal_pad", [], a_pulley, free[1])):
+        face, normal = scene.faces[side]
+        length, blocked = probe_blocked(face, normal, LINK_REACH_MM, segments=segments, disks=disks)
+        share = (np.arange(blocked.shape[1]) + 0.5) / blocked.shape[1]
+        folded = share * length[0] > limit
+        kept.append(float(length[0] * (1.0 - (blocked[0] | folded).mean())))
+    return kept[0], kept[1]
+
+
+def mount_depth_violation(x: Sequence[float], config: ParallelConfig) -> float:
+    """How far the drops are from the mounting policy's (mm; 0 when they are searched)."""
+
+    if config.goal.mount_policy == "searched":
+        return 0.0
+    from core.optimization.mounting import parallel_mounting
+
+    v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    cap = max(config.goal.bounds["proximal_mount_offset_mm"][1], config.goal.bounds["distal_mount_offset_mm"][1])
+    return parallel_mounting(x, config).violation_mm((v["proximal_drop_mm"], v["distal_drop_mm"]), cap)
 
 
 def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
@@ -88,6 +127,7 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
                                    x[VARIABLE_NAMES.index("app_x_mm")] - (joint.a_x_mm - config.joint_radius_mm)),
         "distal_support_mm": max(goal.minimum_distal_support_mm - joint.distal_length_mm, -joint.distal_room_mm,
                                  config.joint_radius_mm - x[VARIABLE_NAMES.index("bpp_from_a_mm")]),
+        "mount_depth_mm": mount_depth_violation(x, config),
     }
     if max(static.values()) <= 0.0:
         mcp_angles = np.asarray(goal.mcp_servo_angles_rad)
@@ -133,6 +173,9 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "revolute_parallel")
+    if goal.links_block_face:
+        proximal_usable, distal_usable = belt_kept_lengths(geo, float(phi[window][-1]),
+                                                           (proximal_usable, distal_usable), goal)
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
     constraints = {
         **static,
@@ -164,4 +207,5 @@ def _margins(geo: ParallelGeometry, phi: np.ndarray, config: ParallelConfig,
     return solids.margins(geo, phi, joint_checks(config.base), until_unsafe)
 
 
-__all__ = ["CONSTRAINT_NAMES", "ParallelEvaluation", "evaluate", "geometry"]
+__all__ = ["CONSTRAINT_NAMES", "ParallelEvaluation", "belt_kept_lengths", "evaluate", "geometry",
+           "mount_depth_violation"]
