@@ -1,4 +1,9 @@
-# Contact accommodation study
+# Study 1: contact accommodation at a fixed morphology
+
+Study 1 measures contact interface capacity: which modules a frozen core carries. Study 2
+(`scripts/study/study2_morphology_adaptation`) measures morphology preservation: how far a
+core must change to carry a given module. This directory was `contact_accommodation` before
+2026-11-06; only its paths changed.
 
 Can CoDe (crossed four-bar, mechanism `linkage`) carry a broader range of
 contact modules than the direct-drive serial 2R (2R-DD, mechanism
@@ -137,10 +142,10 @@ checks only when a link radius is set. The checks are the idealized 2.5D side vi
 python scripts/optimize/run.py scripts/study/code_tilt10.yaml      # the cores' runs first
 python scripts/optimize/run.py scripts/study/2r_dd_tilt0.yaml
 python scripts/optimize/run.py scripts/study/2r_dd_tilt90.yaml
-python scripts/study/contact_accommodation/run.py                  # then the study
+python scripts/study/study1_fixed_morphology/run.py                  # then the study
 ```
 
-The study writes to `output/study/contact_accommodation/`:
+The study writes to `output/study/study1_fixed_morphology/`:
 
 | file | contents |
 |---|---|

@@ -1,0 +1,21 @@
+# Study 2: morphology adaptation for contact accommodation. Paths are from the
+# repository root.
+#
+#   python scripts/study/study2_morphology_adaptation/run.py [config.yaml]
+references: scripts/study/study2_morphology_adaptation/references.yaml
+targets: scripts/study/study2_morphology_adaptation/targets.yaml
+# Which references to run: matched (primary), native (secondary; needs the
+# study searches rerun under the current rules first).
+kinds: [matched]
+# Every change is normalized by the reference finger's length (2026-11-06).
+# Level 2 moves each external descriptor at most this far from the reference
+# (the modelled envelope; the finger's length bounds widened to match).
+external_range_mm: 20
+# Each search (Level 1, Level 2's two): one run of the existing optimizer.
+optimizer:
+  algorithm: nsga2
+  population: 100
+  generations: 100
+  seed: 0
+workers: 8
+output: output/study/study2_morphology_adaptation

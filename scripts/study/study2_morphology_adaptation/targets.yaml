@@ -1,0 +1,13 @@
+# The contact interfaces Study 2 adapts to: Study 1's module catalog, by id
+# (no catalog of its own). length x thickness (mm), proximal / distal:
+#   baseline             20 x 3 / 20 x 3
+#   long                 35 x 3 / 35 x 3
+#   thick                20 x 8 / 20 x 8
+#   long_thick           35 x 8 / 35 x 8
+#   asym_long_proximal   40 x 3 / 20 x 8
+#   asym_long_distal     20 x 8 / 40 x 3
+#   asym_proximal_heavy  45 x 5 / 15 x 3
+#   asym_distal_heavy    15 x 3 / 45 x 8
+catalog: scripts/study/study1_fixed_morphology/modules.yaml
+targets: [baseline, long, thick, long_thick, asym_long_proximal, asym_long_distal, asym_proximal_heavy,
+          asym_distal_heavy]

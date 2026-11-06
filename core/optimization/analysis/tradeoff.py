@@ -64,6 +64,17 @@ def goal_of(config):
     return getattr(config, "goal", config)
 
 
+def with_goal(config, goal):
+    """``config`` with ``goal`` in place of its own (the linkage's config is its goal;
+    the belt 2R's holds it in its 2R's config)."""
+
+    if not hasattr(config, "goal"):
+        return goal
+    if hasattr(config, "base"):
+        return dataclasses.replace(config, base=dataclasses.replace(config.base, goal=goal))
+    return dataclasses.replace(config, goal=goal)
+
+
 def with_modules(config, modules: Modules):
     """``config`` with its pads ``modules``, each of its set length and thickness
     on the design's own support (its least length the module's too), mounted
@@ -79,7 +90,7 @@ def with_modules(config, modules: Modules):
                                                                      distal_pad=pads["distal"]),
                                minimum_proximal_support_mm=modules.proximal_length_mm,
                                minimum_distal_support_mm=modules.distal_length_mm)
-    return dataclasses.replace(config, goal=goal) if hasattr(config, "goal") else goal
+    return with_goal(config, goal)
 
 
 MOUNTING = ("proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pip_servo_pad_mm", "mcp_servo_mm",
@@ -117,4 +128,4 @@ def distal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
 
 
 __all__ = ["MODULE_OVERRIDES", "MOUNTING", "Modules", "distal_curve", "goal_of", "load", "phi_max_deg",
-           "proximal_curve", "with_modules"]
+           "proximal_curve", "with_goal", "with_modules"]

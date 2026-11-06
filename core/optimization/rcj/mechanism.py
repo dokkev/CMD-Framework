@@ -25,7 +25,7 @@ def bound_hits(x: Sequence[float], config: RcjConfig, finger_length_mm: float) -
 
 class RcjMechanism(RevoluteMechanism):
     name = "rcj"
-    formulation = "rcj-goal-v9"
+    formulation = "rcj-goal-v10"
     """The RCJ on the linkage's goal (2026-10-27): equal rollers, the servo on
     the proximal roller's centre driving the carrier (``k = 2``), laid back
     along ``-X`` as the 2R's; ideal no-slip rolling, the cables not modelled
@@ -41,7 +41,8 @@ class RcjMechanism(RevoluteMechanism):
     ``|OA''|`` and ``|B''C|``, as the linkage's and the 2R's. v6 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
     v7 (2026-11-05): the servo's tilt a design variable (``servo_tilt_deg``, the goal's PIP servo's, as the 2R's; a run without it was untilted); the constraint ``mount_depth_mm`` (the pads' drops against ``goal.pads.mount_policy``: 0 when searched, whose designs are unchanged; ``shallowest_supported``, the study's, sets each drop by the roller and servo it runs under, ``core.optimization.mounting``).
     v8 (2026-11-05): no constraint ``pad_waste_mm``: a pad mounted past where it counts at the required flexion is allowed, that part only left out of the coverage (it may serve short of it).
-    v9 (2026-11-05): the rollers against the MCP servo: the proximal one statically (it may outgrow the servo's front), the distal one through the motion (``("distal_roller", "mcp_servo")``)."""
+    v9 (2026-11-05): the rollers against the MCP servo: the proximal one statically (it may outgrow the servo's front), the distal one through the motion (``("distal_roller", "mcp_servo")``).
+    v10 (2026-11-06): a pad no longer than its segment's room (a module of a set length longer than its segment no longer mounts, as the 2R-DD's and the linkage's; searched designs, whose pads fit their room, unchanged)."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 
@@ -89,10 +90,10 @@ class RcjMechanism(RevoluteMechanism):
 
 class IdealizedRcjMechanism(RcjMechanism):
     name = "rcj_idealized"
-    formulation = "rcj-idealized-goal-v2"
+    formulation = "rcj-idealized-goal-v3"
     """The RCJ without its servo (2026-11-05): driven from elsewhere, only the
     rollers at the joint, each at least ``A``'s pin housing; the RCJ's v9 otherwise
-    (as the idealized 2R is the 2R's). v2: the RCJ's v9."""
+    (as the idealized 2R is the 2R's). v2: the RCJ's v9. v3: its v10."""
 
     def config_from_mapping(self, values: Mapping[str, Any]) -> RcjConfig:
         return RcjConfig.from_goal(config_from_goal(values), joint_servo=False)

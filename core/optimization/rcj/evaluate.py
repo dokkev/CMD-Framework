@@ -123,9 +123,10 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         # At least its min, and on its body: no further than the roller's front
         # (plus the overhang), the distal pad no further behind B than its reach.
         "proximal_support_mm": max(goal.minimum_proximal_support_mm - geo.proximal_length_mm,
-                                   -geo.proximal_room_mm,
+                                   -geo.proximal_room_mm, geo.proximal_length_mm - geo.proximal_room_mm,
                                    x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + proximal_reach(goal, r))),
         "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
+                                 geo.distal_length_mm - geo.distal_room_mm,
                                  -x[VARIABLE_NAMES.index("bpp_from_b_mm")] - distal_reach(goal, r)),
         "mount_depth_mm": mount_depth_violation(x, config),
     }

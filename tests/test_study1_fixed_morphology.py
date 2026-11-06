@@ -1,4 +1,4 @@
-"""The contact accommodation study (scripts/study/contact_accommodation/run.py):
+"""The contact accommodation study (scripts/study/study1_fixed_morphology/run.py):
 frozen cores carrying module pairs, on two small fixture cores."""
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from core.optimization.analysis.contact_envelope import evaluate_fit
 from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("contact_accommodation_run",
-                                              ROOT / "scripts" / "study" / "contact_accommodation" / "run.py")
+spec = importlib.util.spec_from_file_location("study1_fixed_morphology_run",
+                                              ROOT / "scripts" / "study" / "study1_fixed_morphology" / "run.py")
 study = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = study  # dataclasses look their module up
 spec.loader.exec_module(study)

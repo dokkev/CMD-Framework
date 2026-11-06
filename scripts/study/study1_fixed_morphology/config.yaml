@@ -2,11 +2,11 @@
 # module pair of the catalog (modules.yaml), each through every required
 # flexion. Paths are from the repository root.
 #
-#   python scripts/study/contact_accommodation/run.py
-cores: scripts/study/contact_accommodation/cores.yaml
-modules: scripts/study/contact_accommodation/modules.yaml
+#   python scripts/study/study1_fixed_morphology/run.py
+cores: scripts/study/study1_fixed_morphology/cores.yaml
+modules: scripts/study/study1_fixed_morphology/modules.yaml
 # Each assembly is checked from extension to each of these (deg).
 required_flexion_deg: [90, 120, 150]
 # How far the maximum safe flexion is searched (deg).
 max_flexion_limit_deg: 180
-output: output/study/contact_accommodation
+output: output/study/study1_fixed_morphology

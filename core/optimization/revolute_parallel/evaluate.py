@@ -122,10 +122,12 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     static = {
         "extended_length_mm": max(length_low - joint.finger_length_mm, joint.finger_length_mm - length_high),
         "proximal_length_mm": max(oa, default=0.0),
+        # At least its min, and no longer than its segment's room (a module of a set length, 2026-11-06).
         "proximal_support_mm": max(goal.minimum_proximal_support_mm - joint.proximal_length_mm,
-                                   -joint.proximal_room_mm,
+                                   -joint.proximal_room_mm, joint.proximal_length_mm - joint.proximal_room_mm,
                                    x[VARIABLE_NAMES.index("app_x_mm")] - (joint.a_x_mm - config.joint_radius_mm)),
         "distal_support_mm": max(goal.minimum_distal_support_mm - joint.distal_length_mm, -joint.distal_room_mm,
+                                 joint.distal_length_mm - joint.distal_room_mm,
                                  config.joint_radius_mm - x[VARIABLE_NAMES.index("bpp_from_a_mm")]),
         "mount_depth_mm": mount_depth_violation(x, config),
     }

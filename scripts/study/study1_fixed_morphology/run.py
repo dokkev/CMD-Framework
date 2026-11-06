@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contact accommodation study: frozen cores carrying contact module pairs.
 
-    python scripts/study/contact_accommodation/run.py [config.yaml]
+    python scripts/study/study1_fixed_morphology/run.py [config.yaml]
 
 Stage A: the cores (``cores.yaml``), each a finished design held as it is.
 Stage B: every module pair of the catalog (``modules.yaml``) on every core,
@@ -408,7 +408,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = N
     _write_csv(output / "module_catalog.csv", [dataclasses.asdict(pair) for pair in catalog])
     _write_csv(output / "assembly_results.csv", assemblies(cores, catalog, flexions, limit))
     (output / "manifest.json").write_text(json.dumps({
-        "study": "contact_accommodation",
+        "study": "study1_fixed_morphology",
         "config": {"path": str(config_path), "values": config},
         "cores": cores_values, "modules": modules_values,
         "required_flexion_deg": flexions, "max_flexion_limit_deg": limit,

@@ -5,6 +5,7 @@
 ## 결정됨
 
 ### 비교 study (`scripts/optimize/comparison/`, 2026-10-30 삭제)
+- 2026-11-06: Study 2(morphology adaptation) 구조 확정. reference → Level 1(mechanism Q만) → Level 2(external E 먼저, 그다음 Q; lexicographic). 비용은 εE, εQ 따로 보고하고 합치지 않음. E = [|OC|, |OA″|, |B″C|, 펼친 자세 ICR] (CoDe x_j = ICR₀), 정규화는 모두 기준 손가락 길이. matched reference의 e₀는 현재 프로토타입. feasible은 evaluator 판정 그대로(pad_usable 포함). 장착 깊이는 정책으로 정함(탐색 안 함). Study 1 경로 `contact_accommodation` → `study1_fixed_morphology`.
 - 2026-11-05: belt 2R(`revolute_parallel`, revolute-parallel-goal-v11)을 study에 추가(`scripts/study/belt_2r_tilt10.yaml`, servo는 A′에 CoDe와 같은 tilt 10°, pulley 6 mm). 장착 깊이 정책 지원: proximal pad는 A pin과 A′ servo(proximal 몸체, footprint가 pad span 위로 내려오는 만큼)를, distal pad는 ideal 2R처럼 받침 없음. 링크 규칙(`links_block_face`)을 belt에도 적용: proximal 면은 belt 줄과 두 pulley, distal 면은 A pulley가 앞을 지나는 구간을 뺌(`belt_kept_lengths`).
 - 2026-11-05: RCJ roller와 MCP servo 간섭 검사 보강(rcj-goal-v9, rcj-idealized-goal-v2). proximal roller는 servo가 있어도 따로 검사(roller는 최대 20 mm로 servo 앞 9.5 mm보다 커질 수 있음), distal roller는 굽히는 동안 검사(`("distal_roller", "mcp_servo")`).
 - 2026-11-05: `pad_waste_mm` 제약 삭제(전 메커니즘, production과 study 모두; linkage-v14, revolute-goal-v12, revolute-idealized-goal-v11, revolute-parallel-goal-v10, rcj-goal-v8). φ_req에서 셀 수 없는 부분(fold 교차점 너머, coupler에 끊긴 부분)에 pad를 달아도 infeasible이 아니고, 그 부분이 coverage에서 빠질 뿐. φ_req보다 덜 굽힌 상태에서는 쓸 수 있기 때문. `pad_usable_mm`(module 최소 길이는 실제로 쓸 수 있어야 함)은 그대로 제약.

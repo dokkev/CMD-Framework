@@ -1,0 +1,40 @@
+# Study 2's reference hands (E0, Q0, A0). Paths are from the repository root.
+#
+# Matched (the primary result): one external morphology for every mechanism,
+# the current prototype's (report/prototype.md): finger length, the two
+# contact-bearing spans and the articulation station. Each mechanism is built
+# to it once, keeping its own architecture (partitions.py, `template`):
+#   - CoDe: the prototype itself (its linkage and servo on A');
+#   - 2R-DD, belt 2R: E fixes the 2R; the belt's servo where CoDe's A' is;
+#   - RCJ: the smallest rollers its hardware allows.
+# Each takes its study config (scripts/study/*.yaml: goal, actuation, rules).
+morphology:
+  id: prototype
+  source: {portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001, role: balanced}
+
+matched:
+  - {id: code_matched, config: scripts/study/code_tilt10.yaml}
+  - {id: 2r_dd_tilt0_matched, config: scripts/study/2r_dd_tilt0.yaml}
+  - {id: 2r_dd_tilt90_matched, config: scripts/study/2r_dd_tilt90.yaml}
+  - {id: belt_2r_matched, config: scripts/study/belt_2r_tilt10.yaml}
+  - {id: rcj_tilt0_matched, config: scripts/study/rcj_tilt0.yaml}
+  - {id: rcj_tilt90_matched, config: scripts/study/rcj_tilt90.yaml}
+  # No roller wall, bearing or cable retention is modelled: an upper bound,
+  # reported apart from the rest.
+  - {id: rcj_ideal_matched, config: scripts/study/rcj_ideal.yaml, upper_bound: true}
+
+# Native (secondary, reported apart): each architecture's own balanced
+# design, as Study 1's cores name them (portfolio + role), evaluated under its
+# study config. Run once the study searches are rerun under the current rules
+# (config.yaml `kinds`).
+native:
+  - {id: code_native, config: scripts/study/code_tilt10.yaml,
+     portfolio: output/study/linkage/code_tilt10/portfolio_001, role: balanced}
+  - {id: 2r_dd_tilt0_native, config: scripts/study/2r_dd_tilt0.yaml,
+     portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: balanced}
+  - {id: 2r_dd_tilt90_native, config: scripts/study/2r_dd_tilt90.yaml,
+     portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001, role: balanced}
+  - {id: belt_2r_native, config: scripts/study/belt_2r_tilt10.yaml,
+     portfolio: output/study/revolute_parallel/belt_2r_tilt10/portfolio_001, role: balanced}
+  - {id: rcj_tilt90_native, config: scripts/study/rcj_tilt90.yaml,
+     portfolio: output/study/rcj/rcj_tilt90/portfolio_001, role: balanced}
