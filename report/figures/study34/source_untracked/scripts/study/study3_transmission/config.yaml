@@ -1,0 +1,25 @@
+output: output/study/study3_transmission
+required_flexion_deg: 120
+flexions_deg: [0, 15, 30, 45, 60, 75, 90, 105, 120]
+modules: [baseline, thick, long]
+# Secondary distributions reuse Study 2 long-target Level 2 fronts, all seed 0.
+# These are adaptation fronts, not native architecture-optimal fronts.
+front_finger_length_bounds_mm: [70, 110]
+# Deterministic farthest-point cover in normalized ORIGINAL objective space.
+# All original rows saved; alternatives, not independent replicates.
+pareto_samples: 41
+fronts:
+  - {id: code_front, config: scripts/study/code_tilt10.yaml, run: output/study/study2_morphology_adaptation/targets/long/code_matched/seed_0/level2_mechanism}
+  - {id: dd_front, config: scripts/study/2r_dd_tilt90.yaml, run: output/study/study2_morphology_adaptation/targets/long/2r_dd_tilt90_matched/seed_0/level2_mechanism}
+  - {id: belt_front, config: scripts/study/belt_2r_tilt10.yaml, run: output/study/study2_morphology_adaptation/targets/long/belt_2r_matched/seed_0/level2_mechanism}
+  - {id: rcj_front, config: scripts/study/rcj_tilt90.yaml, run: output/study/study2_morphology_adaptation/targets/long/rcj_tilt90_matched/seed_0/level2_mechanism}
+  - {id: rcj_ideal_front, config: scripts/study/rcj_ideal.yaml, run: output/study/study2_morphology_adaptation/targets/long/rcj_ideal_matched/seed_0/level2_mechanism}
+contacts:
+  point: [0.5]
+  distributed: [0.1, 0.3, 0.5, 0.7, 0.9]
+contact_models:
+  - {id: normal_only, kn_N_per_m: 1000, kt_N_per_m: 0, bn_Ns_per_m: 1, bt_Ns_per_m: 0}
+  - {id: anisotropic_stick, kn_N_per_m: 1000, kt_N_per_m: 200, bn_Ns_per_m: 1, bt_Ns_per_m: 0.2}
+# Illustration of impedance, no inertial resonance claim.
+frequencies_hz: [0.5, 2, 10]
+fd_tolerance_m_per_rad: 1.0e-7

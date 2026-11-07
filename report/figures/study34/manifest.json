@@ -1,0 +1,39 @@
+{
+  "inputs_sha256": {
+    "output/study/study3_transmission/reflection.csv": "b8738eecd54758e1cbd8d66c3754a7248b999bef73cf669a317b337a70d08b83",
+    "output/study/study3_transmission/acceptance.csv": "66d0d96e6eebb3adcf5864bdba4f680312387c24af816ea412ae760eb3dc5983",
+    "output/study/study3_transmission/manifest.json": "7902e617ec7df7bd81e66cbf69ecbbf155787ea996c33c0ffee48f4fb039fcc4",
+    "output/study/study3_transmission/designs.csv": "aff0c1d1354c2c5e5089d15bcc6b3b88e466cf50dfac6720b5d05a9ac826d051",
+    "output/study/study4_joint_interface/screen.csv": "fbfb4fcb66a10f995ca92e7fa5c9d794cd80bf27b880763bab533e1b07261604",
+    "output/study/study4_joint_interface/paths.csv": "40c9aa4e30ca583136fa732adf27273f130540bc9f03f5418058ffe95ece5501",
+    "output/study/study4_joint_interface/manifest.json": "9cce4e5322c7a5818c37403afb67f29fefde50e1f33f3f5062df73c33af8a2f0",
+    "output/study/study3_transmission/inputs/code_front/pareto.csv": "dbf8f47d0125766ab9d7e177208900c63dad2bc61951f6b2b2383d18456544ee",
+    "output/study/study3_transmission/inputs/dd_front/pareto.csv": "808b98b534fe971711452ef9f7553410c5925ae5595497af5bc057bf3839fa0d",
+    "output/study/study3_transmission/inputs/belt_front/pareto.csv": "9371be9527a932dc7d98147862d5b2147a4f2016001efe08b986b85b2cef4f03",
+    "output/study/study3_transmission/inputs/rcj_front/pareto.csv": "b1b09c5fb5eaf7a55d2ef8f000952a4f907b6e4149b6446c1d0c2c2a11d2cccd",
+    "output/study/study3_transmission/inputs/rcj_ideal_front/pareto.csv": "82f684bcbb8934e1e2fad3644b049d4360216ba6ff843004af159b66b0ba4ad7"
+  },
+  "source": {
+    "commit": "4e77658448d877506ae4cf72bf461bdde6167683",
+    "dirty": true,
+    "patch": "source.patch",
+    "untracked": [
+      "core/optimization/analysis/bridge.py",
+      "core/optimization/analysis/transmission.py",
+      "scripts/study/figures.py",
+      "scripts/study/figures34.py",
+      "scripts/study/shared.py",
+      "scripts/study/study2_morphology_adaptation/quick.yaml",
+      "scripts/study/study2_morphology_adaptation/sensitivity_links.yaml",
+      "scripts/study/study3_transmission/README.md",
+      "scripts/study/study3_transmission/config.yaml",
+      "scripts/study/study3_transmission/run.py",
+      "scripts/study/study4_joint_interface/README.md",
+      "scripts/study/study4_joint_interface/config.yaml",
+      "scripts/study/study4_joint_interface/run.py"
+    ]
+  },
+  "script": "scripts/study/figures34.py",
+  "design_distribution": "one mean per design, no inferential confidence intervals",
+  "note": "Normal discontinuity column is support-normal mismatch; the constructed bridge is endpoint tangent-continuous"
+}

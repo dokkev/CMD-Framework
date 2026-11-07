@@ -1,0 +1,10 @@
+{
+  "study3_designs": 212,
+  "study3_rows": 45144,
+  "accepted_by_group": {
+    "matched": 12,
+    "adaptation_front_cover": 615
+  },
+  "max_fd_error": 6.418997278156979e-11,
+  "study4_self_intersecting_rows": 16
+}

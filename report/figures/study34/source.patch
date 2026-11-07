@@ -1,0 +1,2212 @@
+diff --git a/core/optimization/analysis/adaptation.py b/core/optimization/analysis/adaptation.py
+index e097f30..1b4a884 100644
+--- a/core/optimization/analysis/adaptation.py
++++ b/core/optimization/analysis/adaptation.py
+@@ -36,6 +36,12 @@ feasibility (mounting, collisions, the required flexion, the modules usable):
+ 
+ "Not found" means the optimizer found no feasible design in its range and
+ budget, not that none exists.
++
++Scope: 2D in-plane kinematic morphology under a fixed mounting and actuator
++architecture. ``E`` is the four longitudinal descriptors; section depth, the
++dorsal and palmar envelope, standoffs or spacers and the width are not
++searched (the mounting depths are the policy's), so ``eps_E`` is not the
++hand's whole morphological change.
+ """
+ 
+ from __future__ import annotations
+@@ -82,7 +88,10 @@ class Partition(ABC):
+ 
+     @abstractmethod
+     def mechanism(self, x: Sequence[float], config) -> dict[str, float]:
+-        """``Q`` of a design, its physical values (mm)."""
++        """``Q`` of a design (mm): the mechanism's own coordinates, held
++        independently of ``E``. Positions that follow ``E`` (a pivot set by the
++        finger's length or the articulation station) are not ``Q``, or Level
++        2's external change would be counted again as mechanism change."""
+ 
+     @abstractmethod
+     def coordinate_values(self, x: Sequence[float], config) -> dict[str, float]:
+@@ -212,6 +221,21 @@ class AdaptationMechanism(Mechanism):
+     def active_objectives(self, config) -> tuple[str, ...]:
+         return (self.objective,)
+ 
++    def metadata(self) -> dict[str, Any]:
++        """What a saved search needs besides its base mechanism's run: the
++        reference, the partition, what was free, minimized and capped, the scale."""
++
++        partition = self.partition
++        return {"base_mechanism": self.base.name, "base_formulation": self.base.formulation,
++                "formulation": self.formulation, "partition": type(partition).__name__,
++                "descriptors": list(DESCRIPTORS), "coordinates": list(partition.coordinates),
++                "actuation": list(partition.actuation), "free": self.free, "objective": self.objective,
++                "search_names": list(self.search_names(None)),
++                "external_range_mm": self.external_range_mm, "external_cap": self.external_cap,
++                "scale_mm": self.scale_mm, "reference_x": list(self.reference),
++                "reference_external": dict(self.reference_external),
++                "reference_mechanism": dict(self.reference_mechanism)}
++
+     def report(self, evaluation: AdaptationEvaluation) -> dict[str, Any]:
+         return {**self.base.report(evaluation.base), "external_cost": evaluation.external_cost,
+                 "mechanism_cost": evaluation.mechanism_cost,
+@@ -231,13 +255,38 @@ class AdaptationMechanism(Mechanism):
+         self.base.prepare(config)
+ 
+ 
++FINGER_BOUNDED = ("a_x_mm", "b_x_mm", "bc_length_mm")
++"""The goal's design bounds the finger's length sets when the goal sets no
++other (``linkage.config``: ``|OA|``, ``B_x`` and ``BC`` within the finger)."""
++
++
+ def with_finger_lengths(config, low_mm: float, high_mm: float):
+-    """``config`` with the finger's length allowed in ``[low_mm, high_mm]`` (Level 2 moves it)."""
++    """``config`` with the finger's length allowed in ``[low_mm, high_mm]`` (Level 2 moves it).
++
++    Every bound the finger's length set moves with it: the goal's
++    :data:`FINGER_BOUNDED` at the old length (none the goal set itself), ``A'``
++    and ``B'`` spanning from ``A`` and ``B``, and each mechanism's box built
++    from the goal (``tradeoff.with_goal``: the pads within the finger). No
++    other bound, and no physical requirement, changes."""
+ 
+     from core.optimization.analysis.tradeoff import goal_of, with_goal
+ 
+-    return with_goal(config, dataclasses.replace(goal_of(config), extended_length_bounds_mm=(float(low_mm),
+-                                                                                          float(high_mm))))
++    goal = goal_of(config)
++    old_high = goal.extended_length_bounds_mm[1]
++    bounds = dict(goal.bounds)
++    for name in FINGER_BOUNDED:
++        low, high = bounds[name]
++        if name == "a_x_mm" and goal.proximal_length_bounds_mm[1] is not None:
++            continue  # the goal's own
++        if high == old_high:
++            bounds[name] = (low, float(high_mm))
++    if goal.relative_bounds is not None:
++        for point, base in (("ap", "a"), ("bp", "b")):
++            (dx_low, dx_high) = goal.relative_bounds[f"{point}_from_{base}_x_mm"]
++            if bounds[f"{point}_x_mm"][1] == goal.bounds[f"{base}_x_mm"][1] + dx_high:
++                bounds[f"{point}_x_mm"] = (bounds[f"{point}_x_mm"][0], bounds[f"{base}_x_mm"][1] + dx_high)
++    return with_goal(config, dataclasses.replace(goal, bounds=bounds,
++                                                 extended_length_bounds_mm=(float(low_mm), float(high_mm))))
+ 
+ 
+ def config_resolution(config) -> float:
+@@ -312,6 +361,27 @@ def _search(base: Mechanism, partition: Partition, reference, config, settings:
+     return Step(level, "found", best.x, best.evaluation, result.evaluation_count, result)
+ 
+ 
++def save_step(step: Step, directory, *, source_git_commit: str | None = None):
++    """Write a search's run (``study.save_result``) as its base mechanism's,
++    so ``study.load_run`` reads it (its designs are the base mechanism's), and
++    the adaptation besides (``run.json``: ``adaptation``, :meth:`AdaptationMechanism.metadata`
++    with the step's level and status)."""
++
++    import json
++    from pathlib import Path
++
++    from core.optimization.study import save_result
++
++    adapted = step.result.mechanism
++    output = save_result(step.result, directory, source_git_commit=source_git_commit)
++    path = Path(output) / "run.json"
++    metadata = json.loads(path.read_text(encoding="utf-8"))
++    metadata.update(mechanism=adapted.base.name, formulation=adapted.base.formulation,
++                    adaptation={"level": step.level, "status": step.status, **adapted.metadata()})
++    path.write_text(json.dumps(metadata, indent=2, default=float) + "\n", encoding="utf-8")
++    return output
++
++
+ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], config,
+           settings: OptimizerSettings, scale_mm: float, external_range_mm: float,
+           workers: int = 1) -> AdaptationResult:
+@@ -351,5 +421,5 @@ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], con
+     return AdaptationResult("level2", (frozen, level1, first, second), final)
+ 
+ 
+-__all__ = ["CAP", "COSTS", "DESCRIPTORS", "LEVELS", "OFFSETS", "with_finger_lengths", "AdaptationEvaluation", "AdaptationMechanism",
++__all__ = ["CAP", "COSTS", "DESCRIPTORS", "LEVELS", "OFFSETS", "FINGER_BOUNDED", "save_step", "with_finger_lengths", "AdaptationEvaluation", "AdaptationMechanism",
+            "AdaptationResult", "Partition", "Step", "adapt", "change"]
+diff --git a/core/optimization/analysis/contact_envelope.py b/core/optimization/analysis/contact_envelope.py
+deleted file mode 100644
+index e0487f1..0000000
+--- a/core/optimization/analysis/contact_envelope.py
++++ /dev/null
+@@ -1,462 +0,0 @@
+-"""Contact accommodation of a fixed finger layout: whether a proximal and a
+-distal contact module both fit and stay clear from extension to a required
+-flexion, the mechanism never changed.
+-
+-A geometry check, apart from the optimization's design requirements (no
+-torque, dorsal-space or pad-length limits): mounting on the fixed supports,
+-the motion's mechanism limits (as the optimizer's), solid penetration and
+-the fingertip ahead of the MCP.
+-For a layout (a complete, fixed design vector ``x`` and its comparison
+-config, ``tradeoff.load``) and modules (``tradeoff.Modules``):
+-
+-1. the modules on the fixed supports (``tradeoff.with_modules``: the design
+-   vector, the pivots, the servo, ``A''``, ``B''`` and both supports' plates
+-   unchanged); a module longer than its support's room is ``support_exceeded``;
+-2. the motion: the 2R turning about ``A``; CoDe solved by its four-bar
+-   (``Finger.sweep_servo``), ``phi = q_pip + q_dip`` the distal
+-   carrier's rotation relative to the proximal one (not the servo's turn),
+-   sampled to the first pose at or past ``phi_req``. CoDe's motion is the
+-   evaluator's safe motion less the pads (2026-11-05): its rising branch,
+-   to the four-bar's closure or its first most flexion
+-   (``kinematic_unreachable`` short of ``phi_req``), and on it the
+-   optimizer's mechanism limits, which no module changes: the transmission
+-   angle at ``B'``, the DIP and the PIP turning with the servo, the distal
+-   pins clear of the PIP servo (``mechanism_limit``,
+-   ``linkage.motion.unsafe_conditions``). A module's safe flexion is the
+-   least of that and its own first failure below;
+-3. every checked pair's signed margin over those poses (``overlap_depth``:
+-   an overlap negative by its depth, touching 0, clearance 0), feasible when
+-   none falls below ``-TOLERANCE_MM``, and the fingertip never passes
+-   behind the MCP (``C_x < 0``, ``tip_behind_mcp``, the evaluators'
+-   ``curl_tip_x_mm``): the evaluators' own pairs
+-   (``packaging.pad_margins`` / ``revolute.evaluate._margins``), the bars as
+-   capsules (``link_radius_mm``), and each pad against its own segment's pin housings (CoDe: A and A'
+-   proximal, B and B' distal; the 2R: the servo at A, the proximal pad).
+-
+-The fixed structure itself is checked once (:func:`layout_violations`: the
+-PIP servo against the MCP servo, CoDe's pin A against the servo on A', two
+-pins on one body apart): an unbuildable layout is ``invalid_fixed_layout``,
+-whatever the modules. Between motion samples a collision is not assumed
+-away: where two neighbouring samples' least margin leaves room for the
+-moving solids to touch in between (their travel bound), the interval is
+-resampled until each piece moves at most ``REFINE_MM`` (the 2R:
+-``revolute.evaluate._between_samples`` on the 0.05 deg verification grid,
+-about as fine). The first failure's pair names the reason (``REASONS``).
+-"""
+-
+-from __future__ import annotations
+-
+-import math
+-from dataclasses import dataclass
+-
+-import numpy as np
+-
+-from core.morphology.mechanism.linkage import Finger
+-from core.morphology.mechanism.linkage.packaging import (
+-    distal_pad_polygon,
+-    pad_margins,
+-    pad_offsets,
+-    pad_spans,
+-    pip_footprint,
+-    proximal_pad_polygon,
+-)
+-from core.morphology.packaging.gaps import footprint_gaps
+-from core.morphology.packaging.shapes import polygon_to_disk
+-from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules
+-
+-TOLERANCE_MM = 1e-6
+-"""Numerical only: a margin this far below 0 still counts as touching (not an assembly clearance)."""
+-LINKAGE_SERVO_STEP_DEG = 0.1
+-"""CoDe's servo sampled this finely (its flexion moves at most ``k_max`` times as fast)."""
+-REVOLUTE_STEP_DEG = 0.25
+-"""The 2R's flexion sampled this finely, ``phi_req`` itself included."""
+-REFINE_MM = 0.05
+-"""Between samples, how far a moving solid may travel between the poses checked (CoDe's refinement)."""
+-COLLISION_POLICY = {
+-    "model": "idealized 2.5D: solids in the XZ side view, with assumed Y-layer separation between "
+-             "the links and the actuators; no 3D or stack-up check (the layers are the prototype's to validate)",
+-    "checked_in_xz_projection": [
+-        "proximal module - distal module",
+-        "module - servo body (the PIP servo, the MCP servo)",
+-        "module - joint pin housings (its own segment's and the other's)",
+-        "module - links and bars of the other body (capsules, link_radius_mm)",
+-        "module - the other segment's support; distal support - proximal module and support",
+-        "proximal support - the servo body on its own segment",
+-        "distal carrier - PIP servo",
+-    ],
+-    "not_checked": {
+-        "link or bar - servo body": "Y-layer separation assumed (the links beside the actuators), for CoDe and the 2R alike",
+-        "link - link": "Y-layer separation assumed",
+-        "driven link at its actuator horn (CoDe A'-B at A'; the 2R's distal truss at A)": "the intended drive connection",
+-        "module or support - its own body's links and pins at its mounting": "the intended attachment",
+-    },
+-}
+-"""Which solids are checked against which (``metadata.json`` records it)."""
+-REASONS = ("feasible", "support_exceeded", "kinematic_unreachable", "mechanism_limit", "pad_pad_collision",
+-           "pad_servo_collision", "pad_joint_collision", "pad_linkage_collision", "pad_support_collision",
+-           "structure_collision", "tip_behind_mcp", "invalid_fixed_layout")
+-KINEMATIC_STOPS = ("", "closure", "turns_back", "horizon")
+-"""Motion stops that are the four-bar's geometry (``kinematic_unreachable``), not a limit the optimizer sets."""
+-
+-
+-@dataclass(frozen=True)
+-class FitResult:
+-    feasible: bool
+-    reason: str
+-    first_failure_deg: float | None = None
+-    collision_pair: str | None = None
+-
+-
+-@dataclass(frozen=True)
+-class Motion:
+-    """A fixed layout's poses from extension to the first at or past
+-    ``phi_req``: their flexions and, for CoDe, the posed ``B``, ``C``, ``B'``."""
+-
+-    phi_deg: np.ndarray
+-    reached: bool
+-    b: np.ndarray | None = None
+-    c: np.ndarray | None = None
+-    bp: np.ndarray | None = None
+-    linkage: Finger | None = None
+-    servo_rad: np.ndarray | None = None
+-    """CoDe's servo angle at each pose (to resample between them)."""
+-    stop: str = ""
+-    """Short of ``phi_req``, what ends the motion: the four-bar's ``closure``
+-    or ``turns_back`` (``kinematic_unreachable``), else one of the
+-    optimizer's mechanism limits (``mechanism_limit``: ``transmission``,
+-    ``dip_backoff``, ``pip_backoff``, ``dip_pin``)."""
+-
+-
+-def motion(mechanism: str, x, config, phi_req_deg: float) -> Motion:
+-    """The layout's motion to ``phi_req_deg`` (the modules do not change it)."""
+-
+-    if mechanism == "revolute":
+-        phi = np.append(np.arange(0.0, phi_req_deg, REVOLUTE_STEP_DEG), phi_req_deg)
+-        return Motion(phi, True)
+-    from core.morphology.mechanism.linkage.design import decode
+-
+-    from core.morphology.mechanism.linkage.motion import STOP_REASONS, servo_sense, unsafe_conditions
+-    from core.optimization.linkage.evaluate import motion_settings
+-
+-    linkage = decode(x, config.link_length_resolution_mm)
+-    step = math.radians(LINKAGE_SERVO_STEP_DEG)
+-    sense = servo_sense(linkage, step)
+-    servo = sense * np.arange(0.0, 2.0 * math.pi, step)
+-    sweep = linkage.sweep_servo(servo)
+-    phi = np.degrees(sweep.total_flexion_rad)
+-    # 1. The rising branch: to the four-bar's closure, or to its first most
+-    # flexion, where it turns back (the poses after are the return branch).
+-    falls = np.flatnonzero(np.diff(phi) < -1e-9)
+-    end = int(falls[0]) if falls.size else len(phi) - 1
+-    stop = "turns_back" if falls.size else "closure" if len(phi) < len(servo) else "horizon"
+-    # 2. On it, the optimizer's own mechanism limits (the evaluator's safe
+-    # motion less the pads, which each module's own check covers): the
+-    # transmission angle at B', the DIP and the PIP turning with the servo,
+-    # the distal pins clear of the PIP servo.
+-    unsafe = unsafe_conditions(linkage, pip_footprint(config.packaging, linkage), lambda name: getattr(sweep, name),
+-                               sense, config.packaging, motion_settings(config))
+-    flagged = np.flatnonzero(np.any(np.stack(list(unsafe.values())), axis=0)[:end + 1])
+-    if flagged.size:
+-        end = int(flagged[0]) - 1  # the last safe pose (the evaluator's phi_safe)
+-        stop = next(name for name in STOP_REASONS if name in unsafe and unsafe[name][flagged[0]])
+-    at = np.flatnonzero(phi[:max(end, 0) + 1] >= phi_req_deg - 1e-9) if end >= 0 else np.array([], dtype=int)
+-    last = int(at[0]) if at.size else max(end, 0)
+-    window = slice(0, last + 1)
+-    return Motion(phi[window], bool(at.size), sweep.b[window], sweep.tip[window], sweep.bp[window], linkage,
+-                  servo[:len(phi)][window], "" if at.size else stop)
+-
+-
+-def reason_of(pair: tuple[str, str]) -> str:
+-    names = set(pair)
+-    if not names & {"proximal_pad", "distal_pad"}:
+-        return "structure_collision"
+-    if {"proximal_pad", "distal_pad"} <= names:
+-        return "pad_pad_collision"
+-    if any(name.startswith("link_") for name in names):
+-        return "pad_linkage_collision"
+-    if any("carrier" in name for name in names):
+-        return "pad_support_collision"
+-    if any("servo" in name for name in names):
+-        return "pad_servo_collision"
+-    if any("pin" in name for name in names):
+-        return "pad_joint_collision"
+-    return "structure_collision"
+-
+-
+-def layout_violations(mechanism: str, x, config) -> dict[str, float]:
+-    """The fixed structure's own margins (mm, negative: overlap), whatever the
+-    modules, as the optimization's static checks: the PIP servo against the
+-    MCP servo; CoDe's pin A against the servo on A' (``a_pin_servo_check``)
+-    and the two pins on each body (A and B' on the driver link, B' and B on
+-    the distal one) apart, their housings at most touching."""
+-
+-    packaging = goal_of(config).packaging
+-    clearance = packaging.body_clearance_mm
+-    if mechanism == "revolute":
+-        from core.optimization.revolute.evaluate import geometry
+-
+-        servo = geometry(x, config).distal_servo
+-        return {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(servo, (0.0,)) - clearance}
+-    from core.morphology.mechanism.linkage.design import decode
+-
+-    linkage = decode(x, config.link_length_resolution_mm)
+-    footprint, radius = pip_footprint(packaging, linkage), packaging.pivot_radius_mm
+-    found = {"pip_servo/mcp_servo": packaging.mcp_servo_gap_mm(footprint, (0.0,)) - clearance,
+-             "a_pin/bp_pin": linkage.joint.a.distance_to(linkage.joint.bp) - radius("a") - radius("bp"),
+-             "bp_pin/b_pin": linkage.joint.bp.distance_to(linkage.joint.b) - radius("bp") - radius("b")}
+-    if packaging.a_pin_servo_check:
+-        found["a_pin/pip_servo"] = (footprint.distance_to_point(np.array((linkage.joint.a.x_mm, linkage.joint.a.z_mm)))
+-                                    - radius("a") - clearance)
+-    return found
+-
+-
+-def first_dip(params: np.ndarray, least: np.ndarray, travel: np.ndarray, least_at, refine_mm: float = REFINE_MM):
+-    """Where between samples the least margin may dip below 0 unseen: the first
+-    interval (up to the first failing sample) whose two margins sum to less
+-    than ``travel`` (the most a moving solid moves across it), resampled by
+-    ``least_at(params) -> least margins`` into pieces moving at most
+-    ``refine_mm``; returns the first failing parameter found, else ``None``."""
+-
+-    failing = np.flatnonzero(least < -TOLERANCE_MM)
+-    end = int(failing[0]) if failing.size else len(params) - 1
+-    for i in range(end):
+-        if least[i] + least[i + 1] >= travel[i]:
+-            continue  # neither can reach 0 before meeting the other
+-        count = min(int(math.ceil(travel[i] / refine_mm)), 400)
+-        inner = np.linspace(params[i], params[i + 1], count + 1)[1:-1]
+-        if not inner.size:
+-            continue
+-        dips = np.flatnonzero(least_at(inner) < -TOLERANCE_MM)
+-        if dips.size:
+-            return float(inner[dips[0]])
+-    return None
+-
+-
+-def _linkage_margins(found_motion: Motion, config) -> dict[tuple[str, str], np.ndarray]:
+-    from core.morphology.mechanism.linkage.packaging import link_capsule_margins
+-
+-    linkage, packaging = found_motion.linkage, config.packaging
+-    b, c, bp = found_motion.b, found_motion.c, found_motion.bp
+-    margins = dict(pad_margins(linkage, packaging, b, c, bp, (0.0,)))
+-    if config.link_radius_mm is not None:
+-        margins.update(link_capsule_margins(linkage, packaging, b, c, bp, config.link_radius_mm))
+-    # Each pad against its own segment's pin housings (one body: unchecked by pad_margins).
+-    count = len(b)
+-    proximal = np.broadcast_to(proximal_pad_polygon(linkage, packaging), (count, 4, 2))
+-    distal = distal_pad_polygon(linkage, packaging, b, c)
+-    radius = packaging.pivot_radius_mm
+-    # The proximal pad against the PIP servo on A' (one body with it).
+-    margins[("proximal_pad", "pip_servo")] = footprint_gaps(proximal, pip_footprint(packaging, linkage), packaging) \
+-        - packaging.body_clearance_mm
+-    for pad, polygon, pins in (("proximal_pad", proximal, (("a", (linkage.joint.a.x_mm, linkage.joint.a.z_mm)),
+-                                                            ("ap", (linkage.joint.ap.x_mm, linkage.joint.ap.z_mm)))),
+-                               ("distal_pad", distal, (("b", b), ("bp", bp)))):
+-        for name, centre in pins:
+-            centre = np.broadcast_to(np.asarray(centre, dtype=float), (count, 2))
+-            margins[(pad, f"{name}_pin")] = polygon_to_disk(polygon, centre, radius(name)) - packaging.body_clearance_mm
+-    return margins
+-
+-
+-def _revolute_margins(phi_deg: np.ndarray, x, config) -> dict[tuple[str, str], np.ndarray]:
+-    from core.optimization.revolute.evaluate import _margins, geometry
+-
+-    geo = geometry(x, config)
+-    margins = dict(_margins(geo, np.radians(phi_deg), config))
+-    packaging = config.goal.packaging
+-    count = len(phi_deg)
+-    proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
+-    # The proximal pad against the joint's housing it shares a body with (the servo, fixed on the proximal segment).
+-    if config.joint_servo:
+-        margins[("proximal_pad", "pip_servo")] = footprint_gaps(proximal, geo.distal_servo, packaging) \
+-            - packaging.body_clearance_mm
+-    return margins
+-
+-
+-def _linkage_dip(found_motion: Motion, config, margins) -> FitResult | None:
+-    """A collision between CoDe's motion samples (:func:`first_dip`): the
+-    distal body's points travel at most ``|dB| + |d phi| R`` (``R``: its
+-    reach from ``B``), the crossing links' ends ``|dB|`` and ``|dB'|``."""
+-
+-    linkage, packaging = found_motion.linkage, config.packaging
+-    b, c, bp = found_motion.b, found_motion.c, found_motion.bp
+-    solids = [distal_pad_polygon(linkage, packaging, b[:1], c[:1])[0], c[:1], bp[:1]]
+-    reach = max(float(np.linalg.norm(np.asarray(solid) - b[0], axis=-1).max()) for solid in solids)
+-    turn = np.abs(np.diff(np.radians(found_motion.phi_deg)))
+-    travel = 1.05 * np.maximum(np.linalg.norm(np.diff(b, axis=0), axis=1) + turn * reach,
+-                               np.linalg.norm(np.diff(bp, axis=0), axis=1))
+-    shape = found_motion.phi_deg.shape
+-    least = np.min(np.stack([np.broadcast_to(m, shape) for m in margins.values()]), axis=0)
+-
+-    def pose(servo: np.ndarray) -> tuple[Motion, dict]:
+-        sweep = linkage.sweep_servo(servo)
+-        sub = Motion(np.degrees(sweep.total_flexion_rad), True, sweep.b, sweep.tip, sweep.bp, linkage, servo)
+-        return sub, _linkage_margins(sub, config)
+-
+-    def least_at(servo: np.ndarray) -> np.ndarray:
+-        sub, found = pose(servo)
+-        return np.min(np.stack([np.broadcast_to(m, sub.phi_deg.shape) for m in found.values()]), axis=0)
+-
+-    servo = first_dip(found_motion.servo_rad, least, travel, least_at)
+-    if servo is None:
+-        return None
+-    sub, found = pose(np.array([servo]))
+-    pair = min(found, key=lambda p: float(np.broadcast_to(found[p], (1,))[0]))
+-    return FitResult(False, reason_of(pair), float(sub.phi_deg[0]), "/".join(pair))
+-
+-
+-def support_rooms(mechanism: str, x, config) -> tuple[float, float]:
+-    """Each support's room for a module (mm): from the module's outer end to ``A''`` / ``B''``."""
+-
+-    if mechanism == "revolute":
+-        from core.optimization.revolute.evaluate import geometry
+-
+-        geo = geometry(x, config)
+-        return geo.proximal_room_mm, geo.distal_room_mm
+-    from core.morphology.mechanism.linkage.design import decode
+-
+-    spans = pad_spans(decode(x, config.link_length_resolution_mm), config.packaging)
+-    return spans["proximal_pad"].room_mm, spans["distal_pad"].room_mm
+-
+-
+-def evaluate_fit(mechanism: str, x, base_config, modules: Modules, phi_req_deg: float,
+-                 found_motion: Motion | None = None) -> FitResult:
+-    """Whether the fixed layout ``x`` carries ``modules`` from extension to
+-    ``phi_req_deg`` (``found_motion``: the layout's :func:`motion`, reused)."""
+-
+-    config = with_modules(base_config, modules)
+-    try:
+-        proximal_room, distal_room = support_rooms(mechanism, x, config)
+-        found_motion = found_motion or motion(mechanism, x, config, phi_req_deg)
+-    except ValueError:  # the design vector describes no closed four-bar
+-        return FitResult(False, "invalid_fixed_layout")
+-    try:
+-        structure = layout_violations(mechanism, x, config)
+-    except ValueError:
+-        return FitResult(False, "invalid_fixed_layout")
+-    broken = min(structure, key=structure.get)
+-    if structure[broken] < -TOLERANCE_MM:
+-        return FitResult(False, "invalid_fixed_layout", collision_pair=broken)
+-    if (modules.proximal_length_mm > proximal_room + TOLERANCE_MM
+-            or modules.distal_length_mm > distal_room + TOLERANCE_MM):
+-        return FitResult(False, "support_exceeded")
+-    shape = found_motion.phi_deg.shape
+-    if mechanism == "revolute":
+-        from core.optimization.revolute.evaluate import _between_samples, geometry
+-
+-        margins = _revolute_margins(found_motion.phi_deg, x, config)
+-        # Between samples: the evaluator's own resampling on the verification grid.
+-        moving = {p: np.broadcast_to(m, shape).copy() for p, m in margins.items() if p != ("proximal_pad", "pip_servo")}
+-        margins = {**margins, **_between_samples(geometry(x, config), np.radians(found_motion.phi_deg), moving, config)}
+-        tip_x = geometry(x, config).tip(np.radians(found_motion.phi_deg))[:, 0]
+-    else:
+-        margins = _linkage_margins(found_motion, config)
+-        tip_x = found_motion.c[:, 0]
+-    # The fingertip behind the MCP (C_x < 0), as the evaluators' curl_tip_x_mm: the pose is no finger's.
+-    behind = np.flatnonzero(tip_x < -TOLERANCE_MM)
+-    tip = (FitResult(False, "tip_behind_mcp", float(found_motion.phi_deg[behind[0]]), "tip/mcp")
+-           if behind.size else None)
+-    if mechanism != "revolute":
+-        dip = _linkage_dip(found_motion, config, margins)
+-        if dip is not None and (tip is None or dip.first_failure_deg <= tip.first_failure_deg):
+-            return dip
+-    stacked = np.stack([np.broadcast_to(m, shape) for m in margins.values()])
+-    failing = np.flatnonzero((stacked < -TOLERANCE_MM).any(axis=0))
+-    if failing.size and (tip is None or failing[0] <= behind[0]):
+-        index = int(failing[0])
+-        pair = min(margins, key=lambda p: float(np.broadcast_to(margins[p], shape)[index]))
+-        return FitResult(False, reason_of(pair), float(found_motion.phi_deg[index]), "/".join(pair))
+-    if tip is not None:
+-        return tip
+-    if not found_motion.reached:
+-        if found_motion.stop in KINEMATIC_STOPS:
+-            return FitResult(False, "kinematic_unreachable", float(found_motion.phi_deg.max()))
+-        return FitResult(False, "mechanism_limit", float(found_motion.phi_deg.max()), found_motion.stop)
+-    return FitResult(True, "feasible")
+-
+-
+-def max_flexion_deg(mechanism: str, x, base_config, modules: Modules, limit_deg: float = 180.0,
+-                    found_motion: Motion | None = None) -> tuple[float, FitResult]:
+-    """How far the fixed layout flexes with ``modules``: ``limit_deg`` when it
+-    fits all through, else the flexion it fails at (the first colliding pose,
+-    or the most the four-bar reaches), with the failure (``found_motion``: the
+-    layout's :func:`motion` to ``limit_deg``, reused)."""
+-
+-    fit = evaluate_fit(mechanism, x, base_config, modules, limit_deg, found_motion)
+-    return (limit_deg if fit.feasible else fit.first_failure_deg if fit.first_failure_deg is not None else 0.0), fit
+-
+-
+-def layout_summary(mechanism: str, x, base_config, modules: Modules) -> dict:
+-    """A fixed layout as it is audited: its design vector, length, active and
+-    passive joints, supports (their room for a module, their ends ``A''`` and
+-    ``B''``) and the modules' mounting offsets (drops) and outer ends."""
+-
+-    from core.optimization.mechanism import mechanism as mechanism_of
+-
+-    config = with_modules(base_config, modules)
+-    goal = goal_of(config)
+-    rooms = support_rooms(mechanism, x, config)
+-    v = dict(zip(mechanism_of(mechanism).variable_names, (float(value) for value in x)))
+-    info = {"design_vector": [float(value) for value in x], "variables": v,
+-            "support_room_mm": {"proximal": rooms[0], "distal": rooms[1]},
+-            "proximal_module_outer_end_x_mm": goal.packaging.proximal_pad_start_mm,
+-            "pip_servo": {"model_radius_mm": goal.packaging.pip_servo.radius_mm,
+-                          "rear_extent_mm": goal.packaging.pip_servo.rear_extent_mm}}
+-    if mechanism == "linkage":
+-        from core.morphology.mechanism.linkage.design import decode
+-
+-        f = decode(x, config.link_length_resolution_mm)
+-        p = f.joint
+-        info.update({"finger_length_mm": math.hypot(p.b.x_mm + f.distal.end_mm, p.b.z_mm),
+-                     "active_joints": {"O": [0.0, 0.0], "A'": [p.ap.x_mm, p.ap.z_mm]},
+-                     "passive_joints": {"A": [p.a.x_mm, p.a.z_mm], "B": [p.b.x_mm, p.b.z_mm],
+-                                        "B'": [p.bp.x_mm, p.bp.z_mm]},
+-                     "pip_servo_tilt_deg": f.servo.tilt_deg,
+-                     "supports_end_x_mm": {"A''": f.proximal.end_mm, "B''": p.b.x_mm + f.distal.start_mm},
+-                     # Where the pads mount below OA and BC: on the lines, for every module.
+-                     "pad_drops_mm": dict(zip(("proximal", "distal"), pad_offsets(f, goal.packaging).values()))})
+-    else:
+-        info.update({"finger_length_mm": v["a_x_mm"] + v["ac_length_mm"],
+-                     "active_joints": {"O": [0.0, 0.0], "A": [v["a_x_mm"], 0.0]}, "passive_joints": {},
+-                     "pip_servo_tilt_deg": v["servo_tilt_deg"],
+-                     "supports_end_x_mm": {"A''": v["app_x_mm"], "B''": v["a_x_mm"] + v["bpp_from_a_mm"]},
+-                     "pad_drops_mm": {"proximal": v["proximal_drop_mm"], "distal": v["distal_drop_mm"]}})
+-    return info
+-
+-
+-def sweep(layouts: dict, reference: Modules, lengths_mm, heights_mm, phi_req_deg: float) -> list[dict]:
+-    """Experiments A (the proximal module over ``lengths_mm`` x ``heights_mm``,
+-    the distal at ``reference``) and B (the reverse) for each layout
+-    ``{mechanism: (x, base_config)}``: one record per mechanism, experiment and
+-    module pair; ``layout_reaches``: whether the layout carries the reference
+-    pair itself through ``phi_req`` (if not, the layout falls short of the
+-    flexion, whatever a module's record says)."""
+-
+-    records = []
+-    for mechanism, (x, base_config) in layouts.items():
+-        found_motion = motion(mechanism, x, with_modules(base_config, reference), phi_req_deg)
+-        # The layout itself (its reference modules) through phi_req: else no module "fits" at it.
+-        reaches = evaluate_fit(mechanism, x, base_config, reference, phi_req_deg, found_motion).feasible
+-        for experiment in ("A", "B"):
+-            for length in lengths_mm:
+-                for height in heights_mm:
+-                    modules = (Modules(float(length), float(height), reference.distal_length_mm,
+-                                       reference.distal_height_mm) if experiment == "A" else
+-                               Modules(reference.proximal_length_mm, reference.proximal_height_mm, float(length),
+-                                       float(height)))
+-                    fit = evaluate_fit(mechanism, x, base_config, modules, phi_req_deg, found_motion)
+-                    records.append({"mechanism": mechanism, "experiment": experiment,
+-                                    "proximal_length_mm": modules.proximal_length_mm,
+-                                    "proximal_height_mm": modules.proximal_height_mm,
+-                                    "distal_length_mm": modules.distal_length_mm,
+-                                    "distal_height_mm": modules.distal_height_mm,
+-                                    "required_flexion_deg": phi_req_deg, "layout_reaches": reaches,
+-                                    "feasible": fit.feasible,
+-                                    "reason": fit.reason,
+-                                    "first_failure_deg": "" if fit.first_failure_deg is None else
+-                                    round(fit.first_failure_deg, 3),
+-                                    "collision_pair": fit.collision_pair or ""})
+-    return records
+-
+-
+-__all__ = ["COLLISION_POLICY", "FitResult", "LINKAGE_SERVO_STEP_DEG", "Motion", "REASONS", "REFINE_MM",
+-           "REVOLUTE_STEP_DEG", "TOLERANCE_MM", "evaluate_fit", "first_dip", "layout_violations", "layout_summary", "max_flexion_deg", "motion", "reason_of", "support_rooms", "sweep"]
+diff --git a/core/optimization/analysis/tradeoff.py b/core/optimization/analysis/tradeoff.py
+index adb1abe..586f2f1 100644
+--- a/core/optimization/analysis/tradeoff.py
++++ b/core/optimization/analysis/tradeoff.py
+@@ -65,14 +65,24 @@ def goal_of(config):
+ 
+ 
+ def with_goal(config, goal):
+-    """``config`` with ``goal`` in place of its own (the linkage's config is its goal;
+-    the belt 2R's holds it in its 2R's config)."""
++    """``config`` with ``goal`` in place of its own. The linkage's config is
++    its goal; the others' search boxes are built from their goal
++    (``from_goal``: the pads' ranges from the finger's length and the least
++    supports), so they are built again from the new one."""
++
++    from core.optimization.rcj.config import RcjConfig
++    from core.optimization.revolute.config import RevoluteConfig
++    from core.optimization.revolute_parallel.config import ParallelConfig
+ 
+     if not hasattr(config, "goal"):
+         return goal
+-    if hasattr(config, "base"):
+-        return dataclasses.replace(config, base=dataclasses.replace(config.base, goal=goal))
+-    return dataclasses.replace(config, goal=goal)
++    if isinstance(config, ParallelConfig):
++        return ParallelConfig.from_goal(goal)
++    if isinstance(config, RcjConfig):
++        return RcjConfig.from_goal(goal, config.joint_servo)
++    if isinstance(config, RevoluteConfig):
++        return RevoluteConfig.from_goal(goal, config.joint_servo, config.joint_pulley)
++    raise TypeError(f"no goal to replace in a {type(config).__name__}")
+ 
+ 
+ def with_modules(config, modules: Modules):
+diff --git a/core/optimization/linkage/evaluate.py b/core/optimization/linkage/evaluate.py
+index f441b33..0b85473 100644
+--- a/core/optimization/linkage/evaluate.py
++++ b/core/optimization/linkage/evaluate.py
+@@ -39,6 +39,7 @@ from types import MappingProxyType
+ 
+ import numpy as np
+ 
++from core.optimization.mechanism import shortfall_mm
+ from core.morphology.finger import Finger
+ from core.morphology.mechanism.linkage.measures import finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
+ from core.morphology.mechanism.linkage.model import four_bar
+@@ -276,9 +277,10 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
+         "hyperextension_deg": hyper_violation,
+         "curl_tip_x_mm": -motion.least_tip_x_mm,
+         "pad_usable_mm": max(
+-            config.minimum_proximal_support_mm
+-            - min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0)),
+-            config.minimum_distal_support_mm - min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0))),
++            shortfall_mm(config.minimum_proximal_support_mm,
++                         min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0))),
++            shortfall_mm(config.minimum_distal_support_mm,
++                         min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0)))),
+         "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
+     }
+     return LinkageEvaluation(
+diff --git a/core/optimization/mechanism.py b/core/optimization/mechanism.py
+index 58690f6..8715a3a 100644
+--- a/core/optimization/mechanism.py
++++ b/core/optimization/mechanism.py
+@@ -26,6 +26,16 @@ import yaml
+ 
+ INVALID = 1.0e3
+ """Objective and constraint value of a design that cannot be evaluated."""
++LENGTH_TOLERANCE_MM = 1e-9
++"""Below this, a length shortfall is float noise, not a shortfall (a module's
++set length against a usable length computed through the kinematics)."""
++
++
++def shortfall_mm(need: float, have: float) -> float:
++    """``need - have``, 0 within :data:`LENGTH_TOLERANCE_MM` of meeting it."""
++
++    value = need - have
++    return 0.0 if 0.0 < value <= LENGTH_TOLERANCE_MM else value
+ 
+ 
+ @dataclass(frozen=True)
+@@ -295,6 +305,8 @@ def _merged(base: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any
+ 
+ 
+ __all__ = [
++    "LENGTH_TOLERANCE_MM",
++    "shortfall_mm",
+     "INVALID",
+     "MECHANISMS",
+     "Evaluation",
+diff --git a/core/optimization/rcj/evaluate.py b/core/optimization/rcj/evaluate.py
+index 82aee08..49e3df7 100644
+--- a/core/optimization/rcj/evaluate.py
++++ b/core/optimization/rcj/evaluate.py
+@@ -41,6 +41,7 @@ from types import MappingProxyType
+ 
+ import numpy as np
+ 
++from core.optimization.mechanism import shortfall_mm
+ from core.morphology.packaging.gaps import footprint_gaps
+ from core.morphology.packaging.shapes import polygon_to_disk
+ from core.morphology.mechanism.rcj import solids
+@@ -192,8 +193,8 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
+         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
+         "curl_tip_x_mm": -float(tip_x[window].min()),
+         "pad_usable_mm": max(
+-            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
+-            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
++            shortfall_mm(goal.minimum_proximal_support_mm, min(max(geo.proximal_length_mm, 0.0), proximal_usable)),
++            shortfall_mm(goal.minimum_distal_support_mm, min(max(geo.distal_length_mm, 0.0), distal_usable))),
+         "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
+     }
+     return RcjEvaluation(
+diff --git a/core/optimization/revolute/evaluate.py b/core/optimization/revolute/evaluate.py
+index 768ed6c..690e780 100644
+--- a/core/optimization/revolute/evaluate.py
++++ b/core/optimization/revolute/evaluate.py
+@@ -40,6 +40,7 @@ from types import MappingProxyType
+ 
+ import numpy as np
+ 
++from core.optimization.mechanism import shortfall_mm
+ from core.morphology.contact.loss import dorsal_space_mm, integrity_free, joint_scene
+ from core.morphology.packaging.gaps import footprint_gaps
+ from core.morphology.packaging.shapes import polygon_to_disk
+@@ -304,8 +305,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
+         "curl_tip_x_mm": -float(tip_x[window].min()),
+         # No link crosses a 2R pad: its effective length is its face less the fold (as the linkage's).
+         "pad_usable_mm": max(
+-            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
+-            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
++            shortfall_mm(goal.minimum_proximal_support_mm, min(max(geo.proximal_length_mm, 0.0), proximal_usable)),
++            shortfall_mm(goal.minimum_distal_support_mm, min(max(geo.distal_length_mm, 0.0), distal_usable))),
+     }
+     return RevoluteEvaluation(
+         proximal_usable_length_mm=proximal_usable,
+diff --git a/core/optimization/revolute_parallel/evaluate.py b/core/optimization/revolute_parallel/evaluate.py
+index c5b1086..bbeb8d3 100644
+--- a/core/optimization/revolute_parallel/evaluate.py
++++ b/core/optimization/revolute_parallel/evaluate.py
+@@ -29,6 +29,7 @@ from types import MappingProxyType
+ 
+ import numpy as np
+ 
++from core.optimization.mechanism import shortfall_mm
+ from core.morphology.packaging.gaps import footprint_gaps
+ from core.morphology.mechanism.revolute_parallel import solids
+ from core.morphology.mechanism.revolute_parallel.solids import ParallelGeometry
+@@ -185,8 +186,8 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
+         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
+         "curl_tip_x_mm": -float(tip_x[window].min()),
+         "pad_usable_mm": max(
+-            goal.minimum_proximal_support_mm - min(max(joint.proximal_length_mm, 0.0), proximal_usable),
+-            goal.minimum_distal_support_mm - min(max(joint.distal_length_mm, 0.0), distal_usable)),
++            shortfall_mm(goal.minimum_proximal_support_mm, min(max(joint.proximal_length_mm, 0.0), proximal_usable)),
++            shortfall_mm(goal.minimum_distal_support_mm, min(max(joint.distal_length_mm, 0.0), distal_usable))),
+     }
+     return ParallelEvaluation(
+         constraints=MappingProxyType(constraints),
+diff --git a/scripts/study/study2_morphology_adaptation/partitions.py b/scripts/study/partitions.py
+similarity index 93%
+rename from scripts/study/study2_morphology_adaptation/partitions.py
+rename to scripts/study/partitions.py
+index 04a2d62..45cb9b9 100644
+--- a/scripts/study/study2_morphology_adaptation/partitions.py
++++ b/scripts/study/partitions.py
+@@ -27,7 +27,7 @@ import sys
+ from collections.abc import Mapping, Sequence
+ from pathlib import Path
+ 
+-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
++REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+ if str(REPOSITORY_ROOT) not in sys.path:
+     sys.path.insert(0, str(REPOSITORY_ROOT))
+ 
+@@ -37,6 +37,11 @@ from core.optimization.mounting import mounting  # noqa: E402
+ 
+ TOLERANCE_MM = 1e-6
+ DROPS = ("proximal_drop_mm", "distal_drop_mm")
++MODULE_BOUNDED = ("app_x_mm", "bpp_from_a_mm", "bpp_from_b_mm")
++"""Box bounds a module's length sets (``from_goal``: each pad's end at least
++its least support from its segment's end). Not checked here: the evaluator's
++own graded support constraints judge them, as they do CoDe's (whose box has
++no such bound), so every mechanism's search is steered alike."""
+ MOUNTS = ("proximal_mount_offset_mm", "distal_mount_offset_mm")
+ 
+ 
+@@ -60,7 +65,7 @@ class _Partition(Partition):
+         x = [float(values[name]) for name in self.names]
+         bounds = config.bounds
+         for name, value in zip(self.names, x):
+-            if name in self.depths:
++            if name in self.depths or name in MODULE_BOUNDED:
+                 continue
+             low, high = bounds[name]
+             if not (low - TOLERANCE_MM <= value <= high + TOLERANCE_MM) or not math.isfinite(value):
+@@ -110,9 +115,9 @@ class LinkagePartition(_Partition):
+                 "articulation_mm": math.nan if icr is None else icr}
+ 
+     def mechanism(self, x, config) -> dict[str, float]:
+-        v = self.values(x)
+-        return {name: v[name] for name in ("a_x_mm", "a_z_mm", "b_x_mm", "b_z_mm", "bp_x_mm", "bp_z_mm",
+-                                           "bc_length_mm")}
++        # Its own coordinates only: B_x and B'_z follow E (the finger's length,
++        # the ICR), and counting them would count external change as Q's.
++        return self.coordinate_values(x, config)
+ 
+     def coordinate_values(self, x, config) -> dict[str, float]:
+         v = self.values(x)
+@@ -217,9 +222,8 @@ class RcjPartition(_Partition):
+                 "distal_span_mm": v["bc_length_mm"] - v["bpp_from_b_mm"], "articulation_mm": v["a_x_mm"] + r}
+ 
+     def mechanism(self, x, config) -> dict[str, float]:
+-        v = self.values(x)
+-        r = v["roller_radius_mm"]
+-        return {"roller_radius_mm": r, "a_x_mm": v["a_x_mm"], "b_x_mm": v["a_x_mm"] + 2.0 * r}
++        # The rollers' radius only: A and B follow the articulation station (E).
++        return self.coordinate_values(x, config)
+ 
+     def coordinate_values(self, x, config) -> dict[str, float]:
+         return {"roller_radius_mm": self.values(x)["roller_radius_mm"]}
+diff --git a/scripts/study/study1_fixed_morphology/README.md b/scripts/study/study1_fixed_morphology/README.md
+index 873909f..003956c 100644
+--- a/scripts/study/study1_fixed_morphology/README.md
++++ b/scripts/study/study1_fixed_morphology/README.md
+@@ -1,158 +1,107 @@
+ # Study 1: contact accommodation at a fixed morphology
+ 
+-Study 1 measures contact interface capacity: which modules a frozen core carries. Study 2
+-(`scripts/study/study2_morphology_adaptation`) measures morphology preservation: how far a
+-core must change to carry a given module. This directory was `contact_accommodation` before
+-2026-11-06; only its paths changed.
+-
+-Can CoDe (crossed four-bar, mechanism `linkage`) carry a broader range of
+-contact modules than the direct-drive serial 2R (2R-DD, mechanism
+-`revolute`) while keeping its finger morphology?
+-
+-## Stages
+-
+-- **A. Cores** (`cores.yaml`). A core is a finished design, frozen. It
+-  includes the skeleton, the joints and linkage, the actuator's placement
+-  and tilt, the module supports and both mounting depths. Pick a core in
+-  one of three ways:
+-  - a portfolio's `seeds.csv` row by its role (`balanced`, `most_pad`,
+-    `best_transmission`, `most_curl`);
+-  - a run's `pareto.csv` row by its candidate number;
+-  - a design vector under a config file.
+-
+-  The cores are CoDe at a 10 deg servo tilt in four roles, and the 2R-DD at
+-  0 and 90 deg in three: its servo drives the joint directly, its torque
+-  ratio is 1 for every design, so `best_transmission` would pick an
+-  arbitrary one. The comparison is therefore between those servo layouts,
+-  not the mechanism families at large. A design two roles share (a seed's
+-  role `most_pad;balanced`) is evaluated once. The cores come from the `scripts/study/*.yaml` runs, all
+-  under one goal (`scripts/study/base.yaml`) on the study's own baseline,
+-  `scripts/study/baseline.yaml`. That baseline is a frozen copy of the
+-  production config, so a production change does not move the study. The
+-  goal sets the finger length, the required flexion and the mounting
+-  policy, and drops the segment and four-bar span ratios.
+-  `code_tilt10_ta10.yaml` relaxes CoDe's transmission-angle limit
+-  (30-150 to 10-170 deg) for a sensitivity run.
+-- **B. Modules** (`modules.yaml`). A module is the rectangular pad block:
+-  a length along its segment from its outer end, and a thickness below the
+-  core's mounting surface. The catalog includes:
+-  - named pairs (baseline, long, thick, long and thick);
+-  - grids varying the proximal side, the distal side, or both.
+-
+-  Every pair goes on every core. Only the modules' lengths and thicknesses
+-  change (`tradeoff.with_modules`). The design vector, and with it the
+-  mounting depths, is never touched. Nothing is re-optimized.
+-- **C. Evaluation** (`run.py`). For each core, module pair and required
+-  flexion, the study records:
+-  - whether the modules mount on the core's supports;
+-  - whether the assembly stays clear from extension to the required flexion
+-    (`contact_envelope.evaluate_fit`), with the first failing pose and pair;
+-  - the maximum safe flexion (`contact_envelope.max_flexion_deg`), the
+-    least of the core's own limit and the module's first failure;
+-  - when it fits, the pads' effective lengths and the coverage at that
+-    flexion, as the mechanism's own evaluation counts them (each face up to
+-    where the two faces cross).
+-
+-  A failed assembly is reported as infeasible. It is not redesigned.
+-  An assembly also fails where the fingertip passes behind the MCP
+-  (`C_x < 0`, `tip_behind_mcp`), as in the optimization's evaluators.
+-
+-  The core's own limit is what no module changes. For the 2R-DD it is the
+-  flexion asked for. CoDe's motion is the evaluator's safe motion less the
+-  pads:
+-  1. its rising branch only, to the four-bar's closure or its first most
+-     flexion (the poses after it turn back), `kinematic_unreachable` short
+-     of the flexion asked for;
+-  2. on it, the optimizer's mechanism limits: the transmission angle at B',
+-     the DIP and the PIP turning with the servo, the distal pins clear of
+-     the PIP servo (`mechanism_limit`, the limit in `collision_pair`).
+-
+-  The pads' collisions depend on the module, so each module's are checked
+-  on that motion with its own dimensions. The servo is sampled every
+-  0.1 deg (the optimizer's evaluator every 1 deg, so its limit can fall up
+-  to one of its steps short of the study's).
+-
+-  What this shows is which module requirements a fixed core accommodates
+-  without changing its morphology. It does not show the cost of
+-  redesigning a core for a module that does not fit. The collision model is
+-  the idealized 2.5D side view, with Y layers assumed, not a 3D stack-up.
+-
+-## Mounting depth
+-
+-The reference lines are the link lines: OA and BC for CoDe, and each
+-segment's line for the 2R-DD.
+-
+-- `d_proximal_mm` and `d_distal_mm` are measured palmar of those lines.
+-- The contact face lies at `d + thickness`.
+-
+-The study sets each depth by a policy instead of searching it
+-(`goal.pads.mount_policy: shallowest_supported`, `core.optimization.mounting`).
+-The two pads are set independently.
+-
+-- **Case A:** the pad does not reach its own joint hardware, so `d = 0`.
+-- **Case B:** the pad runs under that hardware, so `d` is the least depth on
+-  the resolution grid that clears it. The depth depends on the pad's length
+-  and placement, and the evaluators' own collision checks decide it. The
+-  hardware supports the pad only on its own body:
+-  - CoDe: the pin housings of the pad's segment, and for the proximal pad
+-    the PIP servo, which is fixed on the proximal segment (never the distal
+-    pad's);
+-  - 2R-DD proximal pad: the servo, which sits on the proximal body;
+-  - 2R-DD distal pad: none, since it hangs from a truss off the output at A
+-    and the servo only sets its clearance. With `align_mount_offsets`, both
+-    pads take one depth (the deeper least one), and the distal pad is then
+-    carried to the servo's reach.
+-- **Case C:** a depth deeper than the hardware reaches below the line (the
+-  segment's native support) would need a spacer. The design is rejected.
+-
+-A pin housing reaches as deep as its disk. A servo housing reaches as deep
+-as its footprint's lowest point over the pad's span along the line, not its
+-whole reach, and carries nothing where the two do not overlap. Both include
+-the clearance and are rounded up to the depths' grid.
+-
+-The depths are the core's: they are written into its design vector and held
+-for every module. A module goes on the core's surfaces when, for each pad,
+-`d_required <= d_core <= d_native`: the module needs no deeper surface than
+-the core's, and the core's surface (off the line) still sits on hardware
+-that carries it under that module. Otherwise the assembly is reported as
+-`mount_incompatible`, and the module is not remounted. Two examples:
+-- A distal module too short to reach under B leaves the core's 3 mm
+-  surface over nothing, so it is incompatible.
+-- A module needing 2.5 mm, on a 3 mm core surface under a 3 mm housing,
+-  fits. Its collisions are then checked at 3 mm.
+-
+-The rows record, for each pad:
+-- the depth;
+-- the depth that module would need;
+-- its case (A, B or C);
+-- its native support.
+-
+-## Physical rules
+-
+-All cores must be checked under the same packaging (the servos, the pins,
+-the clearances and which pairs are checked) and the same mounting and
+-collision settings (policy, alignment, depth range and grid, link radius,
+-MCP poses). If they are not, `run.py` stops. The manifest lists the link
+-checks only when a link radius is set. The checks are the idealized 2.5D side view of `contact_envelope`
+-(`COLLISION_POLICY`, recorded in the manifest).
++Study 1 measures **contact interface capacity**: which contact modules a
++frozen hand carries. Study 2 (`../study2_morphology_adaptation`) measures
++**morphology preservation**: how far a hand must change to carry a module it
++does not. The two share their references and their modules
++(`../shared.py`), so a hand or a module means the same in both. At the
++required flexion, Study 1's verdict for a module is Study 2's first step,
++"the reference as it is" (a test holds them equal).
++
++## References
++
++The hands are Study 2's matched references
++(`../study2_morphology_adaptation/references.yaml`). One external morphology,
++the current prototype's (finger 90.0 mm, proximal span `|OA''|` 43.3 mm,
++distal span `|B''C|` 30.2 mm, articulation 55.05 mm), is held as a tracked
++design vector. Every architecture is built to it once, in its own way
++(`../partitions.py`):
++
++| Reference | Mechanism | Actuation |
++|---|---|---|
++| `code_matched` | CoDe crossed four-bar (`linkage`), the prototype itself | PIP servo on A', tilt 10° |
++| `2r_dd_tilt0_matched`, `2r_dd_tilt90_matched` | 2R-DD, servo at the joint (`revolute`) | servo laid back (0°) or standing (90°) |
++| `belt_2r_matched` | belt 2R (`revolute_parallel`) | servo where CoDe's A' is, tilt 10°, 6 mm pulleys |
++| `rcj_tilt0_matched`, `rcj_tilt90_matched` | RCJ, 1:1 rollers (`rcj`), the smallest its servo allows | servo at the proximal roller, 0° or 90° |
++| `rcj_ideal_matched` | idealized RCJ (`rcj_idealized`): no joint servo | none at the joint. **An upper bound, reported apart** |
++
++Every reference must share the comparison rules (`shared.comparison_rules`),
++or the study stops:
++- the required flexion and hyperextension;
++- the finger's length range;
++- the mounting policy and depth range;
++- the pins' diameters and spacing;
++- the servo envelopes;
++- the fold and link face rules;
++- the resolution.
++
++The servo's tilt is each reference's own actuation, not a shared rule.
++
++## Modules
++
++`modules.yaml` lists the contact modules. A module is the rectangular pad
++block: a length along its segment from its outer end, and a thickness below
++the mounting surface. The catalog has 71 pairs:
++- the named pairs;
++- grids over length 15–45 mm and thickness 3, 5 and 8 mm, with the
++  proximal side, the distal side, or both varied.
++
++## Evaluation (`run.py`)
++
++For each reference, module pair and required flexion (90, 120 and 150°):
++
++1. **The frozen design carries the module.** The design vector is held:
++   skeleton, joints, actuator and supports. Each pad's mounting depth is the
++   goal's policy for that module on the hand's own hardware
++   (`core.optimization.mounting`, `shallowest_supported`). A module that
++   would need a spacer does not mount.
++2. **The mechanism's own `evaluate()` judges it.** It decides whether the
++   module mounts, and then whether the assembly is feasible.
++   - A module mounts when the policy gives a depth and the module fits its
++     segment's room (`proximal/distal_support_mm`, `mount_depth_mm`). This
++     definition is the same for every mechanism.
++   - The assembly is feasible when it is free of collisions through the
++     motion (pads, pins, links, rollers, servos), reaches the flexion asked
++     for, and keeps each module's length usable there. The usable length is
++     each face up to the fold, less any part a crossing link or belt passes
++     in front of.
++3. **It records** the failing constraints, the maximum safe flexion φ_max,
++   where the motion stops, and the usable contact coverage
++   (`(proximal + distal effective) / finger length`).
++
++A failed assembly is reported, never redesigned.
++
++The previous Study 1 used a separate collision engine (`contact_envelope`)
++written only for CoDe and the 2R-DD. It never produced results. It was
++replaced on 2026-11-06 by the evaluators every mechanism already has, so
++that the belt 2R and RCJ are compared under the same physics.
++
++## Scope
++
++This is a 2D side-view geometric and kinematic model, with Y layers assumed.
++It does not cover:
++- manufacturing tolerances;
++- bearings and fasteners;
++- strength;
++- cable routing;
++- 3D assembly.
++
++A feasible assembly here shows that the planar geometry has room. It does
++not show that the module can be built or swapped in practice.
+ 
+ ## Run
+ 
+ ```
+-python scripts/optimize/run.py scripts/study/code_tilt10.yaml      # the cores' runs first
+-python scripts/optimize/run.py scripts/study/2r_dd_tilt0.yaml
+-python scripts/optimize/run.py scripts/study/2r_dd_tilt90.yaml
+-python scripts/study/study1_fixed_morphology/run.py                  # then the study
++python scripts/study/study1_fixed_morphology/run.py
+ ```
+ 
+-The study writes to `output/study/study1_fixed_morphology/`:
++The run writes to `output/study/study1_fixed_morphology/`:
+ 
+-| file | contents |
++| File | Contents |
+ |---|---|
+-| `manifest.json` | the config, cores and modules as given, the physical rules, the collision policy and the source commit |
+-| `core_designs.csv` | each core: its source, formulation, design vector, mounting depths and layout |
++| `manifest.json` | the config, references (with the morphology's provenance), modules, comparison rules, formulations and source commit |
++| `references.csv` | each reference's E descriptors, formulation and design vector |
+ | `module_catalog.csv` | each module pair's id, group and dimensions |
+-| `assembly_results.csv` | one row per core, module pair and required flexion (`<core>__<module>__phi<deg>`) |
++| `assembly_results.csv` | one row per reference, module pair and required flexion |
+ 
+-Equal inputs give equal files (values rounded to 6 decimals). Only the
+-manifest's commit can differ.
++Equal inputs give equal files, with values rounded to 6 decimals.
+diff --git a/scripts/study/study1_fixed_morphology/config.yaml b/scripts/study/study1_fixed_morphology/config.yaml
+index 52620c8..a9b3969 100644
+--- a/scripts/study/study1_fixed_morphology/config.yaml
++++ b/scripts/study/study1_fixed_morphology/config.yaml
+@@ -1,12 +1,15 @@
+-# Contact accommodation study: frozen cores (cores.yaml) carrying every
+-# module pair of the catalog (modules.yaml), each through every required
+-# flexion. Paths are from the repository root.
++# Study 1: contact accommodation at a fixed morphology. Every reference hand
++# (Study 2's references.yaml: the tracked morphology, each architecture built
++# to it) carries every module pair of the catalog (modules.yaml), each at
++# every required flexion. Paths are from the repository root.
+ #
+ #   python scripts/study/study1_fixed_morphology/run.py
+-cores: scripts/study/study1_fixed_morphology/cores.yaml
+ modules: scripts/study/study1_fixed_morphology/modules.yaml
+-# Each assembly is checked from extension to each of these (deg).
++# matched (the primary comparison); native needs the study searches rerun
++# under the current rules first.
++kinds: [matched]
++# Each assembly is evaluated asking each of these (deg): reached, and each
++# module usable there.
+ required_flexion_deg: [90, 120, 150]
+-# How far the maximum safe flexion is searched (deg).
+-max_flexion_limit_deg: 180
++workers: 8
+ output: output/study/study1_fixed_morphology
+diff --git a/scripts/study/study1_fixed_morphology/cores.yaml b/scripts/study/study1_fixed_morphology/cores.yaml
+deleted file mode 100644
+index 471314b..0000000
+--- a/scripts/study/study1_fixed_morphology/cores.yaml
++++ /dev/null
+@@ -1,40 +0,0 @@
+-# Frozen core designs. A core is one design of a finished run, held as it
+-# is (skeleton, joints, actuator, supports, mounting depths): only the
+-# contact modules change. Pick it either
+-#   portfolio + role       a seeds.csv row by its seed_role (best_transmission,
+-#                          most_pad, most_curl, balanced: the selection the
+-#                          run already made, scripts/optimize/run.py)
+-#   run + candidate        a pareto.csv row by its candidate number
+-#   config + x (+ overrides)  a design vector under a config file
+-# `mechanism`, when given, is checked against the source. Every core must be
+-# checked under the same physical rules (packaging, mounting policy), or the
+-# study stops. A role picking a design another already picked is evaluated
+-# once (manifest: duplicate_cores).
+-#
+-# Each architecture at the servo layouts it is compared at: CoDe at 10 deg
+-# (the prototype's), the 2R-DD laid back (0 deg) and standing (90 deg). CoDe
+-# takes four roles, the 2R-DD three: its servo drives the joint directly, so
+-# its torque ratio is 1 for every design and best_transmission would pick an
+-# arbitrary one (2026-11-05). The sources are the scripts/study runs (not run
+-# yet).
+-cores:
+-  - {id: code_tilt10_balanced, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+-     role: balanced}
+-  - {id: code_tilt10_most_pad, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+-     role: most_pad}
+-  - {id: code_tilt10_best_transmission, mechanism: linkage,
+-     portfolio: output/study/linkage/code_tilt10/portfolio_001, role: best_transmission}
+-  - {id: code_tilt10_most_curl, mechanism: linkage, portfolio: output/study/linkage/code_tilt10/portfolio_001,
+-     role: most_curl}
+-  - {id: 2r_dd_tilt0_balanced, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+-     role: balanced}
+-  - {id: 2r_dd_tilt0_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+-     role: most_pad}
+-  - {id: 2r_dd_tilt0_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001,
+-     role: most_curl}
+-  - {id: 2r_dd_tilt90_balanced, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
+-     role: balanced}
+-  - {id: 2r_dd_tilt90_most_pad, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
+-     role: most_pad}
+-  - {id: 2r_dd_tilt90_most_curl, mechanism: revolute, portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001,
+-     role: most_curl}
+diff --git a/scripts/study/study1_fixed_morphology/run.py b/scripts/study/study1_fixed_morphology/run.py
+index 6ef998b..f997810 100644
+--- a/scripts/study/study1_fixed_morphology/run.py
++++ b/scripts/study/study1_fixed_morphology/run.py
+@@ -1,443 +1,190 @@
+ #!/usr/bin/env python3
+-"""Contact accommodation study: frozen cores carrying contact module pairs.
++"""Study 1: contact accommodation at a fixed morphology.
+ 
+     python scripts/study/study1_fixed_morphology/run.py [config.yaml]
+ 
+-Stage A: the cores (``cores.yaml``), each a finished design held as it is.
+-Stage B: every module pair of the catalog (``modules.yaml``) on every core,
+-only the modules' lengths and thicknesses changing
+-(``tradeoff.with_modules``; the design vector, so the skeleton, joints,
+-actuator, supports and mounting depths, untouched).
+-Stage C: each assembly through each required flexion
+-(``contact_envelope.evaluate_fit``), its maximum safe flexion
+-(``contact_envelope.max_flexion_deg``) and, when it fits, its effective
+-contact coverage at that flexion (the mechanism's own evaluation).
+-
+-A failed assembly is reported, never redesigned. Writes ``manifest.json``,
+-``core_designs.csv``, ``module_catalog.csv`` and ``assembly_results.csv``
+-to the config's ``output``.
++Every reference hand (Study 2's ``references.yaml``: one tracked morphology,
++each architecture built to it) is frozen: its skeleton, joints, actuator and
++supports. Only the contact modules change (``modules.yaml``: each module's
++length and thickness), and each pad's mounting depth is the mounting policy's
++for that module on the hand's own hardware (no spacer: a module needing one
++does not mount). Each assembly is evaluated by its mechanism's own
++``evaluate()`` at each required flexion: whether it mounts, whether it is
++feasible (collisions, the flexion reached, each module usable there), its
++maximum safe flexion and its usable contact coverage. A failed assembly is
++reported, never redesigned.
++
++Writes ``manifest.json``, ``references.csv``, ``module_catalog.csv`` and
++``assembly_results.csv`` to the config's ``output``.
+ """
+ 
+ from __future__ import annotations
+ 
+-import copy
+-import csv
+-import dataclasses
++import argparse
+ import json
+ import math
+-import subprocess
+ import sys
+-from dataclasses import dataclass
++from concurrent.futures import ProcessPoolExecutor
+ from pathlib import Path
+ from typing import Any
+ 
+-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
++HERE = Path(__file__).resolve().parent
++sys.path.insert(0, str(HERE.parent))
++REPOSITORY_ROOT = HERE.parents[2]
+ if str(REPOSITORY_ROOT) not in sys.path:
+     sys.path.insert(0, str(REPOSITORY_ROOT))
+ 
+-from core.optimization.analysis.contact_envelope import (  # noqa: E402
+-    COLLISION_POLICY,
+-    FitResult,
+-    evaluate_fit,
+-    layout_summary,
+-    max_flexion_deg,
+-    motion,
+-)
+-from core.optimization.analysis.tradeoff import Modules, goal_of, with_modules  # noqa: E402
+-from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+-from core.optimization.mounting import TOLERANCE_MM, mounting  # noqa: E402
+-from core.optimization.study import load_run, load_yaml  # noqa: E402
+-
+-DEFAULT_CONFIG = Path(__file__).resolve().parent / "config.yaml"
+-DIGITS = 6
+-"""Results are rounded to this many decimals (equal inputs, equal files)."""
+-SIDES = ("proximal", "distal")
+-UNMOUNTED = ("support_exceeded", "invalid_fixed_layout", "mount_incompatible")
+-"""Failures before any motion: the module does not mount, the core cannot be
+-built, or the core's mounting surfaces cannot carry it (:func:`compatible`)."""
+-
+-
+-@dataclass(frozen=True)
+-class CoreDesign:
+-    """A frozen core: one design and the config it was found under."""
+-
+-    core_id: str
+-    mechanism: str
+-    x: tuple[float, ...]
+-    config: Any
+-    formulation: str | None
+-    source: str
+-    role: str | None = None
+-    source_commit: str | None = None
+-    source_run: str | None = None
+-    """The run the design came from (from the repository root), and its row there."""
+-    candidate: str | None = None
+-
+-
+-@dataclass(frozen=True)
+-class ModulePair:
+-    module_id: str
+-    group: str
+-    proximal_length_mm: float
+-    proximal_thickness_mm: float
+-    distal_length_mm: float
+-    distal_thickness_mm: float
+-
+-    @property
+-    def modules(self) -> Modules:
+-        return Modules(self.proximal_length_mm, self.proximal_thickness_mm, self.distal_length_mm,
+-                       self.distal_thickness_mm)
+-
+-
+-# Stage A: the cores ---------------------------------------------------------
+-
+-def _row(path: Path, column: str, value: str, joined: bool = False) -> dict[str, str]:
+-    """The first row whose ``column`` is ``value`` (``joined``: one of its
+-    ``;``-joined values, as a seed picked for two roles, ``most_pad;balanced``)."""
+-
+-    with path.open(encoding="utf-8", newline="") as stream:
+-        for row in csv.DictReader(stream):
+-            found = row.get(column) or ""
+-            if value in (found.split(";") if joined else (found,)):
+-                return row
+-    raise ValueError(f"{path}: no row with {column} = {value}")
+-
+-
+-def load_core(spec: dict[str, Any], root: Path = REPOSITORY_ROOT) -> CoreDesign:
+-    """A core from its ``cores.yaml`` entry (see there)."""
+-
+-    core_id = str(spec["id"])
+-    if "portfolio" in spec or "run" in spec:
+-        if "portfolio" in spec:
+-            portfolio = root / spec["portfolio"]
+-            row = _row(portfolio / "seeds.csv", "seed_role", str(spec["role"]), joined=True)
+-            run = load_run(portfolio.parent.parent / row["run"])
+-            source = f"{spec['portfolio']}/seeds.csv#{spec['role']}"
+-        else:
+-            run = load_run(root / spec["run"])
+-            row = _row(run.directory / "pareto.csv", "candidate", str(spec["candidate"]))
+-            source = f"{spec['run']}/pareto.csv#{spec['candidate']}"
+-        found = run.mechanism
+-        directory = run.directory.resolve()
+-        source_run = str(directory.relative_to(root.resolve())) if directory.is_relative_to(root.resolve()) \
+-            else str(directory)
+-        core = CoreDesign(core_id, found.name, tuple(float(v) for v in found.read_design(row)), run.config,
+-                          run.formulation, source, spec.get("role"), run.metadata.get("source_git_commit"),
+-                          source_run, str(row["candidate"]))
+-    elif "x" in spec:
+-        found = mechanism(spec["mechanism"])
+-        config, _ = load_yaml(found, root / spec["config"], tuple(spec.get("overrides", ())))
+-        core = CoreDesign(core_id, found.name, tuple(float(v) for v in spec["x"]), config, found.formulation,
+-                          f"{spec['config']} (design vector given)", spec.get("role"))
+-    else:
+-        raise ValueError(f"core {core_id}: give portfolio + role, run + candidate, or config + x")
+-    if spec.get("mechanism") not in (None, core.mechanism):
+-        raise ValueError(f"core {core_id}: its source is a {core.mechanism} design, not {spec['mechanism']}")
+-    return core
+-
+-
+-def distinct(cores: list[CoreDesign]) -> tuple[list[CoreDesign], dict[str, str]]:
+-    """The cores without repeats (two roles picking one design, say): the first
+-    kept, each repeat's id mapped to it."""
+-
+-    kept, seen, duplicates = [], {}, {}
+-    for core in cores:
+-        key = (core.mechanism, core.x)
+-        if key in seen:
+-            duplicates[core.core_id] = seen[key]
+-        else:
+-            seen[key] = core.core_id
+-            kept.append(core)
+-    return kept, duplicates
+-
+-
+-def physical_rules(core: CoreDesign) -> dict[str, Any]:
+-    """What every core must share: the packaging (servos, pins, clearances,
+-    which pairs are checked), less the pads the modules set."""
+-
+-    goal = goal_of(core.config)
+-    rules = dataclasses.asdict(goal.packaging)
+-    for side in SIDES:
+-        rules.pop(f"{side}_pad", None)
+-    rules["mount_policy"] = goal.mount_policy
+-    rules["align_mount_offsets"] = goal.align_mount_offsets
+-    rules["mount_offset_range_mm"] = [list(goal.bounds[f"{side}_mount_offset_mm"]) for side in SIDES]
+-    rules["resolution_mm"] = goal.resolution_mm
+-    # What the collision checks include: the bars as capsules, the MCP servo's poses.
+-    rules["link_radius_mm"] = goal.link_radius_mm
+-    rules["mcp_samples_rad"] = [float(value) for value in goal.mcp_samples_rad]
+-    return json.loads(json.dumps(rules, default=str))
+-
+-
+-def collision_policy(link_radius_mm: float | None) -> dict[str, Any]:
+-    """``COLLISION_POLICY`` as these cores are checked: the links and bars
+-    only as capsules when ``link_radius_mm`` is set (else not checked)."""
+-
+-    policy = copy.deepcopy(COLLISION_POLICY)
+-    links = next(item for item in policy["checked_in_xz_projection"] if "link_radius_mm" in item)
+-    if link_radius_mm is None:
+-        policy["checked_in_xz_projection"].remove(links)
+-        policy["not_checked"]["module - links and bars of the other body"] = (
+-            "goal.collision.param.link_radius_mm unset, for CoDe and the 2R-DD alike")
+-    else:
+-        policy["checked_in_xz_projection"][policy["checked_in_xz_projection"].index(links)] = \
+-            links.replace("link_radius_mm", f"link_radius_mm = {link_radius_mm:g}")
+-    return policy
+-
+-
+-def check_equivalent(cores: list[CoreDesign]) -> dict[str, Any]:
+-    """The physical rules every core is checked under; ``ValueError`` when two differ."""
+-
+-    reference = physical_rules(cores[0])
+-    for core in cores[1:]:
+-        rules = physical_rules(core)
+-        differing = sorted(name for name in reference.keys() | rules.keys() if reference.get(name) != rules.get(name))
+-        if differing:
+-            raise ValueError(f"cores {cores[0].core_id} and {core.core_id} are checked under different physical "
+-                             f"rules ({', '.join(differing)}): not comparable")
+-    return reference
+-
+-
+-def summary(core: CoreDesign, reference: Modules) -> dict[str, Any]:
+-    """The core as it is audited (``layout_summary``): its joints, actuator,
+-    supports and mounting depths, which no module changes (``reference`` is
+-    any pair, the summary needs one)."""
+-
+-    return layout_summary(core.mechanism, core.x, core.config, reference)
+-
+-
+-def mounting_depths(core: CoreDesign, reference: Modules) -> tuple[float, float]:
+-    """The core's mounting depths below its reference lines (mm): its own, whatever the module."""
+-
+-    drops = summary(core, reference)["pad_drops_mm"]
+-    return float(drops["proximal"]), float(drops["distal"])
++import importlib.util  # noqa: E402
+ 
+ 
+-# Stage B: the module catalog ------------------------------------------------
++def _shared():
++    if "study_shared" in sys.modules:
++        return sys.modules["study_shared"]
++    spec = importlib.util.spec_from_file_location("study_shared", HERE.parent / "shared.py")
++    module = importlib.util.module_from_spec(spec)
++    sys.modules["study_shared"] = module
++    spec.loader.exec_module(module)
++    return module
+ 
+-def module_catalog(values: dict[str, Any]) -> list[ModulePair]:
+-    """The catalog's pairs, named ones first, then each sweep's grid."""
+ 
+-    baseline = values["baseline"]
++shared = _shared()
+ 
+-    def pair(module_id: str, group: str, given: dict[str, Any]) -> ModulePair:
+-        sides = {side: {**baseline[side], **(given.get(side) or {})} for side in SIDES}
+-        return ModulePair(module_id, group, *(float(sides[side][key]) for side in SIDES
+-                                              for key in ("length_mm", "thickness_mm")))
+-
+-    pairs = [pair(str(name), "named", given or {}) for name, given in (values.get("modules") or {}).items()]
+-    for sweep, grid in (values.get("sweeps") or {}).items():
+-        for length in grid["length_mm"]:
+-            for thickness in grid["thickness_mm"]:
+-                given = {side: {"length_mm": length, "thickness_mm": thickness} for side in grid["sides"]}
+-                pairs.append(pair(f"{sweep}_L{length:g}_T{thickness:g}", str(sweep), given))
+-    ids = [p.module_id for p in pairs]
+-    if len(set(ids)) != len(ids):
+-        raise ValueError("module ids must be unique")
+-    for p in pairs:
+-        if min(p.proximal_length_mm, p.distal_length_mm, p.proximal_thickness_mm, p.distal_thickness_mm) <= 0.0:
+-            raise ValueError(f"module {p.module_id}: its lengths and thicknesses must be positive")
+-    return pairs
+-
+-
+-# Stage C: the assemblies ----------------------------------------------------
+-
+-def with_required_flexion(config, flexion_deg: float):
+-    """``config`` with its required flexion ``flexion_deg`` (where the faces' crossing is counted)."""
+-
+-    goal = dataclasses.replace(goal_of(config), required_rom_rad=math.radians(flexion_deg))
+-    return dataclasses.replace(config, goal=goal) if hasattr(config, "goal") else goal
+-
+-
+-def coverage(core: CoreDesign, pair: ModulePair, flexion_deg: float) -> tuple[float, float, float]:
+-    """The pads' effective lengths at ``flexion_deg`` and their share of the
+-    extended finger, as the mechanism's evaluation counts them."""
++from core.optimization.analysis.tradeoff import with_modules  # noqa: E402
++from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+ 
+-    found = mechanism(core.mechanism)
+-    evaluation = found.evaluate(core.x, with_modules(with_required_flexion(core.config, flexion_deg), pair.modules))
+-    if evaluation is None:
+-        return math.nan, math.nan, math.nan
+-    proximal, distal = evaluation.proximal_effective_mm, evaluation.distal_effective_mm
+-    return proximal, distal, (proximal + distal) / evaluation.finger_length_mm
++DEFAULT_CONFIG = HERE / "config.yaml"
++MOUNTING = ("proximal_support_mm", "distal_support_mm", "mount_depth_mm")
++"""The evaluators' constraints on a module mounting at all: on its segment's
++room, at the policy's depth. Past them the assembly does not mount, whatever
++else fails (an unmountable linkage design reads INVALID everywhere)."""
++DIGITS = 6
++"""Results are rounded to this many decimals (equal inputs, equal files)."""
+ 
+ 
+ def _round(value):
+     if isinstance(value, float):
+-        return "" if math.isnan(value) else round(value, DIGITS)
+-    return "" if value is None else value
+-
+-
+-def assemblies(cores: list[CoreDesign], catalog: list[ModulePair], flexions_deg, limit_deg: float) -> list[dict]:
+-    """One record per core, module pair and required flexion."""
+-
+-    records, reference = [], catalog[0].modules
+-    for core in cores:
+-        depths = mounting_depths(core, reference)
+-        finger_length = summary(core, reference)["finger_length_mm"]
+-        try:  # the core's motion, which no module changes, once per flexion
+-            motions = {deg: motion(core.mechanism, core.x, core.config, deg) for deg in (*flexions_deg, limit_deg)}
+-        except ValueError:  # no closed four-bar: evaluate_fit reports it
+-            motions = {}
+-        for pair in catalog:
+-            # The module on the frozen core's mounting surfaces: each deep enough for
+-            # it, and still on the hardware that carries it there. One that does not
+-            # mount at all says so first.
+-            found = _mounting(core, pair)
+-            incompatible = found is not None and not compatible(found, depths)
+-
+-            def remounted(fit: FitResult) -> FitResult:
+-                return FitResult(False, "mount_incompatible") if incompatible and fit.reason not in UNMOUNTED else fit
+-
+-            reach, reach_fit = max_flexion_deg(core.mechanism, core.x, core.config, pair.modules, limit_deg,
+-                                               motions.get(limit_deg))
+-            reach_fit = remounted(reach_fit)
+-            if reach_fit.reason in UNMOUNTED:  # no motion to speak of: not 0 deg
+-                reach = math.nan
+-            for deg in flexions_deg:
+-                fit = remounted(evaluate_fit(core.mechanism, core.x, core.config, pair.modules, deg,
+-                                             motions.get(deg)))
+-                proximal, distal, share = coverage(core, pair, deg) if fit.feasible else (math.nan,) * 3
+-                records.append({
+-                    "assembly_id": f"{core.core_id}__{pair.module_id}__phi{deg:g}",
+-                    "core_id": core.core_id, "mechanism": core.mechanism, "role": core.role,
+-                    "source": core.source, "formulation": core.formulation,
+-                    "module_id": pair.module_id, "module_group": pair.group,
+-                    "proximal_length_mm": pair.proximal_length_mm,
+-                    "proximal_thickness_mm": pair.proximal_thickness_mm,
+-                    "distal_length_mm": pair.distal_length_mm, "distal_thickness_mm": pair.distal_thickness_mm,
+-                    "proximal_mount_depth_mm": depths[0], "distal_mount_depth_mm": depths[1],
+-                    "proximal_mount_case": "" if found is None else found.cases[0],
+-                    "distal_mount_case": "" if found is None else found.cases[1],
+-                    "proximal_required_depth_mm": None if found is None else found.depths_mm[0],
+-                    "distal_required_depth_mm": None if found is None else found.depths_mm[1],
+-                    "proximal_native_support_mm": None if found is None else found.native_mm[0],
+-                    "distal_native_support_mm": None if found is None else found.native_mm[1],
+-                    "proximal_contact_depth_mm": depths[0] + pair.proximal_thickness_mm,
+-                    "distal_contact_depth_mm": depths[1] + pair.distal_thickness_mm,
+-                    "finger_length_mm": float(finger_length),
+-                    "required_flexion_deg": float(deg),
+-                    "mounted": fit.reason not in UNMOUNTED,
+-                    "feasible": fit.feasible, "rom_preserved": fit.feasible, "reason": fit.reason,
+-                    "collision_pair": fit.collision_pair, "first_failure_deg": fit.first_failure_deg,
+-                    "max_safe_flexion_deg": float(reach), "max_flexion_reason": reach_fit.reason,
+-                    "proximal_effective_mm": proximal, "distal_effective_mm": distal, "contact_coverage": share,
+-                })
+-    return [{key: _round(value) for key, value in record.items()} for record in records]
+-
+-
+-def compatible(found, depths: tuple[float, float]) -> bool:
+-    """Whether a module goes on the core's frozen mounting surfaces: for each
+-    pad, the least depth it needs at most the core's (``d_req <= d_core``),
+-    and the core's within what the hardware it runs under supports there
+-    (``d_core <= d_native``; a surface on the line needs none). The collisions
+-    at the core's depths are then the motion's to check."""
+-
+-    for required, native, depth in zip(found.depths_mm, found.native_mm, depths):
+-        if required is None or required > depth + TOLERANCE_MM:
+-            return False  # it needs to hang deeper than the core's surface
+-        if depth > TOLERANCE_MM and depth > native + TOLERANCE_MM:
+-            return False  # the surface, off the line, over nothing that carries it there
+-    return True
+-
+-
+-def _mounting(core: CoreDesign, pair: ModulePair):
+-    """The mounting policy's depths for ``pair`` on ``core`` (``None``: the
+-    core's depths are searched, not set by a policy)."""
+-
+-    config = with_modules(core.config, pair.modules)
+-    if goal_of(config).mount_policy == "searched":
+-        return None
+-    if core.mechanism == "linkage":
+-        from core.morphology.mechanism.linkage.design import decode
+-
+-        try:
+-            decode(core.x, config.link_length_resolution_mm)
+-        except ValueError:  # no closed four-bar: evaluate_fit reports it
+-            return None
+-    return mounting(core.mechanism, core.x, config)  # another mechanism: no policy, an error
+-
+-
+-# Output -----------------------------------------------------------------------
+-
+-def core_rows(cores: list[CoreDesign], reference: Modules) -> list[dict]:
+-    rows = []
+-    for core in cores:
+-        layout = summary(core, reference)
+-        depths = mounting_depths(core, reference)
+-        rows.append({"core_id": core.core_id, "mechanism": core.mechanism, "role": core.role or "",
+-                     "formulation": core.formulation or "", "source": core.source,
+-                     "source_commit": core.source_commit or "",
+-                     "source_run": core.source_run or "", "candidate": core.candidate or "",
+-                     "finger_length_mm": _round(float(layout["finger_length_mm"])),
+-                     "proximal_mount_depth_mm": _round(depths[0]), "distal_mount_depth_mm": _round(depths[1]),
+-                     "design_vector": json.dumps([_round(v) for v in core.x]),
+-                     "layout": json.dumps(layout, sort_keys=True, default=float)})
+-    return rows
++        return round(value, DIGITS) if math.isfinite(value) else value
++    return value
+ 
+ 
+-def _write_csv(path: Path, rows: list[dict]) -> None:
+-    with path.open("w", encoding="utf-8", newline="") as stream:
+-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+-        writer.writeheader()
+-        writer.writerows(rows)
++def frozen_design(reference, modules):
++    """The reference carrying ``modules``: its design as it is, each depth the
++    policy's for the module (``None``: it does not mount)."""
+ 
++    part = shared.partitions.partition(reference.mechanism)
++    carried = with_modules(reference.config, modules)
++    external = part.external(reference.x, carried)
++    return part.compose(external, part.coordinate_values(reference.x, carried), reference.x, carried), carried
+ 
+-def _git_commit() -> dict[str, Any]:
+-    def git(*args: str) -> str:
+-        return subprocess.run(("git", *args), cwd=REPOSITORY_ROOT, capture_output=True, text=True).stdout.strip()
+ 
+-    # The code and every study file (configs, cores, catalog) count.
+-    return {"commit": git("rev-parse", "HEAD") or None,
+-            "dirty": bool(git("status", "--porcelain", "--", "core", "scripts/study"))}
++def assembly(reference, pair, flexions_deg) -> list[dict[str, Any]]:
++    """One reference carrying one module pair, at each required flexion."""
+ 
+-
+-def run(config_path: Path, root: Path = REPOSITORY_ROOT, output: Path | None = None) -> Path:
++    found = mechanism(reference.mechanism)
++    part = shared.partitions.partition(reference.mechanism)
++    x, carried = frozen_design(reference, pair.modules)
++    rows = []
++    for flexion in flexions_deg:
++        row = {"assembly_id": f"{reference.reference_id}__{pair.module_id}__phi{flexion:g}",
++               "reference_id": reference.reference_id, "mechanism": reference.mechanism,
++               "upper_bound": reference.upper_bound, "module_id": pair.module_id, "group": pair.group,
++               "proximal_length_mm": pair.proximal_length_mm, "proximal_thickness_mm": pair.proximal_thickness_mm,
++               "distal_length_mm": pair.distal_length_mm, "distal_thickness_mm": pair.distal_thickness_mm,
++               "required_flexion_deg": float(flexion), "mounted": x is not None}
++        if x is None:
++            rows.append({**row, "feasible": False, "failure": "not_mounted:no_depth"})  # the policy gives no depth (a spacer needed)
++            continue
++        evaluation = found.evaluate(x, shared.with_required_flexion(carried, flexion))
++        report = found.report(evaluation)
++        constraints = evaluation.constraints
++        unmounted = [name for name in MOUNTING if constraints.get(name, 0.0) > 0.0]
++        if unmounted:
++            rows.append({**row, "mounted": False, "feasible": False, "failure": "not_mounted:" + ";".join(unmounted)})
++            continue
++        failed = sorted((name for name, value in constraints.items() if value > 0.0), key=lambda n: -constraints[n])
++        values = part.values(x)
++        row.update({
++            "feasible": bool(evaluation.feasible), "failure": ";".join(failed),
++            "proximal_depth_mm": values[part.depths[0]], "distal_depth_mm": values[part.depths[1]],
++            "phi_max_deg": float(report["phi_max_deg"]), "stop_reason": report.get("stop_reason"),
++            "collision_pair": report.get("collision_pair"),
++            "coverage": float(report["pad_coverage"]),
++            "proximal_effective_mm": float(report["proximal_effective_mm"]),
++            "distal_effective_mm": float(report["distal_effective_mm"]),
++            "finger_length_mm": float(report["finger_length_mm"]),
++        })
++        rows.append(row)
++    return [{name: _round(value) for name, value in row.items()} for row in rows]
++
++
++_REFERENCES: dict[str, Any] = {}
++"""Each worker's references, built once (the configs do not pickle)."""
++
++
++def _load(kinds, root) -> None:
++    _REFERENCES.update({r.reference_id: r for r in shared.load_references(kinds, root)})
++
++
++def _assembly(job):
++    reference_id, pair, flexions = job
++    return assembly(_REFERENCES[reference_id], pair, flexions)
++
++
++def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output: Path | None = None,
++        workers: int | None = None) -> Path:
+     """The whole study as ``config_path`` says; returns the output folder."""
+ 
+     config = read_config_file(config_path)
+-    cores_values = read_config_file(root / config["cores"])
+-    modules_values = read_config_file(root / config["modules"])
+-    cores, duplicates = distinct([load_core(spec, root) for spec in cores_values["cores"]])
+-    rules = check_equivalent(cores)
+-    catalog = module_catalog(modules_values)
+-    flexions = [float(deg) for deg in config["required_flexion_deg"]]
+-    limit = float(config.get("max_flexion_limit_deg", 180.0))
+     output = output or root / config["output"]
+     output.mkdir(parents=True, exist_ok=True)
+-    _write_csv(output / "core_designs.csv", core_rows(cores, catalog[0].modules))
+-    _write_csv(output / "module_catalog.csv", [dataclasses.asdict(pair) for pair in catalog])
+-    _write_csv(output / "assembly_results.csv", assemblies(cores, catalog, flexions, limit))
+-    (output / "manifest.json").write_text(json.dumps({
+-        "study": "study1_fixed_morphology",
+-        "config": {"path": str(config_path), "values": config},
+-        "cores": cores_values, "modules": modules_values,
+-        "required_flexion_deg": flexions, "max_flexion_limit_deg": limit,
+-        "physical_rules": rules, "collision_policy": collision_policy(rules["link_radius_mm"]),
+-        "mounting_depth": "each core's own (its design vector), below its reference lines (CoDe: OA, BC; "
+-                          "2R-DD: its segments' lines), the module's thickness below it, held for every module",
+-        "mounting_policy": {
+-            "policy": sorted({goal_of(core.config).mount_policy for core in cores}),
+-            "rule": "shallowest_supported: each pad, independently, at the least depth on the resolution grid "
+-                    "clearing its own joint hardware (case A: 0, the pad short of it; case B: under it, no deeper "
+-                    "than that hardware reaches: CoDe's pin housings and, for the proximal pad, its PIP servo; the "
+-                    "2R-DD's servo for its proximal pad; a servo by its footprint over the pad); deeper (case C, "
+-                    "a spacer) is no design (core.optimization.mounting)",
+-            "module_replacement": "on the core's frozen depths: each pad's least depth at most the core's, and "
+-                                  "the core's within the native support under that module "
+-                                  "(d_req <= d_core <= d_native); else mount_incompatible, not remounted",
+-        },
+-        "source": _git_commit(),
+-        "duplicate_cores": duplicates,
+-        "counts": {"cores": len(cores), "modules": len(catalog), "flexions": len(flexions)},
+-    }, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
++    kinds = tuple(config.get("kinds", ("matched",)))
++    found = shared.load_references(kinds, root)
++    rules = shared.check_comparable(found)
++    pairs = shared.module_catalog(read_config_file(root / config["modules"]))
++    flexions = [float(v) for v in config["required_flexion_deg"]]
++    jobs = [(reference.reference_id, pair, flexions) for reference in found for pair in pairs]
++    workers = int(config.get("workers", 1)) if workers is None else workers
++    if workers > 1:
++        with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root)) as pool:
++            rows = [row for rows in pool.map(_assembly, jobs, chunksize=4) for row in rows]
++    else:
++        _REFERENCES.update({r.reference_id: r for r in found})
++        rows = [row for job in jobs for row in _assembly(job)]
++    shared.write_csv(output / "assembly_results.csv", rows)
++    shared.write_csv(output / "module_catalog.csv", [{"module_id": p.module_id, "group": p.group,
++                                                       "proximal_length_mm": p.proximal_length_mm,
++                                                       "proximal_thickness_mm": p.proximal_thickness_mm,
++                                                       "distal_length_mm": p.distal_length_mm,
++                                                       "distal_thickness_mm": p.distal_thickness_mm}
++                                                      for p in pairs])
++    reference_rows = []
++    for reference in found:
++        part = shared.partitions.partition(reference.mechanism)
++        external = part.external(reference.x, reference.config)
++        reference_rows.append({"reference_id": reference.reference_id, "kind": reference.kind,
++                               "mechanism": reference.mechanism, "upper_bound": reference.upper_bound,
++                               "config": reference.config_path, "source": reference.source,
++                               "formulation": mechanism(reference.mechanism).formulation,
++                               **{f"e_{k}": _round(v) for k, v in external.items()},
++                               "x": ";".join(repr(float(v)) for v in reference.x)})
++    shared.write_csv(output / "references.csv", reference_rows)
++    manifest = {
++        "study": "study1_fixed_morphology", "config": config,
++        "references": read_config_file(root / shared.REFERENCES),
++        "modules": read_config_file(root / config["modules"]),
++        "comparison_rules": rules, "formulations": shared.formulations(found),
++        "evaluation": "each mechanism's own evaluate(); depths by the goal's mounting policy for each module",
++        "source": shared.git_commit(output),
++    }
++    (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n", encoding="utf-8")
+     return output
+ 
+ 
+ def main(argv: list[str]) -> int:
+-    if argv and argv[0].startswith("-"):
+-        print(__doc__.strip())
+-        return 2
+-    print(f"wrote {run(Path(argv[0]) if argv else DEFAULT_CONFIG)}")
++    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("config", nargs="?", type=Path, default=DEFAULT_CONFIG)
++    args = parser.parse_args(argv)
++    print(f"wrote {run(args.config)}")
+     return 0
+ 
+ 
+diff --git a/scripts/study/study2_morphology_adaptation/README.md b/scripts/study/study2_morphology_adaptation/README.md
+index 52d90b1..b748479 100644
+--- a/scripts/study/study2_morphology_adaptation/README.md
++++ b/scripts/study/study2_morphology_adaptation/README.md
+@@ -4,6 +4,15 @@ How far must a reference hand change to carry a given contact interface?
+ This is not a search for a new best finger. It measures how much the existing
+ hand architecture has to change, and in which group of parameters.
+ 
++**What it measures.** This is 2D, in-plane, kinematic morphology adaptation
++under a fixed mounting and actuator architecture. The external change is the
++change in four longitudinal descriptors (below). It is not the full
++sacrifice in the hand's 3D morphology: section depth, the dorsal and palmar
++envelope, a mounting standoff or spacer, and the finger's width are not
++searched. Each pad's mounting depth is the mounting policy's, so a module
++that needs a spacer to clear its joint's hardware has no design here, where
++a hand could take that spacer. Read the results within this scope.
++
+ - Study 1 (`../study1_fixed_morphology`) measures **contact interface
+   capacity**: which modules a frozen core carries.
+ - Study 2 measures **morphology preservation**: for a module the core does
+@@ -14,7 +23,7 @@ hand architecture has to change, and in which group of parameters.
+ 
+ A hand is H = (E, Q, A). The contact interface C (each module's length and
+ thickness) is fixed per target. Each mechanism has its own mapping of its
+-design vector onto these groups (`partitions.py`); the mapping is never read
++design vector onto these groups (`../partitions.py`); the mapping is never read
+ off variable names.
+ 
+ - **E, external morphology**, the common descriptor every evaluator already
+@@ -31,6 +40,16 @@ off variable names.
+   - RCJ: the rollers' radius.
+   - 2R (2R-DD and belt 2R): none. Fixing E fixes the 2R, so Level 1 has
+     nothing to move. This is the mechanism's structure, not a gap in the code.
++  Q is measured on these coordinates only. A position that follows E (CoDe's
++  B_x from the finger length, B'_z from the ICR, the RCJ's pivots from the
++  articulation station) is not Q, so Level 2's external change is not counted
++  again as mechanism change.
++
++  Level 1's freedom differs by architecture: three coordinates for CoDe
++  (`a_z` and `b_z` are held at 0 by the study's bounds), one for the RCJ,
++  none for the 2R. With E fixed, the spans are fixed, so Level 1 can carry a
++  thicker module but never a longer one: a module longer than its span needs
++  Level 2 on every architecture.
+ - **A, actuation**, held fixed throughout: the servo model, its mount (CoDe's
+   A', the belt 2R's A' held in place in the proximal frame) and its tilt.
+ 
+@@ -57,7 +76,19 @@ the required flexion of 120°, and the module usable at that flexion.
+      external change.
+ 
+    Each external descriptor moves at most `external_range_mm` from the
+-   reference. The finger's length bounds widen to match.
++   reference. The finger's length bounds widen to match, and so does every
++   design bound the finger's length set (`adaptation.with_finger_lengths`:
++   `|OA|`, `B_x`, `BC` and the box `A'` and `B'` span from them; each
++   mechanism's pad ranges, built again from its goal). No other bound and no
++   physical requirement changes. The finger's least length also drops by
++   `external_range_mm` (to 70 mm): a shorter finger is an external change,
++   and it is counted in `eps_E`.
++
++   Box bounds that a module's length sets (the 2R's and RCJ's pad ends,
++   `partitions.MODULE_BOUNDED`) are left to the evaluator's graded support
++   constraints, as CoDe's always were. Otherwise a design past them would be
++   rejected before evaluation, and only some mechanisms' searches would lose
++   their slope.
+ 
+ Every change is the largest change in its group, normalized by the reference
+ finger's length:
+@@ -65,14 +96,24 @@ finger's length:
+ - `eps_Q = max_j |q_j - q0_j| / L_f0`
+ 
+ The two are reported separately, with the changes in mm, and are **never**
+-combined into one score. "Not found" means the optimizer found no feasible
++combined into one score.
++
++A module longer than the reference's span forces part of `eps_E` whatever
++the mechanism: the proximal span must reach `start + l_p` and the distal
++span `l_d`. `summary.csv` records this floor (`external_floor`) and the
++excess above it (`external_excess`). The mechanisms differ only in the
++excess, and in whether they find a design at all. "Not found" means the optimizer found no feasible
+ design in its range and budget. It is not a proof that none exists.
+ 
+ ## References (`references.yaml`)
+ 
+ - **Matched (the primary result).** Every mechanism is built to one external
+   morphology: the current prototype's (L_f 90.0, S_p 43.3, S_d 30.2,
+-  ICR 55.05 mm; `report/prototype.md`). Each keeps its own architecture:
++  ICR 55.05 mm; `report/prototype.md`). Its design vector is held in
++  `references.yaml` (tracked, with its source run, formulation and commit as
++  a record), not read from an optimizer output, so a clean checkout runs the
++  study and a rerun portfolio does not move the reference. Each mechanism
++  keeps its own architecture:
+   - CoDe is the prototype itself;
+   - the belt 2R's servo sits where CoDe's A' is;
+   - the RCJ takes the smallest rollers its hardware allows.
+@@ -105,14 +146,25 @@ no catalog of its own.
+ python scripts/study/study2_morphology_adaptation/run.py [config.yaml] [--targets a,b] [--references a,b]
+ ```
+ 
++| Config | Purpose |
++|---|---|
++| `config.yaml` | The study: NSGA-II, population 100, 100 generations, seeds 0, 1 and 2 (each search runs once per seed) |
++| `quick.yaml` | A pilot while iterating, with population 32 and 20 generations. Its "not found" means less than the full run's |
++| `sensitivity_links.yaml` | CoDe alone without the link face rule (`goal_overrides`), on the targets it does not carry as it is: how much of its cost the crossing links cause. Not a comparison between mechanisms |
++
++The references and modules are the ones Study 1 uses (`../shared.py`). Every
++reference must share the comparison rules (`shared.comparison_rules`), or the
++run stops.
++
+ The run writes to `output/study/study2_morphology_adaptation/`:
+ 
+ | File | Contents |
+ |---|---|
+-| `manifest.json` | The config, references, targets, the partitions, the normalization, the optimizer and the source commit |
++| `manifest.json` | The config, references, targets, the partitions, the normalization, the optimizer and its seeds, the comparison rules, the formulations and the source commit |
+ | `references.csv` | Each reference: E0, Q0 and its design vector |
+-| `summary.csv` | One row per reference and target. Columns: whether the reference carries the module as it is; each level's status and cost; the final `eps_Q` and `eps_E`; the change in finger length, spans and articulation (mm); the largest mechanism change (mm); the final φ_max and clearance; the final design |
+-| `targets/<target>/<reference>/<level>/` | Each search's run (`run.json`, `pareto.csv`) |
++| `summary.csv` | One row per reference, target and seed (a reference that carries the module as it is runs no search, so it has one row). Columns: whether the reference carries the module as it is; each search's status and costs (Level 1; Level 2's external search and its mechanism refinement apart); the final `eps_Q` and `eps_E`; the change in finger length, spans and articulation (mm); the largest mechanism change (mm); the final φ_max and clearance; the final design |
++| `summary_best.csv` | One row per reference and target, over its seeds. It holds the best outcome (frozen, then Level 1 by least `eps_Q`, then Level 2 by least `eps_E` and then `eps_Q`), how many seeds found one, and the spread of their costs |
++| `targets/<target>/<reference>/seed_<s>/<level>/` | Each search's run (`run.json`, `pareto.csv`), saved as its base mechanism's so `core.optimization.study.load_run` reads it; `run.json`'s `adaptation` holds the level, status, reference design, partition, free group, objective, cap, range and scale |
+ 
+ ## Scope
+ 
+@@ -123,6 +175,8 @@ The run writes to `output/study/study2_morphology_adaptation/`:
+ - mechanism and external adaptation.
+ 
+ **Excluded:**
++- section depth, the dorsal and palmar envelope, mounting standoffs or
++  spacers, and the finger's width;
+ - changing the actuator model or topology;
+ - changing the modules' size;
+ - policy learning and tactile sensing;
+diff --git a/scripts/study/study2_morphology_adaptation/config.yaml b/scripts/study/study2_morphology_adaptation/config.yaml
+index 567f72e..e2b1c9d 100644
+--- a/scripts/study/study2_morphology_adaptation/config.yaml
++++ b/scripts/study/study2_morphology_adaptation/config.yaml
+@@ -16,6 +16,8 @@ optimizer:
+   algorithm: nsga2
+   population: 100
+   generations: 100
+-  seed: 0
++  # Every search runs once per seed (the optimizer's robustness); summary_best.csv
++  # takes the best and counts how many seeds found one.
++  seeds: [0, 1, 2]
+ workers: 8
+ output: output/study/study2_morphology_adaptation
+diff --git a/scripts/study/study2_morphology_adaptation/references.yaml b/scripts/study/study2_morphology_adaptation/references.yaml
+index 11a39bf..3503bdc 100644
+--- a/scripts/study/study2_morphology_adaptation/references.yaml
++++ b/scripts/study/study2_morphology_adaptation/references.yaml
+@@ -8,9 +8,24 @@
+ #   - 2R-DD, belt 2R: E fixes the 2R; the belt's servo where CoDe's A' is;
+ #   - RCJ: the smallest rollers its hardware allows.
+ # Each takes its study config (scripts/study/*.yaml: goal, actuation, rules).
++#
++# The prototype's design vector is held here (tracked), not read from an
++# optimizer output: the reference is an input of the study and does not move
++# when a portfolio is rerun. Its order is the linkage's variable_names.
+ morphology:
+   id: prototype
+-  source: {portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001, role: balanced}
++  mechanism: linkage
++  config: scripts/study/code_tilt10.yaml
++  x: [35.7, 67.2, 0.0, 37.5, 12.4, 60.5, 6.5, 10.0, 22.8, 0.0, 5.8, 0.7, 3.0, 3.0]
++  # Where it came from (a record; nothing is read from it).
++  provenance:
++    run: output/servo_close/linkage/proto_tilt10_align/run_004
++    candidate: 2113
++    portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001
++    role: balanced
++    formulation: linkage-v12
++    commit: 73340852fc0832024c077d1ff5b32b7a5ce2108d
++    document: report/prototype.md
+ 
+ matched:
+   - {id: code_matched, config: scripts/study/code_tilt10.yaml}
+diff --git a/scripts/study/study2_morphology_adaptation/run.py b/scripts/study/study2_morphology_adaptation/run.py
+index e538e81..d07b2d8 100644
+--- a/scripts/study/study2_morphology_adaptation/run.py
++++ b/scripts/study/study2_morphology_adaptation/run.py
+@@ -18,13 +18,11 @@ Writes to the config's ``output``: ``manifest.json``, ``references.csv``,
+ from __future__ import annotations
+ 
+ import argparse
+-import csv
+ import importlib.util
+ import json
+ import math
+ import shutil
+ import sys
+-from dataclasses import dataclass
+ from pathlib import Path
+ from typing import Any
+ 
+@@ -37,11 +35,11 @@ from core.optimization.analysis.adaptation import (  # noqa: E402
+     AdaptationMechanism,
+     AdaptationResult,
+     adapt,
++    save_step,
+ )
+ from core.optimization.analysis.tradeoff import with_modules  # noqa: E402
+ from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+ from core.optimization.optimizer import OptimizerSettings  # noqa: E402
+-from core.optimization.study import save_result  # noqa: E402
+ 
+ HERE = Path(__file__).resolve().parent
+ DEFAULT_CONFIG = HERE / "config.yaml"
+@@ -58,64 +56,11 @@ def _module(name: str, path: Path):
+     return module
+ 
+ 
+-partitions = _module("study2_partitions", HERE / "partitions.py")
+-study1 = _module("study1_run", HERE.parent / "study1_fixed_morphology" / "run.py")
+-
+-
+-@dataclass(frozen=True)
+-class Reference:
+-    """A reference hand: its design, mechanism and study config."""
+-
+-    reference_id: str
+-    kind: str
+-    """``matched`` or ``native``."""
+-    mechanism: str
+-    x: tuple[float, ...]
+-    config: Any
+-    config_path: str
+-    source: str
+-    upper_bound: bool = False
+-
+-
+-def load_config(path: str, root: Path):
+-    """A study config file's mechanism and config (its optimizer settings aside)."""
+-
+-    from core.optimization.linkage.mechanism import resolve_preset
+-
+-    values = read_config_file(root / path)
+-    found = mechanism(values.pop("mechanism"))
+-    values.pop("output", None)
+-    resolve_preset(values)
+-    values, _ = found.split_settings(values)
+-    return found, found.config_from_mapping(values)
+-
+-
+-def references(values: dict[str, Any], kinds, baseline, root: Path) -> list[Reference]:
+-    """The references of ``kinds``: matched ones built to the shared morphology, native ones as found."""
+-
+-    built = []
+-    if "matched" in kinds:
+-        source = study1.load_core({"id": values["morphology"]["id"], **values["morphology"]["source"]}, root)
+-        for spec in values["matched"]:
+-            found, config = load_config(spec["config"], root)
+-            part = partitions.partition(found.name)
+-            carried = with_modules(config, baseline)
+-            external = partitions.partition(source.mechanism).external(source.x, carried)
+-            coordinates, template = part.template(external, source.mechanism, source.x, carried)
+-            x = part.compose(external, coordinates, template, carried)
+-            if x is None:
+-                raise ValueError(f"reference {spec['id']}: no {found.name} design matches {source.source}")
+-            built.append(Reference(spec["id"], "matched", found.name, x, config, spec["config"],
+-                                   f"matched to {source.source}", bool(spec.get("upper_bound", False))))
+-    if "native" in kinds:
+-        for spec in values.get("native") or ():
+-            core = study1.load_core({k: v for k, v in spec.items() if k != "config"}, root)
+-            found, config = load_config(spec["config"], root)
+-            if core.mechanism != found.name:
+-                raise ValueError(f"reference {spec['id']}: a {core.mechanism} design under a {found.name} config")
+-            built.append(Reference(spec["id"], "native", found.name, core.x, config, spec["config"], core.source,
+-                                   bool(spec.get("upper_bound", False))))
+-    return built
++shared = _module("study_shared", HERE.parent / "shared.py")
++partitions = shared.partitions
++Reference = shared.Reference
++load_config = shared.load_config
++references = shared.references
+ 
+ 
+ def _round(value):
+@@ -128,24 +73,36 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
+     """One reference and interface: each level's outcome and the final change, group by group."""
+ 
+     level1 = result.step("level1")
+-    level2 = result.step("level2_external")
+     final = result.final
++
++    def status(step):
++        return "skipped" if step is None else step.status
++
++    def cost(step, name):
++        return math.nan if step is None or step.evaluation is None else getattr(step.evaluation, name)
++
++    external, refined = result.step("level2_external"), result.step("level2_mechanism")
+     row = {"reference_id": reference.reference_id, "kind": reference.kind, "mechanism": reference.mechanism,
+            "upper_bound": reference.upper_bound, "target": target.module_id,
+            "frozen_feasible": result.status == "frozen_feasible",
+-           "level1_status": "skipped" if level1 is None else level1.status,
+-           "level1_mechanism_cost": math.nan if level1 is None or level1.evaluation is None
+-           else level1.evaluation.mechanism_cost,
+-           "level2_status": "skipped" if level2 is None else level2.status,
+-           "level2_external_cost": math.nan if level2 is None or level2.evaluation is None
+-           else level2.evaluation.external_cost,
++           "level1_status": status(level1), "level1_mechanism_cost": cost(level1, "mechanism_cost"),
++           # Level 2's two searches: the least external change, then the mechanism's within it.
++           "level2_external_status": status(external),
++           "level2_external_external_cost": cost(external, "external_cost"),
++           "level2_external_mechanism_cost": cost(external, "mechanism_cost"),
++           "level2_mechanism_status": status(refined),
++           "level2_mechanism_external_cost": cost(refined, "external_cost"),
++           "level2_mechanism_mechanism_cost": cost(refined, "mechanism_cost"),
+            "status": result.status, "final_level": "" if final is None else final.level,
+            "final_mechanism_cost": result.mechanism_cost, "final_external_cost": result.external_cost}
++    reference_external = AdaptationMechanism(
++        mechanism(reference.mechanism), partitions.partition(reference.mechanism), reference.x,
++        reference.config, "mechanism", "mechanism_cost", scale_mm).reference_external
++    # The least eps_E the module itself forces; the mechanisms differ only above it.
++    row["external_floor"] = shared.span_floor(reference_external, target.modules, reference.config)
++    row["external_excess"] = result.external_cost - row["external_floor"]
+     if final is not None:
+         evaluation = final.evaluation
+-        reference_external = AdaptationMechanism(
+-            mechanism(reference.mechanism), partitions.partition(reference.mechanism), reference.x,
+-            reference.config, "mechanism", "mechanism_cost", scale_mm).reference_external
+         reference_mechanism = partitions.partition(reference.mechanism).mechanism(reference.x, reference.config)
+         for name in DESCRIPTORS:
+             row[f"{name.removesuffix('_mm')}_change_mm"] = evaluation.external[name] - reference_external[name]
+@@ -158,12 +115,37 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
+     return {name: _round(value) for name, value in row.items()}
+ 
+ 
+-def _write_csv(path: Path, rows: list[dict]) -> None:
+-    columns = list(dict.fromkeys(name for row in rows for name in row))
+-    with path.open("w", encoding="utf-8", newline="") as stream:
+-        writer = csv.DictWriter(stream, fieldnames=columns)
+-        writer.writeheader()
+-        writer.writerows(rows)
++def best_rows(rows: list[dict[str, Any]], delta: float) -> list[dict[str, Any]]:
++    """Each reference and target over its seeds: the best outcome by the
++    hierarchy's own rule (frozen; then Level 1, least ``eps_Q``; then Level 2,
++    least ``eps_E`` and, among the seeds within ``delta`` of it, as ``adapt``'s
++    cap allows, least ``eps_Q``), how many seeds found one, and the spread of
++    their changes."""
++
++    rank = {"frozen_feasible": 0, "level1": 1, "level2": 2, "not_found": 3}
++    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
++    for row in rows:
++        grouped.setdefault((row["reference_id"], row["target"]), []).append(row)
++    best = []
++    for group in grouped.values():
++        level = min(rank[row["status"]] for row in group)
++        candidates = [row for row in group if rank[row["status"]] == level]
++        if level == rank["level2"]:
++            least = min(row["final_external_cost"] for row in candidates)
++            candidates = [row for row in candidates if row["final_external_cost"] <= least + delta + 1e-12]
++        chosen = min(candidates, key=lambda row: (row["final_mechanism_cost"], row["final_external_cost"])
++                     if level != rank["not_found"] else (row["seed"],))
++        found = [row for row in group if row["status"] != "not_found"]
++        external = [row["final_external_cost"] for row in found]
++        mech = [row["final_mechanism_cost"] for row in found]
++        statuses = sorted({row["status"] for row in group})
++        best.append({**{k: v for k, v in chosen.items() if k != "seed"}, "best_seed": chosen["seed"],
++                     "seeds_run": len(group), "seeds_found": len(found), "seed_statuses": ";".join(statuses),
++                     "external_cost_min": min(external, default=math.nan),
++                     "external_cost_max": max(external, default=math.nan),
++                     "mechanism_cost_min": min(mech, default=math.nan),
++                     "mechanism_cost_max": max(mech, default=math.nan)})
++    return best
+ 
+ 
+ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only_references=None) -> Path:
+@@ -172,18 +154,34 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
+     output.mkdir(parents=True, exist_ok=True)
+     reference_values = read_config_file(root / config["references"])
+     target_values = read_config_file(root / config["targets"])
+-    catalog = {pair.module_id: pair for pair in study1.module_catalog(read_config_file(root / target_values["catalog"]))}
++    catalog = {pair.module_id: pair for pair in shared.module_catalog(read_config_file(root / target_values["catalog"]))}
+     targets = [catalog[name] for name in target_values["targets"]]
+     baseline = catalog["baseline"].modules
+     built = references(reference_values, tuple(config["kinds"]), baseline, root)
++    rules = shared.check_comparable(built)
++    only_targets = only_targets or config.get("only_targets")
++    only_references = only_references or config.get("only_references")
+     if only_targets:
+         targets = [t for t in targets if t.module_id in only_targets]
+     if only_references:
+         built = [r for r in built if r.reference_id in only_references]
++    # A sensitivity run: goal fields set on every reference alike (recorded in the manifest).
++    overrides = config.get("goal_overrides") or {}
++    if overrides:
++        import dataclasses
++
++        from core.optimization.analysis.tradeoff import goal_of, with_goal
++
++        built = [dataclasses.replace(r, config=with_goal(r.config, dataclasses.replace(goal_of(r.config), **overrides)))
++                 for r in built]
++        rules = shared.check_comparable(built)
+     optimizer = config["optimizer"]
+-    settings = OptimizerSettings(optimizer["algorithm"], int(optimizer["population"]), int(optimizer["generations"]),
+-                                 int(optimizer.get("seed", 0)))
+-    commit = study1._git_commit()
++    seeds = [int(seed) for seed in optimizer["seeds"]]
++    commit = shared.git_commit(output)
++    from core.optimization.analysis.adaptation import config_resolution
++
++    delta = config_resolution(built[0].config) / shared.partitions.partition(built[0].mechanism).external(
++        built[0].x, built[0].config)["finger_length_mm"] if built else 0.0
+     rows, reference_rows = [], []
+     for reference in built:
+         part = partitions.partition(reference.mechanism)
+@@ -191,39 +189,49 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
+         reference_rows.append({"reference_id": reference.reference_id, "kind": reference.kind,
+                                "mechanism": reference.mechanism, "upper_bound": reference.upper_bound,
+                                "config": reference.config_path, "source": reference.source,
++                               "formulation": mechanism(reference.mechanism).formulation,
+                                **{f"e_{k}": _round(v) for k, v in external.items()},
+                                **{f"q_{k}": _round(v) for k, v in part.mechanism(reference.x, reference.config).items()},
+                                "x": ";".join(repr(float(v)) for v in reference.x)})
+-    _write_csv(output / "references.csv", reference_rows)
++    shared.write_csv(output / "references.csv", reference_rows)
+     for target in targets:
+         for reference in built:
+             found = mechanism(reference.mechanism)
+             part = partitions.partition(reference.mechanism)
+             carried = with_modules(reference.config, target.modules)
+             scale = part.external(reference.x, carried)["finger_length_mm"]
+-            print(f"{target.module_id} / {reference.reference_id} ...", flush=True)
+-            result = adapt(found, part, reference.x, carried, settings, scale, float(config["external_range_mm"]),
+-                           workers=int(config.get("workers", 1)))
+             pair = output / "targets" / target.module_id / reference.reference_id
+             if pair.is_dir():  # this study's own earlier result for the pair: replaced
+                 shutil.rmtree(pair)
+-            for step in result.steps:
+-                if step.result is not None:
+-                    save_result(step.result, pair / step.level, source_git_commit=commit.get("commit"))
+-            row = summary_row(reference, target, result, scale)
+-            rows.append(row)
+-            print(f"  {row['status']}: eps_Q {row['final_mechanism_cost']}, eps_E {row['final_external_cost']}",
+-                  flush=True)
+-            _write_csv(output / "summary.csv", rows)
++            for seed in seeds:
++                settings = OptimizerSettings(optimizer["algorithm"], int(optimizer["population"]),
++                                             int(optimizer["generations"]), seed)
++                print(f"{target.module_id} / {reference.reference_id} / seed {seed} ...", flush=True)
++                result = adapt(found, part, reference.x, carried, settings, scale,
++                               float(config["external_range_mm"]), workers=int(config.get("workers", 1)))
++                for step in result.steps:
++                    if step.result is not None:
++                        save_step(step, pair / f"seed_{seed}" / step.level, source_git_commit=commit.get("commit"))
++                row = {"seed": seed, **summary_row(reference, target, result, scale)}
++                rows.append(row)
++                print(f"  {row['status']}: eps_Q {row['final_mechanism_cost']}, eps_E {row['final_external_cost']}",
++                      flush=True)
++                shared.write_csv(output / "summary.csv", rows)
++                shared.write_csv(output / "summary_best.csv", best_rows(rows, delta))
++                if result.status == "frozen_feasible":  # no search ran: every seed's the same
++                    break
+     manifest = {
+         "study": "study2_morphology_adaptation", "config": config,
++        "run_filters": {"targets": [t.module_id for t in targets], "references": [r.reference_id for r in built]},
++        "lexicographic_delta": delta,
+         "references": reference_values, "targets": target_values,
+         "descriptors": list(DESCRIPTORS),
+         "partitions": {name: {"coordinates": list(cls.coordinates), "actuation": list(cls.actuation)}
+                        for name, cls in partitions.PARTITIONS.items()},
+         "normalization": "every change divided by the reference finger's length",
+-        "optimizer": {"algorithm": settings.algorithm, "population": settings.population_size,
+-                      "generations": settings.generations, "seed": settings.seed},
++        "optimizer": {"algorithm": optimizer["algorithm"], "population": int(optimizer["population"]),
++                      "generations": int(optimizer["generations"]), "seeds": seeds},
++        "comparison_rules": rules, "formulations": shared.formulations(built),
+         "source": commit,
+     }
+     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n", encoding="utf-8")

@@ -6,5 +6,6 @@
 | [study1_study2_2026-11-06.md](study1_study2_2026-11-06.md) | Study 1 (contact modules a frozen hand carries) and Study 2 (least morphology change to carry a module), all architectures on matched references; figures in `figures/study/` |
 | [mechanism_study_2026-11-05.md](mechanism_study_2026-11-05.md) | CoDe vs 2R-DD vs RCJ study (results from before the link rule; to be updated) |
 | [study2_compact_2026-11-07.md](study2_compact_2026-11-07.md) | Given-interface compact morphology extension: relaxed length/proximity domain, best-found size, support-span and articulation changes; figures in `figures/study2_compact/` |
+| [study3_study4_2026-11-07.md](study3_study4_2026-11-07.md) | Local transmission-reflected contact mechanics and matched joint-bridge geometric screening; results, negative findings and reproducibility; figures in `figures/study34/` |
 
 The figures are in `figures/`. Run outputs (`output/`) are not tracked by git, so each report records the run paths and code commit it was made from.

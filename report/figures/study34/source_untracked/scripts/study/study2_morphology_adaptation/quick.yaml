@@ -1,0 +1,17 @@
+# Study 2, a quick look while iterating (the same study, a small search
+# budget; its "not found" means less than the full run's):
+#
+#   python scripts/study/study2_morphology_adaptation/run.py scripts/study/study2_morphology_adaptation/quick.yaml
+references: scripts/study/study2_morphology_adaptation/references.yaml
+targets: scripts/study/study2_morphology_adaptation/targets.yaml
+kinds: [matched]
+external_range_mm: 20
+optimizer:
+  algorithm: nsga2
+  population: 32
+  generations: 20
+  # Every search runs once per seed (the optimizer's robustness); summary_best.csv
+  # takes the best and counts how many seeds found one.
+  seeds: [0, 1, 2]
+workers: 8
+output: output/study/study2_morphology_adaptation_quick
