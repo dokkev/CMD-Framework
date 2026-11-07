@@ -1,15 +1,21 @@
 {
   "data": "output/study/exploratory/packaging_tradeoff",
   "data_source": {
-    "commit": "376cb67ab1cac1a9c6c0d78f1eb08b2aa66b7311",
+    "commit": "7cc0adb61bfecb51228f82d997fb95401281cd6c",
     "dirty": true,
     "patch": "source.patch",
-    "untracked": [
-      "scripts/study/exploratory/packaging_tradeoff.py"
-    ]
+    "untracked": []
   },
+  "data_inputs_sha256": {
+    "output/study/study1_fixed_morphology/assembly_results.csv": "1c75ec5617d079d04984de582a7aad33a1e2b6b124874ef6c68999eaa70f5a20",
+    "output/study/exploratory/e04_actuator_orientation/summary.csv": "8bdf34b8ce72f0949431f25bb17ae0008f5087584d3daa1baf87ea9ed399924b"
+  },
+  "regenerate_inputs": [
+    "python scripts/study/study1_fixed_morphology/run.py",
+    "python scripts/study/exploratory/e04_actuator_orientation.py"
+  ],
   "figures_source": {
-    "commit": "376cb67ab1cac1a9c6c0d78f1eb08b2aa66b7311",
+    "commit": "7cc0adb61bfecb51228f82d997fb95401281cd6c",
     "dirty": true
   }
 }

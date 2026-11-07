@@ -107,6 +107,29 @@ def study1_counts():
     return counts
 
 
+def sha256(path):
+    import hashlib
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def best_observed(tilt_rows):
+    """Per architecture: among the evaluated tilts at which the reference is
+    feasible, the highest 120 deg count, and the thinnest (h_bbox) tilt
+    reaching it. An observation of the sweep, not an optimum."""
+    rows = []
+    for arch in dict.fromkeys(r["architecture"] for r in tilt_rows):
+        sel = [r for r in tilt_rows if r["architecture"] == arch and r["reference_feasible"] and r.get("baseline_mounts")]
+        top = max(r["carried_120"] for r in sel)
+        reach = [r for r in sel if r["carried_120"] == top]
+        best = min(reach, key=lambda r: (r["h_bbox_mm"], r["h_finger_mm"]))
+        rows.append({"architecture": arch, "base_reference": best["base_reference"], "best_tilt_deg": best["tilt_deg"],
+                     "carried_120": top, "h_bbox_mm": best["h_bbox_mm"], "h_finger_mm": best["h_finger_mm"],
+                     "dorsal_top_mm": best["dorsal_top_mm"], "pad_bottom_mm": best["pad_bottom_mm"],
+                     "hardware_bottom_mm": best["hardware_bottom_mm"],
+                     "tilts_reaching": ";".join(f"{r['tilt_deg']:g}" for r in reach)})
+    return rows
+
+
 def main():
     refs, cat = common.references(), common.catalog()
     baseline = cat["baseline"].modules
@@ -136,9 +159,14 @@ def main():
         tilt_rows.append({**row, "baseline_mounts": True, **measure(scene, config)})
     common.shared.write_csv(out / "references.csv", reference_rows)
     common.shared.write_csv(out / "tilt_sweep.csv", tilt_rows)
+    common.shared.write_csv(out / "best_observed.csv", best_observed(tilt_rows))
     common.finish(out, [], {"module": "baseline", "pose_deg": 0.0, "hardware": HARDWARE,
                             "excluded": "mcp_servo (palm)", "flexion_for_tilt_counts_deg": 120.0},
-                  inputs={"study1": str(STUDY1.relative_to(common.ROOT)), "e04": str(E04.relative_to(common.ROOT))},
+                  inputs={str(p.relative_to(common.ROOT)): sha256(p) for p in (STUDY1, E04)},
+                  regenerate_inputs=["python scripts/study/study1_fixed_morphology/run.py",
+                                     "python scripts/study/exploratory/e04_actuator_orientation.py"],
+                  best_observed="per architecture: among evaluated tilts where the reference is feasible, the "
+                                "smallest h_bbox reaching that architecture's highest 120 deg count (not optimized)",
                   metrics={"h_finger_mm": "dorsal hardware top - lowest pad surface (extended, MCP servo excluded)",
                            "h_bbox_mm": "full extended assembly height, hardware and pads, MCP servo excluded"})
     for r in reference_rows:

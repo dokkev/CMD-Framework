@@ -4,17 +4,17 @@
 \centering
 \footnotesize
 \setlength{\tabcolsep}{3pt}
-\caption{Packaging and contact accommodation of the matched reference configurations (planar model, extended pose, 71 module pairs).}
+\caption{Packaging and contact accommodation of the matched reference configurations (nominal zero-clearance planar model, extended pose, 71 module pairs). $H_\mathrm{bbox}$: full envelope; $H_\mathrm{finger}$: dorsal top to the pad surface.}
 \label{tab:mechanism_comparison}
 \begin{tabular}{lrrrr}
 \hline
-Mechanism & $H_\mathrm{finger}$ & $H_\mathrm{bbox}$ & @120$^\circ$ & @150$^\circ$ \\
+Mechanism & $H_\mathrm{bbox}$ & $H_\mathrm{finger}$ & @120$^\circ$ & @150$^\circ$ \\
  & [mm] & [mm] & [pairs] & [pairs] \\
 \hline
 CoDe, servo 10$^\circ$ & 30.4 & 30.4 & 35 & 28 \\
-2R-DD, servo 0$^\circ$ & 12.5 & 19.0 & 17 & 0 \\
-2R-DD, servo 90$^\circ$ & 28.5 & 35.0 & 31 & 13 \\
-Belt 2R, servo 10$^\circ$ & 29.2 & 32.2 & 33 & 17 \\
+2R-DD, servo 0$^\circ$ & 19.0 & 12.5 & 17 & 0 \\
+2R-DD, servo 90$^\circ$ & 35.0 & 28.5 & 31 & 13 \\
+Belt 2R, servo 10$^\circ$ & 32.2 & 29.2 & 33 & 17 \\
 RCJ, servo 0$^\circ$ & 22.0 & 22.0 & 20 & 5 \\
 RCJ, servo 90$^\circ$ & 36.3 & 36.3 & 32 & 22 \\
 \hline
@@ -42,3 +42,22 @@ RCJ, idealized (no joint servo) & 3.0 & -3.0 & 6.0 & 6.0 & 38 & 37 & 34 & 26 \\
 \hline
 \end{tabular}
 \end{table*}
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Thinnest evaluated servo tilt reaching each architecture's highest 120$^\circ$ count in the fixed-reference tilt sweep ($-30^\circ$ to $120^\circ$, 10$^\circ$ steps; morphology frozen, not optimized; nominal zero-clearance planar model).}
+\label{tab:best_observed_tilt}
+\begin{tabular}{lrrrr}
+\hline
+Architecture & Tilt & @120$^\circ$ & $H_\mathrm{bbox}$ & $H_\mathrm{finger}$ \\
+ & [deg] & [pairs] & [mm] & [mm] \\
+\hline
+2R-DD (servo at joint) & 30 & 31 & 30.5 & 24.0 \\
+Belt 2R & 0 & 33 & 27.9 & 24.9 \\
+CoDe & 10 & 35 & 30.4 & 30.4 \\
+RCJ & 90 & 32 & 36.3 & 36.3 \\
+\hline
+\end{tabular}
+\end{table}

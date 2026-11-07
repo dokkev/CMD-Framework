@@ -1,0 +1,5 @@
+architecture,base_reference,best_tilt_deg,carried_120,h_bbox_mm,h_finger_mm,dorsal_top_mm,pad_bottom_mm,hardware_bottom_mm,tilts_reaching
+2r_dd,2r_dd_tilt0_matched,30.0,31,30.477241335952165,23.977241335952165,20.977241335952165,-3.0,-9.5,30;40;50;60;70;80;90
+belt_2r_matched,belt_2r_matched,0.0,33,27.9,24.9,21.9,-3.0,-6.0,0;10;20;30;40;50;60;70;80;90;100;110;120
+code_matched,code_matched,10.0,35,30.365516233873226,30.365516233873226,26.1837021841227,-4.181814049750526,-3.081814049750527,10;20;30;40;50;60;70;80;90;100;110;120
+rcj,rcj_tilt0_matched,90.0,32,36.3,36.3,25.5,-10.8,-9.5,60;70;80;90;100;110;120
