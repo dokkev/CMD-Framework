@@ -73,6 +73,13 @@ The observed change may originate from:
 
 This makes it difficult to systematically investigate how contact-interface design itself influences manipulation.
 
+The changes observed in such an experiment are of two kinds:
+
+- **Intended variation** is caused by the contact interface itself: contact stiffness, friction, contact geometry, tactile observations and interface-dependent force transmission.
+- **Unintended embodiment variation** is caused by redesigning the hand to accommodate the interface: finger length, joint location, linkage geometry, and actuation or transmission configuration.
+
+CoDe does not aim to remove the first. It aims to control the second, so that the first can be studied.
+
 **We need a hand architecture that reduces the coupling between contact-interface design and the underlying hand morphology.**
 
 ---
@@ -158,6 +165,41 @@ The platform should accommodate the physical requirements of these functional in
 The hand should make controlled comparisons practical.
 
 Researchers should be able to change contact-interface properties while keeping the underlying mechanical embodiment sufficiently consistent to interpret the resulting differences.
+
+### 5.6 Operational Definition of Embodiment Invariance
+
+CoDe aims to enable contact-interface variation while preserving the underlying robotic hand embodiment. In the studies' notation, the underlying hand H = (E, Q, A) is fixed and the contact interface C is variable. E is the structural morphology, Q the articulation geometry and A the actuation configuration.
+
+For controlled contact-interface experiments, the following should remain fixed whenever possible:
+
+- Structural finger morphology and link geometry.
+- Articulation kinematics and joint configuration.
+- Actuator placement and transmission architecture.
+- Contact-module mounting references.
+
+The following are intentionally variable:
+
+- Contact-interface geometry and dimensions.
+- Compliance, material properties and friction.
+- Tactile sensing configuration.
+- Contact location, distribution and surface response.
+
+Preserving the underlying embodiment does not imply preserving contact mechanics or actuator-side contact responses. For example, a contact-point Jacobian changes when the contact location or the interface thickness changes, even with identical rigid-body kinematics. These responses may change as a direct consequence of the contact interface, which is precisely what the platform is designed to investigate.
+
+The objective is to isolate contact-interface variation from unnecessary changes to the underlying hand embodiment, not to make contact behavior invariant.
+
+### 5.7 Criteria for a Contact-Centric Research Platform
+
+A successful contact-centric research platform should:
+
+1. **Accommodate diverse interfaces.** Support meaningful variation in contact geometry, thickness, compliance and sensing hardware.
+2. **Preserve the underlying embodiment.** Allow interface replacement without unnecessary modifications to finger structure, articulation or actuation.
+3. **Preserve functional articulation.** Maintain the required range of motion and accessible contact surfaces across supported interface configurations.
+4. **Enable controlled and repeatable experiments.** Allow different interfaces to be evaluated on the same physical hand with consistent actuation, sensing and experimental procedures.
+
+These criteria define the platform's research utility. The first three are assessed computationally (Studies 1–2). The fourth must be demonstrated on the physical hardware.
+
+Mechanism compactness, transmission characteristics and contact-interface capacity are important evaluation metrics, but they are means of assessing these criteria rather than independent project objectives.
 
 ---
 
