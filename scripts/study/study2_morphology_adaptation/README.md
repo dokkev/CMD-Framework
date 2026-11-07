@@ -185,3 +185,11 @@ The run writes to `output/study/study2_morphology_adaptation/`:
 
 The study shows that the geometry has room for a module. It does not show
 that a module can be swapped in practice.
+
+## Compact-accommodation extension
+
+The separate `../study2_compact_morphology/` study asks how short a finger can
+be while carrying each given interface, then selects a small-change morphology
+within 0.1 mm of the best-found length. It relaxes the reference proximity box
+and uses broad absolute lengths. It does not replace the formulation or results
+of this original bounded-adaptation study.

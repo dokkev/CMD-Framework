@@ -1,0 +1,17 @@
+output: output/study/study2_compact_morphology
+references: [code_matched, 2r_dd_tilt0_matched, 2r_dd_tilt90_matched, belt_2r_matched, rcj_tilt0_matched, rcj_tilt90_matched, rcj_ideal_matched]
+targets: [baseline, thick, long, long_thick, asym_long_proximal, asym_long_distal, asym_proximal_heavy, asym_distal_heavy]
+required_flexion_deg: 120
+# Common domain; if no solution or an upper-active best is found, expand.
+length_lower_mm: 40
+length_upper_sequence_mm: [160, 240]
+upper_margin_mm: 2
+length_tolerance_mm: 0.1
+optimizer:
+  population: 100
+  generations: 100
+  seeds: [0, 1, 2]
+workers: 8
+warm_start:
+  study2: output/study/study2_morphology_adaptation
+  max_designs: 40

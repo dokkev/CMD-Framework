@@ -5,5 +5,6 @@
 | [prototype.md](prototype.md) | The current CoDe prototype: its source run, CAD variables, pads, performance, and re-evaluation under the current rules |
 | [study1_study2_2026-11-06.md](study1_study2_2026-11-06.md) | Study 1 (contact modules a frozen hand carries) and Study 2 (least morphology change to carry a module), all architectures on matched references; figures in `figures/study/` |
 | [mechanism_study_2026-11-05.md](mechanism_study_2026-11-05.md) | CoDe vs 2R-DD vs RCJ study (results from before the link rule; to be updated) |
+| [study2_compact_2026-11-07.md](study2_compact_2026-11-07.md) | Given-interface compact morphology extension: relaxed length/proximity domain, best-found size, support-span and articulation changes; figures in `figures/study2_compact/` |
 
 The figures are in `figures/`. Run outputs (`output/`) are not tracked by git, so each report records the run paths and code commit it was made from.

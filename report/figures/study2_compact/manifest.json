@@ -1,0 +1,37 @@
+{
+  "inputs_sha256": {
+    "output/study/study2_compact_morphology/summary.csv": "d7b538a0095c79a2db7e7433bcb233b35ece22de4eefd4fa4267c18538f97df1",
+    "output/study/study2_compact_morphology/summary_best.csv": "c1247348a9e9ba6ca19c3a8aa47e3007d656873d538ac06431662b38fd6a7cec",
+    "output/study/study2_compact_morphology/manifest.json": "27390b98a06c84a821075a93af55d86856a930d822dae0ed2ae3158eac454dae",
+    "output/study/study2_compact_morphology/aggregation.json": "82e0dc60955f75b25818c6e2e06cb5d7933f8b141bf7c4501a2b832ce4818e4b"
+  },
+  "source": {
+    "commit": "4e77658448d877506ae4cf72bf461bdde6167683",
+    "dirty": true,
+    "patch": "source.patch",
+    "untracked": [
+      "core/optimization/analysis/bridge.py",
+      "core/optimization/analysis/compact.py",
+      "core/optimization/analysis/transmission.py",
+      "scripts/study/figures.py",
+      "scripts/study/figures34.py",
+      "scripts/study/shared.py",
+      "scripts/study/study2_compact_morphology/README.md",
+      "scripts/study/study2_compact_morphology/config.yaml",
+      "scripts/study/study2_compact_morphology/figures.py",
+      "scripts/study/study2_compact_morphology/finalize.py",
+      "scripts/study/study2_compact_morphology/pilot.yaml",
+      "scripts/study/study2_compact_morphology/report.py",
+      "scripts/study/study2_compact_morphology/run.py",
+      "scripts/study/study2_morphology_adaptation/quick.yaml",
+      "scripts/study/study2_morphology_adaptation/sensitivity_links.yaml",
+      "scripts/study/study3_transmission/README.md",
+      "scripts/study/study3_transmission/config.yaml",
+      "scripts/study/study3_transmission/run.py",
+      "scripts/study/study4_joint_interface/README.md",
+      "scripts/study/study4_joint_interface/config.yaml",
+      "scripts/study/study4_joint_interface/run.py"
+    ]
+  },
+  "figures": "saved results; best-of-three search incumbents, no global optimality claim"
+}

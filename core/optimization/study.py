@@ -152,6 +152,10 @@ def non_dominated(objectives: np.ndarray) -> np.ndarray:
 
     if not len(objectives):
         return np.zeros(0, dtype=int)
+    if objectives.shape[1] == 1:
+        # Single-objective adaptation fronts can contain thousands of ties.
+        # Their nondominated set is exactly all rows at the minimum.
+        return np.flatnonzero(objectives[:, 0] == objectives[:, 0].min())
     return np.asarray(NonDominatedSorting().do(objectives, only_non_dominated_front=True), dtype=int)
 
 

@@ -1,0 +1,10 @@
+output: output/study/study4_joint_interface
+references: [code_matched, belt_2r_matched]
+# Matched hypothetical skin attachment datums, m, in common extended frame.
+proximal_x_m: 0.0433
+distal_x_m: 0.0598
+skin_depths_m: [0.005, 0.008, 0.012]
+flexions_deg: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120]
+curve_samples: 401
+skin_radius_mm: 0.5
+link_radius_mm: 0.5

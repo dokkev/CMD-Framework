@@ -1,0 +1,9 @@
+base: config.yaml
+output: output/study/study2_compact_morphology_pilot
+references: [code_matched, 2r_dd_tilt90_matched, belt_2r_matched, rcj_tilt90_matched, rcj_ideal_matched]
+targets: [long_thick, asym_long_proximal]
+length_upper_sequence_mm: [160]
+optimizer:
+  population: 32
+  generations: 20
+  seeds: [0]
