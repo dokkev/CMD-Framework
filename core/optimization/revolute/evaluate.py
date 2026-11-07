@@ -40,6 +40,7 @@ from types import MappingProxyType
 
 import numpy as np
 
+from core.optimization.mechanism import shortfall_mm
 from core.morphology.contact.loss import dorsal_space_mm, integrity_free, joint_scene
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
@@ -304,8 +305,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
         "curl_tip_x_mm": -float(tip_x[window].min()),
         # No link crosses a 2R pad: its effective length is its face less the fold (as the linkage's).
         "pad_usable_mm": max(
-            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
-            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
+            shortfall_mm(goal.minimum_proximal_support_mm, min(max(geo.proximal_length_mm, 0.0), proximal_usable)),
+            shortfall_mm(goal.minimum_distal_support_mm, min(max(geo.distal_length_mm, 0.0), distal_usable))),
     }
     return RevoluteEvaluation(
         proximal_usable_length_mm=proximal_usable,

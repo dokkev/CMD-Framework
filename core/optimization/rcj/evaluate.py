@@ -41,6 +41,7 @@ from types import MappingProxyType
 
 import numpy as np
 
+from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.shapes import polygon_to_disk
 from core.morphology.mechanism.rcj import solids
@@ -192,8 +193,8 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         "hyperextension_mm": hyperextension_violation(geo, config, _margins),
         "curl_tip_x_mm": -float(tip_x[window].min()),
         "pad_usable_mm": max(
-            goal.minimum_proximal_support_mm - min(max(geo.proximal_length_mm, 0.0), proximal_usable),
-            goal.minimum_distal_support_mm - min(max(geo.distal_length_mm, 0.0), distal_usable)),
+            shortfall_mm(goal.minimum_proximal_support_mm, min(max(geo.proximal_length_mm, 0.0), proximal_usable)),
+            shortfall_mm(goal.minimum_distal_support_mm, min(max(geo.distal_length_mm, 0.0), distal_usable))),
         "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
     }
     return RcjEvaluation(

@@ -65,14 +65,24 @@ def goal_of(config):
 
 
 def with_goal(config, goal):
-    """``config`` with ``goal`` in place of its own (the linkage's config is its goal;
-    the belt 2R's holds it in its 2R's config)."""
+    """``config`` with ``goal`` in place of its own. The linkage's config is
+    its goal; the others' search boxes are built from their goal
+    (``from_goal``: the pads' ranges from the finger's length and the least
+    supports), so they are built again from the new one."""
+
+    from core.optimization.rcj.config import RcjConfig
+    from core.optimization.revolute.config import RevoluteConfig
+    from core.optimization.revolute_parallel.config import ParallelConfig
 
     if not hasattr(config, "goal"):
         return goal
-    if hasattr(config, "base"):
-        return dataclasses.replace(config, base=dataclasses.replace(config.base, goal=goal))
-    return dataclasses.replace(config, goal=goal)
+    if isinstance(config, ParallelConfig):
+        return ParallelConfig.from_goal(goal)
+    if isinstance(config, RcjConfig):
+        return RcjConfig.from_goal(goal, config.joint_servo)
+    if isinstance(config, RevoluteConfig):
+        return RevoluteConfig.from_goal(goal, config.joint_servo, config.joint_pulley)
+    raise TypeError(f"no goal to replace in a {type(config).__name__}")
 
 
 def with_modules(config, modules: Modules):

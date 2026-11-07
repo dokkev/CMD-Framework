@@ -18,13 +18,11 @@ Writes to the config's ``output``: ``manifest.json``, ``references.csv``,
 from __future__ import annotations
 
 import argparse
-import csv
 import importlib.util
 import json
 import math
 import shutil
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -37,11 +35,11 @@ from core.optimization.analysis.adaptation import (  # noqa: E402
     AdaptationMechanism,
     AdaptationResult,
     adapt,
+    save_step,
 )
 from core.optimization.analysis.tradeoff import with_modules  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 from core.optimization.optimizer import OptimizerSettings  # noqa: E402
-from core.optimization.study import save_result  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_CONFIG = HERE / "config.yaml"
@@ -58,64 +56,11 @@ def _module(name: str, path: Path):
     return module
 
 
-partitions = _module("study2_partitions", HERE / "partitions.py")
-study1 = _module("study1_run", HERE.parent / "study1_fixed_morphology" / "run.py")
-
-
-@dataclass(frozen=True)
-class Reference:
-    """A reference hand: its design, mechanism and study config."""
-
-    reference_id: str
-    kind: str
-    """``matched`` or ``native``."""
-    mechanism: str
-    x: tuple[float, ...]
-    config: Any
-    config_path: str
-    source: str
-    upper_bound: bool = False
-
-
-def load_config(path: str, root: Path):
-    """A study config file's mechanism and config (its optimizer settings aside)."""
-
-    from core.optimization.linkage.mechanism import resolve_preset
-
-    values = read_config_file(root / path)
-    found = mechanism(values.pop("mechanism"))
-    values.pop("output", None)
-    resolve_preset(values)
-    values, _ = found.split_settings(values)
-    return found, found.config_from_mapping(values)
-
-
-def references(values: dict[str, Any], kinds, baseline, root: Path) -> list[Reference]:
-    """The references of ``kinds``: matched ones built to the shared morphology, native ones as found."""
-
-    built = []
-    if "matched" in kinds:
-        source = study1.load_core({"id": values["morphology"]["id"], **values["morphology"]["source"]}, root)
-        for spec in values["matched"]:
-            found, config = load_config(spec["config"], root)
-            part = partitions.partition(found.name)
-            carried = with_modules(config, baseline)
-            external = partitions.partition(source.mechanism).external(source.x, carried)
-            coordinates, template = part.template(external, source.mechanism, source.x, carried)
-            x = part.compose(external, coordinates, template, carried)
-            if x is None:
-                raise ValueError(f"reference {spec['id']}: no {found.name} design matches {source.source}")
-            built.append(Reference(spec["id"], "matched", found.name, x, config, spec["config"],
-                                   f"matched to {source.source}", bool(spec.get("upper_bound", False))))
-    if "native" in kinds:
-        for spec in values.get("native") or ():
-            core = study1.load_core({k: v for k, v in spec.items() if k != "config"}, root)
-            found, config = load_config(spec["config"], root)
-            if core.mechanism != found.name:
-                raise ValueError(f"reference {spec['id']}: a {core.mechanism} design under a {found.name} config")
-            built.append(Reference(spec["id"], "native", found.name, core.x, config, spec["config"], core.source,
-                                   bool(spec.get("upper_bound", False))))
-    return built
+shared = _module("study_shared", HERE.parent / "shared.py")
+partitions = shared.partitions
+Reference = shared.Reference
+load_config = shared.load_config
+references = shared.references
 
 
 def _round(value):
@@ -128,24 +73,36 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
     """One reference and interface: each level's outcome and the final change, group by group."""
 
     level1 = result.step("level1")
-    level2 = result.step("level2_external")
     final = result.final
+
+    def status(step):
+        return "skipped" if step is None else step.status
+
+    def cost(step, name):
+        return math.nan if step is None or step.evaluation is None else getattr(step.evaluation, name)
+
+    external, refined = result.step("level2_external"), result.step("level2_mechanism")
     row = {"reference_id": reference.reference_id, "kind": reference.kind, "mechanism": reference.mechanism,
            "upper_bound": reference.upper_bound, "target": target.module_id,
            "frozen_feasible": result.status == "frozen_feasible",
-           "level1_status": "skipped" if level1 is None else level1.status,
-           "level1_mechanism_cost": math.nan if level1 is None or level1.evaluation is None
-           else level1.evaluation.mechanism_cost,
-           "level2_status": "skipped" if level2 is None else level2.status,
-           "level2_external_cost": math.nan if level2 is None or level2.evaluation is None
-           else level2.evaluation.external_cost,
+           "level1_status": status(level1), "level1_mechanism_cost": cost(level1, "mechanism_cost"),
+           # Level 2's two searches: the least external change, then the mechanism's within it.
+           "level2_external_status": status(external),
+           "level2_external_external_cost": cost(external, "external_cost"),
+           "level2_external_mechanism_cost": cost(external, "mechanism_cost"),
+           "level2_mechanism_status": status(refined),
+           "level2_mechanism_external_cost": cost(refined, "external_cost"),
+           "level2_mechanism_mechanism_cost": cost(refined, "mechanism_cost"),
            "status": result.status, "final_level": "" if final is None else final.level,
            "final_mechanism_cost": result.mechanism_cost, "final_external_cost": result.external_cost}
+    reference_external = AdaptationMechanism(
+        mechanism(reference.mechanism), partitions.partition(reference.mechanism), reference.x,
+        reference.config, "mechanism", "mechanism_cost", scale_mm).reference_external
+    # The least eps_E the module itself forces; the mechanisms differ only above it.
+    row["external_floor"] = shared.span_floor(reference_external, target.modules, reference.config)
+    row["external_excess"] = result.external_cost - row["external_floor"]
     if final is not None:
         evaluation = final.evaluation
-        reference_external = AdaptationMechanism(
-            mechanism(reference.mechanism), partitions.partition(reference.mechanism), reference.x,
-            reference.config, "mechanism", "mechanism_cost", scale_mm).reference_external
         reference_mechanism = partitions.partition(reference.mechanism).mechanism(reference.x, reference.config)
         for name in DESCRIPTORS:
             row[f"{name.removesuffix('_mm')}_change_mm"] = evaluation.external[name] - reference_external[name]
@@ -158,12 +115,37 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
     return {name: _round(value) for name, value in row.items()}
 
 
-def _write_csv(path: Path, rows: list[dict]) -> None:
-    columns = list(dict.fromkeys(name for row in rows for name in row))
-    with path.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=columns)
-        writer.writeheader()
-        writer.writerows(rows)
+def best_rows(rows: list[dict[str, Any]], delta: float) -> list[dict[str, Any]]:
+    """Each reference and target over its seeds: the best outcome by the
+    hierarchy's own rule (frozen; then Level 1, least ``eps_Q``; then Level 2,
+    least ``eps_E`` and, among the seeds within ``delta`` of it, as ``adapt``'s
+    cap allows, least ``eps_Q``), how many seeds found one, and the spread of
+    their changes."""
+
+    rank = {"frozen_feasible": 0, "level1": 1, "level2": 2, "not_found": 3}
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault((row["reference_id"], row["target"]), []).append(row)
+    best = []
+    for group in grouped.values():
+        level = min(rank[row["status"]] for row in group)
+        candidates = [row for row in group if rank[row["status"]] == level]
+        if level == rank["level2"]:
+            least = min(row["final_external_cost"] for row in candidates)
+            candidates = [row for row in candidates if row["final_external_cost"] <= least + delta + 1e-12]
+        chosen = min(candidates, key=lambda row: (row["final_mechanism_cost"], row["final_external_cost"])
+                     if level != rank["not_found"] else (row["seed"],))
+        found = [row for row in group if row["status"] != "not_found"]
+        external = [row["final_external_cost"] for row in found]
+        mech = [row["final_mechanism_cost"] for row in found]
+        statuses = sorted({row["status"] for row in group})
+        best.append({**{k: v for k, v in chosen.items() if k != "seed"}, "best_seed": chosen["seed"],
+                     "seeds_run": len(group), "seeds_found": len(found), "seed_statuses": ";".join(statuses),
+                     "external_cost_min": min(external, default=math.nan),
+                     "external_cost_max": max(external, default=math.nan),
+                     "mechanism_cost_min": min(mech, default=math.nan),
+                     "mechanism_cost_max": max(mech, default=math.nan)})
+    return best
 
 
 def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only_references=None) -> Path:
@@ -172,18 +154,34 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
     output.mkdir(parents=True, exist_ok=True)
     reference_values = read_config_file(root / config["references"])
     target_values = read_config_file(root / config["targets"])
-    catalog = {pair.module_id: pair for pair in study1.module_catalog(read_config_file(root / target_values["catalog"]))}
+    catalog = {pair.module_id: pair for pair in shared.module_catalog(read_config_file(root / target_values["catalog"]))}
     targets = [catalog[name] for name in target_values["targets"]]
     baseline = catalog["baseline"].modules
     built = references(reference_values, tuple(config["kinds"]), baseline, root)
+    rules = shared.check_comparable(built)
+    only_targets = only_targets or config.get("only_targets")
+    only_references = only_references or config.get("only_references")
     if only_targets:
         targets = [t for t in targets if t.module_id in only_targets]
     if only_references:
         built = [r for r in built if r.reference_id in only_references]
+    # A sensitivity run: goal fields set on every reference alike (recorded in the manifest).
+    overrides = config.get("goal_overrides") or {}
+    if overrides:
+        import dataclasses
+
+        from core.optimization.analysis.tradeoff import goal_of, with_goal
+
+        built = [dataclasses.replace(r, config=with_goal(r.config, dataclasses.replace(goal_of(r.config), **overrides)))
+                 for r in built]
+        rules = shared.check_comparable(built)
     optimizer = config["optimizer"]
-    settings = OptimizerSettings(optimizer["algorithm"], int(optimizer["population"]), int(optimizer["generations"]),
-                                 int(optimizer.get("seed", 0)))
-    commit = study1._git_commit()
+    seeds = [int(seed) for seed in optimizer["seeds"]]
+    commit = shared.git_commit(output)
+    from core.optimization.analysis.adaptation import config_resolution
+
+    delta = config_resolution(built[0].config) / shared.partitions.partition(built[0].mechanism).external(
+        built[0].x, built[0].config)["finger_length_mm"] if built else 0.0
     rows, reference_rows = [], []
     for reference in built:
         part = partitions.partition(reference.mechanism)
@@ -191,39 +189,49 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
         reference_rows.append({"reference_id": reference.reference_id, "kind": reference.kind,
                                "mechanism": reference.mechanism, "upper_bound": reference.upper_bound,
                                "config": reference.config_path, "source": reference.source,
+                               "formulation": mechanism(reference.mechanism).formulation,
                                **{f"e_{k}": _round(v) for k, v in external.items()},
                                **{f"q_{k}": _round(v) for k, v in part.mechanism(reference.x, reference.config).items()},
                                "x": ";".join(repr(float(v)) for v in reference.x)})
-    _write_csv(output / "references.csv", reference_rows)
+    shared.write_csv(output / "references.csv", reference_rows)
     for target in targets:
         for reference in built:
             found = mechanism(reference.mechanism)
             part = partitions.partition(reference.mechanism)
             carried = with_modules(reference.config, target.modules)
             scale = part.external(reference.x, carried)["finger_length_mm"]
-            print(f"{target.module_id} / {reference.reference_id} ...", flush=True)
-            result = adapt(found, part, reference.x, carried, settings, scale, float(config["external_range_mm"]),
-                           workers=int(config.get("workers", 1)))
             pair = output / "targets" / target.module_id / reference.reference_id
             if pair.is_dir():  # this study's own earlier result for the pair: replaced
                 shutil.rmtree(pair)
-            for step in result.steps:
-                if step.result is not None:
-                    save_result(step.result, pair / step.level, source_git_commit=commit.get("commit"))
-            row = summary_row(reference, target, result, scale)
-            rows.append(row)
-            print(f"  {row['status']}: eps_Q {row['final_mechanism_cost']}, eps_E {row['final_external_cost']}",
-                  flush=True)
-            _write_csv(output / "summary.csv", rows)
+            for seed in seeds:
+                settings = OptimizerSettings(optimizer["algorithm"], int(optimizer["population"]),
+                                             int(optimizer["generations"]), seed)
+                print(f"{target.module_id} / {reference.reference_id} / seed {seed} ...", flush=True)
+                result = adapt(found, part, reference.x, carried, settings, scale,
+                               float(config["external_range_mm"]), workers=int(config.get("workers", 1)))
+                for step in result.steps:
+                    if step.result is not None:
+                        save_step(step, pair / f"seed_{seed}" / step.level, source_git_commit=commit.get("commit"))
+                row = {"seed": seed, **summary_row(reference, target, result, scale)}
+                rows.append(row)
+                print(f"  {row['status']}: eps_Q {row['final_mechanism_cost']}, eps_E {row['final_external_cost']}",
+                      flush=True)
+                shared.write_csv(output / "summary.csv", rows)
+                shared.write_csv(output / "summary_best.csv", best_rows(rows, delta))
+                if result.status == "frozen_feasible":  # no search ran: every seed's the same
+                    break
     manifest = {
         "study": "study2_morphology_adaptation", "config": config,
+        "run_filters": {"targets": [t.module_id for t in targets], "references": [r.reference_id for r in built]},
+        "lexicographic_delta": delta,
         "references": reference_values, "targets": target_values,
         "descriptors": list(DESCRIPTORS),
         "partitions": {name: {"coordinates": list(cls.coordinates), "actuation": list(cls.actuation)}
                        for name, cls in partitions.PARTITIONS.items()},
         "normalization": "every change divided by the reference finger's length",
-        "optimizer": {"algorithm": settings.algorithm, "population": settings.population_size,
-                      "generations": settings.generations, "seed": settings.seed},
+        "optimizer": {"algorithm": optimizer["algorithm"], "population": int(optimizer["population"]),
+                      "generations": int(optimizer["generations"]), "seeds": seeds},
+        "comparison_rules": rules, "formulations": shared.formulations(built),
         "source": commit,
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n", encoding="utf-8")

@@ -36,6 +36,12 @@ feasibility (mounting, collisions, the required flexion, the modules usable):
 
 "Not found" means the optimizer found no feasible design in its range and
 budget, not that none exists.
+
+Scope: 2D in-plane kinematic morphology under a fixed mounting and actuator
+architecture. ``E`` is the four longitudinal descriptors; section depth, the
+dorsal and palmar envelope, standoffs or spacers and the width are not
+searched (the mounting depths are the policy's), so ``eps_E`` is not the
+hand's whole morphological change.
 """
 
 from __future__ import annotations
@@ -82,7 +88,10 @@ class Partition(ABC):
 
     @abstractmethod
     def mechanism(self, x: Sequence[float], config) -> dict[str, float]:
-        """``Q`` of a design, its physical values (mm)."""
+        """``Q`` of a design (mm): the mechanism's own coordinates, held
+        independently of ``E``. Positions that follow ``E`` (a pivot set by the
+        finger's length or the articulation station) are not ``Q``, or Level
+        2's external change would be counted again as mechanism change."""
 
     @abstractmethod
     def coordinate_values(self, x: Sequence[float], config) -> dict[str, float]:
@@ -212,6 +221,21 @@ class AdaptationMechanism(Mechanism):
     def active_objectives(self, config) -> tuple[str, ...]:
         return (self.objective,)
 
+    def metadata(self) -> dict[str, Any]:
+        """What a saved search needs besides its base mechanism's run: the
+        reference, the partition, what was free, minimized and capped, the scale."""
+
+        partition = self.partition
+        return {"base_mechanism": self.base.name, "base_formulation": self.base.formulation,
+                "formulation": self.formulation, "partition": type(partition).__name__,
+                "descriptors": list(DESCRIPTORS), "coordinates": list(partition.coordinates),
+                "actuation": list(partition.actuation), "free": self.free, "objective": self.objective,
+                "search_names": list(self.search_names(None)),
+                "external_range_mm": self.external_range_mm, "external_cap": self.external_cap,
+                "scale_mm": self.scale_mm, "reference_x": list(self.reference),
+                "reference_external": dict(self.reference_external),
+                "reference_mechanism": dict(self.reference_mechanism)}
+
     def report(self, evaluation: AdaptationEvaluation) -> dict[str, Any]:
         return {**self.base.report(evaluation.base), "external_cost": evaluation.external_cost,
                 "mechanism_cost": evaluation.mechanism_cost,
@@ -231,13 +255,38 @@ class AdaptationMechanism(Mechanism):
         self.base.prepare(config)
 
 
+FINGER_BOUNDED = ("a_x_mm", "b_x_mm", "bc_length_mm")
+"""The goal's design bounds the finger's length sets when the goal sets no
+other (``linkage.config``: ``|OA|``, ``B_x`` and ``BC`` within the finger)."""
+
+
 def with_finger_lengths(config, low_mm: float, high_mm: float):
-    """``config`` with the finger's length allowed in ``[low_mm, high_mm]`` (Level 2 moves it)."""
+    """``config`` with the finger's length allowed in ``[low_mm, high_mm]`` (Level 2 moves it).
+
+    Every bound the finger's length set moves with it: the goal's
+    :data:`FINGER_BOUNDED` at the old length (none the goal set itself), ``A'``
+    and ``B'`` spanning from ``A`` and ``B``, and each mechanism's box built
+    from the goal (``tradeoff.with_goal``: the pads within the finger). No
+    other bound, and no physical requirement, changes."""
 
     from core.optimization.analysis.tradeoff import goal_of, with_goal
 
-    return with_goal(config, dataclasses.replace(goal_of(config), extended_length_bounds_mm=(float(low_mm),
-                                                                                          float(high_mm))))
+    goal = goal_of(config)
+    old_high = goal.extended_length_bounds_mm[1]
+    bounds = dict(goal.bounds)
+    for name in FINGER_BOUNDED:
+        low, high = bounds[name]
+        if name == "a_x_mm" and goal.proximal_length_bounds_mm[1] is not None:
+            continue  # the goal's own
+        if high == old_high:
+            bounds[name] = (low, float(high_mm))
+    if goal.relative_bounds is not None:
+        for point, base in (("ap", "a"), ("bp", "b")):
+            (dx_low, dx_high) = goal.relative_bounds[f"{point}_from_{base}_x_mm"]
+            if bounds[f"{point}_x_mm"][1] == goal.bounds[f"{base}_x_mm"][1] + dx_high:
+                bounds[f"{point}_x_mm"] = (bounds[f"{point}_x_mm"][0], bounds[f"{base}_x_mm"][1] + dx_high)
+    return with_goal(config, dataclasses.replace(goal, bounds=bounds,
+                                                 extended_length_bounds_mm=(float(low_mm), float(high_mm))))
 
 
 def config_resolution(config) -> float:
@@ -312,6 +361,27 @@ def _search(base: Mechanism, partition: Partition, reference, config, settings: 
     return Step(level, "found", best.x, best.evaluation, result.evaluation_count, result)
 
 
+def save_step(step: Step, directory, *, source_git_commit: str | None = None):
+    """Write a search's run (``study.save_result``) as its base mechanism's,
+    so ``study.load_run`` reads it (its designs are the base mechanism's), and
+    the adaptation besides (``run.json``: ``adaptation``, :meth:`AdaptationMechanism.metadata`
+    with the step's level and status)."""
+
+    import json
+    from pathlib import Path
+
+    from core.optimization.study import save_result
+
+    adapted = step.result.mechanism
+    output = save_result(step.result, directory, source_git_commit=source_git_commit)
+    path = Path(output) / "run.json"
+    metadata = json.loads(path.read_text(encoding="utf-8"))
+    metadata.update(mechanism=adapted.base.name, formulation=adapted.base.formulation,
+                    adaptation={"level": step.level, "status": step.status, **adapted.metadata()})
+    path.write_text(json.dumps(metadata, indent=2, default=float) + "\n", encoding="utf-8")
+    return output
+
+
 def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], config,
           settings: OptimizerSettings, scale_mm: float, external_range_mm: float,
           workers: int = 1) -> AdaptationResult:
@@ -351,5 +421,5 @@ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], con
     return AdaptationResult("level2", (frozen, level1, first, second), final)
 
 
-__all__ = ["CAP", "COSTS", "DESCRIPTORS", "LEVELS", "OFFSETS", "with_finger_lengths", "AdaptationEvaluation", "AdaptationMechanism",
+__all__ = ["CAP", "COSTS", "DESCRIPTORS", "LEVELS", "OFFSETS", "FINGER_BOUNDED", "save_step", "with_finger_lengths", "AdaptationEvaluation", "AdaptationMechanism",
            "AdaptationResult", "Partition", "Step", "adapt", "change"]

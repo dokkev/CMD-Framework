@@ -39,6 +39,7 @@ from types import MappingProxyType
 
 import numpy as np
 
+from core.optimization.mechanism import shortfall_mm
 from core.morphology.finger import Finger
 from core.morphology.mechanism.linkage.measures import finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
 from core.morphology.mechanism.linkage.model import four_bar
@@ -276,9 +277,10 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
         "hyperextension_deg": hyper_violation,
         "curl_tip_x_mm": -motion.least_tip_x_mm,
         "pad_usable_mm": max(
-            config.minimum_proximal_support_mm
-            - min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0)),
-            config.minimum_distal_support_mm - min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0))),
+            shortfall_mm(config.minimum_proximal_support_mm,
+                         min(free["proximal_pad"], max(common["proximal_support_length_mm"], 0.0))),
+            shortfall_mm(config.minimum_distal_support_mm,
+                         min(free["distal_pad"], max(common["distal_support_length_mm"], 0.0)))),
         "torque_ratio": 0.0 if config.torque_ratio_max is None else motion.torque_ratio_max - config.torque_ratio_max,
     }
     return LinkageEvaluation(

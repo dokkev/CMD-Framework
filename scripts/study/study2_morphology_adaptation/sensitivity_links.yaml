@@ -1,0 +1,24 @@
+# Study 2 sensitivity: the face rule off (goal.loss.links_block_face,
+# scripts/study/base.yaml). The primary run counts no pad face where a part
+# of the transmission passes in front of it at the required flexion: CoDe's
+# crossing links (A-B' and A'-B), the belt 2R's strands and pulleys. This run
+# drops that rule for the two architectures it applies to, on the targets
+# they do not carry as they are, to show how much of their adaptation cost
+# the transmission in front of the faces causes. Not a comparison with the
+# primary run's other mechanisms (the rule does not touch them).
+#
+#   python scripts/study/study2_morphology_adaptation/run.py scripts/study/study2_morphology_adaptation/sensitivity_links.yaml
+references: scripts/study/study2_morphology_adaptation/references.yaml
+targets: scripts/study/study2_morphology_adaptation/targets.yaml
+kinds: [matched]
+only_references: [code_matched, belt_2r_matched]
+only_targets: [long, long_thick, asym_long_proximal, asym_long_distal, asym_proximal_heavy, asym_distal_heavy]
+goal_overrides: {links_block_face: false}
+external_range_mm: 20
+optimizer:
+  algorithm: nsga2
+  population: 100
+  generations: 100
+  seeds: [0, 1, 2]
+workers: 4
+output: output/study/study2_sensitivity_links

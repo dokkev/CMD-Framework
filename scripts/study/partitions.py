@@ -27,7 +27,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -37,6 +37,11 @@ from core.optimization.mounting import mounting  # noqa: E402
 
 TOLERANCE_MM = 1e-6
 DROPS = ("proximal_drop_mm", "distal_drop_mm")
+MODULE_BOUNDED = ("app_x_mm", "bpp_from_a_mm", "bpp_from_b_mm")
+"""Box bounds a module's length sets (``from_goal``: each pad's end at least
+its least support from its segment's end). Not checked here: the evaluator's
+own graded support constraints judge them, as they do CoDe's (whose box has
+no such bound), so every mechanism's search is steered alike."""
 MOUNTS = ("proximal_mount_offset_mm", "distal_mount_offset_mm")
 
 
@@ -60,7 +65,7 @@ class _Partition(Partition):
         x = [float(values[name]) for name in self.names]
         bounds = config.bounds
         for name, value in zip(self.names, x):
-            if name in self.depths:
+            if name in self.depths or name in MODULE_BOUNDED:
                 continue
             low, high = bounds[name]
             if not (low - TOLERANCE_MM <= value <= high + TOLERANCE_MM) or not math.isfinite(value):
@@ -110,9 +115,9 @@ class LinkagePartition(_Partition):
                 "articulation_mm": math.nan if icr is None else icr}
 
     def mechanism(self, x, config) -> dict[str, float]:
-        v = self.values(x)
-        return {name: v[name] for name in ("a_x_mm", "a_z_mm", "b_x_mm", "b_z_mm", "bp_x_mm", "bp_z_mm",
-                                           "bc_length_mm")}
+        # Its own coordinates only: B_x and B'_z follow E (the finger's length,
+        # the ICR), and counting them would count external change as Q's.
+        return self.coordinate_values(x, config)
 
     def coordinate_values(self, x, config) -> dict[str, float]:
         v = self.values(x)
@@ -217,9 +222,8 @@ class RcjPartition(_Partition):
                 "distal_span_mm": v["bc_length_mm"] - v["bpp_from_b_mm"], "articulation_mm": v["a_x_mm"] + r}
 
     def mechanism(self, x, config) -> dict[str, float]:
-        v = self.values(x)
-        r = v["roller_radius_mm"]
-        return {"roller_radius_mm": r, "a_x_mm": v["a_x_mm"], "b_x_mm": v["a_x_mm"] + 2.0 * r}
+        # The rollers' radius only: A and B follow the articulation station (E).
+        return self.coordinate_values(x, config)
 
     def coordinate_values(self, x, config) -> dict[str, float]:
         return {"roller_radius_mm": self.values(x)["roller_radius_mm"]}

@@ -8,9 +8,24 @@
 #   - 2R-DD, belt 2R: E fixes the 2R; the belt's servo where CoDe's A' is;
 #   - RCJ: the smallest rollers its hardware allows.
 # Each takes its study config (scripts/study/*.yaml: goal, actuation, rules).
+#
+# The prototype's design vector is held here (tracked), not read from an
+# optimizer output: the reference is an input of the study and does not move
+# when a portfolio is rerun. Its order is the linkage's variable_names.
 morphology:
   id: prototype
-  source: {portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001, role: balanced}
+  mechanism: linkage
+  config: scripts/study/code_tilt10.yaml
+  x: [35.7, 67.2, 0.0, 37.5, 12.4, 60.5, 6.5, 10.0, 22.8, 0.0, 5.8, 0.7, 3.0, 3.0]
+  # Where it came from (a record; nothing is read from it).
+  provenance:
+    run: output/servo_close/linkage/proto_tilt10_align/run_004
+    candidate: 2113
+    portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001
+    role: balanced
+    formulation: linkage-v12
+    commit: 73340852fc0832024c077d1ff5b32b7a5ce2108d
+    document: report/prototype.md
 
 matched:
   - {id: code_matched, config: scripts/study/code_tilt10.yaml}

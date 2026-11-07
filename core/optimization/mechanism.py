@@ -26,6 +26,16 @@ import yaml
 
 INVALID = 1.0e3
 """Objective and constraint value of a design that cannot be evaluated."""
+LENGTH_TOLERANCE_MM = 1e-9
+"""Below this, a length shortfall is float noise, not a shortfall (a module's
+set length against a usable length computed through the kinematics)."""
+
+
+def shortfall_mm(need: float, have: float) -> float:
+    """``need - have``, 0 within :data:`LENGTH_TOLERANCE_MM` of meeting it."""
+
+    value = need - have
+    return 0.0 if 0.0 < value <= LENGTH_TOLERANCE_MM else value
 
 
 @dataclass(frozen=True)
@@ -295,6 +305,8 @@ def _merged(base: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any
 
 
 __all__ = [
+    "LENGTH_TOLERANCE_MM",
+    "shortfall_mm",
     "INVALID",
     "MECHANISMS",
     "Evaluation",

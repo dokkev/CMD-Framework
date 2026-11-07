@@ -16,6 +16,8 @@ optimizer:
   algorithm: nsga2
   population: 100
   generations: 100
-  seed: 0
+  # Every search runs once per seed (the optimizer's robustness); summary_best.csv
+  # takes the best and counts how many seeds found one.
+  seeds: [0, 1, 2]
 workers: 8
 output: output/study/study2_morphology_adaptation
