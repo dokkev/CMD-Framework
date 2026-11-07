@@ -1,0 +1,15 @@
+{
+  "data": "output/study/exploratory/packaging_tradeoff",
+  "data_source": {
+    "commit": "376cb67ab1cac1a9c6c0d78f1eb08b2aa66b7311",
+    "dirty": true,
+    "patch": "source.patch",
+    "untracked": [
+      "scripts/study/exploratory/packaging_tradeoff.py"
+    ]
+  },
+  "figures_source": {
+    "commit": "376cb67ab1cac1a9c6c0d78f1eb08b2aa66b7311",
+    "dirty": true
+  }
+}

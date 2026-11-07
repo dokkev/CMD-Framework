@@ -1,0 +1,8 @@
+reference_id,mechanism,model,formulation,idealized,dorsal_top_mm,pad_bottom_mm,h_finger_mm,h_bbox_mm,mounted,feasible_90,feasible_120,feasible_150
+code_matched,"CoDe, servo 10°",linkage,linkage-v14,False,26.18,-4.18,30.37,30.37,38,37,35,28
+2r_dd_tilt0_matched,"2R-DD, servo 0°",revolute,revolute-goal-v12,False,9.5,-3.0,12.5,19.0,32,27,17,0
+2r_dd_tilt90_matched,"2R-DD, servo 90°",revolute,revolute-goal-v12,False,25.5,-3.0,28.5,35.0,32,32,31,13
+belt_2r_matched,"Belt 2R, servo 10°",revolute_parallel,revolute-parallel-goal-v12,False,26.18,-3.0,29.18,32.18,38,37,33,17
+rcj_tilt0_matched,"RCJ, servo 0°",rcj,rcj-goal-v10,False,9.5,-12.5,22.0,22.0,38,30,20,5
+rcj_tilt90_matched,"RCJ, servo 90°",rcj,rcj-goal-v10,False,25.5,-10.8,36.3,36.3,38,32,32,22
+rcj_ideal_matched,"RCJ, idealized (no joint servo)",rcj_idealized,rcj-idealized-goal-v3,True,3.0,-3.0,6.0,6.0,38,37,34,26
