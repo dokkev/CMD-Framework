@@ -3,7 +3,7 @@
 Physics-simulation workspace of the **CoDe Hand** (Contact Morphology Design) project. It will hold contact
 experiments, task environments, and later policy learning and evaluation on interchangeable contact interfaces. It is
 an Isaac Lab *external project* (an installable package with its own `pyproject.toml` and `uv.lock`). It lives in the
-CMD-Framework monorepo at `sim/code_isaaclab/`. It does not modify Isaac Lab.
+CMD-Framework monorepo at `sim/isaaclab/`. It does not modify Isaac Lab.
 
 ## CoDe setup (verified 2026-11-07)
 
@@ -12,7 +12,7 @@ CMD-Framework monorepo at `sim/code_isaaclab/`. It does not modify Isaac Lab.
 | Repository | Role |
 |---|---|
 | CMD-Framework (this monorepo, outside `sim/`) | Mechanism geometry and kinematics (crossed four-bar FK), morphology definitions, contact-interface design and analysis; conda `cmd` environment |
-| `sim/code_isaaclab` (this project) | Physics simulation, contact experiments, task environments, later learning and policy evaluation; uv environment |
+| `sim/isaaclab` (this project) | Physics simulation, contact experiments, task environments, later learning and policy evaluation; uv environment |
 | `IsaacLab/` beside the monorepo (`../../../IsaacLab` from here) | Upstream NVIDIA Isaac Lab checkout, unmodified, not part of the monorepo |
 
 Future integration boundary. This is architecture only; there are no exporters or importers yet:
@@ -53,7 +53,7 @@ Workspace layout: `IsaacLab/` and the monorepo (`cmd_framework/`) side by side.
 ```bash
 git clone --branch release/3.0.0 https://github.com/isaac-sim/IsaacLab.git   # in the workspace, if not present
 git -C IsaacLab checkout 44044b0963001962abe5701133427e37b003fffe              # the verified commit (the branch moves)
-cd cmd_framework/sim/code_isaaclab
+cd cmd_framework/sim/isaaclab
 uv sync --locked   # editable ../../../IsaacLab sources from [tool.uv.sources]; uv.lock pins everything else
 ```
 
