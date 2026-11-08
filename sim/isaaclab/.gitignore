@@ -15,3 +15,6 @@ wandb/
 .vscode/settings.json
 .vscode/launch.json
 pyrightconfig.json
+
+# meshing scratch written by the tetrahedralization extra
+__tracked_surface.stl
