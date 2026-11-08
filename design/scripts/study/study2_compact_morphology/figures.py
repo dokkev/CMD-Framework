@@ -112,5 +112,5 @@ def figures(source,out):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--source',type=Path,default=ROOT/'output/study/study2_compact_morphology')
-    p.add_argument('--output',type=Path,default=ROOT/'report/figures/study2_compact')
+    p.add_argument('--output',type=Path,default=ROOT.parent/'report/figures/study2_compact')
     a=p.parse_args();figures(a.source,a.output)

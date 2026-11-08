@@ -211,13 +211,13 @@ visible morphology change, in every architecture (E09).**
 - Manipulation experiments with matched morphology.
 
 ## 6. Implementation and verification
-- **Added.** `scripts/study/exploratory/`:
+- **Added.** `design/scripts/study/exploratory/`:
   - `common.py`;
   - `e01`–`e10` scripts;
   - follow-ups `e02b` and `e10b`;
   - `figures.py`, `README.md`.
-- **Tests.** `tests/test_exploratory.py`. No change to `core/`.
-- **Outputs.** `output/study/exploratory/eNN/`, each with a manifest,
+- **Tests.** `design/tests/test_exploratory.py`. No change to `design/core/`.
+- **Outputs.** `design/output/study/exploratory/eNN/`, each with a manifest,
   result CSVs and a source snapshot. Figures:
   `report/figures/exploratory/`, read from those CSVs only.
 - **Studies.** 10 attempted and documented.

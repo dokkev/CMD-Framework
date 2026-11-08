@@ -263,7 +263,7 @@ python scripts/study/study2_compact_morphology/figures.py --source [output-direc
 For exact warm replay, point `warm_start.replay` to the archived `targets/`
 directory and choose a fresh output. No commit, push or hardware experiment.
 '''
-    path=ROOT/'report/study2_compact_2026-11-07.md';path.write_text(text)
+    path=ROOT.parent/'report/study2_compact_2026-11-07.md';path.write_text(text)
     print(path)
 
 

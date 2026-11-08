@@ -322,7 +322,7 @@ def before_after(best, study2: Path, out: Path, cases) -> None:
 
 def main(argv) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", type=Path, default=ROOT / "report/figures/study")
+    parser.add_argument("--out", type=Path, default=ROOT.parent / "report/figures/study")  # report/ is at the monorepo root
     args = parser.parse_args(argv)
     study1_rows = read(STUDY1 / "assembly_results.csv")
     accommodation_maps(study1_rows, args.out)

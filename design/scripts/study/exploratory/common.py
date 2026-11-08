@@ -26,7 +26,7 @@ from core.optimization.analysis.tradeoff import goal_of, with_goal, with_modules
 from core.optimization.mechanism import mechanism  # noqa: E402
 
 OUTPUT = ROOT / "output" / "study" / "exploratory"
-FIGURES = ROOT / "report" / "figures" / "exploratory"
+FIGURES = ROOT.parent / "report" / "figures" / "exploratory"  # report/ is at the monorepo root
 LABEL = {
     "code_matched": "CoDe (tilt 10°)",
     "2r_dd_tilt0_matched": "2R-DD, servo 0°",

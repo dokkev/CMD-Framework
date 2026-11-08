@@ -28,7 +28,7 @@ usable?
   only by the other side's module.
 
 Script: `e03_module_independence.py`. Data:
-`output/study/exploratory/e03_module_independence/`.
+`design/output/study/exploratory/e03_module_independence/`.
 
 ## 5. Results
 

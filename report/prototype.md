@@ -10,7 +10,7 @@ This is the CoDe finger design currently in CAD. It was logged on 2026-11-05.
 
 | Item | Value |
 |---|---|
-| Design | `output/servo_close/linkage/proto_tilt10_align`, the `balanced` seed (run_004 #2113) |
+| Design | `design/output/servo_close/linkage/proto_tilt10_align`, the `balanced` seed (run_004 #2113) |
 | Optimizer | smsemoa, seed 0, population 200, 1000 generations |
 | Formulation | linkage-v12 |
 | Code | `7334085` (2026-11-04, "Search each pad's mounting offset below its link line") |

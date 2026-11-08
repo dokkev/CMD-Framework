@@ -75,8 +75,9 @@ def run(config_path=HERE / 'config.yaml', pilot=False):
                   coordinate='output shafts [MCP, PIP servo], positive flexion, XZ world; m/rad',
                   normalization='K/(kn * finger_length_m**2), B/(bn * finger_length_m**2)',
                   inputs={}, fronts=[], models='frozen contact frames, zero preload, fixed object, massless Kelvin-Voigt')
-    for path in [Path(config_path), ROOT / shared.REFERENCES, ROOT / shared.CATALOG, ROOT / 'GOAL.md']:
-        relative = path.resolve().relative_to(ROOT)
+    for path in [Path(config_path), ROOT / shared.REFERENCES, ROOT / shared.CATALOG, ROOT.parent / 'GOAL.md']:
+        path = path.resolve()
+        relative = path.relative_to(ROOT if path.is_relative_to(ROOT) else ROOT.parent)
         record['inputs'][str(relative)] = snapshot(path, out / 'inputs' / relative)
     catalog = shared.catalog()
     candidates = []

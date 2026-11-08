@@ -18,7 +18,7 @@ import shared
 
 S3 = ROOT/'output/study/study3_transmission'
 S4 = ROOT/'output/study/study4_joint_interface'
-OUT = ROOT/'report/figures/study34'
+OUT = ROOT.parent/'report/figures/study34'  # report/ is at the monorepo root
 KINDS = ['linkage','revolute','revolute_parallel','rcj','rcj_idealized']
 MATCHED = ['code_matched','2r_dd_tilt90_matched','belt_2r_matched','rcj_tilt90_matched']
 inputs = {}

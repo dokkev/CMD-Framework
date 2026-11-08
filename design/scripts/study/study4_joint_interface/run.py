@@ -53,8 +53,9 @@ def run(path=HERE / 'config.yaml'):
         scope='hypothetical skin extensions, not existing pad endpoints; projected hardware routing, no material equilibrium, contact loading or durability'), indent=2))
     # Preserve the exact config, governing goal and common reference definitions.
     import shutil
-    for src in [Path(path), ROOT/'GOAL.md', ROOT/shared.REFERENCES]:
-        target = out/'inputs'/src.resolve().relative_to(ROOT)
+    for src in [Path(path), ROOT.parent/'GOAL.md', ROOT/shared.REFERENCES]:
+        src = src.resolve()
+        target = out/'inputs'/src.relative_to(ROOT if src.is_relative_to(ROOT) else ROOT.parent)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, target)
     print(json.dumps(dict(output=str(out), rows=len(rows))))

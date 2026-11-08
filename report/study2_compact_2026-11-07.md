@@ -275,11 +275,11 @@ belt-domain and scalar-front corrections. Selected-design achieved ROM and bound
 flags are refreshed from actual saved-config feasibility readback, addressing its
 remaining metadata caveat. Verified selected designs: 54.
 
-Results: `output/study/study2_compact_morphology/` contains per-seed stages,
+Results: `design/output/study/study2_compact_morphology/` contains per-seed stages,
 exact warm vectors, source snapshots, inputs, per-seed and finalized best tables,
 and aggregation provenance. Figures read the finalized tables and saved configs;
 figure manifests contain input hashes and source snapshots. Configs and full
-formulation: `scripts/study/study2_compact_morphology/README.md`.
+formulation: `design/scripts/study/study2_compact_morphology/README.md`.
 
 ```
 python scripts/study/study2_compact_morphology/run.py [fresh-output-config.yaml]

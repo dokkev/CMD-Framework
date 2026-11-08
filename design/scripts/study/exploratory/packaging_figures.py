@@ -34,7 +34,7 @@ import packaging_tradeoff as measure  # noqa: E402
 from visualize.style import COLORS, DISTAL_PAD, INK, MUTED, PROXIMAL_PAD, SERVO, THEMES  # noqa: E402
 
 DATA = common.OUTPUT / "packaging_tradeoff"
-OUT = common.ROOT / "report/figures/packaging_tradeoff"
+OUT = common.ROOT.parent / "report/figures/packaging_tradeoff"
 PANELS = ("code_matched", "2r_dd_tilt0_matched", "2r_dd_tilt90_matched", "belt_2r_matched", "rcj_tilt0_matched",
           "rcj_tilt90_matched")
 NAME = {"code_matched": "CoDe, servo 10°", "2r_dd_tilt0_matched": "2R-DD, servo 0°",

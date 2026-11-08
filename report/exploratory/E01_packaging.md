@@ -31,8 +31,8 @@ of the extended finger is left free of hardware?
   - the dorsal–palmar thickness;
   - the pads' share of the occupied area.
 
-Script: `scripts/study/exploratory/e01_packaging.py`. Data:
-`output/study/exploratory/e01_packaging/`. Figure:
+Script: `design/scripts/study/exploratory/e01_packaging.py`. Data:
+`design/output/study/exploratory/e01_packaging/`. Figure:
 `report/figures/exploratory/e01_palmar_intrusion.png`.
 
 ## 5. Results (baseline module)

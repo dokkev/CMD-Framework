@@ -102,9 +102,9 @@ mechanism.
 - **Physics.** Each mechanism's own `evaluate()`. Solids and faces come from
   `core.morphology.contact.loss` scenes. Nothing is reimplemented.
 - **Outputs.**
-  - Results: `output/study/exploratory/eNN/` (manifest, CSV, source
+  - Results: `design/output/study/exploratory/eNN/` (manifest, CSV, source
     snapshot).
-  - Code: `scripts/study/exploratory/`.
+  - Code: `design/scripts/study/exploratory/`.
   - Reports: `report/exploratory/`.
   - Figures: `report/figures/exploratory/`.
 - **Outcomes.** Each study ends SUPPORTED, PARTIALLY_SUPPORTED,
@@ -290,7 +290,7 @@ mechanism.
 - **Alternative.** Capacity is explained by the spans (room for modules)
   alone.
 - **Data.** A deterministic cover of about 150 designs from the archived
-  linkage-v12 production fronts (`output/servo_close/linkage/proto_tilt10_align`,
+  linkage-v12 production fronts (`design/output/servo_close/linkage/proto_tilt10_align`,
   about 22k designs). Each design is rebuilt under the Study 1 rules (policy
   depths) and evaluated on the catalog at 120°.
 - **Metrics.**

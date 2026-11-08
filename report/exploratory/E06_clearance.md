@@ -34,18 +34,18 @@ Does the Study 1 ranking survive a non-zero body clearance?
 
 | Place | Mechanism |
 |---|---|
-| `core/optimization/revolute/evaluate.py:223` | 2R-DD |
-| `core/optimization/revolute_parallel/evaluate.py:114` | belt 2R |
-| `core/optimization/rcj/evaluate.py:107` | RCJ |
-| `core/morphology/mechanism/revolute/solids.py:214` | 2R-DD |
-| `core/morphology/mechanism/revolute_parallel/solids.py:73` | belt 2R |
-| `core/morphology/mechanism/rcj/solids.py:187` | RCJ |
-| `core/morphology/mechanism/linkage/packaging.py:380` | linkage: pin and pad gaps |
-| `core/morphology/mechanism/linkage/packaging.py:423` | linkage: pin and pad gaps |
-| `core/morphology/mechanism/linkage/motion.py:255` | linkage: driver-link clearance |
-| `core/morphology/packaging/gaps.py`, `assembly.py` | servo and body gaps, all mechanisms |
+| `design/core/optimization/revolute/evaluate.py:223` | 2R-DD |
+| `design/core/optimization/revolute_parallel/evaluate.py:114` | belt 2R |
+| `design/core/optimization/rcj/evaluate.py:107` | RCJ |
+| `design/core/morphology/mechanism/revolute/solids.py:214` | 2R-DD |
+| `design/core/morphology/mechanism/revolute_parallel/solids.py:73` | belt 2R |
+| `design/core/morphology/mechanism/rcj/solids.py:187` | RCJ |
+| `design/core/morphology/mechanism/linkage/packaging.py:380` | linkage: pin and pad gaps |
+| `design/core/morphology/mechanism/linkage/packaging.py:423` | linkage: pin and pad gaps |
+| `design/core/morphology/mechanism/linkage/motion.py:255` | linkage: driver-link clearance |
+| `design/core/morphology/packaging/gaps.py`, `assembly.py` | servo and body gaps, all mechanisms |
 
-The mounting policy (`core/optimization/mounting.py`) does not apply it.
+The mounting policy (`design/core/optimization/mounting.py`) does not apply it.
 That is the inconsistency the seat search works around.
 
 ## 4. Method

@@ -36,7 +36,7 @@
 
 ### Goal
 
-공통 설정은 [scripts/study/base.yaml](../scripts/study/base.yaml)에 있고, 그 기반은 frozen baseline인 [scripts/study/baseline.yaml](../scripts/study/baseline.yaml)이다.
+공통 설정은 [scripts/study/base.yaml](../design/scripts/study/base.yaml)에 있고, 그 기반은 frozen baseline인 [scripts/study/baseline.yaml](../design/scripts/study/baseline.yaml)이다.
 
 | 항목 | 값 |
 |---|---|
@@ -76,7 +76,7 @@
 | `rcj_tilt90` | RCJ | servo tilt 90° | 26분 |
 
 - 모든 run은 커밋 `7d01b6d`에서 돌렸다.
-- 결과는 `output/study/<mechanism>/<config>/`(run_001–009, portfolio_001)에 있다. 이 폴더는 git으로 추적하지 않는다.
+- 결과는 `design/output/study/<mechanism>/<config>/`(run_001–009, portfolio_001)에 있다. 이 폴더는 git으로 추적하지 않는다.
 
 ## 결과
 
@@ -240,11 +240,11 @@ ideal RCJ(`rcj_idealized`)는 servo 없이 다른 곳에서 구동한다고 가�
 python scripts/optimize/run.py scripts/study/<config>.yaml
 ```
 
-- 각 run의 config, 커밋, 9개 run의 결과는 `output/study/<mechanism>/<config>/` 아래에 있다.
+- 각 run의 config, 커밋, 9개 run의 결과는 `design/output/study/<mechanism>/<config>/` 아래에 있다.
 - 대표 seed는 `portfolio_001/seeds.csv`에 있다.
 
 ## 다음 단계
 
-- ideal RCJ(`scripts/study/rcj_ideal.yaml`) 정식 search
+- ideal RCJ(`design/scripts/study/rcj_ideal.yaml`) 정식 search
 - contact accommodation study 실행. core는 `code_tilt10`, `2r_dd_tilt0`, `2r_dd_tilt90`이다.
 - RCJ를 contact accommodation에 넣을지 결정

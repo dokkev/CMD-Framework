@@ -161,5 +161,5 @@ Run everything in the `cmd` environment with
 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.
 
 The references come from
-`scripts/study/study2_morphology_adaptation/references.yaml`, and the
-catalog from `scripts/study/study1_fixed_morphology/modules.yaml`.
+`design/scripts/study/study2_morphology_adaptation/references.yaml`, and the
+catalog from `design/scripts/study/study1_fixed_morphology/modules.yaml`.
