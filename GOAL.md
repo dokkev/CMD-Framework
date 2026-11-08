@@ -214,6 +214,8 @@ The project's experiments should provide evidence for the central research objec
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 
+Learning-based interface experiments (Studies A–D) are set out in Section 8.
+
 ---
 
 ## 7. Claim Discipline
@@ -226,3 +228,116 @@ Interface-effect experiments (question 3) should use matched or explicitly contr
 - Planar feasibility is not buildability. Local reflected stiffness is not validated actuator response. Geometric bridge continuity is not skin durability or usable loaded contact.
 - Quantitative figures must read saved results, with source commit or patch, configs, input artifacts and sampling provenance. Missing models or artifacts block their branch of work; do not invent measurements.
 - The next useful research decision is one that improves controlled interface variation or exposes its limits, whether or not it favors CoDe.
+
+---
+
+## 8. Learning-Based Manipulation Research
+
+This section is the north star for the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–4, and Section 7 applies to it in full.
+
+### 8.1 Objective
+
+**Demonstrate that CoDe Hand enables scalable and controlled contact-interface research for learning-based dexterous manipulation, with minimal changes to the underlying robotic embodiment and learning infrastructure.**
+
+The goal is not to demonstrate that CoDe achieves universally higher manipulation performance than conventional hands. It is to establish why a contact-centric hand architecture is valuable to AI manipulation researchers.
+
+**Central question:**
+
+> What contact-interface experiments become practical with CoDe Hand that would otherwise require substantial changes to the robot embodiment, compromise functional articulation, or introduce additional experimental confounding?
+
+The learning framework should produce evidence addressing this question, rather than simply maximizing task success.
+
+### 8.2 Contact as an Independent Variable
+
+A robot configuration is R = (H, C), with H = (E, Q, A) as defined in Section 5.6. The primary research configuration holds H fixed while varying C.
+
+Contact-interface variation may intentionally change contact geometry, dimensions, friction, compliance, sensing, contact locations and contact-point Jacobians. The objective is not to make contact mechanics invariant. It is to distinguish these intended contact-interface effects from unintended changes to the underlying embodiment (Section 2.3).
+
+Where practical, preserve the observation space, action space, controller, task definition, reward and learning algorithm across interface configurations. Changes that cannot be preserved must be reported explicitly.
+
+### 8.3 Research Questions
+
+**RQ1 — Manipulation-usable contact design space.** Which contact interfaces can each hand architecture support while preserving the articulation, contact accessibility and physical capabilities required for manipulation? Compare CoDe with reasonable conventional baselines, including fixed and morphology-adapted 2R-DD configurations. A geometrically attachable interface is not necessarily usable for manipulation.
+
+**RQ2 — Embodiment and learning-infrastructure reusability.** How much additional engineering effort is required to introduce and evaluate a new contact interface? Evaluate:
+
+- Changes to structural morphology and articulation.
+- Changes to actuator and transmission configuration.
+- Changes to simulation assets and robot descriptions.
+- Changes to control, observations, actions and learning infrastructure.
+- Additional interface-specific integration requirements.
+
+Separate the cost of supporting a new interface from the cost of swapping an already-supported interface.
+
+**RQ3 — Contact morphology and policy behavior.** With the underlying hand fixed, how does changing the contact interface influence:
+
+- Manipulation task performance.
+- Policy robustness and generalization.
+- Zero-shot policy transfer across interfaces.
+- Learning dynamics and adaptation requirements.
+
+These experiments demonstrate the research questions enabled by CoDe, rather than assuming that CoDe or a particular interface must outperform alternatives.
+
+**RQ4 — Cross-simulator and physical relevance.** To what extent do interface-dependent manipulation observations remain consistent across simulation engines and representative physical experiments? Cross-simulator agreement provides evidence about simulator dependence, not proof of physical accuracy.
+
+### 8.4 Evaluation Strategy
+
+**Study A — Architecture-dependent manipulation accessibility** (RQ1, RQ2). Compare which contact interfaces support a predefined manipulation task under:
+
+1. Conventional 2R-DD with fixed morphology.
+2. Conventional 2R-DD with reasonable morphology adaptation.
+3. CoDe with fixed morphology.
+
+Evaluate both mechanical feasibility and downstream task execution. Use matched interface requirements, comparable actuator capabilities, declared size constraints and equivalent task objectives. Distinguish mechanical infeasibility from policy training failure. Mechanical feasibility comes from Studies 1–2.
+
+*Target evidence:* whether CoDe expands the manipulation-usable interface design space while reducing the need for morphology adaptation.
+
+**Study B — Contact-interface A/B testing** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol. Use two complementary evaluations:
+
+- **Frozen policy:** change the contact interface without retraining.
+- **Independent training:** train a policy per interface with a common algorithm and comparable training budgets.
+
+Measure performance differences, sensitivity, adaptation and generalization.
+
+*Target evidence:* controlled contact-interface experimentation without redesigning the underlying hand.
+
+**Study C — Cross-interface policy transfer** (RQ3). Train policies under selected contact interfaces and evaluate each across the other supported interfaces. This gives a policy-by-contact performance matrix M_ij = P(π_i, H, C_j), the performance of the policy trained on interface i when run on interface j. The matrix should reveal how contact morphology influences policy robustness and generalization. High transfer performance is not assumed or required.
+
+*Target evidence:* CoDe provides a reusable experimental embodiment for studying contact-dependent policy behavior.
+
+**Study D — Sim-to-sim and representative sim-to-real** (RQ4). Use Isaac Lab for scalable policy training and manipulation experiments. Evaluate selected policies and interfaces in an independent simulator or contact model to characterize contact-model sensitivity. Select about 2–3 representative physical contact interfaces for hardware validation. Physical experiments should demonstrate interface interchangeability, retained functional articulation, repeatable manipulation evaluation and the limits of simulation predictions.
+
+*Target evidence:* extensive simulation findings connected to a functioning physical research platform, without exhaustive real-world interface testing.
+
+### 8.5 Success Criteria
+
+The learning-based effort succeeds when it establishes a chain of evidence:
+
+**Contact accommodation → Embodiment consistency → Learning-infrastructure reusability → Controlled manipulation research**
+
+Specifically:
+
+1. Demonstrate the range of contact interfaces that can be used for manipulation under stated architectural constraints.
+2. Quantify the embodiment modifications and integration effort required by different architectures.
+3. Demonstrate that multiple contact interfaces can be evaluated under a common CoDe embodiment and learning pipeline.
+4. Show meaningful contact-dependent manipulation or policy behavior without assuming a favorable performance direction.
+5. Validate representative observations across simulators and on physical hardware, reporting discrepancies and limitations.
+
+### 8.6 Claim Boundaries
+
+In addition to Section 7:
+
+- Do not optimize benchmarks merely to demonstrate CoDe superiority.
+- Do not treat a contact-parameter sweep alone as evidence that CoDe is necessary.
+- Do not claim that policy performance differences between different hand architectures are caused solely by their contact interfaces.
+- Do not assume interface replacement preserves policy performance or eliminates the need for retraining.
+- Do not claim that simulated contact response accurately represents physical compliant contact without validation.
+- Do not confuse mechanical accommodation, manipulation feasibility and successful policy learning.
+- Do not treat design candidates or training environments as independent statistical replicates.
+- Report negative results, failed integrations, simulator disagreement and architecture trade-offs.
+
+### 8.7 Intended Research Message
+
+**CoDe Hand is not intended to make every contact interface better. It is intended to make contact interfaces easier to study.**
+
+The ultimate demonstration is that AI manipulation researchers can change contact morphology, retain a consistent underlying embodiment and learning infrastructure, and systematically investigate the resulting manipulation behavior without repeatedly redesigning the robot.
