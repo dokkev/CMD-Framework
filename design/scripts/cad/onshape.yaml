@@ -1,0 +1,37 @@
+# Onshape binding of the CoDe parametric model (core/morphology/code_hand).
+document: 70331145392063eb01686da5          # "CoDe Hand"
+workspace: 92a6339e0654aea7c4cc1e7c         # branch "python-hand-layout" (from 2DoF-FE, version "Before Python hand layout")
+ground_truth_workspace: ba77a88a87fbd022081c0d4d   # 2DoF-FE: the CAD the prototype parameters were fitted to
+assembly: 67c456d3940fbb4fa89384f6          # hand-layout
+linkage_studio: Linkage Dimensions          # Variable Studio that push writes the four-bar to
+
+# Top-level instance of each digit. Names are inferred from positions: the thumb sits on the +Y side of
+# "finger <2>".
+instances:
+  index: finger <2>
+  middle: finger <3>
+  ring: finger <1>
+  thumb: thumb-example <1>
+
+# Model end effector -> mate connector in the hand-layout assembly (checked as a frame).
+# "Thumb EE" is left out until it moves onto the thumb centre line (it sits 4.5 mm toward the pad).
+end_effectors: {}
+
+# Occurrence path below the digit instance to its base servo part (X330), by instance id.
+base_servo_paths:
+  index: [M54LlDm+DxJInwLeC, Muy0ewtNQXyOZFNxF]    # X335-with-bearing <1> / X330 <1>
+  middle: [M54LlDm+DxJInwLeC, Muy0ewtNQXyOZFNxF]
+  ring: [M54LlDm+DxJInwLeC, Muy0ewtNQXyOZFNxF]
+  thumb: [MvUIO542vixXsElv9, Muy0ewtNQXyOZFNxF]    # X335-with-output-horn <3> / X330 <1>
+
+# Face of the X330 part that the layout mates hold (its bottom face), and its frame in the servo frame
+# (the actuator centre: the X330 part frame moved 5.5 mm along -Z).
+servo_face:
+  deterministic_id: KF+J
+  origin_mm: [0.0, -14.125, -11.0]
+  x_axis: [1.0, 0.0, 0.0]
+  z_axis: [0.0, 0.0, -1.0]
+
+# Hand-built chain mates that the layout mates replace; push deletes them. The originals are in the
+# version "Before Python hand layout" and in the 2DoF-FE workspace.
+remove: [Fastened 1, Fastened 2, Fastened 3, Fastened 4]

@@ -1,0 +1,78 @@
+# CoDe hand prototype: the parametric model's independent parameters (L1). Source of truth for the CAD
+# (scripts/cad/code_hand.py push) and for simulation assets. Conventions: core/morphology/code_hand/parameters.py.
+# layout and cad_configuration were fitted to the Onshape CAD (source below) by `code_hand.py fit`.
+layout:
+  index:
+    x_mm: 14.125
+    y_mm: 0.0
+    z_mm: 11.0
+    yaw_deg: -90.0
+    pitch_deg: 0.0
+    roll_deg: 0.0
+  middle:
+    x_mm: 13.9601
+    y_mm: -25.0
+    z_mm: 10.9253
+    yaw_deg: -90.0
+    pitch_deg: 0.0
+    roll_deg: 0.0
+  ring:
+    x_mm: 13.7952
+    y_mm: -50.0
+    z_mm: 10.8506
+    yaw_deg: -90.0
+    pitch_deg: 0.0
+    roll_deg: 0.0
+  thumb:
+    x_mm: -51.2219
+    y_mm: 0.7733
+    z_mm: -6.0
+    yaw_deg: -90.0
+    pitch_deg: 0.0
+    roll_deg: -90.0
+finger:
+  fe_axis_x_mm: 23.5
+  fe_axis_z_mm: -16.75
+  a_x_mm: 35.7
+  a_z_mm: 0.0
+  ap_x_mm: 37.5
+  ap_z_mm: 12.4
+  apb_mm: 32.2
+  abp_mm: 25.6
+  bp_x_mm: -6.7
+  bp_z_mm: 6.5
+  c_x_mm: 22.8
+  c_z_mm: 0.0
+  pip_servo_angle_deg: 75.0
+thumb:
+  ro_to_raa_mm: 26.0
+  raa_to_mcp_mm: 26.5
+  mcp_to_ip_mm: 35.5
+  ee_x_mm: 0.0
+  ee_y_mm: -53.5
+  ee_z_mm: 0.0
+  ro_zero_deg: 0.0
+  raa_zero_deg: 90.0
+  mcp_zero_deg: 0.0
+cad_configuration:
+  index:
+    aa_deg: 0.0
+    fe_deg: 0.0
+    pip_deg: 1.400145
+  middle:
+    aa_deg: 0.0
+    fe_deg: 0.0
+    pip_deg: 2.050219
+  ring:
+    aa_deg: 0.0
+    fe_deg: 0.0
+    pip_deg: 1.759804
+  thumb:
+    ro_deg: -0.036186
+    raa_deg: 0.292188
+    mcp_deg: 1.952522
+    ip_deg: 0.0
+source:
+  document: 70331145392063eb01686da5
+  workspace: ba77a88a87fbd022081c0d4d
+  microversion: 5abeadd8f2c178ac2f4048d7
