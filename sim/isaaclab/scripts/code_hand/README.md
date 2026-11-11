@@ -173,11 +173,10 @@ E6, gravity on, armature 5e-3 (the earlier placeholder):
   run at the no-load speed, as the datasheet's N-T curve requires (101 % on the FE step, which gravity assists).
 - The implicit linearisation agrees for small moves but lets large moves run 2-4x faster than the motor can, and it
   differs between backends. Use it only for small-motion tasks, and say so.
-- The table above used a 5e-3 placeholder. The armature is now back-estimated from the datasheet as 2.0e-3
-  (range 1.4e-3 to 2.9e-3; method in `core/hardware/xm335.py` `ARMATURE_ESTIMATE`). Over that range (MuJoCo-Warp,
-  dc_motor, gravity on) saturated moves barely change: FE +60 deg t90 171-179 ms, PIP +40 deg t90 117-125 ms,
-  peak speed at the no-load speed. The small step is the sensitive case, with overshoot 7 % / 14 % / 22 % and
-  t90 21-25 ms at 1.4e-3 / 2.0e-3 / 2.9e-3.
+- The table above used a 5e-3 placeholder. The armature is now back-estimated from the datasheet and the case
+  size as 3.1e-3 (range 2.9e-3 to 4.0e-3; a maxon DCX 12 S frame, method in `core/hardware/xm335.py`
+  `ARMATURE_ESTIMATE`). At 3.1e-3 / 4.0e-3 (MuJoCo-Warp, dc_motor, gravity on): FE +2 deg overshoot 24 % / 30 %,
+  t90 29 ms; FE +60 deg t90 179 / 183 ms; PIP +40 deg t90 125 / 129 ms; saturated moves at the no-load speed.
 - The armature and the PID units remain to be identified on a real XM335 (a pendulum or no-load step, and a
   static stiffness test) before small-motion timing is interpreted.
 

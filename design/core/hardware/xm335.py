@@ -39,18 +39,21 @@ from core.hardware.actuator import (
 RPM = 2.0 * math.pi / 60.0
 
 ARMATURE_ESTIMATE = {
-    "nominal_kg_m2": 2.0e-3,
-    "range_kg_m2": (1.4e-3, 2.9e-3),
+    "nominal_kg_m2": 3.1e-3,
+    "range_kg_m2": (2.9e-3, 4.0e-3),
     "method": (
         "Back-estimated 2026-11-11, not identified. The datasheet's three voltage points give, at the motor (gear "
-        "323.04): speed constant 1540 rpm/V, torque constant 6.2 mN m/A, 14.2 ohm total resistance (driver and "
-        "wiring included) and 0.65-0.72 gear efficiency. Assuming a maxon coreless motor (user information; "
-        "ROBOTIS does not name it), frames whose rewinding to that torque constant leaves 10-12 ohm of motor "
-        "resistance fit: DCX 10 L (rotor 0.13 g cm^2) and DCX 12 S (0.275 g cm^2); DCX 12 L would need 3.4 ohm and "
-        "is excluded. Reflected: rotor x 323.04^2 = 1.4e-3 to 2.9e-3 kg m^2, plus the gear train's own inertia "
-        "(not included). No catalogue winding matches exactly: all are slower than the 17,100 rpm the XM335's "
-        "no-load speed implies at the motor, which also exceeds those lines' listed maximum speed. maxon pages "
-        "read 2026-11-11: DCX10L01EBSL601, DCX10L01EBKL635, DCX12S01EBKL695, DCX12L01EBKL633."
+        "323.04): speed constant 1540 rpm/V, torque constant 6.2 mN m/A, 14.2 ohm in total (driver and wiring "
+        "included), gear efficiency 0.65-0.72. Assuming a maxon DCX motor (user information; ROBOTIS does not name "
+        "it) whose axis is parallel to the output axis, it must fit the 22 mm case height along that axis. In the "
+        "maxon DCX catalogue (2024, Japanese edition) the DCX 12 S 6 V winding matches: 6.12 mN m/A, 1560 rpm/V, "
+        "10.6 ohm (+3.6 ohm external), predicting 52 rpm no-load at the output at 11.1 V (datasheet 53) and 0.67 "
+        "gear efficiency; its body is 19.4 mm long, Ø12. The electrically nearest other frame, DCX 10 L (9 V: "
+        "1360 rpm/V), is 25.2 mm long and does not fit; DCX 10 S (9 V: 41.8 ohm) and DCX 12 L (6 V: 3.7 ohm) do "
+        "not match the stall current. DCX 12 S rotor inertia is 0.275-0.293 g cm^2 across windings (0.293 for 6 V), "
+        "so rotor x 323.04^2 = 2.9e-3 to 3.1e-3 kg m^2. The gear train's own inertia is not known and is allowed "
+        "for by an upper bound of +30 % (4.0e-3). A 6 V winding at 11.1 V would run past the catalogue's 13 000 "
+        "rpm limit at no load, so the motor may be an OEM variant of this frame."
     ),
 }
 
@@ -145,9 +148,9 @@ class XM335DriveModel:
     position_p_gain_tbl: int = 2000
     pwm_limit_lsb: int = 885
     armature_kg_m2: float = ARMATURE_ESTIMATE["nominal_kg_m2"]
-    """Reflected rotor inertia at the output [kg m^2], back-estimated (``ARMATURE_ESTIMATE``; range 1.4e-3 to
-    2.9e-3). To identify: the no-load speed time constant is ``armature * no_load_speed / stall_torque``, about
-    11 ms at the nominal value."""
+    """Reflected rotor inertia at the output [kg m^2], back-estimated (``ARMATURE_ESTIMATE``; range 2.9e-3 to
+    4.0e-3). To identify: the no-load speed time constant is ``armature * no_load_speed / stall_torque``, about
+    17 ms at the nominal value."""
 
     @property
     def stall_torque_nm(self) -> float:
@@ -206,7 +209,7 @@ class XM335DriveModel:
                         "back_emf_damping_nms_per_rad": self.back_emf_damping_nms_per_rad,
                         "saturation_error_rad": self.saturation_error_rad},
             "assumptions": ["PID units: pulse in, PWM LSB out",
-                            "armature back-estimated from a maxon DCX 10 L / 12 S frame (gear train excluded)",
+                            "armature back-estimated from a maxon DCX 12 S frame (gear train bounded, not known)",
                             "no friction or backlash", "position I, D and feedforward gains 0, step goals"],
         }
 
