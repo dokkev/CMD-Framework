@@ -12,6 +12,8 @@ The description is what ``sim/`` builds its robot assets from, so ``sim/`` never
 - ``loops``: the cut joints that close each finger's four-bar (``B'``: driver link to distal segment). URDF
   cannot express them; a simulator closes them (Newton: a joint outside the articulation, USD:
   ``physics:excludeFromArticulation``).
+- ``servo``: the XM335 drive model every actuated joint uses (``core.hardware.xm335``): datasheet values at the
+  supply voltage, the position gain and the assumptions they rest on. Actuated joints name it in ``actuator.servo``.
 - ``four_bar``: per finger, the tree joint angles of the four-bar as tables of the PIP angle, so a simulator can
   start in a closed pose and report the PIP angle without re-implementing the closure.
 
@@ -26,7 +28,7 @@ import json
 import math
 import subprocess
 import sys
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -36,8 +38,9 @@ ROOT = HERE.parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.morphology.code_hand import FINGERS, CoDeHand, four_bar, load, pip_servo_deg  # noqa: E402
-from core.morphology.code_hand.parameters import PROTOTYPE  # noqa: E402
+from core.hardware.xm335 import XM335DriveModel
+from core.morphology.code_hand import FINGERS, CoDeHand, four_bar, load, pip_servo_deg
+from core.morphology.code_hand.parameters import PROTOTYPE
 
 MM = 1e-3
 SERVO_KG = 0.027  # X330 (core.hardware.xm335)
@@ -82,7 +85,7 @@ def four_bar_table(finger) -> dict:
             "b_deg": np.round(b, 6).tolist()}
 
 
-def export(params: Path) -> dict:
+def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
     parameters, _ = load(params)
     model = CoDeHand(parameters)
     frames = model.frames()
@@ -134,20 +137,26 @@ def export(params: Path) -> dict:
                {"zero_deg": t.mcp_actuator_zero_deg}),
         _joint("thumb_ip", "thumb_proximal", "thumb_distal", *ip, LIMITS["ip"], {"zero_deg": t.ip_actuator_zero_deg}),
     ]
-    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    for joint in joints:
+        if joint["actuator"] is not None:
+            joint["actuator"]["servo"] = "xm335"
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True,
+                            check=False).stdout.strip()
     dirty = bool(subprocess.run(["git", "status", "--porcelain", "--", "core", str(params)], cwd=ROOT,
-                                capture_output=True, text=True).stdout.strip())
+                                capture_output=True, text=True, check=False).stdout.strip())
     return {
         "format": "code_hand_sim/1",
         "source": {"commit": commit, "dirty": dirty, "parameters": str(Path(params).resolve().relative_to(ROOT.parent)),
-                   "date": date.today().isoformat()},
+                   "date": datetime.now(UTC).date().isoformat()},
         "units": {"length": "m", "angle": "deg", "mass": "kg"},
         "conventions": "Joint angles CCW about axis; flexion positive. actuator angle = joint angle - zero_deg. "
                        "All bodies take the hand frame's orientation at the geometric zero.",
-        "placeholders": ["mass", "com", "inertia (rod about the capsule)", "direct-drive joint limits"],
+        "placeholders": ["mass", "com", "inertia (rod about the capsule)", "direct-drive joint limits",
+                         "servo armature"],
         "bodies": bodies,
         "joints": joints,
         "loops": loops,
+        "servo": XM335DriveModel(supply_voltage_v=supply_voltage_v).as_dict(),
         "four_bar": tables,
         "tips": {**{d: _m(frames.points[f"{d}/C"]) for d in FINGERS}, "thumb": _m(tip)},
     }
@@ -157,8 +166,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--params", type=Path, default=PROTOTYPE)
     parser.add_argument("--out", type=Path, default=ROOT / "output" / "sim" / "code_hand.json")
+    parser.add_argument("--supply-voltage", type=float, default=11.1, help="XM335 supply [V] (rated 6.5-12)")
     args = parser.parse_args(argv)
-    data = export(args.params)
+    data = export(args.params, args.supply_voltage)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1) + "\n")
     print(f"{args.out}: {len(data['bodies'])} bodies, {len(data['joints'])} tree joints, {len(data['loops'])} loops, "
