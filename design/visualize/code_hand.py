@@ -2,8 +2,7 @@
 
     python -m visualize.code_hand                         # geometric zero (all joint coordinates 0)
     python -m visualize.code_hand --pose cad              # observed CAD pose stored in prototype.yaml
-    python -m visualize.code_hand --pose zero             # every joint at 0
-    python -m visualize.code_hand --pose zero --set index.pip_deg=60 thumb.mcp_deg=-30
+    python -m visualize.code_hand --set index.pip_deg=60 thumb.mcp_deg=30   # flexion is positive
     python -m visualize.code_hand --params my_hand.yaml --out output/code_hand/my_hand.png
 
 Each servo is the XM335 body (``core.hardware.xm335``: a D profile, rounded at the shaft, extruded along it)

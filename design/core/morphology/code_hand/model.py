@@ -15,15 +15,22 @@ Each servo's axis is its part frame's ``+Z``. The chains (``@`` composes left to
              PIP servo = proximal T(Ap_x, -Ap_z, 0) Rz(pip_servo_tilt - 90)
     thumb:   RO        = layout pose
              RAA       = RO Rz(ro) Tz(ro_to_raa) Ry(-90)
-             MCP       = RAA Rz(raa + raa_to_mcp_clocking) Tz(raa_to_mcp) Ry(-90) Rz(90) Rz(mcp)
+             MCP       = RAA Rz(raa + raa_to_mcp_clocking) Tz(raa_to_mcp) Ry(-90) MOUNT Rz(mcp)
              IP        = MCP Ty(-mcp_to_ip)
              EE        = IP Rz(ip) T(ee_x, ee_y, ee_z)
 
-All joint coordinates are right-handed (CCW viewed from +Z toward the origin) about their local +Z axes.
+All joint coordinates are right-handed (CCW viewed from +Z toward the origin) about their local +Z axes, and
+every flexion is positive: the finger FE and PIP, and the thumb MCP and IP, whose servos are mounted with
+their output toward the side that makes it so (``THUMB_MCP_MOUNT``).
 The MCP servo body rides on the thumb's distal side, so the MCP angle turns the MCP servo frame itself.
-Joint zero is defined by these transforms and the extended four-bar, independently of the CAD pose.
-The fixed MCP Rz(90) aligns its -Y with RAA +Z: at MCP/IP zero the RAA, MCP, IP and tip centres lie
-on a straight line (for an on-centre tip, ee_x = ee_z = 0).
+Joint zero is defined by these transforms and the extended four-bar, independently of the CAD pose. The
+fixed ``THUMB_MCP_MOUNT`` = Rz(90) Ry(180) aligns the MCP servo's -Y with RAA +Z: at MCP/IP zero the RAA,
+MCP, IP and tip centres lie on a straight line (for an on-centre tip, ee_x = ee_z = 0).
+
+Actuator coordinates (``actuators`` / ``configuration_from_actuators``) are each servo's output angle, CCW
+about its +Z, from the zero given by ``*_actuator_zero_deg`` (the CAD revolute mates' datum, see
+``parameters``). They equal the joint coordinates up to that offset, except the PIP servo, which turns the
+four-bar's servo link ``A'-B`` rather than the distal segment.
 """
 
 from __future__ import annotations
@@ -39,6 +46,7 @@ from core.morphology.code_hand.parameters import (
     FingerParameters,
     HandConfiguration,
     HandParameters,
+    ThumbConfiguration,
     rx,
     ry,
     rz,
@@ -50,6 +58,19 @@ from core.morphology.mechanism.linkage.model import FourBar
 
 class ClosureError(ValueError):
     pass
+
+
+THUMB_MCP_MOUNT = rz(90.0) @ ry(180.0)
+"""Fixed rotation from the RAA output (after ``Ry(-90)``) to the MCP servo frame at MCP = 0. ``Rz(90)`` puts
+the MCP-IP line on the RAA axis; ``Ry(180)`` turns the servo output side over (the body is symmetric about
+its mid-plane, so only the horn side moves) so that +Z rotation flexes the thumb toward its pad (+X)."""
+
+FINGER_ACTUATORS = ("aa", "fe", "pip")
+THUMB_ACTUATORS = ("ro", "raa", "mcp", "ip")
+
+
+def _wrap(deg: float) -> float:
+    return math.remainder(deg, 360.0)
 
 
 def _rot2(deg: float) -> np.ndarray:
@@ -115,6 +136,22 @@ def four_bar(finger: FingerParameters, pip_deg: float) -> FourBarPose:
     return FourBarPose(xz(pose.a), xz(pose.ap), b, xz(pose.bp), c)
 
 
+def pip_servo_deg(finger: FingerParameters, pip_deg: float) -> float:
+    """The PIP servo link ``A'->B``'s direction [deg] in the PIP servo frame (CCW about its +Z, from +X)."""
+    pins = four_bar(finger, pip_deg)
+    v = pins.b - pins.ap
+    return _wrap(math.degrees(math.atan2(-v[1], v[0])) - (finger.pip_servo_tilt_deg - 90.0))
+
+
+def pip_from_servo(finger: FingerParameters, servo_deg: float) -> float:
+    """The PIP angle [deg] at which the servo link ``A'->B`` points ``servo_deg`` in the PIP servo frame."""
+    turn = math.radians(_wrap(servo_deg - pip_servo_deg(finger, 0.0)))
+    sweep = reference_four_bar(finger).sweep_servo([turn])
+    if not len(sweep.b):
+        raise ClosureError(f"the four-bar does not close at PIP servo {servo_deg} deg")
+    return pip_from_pins(finger, np.asarray(sweep.b[0]), np.asarray(sweep.bp[0]))
+
+
 def pip_from_pins(finger: FingerParameters, b: np.ndarray, bp: np.ndarray) -> float:
     """The PIP angle [deg] at which the distal segment carries ``B'`` at ``bp`` from ``B`` at ``b``."""
     ref = np.array([finger.bp_x_mm, finger.bp_z_mm])
@@ -164,12 +201,41 @@ class CoDeHand:
         ro = self.parameters.layout.thumb.matrix()
         raa = ro @ rz(q.ro_deg) @ trans(z=p.ro_to_raa_mm) @ ry(-90.0)
         mcp = (raa @ rz(q.raa_deg + p.raa_to_mcp_clocking_deg) @ trans(z=p.raa_to_mcp_mm)
-               @ ry(-90.0) @ rz(90.0) @ rz(q.mcp_deg))
+               @ ry(-90.0) @ THUMB_MCP_MOUNT @ rz(q.mcp_deg))
         ip = mcp @ trans(y=-p.mcp_to_ip_mm)
         ee = ip @ rz(q.ip_deg) @ trans(p.ee_x_mm, p.ee_y_mm, p.ee_z_mm)
         servos = {"thumb/ro": ro, "thumb/raa": raa, "thumb/mcp": mcp, "thumb/ip": ip}
         return HandFrames(servos=servos, axes={k: _axis(v) for k, v in servos.items()},
                           points={"thumb/tip": ee[:3, 3].copy()}, ends={"thumb/ee": ee})
+
+    def actuators(self, configuration: HandConfiguration | None = None) -> dict[str, float]:
+        """Each servo's output angle [deg] from its actuator zero, keyed ``<digit>/<joint>``."""
+        q = configuration or HandConfiguration()
+        f, t = self.parameters.finger, self.parameters.thumb
+        result = {}
+        for digit in FINGERS:
+            fq = getattr(q, digit)
+            result[f"{digit}/aa"] = _wrap(fq.aa_deg - f.aa_actuator_zero_deg)
+            result[f"{digit}/fe"] = _wrap(fq.fe_deg - f.fe_actuator_zero_deg)
+            result[f"{digit}/pip"] = _wrap(pip_servo_deg(f, fq.pip_deg) - f.pip_actuator_zero_deg)
+        for joint in THUMB_ACTUATORS:
+            result[f"thumb/{joint}"] = _wrap(getattr(q.thumb, f"{joint}_deg") - getattr(t, f"{joint}_actuator_zero_deg"))
+        return result
+
+    def configuration_from_actuators(self, actuators: dict[str, float]) -> HandConfiguration:
+        """The joint configuration at the servo angles ``actuators`` (keys as :meth:`actuators`)."""
+        f, t = self.parameters.finger, self.parameters.thumb
+        fingers = {
+            digit: FingerConfiguration(
+                aa_deg=_wrap(actuators[f"{digit}/aa"] + f.aa_actuator_zero_deg),
+                fe_deg=_wrap(actuators[f"{digit}/fe"] + f.fe_actuator_zero_deg),
+                pip_deg=pip_from_servo(f, actuators[f"{digit}/pip"] + f.pip_actuator_zero_deg),
+            )
+            for digit in FINGERS
+        }
+        thumb = ThumbConfiguration(**{f"{j}_deg": _wrap(actuators[f"thumb/{j}"] + getattr(t, f"{j}_actuator_zero_deg"))
+                                      for j in THUMB_ACTUATORS})
+        return HandConfiguration(**fingers, thumb=thumb)
 
     def frames(self, configuration: HandConfiguration | None = None) -> HandFrames:
         q = configuration or HandConfiguration()

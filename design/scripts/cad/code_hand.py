@@ -2,7 +2,8 @@
 """Keep the Onshape CAD in step with the CoDe parametric model (core/morphology/code_hand).
 
     python scripts/cad/code_hand.py snapshot [--ground-truth]   # CAD -> cad_snapshot.json
-    python scripts/cad/code_hand.py fit                         # snapshot -> prototype.yaml layout + CAD pose
+    python scripts/cad/code_hand.py fit                         # snapshot -> prototype.yaml layout, CAD pose,
+                                                                #   actuator zeros
     python scripts/cad/code_hand.py check                       # live CAD vs the model
     python scripts/cad/code_hand.py push [--dry-run]            # model -> CAD (layout mates, linkage studio)
     python scripts/cad/code_hand.py view                        # Onshape shaded views -> output/cad/
@@ -11,6 +12,8 @@ The parameter file (``core/morphology/code_hand/prototype.yaml``) is the source 
 CAD follow it. ``fit`` exists to build the model from the CAD: it takes the layout and the joint angles off the
 snapshot, and reports how far the model's fixed morphology is from the CAD.
 The observed joint angles are stored only in ``cad_configuration``; fitting never redefines model zero.
+``fit`` also sets each servo's ``*_actuator_zero_deg`` so that its zero is where its CAD revolute mate reads 0
+(the three fingers must agree; their mean is kept, to 0.001 deg).
 
 ``check`` fits the joint angles of the live CAD (the CAD may sit in any pose), then compares every servo
 frame and revolute axis with the model. ``push`` deletes the mates under ``remove`` and replaces the layout
@@ -36,6 +39,7 @@ if str(ROOT) not in sys.path:
 from core.cad.code_hand import (
     LINKAGE_VARIABLES,
     CadMap,
+    actuator_zeros_from_snapshot,
     compare,
     configuration_from_snapshot,
     layout_from_snapshot,
@@ -67,7 +71,7 @@ def report(errors: dict[str, tuple[float, float]]) -> bool:
     bad = {k: v for k, v in errors.items() if v[0] > TOL_MM or v[1] > TOL_DEG}
     worst_mm = max(errors.items(), key=lambda kv: kv[1][0])
     worst_deg = max(errors.items(), key=lambda kv: kv[1][1])
-    print(f"{len(errors)} checks (servo frames and connectors, end effectors, revolute axes); "
+    print(f"{len(errors)} checks (servo frames and connectors, end effectors, revolute axes, actuator datums); "
           f"tolerance {TOL_MM} mm, {TOL_DEG} deg")
     print(f"  worst position {worst_mm[1][0]:.5f} mm ({worst_mm[0]}), worst angle {worst_deg[1][1]:.5f} deg "
           f"({worst_deg[0]})")
@@ -91,13 +95,19 @@ def cmd_fit(cad: CadMap) -> int:
     parameters = HandParameters.from_dict(data)
     configuration = configuration_from_snapshot(snapshot, cad, parameters)
     data["cad_configuration"] = configuration.to_dict()
+    for group, fields in actuator_zeros_from_snapshot(snapshot, cad, parameters, configuration).items():
+        for name, values in fields.items():
+            if max(values) - min(values) > TOL_DEG:
+                print(f"  note: {group}.{name} differs between digits: {values}")
+            data[group][name] = round(sum(values) / len(values), 3) + 0.0
+    parameters = HandParameters.from_dict(data)
     source = snapshot["source"]
     data["source"] = {"document": source["document"], "workspace": source["workspace"],
                       "microversion": source["microversion"]}
     text = PROTOTYPE.read_text()
     header = "".join(line for line in text.splitlines(keepends=True)[:20] if line.startswith("#"))
     PROTOTYPE.write_text(header + yaml.safe_dump(data, sort_keys=False))
-    print(f"wrote layout and cad_configuration to {PROTOTYPE.relative_to(ROOT)}")
+    print(f"wrote layout, cad_configuration and actuator zeros to {PROTOTYPE.relative_to(ROOT)}")
 
     studio = linkage_from_variables(snapshot)
     for field, value in studio.items():

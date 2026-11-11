@@ -1,6 +1,8 @@
 # CoDe hand prototype: the parametric model's independent parameters (L1). Source of truth for the CAD
 # (scripts/cad/code_hand.py push) and for simulation assets. Conventions: core/morphology/code_hand/parameters.py.
-# layout and cad_configuration were fitted to the Onshape CAD (source below) by `code_hand.py fit`.
+# layout, cad_configuration and the *_actuator_zero_deg values were fitted to the Onshape CAD (source below)
+# by `code_hand.py fit`. cad_configuration is the observed CAD pose relative to the geometric zero; it is not
+# a model calibration or default pose.
 layout:
   index:
     x_mm: 14.125
@@ -44,6 +46,9 @@ finger:
   c_x_mm: 22.8
   c_z_mm: 0.0
   pip_servo_tilt_deg: 15.0
+  aa_actuator_zero_deg: 0.0
+  fe_actuator_zero_deg: 0.0
+  pip_actuator_zero_deg: 90.0
 thumb:
   ro_to_raa_mm: 26.0
   raa_to_mcp_mm: 26.5
@@ -52,7 +57,10 @@ thumb:
   ee_y_mm: -53.5
   ee_z_mm: 0.0
   raa_to_mcp_clocking_deg: 90.0
-# Observed CAD pose relative to the geometric zero; not a model calibration or default pose.
+  ro_actuator_zero_deg: -90.0
+  raa_actuator_zero_deg: 90.0
+  mcp_actuator_zero_deg: 90.0
+  ip_actuator_zero_deg: 0.0
 cad_configuration:
   index:
     aa_deg: 0.0
@@ -69,7 +77,7 @@ cad_configuration:
   thumb:
     ro_deg: -0.036186
     raa_deg: 0.292188
-    mcp_deg: -91.952522
+    mcp_deg: 91.952522
     ip_deg: 0.0
 source:
   document: 70331145392063eb01686da5

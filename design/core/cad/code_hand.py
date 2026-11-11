@@ -3,7 +3,13 @@
 - ``CadMap``: which CAD occurrence and mate is which model servo and axis.
 - ``layout_from_snapshot`` / ``configuration_from_snapshot``: read the layout and the joint angles off a CAD
   snapshot (``core.cad.snapshot``). The morphology parameters are the model's; CAD only checks them.
-- ``compare``: the model's frames against the snapshot, as errors per servo and per axis.
+- ``actuator_readings`` / ``actuator_zeros_from_snapshot``: the servo angles the CAD's revolute mates read, in
+  the model's actuator coordinates, and the actuator zeros that make the model read the same.
+- ``compare``: the model's frames against the snapshot, as errors per servo and per axis, and its actuator
+  angles against the mates.
+
+Declared CAD deviation: the prototype CAD mounts the thumb MCP and IP servos with their output on the other side
+from the model (``CAD_TURNED_SERVOS``), so their part frames are turned over before they are compared.
 """
 
 from __future__ import annotations
@@ -15,7 +21,7 @@ import numpy as np
 
 from core.cad.layout_mates import frame_error, frame_from_axes, zyx_angles
 from core.cad.snapshot import length_mm
-from core.morphology.code_hand.model import CoDeHand, pip_from_pins
+from core.morphology.code_hand.model import THUMB_MCP_MOUNT, CoDeHand, pip_from_pins, pip_servo_deg
 from core.morphology.code_hand.parameters import (
     DIGITS,
     FINGERS,
@@ -33,6 +39,11 @@ from core.morphology.code_hand.parameters import (
 
 # X330 part frame -> servo (actuator centre) frame: the body spans z -16.5..5.5 mm in its part studio.
 SERVO_CENTER = trans(z=-5.5)
+# Servos the CAD still mounts with the output on the other side (the model turned them so that the thumb's
+# flexion is positive, 2026-11-11). The body is symmetric about its mid-plane, so only the axis sign differs.
+# Empty this once the CAD is updated.
+CAD_TURNED_SERVOS = frozenset({"thumb/mcp", "thumb/ip"})
+TURN_OVER = ry(180.0)
 
 FINGER_SERVOS = {"aa": "X335-with-bearing <1>/X330 <1>", "fe": "MCP-FE <1>/X330 <3>",
                  "pip": "proximal-phalanx <1>/X330 <1>"}
@@ -43,6 +54,12 @@ THUMB_SERVOS = {"ro": "X335-with-output-horn <3>/X330 <1>", "raa": "X335-with-ou
 SERVO_CONNECTORS = {"aa": ":MCP-AA", "fe": "/MCP-FE <1>:O", "ro": ":thumb-A-horn-3", "raa": ":thumb-A-horn-1",
                     "mcp": ":thumb-A-horn-2", "ip": ":thumb-A-bearing-1"}
 THUMB_MATES = {"ro": "(root):Revolute 1", "raa": "{thumb}:Revolute 1", "mcp": "{thumb}:Revolute 2"}
+# The revolute mate each servo drives, and whether the mate's first part is on the servo's output side. Onshape's
+# rotationZ is the first part's rotation relative to the second about the mate axis. The finger FE (fastened in
+# the CAD) and the thumb IP (not posed) have no mate.
+FINGER_ACTUATOR_MATES = {"aa": ("Revolute 5", True), "pip": ("Revolute 1", True)}
+THUMB_ACTUATOR_MATES = {"ro": ("(root):Revolute 1", True), "raa": ("{thumb}:Revolute 1", False),
+                        "mcp": ("{thumb}:Revolute 2", True)}
 
 # Onshape "Linkage Dimensions" variable -> FingerParameters field
 LINKAGE_VARIABLES = {"A_x": "a_x_mm", "A_z": "a_z_mm", "Ap_x": "ap_x_mm", "Ap_z": "ap_z_mm", "ApB": "apb_mm",
@@ -69,6 +86,15 @@ class CadMap:
         name = FINGER_MATES.get(joint)
         return f"{self.instances[digit]}:{name}" if name else None
 
+    def actuator_mate(self, key: str) -> tuple[str, bool] | None:
+        """The revolute mate the servo ``key`` drives, and whether its first part is the output side."""
+        digit, joint = key.split("/")
+        if digit == "thumb":
+            entry = THUMB_ACTUATOR_MATES.get(joint)
+            return (entry[0].format(thumb=self.instances["thumb"]), entry[1]) if entry else None
+        entry = FINGER_ACTUATOR_MATES.get(joint)
+        return (f"{self.instances[digit]}:{entry[0]}", entry[1]) if entry else None
+
 
 def frame(entry: dict) -> np.ndarray:
     return frame_from_axes(entry["origin_mm"], entry["x_axis"], entry["z_axis"])
@@ -82,7 +108,8 @@ def pose_from_matrix(m: np.ndarray, digits: int = 4) -> Pose:
 
 def servo_frame(snapshot: dict, cad: CadMap, key: str) -> np.ndarray:
     """A model servo frame (actuator centre) from the snapshot's X330 part frame."""
-    return frame(snapshot["servos"][cad.servo(key)]) @ SERVO_CENTER
+    centre = frame(snapshot["servos"][cad.servo(key)]) @ SERVO_CENTER
+    return centre @ TURN_OVER if key in CAD_TURNED_SERVOS else centre
 
 
 def layout_from_snapshot(snapshot: dict, cad: CadMap) -> HandLayout:
@@ -98,6 +125,11 @@ def linkage_from_variables(snapshot: dict, studio: str = "Linkage Dimensions") -
 
 def _angle_about(axis: np.ndarray, ref: np.ndarray, cur: np.ndarray) -> float:
     return math.degrees(math.atan2(axis @ np.cross(ref, cur), ref @ cur))
+
+
+def _rz_angle(m: np.ndarray) -> float:
+    """The angle [deg] of a rotation about +Z (the rotation part of ``m``, assumed to be one)."""
+    return math.degrees(math.atan2(m[1, 0], m[0, 0]))
 
 
 def configuration_from_snapshot(snapshot: dict, cad: CadMap, parameters: HandParameters) -> HandConfiguration:
@@ -125,18 +157,61 @@ def configuration_from_snapshot(snapshot: dict, cad: CadMap, parameters: HandPar
 
     p = parameters.thumb
     ro, raa, mcp = s["thumb/ro"], s["thumb/raa"], s["thumb/mcp"]
-    z_raa = np.linalg.inv(ro)[:3, :3] @ raa[:3, 2]  # = Rz(ro) (-1, 0, 0)
-    ro_raw = math.degrees(math.atan2(-z_raa[1], -z_raa[0]))
-    z_mcp = np.linalg.inv(raa)[:3, :3] @ mcp[:3, 2]
-    raa_raw = math.degrees(math.atan2(-z_mcp[1], -z_mcp[0]))
-    partial = raa @ rz(raa_raw) @ trans(z=p.raa_to_mcp_mm) @ ry(-90.0)
-    mcp_raw = _angle_about(partial[:3, 2], partial[:3, 0], mcp[:3, 0])
     wrap = lambda deg: math.remainder(deg, 360.0)
-    ro_deg = wrap(ro_raw)
-    raa_deg = wrap(raa_raw - p.raa_to_mcp_clocking_deg)
-    mcp_deg = wrap(mcp_raw - 90.0)  # geometric zero has RAA->MCP->IP straight
+    ro_deg = wrap(_rz_angle(np.linalg.inv(ro) @ raa @ ry(90.0)))
+    # raa: the MCP axis in the RAA frame is Rz(raa + clocking) applied to its direction at zero
+    mount = ry(-90.0) @ THUMB_MCP_MOUNT
+    z_mcp = np.linalg.inv(raa)[:3, :3] @ mcp[:3, 2]
+    raa_deg = wrap(math.degrees(math.atan2(z_mcp[1], z_mcp[0]) - math.atan2(mount[1, 2], mount[0, 2]))
+                   - p.raa_to_mcp_clocking_deg)
+    zero = raa @ rz(raa_deg + p.raa_to_mcp_clocking_deg) @ trans(z=p.raa_to_mcp_mm) @ mount
+    mcp_deg = wrap(_rz_angle(np.linalg.inv(zero) @ mcp))
     thumb = ThumbConfiguration(*(round(v, 6) + 0.0 for v in (ro_deg, raa_deg, mcp_deg)), 0.0)
     return HandConfiguration(**fingers, thumb=thumb)
+
+
+def actuator_readings(snapshot: dict, cad: CadMap) -> dict[str, float]:
+    """``{servo key: deg}``: each servo's output angle from the CAD datum (its mate at 0), CCW about the model
+    servo's +Z, for every servo that drives a revolute mate with a recorded ``rotation_deg``."""
+    result = {}
+    for digit in DIGITS:
+        joints = THUMB_ACTUATOR_MATES if digit == "thumb" else FINGER_ACTUATOR_MATES
+        for joint in joints:
+            key = f"{digit}/{joint}"
+            mate, first_is_output = cad.actuator_mate(key)
+            entry = snapshot["revolutes"].get(mate, {})
+            if "rotation_deg" not in entry:
+                continue
+            along = float(np.sign(np.asarray(entry["axis"]) @ servo_frame(snapshot, cad, key)[:3, 2]))
+            result[key] = (along if first_is_output else -along) * entry["rotation_deg"]
+    return result
+
+
+def actuated_coordinates(parameters: HandParameters, configuration: HandConfiguration) -> dict[str, float]:
+    """``{servo key: deg}``: the coordinate each servo turns, before its actuator zero is taken off (the joint
+    angle, or for the PIP servo the direction of ``A'->B`` in its frame)."""
+    result = {}
+    for digit in FINGERS:
+        q = getattr(configuration, digit)
+        result.update({f"{digit}/aa": q.aa_deg, f"{digit}/fe": q.fe_deg,
+                       f"{digit}/pip": pip_servo_deg(parameters.finger, q.pip_deg)})
+    result.update({f"thumb/{j}": getattr(configuration.thumb, f"{j}_deg") for j in ("ro", "raa", "mcp", "ip")})
+    return result
+
+
+def actuator_zeros_from_snapshot(snapshot: dict, cad: CadMap, parameters: HandParameters,
+                                 configuration: HandConfiguration) -> dict[str, dict[str, list[float]]]:
+    """The ``*_actuator_zero_deg`` values that put each servo's zero at its CAD mate's zero, per digit:
+    ``{"finger": {field: [index, middle, ring]}, "thumb": {field: [value]}}``. Only servos with a mate appear."""
+    readings = actuator_readings(snapshot, cad)
+    coordinates = actuated_coordinates(parameters, configuration)
+    result: dict[str, dict[str, list[float]]] = {"finger": {}, "thumb": {}}
+    for key, reading in readings.items():
+        digit, joint = key.split("/")
+        group = "thumb" if digit == "thumb" else "finger"
+        zero = math.remainder(coordinates[key] - reading, 360.0)
+        result[group].setdefault(f"{joint}_actuator_zero_deg", []).append(zero)
+    return result
 
 
 def _line_error(model: tuple, cad_origin, cad_axis) -> tuple[float, float]:
@@ -153,8 +228,12 @@ def compare(parameters: HandParameters, configuration: HandConfiguration, snapsh
             cad: CadMap) -> dict[str, tuple[float, float]]:
     """``{key: (mm, deg)}``: servo and end-effector frames (``servo:``, ``ee:``) by position and rotation;
     servo mate connectors (``connector:``) by origin distance and axis angle; revolute axes (``axis:``) by line
-    distance and angle."""
-    frames = CoDeHand(parameters).frames(configuration)
+    distance and angle; actuator angles (``actuator:``) against the mates' readings, as (0, deg)."""
+    model = CoDeHand(parameters)
+    frames = model.frames(configuration)
+    actuators = model.actuators(configuration)
+    errors_actuator = {f"actuator:{k}": (0.0, abs(math.remainder(actuators[k] - v, 360.0)))
+                       for k, v in actuator_readings(snapshot, cad).items()}
     errors = {f"servo:{k}": frame_error(m, servo_frame(snapshot, cad, k)) for k, m in frames.servos.items()}
     for key, m in frames.servos.items():
         digit, joint = key.split("/")
@@ -172,7 +251,7 @@ def compare(parameters: HandParameters, configuration: HandConfiguration, snapsh
         if mate and mate in snapshot["revolutes"]:
             entry = snapshot["revolutes"][mate]
             errors[f"axis:{key}"] = _line_error(line, entry["origin_mm"], entry["axis"])
-    return errors
+    return {**errors, **errors_actuator}
 
 
 def finger_parameters_with_cad_linkage(snapshot: dict, finger: FingerParameters) -> FingerParameters:
