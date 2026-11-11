@@ -18,7 +18,7 @@ Assumptions, each to be identified on the hardware before dynamics are interpret
 - The position PID's units: error in encoder pulses, output in Goal PWM units (885 = 100 %), with
   ``K_PP = KPP(TBL) / 128`` as the manual states. The manual gives the conversion but not the units, so the
   resulting stiffness (about 12 N m/rad at the default gain, saturating at a 5 deg error) is model-derived.
-- No reflected rotor inertia is published. ``armature_kg_m2`` is a placeholder.
+- No reflected rotor inertia is published. ``armature_kg_m2`` is back-estimated (``ARMATURE_ESTIMATE``).
 - No friction or backlash is published (backlash "N/A"). Both are left out.
 - The listed N m/A ratios use the current measured at the supply input, not the motor phase current (the
   manual's Current Limit note), so they are not a motor torque constant.
@@ -37,6 +37,22 @@ from core.hardware.actuator import (
 )
 
 RPM = 2.0 * math.pi / 60.0
+
+ARMATURE_ESTIMATE = {
+    "nominal_kg_m2": 2.0e-3,
+    "range_kg_m2": (1.4e-3, 2.9e-3),
+    "method": (
+        "Back-estimated 2026-11-11, not identified. The datasheet's three voltage points give, at the motor (gear "
+        "323.04): speed constant 1540 rpm/V, torque constant 6.2 mN m/A, 14.2 ohm total resistance (driver and "
+        "wiring included) and 0.65-0.72 gear efficiency. Assuming a maxon coreless motor (user information; "
+        "ROBOTIS does not name it), frames whose rewinding to that torque constant leaves 10-12 ohm of motor "
+        "resistance fit: DCX 10 L (rotor 0.13 g cm^2) and DCX 12 S (0.275 g cm^2); DCX 12 L would need 3.4 ohm and "
+        "is excluded. Reflected: rotor x 323.04^2 = 1.4e-3 to 2.9e-3 kg m^2, plus the gear train's own inertia "
+        "(not included). No catalogue winding matches exactly: all are slower than the 17,100 rpm the XM335's "
+        "no-load speed implies at the motor, which also exceeds those lines' listed maximum speed. maxon pages "
+        "read 2026-11-11: DCX10L01EBSL601, DCX10L01EBKL635, DCX12S01EBKL695, DCX12L01EBKL633."
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -128,9 +144,10 @@ class XM335DriveModel:
     supply_voltage_v: float = 11.1
     position_p_gain_tbl: int = 2000
     pwm_limit_lsb: int = 885
-    armature_kg_m2: float = 5e-3
-    """Reflected rotor inertia at the output [kg m^2]: a placeholder, not published (identify from a no-load step:
-    the speed time constant is ``armature * no_load_speed / stall_torque``, about 27 ms at this value)."""
+    armature_kg_m2: float = ARMATURE_ESTIMATE["nominal_kg_m2"]
+    """Reflected rotor inertia at the output [kg m^2], back-estimated (``ARMATURE_ESTIMATE``; range 1.4e-3 to
+    2.9e-3). To identify: the no-load speed time constant is ``armature * no_load_speed / stall_torque``, about
+    11 ms at the nominal value."""
 
     @property
     def stall_torque_nm(self) -> float:
@@ -182,14 +199,16 @@ class XM335DriveModel:
             "duty_per_rad": self.duty_per_rad,
             "duty_limit": self.duty_limit,
             "armature_kg_m2": self.armature_kg_m2,
+            "armature_range_kg_m2": list(ARMATURE_ESTIMATE["range_kg_m2"]),
             "encoder_rad_per_pulse": d.rad_per_pulse,
             "position_p_gain_tbl": self.position_p_gain_tbl,
             "derived": {"stiffness_nm_per_rad": self.stiffness_nm_per_rad,
                         "back_emf_damping_nms_per_rad": self.back_emf_damping_nms_per_rad,
                         "saturation_error_rad": self.saturation_error_rad},
-            "assumptions": ["PID units: pulse in, PWM LSB out", "armature is a placeholder",
+            "assumptions": ["PID units: pulse in, PWM LSB out",
+                            "armature back-estimated from a maxon DCX 10 L / 12 S frame (gear train excluded)",
                             "no friction or backlash", "position I, D and feedforward gains 0, step goals"],
         }
 
 
-__all__ = ["XM335Actuator", "XM335Datasheet", "XM335DriveModel"]
+__all__ = ["ARMATURE_ESTIMATE", "XM335Actuator", "XM335Datasheet", "XM335DriveModel"]
