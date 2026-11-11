@@ -346,7 +346,7 @@ class LinkageConfig:
         """
 
         packaging = self.packaging
-        clearance = packaging.body_clearance_mm
+        clearance = 0.0
         a_pin = packaging.pivot_radius_mm("a") + clearance  # A against the distal pad
         b_pin = packaging.pivot_radius_mm("b") + clearance  # B against the proximal pad
         pads = clearance if packaging.pad_pad_check else -math.inf
@@ -595,7 +595,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         a_pivot_diameter_mm=pivot["a"], ap_pivot_diameter_mm=pivot["ap"],
         b_pivot_diameter_mm=pivot["b"], bp_pivot_diameter_mm=pivot["bp"],
         ap_clearance_diameter_mm=pivot["ap"],
-        body_clearance_mm=0.0, pad_mcp_clearance_mm=0.0, overlap_depth=True,
+        pad_mcp_clearance_mm=0.0, overlap_depth=True,
         proximal_pad=pad_values["proximal"][2], distal_pad=pad_values["distal"][2],
         allow_collision_pip_servo_to_joint_a=not checks["a_pin_and_a_prime_pin"],
         a_pin_servo_check=checks["a_pin_and_pip_servo"],
@@ -744,6 +744,10 @@ def packaging_from_mapping(values: Mapping[str, object]) -> LinkagePackaging:
     ``xm335``, ``core.hardware.ACTUATORS``) or as tables, pads as tables."""
 
     packaging = {name: value for name, value in values.items() if name not in DEPRECATED_PACKAGING_FIELDS}
+    # Zero-allowance archived runs have the same geometry. Positive-allowance results require
+    # their recorded source; silently dropping that value would change their formulation.
+    if float(packaging.pop("body_clearance_mm", 0.0)) != 0.0:
+        raise ValueError("body_clearance_mm was removed; use the recorded source for nonzero-clearance runs")
     if values.get("pip_servo_at", "ap") != "ap":
         raise ValueError("the PIP servo is on A' (the servo on A is no longer modelled)")
     if "pin_envelope_diameter_mm" in packaging:  # its earlier name (runs before 2026-10-21)

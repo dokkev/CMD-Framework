@@ -86,7 +86,7 @@ def raw_gaps(name, x, config):
     footprint = pip_footprint(packaging, finger)
     mcp = tuple(config.mcp_servo_angles_rad)
     capsules = link_capsule_margins(finger, packaging, sweep.b, sweep.tip, sweep.bp, 0.0)
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     proximal_own, distal_own = own_pin_gaps(finger, packaging)
     rows = [
         ("A pin housing - PIP servo body", pair_gap("a_pin", "pip_servo", rest), status("a_pin", "pip_servo"),
@@ -121,7 +121,7 @@ def raw_gaps(name, x, config):
     ]
     housings = {pin: packaging.pivot_radius_mm(pin) * 2 for pin in ("a", "ap", "b", "bp")}
     summary = {"config": name, "feasible_at_req": bool(evaluation.feasible), "phi_max_deg": phi_max,
-               "stop_reason": report.get("stop_reason"), "body_clearance_mm": clearance,
+               "stop_reason": report.get("stop_reason"), "extra_body_allowance_mm": clearance,
                "pin_housing_diameters_mm": housings, "bearing_note": "PIVOT_CLEARANCE_DIAMETER_MM docstring: "
                "McMaster 57155K424, 3 mm shaft, 6 mm OD, 2 mm wide, 7.2 x 0.6 mm flange, in 1 mm walls",
                "servo": {"radius_mm": packaging.pip_servo.radius_mm,
@@ -184,7 +184,7 @@ def main():
     (OUT / "audit.json").write_text(json.dumps(record, indent=2, default=str) + "\n")
     for r in results:
         print("==", r["config"], "| feasible", r["feasible_at_req"], "| phi_max", round(r["phi_max_deg"], 1),
-              "| clearance", r["body_clearance_mm"], "| housings", r["pin_housing_diameters_mm"])
+              "| clearance", r["extra_body_allowance_mm"], "| housings", r["pin_housing_diameters_mm"])
         for g in r["gaps"]:
             print(f"  {g['raw_gap_mm']:8.3f}  {g['pair']:48s} {g['model_status']:34s} {g['note']}")
     print("MCP sweep:", record["mcp_sweep_prototype_config"])

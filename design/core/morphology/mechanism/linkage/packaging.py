@@ -377,7 +377,7 @@ def link_capsule_margins(finger: Finger, packaging: LinkagePackaging, b: np.ndar
     crossing = {"a_bp": (a, bp), "ap_b": (ap, b)}
     bodies = {"proximal_pad": {**crossing, "bp_b": (bp, b), "b_c": (b, c)},
               "distal_pad": {**crossing, "o_a": (o, a), "a_ap": (a, ap), "ap_o": (ap, o)}}
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     return {(pad, f"link_{name}"): segment_polygon_gaps(pads[pad], start, end) - radius_mm - clearance
             for pad, bars in bodies.items() for name, (start, end) in bars.items()}
 
@@ -420,7 +420,7 @@ def servo_clearance(
     packaging = packaging or LinkagePackaging()
     footprint = pip_footprint(packaging, finger)
     sweep = finger.place(four_bar(finger).sweep_driver(driver_samples_rad))
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     link = driver_link_servo_gaps(finger, footprint, sweep.bp)
     dip = bp_pin_servo_margins(finger, packaging, sweep.b, sweep.tip, sweep.bp)
     return ServoClearance(

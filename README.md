@@ -33,3 +33,5 @@ Studies write figures and reports to the repository-level `report/`. Their run r
 
 The simulation side consumes geometry exports that carry their source commit. It does not reimplement or import
 `design/core`. See `sim/isaaclab/README.md`.
+
+Planar collision checks use actual hardware envelopes with no universal body-clearance allowance.

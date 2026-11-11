@@ -250,7 +250,7 @@ def margins(assembly: Assembly, poses: Poses, packaging: Packaging, pairs: Seque
 
     pairs = (*assembly.layout.pairs, *assembly.layout.kept) if pairs is None else pairs
     posed = _Posed(assembly, poses)
-    clearance = {"body": packaging.body_clearance_mm, "mcp": packaging.mcp_pad_clearance_mm, "touch": 0.0}
+    clearance = {"body": 0.0, "mcp": packaging.mcp_pad_clearance_mm, "touch": 0.0}
     result = {}
     for pair in pairs:
         margin = _gap(pair.first, pair.second, posed, packaging) - clearance[pair.clearance]
@@ -318,7 +318,7 @@ def _gap(first: str, second: str, posed: _Posed, packaging: Packaging) -> np.nda
             # Broad phase: the bounding boxes' gap bounds the gap from below.
             (low, high), (other_low, other_high) = posed.box(first), posed.box(second)
             result = np.hypot(*np.maximum(np.maximum(other_low - high, low - other_high), 0.0).T)
-            near = np.flatnonzero(result <= packaging.body_clearance_mm + _gaps.EXACT_BAND_MM)
+            near = np.flatnonzero(result <= _gaps.EXACT_BAND_MM)
             if not near.size:
                 return result
         else:
@@ -379,7 +379,7 @@ def _palm_gap(name: str, palm: str, posed: _Posed, packaging: Packaging) -> np.n
         # Footprints whose circumscribed circles are apart by more than the body clearance cannot touch.
         footprint = shape.footprint
         apart = math.hypot(*footprint.pivot) - footprint.reach_mm - packaging.mcp_footprint().reach_mm
-        gap = apart if apart > packaging.body_clearance_mm else packaging.mcp_servo_gap_mm(footprint, samples)
+        gap = apart if apart > 0.0 else packaging.mcp_servo_gap_mm(footprint, samples)
         return np.full(count, gap)
     if isinstance(shape, Bar):
         segment = np.stack((poses.point(shape.start), poses.point(shape.end)), axis=1)

@@ -156,7 +156,7 @@ def create_animation(
     # Dashed: the pin envelopes (bearing housing or flange) grown by the body clearance,
     # the zone the servo body must stay out of.
     rings = {
-        name: Circle((0.0, 0.0), packaging.pivot_radius_mm(name) + packaging.body_clearance_mm, fill=False,
+        name: Circle((0.0, 0.0), packaging.pivot_radius_mm(name), fill=False,
                      linestyle="--", linewidth=1.0, edgecolor=color, zorder=4)
         for name, color in (("a", RED), ("bp", BLUE), ("b", BLUE))
     }
@@ -274,7 +274,7 @@ def create_animation(
             f"  (A-B' {math.degrees(pose.q_driver_rad):5.1f}°, DIP {math.degrees(pose.q_dip_rad):5.1f}°)\n"
             f"{'crossed' if pose.is_crossed else 'open':7s} "
             f"{transmission_text(pose)}"
-            f"  link-servo clearance {clearances[index] + packaging.body_clearance_mm:5.1f} mm\n"
+            f"  link-servo clearance {clearances[index]:5.1f} mm\n"
             f"pad margin {pad_margin:5.1f} mm ({pad_pair})"
             f"{'  COLLISION' if colliding else ''}"
         )

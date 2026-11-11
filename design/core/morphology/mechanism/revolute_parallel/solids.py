@@ -70,7 +70,7 @@ def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
     pulleys, in the outer layer, meet neither pad)."""
 
     packaging = checks.packaging
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     joint = geo.joint
     distal = joint.distal_pad(phi)
     margins = {

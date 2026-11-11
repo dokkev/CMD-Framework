@@ -176,7 +176,7 @@ def _linkage_hardware(finger, packaging) -> dict[str, list[tuple[float, float, f
     b, c = np.array((joint.b.x_mm, joint.b.z_mm)), np.array((finger.tip.x_mm, finger.tip.z_mm))
     u = (c - b) / np.linalg.norm(c - b)
     v = np.array((-u[1], u[0]))
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     frame = lambda point, origin, along, dorsal: (float((point - origin) @ along),  # noqa: E731
                                                   float((point - origin) @ dorsal))
     pins = {"proximal": (("a", a), ("ap", np.array((joint.ap.x_mm, joint.ap.z_mm)))),
@@ -220,7 +220,7 @@ def _linkage_mounting(finger, config) -> Mounting:
             a = np.array((finger.joint.a.x_mm, finger.joint.a.z_mm))
             e = a / np.linalg.norm(a)
             outline = pip_footprint(packaging, finger).outline @ np.column_stack((e, (-e[1], e[0])))
-            native[0] = max(native[0], footprint_reach_mm(outline, spans["proximal"], packaging.body_clearance_mm))
+            native[0] = max(native[0], footprint_reach_mm(outline, spans["proximal"], 0.0))
 
     def clear(depths: Sequence[float]) -> list[bool]:
         posed = dataclasses.replace(finger, pad_offsets_mm=(float(depths[0]), float(depths[1])))
@@ -275,7 +275,7 @@ def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
     from core.optimization.revolute.evaluate import geometry
 
     goal = config.goal
-    packaging, clearance = goal.packaging, goal.packaging.body_clearance_mm
+    packaging, clearance = goal.packaging, 0.0
     radius = config.joint_radius_mm
     slots = (VARIABLE_NAMES.index("proximal_drop_mm"), VARIABLE_NAMES.index("distal_drop_mm"))
 
@@ -360,7 +360,7 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
     from core.optimization.rcj.evaluate import geometry
 
     goal = config.goal
-    packaging, clearance = goal.packaging, goal.packaging.body_clearance_mm
+    packaging, clearance = goal.packaging, 0.0
     slots = (VARIABLE_NAMES.index("proximal_drop_mm"), VARIABLE_NAMES.index("distal_drop_mm"))
 
     def at(depths: Sequence[float]):

@@ -211,7 +211,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
     """
 
     packaging = checks.packaging
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     count = len(phi)
     distal = geo.distal_pad(phi)
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))

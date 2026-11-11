@@ -48,7 +48,7 @@ def test_a_pad_under_its_hardware_mounts_at_the_least_depth_that_clears_it():
     code, dd = load()
     # CoDe: the distal pad under B, as deep as B's housing reaches, no deeper.
     found = mounting("linkage", CODE_UNDER_B, code)
-    radius = code.packaging.pivot_radius_mm("b") + code.packaging.body_clearance_mm
+    radius = code.packaging.pivot_radius_mm("b")
     assert found.depths_mm == (0.0, pytest.approx(radius)) and found.cases == ("A", "B")
     assert found.native_mm[1] == pytest.approx(radius)
     # The 2R-DD: the least depth depends on how far the pad runs under the servo.

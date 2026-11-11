@@ -252,7 +252,7 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
         worst_transmission_quality=float(np.sin(margin).min()),
         min_margin_rad=float(margin.min()),
         toggle_margin_rad=float(toggle.min()),
-        driver_link_servo_clearance_mm=float(link.min()) - packaging.body_clearance_mm,
+        driver_link_servo_clearance_mm=float(link.min()),
         closes_to_rad=float(sweep.q_driver_rad[-1]),
         lever_max_mm=lever,
         torque_ratio_max=ratio,

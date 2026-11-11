@@ -149,7 +149,7 @@ def servo_floor_x(packaging: Packaging, pivot_z: float, rear: tuple[float, float
 
     def clear(x: float) -> bool:
         footprint = ServoFootprint((x, pivot_z), rear, servo.radius_mm, servo.rear_extent_mm)
-        return packaging.mcp_servo_gap_mm(footprint, angles) - packaging.body_clearance_mm >= 0.0
+        return packaging.mcp_servo_gap_mm(footprint, angles) - 0.0 >= 0.0
 
     high = 200.0
     low = high - 5.0

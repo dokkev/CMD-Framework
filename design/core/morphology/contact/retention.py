@@ -204,7 +204,7 @@ def pair_margins(solids: Solids, pairs: Sequence[Pair], packaging: Packaging,
     """Each checked pair's margin beyond its clearance at each of the
     ``count`` samples, by :attr:`Pair.name` (``inf``: an empty module's)."""
 
-    clearance = {"body": packaging.body_clearance_mm, "mcp": packaging.mcp_pad_clearance_mm, "none": OWN_BODY_GAP_MM}
+    clearance = {"body": 0.0, "mcp": packaging.mcp_pad_clearance_mm, "none": OWN_BODY_GAP_MM}
     empty = {"proximal_module": solids.proximal.empty, "distal_module": solids.distal.empty}
     per_sample = {}
     for pair in pairs:

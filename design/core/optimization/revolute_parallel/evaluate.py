@@ -111,7 +111,7 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
 
     goal = config.goal
     packaging = goal.packaging
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     geo = geometry(x, config)
     joint = geo.joint
     length_low, length_high = goal.extended_length_bounds_mm

@@ -104,7 +104,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
 
     goal = config.goal
     packaging = goal.packaging
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     geo = geometry(x, config)
     r = geo.roller_radius_mm
     length_low, length_high = goal.extended_length_bounds_mm

@@ -184,7 +184,7 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     against the MCP servo at ``mcp_samples_rad`` (``until_unsafe`` as the
     2R's: the MCP servo pair only up to the first sample another pair fails at)."""
 
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     count = len(phi)
     r = geo.roller_radius_mm
     distal = geo.distal_pad(phi)

@@ -95,6 +95,7 @@ def _job(args):
 
 
 def main():
+    raise SystemExit("Historical E06 requires the archived source snapshot: uniform body clearance was removed. Use explicit hardware dimensions for new studies.")
     out = common.output("e06_clearance")
     refs = common.references()
     jobs = [(rid, c, v) for rid in refs for c in CLEARANCES for v in VARIANTS]

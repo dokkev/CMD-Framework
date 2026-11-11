@@ -26,11 +26,10 @@ from core.morphology.packaging.assembly import (
     Poses,
     margins,
 )
-from core.morphology.packaging.hardware import BODY_CLEARANCE_MM, PIVOT_CLEARANCE_DIAMETER_MM, ContactPad, Packaging
+from core.morphology.packaging.hardware import PIVOT_CLEARANCE_DIAMETER_MM, ContactPad, Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, carrier_outline, pad_outline
 
 __all__ = [
-    "BODY_CLEARANCE_MM",
     "PALM",
     "PIVOT_CLEARANCE_DIAMETER_MM",
     "Assembly",

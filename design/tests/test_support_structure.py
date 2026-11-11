@@ -99,7 +99,7 @@ def test_the_mcp_check_moves_the_proximal_pad_off_o() -> None:
     assert proximal_pad_polygon(linkage, off)[-1] == pytest.approx((0.0, -r))
     assert not any("mcp_servo" in pair for pair in checked_pairs(off))
     # On: it starts past the servo's shaft disk, and both pads are checked against the servo.
-    on_start = HOUSING_ONLY.mcp_servo.radius_mm + HOUSING_ONLY.body_clearance_mm
+    on_start = HOUSING_ONLY.mcp_servo.radius_mm
     assert proximal_pad_polygon(linkage, HOUSING_ONLY)[-1] == pytest.approx((on_start, -r))
     assert {("mcp_servo", "proximal_pad"), ("distal_pad", "mcp_servo")} <= set(checked_pairs(HOUSING_ONLY))
     assert pad_spans(decode(GOOD), HOUSING_ONLY)["proximal_pad"].length_mm == pytest.approx(41.6 - on_start)

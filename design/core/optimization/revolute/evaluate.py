@@ -220,7 +220,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
 
     goal = config.goal
     packaging = goal.packaging
-    clearance = packaging.body_clearance_mm
+    clearance = 0.0
     geo = geometry(x, config)
     length_low, length_high = goal.extended_length_bounds_mm
     oa_low, oa_high = goal.proximal_length_bounds_mm

@@ -72,7 +72,7 @@ class FourBarView(KinematicJoint):
         joint, packaging = self.finger.joint, self.packaging
         o, a, ap = np.zeros(2), joint.a.array, joint.ap.array
         solid.servo(axis, pip_footprint(packaging, self.finger).outline, "proximal", "pip_servo" in hit)
-        grown = packaging.body_clearance_mm
+        grown = 0.0
         for name, center, group in (("a", a, "proximal"), ("ap", ap, "proximal"), ("bp", bp, "distal"),
                                     ("b", b, "distal")):
             radius = packaging.pivot_radius_mm(name)

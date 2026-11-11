@@ -28,3 +28,7 @@ Run from the repository root in the `cmd` environment, with
 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. E05b and E10b write side tables into
 the E05 and E10 folders. The main scripts start from a fresh folder, so rerun
 the follow-up after its main script.
+
+The uniform `body_clearance_mm` parameter was removed on 2026-11-09. E06 is a historical experiment and
+must use its saved source snapshot; its current entrypoint exits with that explanation. New clearance
+questions should vary explicit housing dimensions. Existing CSVs and reports have not been regenerated.

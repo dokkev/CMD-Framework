@@ -58,7 +58,7 @@ X = (40.2, 72.8, 0.0, 44.9, 11.6, 63.8, 10.0, 25.0, 27.2, 0.0, -4.7, -9.0, 3.0, 
 PRODUCTION_A, PRODUCTION_AP = PointXZ(40.0, 0.0), PointXZ(45.0, 11.0)
 PRODUCTION_B, PRODUCTION_BP = PointXZ(75.0, 0.0), PointXZ(60.0, 10.0)
 PRODUCTION = LinkagePackaging(
-    pivot_clearance_diameter_mm=6.0, body_clearance_mm=0.0, a_pivot_diameter_mm=6.0, ap_pivot_diameter_mm=10.0,
+    pivot_clearance_diameter_mm=6.0, a_pivot_diameter_mm=6.0, ap_pivot_diameter_mm=10.0,
     b_pivot_diameter_mm=6.0, bp_pivot_diameter_mm=6.0, ap_clearance_diameter_mm=10.0, pad_mcp_clearance_mm=0.0,
     allow_collision_pip_servo_to_joint_a=True,
     pip_servo_above_oa=False, pip_servo_pad_check=True, a_pin_servo_check=True, links_clear_pads=True,
@@ -102,25 +102,26 @@ def toy_assembly(**shapes) -> Assembly:
 
 
 def test_margins_measure_each_kind_of_pair():
-    packaging = Packaging(body_clearance_mm=0.5, overlap_depth=True)
+    packaging = Packaging(overlap_depth=True)
     built = toy_assembly(square=Polygon(SQUARE), shifted=Polygon(SQUARE + (0.75, 0.0)), disk=Disk("p", 1.0),
                          other=Disk("q", 0.5), bar=Bar("q", "r"), servo=Footprint(ServoFootprint((10.0, 0.0), (1.0, 0.0),
                                                                                                      2.0, 5.0)))
     poses = Poses(1, points={"p": np.array((3.0, 0.5)), "q": np.array((3.0, 3.0)), "r": np.array((6.0, 3.0))})
     found = margins(built, poses, packaging, [Pair("shifted", "square"), Pair("disk", "square"), Pair("disk", "other"),
                                               Pair("bar", "square"), Pair("bar", "servo", "touch")])
-    assert found[("shifted", "square")][0] == pytest.approx(-0.25 - 0.5)       # overlapping by its depth
-    assert found[("disk", "square")][0] == pytest.approx(1.0 - 0.5)             # 2 from the edge, less the radius
-    assert found[("disk", "other")][0] == pytest.approx(2.5 - 1.5 - 0.5)
-    assert found[("bar", "square")][0] == pytest.approx(math.hypot(2.0, 2.0) - 0.5)
+    assert found[("shifted", "square")][0] == pytest.approx(-0.25)       # overlapping by its depth
+    assert found[("disk", "square")][0] == pytest.approx(1.0)             # 2 from the edge, less the radius
+    assert found[("disk", "other")][0] == pytest.approx(2.5 - 1.5)
+    assert found[("bar", "square")][0] == pytest.approx(math.hypot(2.0, 2.0))
     assert found[("bar", "servo")][0] == pytest.approx(math.hypot(4.0, 3.0) - 2.0)  # to the servo's round front
-    # Snapped: a part set exactly the clearance away does not fail by rounding.
-    touching = margins(built, poses, Packaging(body_clearance_mm=1.0 + 1e-12), [Pair("disk", "square")])
+    # Snapped: actual contact does not fail by rounding.
+    contact_pose = Poses(1, points={"p": np.array((2.0 - 1e-12, 0.5))})
+    touching = margins(built, contact_pose, Packaging(), [Pair("disk", "square")])
     assert touching[("disk", "square")][0] == 0.0
 
 
 def test_far_pairs_may_report_a_lower_bound_and_one_bodys_are_exact():
-    packaging = Packaging(body_clearance_mm=0.0)
+    packaging = Packaging()
     far = (gaps.EXACT_BAND_MM + 5.0, gaps.EXACT_BAND_MM + 5.0)
     built = toy_assembly(square=Polygon(SQUARE), far=Polygon(SQUARE + far))
     found = margins(built, Poses(1), packaging, [Pair("far", "square")])
@@ -135,13 +136,13 @@ def test_moving_bodies_are_posed_by_their_frame():
     built = toy_assembly(square=Polygon(SQUARE), moving=Polygon(SQUARE))
     built = Assembly(Layout((Part("square", "fixed", CENTRAL), Part("moving", "arm", CENTRAL))), built.shapes)
     poses = Poses(2, origin={"arm": np.array(((3.0, 0.0), (0.0, 3.0)))}, axis={"arm": np.array(((1.0, 0.0), (0.0, 1.0)))})
-    found = margins(built, poses, Packaging(body_clearance_mm=0.0), [Pair("moving", "square")])
+    found = margins(built, poses, Packaging(), [Pair("moving", "square")])
     # Shifted along x by 3 (2 clear), then turned a quarter and set at (0, 3): spans x -1..0, y 3..4 (2 clear).
     assert found[("moving", "square")] == pytest.approx([2.0, 2.0])
 
 
 def test_the_palm_turns_its_servo_over_the_mcp_samples():
-    packaging = Packaging(body_clearance_mm=0.0, pad_mcp_clearance_mm=0.0)
+    packaging = Packaging(pad_mcp_clearance_mm=0.0)
     servo = packaging.mcp_footprint()
     pad = SQUARE * 5.0 + (20.0, -20.0)
     built = Assembly(Layout((Part("mcp", PALM, CENTRAL), Part("pad", "proximal", CENTRAL, pad=True))),

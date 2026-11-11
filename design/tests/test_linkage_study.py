@@ -63,7 +63,7 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert [packaging.pivot_radius_mm(p) for p in ("a", "ap", "b", "bp")] == [3.0, 5.0, 3.0, 3.0]
     assert packaging.ap_clearance_diameter_mm == 10.0
     assert packaging.interface_offset_mm("proximal_pad") == 0.0 and packaging.interface_offset_mm("distal_pad") == 0.0
-    assert packaging.body_clearance_mm == 0.0 and packaging.mcp_pad_clearance_mm == 0.0
+    assert not hasattr(packaging, "body_clearance_mm") and packaging.mcp_pad_clearance_mm == 0.0
     assert packaging.proximal_pad_start_mm == packaging.mcp_servo.radius_mm
     assert not packaging.pip_servo_above_oa and packaging.pip_servo_pad_check and packaging.overlap_depth
     # With pad_coverage the pads are capped at their max (null: the finger's max).
@@ -193,10 +193,11 @@ def test_the_pip_servo_may_come_down_to_the_pad_but_not_into_it():
     assert MECHANISM.evaluate(low, config).constraints["pip_servo_pad_mm"] > 0.0
 
 
-def test_packaging_defaults_keep_the_older_checks():
+def test_packaging_defaults_use_signed_overlap_without_changing_pair_selection():
     packaging = LinkagePackaging()
     assert packaging.interface_offset_mm("proximal_pad") == packaging.interface_offset_mm("distal_pad") == 0.0
-    assert packaging.pip_servo_above_oa and not packaging.pip_servo_pad_check and not packaging.overlap_depth
+    assert packaging.pip_servo_above_oa and not packaging.pip_servo_pad_check
+    assert packaging.overlap_depth
     assert all(packaging.pivot_radius_mm(p) == packaging.pin_radius_mm for p in ("a", "ap", "b", "bp"))
 
 

@@ -15,7 +15,7 @@ servo, pins and pads is its own (``core.morphology.mechanism.linkage.packaging``
 free to stand out of it: ``a-b`` on the segment's mounting line, ``c-d`` its
 height palmar of it (:class:`ContactPad`). The proximal pad starts at
 :attr:`Packaging.proximal_pad_start_mm` (``O``, past the MCP servo's shaft
-disk by the body clearance when ``pad_mcp_check``, plus its offset); the
+disk with no extra body allowance when ``pad_mcp_check``, plus its offset); the
 distal pad starts its offset short of the fingertip. Without
 ``pad_mcp_check`` the MCP servo is not checked.
 """
@@ -33,15 +33,12 @@ from core.morphology.packaging.shapes import ServoFootprint, separation, turn_po
 
 PIVOT_CLEARANCE_DIAMETER_MM = 8.0
 """Diameter of the metal around each pivot pin (``A``, ``A'``, ``B``, ``B'``) in
-the side view, which other parts keep the body clearance from.
+the side view; other solids may touch but must not penetrate it.
 The pins run in McMaster 57155K424 flanged ball bearings (trade no. 63: 3 mm
 shaft, 6 mm OD, 2 mm wide, 7.2 x 0.6 mm flange), one on each side of a joint,
 pressed into 1 mm aluminium walls: the 8 mm housing is wider than the flange."""
 
 
-BODY_CLEARANCE_MM = 1.0
-"""Servo to servo, servo to pin envelope, servo to moving parts, and the
-pads to the parts of other bodies."""
 
 
 MARGIN_TOLERANCE_MM = 1e-9
@@ -95,7 +92,7 @@ class Packaging:
     """Hardware dimensions of a finger's planar packaging, whatever its mechanism.
 
     The finger's own servo (``pip_servo``) and the MCP servo, the pin
-    housings' default size, the body clearance, the two contact pads and the
+    housings' default size, the two contact pads and the
     distal pad's carrier, and which pairs every mechanism checks
     (``pad_pad_check``, ``pip_servo_pad_check``, ``a_pin_servo_check``, the
     pads against the MCP servo). ``mcp_servo_rear`` is the unit direction of
@@ -109,14 +106,13 @@ class Packaging:
     mcp_servo_rear: tuple[float, float] = (0.0, 1.0)
     pivot_clearance_diameter_mm: float = PIVOT_CLEARANCE_DIAMETER_MM
     """Diameter of each pivot pin's housing (:data:`PIVOT_CLEARANCE_DIAMETER_MM`); the
-    body clearance is kept beyond it."""
-    body_clearance_mm: float = BODY_CLEARANCE_MM
+    actual housing geometry is the nonpenetration boundary."""
     proximal_pad: ContactPad = field(default_factory=ContactPad)
     distal_pad: ContactPad = field(default_factory=ContactPad)
     pad_mcp_check: bool = True
     pad_mcp_clearance_mm: float | None = None
     """Least gap of the pads to the MCP servo, which also places the proximal
-    pad's start; ``None``: ``body_clearance_mm``."""
+    pad's start; ``None``: zero additional gap."""
     pip_servo_pad_check: bool = False
     """The PIP servo body keeps clear of the proximal pad (one body, still
     kept apart): it may come down to the pad's top face."""
@@ -133,7 +129,7 @@ class Packaging:
     of its top face, kept clear of the PIP servo body. The rest of the distal
     link is not checked against the servo (a bracket in other Y layers). 0: no
     carrier checked."""
-    overlap_depth: bool = False
+    overlap_depth: bool = True
     """Report an overlap of two solids by its depth (negative), not as a zero
     gap, so a zero clearance still rejects it. Off: overlapping solids count as
     touching, which only a positive clearance rejects."""
@@ -174,7 +170,7 @@ class Packaging:
     @property
     def proximal_pad_start_mm(self) -> float:
         """``x`` of the proximal pad's first edge ``a-c``: ``O``, or the MCP servo's
-        shaft disk plus the body clearance with ``pad_mcp_check``, plus the pad's
+        shaft disk with ``pad_mcp_check``, plus the pad's
         offset."""
 
         clear = self.mcp_servo.radius_mm + self.mcp_pad_clearance_mm if self.pad_mcp_check else 0.0
@@ -184,7 +180,7 @@ class Packaging:
     def mcp_pad_clearance_mm(self) -> float:
         """The pads' least gap to the MCP servo (``pad_mcp_clearance_mm``)."""
 
-        return self.body_clearance_mm if self.pad_mcp_clearance_mm is None else self.pad_mcp_clearance_mm
+        return 0.0 if self.pad_mcp_clearance_mm is None else self.pad_mcp_clearance_mm
 
     def pad_checks_mcp(self, pad: str) -> bool:
         """Whether a pad (``"proximal_pad"``, ``"distal_pad"``) is checked against the MCP servo."""
@@ -233,7 +229,6 @@ PIN_SPACING_MM = Packaging().pin_spacing_mm
 
 
 __all__ = [
-    "BODY_CLEARANCE_MM",
     "ContactPad",
     "MARGIN_TOLERANCE_MM",
     "PIN_RADIUS_MM",
