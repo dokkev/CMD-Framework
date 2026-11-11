@@ -1,6 +1,7 @@
 """The CoDe parametric model against the saved CAD ground truth, and the Onshape mate algebra (no network)."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +26,7 @@ from core.cad.layout_mates import (
 )
 from core.morphology.code_hand import (
     CoDeHand,
+    HandConfiguration,
     FingerParameters,
     HandParameters,
     Pose,
@@ -37,6 +39,47 @@ SNAPSHOT = json.loads((CAD_DIR / "cad_snapshot.json").read_text())
 _SETTINGS = yaml.safe_load((CAD_DIR / "onshape.yaml").read_text())
 CAD = CadMap(_SETTINGS["instances"], _SETTINGS["end_effectors"])
 FACE = frame_from_axes([0.0, -14.125, -11.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0])
+
+
+def test_geometric_zero_has_a_straight_thumb_independent_of_the_saved_cad_pose():
+    parameters, observed = load()
+    frames = CoDeHand(parameters).frames()
+    points = [frames.servos[f"thumb/{joint}"][:3, 3] for joint in ("raa", "mcp", "ip")]
+    points.append(frames.points["thumb/tip"])
+    direction = frames.servos["thumb/raa"][:3, 2]
+    for first, second in zip(points, points[1:]):
+        assert np.cross(second - first, direction) == pytest.approx(np.zeros(3), abs=1e-10)
+        assert (second - first) @ direction > 0.0
+    assert observed.thumb.mcp_deg != 0.0
+
+
+JOINTS = [(digit, joint, child) for digit in ("index", "middle", "ring")
+          for joint, child in (("aa", "fe"), ("fe", "pip"), ("pip", None))]
+JOINTS += [("thumb", joint, child) for joint, child in
+           (("ro", "raa"), ("raa", "mcp"), ("mcp", "ip"), ("ip", None))]
+
+
+@pytest.mark.parametrize("digit,joint,child", JOINTS)
+def test_positive_joint_increment_is_ccw_about_local_positive_z(digit, joint, child):
+    parameters, _ = load()
+    model = CoDeHand(parameters)
+    zero = HandConfiguration()
+    posed = replace(zero, **{digit: replace(getattr(zero, digit), **{f"{joint}_deg": 0.001})})
+    before, after = model.frames(zero), model.frames(posed)
+    if joint == "pip":
+        # Distal orientation, rather than actuator rotation or a fixed-pivot assumption.
+        vector = before.points[f"{digit}/C"] - before.axes[f"{digit}/B"][0]
+        moved = after.points[f"{digit}/C"] - after.axes[f"{digit}/B"][0]
+        axis = before.servos[f"{digit}/fe"][:3, 2]
+    elif joint == "ip":
+        vector = before.points["thumb/tip"] - before.servos["thumb/ip"][:3, 3]
+        moved = after.points["thumb/tip"] - after.servos["thumb/ip"][:3, 3]
+        axis = before.axes["thumb/ip"][1]
+    else:
+        vector = before.servos[f"{digit}/{child}"][:3, 0]
+        moved = after.servos[f"{digit}/{child}"][:3, 0]
+        axis = before.axes[f"{digit}/{joint}"][1]
+    assert (moved - vector) @ np.cross(axis, vector) > 0.0
 
 
 def test_prototype_reproduces_the_cad_ground_truth():

@@ -1,8 +1,9 @@
 """Draw the CoDe parametric model (core/morphology/code_hand): servos, joint axes and linkages, no CAD.
 
-    python -m visualize.code_hand                         # the CAD pose stored in prototype.yaml
+    python -m visualize.code_hand                         # geometric zero (all joint coordinates 0)
+    python -m visualize.code_hand --pose cad              # observed CAD pose stored in prototype.yaml
     python -m visualize.code_hand --pose zero             # every joint at 0
-    python -m visualize.code_hand --pose zero --set index.pip_deg=60 thumb.mcp_deg=30
+    python -m visualize.code_hand --pose zero --set index.pip_deg=60 thumb.mcp_deg=-30
     python -m visualize.code_hand --params my_hand.yaml --out output/code_hand/my_hand.png
 
 Each servo is the XM335 body (``core.hardware.xm335``: a D profile, rounded at the shaft, extruded along it)
@@ -107,7 +108,7 @@ def draw(ax, frames) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--params", type=Path, default=PROTOTYPE)
-    parser.add_argument("--pose", choices=("cad", "zero"), default="cad")
+    parser.add_argument("--pose", choices=("cad", "zero"), default="zero")
     parser.add_argument("--set", nargs="*", default=[], metavar="DIGIT.JOINT=DEG",
                         help="override joints, e.g. index.pip_deg=60 thumb.ro_deg=-30")
     parser.add_argument("--out", type=Path)

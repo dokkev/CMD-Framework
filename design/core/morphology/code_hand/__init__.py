@@ -1,6 +1,7 @@
 """The CoDe hand's parametric model: independent parameters (``parameters``) and derived frames (``model``).
 
-The current CAD (Onshape ``hand-layout``) is the ground truth the defaults reproduce; see ``core.cad.code_hand``.
+Joint angles are CCW positive about local +Z. Zero is the extended geometric reference, independent of
+the CAD pose; ``core.cad.code_hand`` maps saved CAD observations into these coordinates.
 """
 
 from core.morphology.code_hand.model import ClosureError, CoDeHand, HandFrames, four_bar

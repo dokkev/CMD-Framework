@@ -12,15 +12,18 @@ Each servo's axis is its part frame's ``+Z``. The chains (``@`` composes left to
     finger:  base      = layout pose (MCP-AA servo)
              MCP-FE    = base Rz(90) Rz(aa) T(fe_x, 0, fe_z) Rx(-90)
              proximal  = MCP-FE Rz(fe)             (its X-Y plane is the linkage plane, Y palmar)
-             PIP servo = proximal T(Ap_x, -Ap_z, 0) Rz(-pip_servo_angle)
+             PIP servo = proximal T(Ap_x, -Ap_z, 0) Rz(pip_servo_tilt - 90)
     thumb:   RO        = layout pose
-             RAA       = RO Rz(ro_zero + ro) Tz(ro_to_raa) Ry(-90)
-             MCP       = RAA Rz(raa_zero + raa) Tz(raa_to_mcp) Ry(-90) Rz(mcp_zero - mcp)
+             RAA       = RO Rz(ro) Tz(ro_to_raa) Ry(-90)
+             MCP       = RAA Rz(raa + raa_to_mcp_clocking) Tz(raa_to_mcp) Ry(-90) Rz(90) Rz(mcp)
              IP        = MCP Ty(-mcp_to_ip)
-             EE        = IP Rz(-ip) T(ee_x, ee_y, ee_z)
+             EE        = IP Rz(ip) T(ee_x, ee_y, ee_z)
 
-The MCP servo body rides on the thumb's distal side, so the MCP angle turns the MCP servo frame itself. Thumb
-MCP and IP turn about their servos' ``-Z``, so that positive is flexion (toward the pad), as for the fingers.
+All joint coordinates are right-handed (CCW viewed from +Z toward the origin) about their local +Z axes.
+The MCP servo body rides on the thumb's distal side, so the MCP angle turns the MCP servo frame itself.
+Joint zero is defined by these transforms and the extended four-bar, independently of the CAD pose.
+The fixed MCP Rz(90) aligns its -Y with RAA +Z: at MCP/IP zero the RAA, MCP, IP and tip centres lie
+on a straight line (for an on-centre tip, ee_x = ee_z = 0).
 """
 
 from __future__ import annotations
@@ -100,7 +103,11 @@ def reference_four_bar(finger: FingerParameters) -> FourBar:
 
 
 def four_bar(finger: FingerParameters, pip_deg: float) -> FourBarPose:
-    """The pins with the distal segment turned ``pip_deg`` into flexion (clockwise in ``x-z``)."""
+    """Distal rotation about local +Z (CCW in the proximal X-Y plane).
+
+    The linkage solver uses (x, z dorsal), mapped to (x, -z) in the proximal X-Y plane;
+    its clockwise-positive flexion therefore already equals the model's CCW-positive coordinate.
+    """
     pose = reference_four_bar(finger).solve(math.radians(pip_deg))
     xz = lambda p: np.array([p.x_mm, p.z_mm])
     b = xz(pose.b)
@@ -137,7 +144,7 @@ class CoDeHand:
         fe_servo = (base @ rz(90.0) @ rz(q.aa_deg) @ trans(p.fe_axis_x_mm, 0.0, p.fe_axis_z_mm)
                     @ rx(-90.0))
         proximal = fe_servo @ rz(q.fe_deg)
-        pip_servo = proximal @ trans(p.ap_x_mm, -p.ap_z_mm, 0.0) @ rz(-p.pip_servo_angle_deg)
+        pip_servo = proximal @ trans(p.ap_x_mm, -p.ap_z_mm, 0.0) @ rz(p.pip_servo_tilt_deg - 90.0)
         pins = four_bar(p, q.pip_deg)
 
         def plane(point) -> np.ndarray:  # linkage plane (x, z dorsal) -> H, through the servo centres
@@ -155,10 +162,11 @@ class CoDeHand:
     def thumb_frames(self, q) -> HandFrames:
         p = self.parameters.thumb
         ro = self.parameters.layout.thumb.matrix()
-        raa = ro @ rz(p.ro_zero_deg + q.ro_deg) @ trans(z=p.ro_to_raa_mm) @ ry(-90.0)
-        mcp = raa @ rz(p.raa_zero_deg + q.raa_deg) @ trans(z=p.raa_to_mcp_mm) @ ry(-90.0) @ rz(p.mcp_zero_deg - q.mcp_deg)
+        raa = ro @ rz(q.ro_deg) @ trans(z=p.ro_to_raa_mm) @ ry(-90.0)
+        mcp = (raa @ rz(q.raa_deg + p.raa_to_mcp_clocking_deg) @ trans(z=p.raa_to_mcp_mm)
+               @ ry(-90.0) @ rz(90.0) @ rz(q.mcp_deg))
         ip = mcp @ trans(y=-p.mcp_to_ip_mm)
-        ee = ip @ rz(-q.ip_deg) @ trans(p.ee_x_mm, p.ee_y_mm, p.ee_z_mm)
+        ee = ip @ rz(q.ip_deg) @ trans(p.ee_x_mm, p.ee_y_mm, p.ee_z_mm)
         servos = {"thumb/ro": ro, "thumb/raa": raa, "thumb/mcp": mcp, "thumb/ip": ip}
         return HandFrames(servos=servos, axes={k: _axis(v) for k, v in servos.items()},
                           points={"thumb/tip": ee[:3, 3].copy()}, ends={"thumb/ee": ee})

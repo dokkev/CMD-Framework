@@ -109,7 +109,8 @@ def configuration_from_snapshot(snapshot: dict, cad: CadMap, parameters: HandPar
         # aa: the FE axis (fe +Z) turned about the base axis from its zero direction (base frame -X, i.e. H +Y)
         aa = _angle_about(base[:3, 2], (base @ rz(90.0))[:3, 1], fe[:3, 2])
         # fe: the PIP servo's x turned about the FE axis from its zero-pose direction
-        zero = fe @ trans(parameters.finger.ap_x_mm, -parameters.finger.ap_z_mm) @ rz(-parameters.finger.pip_servo_angle_deg)
+        zero = (fe @ trans(parameters.finger.ap_x_mm, -parameters.finger.ap_z_mm)
+                @ rz(parameters.finger.pip_servo_tilt_deg - 90.0))
         fe_deg = _angle_about(fe[:3, 2], zero[:3, 0], pip[:3, 0])
         # pip: from the B and B' pins, in the linkage plane of the posed proximal frame
         proximal = fe @ rz(fe_deg)
@@ -131,9 +132,9 @@ def configuration_from_snapshot(snapshot: dict, cad: CadMap, parameters: HandPar
     partial = raa @ rz(raa_raw) @ trans(z=p.raa_to_mcp_mm) @ ry(-90.0)
     mcp_raw = _angle_about(partial[:3, 2], partial[:3, 0], mcp[:3, 0])
     wrap = lambda deg: math.remainder(deg, 360.0)
-    ro_deg, raa_deg, mcp_deg = (wrap(raw - zero) for raw, zero in
-                                ((ro_raw, p.ro_zero_deg), (raa_raw, p.raa_zero_deg), (mcp_raw, p.mcp_zero_deg)))
-    mcp_deg = -mcp_deg  # thumb MCP is positive in flexion, about the servo's -Z
+    ro_deg = wrap(ro_raw)
+    raa_deg = wrap(raa_raw - p.raa_to_mcp_clocking_deg)
+    mcp_deg = wrap(mcp_raw - 90.0)  # geometric zero has RAA->MCP->IP straight
     thumb = ThumbConfiguration(*(round(v, 6) + 0.0 for v in (ro_deg, raa_deg, mcp_deg)), 0.0)
     return HandConfiguration(**fingers, thumb=thumb)
 

@@ -34,4 +34,11 @@ Studies write figures and reports to the repository-level `report/`. Their run r
 The simulation side consumes geometry exports that carry their source commit. It does not reimplement or import
 `design/core`. See `sim/isaaclab/README.md`.
 
+The parametric hand model lives in `design/core/morphology/code_hand`. Every joint coordinate is positive
+by the right-hand rule about its local +Z axis (CCW when viewed from +Z toward the origin). Joint zero is
+defined geometrically: fingers fully extended, and the thumb's CMC-RAA (CMC-FE), MCP and IP centres
+collinear with MCP = IP = 0. The nominal axis-mounting transforms remain part of the geometry.
+CAD observations are stored separately as `cad_configuration`; they do not calibrate the model's zero.
+From `design/`, `python -m visualize.code_hand` draws the geometric zero; `--pose cad` selects the saved CAD pose.
+
 Planar collision checks use actual hardware envelopes with no universal body-clearance allowance.

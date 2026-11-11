@@ -43,7 +43,7 @@ finger:
   bp_z_mm: 6.5
   c_x_mm: 22.8
   c_z_mm: 0.0
-  pip_servo_angle_deg: 75.0
+  pip_servo_tilt_deg: 15.0
 thumb:
   ro_to_raa_mm: 26.0
   raa_to_mcp_mm: 26.5
@@ -51,9 +51,8 @@ thumb:
   ee_x_mm: 0.0
   ee_y_mm: -53.5
   ee_z_mm: 0.0
-  ro_zero_deg: 0.0
-  raa_zero_deg: 90.0
-  mcp_zero_deg: 0.0
+  raa_to_mcp_clocking_deg: 90.0
+# Observed CAD pose relative to the geometric zero; not a model calibration or default pose.
 cad_configuration:
   index:
     aa_deg: 0.0
@@ -70,7 +69,7 @@ cad_configuration:
   thumb:
     ro_deg: -0.036186
     raa_deg: 0.292188
-    mcp_deg: 1.952522
+    mcp_deg: -91.952522
     ip_deg: 0.0
 source:
   document: 70331145392063eb01686da5

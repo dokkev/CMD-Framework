@@ -13,6 +13,8 @@ Frames and conventions:
 
 A digit's base pose is the pose of its first servo frame in H: the MCP-AA servo for a finger, the CMC-RO
 servo for the thumb. Joint configurations are kept apart (``HandConfiguration``).
+All joint coordinates are CCW positive about local +Z (viewed from +Z toward the origin).
+Zero is the geometric reference configuration, never a pose calibrated by hand in CAD.
 """
 
 from __future__ import annotations
@@ -87,7 +89,7 @@ class FingerParameters:
       servo shaft is on ``A'``), the coupler ``A-B'``. ``B'`` and ``C`` are given in the distal frame (origin
       ``B``, ``+X`` along ``B->C``). These are the Onshape ``Linkage Dimensions`` variables.
     - Servos: the MCP-FE servo centre is ``O``, the PIP servo centre is ``A'``, both in the linkage plane;
-      the PIP servo's ``+X`` is turned ``pip_servo_angle_deg`` from the proximal axis toward dorsal.
+      ``pip_servo_tilt_deg`` is the dorsal tilt of the rear body from -X, matching the study convention.
     """
 
     fe_axis_x_mm: float = 23.5
@@ -102,7 +104,7 @@ class FingerParameters:
     bp_z_mm: float = 6.5
     c_x_mm: float = 22.8
     c_z_mm: float = 0.0
-    pip_servo_angle_deg: float = 75.0
+    pip_servo_tilt_deg: float = 15.0
 
     def __post_init__(self) -> None:
         _finite(self)
@@ -119,14 +121,16 @@ class ThumbParameters:
       along RO from the RO servo centre.
     - The MCP axis is perpendicular to RAA and meets it at the MCP servo centre, ``raa_to_mcp_mm`` along RAA
       from the RAA servo centre.
-    - The IP axis is parallel to MCP, ``mcp_to_ip_mm`` away along the MCP servo's ``-Y``.
+    - The IP axis is parallel to MCP, ``mcp_to_ip_mm`` away along the MCP servo's ``-Y``. At geometric
+      zero, MCP -Y aligns with RAA +Z, so the RAA->MCP and MCP->IP vectors point along the same line.
     - The end-effector frame ``EE`` has the IP servo frame's axes and sits at ``(ee_x, ee_y, ee_z)`` in it,
       turned by the IP angle. The prototype puts it on the thumb's centre line, straight out of the MCP-IP
       line, at the fingertip case's end (``ee_y`` from the CAD ``Thumb EE`` connector, which sits 4.5 mm
       toward the pad: ``ee_x`` = -4.5 there).
-    - ``*_zero_deg``: each joint's turn at the thumb's zero pose, so ``q = 0`` is that pose. The prototype
-      takes the zero pose set by hand in the Onshape CAD (``code_hand.py fit --thumb-zero``: -0.04, 90.29,
-      -1.95 deg on 2026-11-08), rounded to whole degrees; the residual stays in the CAD configuration.
+    - ``raa_to_mcp_clocking_deg``: fixed mounting rotation about RAA +Z before the perpendicular MCP
+      axis. The nominal 90 degrees sets the reference chain geometry; it is not a fitted joint offset.
+      A further fixed MCP Rz(90) aligns the MCP-IP line with the RAA-MCP line. At MCP = IP = 0,
+      the RAA, MCP, IP and on-centre tip are collinear, independently of the CAD's posed angles.
     """
 
     ro_to_raa_mm: float = 26.0
@@ -135,9 +139,7 @@ class ThumbParameters:
     ee_x_mm: float = 0.0
     ee_y_mm: float = -53.5
     ee_z_mm: float = 0.0
-    ro_zero_deg: float = 0.0
-    raa_zero_deg: float = 0.0
-    mcp_zero_deg: float = 0.0
+    raa_to_mcp_clocking_deg: float = 90.0
 
     def __post_init__(self) -> None:
         _finite(self)
@@ -174,9 +176,12 @@ class HandParameters:
 
 @dataclass(frozen=True)
 class FingerConfiguration:
-    """Joint angles [deg]. ``aa`` about the base servo axis (``+Z``, toward the thumb positive); ``fe`` and
-    ``pip`` positive in flexion (toward palmar). ``pip`` is the distal segment's rotation from the extended
-    four-bar."""
+    """Joint angles [deg], all CCW positive about local +Z.
+
+    AA rotates about the base servo axis; FE and PIP about the proximal plane's +Z (the FE axis).
+    Zero AA/FE aligns with the nominal finger frame; zero PIP is the extended four-bar with B->C
+    along proximal +X. PIP is the distal segment angle, not the four-bar actuator shaft angle.
+    """
 
     aa_deg: float = 0.0
     fe_deg: float = 0.0
@@ -185,9 +190,11 @@ class FingerConfiguration:
 
 @dataclass(frozen=True)
 class ThumbConfiguration:
-    """Joint angles [deg] from the zero pose (``ThumbParameters.*_zero_deg``). RO and RAA turn about their
-    servos' ``+Z``; MCP and IP about ``-Z``, so they are positive in flexion (toward the pad). IP has no zero
-    offset: the CAD does not pose the IP joint."""
+    """Joint angles [deg], all CCW positive about their servo's local +Z.
+
+    All zeros select the nominal chain defined by ThumbParameters and the fixed perpendicular-axis
+    transforms, with RAA->MCP->IP straight. No CAD-fitted joint offsets are applied.
+    """
 
     ro_deg: float = 0.0
     raa_deg: float = 0.0
@@ -215,7 +222,11 @@ PROTOTYPE = Path(__file__).with_name("prototype.yaml")
 
 
 def load(path=PROTOTYPE) -> tuple[HandParameters, HandConfiguration]:
-    """The parameters and the CAD's joint configuration from a parameter file (default: the prototype)."""
+    """Return model parameters and the separately recorded CAD observation.
+
+    The second return value is not the model's zero/default configuration. Use HandConfiguration()
+    or CoDeHand(parameters).frames() for the geometric zero.
+    """
     import yaml
 
     data = yaml.safe_load(Path(path).read_text())

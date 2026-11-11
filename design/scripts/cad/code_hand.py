@@ -10,6 +10,7 @@
 The parameter file (``core/morphology/code_hand/prototype.yaml``) is the source of truth; ``push`` makes the
 CAD follow it. ``fit`` exists to build the model from the CAD: it takes the layout and the joint angles off the
 snapshot, and reports how far the model's fixed morphology is from the CAD.
+The observed joint angles are stored only in ``cad_configuration``; fitting never redefines model zero.
 
 ``check`` fits the joint angles of the live CAD (the CAD may sit in any pose), then compares every servo
 frame and revolute axis with the model. ``push`` deletes the mates under ``remove`` and replaces the layout
@@ -83,17 +84,10 @@ def cmd_snapshot(client, ref) -> int:
     return 0
 
 
-def cmd_fit(cad: CadMap, thumb_zero: bool = False) -> int:
+def cmd_fit(cad: CadMap) -> int:
     snapshot = json.loads(SNAPSHOT.read_text())
     data = yaml.safe_load(PROTOTYPE.read_text())
     data["layout"] = HandParameters(layout_from_snapshot(snapshot, cad)).to_dict()["layout"]
-    if thumb_zero:  # the CAD's thumb pose becomes q = 0
-        for joint in ("ro", "raa", "mcp"):
-            data["thumb"][f"{joint}_zero_deg"] = 0.0
-        raw = configuration_from_snapshot(snapshot, cad, HandParameters.from_dict(data)).thumb
-        for joint in ("ro", "raa", "mcp"):
-            data["thumb"][f"{joint}_zero_deg"] = getattr(raw, f"{joint}_deg")
-        print("thumb zero pose from the CAD:", {j: data["thumb"][f"{j}_zero_deg"] for j in ("ro", "raa", "mcp")})
     parameters = HandParameters.from_dict(data)
     configuration = configuration_from_snapshot(snapshot, cad, parameters)
     data["cad_configuration"] = configuration.to_dict()
@@ -111,10 +105,9 @@ def cmd_fit(cad: CadMap, thumb_zero: bool = False) -> int:
         if abs(model - value) > 1e-9:
             print(f"  linkage studio {field} = {value} differs from the model's {model}")
     tilt = length_mm(snapshot["variables"].get("Linkage Dimensions", {}).get("pip_servo_tilt", ""))
-    if tilt is not None and abs((90.0 - parameters.finger.pip_servo_angle_deg) - tilt) > 1e-9:
+    if tilt is not None and abs(parameters.finger.pip_servo_tilt_deg - tilt) > 1e-9:
         print(f"  note: Onshape pip_servo_tilt = {tilt} deg, but the assembled PIP servo sits "
-              f"{90.0 - parameters.finger.pip_servo_angle_deg} deg from vertical (pip_servo_angle_deg = "
-              f"{parameters.finger.pip_servo_angle_deg})")
+              f"{parameters.finger.pip_servo_tilt_deg} deg dorsally from -X")
     return 0 if report(compare(parameters, configuration, snapshot, cad)) else 1
 
 
@@ -208,7 +201,6 @@ def main(argv=None) -> int:
     parser.add_argument("--workspace", help="Onshape workspace id (default: onshape.yaml workspace)")
     parser.add_argument("--ground-truth", action="store_true", help="use onshape.yaml ground_truth_workspace")
     parser.add_argument("--dry-run", action="store_true", help="push: print the plan only")
-    parser.add_argument("--thumb-zero", action="store_true", help="fit: take the CAD thumb pose as its zero")
     parser.add_argument("--params", type=Path, default=PROTOTYPE, help="check/push: parameter file")
     parser.add_argument("--views", nargs="+", default=["isometric", "top", "front", "right"])
     parser.add_argument("--out", type=Path, default=ROOT / "output" / "cad")
@@ -218,7 +210,7 @@ def main(argv=None) -> int:
     settings = yaml.safe_load(SETTINGS.read_text())
     cad = CadMap(settings["instances"], settings.get("end_effectors", {}))
     if args.command == "fit":
-        return cmd_fit(cad, args.thumb_zero)
+        return cmd_fit(cad)
     workspace = args.workspace or settings["ground_truth_workspace" if args.ground_truth else "workspace"]
     ref = ElementRef(settings["document"], workspace, settings["assembly"])
     client = OnshapeClient()
