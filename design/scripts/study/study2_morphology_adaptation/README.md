@@ -217,3 +217,36 @@ be while carrying each given interface, then selects a small-change morphology
 within 0.1 mm of the best-found length. It relaxes the reference proximity box
 and uses broad absolute lengths. It does not replace the formulation or results
 of this original bounded-adaptation study.
+
+## ROM-conditioned baseline experiment (2026-11-09)
+
+`rom_conditioned.py` separates the cost of meeting a ROM from the cost of changing the interface.
+For each mechanism/actuation and each required flexion (90, 120, 150 degrees):
+
+1. With the common baseline modules (proximal/distal 20 x 3 mm), run the existing E-then-Q adaptation
+   hierarchy against the nominal matched reference. An already feasible nominal reference stays unchanged.
+2. Select the ROM baseline over the declared optimizer seeds, before examining any other interface.
+3. Freeze that baseline and run independent adaptation searches for every target at that same ROM.
+4. If baseline search fails, mark its interface conditions `baseline_not_found` and do not search them.
+
+This minimizes modification from the nominal reference; it does not optimize k for each baseline.
+The primary transmission-angle requirement remains 30-150 degrees, with no direct k cap. CoDe and belt
+remain at nominal 15-degree tilt. The pilot includes DD/RCJ at 0 and 90 degrees, not their full tilt grid.
+Each result retains the baseline geometry/config, stage configs, seeds and source record.
+
+Baseline epsilon values use the original nominal length as denominator. Interface epsilon values use the
+selected ROM-baseline length. They are reported separately and must not be summed. Net external change
+from the nominal is measured directly as a separate descriptor norm. Because the ROM-preparation step
+can alter E/Q, only the original nominal descriptors are matched across architectures; conditioned
+baselines are explicitly recorded rather than claimed identical.
+
+Run from `design/`:
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python scripts/study/study2_morphology_adaptation/rom_conditioned.py \
+  scripts/study/study2_morphology_adaptation/rom_conditioned_pilot.yaml
+python scripts/study/study2_morphology_adaptation/summarize_rom_conditioned.py
+```
+
+The one-seed pilot uses population 32 and 20 generations per search. It tests the protocol, not convergence.
+An existing output directory is rejected. Earlier fixed-120-degree studies and their results are preserved.

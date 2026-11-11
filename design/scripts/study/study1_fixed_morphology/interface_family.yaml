@@ -1,0 +1,12 @@
+# Declared before execution: same domain for every architecture; no per-pad optimization.
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
+servo_tilt_sweep:
+  angles_deg: [0, 90]
+  references: [2r_dd_tilt0_matched, rcj_tilt0_matched]
+length_pairs_mm: [[15, 15], [20, 20], [25, 25], [30, 30], [15, 30], [30, 15]]
+thickness_mm: [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 20]
+sampled_flexion_deg: [15, 30, 60, 90, 120, 150]
+required_flexion_deg: [90, 120, 150]
+conditioned_baselines: output/study/study2_rom_conditioned_2026-11-09/pilot
+workers: 6
+output: output/study/interface_family_2026-11-09

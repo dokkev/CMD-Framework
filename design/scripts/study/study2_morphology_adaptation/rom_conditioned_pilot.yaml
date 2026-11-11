@@ -1,0 +1,33 @@
+# ROM preparation is independent of interface adaptation; CoDe/belt nominal 15 degrees.
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
+kinds:
+- matched
+required_flexion_deg:
+- 90
+- 120
+- 150
+targets:
+- baseline
+- thick
+- long
+- long_thick
+- asym_long_proximal
+- asym_long_distal
+- asym_proximal_heavy
+- asym_distal_heavy
+servo_tilt_sweep:
+  angles_deg:
+  - 0
+  - 90
+  references:
+  - 2r_dd_tilt0_matched
+  - rcj_tilt0_matched
+external_range_mm: 20
+optimizer:
+  algorithm: nsga2
+  population: 32
+  generations: 20
+  seeds:
+  - 0
+workers: 4
+output: output/study/study2_rom_conditioned_2026-11-09/pilot

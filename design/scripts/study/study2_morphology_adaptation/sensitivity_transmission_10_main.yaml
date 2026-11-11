@@ -1,0 +1,26 @@
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
+targets: scripts/study/study2_morphology_adaptation/targets.yaml
+kinds:
+- matched
+only_references:
+- code_matched
+only_targets:
+- asym_long_proximal
+- asym_proximal_heavy
+external_range_mm: 20
+goal_overrides:
+  transmission_angle_range_rad:
+  - 0.17453292519943295
+  - 2.9670597283903604
+  torque_ratio_max: null
+  links_block_face: true
+optimizer:
+  algorithm: nsga2
+  population: 100
+  generations: 100
+  seeds:
+  - 0
+  - 1
+  - 2
+workers: 4
+output: output/study/transmission_sensitivity_2026-11-09/main_margin10
