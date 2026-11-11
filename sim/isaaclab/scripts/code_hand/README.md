@@ -86,8 +86,62 @@ per ball cut (two per revolute cut), replicated per environment. The servo angle
 - **Revolute vs ball cut.** The revolute cut (two CONNECTs, redundant for a planar loop) was 2-8x tighter than
   the ball cut in every condition, at twice the equality rows. Both are usable once the equality is stiffened.
 
+## Backends (E4: standalone Newton, E5: Isaac Lab)
+
+```bash
+uv run python scripts/code_hand/e4_backends.py --solver mujoco|kamino|xpbd|featherstone|semi_implicit|vbd [--gravity] [...]
+uv run python scripts/code_hand/e5_isaaclab_backends.py --physics mjwarp|mjwarp_stiff|kamino|kamino_dvi|xpbd|vbd|featherstone \
+    [--gravity] [--actuator implicit|explicit] [--servo-armature 5e-3 --kd 0.2]
+```
+
+The same USD (ball cut) and the same body-pose measurements on every backend. E5 adds `joint_pos` (what a policy
+observes) against the body poses, a reset to PIP 60 deg written either as the whole closed tree or as the servo
+joint only, and throughput (256 environments, RTX 4070 Ti SUPER, 1/240 s with 2 substeps).
+
+E5, gravity on, implicit PD, servo armature 1e-5:
+
+| Backend | Loop | PIP err (ramp) | Servo track | joint_pos vs bodies | Reset, closed tree | Reset, servo only (1 step) | env-steps/s |
+|---|---|---|---|---|---|---|---|
+| MuJoCo-Warp, default equality | CONNECT, soft | 2.30° | 0.071° | 0.000° | 0.011°, settles to 1.05° | 33.9° | 225k |
+| MuJoCo-Warp, stiff equality | CONNECT | 0.011° | 0.072° | 0.000° | 0.012° → 0.004° | 23.3° | 223k |
+| Kamino PADMM (`use_fk_solver`) | hard bilateral | 0.045° | 0.072° | 0.000° | 0.001° → 0.023° | 28.9° | 15k |
+| Kamino DVI, defaults | hard bilateral | 17.6° (fails) | 35.7° | 0.000° | – | – | 4.5k |
+| XPBD, 30 iterations | position-based | 0.53° | 1.80° | **62° (stale)** | 0.09° | 4.0° | 176k |
+| VBD + joint sync manager | – | 0.20° | 0.29° | 0.000° | 0.005° → 0.12° | 30.4° | 95k |
+| Featherstone | not supported | non-finite | – | – | – | – | – |
+
+Standalone (E4) agrees: Featherstone ignores the cut (17 mm residual with substeps), semi-implicit diverges, VBD
+needs `ModelBuilder.color()`.
+
+Servo model (E5, gravity on, servo armature 5e-3, kd 0.2):
+
+| Backend | Implicit PD: servo track / PIP err | Explicit PD (`IdealPDActuatorCfg`): servo track / PIP err |
+|---|---|---|
+| MuJoCo-Warp, stiff | 0.0720° / 0.0024° | 0.0719° / 0.0025° |
+| Kamino PADMM | 0.0720° / 0.048° | 0.0722° / 0.049° |
+| XPBD | 5.94° / 0.46° | diverges |
+| VBD + sync | 0.27° / 0.31° | diverges |
+
+With armature 1e-5 the explicit PD diverges on every backend: 5 N m/rad on about 1e-5 kg m^2 is roughly
+700 rad/s, too fast for an explicit update at 1/240 s. A geared X330 (323:1) has a much larger reflected rotor
+inertia, so a realistic armature is part of the servo model, not a numerical tweak. Its value is a placeholder
+until identified.
+
+Findings:
+- One asset serves every backend that supports loops (MuJoCo-Warp, Kamino, XPBD, VBD). Featherstone cannot close
+  the loop and must be rejected, not silently run open.
+- What differs per backend is the loop's numerics and the joint-state plumbing, not the asset. MuJoCo-Warp needs its
+  loop equality stiffened (no config field: set on the solver after it is built). Kamino closes the loop hard and
+  has its own loop-aware FK on reset, at about 15x the cost. XPBD leaves `joint_pos` stale (as VBD did before the
+  sync manager).
+- Only MuJoCo-Warp and Kamino give the same servo response, with either actuator model. Between them the explicit
+  PD makes the actuator law identical by construction. XPBD and VBD implement the drive differently and do not
+  follow an explicit torque, so a cross-backend difference there mixes actuator and contact effects.
+- A reset must write the whole closed tree. Writing only the servo joints leaves A and B open, and every backend,
+  Kamino's FK included (the passive joints are still read as inputs), starts with a 2-10 mm gap that snaps shut.
+
 ## Not tested yet
 
 Colliders and self-collision filtering between the loop's links, contact with an object, the thumb's and
-fingers' real masses and inertias, actuator effort and velocity limits (X330), mesh visuals, and a second
-simulator (Study D).
+fingers' real masses and inertias, the X330's identified armature and effort/velocity limits, mesh visuals, Kamino's
+constraint-stabilisation and FK actuation flags, and a simulator outside Newton (Study D).
