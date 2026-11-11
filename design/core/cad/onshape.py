@@ -130,6 +130,10 @@ class OnshapeClient:
     def assembly_features(self, ref: ElementRef) -> dict:
         return self.get(f"assemblies/{ref.path()}/features")
 
+    def mate_values(self, ref: ElementRef) -> list[dict]:
+        """Every mate's current value (``rotationZ`` in radians for a revolute), with its owner occurrence."""
+        return self.get(f"assemblies/{ref.path()}/matevalues").get("mateValues", [])
+
     def add_assembly_feature(self, ref: ElementRef, feature: dict) -> dict:
         return self.post(f"assemblies/{ref.path()}/features", {"feature": feature})
 

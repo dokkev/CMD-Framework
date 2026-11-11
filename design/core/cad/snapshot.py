@@ -2,7 +2,9 @@
 
 The snapshot holds what a parametric model must reproduce:
 - ``servos``: the frame of every servo part (name prefix ``X330``) in the hand frame;
-- ``revolutes``: every revolute mate's axis (origin and direction) in the hand frame, with the two parts it joins;
+- ``revolutes``: every revolute mate's axis (origin and direction) in the hand frame, with the two parts it joins
+  and its current angle ``rotation_deg`` (Onshape's ``rotationZ``: the first part's rotation relative to the
+  second about ``axis``; 0 is the CAD's own datum, where the two mate connectors align);
 - ``connectors``: every named mate connector's frame in the hand frame (e.g. ``(root):Thumb EE``);
 - ``variables``: the expressions of every Variable Studio in the document.
 
@@ -92,6 +94,10 @@ def extract_snapshot(client: OnshapeClient, assembly: ElementRef) -> dict:
 
     collect(root.get("features", []), [])
     walk(root["instances"], [])
+    for value in client.mate_values(assembly):
+        key = f"{name(value['ownerOccurrencePath']) or '(root)'}:{value['mateName']}"
+        if key in revolutes and "rotationZ" in value:
+            revolutes[key]["rotation_deg"] = float(np.degrees(value["rotationZ"]))
 
     variables = {}
     for element in client.elements(assembly.did, assembly.wid):

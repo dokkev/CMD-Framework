@@ -244,7 +244,8 @@
    "parts": [
     "thumb-example <1>/cmc-aa-bracket <1>",
     "thumb-example <1>/X335-with-output-horn <3>/XM335_HORN_DUMMY <1>"
-   ]
+   ],
+   "rotation_deg": -89.96381351370049
   },
   "finger <1>:Revolute 1": {
    "origin_mm": [
@@ -260,7 +261,8 @@
    "parts": [
     "finger <1>/driver-linkage <1>/driver-linkage <1>",
     "finger <1>/proximal-phalanx <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": -8.528340577794758
   },
   "finger <1>:Revolute 2": {
    "origin_mm": [
@@ -276,7 +278,8 @@
    "parts": [
     "finger <1>/coupler-linkage <1>/57155K537_Ball Bearing <15>",
     "finger <1>/proximal-phalanx <1>/pip-servo-bracket <1>"
-   ]
+   ],
+   "rotation_deg": -14.127275988620285
   },
   "finger <1>:Revolute 3": {
    "origin_mm": [
@@ -292,7 +295,8 @@
    "parts": [
     "finger <1>/distal-phlanax <1>",
     "finger <1>/driver-linkage <1>/57155K537_Ball Bearing <15>"
-   ]
+   ],
+   "rotation_deg": -111.76853699234164
   },
   "finger <1>:Revolute 4": {
    "origin_mm": [
@@ -308,7 +312,8 @@
    "parts": [
     "finger <1>/distal-phlanax <1>",
     "finger <1>/coupler-linkage <1>/57155K537_Ball Bearing <34>"
-   ]
+   ],
+   "rotation_deg": 74.11292042592594
   },
   "finger <1>:Revolute 5": {
    "origin_mm": [
@@ -324,7 +329,8 @@
    "parts": [
     "finger <1>/MCP-FE <1>/shaft-side-mount <1>",
     "finger <1>/X335-with-bearing <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": -5.088887490341627e-14
   },
   "finger <2>:Revolute 1": {
    "origin_mm": [
@@ -340,7 +346,8 @@
    "parts": [
     "finger <2>/driver-linkage <1>/driver-linkage <1>",
     "finger <2>/proximal-phalanx <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": -8.380602654772423
   },
   "finger <2>:Revolute 2": {
    "origin_mm": [
@@ -356,7 +363,8 @@
    "parts": [
     "finger <2>/coupler-linkage <1>/57155K537_Ball Bearing <15>",
     "finger <2>/proximal-phalanx <1>/pip-servo-bracket <1>"
-   ]
+   ],
+   "rotation_deg": -14.208648648389842
   },
   "finger <2>:Revolute 3": {
    "origin_mm": [
@@ -372,7 +380,8 @@
    "parts": [
     "finger <2>/distal-phlanax <1>",
     "finger <2>/driver-linkage <1>/57155K537_Ball Bearing <15>"
-   ]
+   ],
+   "rotation_deg": -111.98045718231108
   },
   "finger <2>:Revolute 4": {
    "origin_mm": [
@@ -388,7 +397,8 @@
    "parts": [
     "finger <2>/distal-phlanax <1>",
     "finger <2>/coupler-linkage <1>/57155K537_Ball Bearing <34>"
-   ]
+   ],
+   "rotation_deg": 74.39120587914807
   },
   "finger <2>:Revolute 5": {
    "origin_mm": [
@@ -404,7 +414,8 @@
    "parts": [
     "finger <2>/MCP-FE <1>/shaft-side-mount <1>",
     "finger <2>/X335-with-bearing <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": 0.0
   },
   "finger <3>:Revolute 1": {
    "origin_mm": [
@@ -420,7 +431,8 @@
    "parts": [
     "finger <3>/driver-linkage <1>/driver-linkage <1>",
     "finger <3>/proximal-phalanx <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": -8.647776184637898
   },
   "finger <3>:Revolute 2": {
    "origin_mm": [
@@ -436,7 +448,8 @@
    "parts": [
     "finger <3>/coupler-linkage <1>/57155K537_Ball Bearing <15>",
     "finger <3>/proximal-phalanx <1>/pip-servo-bracket <1>"
-   ]
+   ],
+   "rotation_deg": -14.061122922414393
   },
   "finger <3>:Revolute 3": {
    "origin_mm": [
@@ -452,7 +465,8 @@
    "parts": [
     "finger <3>/distal-phlanax <1>",
     "finger <3>/driver-linkage <1>/57155K537_Ball Bearing <15>"
-   ]
+   ],
+   "rotation_deg": -111.59755708784154
   },
   "finger <3>:Revolute 4": {
    "origin_mm": [
@@ -468,7 +482,8 @@
    "parts": [
     "finger <3>/distal-phlanax <1>",
     "finger <3>/coupler-linkage <1>/57155K537_Ball Bearing <34>"
-   ]
+   ],
+   "rotation_deg": 73.88865798078872
   },
   "finger <3>:Revolute 5": {
    "origin_mm": [
@@ -484,7 +499,8 @@
    "parts": [
     "finger <3>/MCP-FE <1>/shaft-side-mount <1>",
     "finger <3>/X335-with-bearing <1>/X330 <1>"
-   ]
+   ],
+   "rotation_deg": 0.0
   },
   "thumb-example <1>:Revolute 1": {
    "origin_mm": [
@@ -500,7 +516,8 @@
    "parts": [
     "thumb-example <1>/X335-with-output-horn <1>/XM335_HORN_DUMMY <1>",
     "thumb-example <1>/cmc-fe-bracket <1>"
-   ]
+   ],
+   "rotation_deg": 89.70781157226786
   },
   "thumb-example <1>:Revolute 2": {
    "origin_mm": [
@@ -516,7 +533,8 @@
    "parts": [
     "thumb-example <1>/X335-with-output-horn <2>/XM335_HORN_DUMMY <1>",
     "thumb-example <1>/cmc-fe-bracket <1>"
-   ]
+   ],
+   "rotation_deg": -1.952522345005991
   }
  },
  "connectors": {
