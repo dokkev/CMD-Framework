@@ -2,7 +2,7 @@
 # budget; its "not found" means less than the full run's):
 #
 #   python scripts/study/study2_morphology_adaptation/run.py scripts/study/study2_morphology_adaptation/quick.yaml
-references: scripts/study/study2_morphology_adaptation/references.yaml
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
 targets: scripts/study/study2_morphology_adaptation/targets.yaml
 kinds: [matched]
 external_range_mm: 20
@@ -14,4 +14,9 @@ optimizer:
   # takes the best and counts how many seeds found one.
   seeds: [0, 1, 2]
 workers: 8
-output: output/study/study2_morphology_adaptation_quick
+output: output/study/study2_morphology_adaptation_tilt_sweep_quick
+
+# Actuation is swept outside the fixed-tilt morphology search.
+servo_tilt_sweep:
+  angles_deg: [0, 15, 30, 45, 60, 75, 90]
+  references: [code_matched, 2r_dd_tilt0_matched, belt_2r_matched, rcj_tilt0_matched]

@@ -83,6 +83,8 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
 
     external, refined = result.step("level2_external"), result.step("level2_mechanism")
     row = {"reference_id": reference.reference_id, "kind": reference.kind, "mechanism": reference.mechanism,
+           "base_reference_id": reference.base_reference_id or reference.reference_id,
+           "servo_tilt_deg": reference.servo_tilt_deg,
            "upper_bound": reference.upper_bound, "target": target.module_id,
            "frozen_feasible": result.status == "frozen_feasible",
            "level1_status": status(level1), "level1_mechanism_cost": cost(level1, "mechanism_cost"),
@@ -157,14 +159,15 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
     catalog = {pair.module_id: pair for pair in shared.module_catalog(read_config_file(root / target_values["catalog"]))}
     targets = [catalog[name] for name in target_values["targets"]]
     baseline = catalog["baseline"].modules
-    built = references(reference_values, tuple(config["kinds"]), baseline, root)
+    built = shared.sweep_references(references(reference_values, tuple(config["kinds"]), baseline, root),
+                                    config.get("servo_tilt_sweep"))
     rules = shared.check_comparable(built)
     only_targets = only_targets or config.get("only_targets")
     only_references = only_references or config.get("only_references")
     if only_targets:
         targets = [t for t in targets if t.module_id in only_targets]
     if only_references:
-        built = [r for r in built if r.reference_id in only_references]
+        built = [r for r in built if r.reference_id in only_references or r.base_reference_id in only_references]
     # A sensitivity run: goal fields set on every reference alike (recorded in the manifest).
     overrides = config.get("goal_overrides") or {}
     if overrides:
@@ -187,6 +190,8 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
         part = partitions.partition(reference.mechanism)
         external = part.external(reference.x, reference.config)
         reference_rows.append({"reference_id": reference.reference_id, "kind": reference.kind,
+                               "base_reference_id": reference.base_reference_id or reference.reference_id,
+                               "servo_tilt_deg": reference.servo_tilt_deg,
                                "mechanism": reference.mechanism, "upper_bound": reference.upper_bound,
                                "config": reference.config_path, "source": reference.source,
                                "formulation": mechanism(reference.mechanism).formulation,

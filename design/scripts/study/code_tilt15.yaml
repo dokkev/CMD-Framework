@@ -1,0 +1,7 @@
+# CAD nominal CoDe servo tilt.
+base: base.yaml
+mechanism: linkage
+goal:
+  hardware:
+    pip_servo:
+      tilt_angle_deg: 15

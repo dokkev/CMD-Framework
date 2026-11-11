@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 
 from core.optimization.analysis import adaptation
 from core.optimization.analysis.adaptation import DESCRIPTORS, AdaptationMechanism, Step, adapt, with_finger_lengths
@@ -57,6 +58,32 @@ def matched(config_file: str, modules: Modules = BASELINE):
 
 
 CONFIGS = ("code_tilt10", "2r_dd_tilt0", "2r_dd_tilt90", "belt_2r_tilt10", "rcj_tilt0", "rcj_tilt90", "rcj_ideal")
+
+
+@pytest.mark.parametrize("study", ("study1_fixed_morphology", "study2_morphology_adaptation"))
+def test_active_sweep_changes_only_tilt_and_keeps_it_fixed_in_each_search(study):
+    shared = run.shared
+    values = run.read_config_file(ROOT / "scripts/study" / study / "config.yaml")
+    nominal = shared.load_references(tuple(values["kinds"]), ROOT, values["references"])
+    expanded = shared.sweep_references(nominal, values["servo_tilt_sweep"])
+    by_id = {r.reference_id: r for r in nominal}
+    assert len(expanded) == len({r.reference_id for r in expanded}) == 29
+    shared.check_comparable(expanded)
+    for ref in expanded:
+        if ref.servo_tilt_deg is None:
+            assert ref.upper_bound  # ideal RCJ has no actuator orientation to sweep
+            continue
+        base = by_id[ref.base_reference_id]
+        names = mechanism(ref.mechanism).variable_names
+        slot = names.index("servo_tilt_deg")
+        assert ref.x[slot] == ref.servo_tilt_deg
+        assert all(a == b for i, (a, b) in enumerate(zip(ref.x, base.x)) if i != slot)
+        goal = goal_of(ref.config)
+        assert goal.bounds["servo_tilt_deg"] == (ref.servo_tilt_deg,) * 2
+        assert goal.pip_servo_tilt_rad == pytest.approx(math.radians(ref.servo_tilt_deg))
+        adapter = AdaptationMechanism(mechanism(ref.mechanism), partitions.partition(ref.mechanism),
+                                      ref.x, ref.config, "mechanism", "mechanism_cost", 90.0)
+        assert "servo_tilt_deg" not in adapter.search_names(ref.config)
 
 
 @pytest.mark.parametrize("name", CONFIGS)
@@ -191,13 +218,14 @@ def test_a_reference_that_carries_the_interface_stops_at_once(monkeypatch):
 
 def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     config = tmp_path / "config.yaml"
-    config.write_text((STUDY / "config.yaml").read_text().replace(
-        "output: output/study/study2_morphology_adaptation", f"output: {tmp_path / 'out'}").replace(
-        "population: 100", "population: 12").replace("generations: 100", "generations: 3").replace(
-        "workers: 8", "workers: 1").replace("seeds: [0, 1, 2]", "seeds: [0, 1]"))
+    values = run.read_config_file(STUDY / "config.yaml")
+    values.update(output=str(tmp_path / "out"), workers=1)
+    values["optimizer"].update(population=12, generations=3, seeds=[0, 1])
+    config.write_text(yaml.safe_dump(values))
+    reference_id = "rcj_tilt0_matched__tilt90"
     rows = []
     for _ in range(2):
-        out = run.run(config, ROOT, only_targets=["long"], only_references=["rcj_tilt90_matched"])
+        out = run.run(config, ROOT, only_targets=["long"], only_references=[reference_id])
         with (out / "summary.csv").open() as stream:
             rows.append(list(csv.DictReader(stream)))
     assert rows[0] == rows[1] and rows[0][0]["status"] in ("level1", "level2", "not_found")
@@ -206,17 +234,21 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     assert {"level2_external_status", "level2_mechanism_status"} <= set(rows[0][0])
     # Each search's run reads back as its base mechanism's, the adaptation beside it.
     assert [row["seed"] for row in rows[0]] == ["0", "1"]
+    assert all(row["reference_id"] == reference_id and row["servo_tilt_deg"] == "90.0" for row in rows[0])
     with (tmp_path / "out" / "summary_best.csv").open() as stream:
         best = list(csv.DictReader(stream))
     assert len(best) == 1 and best[0]["seeds_run"] == "2"
-    saved = sorted((tmp_path / "out" / "targets" / "long" / "rcj_tilt90_matched" / "seed_0").iterdir())
+    saved = sorted((out / "targets" / "long" / reference_id / "seed_0").iterdir())
     assert saved
+    # The sweep rotates the 0-degree base reference; seats are subsequently recomputed per module.
+    expected_reference = list(matched("rcj_tilt0")[2])
+    expected_reference[mechanism("rcj").variable_names.index("servo_tilt_deg")] = 90.0
     for directory in saved:
         loaded = load_run(directory)
         adaptation_metadata = loaded.metadata["adaptation"]
         assert loaded.mechanism.name == "rcj" and loaded.current
         assert adaptation_metadata["level"] == directory.name and adaptation_metadata["scale_mm"] == 90.0
-        assert adaptation_metadata["reference_x"] == pytest.approx(list(matched("rcj_tilt90")[2]))
+        assert adaptation_metadata["reference_x"] == pytest.approx(expected_reference)
         assert loaded.config.goal.packaging.proximal_pad.length_mm == 35.0
         rows_saved = loaded.candidates()
         assert all(len(loaded.mechanism.read_design(row)) == len(loaded.mechanism.variable_names) for row in rows_saved)

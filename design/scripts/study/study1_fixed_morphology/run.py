@@ -87,6 +87,8 @@ def assembly(reference, pair, flexions_deg) -> list[dict[str, Any]]:
     for flexion in flexions_deg:
         row = {"assembly_id": f"{reference.reference_id}__{pair.module_id}__phi{flexion:g}",
                "reference_id": reference.reference_id, "mechanism": reference.mechanism,
+               "base_reference_id": reference.base_reference_id or reference.reference_id,
+               "servo_tilt_deg": reference.servo_tilt_deg,
                "upper_bound": reference.upper_bound, "module_id": pair.module_id, "group": pair.group,
                "proximal_length_mm": pair.proximal_length_mm, "proximal_thickness_mm": pair.proximal_thickness_mm,
                "distal_length_mm": pair.distal_length_mm, "distal_thickness_mm": pair.distal_thickness_mm,
@@ -121,8 +123,9 @@ _REFERENCES: dict[str, Any] = {}
 """Each worker's references, built once (the configs do not pickle)."""
 
 
-def _load(kinds, root) -> None:
-    _REFERENCES.update({r.reference_id: r for r in shared.load_references(kinds, root)})
+def _load(kinds, root, path=shared.REFERENCES, sweep=None) -> None:
+    _REFERENCES.clear()
+    _REFERENCES.update({r.reference_id: r for r in shared.load_references(kinds, root, path, sweep)})
 
 
 def _assembly(job):
@@ -138,14 +141,16 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
     output = output or root / config["output"]
     output.mkdir(parents=True, exist_ok=True)
     kinds = tuple(config.get("kinds", ("matched",)))
-    found = shared.load_references(kinds, root)
+    references_path = config.get("references", shared.REFERENCES)
+    sweep = config.get("servo_tilt_sweep")
+    found = shared.load_references(kinds, root, references_path, sweep)
     rules = shared.check_comparable(found)
     pairs = shared.module_catalog(read_config_file(root / config["modules"]))
     flexions = [float(v) for v in config["required_flexion_deg"]]
     jobs = [(reference.reference_id, pair, flexions) for reference in found for pair in pairs]
     workers = int(config.get("workers", 1)) if workers is None else workers
     if workers > 1:
-        with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root)) as pool:
+        with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root, references_path, sweep)) as pool:
             rows = [row for rows in pool.map(_assembly, jobs, chunksize=4) for row in rows]
     else:
         _REFERENCES.update({r.reference_id: r for r in found})
@@ -162,6 +167,8 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
         part = shared.partitions.partition(reference.mechanism)
         external = part.external(reference.x, reference.config)
         reference_rows.append({"reference_id": reference.reference_id, "kind": reference.kind,
+                               "base_reference_id": reference.base_reference_id or reference.reference_id,
+                               "servo_tilt_deg": reference.servo_tilt_deg,
                                "mechanism": reference.mechanism, "upper_bound": reference.upper_bound,
                                "config": reference.config_path, "source": reference.source,
                                "formulation": mechanism(reference.mechanism).formulation,
@@ -170,7 +177,7 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
     shared.write_csv(output / "references.csv", reference_rows)
     manifest = {
         "study": "study1_fixed_morphology", "config": config,
-        "references": read_config_file(root / shared.REFERENCES),
+        "references": read_config_file(root / references_path),
         "modules": read_config_file(root / config["modules"]),
         "comparison_rules": rules, "formulations": shared.formulations(found),
         "evaluation": "each mechanism's own evaluate(); depths by the goal's mounting policy for each module",

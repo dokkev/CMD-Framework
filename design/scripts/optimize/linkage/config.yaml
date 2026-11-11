@@ -129,7 +129,7 @@ goal:
       model: xm335              # core.hardware.ACTUATORS
       # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
       # searched every tilt_step_deg from min.
-      tilt_angle_deg: [0, 90]
+      tilt_angle_deg: 15
       tilt_step_deg: 5
       # The most k_max allowed: the PIP servo's torque per distal moment held,
       # the worst on [0, motion.dip_flexion_deg] (the serial 2R's is 1, the

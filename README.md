@@ -41,4 +41,7 @@ collinear with MCP = IP = 0. The nominal axis-mounting transforms remain part of
 CAD observations are stored separately as `cad_configuration`; they do not calibrate the model's zero.
 From `design/`, `python -m visualize.code_hand` draws the geometric zero; `--pose cad` selects the saved CAD pose.
 
+The production PIP servo tilt is fixed at 15 degrees (`finger.pip_servo_tilt_deg` in the hand model,
+`goal.hardware.pip_servo.tilt_angle_deg` in the production optimizer). Active Studies 1-2 use a separate
+0-90 degree tilt sweep with a 15-degree nominal; earlier fixed-tilt references/results remain historical.
 Planar collision checks use actual hardware envelopes with no universal body-clearance allowance.

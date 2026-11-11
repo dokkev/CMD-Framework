@@ -1,5 +1,29 @@
 # Study 1: contact accommodation at a fixed morphology
 
+## Active nominal and tilt-sweep configuration (2026-11-09)
+
+Production and the active nominal CoDe hand use a CAD-derived **15 degree** PIP servo rear-body tilt
+from -X toward dorsal +Z. The hand parameter is `finger.pip_servo_tilt_deg`; its servo-frame rotation is
+`Rz(tilt - 90 degrees)`. Studies 1 and 2 share `references_nominal15.yaml`; the historical 10-degree
+`references.yaml` and saved reports remain frozen inputs for the earlier studies.
+
+The primary config sweeps 0, 15, 30, 45, 60, 75 and 90 degrees for CoDe, 2R-DD, belt 2R and physical RCJ.
+Each angle creates a separate reference (`<base_id>__tilt<angle>`). E/Q and the actuator shaft position
+are unchanged when creating the tilt conditions; pad seats follow the same mounting policy. Within each
+Study 2 adaptation search the chosen tilt is fixed. This is an actuation sensitivity experiment: a best
+result selected across tilts does not hold A fixed. The ideal RCJ stays a separate upper bound and is not
+swept. CSVs record `base_reference_id` and `servo_tilt_deg`; `summary_best.csv` selects optimizer seeds
+within each tilt, not across tilts. Study 2 `--references` accepts a base id or a particular tilt id.
+
+The universal body-clearance allowance has been removed. Solids may touch, but signed overlap fails.
+A short pad stays on its link reference line; when it overlaps its own pivot housing or fixed servo,
+the seat follows the shallowest nonpenetrating position toward -Z, within the existing native-support
+rule. The housing dimensions are physical envelopes, not an extra uniform clearance. No spacer is assumed.
+
+New defaults write to `*_tilt_sweep` output directories so they do not overwrite the published historical
+runs. The sections below describe the original fixed-tilt study; their numerical results have not been
+recomputed under the new sweep.
+
 Study 1 measures **contact interface capacity**: which contact modules a
 frozen hand carries. Study 2 (`../study2_morphology_adaptation`) measures
 **morphology preservation**: how far a hand must change to carry a module it

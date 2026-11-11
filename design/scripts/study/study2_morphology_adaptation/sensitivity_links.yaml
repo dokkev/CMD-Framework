@@ -8,7 +8,7 @@
 # primary run's other mechanisms (the rule does not touch them).
 #
 #   python scripts/study/study2_morphology_adaptation/run.py scripts/study/study2_morphology_adaptation/sensitivity_links.yaml
-references: scripts/study/study2_morphology_adaptation/references.yaml
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
 targets: scripts/study/study2_morphology_adaptation/targets.yaml
 kinds: [matched]
 only_references: [code_matched, belt_2r_matched]
@@ -21,4 +21,9 @@ optimizer:
   generations: 100
   seeds: [0, 1, 2]
 workers: 4
-output: output/study/study2_sensitivity_links
+output: output/study/study2_sensitivity_links_tilt_sweep
+
+# Actuation is swept outside the fixed-tilt morphology search.
+servo_tilt_sweep:
+  angles_deg: [0, 15, 30, 45, 60, 75, 90]
+  references: [code_matched, belt_2r_matched]

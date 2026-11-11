@@ -14,7 +14,7 @@ import importlib.util
 import math
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ HERE = Path(__file__).resolve().parent
 SIDES = ("proximal", "distal")
 REFERENCES = "scripts/study/study2_morphology_adaptation/references.yaml"
 CATALOG = "scripts/study/study1_fixed_morphology/modules.yaml"
+NOMINAL_REFERENCES = "scripts/study/study2_morphology_adaptation/references_nominal15.yaml"
 
 
 def load_module(name: str, path: Path):
@@ -108,6 +109,8 @@ class Reference:
     source: str
     upper_bound: bool = False
     """The idealized RCJ: no roller wall, bearing or cable retention modelled; reported apart."""
+    base_reference_id: str = ""
+    servo_tilt_deg: float | None = None
 
 
 def load_config(path: str, root: Path = REPOSITORY_ROOT):
@@ -179,8 +182,44 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
     return built
 
 
-def load_references(kinds=("matched",), root: Path = REPOSITORY_ROOT) -> list[Reference]:
-    return references(read_config_file(root / REFERENCES), kinds, catalog(root)["baseline"].modules, root)
+def load_references(kinds=("matched",), root: Path = REPOSITORY_ROOT,
+                    path: str = REFERENCES, tilt_sweep=None) -> list[Reference]:
+    found = references(read_config_file(root / path), kinds, catalog(root)["baseline"].modules, root)
+    return sweep_references(found, tilt_sweep)
+
+
+def sweep_references(found: list[Reference], sweep=None) -> list[Reference]:
+    """Each tilt is a separate fixed-actuation reference; E/Q are unchanged.
+
+    Explicit base ids avoid sweeping the same architecture twice via its old 0/90-degree references.
+    References outside the requested list (e.g. the ideal RCJ) remain separate nominal conditions.
+    """
+    if not sweep:
+        return found
+    selected = set(sweep["references"])
+    unknown = selected - {r.reference_id for r in found}
+    if unknown:
+        raise ValueError(f"unknown tilt-sweep references: {sorted(unknown)}")
+    angles = tuple(float(v) for v in sweep["angles_deg"])
+    if not angles or len(set(angles)) != len(angles) or not all(math.isfinite(v) for v in angles):
+        raise ValueError("tilt sweep needs unique finite angles")
+    expanded = []
+    for ref in found:
+        if ref.reference_id not in selected:
+            expanded.append(ref)
+            continue
+        names = mechanism(ref.mechanism).variable_names
+        slot = names.index("servo_tilt_deg")
+        for tilt in angles:
+            goal = goal_of(ref.config)
+            config = with_goal(ref.config, replace(goal, pip_servo_tilt_rad=math.radians(tilt),
+                               bounds={**goal.bounds, "servo_tilt_deg": (tilt, tilt)}))
+            x = list(ref.x)
+            x[slot] = tilt
+            expanded.append(replace(ref, reference_id=f"{ref.reference_id}__tilt{tilt:g}",
+                                    base_reference_id=ref.reference_id, servo_tilt_deg=tilt,
+                                    x=tuple(x), config=config))
+    return expanded
 
 
 # The comparison rules ------------------------------------------------------

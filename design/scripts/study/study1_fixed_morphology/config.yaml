@@ -1,3 +1,4 @@
+references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
 # Study 1: contact accommodation at a fixed morphology. Every reference hand
 # (Study 2's references.yaml: the tracked morphology, each architecture built
 # to it) carries every module pair of the catalog (modules.yaml), each at
@@ -12,4 +13,9 @@ kinds: [matched]
 # module usable there.
 required_flexion_deg: [90, 120, 150]
 workers: 8
-output: output/study/study1_fixed_morphology
+output: output/study/study1_fixed_morphology_tilt_sweep
+
+# Actuation is swept outside the fixed-tilt morphology search.
+servo_tilt_sweep:
+  angles_deg: [0, 15, 30, 45, 60, 75, 90]
+  references: [code_matched, 2r_dd_tilt0_matched, belt_2r_matched, rcj_tilt0_matched]
