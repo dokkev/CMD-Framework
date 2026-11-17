@@ -260,8 +260,9 @@ def check_comparable(found: list[Reference]) -> dict[str, Any]:
 def with_goal_overrides(found: list[Reference], overrides: dict[str, Any] | None) -> list[Reference]:
     """Every reference with the same goal fields set (a sensitivity run's
     ``goal_overrides``, e.g. ``links_block_face: false``); unchanged without
-    any. Check the result with :func:`check_comparable`: the overrides must
-    leave every reference under one rule set."""
+    any. A mapping sets fields of a nested dataclass (``packaging:
+    {a_pivot_diameter_mm: 8}``). Check the result with :func:`check_comparable`:
+    the overrides must leave every reference under one rule set."""
 
     if not overrides:
         return list(found)
@@ -269,8 +270,15 @@ def with_goal_overrides(found: list[Reference], overrides: dict[str, Any] | None
 
     from core.optimization.analysis.tradeoff import with_goal
 
-    return [dataclasses.replace(r, config=with_goal(r.config, dataclasses.replace(goal_of(r.config), **overrides)))
-            for r in found]
+    def updated(value, changes):
+        fields = {}
+        for name, change in changes.items():
+            current = getattr(value, name)
+            fields[name] = (updated(current, change) if isinstance(change, dict) and dataclasses.is_dataclass(current)
+                            else change)
+        return dataclasses.replace(value, **fields)
+
+    return [dataclasses.replace(r, config=with_goal(r.config, updated(goal_of(r.config), overrides))) for r in found]
 
 
 def span_floor(reference_external, modules: Modules, config) -> float:

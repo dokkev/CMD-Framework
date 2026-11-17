@@ -210,3 +210,11 @@ def test_an_unblocked_face_keeps_exactly_its_fold_length(face_on_off):
         if row["mechanism"] == "revolute_parallel" and row["proximal_effective_mm"]:
             for length in ("proximal_effective_mm", "distal_effective_mm"):
                 assert row[length] == off[key][length], (key, length)
+
+
+def test_a_goal_override_can_set_a_packaging_field_on_every_reference():
+    overridden = shared.with_goal_overrides(REFERENCES, {"packaging": {"a_pivot_diameter_mm": 8.0}})
+    assert {goal_of(r.config).packaging.a_pivot_diameter_mm for r in overridden} == {8.0}
+    assert {goal_of(r.config).packaging.b_pivot_diameter_mm for r in overridden} == \
+        {goal_of(r.config).packaging.b_pivot_diameter_mm for r in REFERENCES}
+    shared.check_comparable(overridden)
