@@ -20,7 +20,7 @@ CoDe가 모든 인터페이스에서 우월하거나, 더 넓은 manipulation-us
 | Compact-accommodation extension | 해당 snapshot과 탐색 영역에서 찾은 크기·span·articulation trade-off | [보고서](study2_compact_2026-11-07.md) |
 | Studies 3–4 | 해당 snapshot의 local reflected mechanics 및 prescribed bridge의 geometric screening | [보고서](study3_study4_2026-11-07.md) |
 
-2026-11-17에 `links_block_face`의 반올림 오류를 고쳤다(`9115e3f`). 규칙 ON에서 usable 길이가 최대 0.25 mm 길게 읽혔고, 그 이전 run의 CoDe·belt 2R ON 결과에는 이 오차가 남아 있다. Study 1 active 조건에서는 belt 2R의 수용 수만 37/33/17에서 36/31/13으로 바뀌었다.
+2026-11-17에 `links_block_face`의 반올림 오류를 고쳤다(`9115e3f`, `d89960b`). 규칙 ON에서 fold 한계를 다시 읽으며 usable 길이가 최대 ±0.25 mm 어긋났고, 그 이전 run의 CoDe·belt 2R ON 결과에는 이 오차가 남아 있다. Study 1 active 조건에서는 belt 2R의 수용 수만 37/33/17에서 36/31/13으로 바뀌었다.
 
 이전 보고서의 tilt, clearance 및 평가 규칙은 각 저장 source/config에 귀속된다. 현재 모델에서 모두 다시 실행한 결과로 취급하거나, 서로 다른 조건의 결과를 하나의 architecture ranking으로 합치지 않는다. 특히 과거 compact 결과를 현재 fixed-H 유지의 증거로 사용하지 않는다.
 

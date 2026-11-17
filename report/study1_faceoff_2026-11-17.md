@@ -1,6 +1,6 @@
 # Sensitivity to the link-in-front occlusion rule (appendix draft)
 
-2026-11-17 · **Study track**. Code `f4c355c` (clean tree). Active Study 1 conditions: `references_nominal15.yaml`,
+2026-11-17 · **Study track**. Code `d89960b` (clean tree). Active Study 1 conditions: `references_nominal15.yaml`,
 0–90° tilt sweep, 71 module pairs, required flexion 90/120/150°.
 
 ## Question
@@ -53,8 +53,10 @@ Feasible module pairs out of 71, shown as ON → OFF (ΔN):
   the tests check this.
 - **The 2R-DD and the RCJs are unchanged (ΔN = 0).** They have no link or belt in front of a face. ΔN is also the
   same at every servo tilt.
-- **The belt 2R's verdicts are also unchanged.** Its pulleys do stand in front of a face in 105 assemblies.
-  They hide at most 0.2 mm, which never decides whether a module is carried.
+- **The belt 2R is unchanged too, and not only in its verdicts.** The rule covers its belt and pulleys, but
+  at this morphology they stand in front of no face: ON and OFF read identical lengths in every belt
+  assembly. Its drive sits dorsal of the pads, and the face normals point palmar. So in Study 1 the rule acts
+  on CoDe's crossing links only.
 - **CoDe is the only reference that changes, and only at large flexion.** All ten modules it gains are 30 mm
   long:
   - proximal 30 mm × 3/5/8 at 150°;
@@ -91,8 +93,12 @@ facing the other pad and not as coverage. Both conditions apply the fold rule, b
 - ON's occlusion step re-applied the same fold limit on the probe's pieces, which rounded it up by up to half a
   piece (20.0 mm).
 
-So ON could read a face up to 0.18 mm (CoDe) or 0.25 mm (belt 2R) longer than the fold allows. The kept length is
-now capped at the fold's own length (commit `9115e3f`). The ON–OFF difference is therefore occlusion only.
+The same re-reading also rounded down by up to half a piece. As a result, the belt 2R read up to 0.2 mm
+shorter ON than OFF in 105 assemblies, although nothing stands in front of its faces. In all, ON could read a
+face up to 0.25 mm longer or shorter than the fold allows.
+
+The kept length is now the fold's own length less the blocked pieces short of it (commits `9115e3f`,
+`d89960b`). An unblocked face reads exactly the same ON and OFF, so the ON–OFF difference is occlusion only.
 
 At the nominal tilt this lowers the belt 2R's ON counts from 37/33/17 to **36/31/13**. Every other study run that
 used the rule was made before this fix:
@@ -101,8 +107,8 @@ used the rule was made before this fix:
 - ROM-conditioned;
 - transmission sensitivity.
 
-Their CoDe and belt 2R ON results carry the old fold rounding. The error is at most 0.25 mm of usable length, so only
-assemblies that were within that margin can change.
+Their CoDe and belt 2R ON results carry the old fold rounding. The error is at most ±0.25 mm of usable length, so
+only assemblies within that margin can change.
 
 ## What this supports
 
