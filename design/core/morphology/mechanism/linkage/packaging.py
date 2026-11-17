@@ -683,8 +683,10 @@ def link_kept_lengths(
                                ("distal_pad", distal_face, distal_normal)):
         length, blocked = probe_blocked(face, normal, LINK_REACH_MM, segments=links)
         share = (np.arange(blocked.shape[1]) + 0.5) / blocked.shape[1]
-        folded = share[None, :] * length[:, None] > np.asarray(free[side], dtype=float)[:, None]
-        kept[side] = length * (1.0 - (blocked | folded).mean(axis=1))
+        limit = np.asarray(free[side], dtype=float)
+        folded = share[None, :] * length[:, None] > limit[:, None]
+        # Never past the fold's own length: the probe's pieces would round it up by up to half a piece.
+        kept[side] = np.minimum(length * (1.0 - (blocked | folded).mean(axis=1)), limit)
     return kept
 
 

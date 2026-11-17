@@ -90,7 +90,8 @@ def belt_kept_lengths(geo: ParallelGeometry, phi_rad: float, free: tuple[float, 
         length, blocked = probe_blocked(face, normal, LINK_REACH_MM, segments=segments, disks=disks)
         share = (np.arange(blocked.shape[1]) + 0.5) / blocked.shape[1]
         folded = share * length[0] > limit
-        kept.append(float(length[0] * (1.0 - (blocked[0] | folded).mean())))
+        # Never past the fold's own length: the probe's pieces would round it up by up to half a piece.
+        kept.append(min(float(length[0] * (1.0 - (blocked[0] | folded).mean())), float(limit)))
     return kept[0], kept[1]
 
 
