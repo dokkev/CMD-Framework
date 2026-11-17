@@ -199,3 +199,14 @@ def test_the_face_rule_does_not_touch_mechanisms_without_links_in_front(face_on_
     for key, row in on.items():
         if row["mechanism"] in ("revolute", "rcj", "rcj_idealized"):
             assert off[key] == row, key
+
+
+def test_an_unblocked_face_keeps_exactly_its_fold_length(face_on_off):
+    """The belt 2R's drive stands in front of no face at the matched morphology, so the rule ON must read
+    exactly the lengths OFF reads (re-reading the fold on the probe's pieces once rounded them either way)."""
+
+    on, off = face_on_off["on"][1], face_on_off["off"][1]
+    for key, row in on.items():
+        if row["mechanism"] == "revolute_parallel" and row["proximal_effective_mm"]:
+            for length in ("proximal_effective_mm", "distal_effective_mm"):
+                assert row[length] == off[key][length], (key, length)
