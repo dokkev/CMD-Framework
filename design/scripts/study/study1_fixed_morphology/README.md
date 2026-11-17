@@ -20,6 +20,14 @@ A short pad stays on its link reference line; when it overlaps its own pivot hou
 the seat follows the shallowest nonpenetrating position toward -Z, within the existing native-support
 rule. The housing dimensions are physical envelopes, not an extra uniform clearance. No spacer is assumed.
 
+**CoDe and the tilt (2026-11-17).** CoDe's servo turns about its shaft A', so the tilt only orients its body:
+the four-bar, the pads and their faces do not depend on it. In Study 1, CoDe is identical in every assembly
+from 15° to 90°. At 0° every assembly is invalid. The reference keeps the prototype's A'_z = 12.4 mm, designed for
+a tilted servo, so the level body's lower face (12.4 - 9.5 = 2.9 mm) overlaps the 6 mm A pin (top at 3.0 mm) by
+0.1 mm. This is a static check (`pivot_pin_mm`), so the motion is not swept. It says this reference geometry does
+not fit a level servo, not that CoDe cannot use one. The belt 2R is identical at every tilt, 0° included. The tilt
+sweep is informative for the 2R-DD and the RCJ, whose servo sits at the joint.
+
 New defaults write to `*_tilt_sweep` output directories so they do not overwrite the published historical
 runs. The sections below describe the original fixed-tilt study; their numerical results have not been
 recomputed under the new sweep.

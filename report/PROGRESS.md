@@ -125,6 +125,7 @@ GOAL.md Section 5.7의 네 번째 기준인 동일 물리 hand에서의 통제·
 
 ## 7. 다음에 확보할 증거
 
+0. (참고, 2026-11-17) CoDe의 Study 1 결과는 tilt 15–90°에서 완전히 같다. tilt 0°는 reference 형상(A'_z 12.4 mm)의 servo 몸체가 6 mm A pin과 0.1 mm 겹쳐 무효다. 이는 형상의 문제이지 CoDe 구조의 한계가 아니다. belt 2R은 모든 tilt에서 같다. 그래서 tilt sweep이 의미 있는 대상은 2R-DD와 RCJ다. A' pivot 크기(10/7/0 mm)도 결과를 바꾸지 않는다.
 0. **Studies 1–2를 현재 active 조건으로 다시 실행한다** (2026-11-17 추가). 조건은 CAD 기준 nominal 15°와 0–90° tilt sweep이다(`references_nominal15.yaml`). [study1_study2_2026-11-06.md](study1_study2_2026-11-06.md)는 10° reference로 얻은 과거 결과다. 현재 조건으로는 Study 2 quick run(CoDe, tilt 15°)만 있고 보고서는 없다. 그 전까지 Studies 1–2의 수치는 해당 snapshot의 결과로만 인용한다.
 1. ROM-conditioned 본 실험으로 best-found 비용과 미발견 조건의 탐색 의존성을 확인한다. Baseline 준비와 interface 적응 비용은 계속 분리한다.
 2. CoDe의 proximal 제한을 실제 비관통, transmission 및 face-use 조건으로 진단한다. 특정 geometry의 counterfactual과 재최적화 결과를 구분한다.

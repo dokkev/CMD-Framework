@@ -153,9 +153,11 @@ goal:
       # Each pivot's size, its tolerance included. Half of A's / B's is also how
       # far palmar of its link line the proximal / distal pad starts.
       #   A is 9 mm in fact but kept at 6, which starts the proximal pad 3 mm below OA.
-      #   A' is 7 mm in fact; 10 keeps the A-A' check as for the real pins
-      #   (3 + 5 = 4.5 + 3.5). The cost: the distal pad is checked against a
-      #   smaller A (1.5 mm less radius) and a larger A' (1.5 mm more) than real.
+      #   A' is 7 mm in fact. Its size changes no study result (2026-11-17: CoDe's
+      #   Study 1 identical at 10, 7 and 0 mm). The disk lies inside the PIP servo's
+      #   body (9.5 mm around A'), which every pad and probe check already meets,
+      #   and the A-A' check it was sized for (3 + 5 = 4.5 + 3.5) is off
+      #   (a_pin_and_a_prime_pin below). Kept at 10 so the frozen study does not move.
       pivot_diameter_mm:
         a: 6
         a_prime: 10
