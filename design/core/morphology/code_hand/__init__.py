@@ -9,6 +9,7 @@ from core.morphology.code_hand.model import (
     ClosureError,
     CoDeHand,
     HandFrames,
+    PadBox,
     four_bar,
     pip_from_servo,
     pip_servo_deg,
@@ -21,6 +22,7 @@ from core.morphology.code_hand.parameters import (
     HandConfiguration,
     HandLayout,
     HandParameters,
+    PadParameters,
     Pose,
     ThumbConfiguration,
     ThumbParameters,
@@ -29,6 +31,6 @@ from core.morphology.code_hand.parameters import (
 
 __all__ = [
     "DIGITS", "FINGERS", "ClosureError", "CoDeHand", "FingerConfiguration", "FingerParameters",
-    "HandConfiguration", "HandFrames", "HandLayout", "HandParameters", "Pose", "ThumbConfiguration",
+    "HandConfiguration", "HandFrames", "HandLayout", "HandParameters", "PadBox", "PadParameters", "Pose", "ThumbConfiguration",
     "ThumbParameters", "four_bar", "load", "pip_from_servo", "pip_servo_deg",
 ]

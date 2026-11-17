@@ -5,7 +5,10 @@
 - ``axes``: every joint axis as ``(point, unit direction)``, keyed ``<digit>/<joint>``; a finger's four-bar
   pins are ``A``, ``Ap``, ``B`` and ``Bp``;
 - ``points``: the fingertip ``C`` of each finger and the thumb's end-effector origin ``tip``;
-- ``ends``: end-effector frames (4x4), so far the thumb's ``thumb/ee``.
+- ``ends``: end-effector frames (4x4), so far the thumb's ``thumb/ee``;
+- ``pads``: each finger pad's box (``PadBox``: centre frame and half extents, mm) when the parameters have pads,
+  keyed ``<digit>/proximal_pad`` and ``<digit>/distal_pad``. The box frame's ``+X`` runs along its link toward
+  the tip, ``+Y`` palmar (the proximal frame's ``Y``) and ``+Z`` along the FE axis.
 
 Each servo's axis is its part frame's ``+Z``. The chains (``@`` composes left to right):
 
@@ -160,11 +163,19 @@ def pip_from_pins(finger: FingerParameters, b: np.ndarray, bp: np.ndarray) -> fl
 
 
 @dataclass(frozen=True)
+class PadBox:
+    frame: np.ndarray
+    """4x4 in H [mm]: the box centre; ``+X`` along the link, ``+Y`` palmar, ``+Z`` along the FE axis."""
+    half_extents_mm: np.ndarray
+
+
+@dataclass(frozen=True)
 class HandFrames:
     servos: dict[str, np.ndarray]
     axes: dict[str, tuple[np.ndarray, np.ndarray]]
     points: dict[str, np.ndarray]
     ends: dict[str, np.ndarray] = field(default_factory=dict)
+    pads: dict[str, PadBox] = field(default_factory=dict)
 
 
 def _axis(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -190,10 +201,23 @@ class CoDeHand:
         fe_dir = fe_servo[:3, 2].copy()
         axes = {f"{digit}/aa": _axis(base), f"{digit}/fe": _axis(fe_servo)}
         axes.update({f"{digit}/{n}": (plane(getattr(pins, n.lower())), fe_dir) for n in ("A", "Ap", "B", "Bp")})
+        pads = {}
+        if (pad := self.parameters.pads) is not None:
+            depth = pad.mount_offset_mm + pad.thickness_mm / 2.0
+            half = lambda length: np.array([length / 2.0, pad.thickness_mm / 2.0, pad.width_mm / 2.0])
+            mid = (pad.proximal_start_mm + pad.proximal_end_mm) / 2.0
+            pads[f"{digit}/proximal_pad"] = PadBox(proximal @ trans(mid, depth, 0.0),
+                                                  half(pad.proximal_end_mm - pad.proximal_start_mm))
+            # The distal frame turns with the distal segment: rz(pip) in the proximal X-Y plane.
+            mid = _rot2(-q.pip_deg) @ np.array([(pad.distal_start_mm + pad.distal_end_mm) / 2.0, -depth])
+            centre = pins.b + mid
+            pads[f"{digit}/distal_pad"] = PadBox(proximal @ trans(centre[0], -centre[1], 0.0) @ rz(q.pip_deg),
+                                                half(pad.distal_end_mm - pad.distal_start_mm))
         return HandFrames(
             servos={f"{digit}/aa": base, f"{digit}/fe": fe_servo, f"{digit}/pip": pip_servo},
             axes=axes,
             points={f"{digit}/C": plane(pins.c)},
+            pads=pads,
         )
 
     def thumb_frames(self, q) -> HandFrames:
@@ -245,4 +269,5 @@ class CoDeHand:
             axes={k: v for f in parts for k, v in f.axes.items()},
             points={k: v for f in parts for k, v in f.points.items()},
             ends={k: v for f in parts for k, v in f.ends.items()},
+            pads={k: v for f in parts for k, v in f.pads.items()},
         )

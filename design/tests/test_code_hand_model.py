@@ -146,3 +146,41 @@ def test_actuators_are_the_joint_angles_from_their_zero():
     # A turn of one servo moves only its own actuator coordinate.
     turned = MODEL.actuators(_posed("thumb", "raa", POSED.thumb.raa_deg + 7.0, POSED))
     assert {k: v - a[k] for k, v in turned.items() if abs(v - a[k]) > 1e-12} == {"thumb/raa": pytest.approx(7.0)}
+
+
+def test_a_variant_extends_the_prototype_without_its_cad_observation():
+    from core.morphology.code_hand.parameters import PROTOTYPE
+
+    parameters, configuration = load(PROTOTYPE.with_name("pivot8_balanced.yaml"))
+    assert parameters.layout == PARAMETERS.layout and parameters.thumb == PARAMETERS.thumb
+    assert parameters.finger.a_x_mm == 37.2 and parameters.finger.fe_axis_x_mm == PARAMETERS.finger.fe_axis_x_mm
+    assert configuration == HandConfiguration()
+    assert PARAMETERS.pads is None and not MODEL.frames().pads
+
+
+@pytest.mark.parametrize("pip_deg", [0.0, 45.0, 100.0])
+def test_pads_ride_their_links_on_the_palmar_side(pip_deg):
+    from core.morphology.code_hand.parameters import PROTOTYPE
+
+    parameters, _ = load(PROTOTYPE.with_name("pivot8_balanced.yaml"))
+    pad, finger = parameters.pads, parameters.finger
+    frames = CoDeHand(parameters).frames(_posed("index", "pip", pip_deg))
+    proximal, distal = frames.pads["index/proximal_pad"], frames.pads["index/distal_pad"]
+    depth = pad.mount_offset_mm + pad.thickness_mm / 2.0
+    pins = four_bar(finger, pip_deg)
+    fe = frames.servos["index/fe"]
+    to_plane = lambda point: (np.linalg.inv(fe) @ np.append(point, 1.0))[:3]
+
+    # Proximal: centred between its ends on the O->A line, depth below it; fixed while the PIP turns.
+    assert to_plane(proximal.frame[:3, 3]) == pytest.approx([(pad.proximal_start_mm + pad.proximal_end_mm) / 2,
+                                                             depth, 0.0], abs=1e-9)
+    assert proximal.half_extents_mm == pytest.approx([17.8, 1.5, 9.5])
+    # Distal: its X along B->C, the box centre depth palmar of that line, its ends at B + start and B + end.
+    centre = to_plane(distal.frame[:3, 3])
+    along = (pins.c - pins.b) / np.linalg.norm(pins.c - pins.b)
+    along = np.array([along[0], -along[1], 0.0])  # linkage (x, z dorsal) -> proximal X-Y (Y palmar)
+    assert (np.linalg.inv(fe) @ distal.frame)[:3, 0] == pytest.approx(along, abs=1e-9)
+    b = np.array([pins.b[0], -pins.b[1], 0.0])
+    assert (centre - b) @ along == pytest.approx((pad.distal_start_mm + pad.distal_end_mm) / 2, abs=1e-9)
+    palmar = np.array([-along[1], along[0], 0.0])  # +Y of the box: the link line's palmar normal
+    assert (centre - b) @ palmar == pytest.approx(depth, abs=1e-9)

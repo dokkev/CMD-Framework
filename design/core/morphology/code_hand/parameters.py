@@ -166,6 +166,38 @@ class ThumbParameters:
 
 
 @dataclass(frozen=True)
+class PadParameters:
+    """The contact pads of an ordinary finger: two plain blocks on the palmar side, as the linkage study lays them.
+
+    Each pad's mounting face lies ``mount_offset_mm`` below its link line (palmar, ``-Z`` in the linkage plane),
+    and the pad fills ``thickness_mm`` below that, ``width_mm`` across the finger (along the FE axis, centred on
+    the linkage plane).
+    - Proximal pad: from ``proximal_start_mm`` to ``proximal_end_mm`` along the proximal link line (linkage
+      ``x``, from ``O``); the end is the study's ``A''``.
+    - Distal pad: from ``distal_start_mm`` to ``distal_end_mm`` in the distal frame (origin ``B``, ``+X`` along
+      ``B->C`` in the extended pose); the start is the study's ``B''``, the end is at ``C``.
+    """
+
+    proximal_start_mm: float
+    proximal_end_mm: float
+    distal_start_mm: float
+    distal_end_mm: float
+    mount_offset_mm: float
+    thickness_mm: float
+    width_mm: float
+
+    def __post_init__(self) -> None:
+        _finite(self)
+        if self.proximal_end_mm <= self.proximal_start_mm or self.distal_end_mm <= self.distal_start_mm:
+            raise ValueError("PadParameters: each pad must end past its start")
+        for name in ("thickness_mm", "width_mm"):
+            if getattr(self, name) <= 0.0:
+                raise ValueError(f"PadParameters.{name} must be positive")
+        if self.mount_offset_mm < 0.0:
+            raise ValueError("PadParameters.mount_offset_mm must not be negative")
+
+
+@dataclass(frozen=True)
 class HandLayout:
     """Base pose of each digit's first servo in H."""
 
@@ -183,15 +215,22 @@ class HandParameters:
     layout: HandLayout
     finger: FingerParameters = field(default_factory=FingerParameters)
     thumb: ThumbParameters = field(default_factory=ThumbParameters)
+    pads: PadParameters | None = None
+    """The fingers' contact pads (``None``: not modelled, as in the prototype CAD)."""
 
     @classmethod
     def from_dict(cls, data: dict) -> HandParameters:
         layout = HandLayout(**{d: Pose(**data["layout"][d]) for d in DIGITS})
-        return cls(layout, FingerParameters(**data.get("finger", {})), ThumbParameters(**data.get("thumb", {})))
+        pads = PadParameters(**data["pads"]) if data.get("pads") else None
+        return cls(layout, FingerParameters(**data.get("finger", {})), ThumbParameters(**data.get("thumb", {})),
+                   pads)
 
     def to_dict(self) -> dict:
-        return {"layout": {d: asdict(self.layout.base(d)) for d in DIGITS},
+        data = {"layout": {d: asdict(self.layout.base(d)) for d in DIGITS},
                 "finger": asdict(self.finger), "thumb": asdict(self.thumb)}
+        if self.pads is not None:
+            data["pads"] = asdict(self.pads)
+        return data
 
 
 @dataclass(frozen=True)
@@ -246,8 +285,23 @@ def load(path=PROTOTYPE) -> tuple[HandParameters, HandConfiguration]:
 
     The second return value is not the model's zero/default configuration. Use HandConfiguration()
     or CoDeHand(parameters).frames() for the geometric zero.
+
+    A file may extend another (``base: <path relative to it>``): its sections update the base's, key by key.
+    A variant inherits the base's parameters but not its CAD observation (``cad_configuration``, ``source``),
+    which describes the base's CAD only.
     """
+    data = _read(Path(path))
+    return HandParameters.from_dict(data), HandConfiguration.from_dict(data.get("cad_configuration", {}))
+
+
+def _read(path: Path) -> dict:
     import yaml
 
-    data = yaml.safe_load(Path(path).read_text())
-    return HandParameters.from_dict(data), HandConfiguration.from_dict(data.get("cad_configuration", {}))
+    data = yaml.safe_load(path.read_text())
+    if "base" not in data:
+        return data
+    merged = {k: v for k, v in _read(path.parent / data.pop("base")).items()
+              if k not in ("cad_configuration", "source")}
+    for key, value in data.items():
+        merged[key] = {**merged[key], **value} if isinstance(value, dict) and isinstance(merged.get(key), dict) else value
+    return merged

@@ -7,6 +7,13 @@
 The description is what ``sim/`` builds its robot assets from, so ``sim/`` never imports ``core``:
 - ``bodies``: each rigid body's origin in the hand frame at the geometric zero (all joints 0), its mass and
   centre of mass, and a capsule (start, end, radius) for drawing and contact. Orientation is the hand frame's.
+  With pads in the parameters, a finger's ``proximal`` and ``distal`` bodies also carry their pad as a box
+  (``boxes``: centre, orientation as a ``wxyz`` quaternion in the hand frame, half extents), and their capsule
+  radius is the pads' mounting offset, so the link structure stays above the pad's mounting face.
+- ``collision``: ``filtered_pairs`` of bodies that must not collide with each other: every pair within one digit
+  (the four-bar's links overlap at their pins by construction) except a finger's proximal and distal segments,
+  whose pads must keep clear of each other, and the palm with every body (its capsule is a placeholder).
+  Different digits collide with each other.
 - ``joints``: the spanning tree, each a revolute about ``axis`` through ``anchor`` (hand frame, at zero), CCW
   positive, with its ``actuator`` (if a servo drives it) and limits.
 - ``loops``: the cut joints that close each finger's four-bar (``B'``: driver link to distal segment). URDF
@@ -24,6 +31,7 @@ plus rough structure); they are marked as such and must be replaced before dynam
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import subprocess
@@ -65,6 +73,21 @@ def _body(name, origin, mass, com, start, end, radius_mm, servos=0):
             "capsule": {"start": _m(start), "end": _m(end), "radius": radius_mm * MM}}
 
 
+def _quat_wxyz(r: np.ndarray) -> list[float]:
+    """A rotation matrix's unit quaternion ``(w, x, y, z)``, ``w >= 0``."""
+    w = math.sqrt(max(0.0, 1.0 + r[0, 0] + r[1, 1] + r[2, 2])) / 2.0
+    x = math.copysign(math.sqrt(max(0.0, 1.0 + r[0, 0] - r[1, 1] - r[2, 2])) / 2.0, r[2, 1] - r[1, 2])
+    y = math.copysign(math.sqrt(max(0.0, 1.0 - r[0, 0] + r[1, 1] - r[2, 2])) / 2.0, r[0, 2] - r[2, 0])
+    z = math.copysign(math.sqrt(max(0.0, 1.0 - r[0, 0] - r[1, 1] + r[2, 2])) / 2.0, r[1, 0] - r[0, 1])
+    q = np.array([w, x, y, z]) / math.sqrt(w * w + x * x + y * y + z * z)
+    return [round(float(v), 9) for v in q]
+
+
+def _box(name, pad) -> dict:
+    return {"name": name, "center": _m(pad.frame[:3, 3]), "quat_wxyz": _quat_wxyz(pad.frame[:3, :3]),
+            "half_extents": _m(pad.half_extents_mm)}
+
+
 def _joint(name, parent, child, anchor, axis, limits, actuator=None):
     return {"name": name, "parent": parent, "child": child, "anchor": _m(anchor),
             "axis": [round(float(v), 9) for v in axis], "limits_deg": list(limits), "actuator": actuator}
@@ -94,6 +117,9 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
                "capsule": {"start": [0.0, 0.0, 0.0], "end": [0.0, -0.05, 0.0], "radius": 0.02}}]
     joints, loops, tables = [], [], {}
     servo_zero = pip_servo_deg(f, 0.0)
+    pads = parameters.pads
+    link_radius = 6.0 if pads is None else pads.mount_offset_mm
+    digit_bodies = {}
     for d in FINGERS:
         aa, fe, a, ap, b, bp = (frames.axes[f"{d}/{k}"] for k in ("aa", "fe", "A", "Ap", "B", "Bp"))
         c = frames.points[f"{d}/C"]
@@ -101,11 +127,15 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         tables[d] = table
         bodies += [
             _body(f"{d}_mcp", aa[0], 0.008, (aa[0] + fe[0]) / 2, aa[0], fe[0], 6.0, servos=1),
-            _body(f"{d}_proximal", fe[0], 0.012, (fe[0] + ap[0]) / 2, fe[0], a[0], 6.0, servos=1),
+            _body(f"{d}_proximal", fe[0], 0.012, (fe[0] + ap[0]) / 2, fe[0], a[0], link_radius, servos=1),
             _body(f"{d}_servo_link", ap[0], 0.003, (ap[0] + b[0]) / 2, ap[0], b[0], 2.5),
             _body(f"{d}_driver_link", a[0], 0.003, (a[0] + bp[0]) / 2, a[0], bp[0], 2.5),
-            _body(f"{d}_distal", b[0], 0.010, (b[0] + c) / 2, bp[0], c, 6.0),
+            _body(f"{d}_distal", b[0], 0.010, (b[0] + c) / 2, bp[0], c, link_radius),
         ]
+        digit_bodies[d] = [body["name"] for body in bodies[-5:]]
+        if pads is not None:
+            bodies[-4]["boxes"] = [_box(f"{d}_proximal_pad", frames.pads[f"{d}/proximal_pad"])]
+            bodies[-1]["boxes"] = [_box(f"{d}_distal_pad", frames.pads[f"{d}/distal_pad"])]
         joints += [
             _joint(f"{d}_aa", "palm", f"{d}_mcp", *aa, LIMITS["aa"],
                    {"zero_deg": f.aa_actuator_zero_deg}),
@@ -129,6 +159,10 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         _body("thumb_proximal", mcp[0], 0.008, (mcp[0] + ip[0]) / 2, mcp[0], ip[0], 6.0, servos=2),
         _body("thumb_distal", ip[0], 0.010, (ip[0] + tip) / 2, ip[0], tip, 6.0),
     ]
+    digit_bodies["thumb"] = [body["name"] for body in bodies[-4:]]
+    filtered = [["palm", body["name"]] for body in bodies[1:]]
+    filtered += [[p, q] for names in digit_bodies.values() for i, p in enumerate(names) for q in names[i + 1:]
+                 if {p.split("_", 1)[1], q.split("_", 1)[1]} != {"proximal", "distal"}]
     joints += [
         _joint("thumb_ro", "palm", "thumb_cmc", *ro, LIMITS["ro"], {"zero_deg": t.ro_actuator_zero_deg}),
         _joint("thumb_raa", "thumb_cmc", "thumb_metacarpal", *raa, LIMITS["raa"],
@@ -152,8 +186,10 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         "conventions": "Joint angles CCW about axis; flexion positive. actuator angle = joint angle - zero_deg. "
                        "All bodies take the hand frame's orientation at the geometric zero.",
         "placeholders": ["mass", "com", "inertia (rod about the capsule)", "direct-drive joint limits",
-                         "servo armature"],
+                         "servo armature", "capsules (palm, links, thumb)", "pad width"],
         "bodies": bodies,
+        "collision": {"filtered_pairs": filtered},
+        "pads": None if pads is None else dataclasses.asdict(pads),
         "joints": joints,
         "loops": loops,
         "servo": XM335DriveModel(supply_voltage_v=supply_voltage_v).as_dict(),
@@ -171,7 +207,9 @@ def main(argv=None) -> int:
     data = export(args.params, args.supply_voltage)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1) + "\n")
+    boxes = sum(len(body.get("boxes", [])) for body in data["bodies"])
     print(f"{args.out}: {len(data['bodies'])} bodies, {len(data['joints'])} tree joints, {len(data['loops'])} loops, "
+          f"{boxes} pads, "
           f"source {data['source']['commit'][:8]}{' (dirty)' if data['source']['dirty'] else ''}")
     return 0
 
