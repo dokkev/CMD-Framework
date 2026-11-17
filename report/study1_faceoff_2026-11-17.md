@@ -84,9 +84,15 @@ lower on every axis: on long_thick OFF took ε_Q 0.310 against 0.059 ON. Those 1
 
 ## Correction made for this run
 
-ON could read a face up to 0.18 mm (CoDe) or 0.25 mm (belt 2R) longer than OFF. The cause was a rounding in how
-the kept length re-read the fold limit. This broke F_ON ⊆ F_OFF in 49 belt 2R assemblies. The kept length is now
-capped at the fold's own length (commit `9115e3f`).
+The first run broke F_ON ⊆ F_OFF in 49 belt 2R assemblies. These assemblies passed ON and failed OFF. The cause
+was not occlusion but the **fold rule**: past the point where the two faces cross in the fold, a face counts as
+facing the other pad and not as coverage. Both conditions apply the fold rule, but in different ways:
+- OFF uses the fold-limited length directly (for example, 19.75 mm for the distal face).
+- ON's occlusion step re-applied the same fold limit on the probe's pieces, which rounded it up by up to half a
+  piece (20.0 mm).
+
+So ON could read a face up to 0.18 mm (CoDe) or 0.25 mm (belt 2R) longer than the fold allows. The kept length is
+now capped at the fold's own length (commit `9115e3f`). The ON–OFF difference is therefore occlusion only.
 
 At the nominal tilt this lowers the belt 2R's ON counts from 37/33/17 to **36/31/13**. Every other study run that
 used the rule was made before this fix:
@@ -95,7 +101,7 @@ used the rule was made before this fix:
 - ROM-conditioned;
 - transmission sensitivity.
 
-Their CoDe and belt 2R ON results carry the old rounding. The error is at most 0.25 mm of usable length, so only
+Their CoDe and belt 2R ON results carry the old fold rounding. The error is at most 0.25 mm of usable length, so only
 assemblies that were within that margin can change.
 
 ## What this supports
