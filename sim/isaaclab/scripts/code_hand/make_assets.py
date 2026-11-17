@@ -6,6 +6,8 @@
   bodies at the cut (``<cut>_loop_parent``, ``<cut>_loop_child``); a loader closes the loop between them.
 - USD (UsdPhysics): the same tree as one articulation, and each cut as a joint with
   ``physics:excludeFromArticulation = true``, which Newton turns into a loop joint (MuJoCo CONNECT).
+  ``--colliders`` makes every capsule and pad box a collider and authors the description's
+  ``collision.filtered_pairs`` (``physics:filteredPairs`` on the body prims, which Newton imports).
 
 Link frames sit at each link's parent joint anchor (URDF) or at the description's body origin (USD), with the
 hand frame's orientation at the geometric zero.
@@ -98,6 +100,19 @@ def write_usd(desc: Description, path: Path, loop: str = "ball", ke: float = 5.0
             cap.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(rot)
             if colliders:
                 UsdPhysics.CollisionAPI.Apply(cap.GetPrim())
+        for box in body.get("boxes", []):
+            cube = UsdGeom.Cube.Define(stage, f"/code_hand/{body['name']}/{box['name']}")
+            cube.CreateSizeAttr(1.0)
+            w, x, y, z = box["quat_wxyz"]
+            cube.AddTranslateOp().Set(Gf.Vec3d(*(np.array(box["center"]) - origin[body["name"]])))
+            cube.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(w, x, y, z))
+            cube.AddScaleOp().Set(Gf.Vec3d(*(2.0 * np.array(box["half_extents"]))))
+            if colliders:
+                UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+    if colliders:
+        for a, b in desc.data.get("collision", {}).get("filtered_pairs", []):
+            UsdPhysics.FilteredPairsAPI.Apply(stage.GetPrimAtPath(f"/code_hand/{a}")).CreateFilteredPairsRel(
+            ).AddTarget(Sdf.Path(f"/code_hand/{b}"))
     fixed = UsdPhysics.FixedJoint.Define(stage, "/code_hand/joints/palm_fixed")
     fixed.CreateBody1Rel().SetTargets([Sdf.Path("/code_hand/palm")])
 
@@ -151,8 +166,10 @@ def main(argv=None) -> int:
     parser.add_argument("--colliders", action="store_true")
     args = parser.parse_args(argv)
     desc = Description.load(args.description)
-    print(write_urdf(desc, args.out_dir / "code_hand.urdf"))
-    print(write_usd(desc, args.out_dir / f"code_hand_{args.loop}.usda", loop=args.loop, colliders=args.colliders))
+    print(write_urdf(desc, args.out_dir / f"{args.description.stem}.urdf"))
+    stem = args.description.stem
+    suffix = "_colliders" if args.colliders else ""
+    print(write_usd(desc, args.out_dir / f"{stem}_{args.loop}{suffix}.usda", loop=args.loop, colliders=args.colliders))
     return 0
 
 

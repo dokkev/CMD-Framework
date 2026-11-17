@@ -1,8 +1,8 @@
 # CoDe hand loop closure in Newton and Isaac Lab
 
 Can the CoDe hand's closed four-bar run in Newton and Isaac Lab, built from the parametric model, and on which
-asset path? These are feasibility checks of the kinematic closure. They are not dynamics or contact validation:
-masses, inertias and the direct-drive joint limits are placeholders, and there are no colliders.
+asset path? E1-E6 are feasibility checks of the kinematic closure and the servo model; E7 adds the finger pads as
+colliders. None of it is dynamics validation: masses, inertias and the direct-drive joint limits are placeholders.
 
 ## Pipeline
 
@@ -12,6 +12,7 @@ design/core/morphology/code_hand  (parametric model)
    ▼
 code_hand.json  (bodies, tree joints, loop cuts, four-bar tables, actuator zeros; m / deg / kg; source commit)
    │  scripts/code_hand/make_assets.py           → code_hand.urdf, code_hand_{ball,revolute}.usda
+   │                                                [--colliders → <stem>_ball_colliders.usda]
    ▼
 Newton ModelBuilder / add_urdf / add_usd   →   Isaac Lab Articulation (UsdFileCfg, Newton MuJoCo-Warp)
 ```
@@ -180,8 +181,56 @@ E6, gravity on, armature 5e-3 (the earlier placeholder):
 - The armature and the PID units remain to be identified on a real XM335 (a pendulum or no-load step, and a
   static stiffness test) before small-motion timing is interpreted.
 
+## Finger pads as colliders (E7)
+
+The pads come from a design variant, not the prototype CAD: `design/core/morphology/code_hand/pivot8_balanced.yaml`
+extends `prototype.yaml` with the production search's balanced finger (pivots 8 mm, |OC| 84-91 mm, aligned pad
+offsets, pads 3 mm thick; `scripts/optimize/linkage/config_pivot8.yaml`, preset search) and its pads. The width
+(19 mm, the XM335 case) is a placeholder.
+
+```bash
+# design/
+python scripts/export/code_hand_sim.py --params core/morphology/code_hand/pivot8_balanced.yaml \
+    --out output/sim/code_hand_pivot8.json
+# sim/isaaclab/
+uv run python scripts/code_hand/make_assets.py --description ../../design/output/sim/code_hand_pivot8.json --colliders
+uv run python scripts/code_hand/e7_pad_contact.py --physics mjwarp_stiff|kamino
+```
+
+Each pad is a box on its segment's body, its face `mount_offset + thickness` = 7 mm below the link line, and the
+segment capsules shrink to the 4 mm mounting offset so only the pads face the palmar side. The export lists
+`collision.filtered_pairs`: every body pair within a digit (the loop's links overlap at the pins) except a
+finger's proximal and distal segments, whose pads must clear each other, and the palm with everything (its capsule
+is a placeholder). `make_assets.py` writes them as `physics:filteredPairs`; Newton imports them (checked: the
+proximal and distal pads, and different fingers, stay unfiltered).
+
+E7 (gravity off, XM335 `dc_motor`, all three fingers at once; contact force from Isaac Lab's ContactSensor):
+
+| Test | MuJoCo-Warp (stiffened loops) | Kamino |
+|---|---|---|
+| sweep, PIP 0 to 119 deg, no object | no contact on any hand body; loop 0.0000 mm | no contact; loop 0.0003 mm |
+| distal press: rod at the distal pad centre at PIP 40, PIP servo 15 deg past | stalls at 1.03 N m; PIP 56 deg, FE pushed back 4.4 deg (0.92 N m); normal 18.2 N, friction 1.5 N, contact 10.8 mm from B | stalls; PIP 47 deg, FE back 2.4 deg; normal 17.0-17.3 N, friction 14.4-15.9 N, contact 7.6-7.9 mm from B |
+| distal press, virtual-work residual | -0.3 % | -3.0 to -3.2 % |
+| proximal press: rod at the proximal pad centre at FE 30, FE servo to 45 | stalls; normal 37.5 N, friction 0-2 N, 27.5 mm from O | stalls; normal 32.5-33.5 N, friction 16-20 N |
+| proximal press, virtual-work residual | 0.02 % | 0.07 % |
+| loop residual under load / stray contact | 0.035 mm / 0 N | 0.002 mm / 0 N |
+
+- The pads work as the only palmar contact: the rod touches nothing else, and no hand body touches another
+  through the sweep. The design reports 0.04 mm as the pads' closest approach over its whole curl (to 177 deg);
+  the simulation covers 0-119 deg, the exported PIP range.
+- Both backends balance the servo torque against the pad force by virtual work, so the contact forces are
+  consistent with the four-bar's transmission. The split between normal force and friction is not: a finger
+  pressing a fixed rod is statically indeterminate (friction at the 7 mm deep face also carries moment), and
+  MuJoCo-Warp settles with little friction while Kamino ends near its friction cone. A pad force read in
+  simulation depends on the solver by about 10-15 % in the normal component.
+- The distal press backs the MCP-FE servo off by 2-4 deg at 0.5-0.9 N m: the FE servo's position stiffness
+  (11.85 N m/rad) lets the finger yield, and the distal pad rolls along the rod. With the datasheet gains the
+  FE servo is close to saturating (5 deg) when the PIP servo stalls against an object.
+- A PIP target at the exported limit (120 deg) diverges on Kamino: the loop and both passive joints' limits act
+  at once there. Keep targets inside the table, or export limits with a margin.
+
 ## Not tested yet
 
-Colliders and self-collision filtering between the loop's links, contact with an object, the thumb's and
-fingers' real masses and inertias, the XM335's identified armature, PID units and friction, mesh visuals, Kamino's
-constraint-stabilisation and FK actuation flags, and a simulator outside Newton (Study D).
+A free object grasped by the hand (only a fixed rod so far), thumb pads, the thumb's and fingers' real masses and
+inertias, the pad material (friction, compliance), the XM335's identified armature, PID units and friction, mesh
+visuals, Kamino's constraint-stabilisation and FK actuation flags, and a simulator outside Newton (Study D).
