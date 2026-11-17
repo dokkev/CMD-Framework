@@ -1,0 +1,38 @@
+# references_nominal15.yaml with the CoDe prototype at 8 mm pivots (code_tilt15_pivot8.yaml), CoDe only:
+# Study 2 compares references only under one packaging, and only the linkage reads the pivot sizes.
+# Active Studies 1-2 references. Historical references.yaml is retained for frozen studies.
+# Study 2's reference hands (E0, Q0, A0). Paths are from the repository root.
+#
+# Matched (the primary result): one external morphology for every mechanism,
+# the current prototype's (report/prototype.md): finger length, the two
+# contact-bearing spans and the articulation station. Each mechanism is built
+# to it once, keeping its own architecture (partitions.py, `template`):
+#   - CoDe: the prototype itself (its linkage and servo on A');
+#   - 2R-DD, belt 2R: E fixes the 2R; the belt's servo where CoDe's A' is;
+#   - RCJ: the smallest rollers its hardware allows.
+# Each takes its study config (scripts/study/*.yaml: goal, actuation, rules).
+#
+# The prototype's design vector is held here (tracked), not read from an
+# optimizer output: the reference is an input of the study and does not move
+# when a portfolio is rerun. Its order is the linkage's variable_names.
+morphology:
+  id: prototype
+  mechanism: linkage
+  config: scripts/study/code_tilt15.yaml
+  x: [35.7, 67.2, 0.0, 37.5, 12.4, 60.5, 6.5, 15.0, 22.8, 0.0, 5.8, 0.7, 3.0, 3.0]
+  # Geometry provenance below is historical; nominal servo tilt is now CAD-derived 15 degrees.
+  provenance:
+    run: output/servo_close/linkage/proto_tilt10_align/run_004
+    candidate: 2113
+    portfolio: output/servo_close/linkage/proto_tilt10_align/portfolio_001
+    role: balanced
+    formulation: linkage-v12
+    commit: 73340852fc0832024c077d1ff5b32b7a5ce2108d
+    document: report/prototype.md
+
+matched:
+  - {id: code_matched, config: scripts/study/code_tilt15_pivot8.yaml}
+
+
+# Native archives remain historical and are not re-labelled as nominal-15 designs.
+native: []
