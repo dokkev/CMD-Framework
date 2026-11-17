@@ -1,5 +1,12 @@
 # CoDe finger design study (core/optimization/linkage).
 #
+# PROTOTYPE OPTIMIZATION ("production"): this file and the files extending it
+# design the finger that gets built. They are not the study's
+# (scripts/study/, frozen from this file at 6ccab53) and must not be mixed
+# with it: no study rule or output comes in here, nothing here goes into a
+# study config, and results are not compared across the two (README.md,
+# "Two optimizations: prototype and study").
+#
 #   python scripts/optimize/run.py
 #
 # This file is the study's only input. For another condition, write a file

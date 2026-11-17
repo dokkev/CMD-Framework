@@ -6,6 +6,13 @@
 #
 # runs to output/study/<mechanism>/<file name>/ (run_NNN, portfolio_NNN).
 # Change the goal here, for every mechanism at once, not in one file.
+#
+# STUDY OPTIMIZATION: separate from the prototype optimization
+# (scripts/optimize/linkage/, "production"). Do not bring a prototype
+# condition in here (its pivot sizes, bounds, pad settings, ...), and do not
+# compare a study result with a prototype run. A prototype design may enter
+# only as a frozen reference design vector, re-evaluated under these rules
+# (README.md, "Two optimizations: prototype and study").
 base: baseline.yaml
 output: output/study
 

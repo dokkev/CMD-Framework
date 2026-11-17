@@ -1,6 +1,9 @@
 # The study's own baseline: a frozen copy of scripts/optimize/linkage/config.yaml
 # at 6ccab53 (2026-11-04), so a production change does not move the study.
 # Change the study here (or in base.yaml), not in the production file.
+# The reverse also holds: a later production (prototype) change is not copied
+# here. The two optimizations are kept apart (README.md, "Two optimizations:
+# prototype and study").
 
 # CoDe finger design study (core/optimization/linkage).
 #

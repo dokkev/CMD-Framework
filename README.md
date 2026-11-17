@@ -31,6 +31,32 @@ The two subprojects keep separate environments and exchange data only through ve
 Studies write figures and reports to the repository-level `report/`. Their run records stay under
 `design/output/`.
 
+## Two optimizations: prototype and study
+
+`design/` runs the same optimizer (`scripts/optimize/run.py`) for two different jobs. They have separate configs,
+separate packaging assumptions and separate outputs. **Never mix them.**
+
+| | Prototype optimization | Study optimization |
+|---|---|---|
+| Purpose | Design the CoDe finger that gets built (hardware workstream, `report/prototype_hardware.md`) | Answer GOAL.md's research questions: mechanism comparison, Studies 1-4 (`report/kinematic_study_freeze.md`) |
+| Configs | `design/scripts/optimize/linkage/config.yaml` and the files extending it (`config_pivot8.yaml`, ...) | `design/scripts/study/base.yaml` → `baseline.yaml` (a frozen copy of the production config at 6ccab53) and the files under `design/scripts/study/` |
+| Packaging | Follows the hardware as it is chosen (e.g. pivots A, A', B, B' 8 mm in `config_pivot8.yaml`) | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes |
+| Outputs | `design/output/linkage/<config>/...`, hand variants such as `core/morphology/code_hand/pivot8_balanced.yaml`, sim exports | `design/output/study/...`, `report/` study reports |
+| Code name | "production" | "study" |
+
+Rules:
+- **A study config never takes a prototype condition.** Do not change a packaging, bound or rule under
+  `scripts/study/` because the prototype changed (for example, no pivot-8 study variant). The study's assumptions
+  change only by a decision about the study itself, made in `base.yaml`/`baseline.yaml` for every mechanism at once.
+- **The prototype config never reads study rules or outputs.** A change to `baseline.yaml` does not reach
+  `scripts/optimize/linkage/config.yaml`, and the reverse is also true.
+- **Results are not compared across the two.** A prototype run's numbers (k_max, φ, pad lengths) and a study's numbers
+  come from different packaging and goals; do not put them in one table or draw one conclusion from both.
+- The one allowed crossing: a study may take a prototype **design vector** as a frozen reference input, copied into a
+  tracked study file with its provenance (`scripts/study/study2_morphology_adaptation/references_nominal15.yaml`). It is
+  then re-evaluated under the study's own rules and packaging, not the prototype's.
+- Each report and each output says which of the two it belongs to.
+
 The simulation side consumes geometry exports that carry their source commit. It does not reimplement or import
 `design/core`. See `sim/isaaclab/README.md`.
 

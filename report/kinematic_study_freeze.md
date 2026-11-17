@@ -12,6 +12,11 @@ fabrication-readiness review.
 
 ## Kinematic study vs. hardware design
 
+The two use different optimizations. The study optimization uses `design/scripts/study/` with fixed packaging
+(pivots A 6, A' 10, B 6, B' 6 mm). The prototype optimization uses `design/scripts/optimize/linkage/` and follows
+the hardware (e.g. 8 mm pivots). They are never mixed: hardware changes do not enter the study configs, and
+their results are not compared. See README.md, "Two optimizations: prototype and study".
+
 | Item | Kinematic study (closed) | Hardware design (parallel workstream) |
 |---|---|---|
 | Linkage closure / singularity | Required; done (existing FK) | — |
