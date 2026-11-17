@@ -14,10 +14,13 @@ CoDe가 모든 인터페이스에서 우월하거나, 더 넓은 manipulation-us
 |---|---|---|
 | Independent fixed-H interface-family experiment | 선언한 길이·두께 조합 격자에서의 fixed-skeleton/actuation 수용성; dense-posture 및 fold-off 민감도 포함 | [보고서](interface_family_2026-11-09.md), [summary CSV](../design/output/study/interface_family_2026-11-09/summary.csv), [dense CSV](../design/output/study/interface_family_2026-11-09/dense_summary.csv) |
 | ROM-conditioned Study 2 pilot | 90/120/150°별 baseline 준비와 interface adaptation을 분리한 현재 모델의 관찰 | [보고서](study2_rom_conditioned_2026-11-09.md), [baseline CSV](../design/output/study/study2_rom_conditioned_2026-11-09/pilot/baseline_best.csv), [interface CSV](../design/output/study/study2_rom_conditioned_2026-11-09/pilot/interface_best.csv) |
+| Link-in-front occlusion ON/OFF | Study 1(active 15°)에서 occlusion 규칙이 CoDe 수용 결과에 미치는 영향; OFF는 검증되지 않은 이상화 조건 | [보고서](study1_faceoff_2026-11-17.md) |
 | Transmission-angle sensitivity | CoDe proximal accommodation이 angle 및 face-use 제약에 의존하는 사례; 동일 geometry 재평가 | [보고서](transmission_sensitivity_2026-11-09.md) |
 | 기존 Studies 1–2 | 고정 형상 수용성과 형상 적응 비용의 평가 방법 및 해당 source snapshot의 결과 | [보고서](study1_study2_2026-11-06.md) |
 | Compact-accommodation extension | 해당 snapshot과 탐색 영역에서 찾은 크기·span·articulation trade-off | [보고서](study2_compact_2026-11-07.md) |
 | Studies 3–4 | 해당 snapshot의 local reflected mechanics 및 prescribed bridge의 geometric screening | [보고서](study3_study4_2026-11-07.md) |
+
+2026-11-17에 `links_block_face`의 반올림 오류를 고쳤다(`9115e3f`). 규칙 ON에서 usable 길이가 최대 0.25 mm 길게 읽혔고, 그 이전 run의 CoDe·belt 2R ON 결과에는 이 오차가 남아 있다. Study 1 active 조건에서는 belt 2R의 수용 수만 37/33/17에서 36/31/13으로 바뀌었다.
 
 이전 보고서의 tilt, clearance 및 평가 규칙은 각 저장 source/config에 귀속된다. 현재 모델에서 모두 다시 실행한 결과로 취급하거나, 서로 다른 조건의 결과를 하나의 architecture ranking으로 합치지 않는다. 특히 과거 compact 결과를 현재 fixed-H 유지의 증거로 사용하지 않는다.
 
