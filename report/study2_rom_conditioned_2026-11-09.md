@@ -1,5 +1,7 @@
 # Study 2: ROM-conditioned baseline pilot
 
+> **Recheck 2026-11-17.** After the fold-rounding fix, 5 of the 145 saved designs fall short by 0.03–0.25 mm. Rerunning those searches gives the same CoDe success counts (8/5/2). The belt 2R at 90° drops to 4 adapted and 2 not found. Costs for individual conditions move more between reruns than this fix changes them. See [recheck_fold_rounding_2026-11-17.md](recheck_fold_rounding_2026-11-17.md).
+
 2026-11-09. Every 90/120/150-degree ROM has a separately selected baseline before target-interface adaptation.
 This is a one-seed pilot (population 32, 20 generations per search), not a final architecture ranking.
 

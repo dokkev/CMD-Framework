@@ -12,6 +12,7 @@ unresolved limitations and the next validation steps against GOAL.md.
 
 | File | Status | Contents |
 |---|---|---|
+| [recheck_fold_rounding_2026-11-17.md](recheck_fold_rounding_2026-11-17.md) | current | Every study run affected by the ±0.25 mm fold-rounding error, re-evaluated or rerun: what changed (mostly belt 2R counts) and confirmation that C3, C4 and C7 are unchanged |
 | [study1_faceoff_2026-11-17.md](study1_faceoff_2026-11-17.md) | current, appendix draft | Link-in-front occlusion rule ON vs OFF: Study 1 at the active 15-degree conditions (CoDe +2/+8 module pairs at 120/150 degrees, every other architecture unchanged) and the Study 2 face-off control; the rounding fix that capped the rule |
 | [interface_family_2026-11-09.md](interface_family_2026-11-09.md) | current | Independent fixed-H proximal/distal thickness-family experiment, dense-posture validation and fold-rule sensitivity across all comparison mechanisms |
 | [study2_rom_conditioned_2026-11-09.md](study2_rom_conditioned_2026-11-09.md) | current (pilot, one seed) | Separate 90/120/150-degree baseline preparation and interface adaptation, with saved-design readback and per-interface ROM cost plots |

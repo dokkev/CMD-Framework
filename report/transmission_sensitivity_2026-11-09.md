@@ -1,5 +1,7 @@
 # Proximal accommodation under relaxed transmission-angle limits
 
+> **Recheck 2026-11-17.** The main_margin10 asym_long_proximal design is still feasible after the fold-rounding fix, so a face-rule-ON solution exists. A rerun with the same seeds did not find it (0/3), so finding it is fragile. The face-off control is not affected. See [recheck_fold_rounding_2026-11-17.md](recheck_fold_rounding_2026-11-17.md).
+
 2026-11-09. Model-derived sensitivity study, current CoDe nominal servo tilt 15 degrees.
 
 The question is whether sacrificing transmission quality can recover proximal-heavy interfaces while

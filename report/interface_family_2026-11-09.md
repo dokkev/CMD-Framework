@@ -1,5 +1,7 @@
 # Fixed-H interface-family accommodation — independent experiment
 
+> **Recheck 2026-11-17.** A fold-rounding error (±0.25 mm usable length, CoDe and belt 2R) was fixed. The dense and fold-off results (C7) are unchanged. In Result 1, CoDe drops to 131/114/95 and belt 2R to 108/77/24 (22 sampled). In Result 3, CoDe drops to 299/236/152 and belt 2R to 247/186/90. Corrected tables: [recheck_fold_rounding_2026-11-17.md](recheck_fold_rounding_2026-11-17.md).
+
 2026-11-09. [GOAL.md](../GOAL.md) Sections 5.2–5.3 and 5.7에 대응한다.
 
 ## Question and independence
