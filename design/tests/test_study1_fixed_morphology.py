@@ -141,3 +141,61 @@ def test_a_module_meeting_its_usable_length_to_float_noise_is_usable():
     code = next(r for r in REFERENCES if r.reference_id == "code_matched")
     row = study1.assembly(code, CATALOG["baseline"], [90.0])[0]
     assert row["feasible"] is True
+
+
+FACE = SMALL + """  long_proximal: {proximal: {length_mm: 33}}
+  proximal_20x5: {proximal: {thickness_mm: 5}}
+  distal_30x3: {distal: {length_mm: 30}}
+"""
+"""The study's modules where the rule matters: a long proximal pad (CoDe's links in front of it), and two
+where the fold alone limits the belt 2R, which once read longer with the rule on than off."""
+
+
+@pytest.fixture(scope="module")
+def face_on_off(tmp_path_factory):
+    """The same Study 1 with the link-in-front rule on (the study's) and off (``config_faceoff.yaml``)."""
+
+    folder = tmp_path_factory.mktemp("study1_face")
+    (folder / "modules.yaml").write_text(FACE)
+    common = f"modules: {folder / 'modules.yaml'}\nkinds: [matched]\nrequired_flexion_deg: [90, 120, 150]\nworkers: 1\n"
+    (folder / "on.yaml").write_text(common + f"output: {folder / 'on'}\n")
+    (folder / "off.yaml").write_text(common + f"output: {folder / 'off'}\ngoal_overrides: {{links_block_face: false}}\n")
+    runs = {}
+    for name in ("on", "off"):
+        out = study1.run(folder / f"{name}.yaml", ROOT)
+        with (out / "assembly_results.csv").open() as stream:
+            runs[name] = (out, {row["assembly_id"]: row for row in csv.DictReader(stream)})
+    return runs
+
+
+def test_the_face_rule_off_is_set_on_every_reference_and_recorded(face_on_off):
+    import json
+
+    for name, expected in (("on", True), ("off", False)):
+        manifest = json.loads((face_on_off[name][0] / "manifest.json").read_text())
+        assert manifest["comparison_rules"]["links_block_face"] is expected
+        assert manifest["config"].get("goal_overrides", {}).get("links_block_face", True) is expected
+
+
+def test_the_face_rule_off_only_adds_feasible_assemblies(face_on_off):
+    """F_ON is a subset of F_OFF: the geometry is frozen and only the occlusion penalty goes, so no
+    assembly feasible with the rule fails without it, and no usable length shrinks."""
+
+    on, off = face_on_off["on"][1], face_on_off["off"][1]
+    assert on.keys() == off.keys()
+    for key, row in on.items():
+        assert row["mounted"] == off[key]["mounted"], key
+        if row["feasible"] == "True":
+            assert off[key]["feasible"] == "True", key
+        for length in ("proximal_effective_mm", "distal_effective_mm"):
+            if row[length]:
+                assert float(off[key][length]) >= float(row[length]) - 1e-6, (key, length)
+
+
+def test_the_face_rule_does_not_touch_mechanisms_without_links_in_front(face_on_off):
+    """The 2R-DD and the RCJs have no crossing link or belt to stand in front of a face: Delta N = 0."""
+
+    on, off = face_on_off["on"][1], face_on_off["off"][1]
+    for key, row in on.items():
+        if row["mechanism"] in ("revolute", "rcj", "rcj_idealized"):
+            assert off[key] == row, key

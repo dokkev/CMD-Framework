@@ -14,6 +14,9 @@ feasible (collisions, the flexion reached, each module usable there), its
 maximum safe flexion and its usable contact coverage. A failed assembly is
 reported, never redesigned.
 
+A config may set ``goal_overrides`` (goal fields, the same on every
+reference): a sensitivity run, e.g. ``config_faceoff.yaml``.
+
 Writes ``manifest.json``, ``references.csv``, ``module_catalog.csv`` and
 ``assembly_results.csv`` to the config's ``output``.
 """
@@ -123,9 +126,10 @@ _REFERENCES: dict[str, Any] = {}
 """Each worker's references, built once (the configs do not pickle)."""
 
 
-def _load(kinds, root, path=shared.REFERENCES, sweep=None) -> None:
+def _load(kinds, root, path=shared.REFERENCES, sweep=None, overrides=None) -> None:
     _REFERENCES.clear()
-    _REFERENCES.update({r.reference_id: r for r in shared.load_references(kinds, root, path, sweep)})
+    found = shared.with_goal_overrides(shared.load_references(kinds, root, path, sweep), overrides)
+    _REFERENCES.update({r.reference_id: r for r in found})
 
 
 def _assembly(job):
@@ -143,14 +147,17 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
     kinds = tuple(config.get("kinds", ("matched",)))
     references_path = config.get("references", shared.REFERENCES)
     sweep = config.get("servo_tilt_sweep")
-    found = shared.load_references(kinds, root, references_path, sweep)
+    # A sensitivity run: goal fields set on every reference alike (e.g. links_block_face: false),
+    # checked to leave them under one rule set and recorded in the manifest.
+    overrides = config.get("goal_overrides") or {}
+    found = shared.with_goal_overrides(shared.load_references(kinds, root, references_path, sweep), overrides)
     rules = shared.check_comparable(found)
     pairs = shared.module_catalog(read_config_file(root / config["modules"]))
     flexions = [float(v) for v in config["required_flexion_deg"]]
     jobs = [(reference.reference_id, pair, flexions) for reference in found for pair in pairs]
     workers = int(config.get("workers", 1)) if workers is None else workers
     if workers > 1:
-        with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root, references_path, sweep)) as pool:
+        with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root, references_path, sweep, overrides)) as pool:
             rows = [row for rows in pool.map(_assembly, jobs, chunksize=4) for row in rows]
     else:
         _REFERENCES.update({r.reference_id: r for r in found})

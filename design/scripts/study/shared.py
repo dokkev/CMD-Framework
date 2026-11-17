@@ -257,6 +257,22 @@ def check_comparable(found: list[Reference]) -> dict[str, Any]:
             else value for name, value in first.items()}
 
 
+def with_goal_overrides(found: list[Reference], overrides: dict[str, Any] | None) -> list[Reference]:
+    """Every reference with the same goal fields set (a sensitivity run's
+    ``goal_overrides``, e.g. ``links_block_face: false``); unchanged without
+    any. Check the result with :func:`check_comparable`: the overrides must
+    leave every reference under one rule set."""
+
+    if not overrides:
+        return list(found)
+    import dataclasses
+
+    from core.optimization.analysis.tradeoff import with_goal
+
+    return [dataclasses.replace(r, config=with_goal(r.config, dataclasses.replace(goal_of(r.config), **overrides)))
+            for r in found]
+
+
 def span_floor(reference_external, modules: Modules, config) -> float:
     """The least ``eps_E`` a module forces on a reference (normalized by its
     finger's length): the spans it needs past the reference's, the proximal one

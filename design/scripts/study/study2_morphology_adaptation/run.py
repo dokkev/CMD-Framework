@@ -171,12 +171,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
     # A sensitivity run: goal fields set on every reference alike (recorded in the manifest).
     overrides = config.get("goal_overrides") or {}
     if overrides:
-        import dataclasses
-
-        from core.optimization.analysis.tradeoff import goal_of, with_goal
-
-        built = [dataclasses.replace(r, config=with_goal(r.config, dataclasses.replace(goal_of(r.config), **overrides)))
-                 for r in built]
+        built = shared.with_goal_overrides(built, overrides)
         rules = shared.check_comparable(built)
     optimizer = config["optimizer"]
     seeds = [int(seed) for seed in optimizer["seeds"]]
