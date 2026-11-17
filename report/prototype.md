@@ -1,6 +1,12 @@
 # Current prototype (CoDe)
 
-This is the CoDe finger design currently in CAD. It was logged on 2026-11-05.
+**Track: prototype optimization** (`design/scripts/optimize/linkage/`). Nothing here is a study result, and its numbers
+are not compared with the study's (repository README, "Two optimizations: prototype and study").
+
+This is the CoDe finger design currently in CAD. It was logged on 2026-11-05. The design below was optimized with the
+PIP servo tilt fixed at 10°. The CAD-derived servo tilt is 15° (`finger.pip_servo_tilt_deg` in
+`design/core/morphology/code_hand/prototype.yaml`; commit `ef2a0f8`), so the performance numbers below use the
+optimization's 10°.
 
 ![prototype](figures/prototype.png)
 
@@ -84,3 +90,73 @@ The prototype was optimized under linkage-v12. We re-evaluated it with the rules
 - **Mounting depth policy**: the prototype searched its depth (range 0–10 mm) and aligned the two pads, so it does not follow the study's `shallowest_supported` policy. The distal pad runs under B, and the depth found, 3.0 mm, equals the radius of B's pin housing.
 
 What these results show: B sits 22.8 mm back from C, and both links pass behind the pads. The link rule demands exactly this shape. The study's earlier CoDe designs with B on C (BC 0.1 mm) do not have it, and neither do the balanced designs of the 2026-11-04 production search, which used |OC| 90–100 mm and 150°.
+
+## Design variant: 8 mm pivots (2026-11-12)
+
+This variant is not in CAD yet. It answers a hardware question: what finger the production search finds once every
+pivot housing is 8 mm. It is the hand that `sim/` currently builds with pads
+(`design/core/morphology/code_hand/pivot8_balanced.yaml`; see `sim/isaaclab/scripts/code_hand/README.md`, E7).
+
+### Source
+
+| Item | Value |
+|---|---|
+| Config | `design/scripts/optimize/linkage/config_pivot8.yaml` (extends `config.yaml`) |
+| Runs | `design/output/linkage/config_pivot8/search/run_001`–`run_009`, merged in `portfolio_001` |
+| Optimizer | nsga2, smsemoa and agemoea × seeds 0–2; population 200, 1000 generations each |
+| Formulation | linkage-v14 |
+| Code | `1c09b26` |
+
+### Goal: what differs from `config.yaml`
+
+| Item | `config.yaml` | `config_pivot8.yaml` |
+|---|---|---|
+| Pivot housings A, A′, B, B′ | 6, 10, 6, 6 mm | 8, 8, 8, 8 mm |
+| Finger length \|OC\| | 90–100 mm | 84–91 mm |
+| Pad thickness | 5 mm | 3 mm |
+| Pad mounting depths | searched separately | searched, the two pads aligned |
+
+Shared with `config.yaml`: required flexion φ_req 150°, PIP servo tilt 15°, pads at least proximal 20 mm and
+distal 25 mm, objectives transmission, pad_coverage and curl. This goal differs from the CAD prototype's (above:
+120°, 80–90 mm, tilt 10°, 5 mm pads), so the two designs' numbers are not a like-for-like comparison.
+
+### Representative seeds
+
+k_max is taken over 0–150°. φ_safe is how far the finger flexes before a stop.
+
+| Seed | Run #candidate | k_max | Proximal pad + distal pad | φ_safe | Pad clearance | Stop |
+|---|---|---|---|---|---|---|
+| best_transmission | run_002 #1 | **1.92** | 32.0 + 27.4 mm | 150.2° | 0.047 mm | DIP back-off |
+| most_pad | run_002 #2475 | 3.23 | **40.2 + 37.9 mm** | 158.2° | 0.015 mm | DIP back-off |
+| most_curl | run_005 #1713 | 2.24 | 31.6 + 28.9 mm | **180.0°** | 0.211 mm | curl |
+| balanced | run_009 #2099 | 2.39 | 35.6 + 33.8 mm | 177.4° | 0.042 mm | DIP back-off |
+
+In every seed, the two pads come within 0.25 mm of each other. The search pushes the pads to the closest clearance it
+allows.
+
+### The balanced seed (`pivot8_balanced.yaml`)
+
+![pivot-8 balanced](figures/prototype_pivot8_balanced.png)
+
+*The balanced seed from 0° to φ_safe = 177.4°. Source: `design/output/finger/pivot8_search_balanced_poses.png`.*
+
+The proximal frame's values are rounded to 0.1 mm.
+
+| CAD variable | Value |
+|---|---|
+| A_x, A_z | 37.2, 0 mm |
+| Ap_x, Ap_z (A′) | 40.1, 13.2 mm |
+| B (absolute) | 69.0, 0 mm |
+| Bp_x, Bp_z (B′, relative to B) | −8.5, 6.6 mm (absolute 60.5, 6.6) |
+| C_x (C, relative to B) | 21.9 mm, \|OC\| = 90.9 mm |
+| A′B, AB′ | 31.8, 24.2 mm |
+| Proximal pad | x = 9.5 → 45.1 mm (35.6 mm), A″ 5.0 mm past A′_x |
+| Distal pad | B″ 11.9 mm behind B → C (33.8 mm), B″ 3.4 mm short of B′_x |
+| Pad mounting depth, thickness | 4.0 mm (the radius of the 8 mm housings), 3 mm |
+
+Other results:
+- k_min is 2.20.
+- The servo travels 65.5° to reach 150°.
+- The least transmission margin is 44.7°, and the toggle margin is 7.2°.
+- The driver link clears the servo by 2.3 mm.
+- The pad width for simulation (19 mm, the XM335 case width) is a placeholder and was not searched.

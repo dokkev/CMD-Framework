@@ -1,6 +1,6 @@
 # CoDe Hand — Progress and Defensible Claims
 
-기준일: 2026-11-09. 연구 목표는 [GOAL.md](../GOAL.md)를 따른다. 이 문서는 현재 확보한 근거로 주장할 수 있는 범위와 아직 검증이 필요한 범위를 기록한다. 연구 목표의 선언과 목표 달성의 증거를 구분한다.
+기준일: 2026-11-09 (§7 갱신 2026-11-17). 연구 목표는 [GOAL.md](../GOAL.md)를 따른다. 이 문서는 study 쪽 결과만 다룬다. Prototype 최적화 결과([prototype.md](prototype.md))는 근거로 쓰지 않는다(저장소 README, "Two optimizations: prototype and study"). 이 문서는 현재 확보한 근거로 주장할 수 있는 범위와 아직 검증이 필요한 범위를 기록한다. 연구 목표의 선언과 목표 달성의 증거를 구분한다.
 
 ## 1. 현재 결론
 
@@ -122,6 +122,7 @@ GOAL.md Section 5.7의 네 번째 기준인 동일 물리 hand에서의 통제·
 
 ## 7. 다음에 확보할 증거
 
+0. **Studies 1–2를 현재 active 조건으로 다시 실행한다** (2026-11-17 추가). 조건은 CAD 기준 nominal 15°와 0–90° tilt sweep이다(`references_nominal15.yaml`). [study1_study2_2026-11-06.md](study1_study2_2026-11-06.md)는 10° reference로 얻은 과거 결과다. 현재 조건으로는 Study 2 quick run(CoDe, tilt 15°)만 있고 보고서는 없다. 그 전까지 Studies 1–2의 수치는 해당 snapshot의 결과로만 인용한다.
 1. ROM-conditioned 본 실험으로 best-found 비용과 미발견 조건의 탐색 의존성을 확인한다. Baseline 준비와 interface 적응 비용은 계속 분리한다.
 2. CoDe의 proximal 제한을 실제 비관통, transmission 및 face-use 조건으로 진단한다. 특정 geometry의 counterfactual과 재최적화 결과를 구분한다.
 3. 대표 interface를 물리적으로 교체하고 retained ROM, 장착 반복성, 분해 단계와 통합 변경을 기록한다.
