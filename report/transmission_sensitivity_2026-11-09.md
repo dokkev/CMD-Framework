@@ -64,7 +64,7 @@ No physical torque, strength, 3D accessibility or hardware behavior was validate
 - historical_candidate_recheck.csv: separate counterfactual diagnostic at 15 degrees.
 - Each run stores manifest, source snapshot, exact stage configs, optimizer records and candidate CSVs.
 - analysis_manifest.json hashes input tables and the analysis script; analysis_source stores its source snapshot.
-- asym_long_proximal_candidate.png/.pdf: geometry at 0/120 degrees and transmission-angle-margin trajectory.
+- asym_long_proximal_candidate.png: geometry at 0/120 degrees and transmission-angle-margin trajectory.
 
 Reproduce searches with sensitivity_transmission_{30,20,10}_{pilot,main}.yaml and
 sensitivity_transmission_faceoff_control.yaml through the existing Study 2 run.py.

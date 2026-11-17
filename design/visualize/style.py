@@ -68,12 +68,11 @@ def shades(color: str) -> LinearSegmentedColormap:
 
 
 def save(figure, name: str) -> Path:
-    """A paper figure, as output/paper/<name>.png and .pdf."""
+    """A paper figure, as output/paper/<name>.png (no PDF: README.md, "Figures")."""
 
     PAPER.mkdir(parents=True, exist_ok=True)
     path = PAPER / f"{name}.png"
     figure.savefig(path, dpi=200)
-    figure.savefig(path.with_suffix(".pdf"))
     return path
 
 

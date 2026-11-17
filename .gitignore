@@ -3,3 +3,6 @@
 __pycache__/
 *.py[cod]
 output/
+
+# Figures are PNG only (README.md, "Figures: PNG only, no PDF")
+report/**/*.pdf

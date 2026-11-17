@@ -31,6 +31,9 @@ The two subprojects keep separate environments and exchange data only through ve
 Studies write figures and reports to the repository-level `report/`. Their run records stay under
 `design/output/`.
 
+**Figures: PNG only, no PDF.** Figure scripts save `.png` (plus `.csv` for the numbers). No script writes a `.pdf`,
+to `report/`, `design/output/` or anywhere else, and no PDF is committed. Do not add PDF output to a new script.
+
 ## Two optimizations: prototype and study
 
 `design/` runs the same optimizer (`scripts/optimize/run.py`) for two different jobs. They have separate configs,

@@ -112,7 +112,6 @@ def main():
     fig.suptitle("Fixed skeleton/actuation, 20 mm pads: grey fail; orange endpoint only; teal sampled-posture pass\n"
                  "ROM-conditioned baselines; interface-dependent seating; sampled thickness bins are not equally spaced")
     fig.savefig(OUT / "thickness_maps.png", dpi=180)
-    fig.savefig(OUT / "thickness_maps.pdf")
     plt.close(fig)
     fig, axes = plt.subplots(1,3,figsize=(15,4.5),constrained_layout=True)
     for ax, rom in zip(axes,cfg["required_flexion_deg"]):
@@ -128,7 +127,6 @@ def main():
     axes[-1].legend(fontsize=8)
     fig.suptitle("Fixed-H family support across declared length strata — endpoint criterion, not manipulation performance")
     fig.savefig(OUT / "length_sensitivity.png",dpi=180)
-    fig.savefig(OUT / "length_sensitivity.pdf")
     plt.close(fig)
     dense_summary = []
     additional_inputs = {}
@@ -173,7 +171,6 @@ def main():
         ax.legend(fontsize=9)
         ax.grid(axis="y",alpha=.2)
         fig.savefig(OUT / "posture_sensitivity.png",dpi=180)
-        fig.savefig(OUT / "posture_sensitivity.pdf")
         plt.close(fig)
     source = OUT / "analysis_source"
     source.mkdir(exist_ok=True)

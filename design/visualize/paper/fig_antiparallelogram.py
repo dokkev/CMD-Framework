@@ -10,7 +10,7 @@ relative to the ground, positive as theta. Each curve spans the servo angles
 where the transmission angle at B' (between B'->A and B'->B) stays within
 [30, 150] deg, the most a finger on this four-bar can sweep; drawn bold, the
 150 deg window of phi within it whose k_max is least. Saves
-output/paper/fig_antiparallelogram.png / .pdf.
+output/paper/fig_antiparallelogram.png.
 """
 
 from __future__ import annotations

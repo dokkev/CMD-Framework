@@ -11,7 +11,7 @@ the nadir of all the runs' last fronts together (reference point 1.1 in
 each), as a share of the hypervolume of those fronts merged. Right: the most
 pad coverage with k_max at most ``k cap`` (default 2.0). One colour per
 optimizer, one line per seed. Saves
-output/paper/fig_convergence_<study>_<preset>.png / .pdf.
+output/paper/fig_convergence_<study>_<preset>.png.
 """
 
 from __future__ import annotations

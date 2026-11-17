@@ -31,7 +31,7 @@ def figures(source,out):
     lookup={(r['target_id'],r['reference_id']):r for r in rows}
     def found(r):return r is not None and r['found']=='True'
     def save(fig,name):
-        for ext in ['png','pdf']:fig.savefig(out/f'{name}.{ext}',dpi=240,bbox_inches='tight')
+        fig.savefig(out/f'{name}.png',dpi=240,bbox_inches='tight')
         plt.close(fig)
     fig,axs=plt.subplots(1,2,figsize=(13,5),layout='constrained')
     for col,field in enumerate(['minimum_length_min_mm','delta_compact_baseline_finger_length_mm']):

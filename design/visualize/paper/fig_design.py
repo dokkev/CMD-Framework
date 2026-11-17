@@ -9,7 +9,7 @@ reaches, over its distal pad every 15 deg; the dotted curve is the distal
 segment's instantaneous centre of rotation, its start a ring
 (``visualize.finger.figure.motion_panel``; ``python -m visualize.finger``
 draws any design so).
-Saves output/paper/fig_design_<run>_<role>.png / .pdf.
+Saves output/paper/fig_design_<run>_<role>.png.
 """
 
 from __future__ import annotations

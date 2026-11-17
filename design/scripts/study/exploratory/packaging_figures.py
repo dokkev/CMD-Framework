@@ -6,8 +6,8 @@ Formatting only. Every number comes from
 and every outline from the existing scene solids, redrawn by category. The
 outputs go to ``report/figures/packaging_tradeoff/``:
 
-- ``packaging_comparison.{pdf,png}``;
-- ``accommodation_vs_thickness.{pdf,png}``;
+- ``packaging_comparison.png``;
+- ``accommodation_vs_thickness.png``;
 - ``mechanism_comparison.tex``;
 - ``mechanism_comparison.csv`` and ``tilt_sweep.csv``.
 
@@ -45,8 +45,7 @@ ARCH = {"code_matched": "linkage", "2r_dd": "revolute", "belt_2r_matched": "revo
 ARCH_NAME = {"code_matched": "CoDe", "2r_dd": "2R-DD (servo at joint)", "belt_2r_matched": "Belt 2R", "rcj": "RCJ"}
 PIN_FILL, STRUCT = "#fff6d5", "#e8e4da"
 plt.rcParams.update(THEMES["paper"])
-plt.rcParams.update({"font.size": 7.5, "axes.spines.top": False, "axes.spines.right": False,
-                     "pdf.fonttype": 42})
+plt.rcParams.update({"font.size": 7.5, "axes.spines.top": False, "axes.spines.right": False})
 
 
 def read(name):
@@ -249,7 +248,6 @@ def table(rows, refs, best):
 
 def save(fig, name):
     OUT.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT / f"{name}.pdf", bbox_inches="tight")
     fig.savefig(OUT / f"{name}.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
 

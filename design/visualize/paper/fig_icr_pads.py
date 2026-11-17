@@ -8,7 +8,7 @@
 rotation's path from extension (dotted) with its current point (filled),
 the vertical through the extended centre (dashed: the proximal pad's limit,
 ``goal.pads.proximal.past_icr_max_mm``) and the pads' joint-side ends
-(``A''``, ``B''``). Saves output/paper/fig_icr_pads_<run>_<role>.png / .pdf.
+(``A''``, ``B''``). Saves output/paper/fig_icr_pads_<run>_<role>.png.
 """
 
 from __future__ import annotations

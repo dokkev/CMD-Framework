@@ -38,8 +38,7 @@ def num(v):
 
 def save(fig, name):
     common.FIGURES.mkdir(parents=True, exist_ok=True)
-    for ext in ("png", "pdf"):
-        fig.savefig(common.FIGURES / f"{name}.{ext}", dpi=200, bbox_inches="tight")
+    fig.savefig(common.FIGURES / f"{name}.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 

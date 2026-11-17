@@ -62,8 +62,7 @@ def candidate_figure(row, x, config):
     axes[2].grid(alpha=.2)
     fig.suptitle(f"{row['target']}: face rule ON, CoDe tilt 15 degrees, k_max={row['k_max']:.3f}\n"
                  f"eps_E={float(row['final_external_cost']):.3f}, eps_Q={float(row['final_mechanism_cost']):.3f}; planar model")
-    for extension in ('png', 'pdf'):
-        fig.savefig(OUT / f"{row['target']}_candidate.{extension}", dpi=180)
+    fig.savefig(OUT / f"{row['target']}_candidate.png", dpi=180)
     plt.close(fig)
 
 
@@ -193,7 +192,7 @@ def main():
         '- historical_candidate_recheck.csv: separate counterfactual diagnostic at 15 degrees.',
         '- Each run stores manifest, source snapshot, exact stage configs, optimizer records and candidate CSVs.',
         '- analysis_manifest.json hashes input tables and the analysis script; analysis_source stores its source snapshot.',
-        '- asym_long_proximal_candidate.png/.pdf: geometry at 0/120 degrees and transmission-angle-margin trajectory.', '',
+        '- asym_long_proximal_candidate.png: geometry at 0/120 degrees and transmission-angle-margin trajectory.', '',
         'Reproduce searches with sensitivity_transmission_{30,20,10}_{pilot,main}.yaml and',
         'sensitivity_transmission_faceoff_control.yaml through the existing Study 2 run.py.',
         'Summarize using scripts/study/study2_morphology_adaptation/summarize_transmission_sensitivity.py.', '']

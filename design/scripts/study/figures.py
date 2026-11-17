@@ -88,8 +88,7 @@ def style(axis) -> None:
 
 def save(figure, out: Path, name: str) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    for suffix in ("png", "pdf"):
-        figure.savefig(out / f"{name}.{suffix}", dpi=200, bbox_inches="tight")
+    figure.savefig(out / f"{name}.png", dpi=200, bbox_inches="tight")
     plt.close(figure)
 
 

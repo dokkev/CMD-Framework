@@ -38,8 +38,7 @@ def number(rows,key):
 
 def save(fig,name):
     OUT.mkdir(parents=True,exist_ok=True)
-    for suffix in ['png','pdf']:
-        fig.savefig(OUT/f'{name}.{suffix}',dpi=240,bbox_inches='tight')
+    fig.savefig(OUT/f'{name}.png',dpi=240,bbox_inches='tight')
     plt.close(fig)
 
 

@@ -96,7 +96,7 @@ def main():
         'baseline_best.csv records ROM preparation; interface_best.csv records additional interface adaptation.',
         'Each baseline.json includes the exact selected geometry and config; searches store per-seed stage configs and Pareto rows.',
         f'Readback validated {len(checks)} feasible baseline/interface designs; {len(blocked)} target conditions were blocked by baseline search failure.',
-        'interface_costs.png/.pdf shows per-interface external cost versus required ROM. Missing solutions are not interpolated.',
+        'interface_costs.png shows per-interface external cost versus required ROM. Missing solutions are not interpolated.',
         'not_found is search-budget/domain dependent. Pilot costs need not be monotone. In addition, endpoint-only face usability',
         'means feasible sets at different required ROMs are not guaranteed nested, even though collision-free reach requirements are nested.',
         'No physical torque, buildability, 3D accessibility or learning performance was measured.', '']
@@ -146,8 +146,7 @@ def plot(rows, blocked):
     axes.flat[-1].legend(handles=handles,loc='center',frameon=False,fontsize=10)
     axes.flat[-1].text(.03,.08,'x below zero: not found\nAbsent ROM baseline: no target search\nOne-seed pilot; best found, not optimum',fontsize=9,transform=axes.flat[-1].transAxes)
     fig.suptitle('Interface adaptation from independently ROM-feasible baselines\nCoDe 15 degrees; actual nonpenetration; original face rule; transmission angle 30-150 degrees',fontsize=12)
-    for ext in ('png','pdf'):
-        fig.savefig(OUT/f'interface_costs.{ext}',dpi=180)
+    fig.savefig(OUT/'interface_costs.png',dpi=180)
     plt.close(fig)
 
 

@@ -7,7 +7,7 @@ verified on the fine grid and merged over the runs). A 3D scatter of k_max,
 phi_max and pad coverage (the colour too, for depth), with each design's
 shadow on the three back walls (grey: the pairwise views). The
 representative seeds are ringed and named. Saves
-output/paper/fig_pareto_<study>_<preset>.png / .pdf.
+output/paper/fig_pareto_<study>_<preset>.png.
 """
 
 from __future__ import annotations

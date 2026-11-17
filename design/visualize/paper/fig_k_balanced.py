@@ -8,7 +8,7 @@ four-bar's and the optimized symmetric one's), swept by their servo from
 extension to their safe reach. The ideal symmetric four-bar has the first
 one's g = |A'A| over the mean of its bars, its best 150 deg window shifted to start at 0 (its
 extension). Left: k against the servo angle; right: k against the distal
-flexion phi. Saves output/paper/fig_k_balanced.png / .pdf.
+flexion phi. Saves output/paper/fig_k_balanced.png.
 """
 
 from __future__ import annotations

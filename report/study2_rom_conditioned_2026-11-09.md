@@ -74,7 +74,7 @@ Outputs: design/output/study/study2_rom_conditioned_2026-11-09/pilot/.
 baseline_best.csv records ROM preparation; interface_best.csv records additional interface adaptation.
 Each baseline.json includes the exact selected geometry and config; searches store per-seed stage configs and Pareto rows.
 Readback validated 145 feasible baseline/interface designs; 0 target conditions were blocked by baseline search failure.
-interface_costs.png/.pdf shows per-interface external cost versus required ROM. Missing solutions are not interpolated.
+interface_costs.png shows per-interface external cost versus required ROM. Missing solutions are not interpolated.
 not_found is search-budget/domain dependent. Pilot costs need not be monotone. In addition, endpoint-only face usability
 means feasible sets at different required ROMs are not guaranteed nested, even though collision-free reach requirements are nested.
 No physical torque, buildability, 3D accessibility or learning performance was measured.

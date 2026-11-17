@@ -28,7 +28,7 @@
 ## 1. 작업 원칙
 
 - 먼저 `docs/optimization/decision-points-2026-10-22.md`, `docs/optimization/retention.md`, `scripts/optimize/interface_coverage/make_configs.py`, `scripts/optimize/paper/fingers.py`, `scripts/optimize/paper/fig_mechanisms.py`, `scripts/optimize/paper/style.py`를 읽고 기존 구조를 따른다.
-- 새 figure 스크립트는 `scripts/optimize/paper/`에, 출력은 `output/paper/`에 `.png`, `.pdf`, 수치 `.csv`로 저장한다(`style.save` 사용).
+- 새 figure 스크립트는 `scripts/optimize/paper/`에, 출력은 `output/paper/`에 `.png`와 수치 `.csv`로 저장한다(`style.save` 사용). PDF는 만들지 않는다.
 - `fingers.py`의 `Finger`(`margins`, `icr`, `k`, `draw`, `pads_mm`)와 `style.py`의 색·마커를 재사용한다. 새 계산 로직은 figure 스크립트가 아니라 `fingers.py` 또는 별도 모듈에 두고 테스트를 붙인다.
 - **현재 돌고 있는 study의 formulation, objective, constraint는 바꾸지 않는다.** 바꿔야 할 이유가 보이면 멈추고 보고한다.
 - 장시간 최적화는 직접 실행하지 않는다. config와 실행 명령을 준비하고, 동작 확인은 적은 generation의 smoke run으로만 한다. full-budget run은 내가 실행한다.
