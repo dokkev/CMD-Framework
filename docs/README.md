@@ -10,8 +10,9 @@ Start with [GOAL.md](../GOAL.md) for the research north star and claim disciplin
 | [README.md](../README.md) | Monorepo layout, environment overview, prototype vs. study rules, coordinate conventions |
 | [report/PROGRESS.md](../report/PROGRESS.md) | Current defensible claims (C1–C7), evidence boundaries, limitations, and next validation steps |
 | [report/README.md](../report/README.md) | Index of all current and snapshot study/prototype reports under `report/` |
-| [docs/formulation.md](formulation.md) | Mathematical formulation of $R = (H, C)$, $H = (E, Q, A)$, per-mechanism partitions, and Studies 1–2 |
-| [docs/decisions.md](decisions.md) | Chronological engineering and study-formulation decision log (through 2026-11-07) |
+| [design/SSoT/math_formulation.md](../design/SSoT/math_formulation.md) | **Canonical 2D Mathematical SSoT**: $M \in \mathcal{M}(m)$, $SE(2)$ frames, dependencies, derived properties, collision, and pad coverage |
+| [docs/formulation.md](formulation.md) | Pointer & overview referencing `design/SSoT/math_formulation.md` |
+| [docs/decisions.md](decisions.md) | Chronological engineering and study-formulation decision log (through 2026-11-17) |
 | [design/scripts/study/study1_fixed_morphology/README.md](../design/scripts/study/study1_fixed_morphology/README.md) | Study 1 specification: fixed-morphology contact accommodation and active tilt sweep |
 | [design/scripts/study/study2_morphology_adaptation/README.md](../design/scripts/study/study2_morphology_adaptation/README.md) | Study 2 specification: E/Q adaptation hierarchy and ROM-conditioned baselines |
 | [design/scripts/study/study2_compact_morphology/README.md](../design/scripts/study/study2_compact_morphology/README.md) | Study 2 extension: compact finger morphology search |

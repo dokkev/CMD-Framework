@@ -1,11 +1,10 @@
-# Study 1 with the link-in-front occlusion rule off (goal.loss.links_block_face: false), every reference
-# alike. A sensitivity condition for the appendix, not a design: the links may pass in front of a contact
-# face and that face still counts. Collisions, ROM and the fold rule are unchanged. Links passing through a
-# pad block are taken as routed around it in both conditions (packaging.links_clear_pads). Compare with the
-# same run of config.yaml (ON).
+# Study 1 with the link-in-front occlusion rule explicitly off (include_linkage_occlusion: false), every reference
+# alike. (Matches the Study profile default; compare against goal_overrides: {include_linkage_occlusion: true}
+# when assessing linkage-occlusion sensitivity.) Collisions, ROM and the fold rule are unchanged. Links passing
+# through a pad block are taken as routed around it in both conditions (packaging.links_clear_pads).
 #
 #   python scripts/study/study1_fixed_morphology/run.py scripts/study/study1_fixed_morphology/config_faceoff.yaml
 base: config.yaml
 goal_overrides:
-  links_block_face: false
+  include_linkage_occlusion: false
 output: output/study/study1_fixed_morphology_tilt_sweep_faceoff

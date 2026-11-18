@@ -259,7 +259,7 @@ def check_comparable(found: list[Reference]) -> dict[str, Any]:
 
 def with_goal_overrides(found: list[Reference], overrides: dict[str, Any] | None) -> list[Reference]:
     """Every reference with the same goal fields set (a sensitivity run's
-    ``goal_overrides``, e.g. ``links_block_face: false``); unchanged without
+    ``goal_overrides``, e.g. ``include_linkage_occlusion: true``); unchanged without
     any. A mapping sets fields of a nested dataclass (``packaging:
     {a_pivot_diameter_mm: 8}``). Check the result with :func:`check_comparable`:
     the overrides must leave every reference under one rule set."""

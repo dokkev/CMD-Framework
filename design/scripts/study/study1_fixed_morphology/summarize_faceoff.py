@@ -3,8 +3,8 @@
 
     python scripts/study/study1_fixed_morphology/summarize_faceoff.py
 
-Reads the two runs of the same Study 1, ``config.yaml`` (ON, the study's rule) and ``config_faceoff.yaml``
-(OFF, ``goal.loss.links_block_face: false`` on every reference). They differ in that rule only. Collisions,
+Reads the two runs of the same Study 1, ``ON`` (``include_linkage_occlusion: true``) and ``config_faceoff.yaml``
+(``OFF``, ``include_linkage_occlusion: false`` on every reference). They differ in that rule only. Collisions,
 ROM and the fold rule are the same, and links through a pad block count as routed around it in both. OFF is
 an idealized comparison condition: no link geometry was designed or checked for it.
 

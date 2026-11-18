@@ -146,10 +146,10 @@ class LinkageEvaluation:
     the longest module it can carry (``PadSpan.room_mm``)."""
     proximal_usable_length_mm: float = math.nan
     distal_usable_length_mm: float = math.nan
-    """Each pad's length the links leave free from its outer end, the least on
-    ``[0, phi_req]`` (``packaging.usable_pad_lengths``); with the links bent
-    around the pads (``packaging.links_clear_pads``), the length outside where
-    the two faces cross (``packaging.face_crossing_lengths``)."""
+    """Each pad's accessible length ``L_i^eff(M, phi_req; eta_L)`` at ``phi_req``."""
+    proximal_robust_usable_length_mm: float = math.nan
+    distal_robust_usable_length_mm: float = math.nan
+    """Motion-robust accessible length ``mu(intersection_{phi in [0, phi_req]} U_i(M, phi; eta_L))``."""
     required_proximal_mm: float = math.nan
     required_distal_mm: float = math.nan
     proximal_depth_mm: float = math.nan
@@ -198,10 +198,23 @@ class LinkageEvaluation:
 
     @property
     def pad_coverage(self) -> float:
-        """``(L_p,eff + L_d,eff) / |OC|``: the share of the extended finger the
-        pads' effective faces cover (the objective)."""
+        """``(L_p,eff + L_d,eff) / |OC|``: Endpoint Coverage at ``phi_req`` (the primary objective)."""
 
         return (self.proximal_effective_mm + self.distal_effective_mm) / self.finger_length_mm
+
+    @property
+    def proximal_robust_effective_mm(self) -> float:
+        return min(self.proximal_robust_usable_length_mm, max(self.proximal_support_length_mm, 0.0))
+
+    @property
+    def distal_robust_effective_mm(self) -> float:
+        return min(self.distal_robust_usable_length_mm, max(self.distal_support_length_mm, 0.0))
+
+    @property
+    def motion_robust_coverage(self) -> float:
+        """``(L_{p,rob}^eff + L_{d,rob}^eff) / |OC|``: Motion-Robust Coverage diagnostic."""
+
+        return (self.proximal_robust_effective_mm + self.distal_robust_effective_mm) / self.finger_length_mm
 
     @property
     def mounted_coverage(self) -> float:
@@ -257,19 +270,27 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
         return LinkageEvaluation(finger, MappingProxyType(constraints),
                                  servo_lowest_z_mm=footprint.lowest_z_mm, **common)
 
-    motion = sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad, footprint,
-                          config.integrity_depth_mm, config.links_block_face)
+    motion = sweep_motion(
+        finger,
+        packaging,
+        motion_settings(config),
+        config.required_rom_rad,
+        footprint,
+        config.integrity_depth_mm,
+        config.include_linkage_occlusion,
+        include_fold=config.count_fold,
+    )
     # Hyperextension: the PIP must reach the stopper safely; short of it, the
     # violation is the PIP still missing.
     hyper_violation = max(0.0, math.degrees(config.hyperextension_rad + motion.deepest_pip_rad))
     if hyper_violation < 1e-9:
         hyper_violation = 0.0
     free = motion.fold_free
-    if not config.count_fold:  # a module clear through the motion counts whole
-        free = {side: math.inf for side in free}
+    robust = motion.robust_free if motion.robust_free is not None else free
     if config.integrity_depth_mm is not None:  # linkage-v5: no solid within the depth in front, at any pose
         kept = motion.integrity_free
         free = kept if packaging.links_clear_pads else {side: min(free[side], kept[side]) for side in free}
+        robust = {side: min(robust[side], kept[side]) for side in robust}
 
     constraints = {
         **static,
@@ -308,6 +329,8 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
         pad_clearance_mm=motion.pad_clearance_mm,
         proximal_usable_length_mm=free["proximal_pad"],
         distal_usable_length_mm=free["distal_pad"],
+        proximal_robust_usable_length_mm=robust["proximal_pad"],
+        distal_robust_usable_length_mm=robust["distal_pad"],
         **common,
     )
 

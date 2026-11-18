@@ -2,8 +2,8 @@
 # k = 1): the servo where CoDe's PIP servo is, searched relative to A, tilted
 # 15 deg as CoDe's (code_tilt15.yaml), so the two compare at one servo layout.
 # The belt and its pulleys (6 mm, as decided 2026-10-28) run in the outer layer:
-# no collision with the pads, but where they stand in front of a contact face
-# at the required flexion it is no contact face (goal.loss.links_block_face).
+# no collision with the pads; when goal.loss.include_linkage_occlusion is enabled
+# in a sensitivity study, portions occluded at the required flexion do not count.
 base: base.yaml
 mechanism: revolute_parallel
 goal:

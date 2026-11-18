@@ -26,6 +26,11 @@ import numpy as np
 
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.hardware import DShapedExtrusion, actuator
+from core.morphology.coverage import (
+    PROFILE_DEFAULT_LINKAGE_OCCLUSION,
+    CoverageProfile,
+    resolve_linkage_occlusion,
+)
 from core.morphology.packaging.hardware import ContactPad
 from core.morphology.mechanism.linkage.packaging import LinkagePackaging
 
@@ -203,20 +208,30 @@ class LinkageConfig:
     lost when, at any pose to the required flexion, it is hidden in the fold
     or any solid but its own pad lies within this depth in front of it.
     ``None``: the fold alone, as measured before linkage-v5."""
-    links_block_face: bool = False
-    """``goal.loss.links_block_face``: at the required flexion, each face
-    also loses where a crossing link (the driver ``A-B'`` or the coupler
-    ``A'-B``) lies in front of it, at any distance
-    (``packaging.link_kept_lengths``; the study's rule, 2026-11-05). The
-    linkage's and, for its belt and pulleys, the belt 2R's
-    (``revolute_parallel.evaluate.belt_kept_lengths``). False: the links bent
-    around the pads leave every face outside the fold. Not with
-    ``integrity_depth_mm``, whose lengths replace the fold's."""
+    profile: CoverageProfile = "prototype"
+    """Explicit formulation context: ``"prototype"`` (default ``include_linkage_occlusion=True``)
+    or ``"study"`` (default ``include_linkage_occlusion=False``)."""
+    include_linkage_occlusion: bool | None = None
+    """``goal.loss.include_linkage_occlusion``: whether crossing transmission members
+    (``CoDe`` bars ``A-B'``, ``A'-B``; ``2R-remote`` belt and pulleys) occlude
+    contact faces in coverage evaluation. Resolved explicitly from :attr:`profile`
+    when ``None``; independent of collision checks and fold loss."""
     access_depth_mm: float = 20.0
     """``goal.loss.access_depth_mm``: the depth of the accessibility profile
     (reports only, not the objective)."""
 
     def __post_init__(self) -> None:
+        if self.include_linkage_occlusion is None and self.integrity_depth_mm is not None:
+            resolved_occlusion = False
+        else:
+            resolved_occlusion = resolve_linkage_occlusion(
+                self.include_linkage_occlusion, profile=self.profile
+            )
+        if resolved_occlusion and self.integrity_depth_mm is not None:
+            raise ValueError(
+                "include_linkage_occlusion and integrity_depth_mm are not supported together"
+            )
+        object.__setattr__(self, "include_linkage_occlusion", resolved_occlusion)
         given = {name: value for name, value in self.bounds.items() if name not in DEPRECATED_VARIABLES}
         for name, value in DEFAULT_VALUES.items():  # a variable left out: fixed
             given.setdefault(name, (value, value))
@@ -463,23 +478,35 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     unknown or missing entry is an error."""
 
     tree = _Table(values, "")
+    profile = tree.values.pop("profile", "prototype")
+    if profile not in PROFILE_DEFAULT_LINKAGE_OCCLUSION:
+        raise ValueError(
+            f"profile must be one of {tuple(PROFILE_DEFAULT_LINKAGE_OCCLUSION)}, not {profile!r}"
+        )
     goal, solver = tree.table("goal"), tree.table("solver")
     tree.done()
     motion, pads, link = goal.table("motion"), goal.table("pads"), goal.table("link")
     hardware, collision = goal.table("hardware"), goal.table("collision")
-    loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, the fold alone
+    loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, profile defaults apply
     goal.done()
     integrity_depth = loss.values.pop("integrity_depth_mm", None)
     count_fold = loss.values.pop("fold", True)
     if not isinstance(count_fold, bool):
         raise ValueError("goal.loss.fold must be true or false")
     access_depth = float(loss.values.pop("access_depth_mm", 20.0))
-    links_block_face = loss.values.pop("links_block_face", False)
-    if not isinstance(links_block_face, bool):
-        raise ValueError("goal.loss.links_block_face must be true or false")
-    if links_block_face and integrity_depth is not None:
-        raise ValueError("goal.loss.links_block_face and integrity_depth_mm: the integrity's lengths would drop "
-                         "the links' (not supported together)")
+    raw_occlusion = loss.values.pop("include_linkage_occlusion", None)
+    if raw_occlusion is not None and not isinstance(raw_occlusion, bool):
+        raise ValueError("goal.loss.include_linkage_occlusion must be true or false")
+    if raw_occlusion is True and integrity_depth is not None:
+        raise ValueError(
+            "goal.loss.include_linkage_occlusion and integrity_depth_mm: the integrity's lengths "
+            "would drop the links' (not supported together)"
+        )
+    include_linkage_occlusion = (
+        False
+        if (raw_occlusion is None and integrity_depth is not None)
+        else resolve_linkage_occlusion(raw_occlusion, profile=profile)
+    )
     loss.done()
     angles = {name: math.radians(float(motion.take(name)))
               for name in ("dip_flexion_deg", "hyperextension_deg")}
@@ -688,7 +715,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
         count_fold=count_fold,
-        links_block_face=links_block_face,
+        profile=profile,
+        include_linkage_occlusion=include_linkage_occlusion,
         integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,
     )
@@ -798,8 +826,16 @@ def config_from_json(values: dict) -> LinkageConfig:
     ``linkage_v3`` (2026-10-23 to 26) carry fields of the formulations it was
     built on, all at the values this one fixes; they are dropped."""
 
+    raw = dict(values)
+    legacy_occlusion = raw.pop("links_block_face", None)
     known = {f.name for f in fields(LinkageConfig)}
-    values = {name: value for name, value in values.items() if name in known}
+    values = {name: value for name, value in raw.items() if name in known}
+    if "include_linkage_occlusion" not in values:
+        values["include_linkage_occlusion"] = bool(legacy_occlusion) if legacy_occlusion is not None else False
+    if "profile" not in values:
+        values["profile"] = (
+            "study" if values.get("mount_policy") == "shallowest_supported" else "prototype"
+        )
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
     for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):  # runs before 2026-11-04: on the lines
         values["bounds"].setdefault(name, (0.0, 0.0))

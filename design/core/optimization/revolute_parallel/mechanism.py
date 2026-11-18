@@ -43,7 +43,7 @@ def bound_hits(x: Sequence[float], config: ParallelConfig, finger_length_mm: flo
 
 class ParallelMechanism(RevoluteMechanism):
     name = "revolute_parallel"
-    formulation = "revolute-parallel-goal-v12"
+    formulation = "revolute-parallel-goal-v13"
     """The 2R with its servo on ``A'``, as the linkage's (2026-10-27).
     v2 (2026-10-28): the idealized 2R's v3 joint and pads (v1 runs predate
     them), ``|OA|`` and ``BC`` held to the goal's shares of ``|OC|``. v3

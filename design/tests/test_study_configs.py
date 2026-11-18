@@ -37,8 +37,9 @@ def test_each_file_loads_on_the_one_goal(path):
     assert goal.extended_length_bounds_mm == (80.0, 90.0)
     assert goal.required_rom_rad == pytest.approx(math.radians(120.0))
     assert goal.warm_start == ()
-    # Each pad's depth set by the study's policy, the two independent.
+    # Each pad's depth set by the study's policy, the two independent; Study profile defaults occlusion to False.
     assert goal.mount_policy == "shallowest_supported" and not goal.align_mount_offsets
+    assert goal.profile == "study" and goal.include_linkage_occlusion is False
 
 
 def test_the_study_does_not_follow_the_production_config():

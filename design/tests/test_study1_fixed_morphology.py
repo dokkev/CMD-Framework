@@ -153,13 +153,15 @@ where the fold alone limits the belt 2R, which once read longer with the rule on
 
 @pytest.fixture(scope="module")
 def face_on_off(tmp_path_factory):
-    """The same Study 1 with the link-in-front rule on (the study's) and off (``config_faceoff.yaml``)."""
+    """The same Study 1 with the link-in-front rule ON (sensitivity override) and OFF (Study profile default)."""
 
     folder = tmp_path_factory.mktemp("study1_face")
     (folder / "modules.yaml").write_text(FACE)
     common = f"modules: {folder / 'modules.yaml'}\nkinds: [matched]\nrequired_flexion_deg: [90, 120, 150]\nworkers: 1\n"
-    (folder / "on.yaml").write_text(common + f"output: {folder / 'on'}\n")
-    (folder / "off.yaml").write_text(common + f"output: {folder / 'off'}\ngoal_overrides: {{links_block_face: false}}\n")
+    (folder / "on.yaml").write_text(
+        common + f"output: {folder / 'on'}\ngoal_overrides: {{include_linkage_occlusion: true}}\n"
+    )
+    (folder / "off.yaml").write_text(common + f"output: {folder / 'off'}\n")
     runs = {}
     for name in ("on", "off"):
         out = study1.run(folder / f"{name}.yaml", ROOT)
@@ -173,8 +175,8 @@ def test_the_face_rule_off_is_set_on_every_reference_and_recorded(face_on_off):
 
     for name, expected in (("on", True), ("off", False)):
         manifest = json.loads((face_on_off[name][0] / "manifest.json").read_text())
-        assert manifest["comparison_rules"]["links_block_face"] is expected
-        assert manifest["config"].get("goal_overrides", {}).get("links_block_face", True) is expected
+        assert manifest["comparison_rules"]["include_linkage_occlusion"] is expected
+        assert manifest["config"].get("goal_overrides", {}).get("include_linkage_occlusion", False) is expected
 
 
 def test_the_face_rule_off_only_adds_feasible_assemblies(face_on_off):
@@ -202,14 +204,23 @@ def test_the_face_rule_does_not_touch_mechanisms_without_links_in_front(face_on_
 
 
 def test_an_unblocked_face_keeps_exactly_its_fold_length(face_on_off):
-    """The belt 2R's drive stands in front of no face at the matched morphology, so the rule ON must read
-    exactly the lengths OFF reads (re-reading the fold on the probe's pieces once rounded them either way)."""
+    """For belt 2R faces where neither strands nor the 6 mm pulley on A protrude in front of the
+    contact face, ON must read the exact same length as OFF. On ``distal_30x3`` at 90 deg, the
+    30 mm x 3 mm distal pad reaches 4.9483 mm from A (< sqrt(6^2 - 3^2) = 5.1962 mm), so exact
+    interval geometry captures the 0.247851 mm pulley occlusion that 0.5 mm midpoint probing missed."""
+
+    import math
 
     on, off = face_on_off["on"][1], face_on_off["off"][1]
     for key, row in on.items():
         if row["mechanism"] == "revolute_parallel" and row["proximal_effective_mm"]:
-            for length in ("proximal_effective_mm", "distal_effective_mm"):
-                assert row[length] == off[key][length], (key, length)
+            assert row["proximal_effective_mm"] == off[key]["proximal_effective_mm"], key
+            if key == "belt_2r_matched__distal_30x3__phi90":
+                ac_mm = 90.0 - 55.05169906
+                expected = 30.0 - (math.sqrt(6.0**2 - 3.0**2) - (ac_mm - 30.0))
+                assert float(row["distal_effective_mm"]) == pytest.approx(expected, abs=1e-5)
+            else:
+                assert row["distal_effective_mm"] == off[key]["distal_effective_mm"], key
 
 
 def test_a_goal_override_can_set_a_packaging_field_on_every_reference():

@@ -64,7 +64,7 @@ def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float) 
 
 
 def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
-            until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
+            until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """The idealized 2R's pairs (the pads, the joint, the MCP servo; ``checks``
     the joint's, no servo on it), then the servo against the distal pad (the
     pulleys, in the outer layer, meet neither pad)."""
@@ -77,7 +77,10 @@ def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
         ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
     }
     margins = {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
-    return {**revolute_margins(joint, phi, checks, until_unsafe=until_unsafe), **margins}
+    return {
+        **revolute_margins(joint, phi, checks, until_unsafe=until_unsafe, include_static_pairs=include_static_pairs),
+        **margins,
+    }
 
 
 __all__ = ["VARIABLE_NAMES", "ParallelGeometry", "geometry", "margins"]

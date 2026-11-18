@@ -1,6 +1,7 @@
-"""The study's link rule: at the required flexion, a CoDe pad's face is lost
-where a crossing link (the driver A-B' or the coupler A'-B) passes in front of
-it (goal.loss.links_block_face)."""
+"""Linkage-occlusion coverage rule (``goal.loss.include_linkage_occlusion``):
+at the required flexion, a CoDe pad's face excludes portions occluded by a
+crossing link (driver A-B' or coupler A'-B), with explicit context defaults
+(``profile: study`` -> False, ``profile: prototype`` -> True)."""
 
 from __future__ import annotations
 
@@ -58,17 +59,20 @@ def kept_at(config, x, phi_deg: float, driver: bool = True):
     return length, free, kept
 
 
-def test_the_study_counts_the_links_and_production_does_not():
-    assert study().links_block_face
+def test_profile_defaults_study_false_and_prototype_true():
+    study_cfg = study()
+    assert study_cfg.profile == "study"
+    assert not study_cfg.include_linkage_occlusion
     production = load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml", ())[0]
-    assert not production.links_block_face
+    assert production.profile == "prototype"
+    assert production.include_linkage_occlusion
 
 
 def test_a_link_in_front_of_a_face_takes_that_part_of_it():
-    on = study()
-    off = dataclasses.replace(on, links_block_face=False)
+    off = study()
+    on = dataclasses.replace(off, include_linkage_occlusion=True)
     before, after = LINKAGE.evaluate(BALANCED, off), LINKAGE.evaluate(BALANCED, on)
-    # The coupler takes most of the distal face, the driver A-B' the proximal face's inner 10 mm.
+    # The coupler takes most of the distal face, the driver A-B' the proximal face's inner ~10 mm.
     assert after.distal_usable_length_mm < 20.0 < before.distal_usable_length_mm
     assert after.proximal_usable_length_mm == pytest.approx(before.proximal_usable_length_mm - 9.9, abs=1.0)
     assert after.pad_coverage < before.pad_coverage
@@ -97,14 +101,15 @@ def test_the_rule_needs_the_links_bent_around_the_pads_and_no_integrity_depth():
     finger = decode(BALANCED, config.link_length_resolution_mm)
     packaging = dataclasses.replace(config.packaging, links_clear_pads=False)
     with pytest.raises(ValueError, match="links_clear_pads"):
-        sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad, links_block_face=True)
+        sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad,
+                     include_linkage_occlusion=True)
     with pytest.raises(ValueError, match="integrity_depth_mm"):
         load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
-                  ("goal.loss.links_block_face=true", "goal.loss.integrity_depth_mm=5"))
+                  ("goal.loss.include_linkage_occlusion=true", "goal.loss.integrity_depth_mm=5"))
 
 
 def test_a_pad_past_where_it_counts_is_left_out_of_the_coverage_not_forbidden():
-    on = study()
+    on = dataclasses.replace(study(), include_linkage_occlusion=True)
     assert "pad_waste_mm" not in LINKAGE.constraint_names
     e = LINKAGE.evaluate(BALANCED, on)
     # The distal pad mounted past what the coupler leaves: that part counts for nothing, nothing more.
@@ -119,12 +124,13 @@ def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
 
     belt = mechanism("revolute_parallel")
     config = load_yaml(belt, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
-                       ("goal.hardware.pulley_radius_mm=6", "goal.loss.links_block_face=true"))[0]
+                       ("goal.hardware.pulley_radius_mm=6", "goal.loss.include_linkage_occlusion=true"))[0]
     # A at 45 mm, A' 15 mm above it; the proximal face 5 mm below OA, the pulley on A 6 mm round:
-    # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 41.7 mm on.
-    for app_x, lost in ((41.0, 0.0), (42.0, 0.3)):
+    # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 45 - sqrt(11) mm on.
+    exact_start = 45.0 - math.sqrt(6.0**2 - 5.0**2)
+    for app_x, lost in ((41.0, 0.0), (42.0, 42.0 - exact_start)):
         geo = geometry([45.0, 45.0, app_x, 3.0, 0.0, 0.0, 10.0, 0.0, 15.0], config)
         proximal, distal = belt_kept_lengths(geo, math.radians(120.0), (1e3, 1e3), config.goal)
-        assert proximal == pytest.approx(geo.joint.proximal_length_mm - lost, abs=0.3)  # probed every 0.5 mm
+        assert proximal == pytest.approx(geo.joint.proximal_length_mm - lost, abs=1e-9)
         # The distal pad starts 3 mm past A: the pulley on A takes its first few tenths.
         assert geo.joint.distal_length_mm - 1.0 < distal < geo.joint.distal_length_mm

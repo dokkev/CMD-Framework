@@ -147,7 +147,7 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
     kinds = tuple(config.get("kinds", ("matched",)))
     references_path = config.get("references", shared.REFERENCES)
     sweep = config.get("servo_tilt_sweep")
-    # A sensitivity run: goal fields set on every reference alike (e.g. links_block_face: false),
+    # A sensitivity run: goal fields set on every reference alike (e.g. include_linkage_occlusion: true),
     # checked to leave them under one rule set and recorded in the manifest.
     overrides = config.get("goal_overrides") or {}
     found = shared.with_goal_overrides(shared.load_references(kinds, root, references_path, sweep), overrides)

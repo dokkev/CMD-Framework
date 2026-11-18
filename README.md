@@ -11,6 +11,7 @@ cmd_framework/
 ├── docs/              formulation, decision log, legacy archive (docs/README.md)
 ├── report/            study reports and paper figures (report/figures/)
 ├── design/            CMD-Framework: mechanism geometry, kinematics, optimization, studies
+│   ├── SSoT/          canonical 2D mathematical formulation (design/SSoT/math_formulation.md)
 │   ├── core/          morphology, mechanisms (crossed four-bar FK), packaging, evaluators, optimizer
 │   ├── scripts/       optimization runs and studies (scripts/study/…)
 │   ├── visualize/     plotting
@@ -43,7 +44,7 @@ separate packaging assumptions and separate outputs. **Never mix them.**
 |---|---|---|
 | Purpose | Design the CoDe finger that gets built (hardware workstream, `report/prototype_hardware.md`) | Answer GOAL.md's research questions: mechanism comparison, Studies 1-4 (`report/kinematic_study_freeze.md`) |
 | Configs | `design/scripts/optimize/linkage/config.yaml` and the files extending it (`config_pivot8.yaml`, ...) | `design/scripts/study/base.yaml` → `baseline.yaml` (a frozen copy of the production config at 6ccab53) and the files under `design/scripts/study/` |
-| Packaging | Follows the hardware as it is chosen (e.g. pivots A, A', B, B' 8 mm in `config_pivot8.yaml`) | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes |
+| Packaging | Follows the hardware as it is chosen (e.g. pivots A, A', B, B' 8 mm in `config_pivot8.yaml`); `profile: prototype` defaults `include_linkage_occlusion: true` | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes; `profile: study` defaults `include_linkage_occlusion: false` |
 | Outputs | `design/output/linkage/<config>/...`, hand variants such as `core/morphology/code_hand/pivot8_balanced.yaml`, sim exports | `design/output/study/...`, `report/` study reports |
 | Code name | "production" | "study" |
 

@@ -114,6 +114,18 @@ def usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[floa
     return kept["proximal_pad"], kept["distal_pad"]
 
 
+def robust_usable_lengths(geo, phi_rad: np.ndarray, goal, mechanism: str) -> tuple[float, float]:
+    """Motion-robust usable lengths ``mu(intersection_{phi in window} U_i(M, phi))``."""
+
+    if goal.integrity_depth_mm is None and not goal.count_fold:
+        return math.inf, math.inf
+    if goal.integrity_depth_mm is None:
+        free = crossing_free(getattr(geo, "joint", geo), np.atleast_1d(phi_rad))
+        return float(np.min(free["proximal_pad"])), float(np.min(free["distal_pad"]))
+    kept = integrity_free(joint_scene(mechanism, geo, goal.packaging, np.degrees(phi_rad)), goal.integrity_depth_mm)
+    return kept["proximal_pad"], kept["distal_pad"]
+
+
 def hyperextension_violation(geo, config, margins_of) -> float:
     """How deep (mm) any checked pair overlaps while the joint hyperextends
     to ``goal.motion.hyperextension_deg`` (0: all clear), on the servo grid."""
@@ -161,6 +173,9 @@ class RevoluteEvaluation:
     proximal_usable_length_mm: float = math.inf
     distal_usable_length_mm: float = math.inf
     """Each face's length outside the fold at the required flexion (:func:`usable_lengths`)."""
+    proximal_robust_usable_length_mm: float = math.inf
+    distal_robust_usable_length_mm: float = math.inf
+    """Motion-robust usable length across ``[0, phi_req]``."""
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -187,8 +202,20 @@ class RevoluteEvaluation:
         return min(max(self.distal_support_length_mm, 0.0), self.distal_usable_length_mm)
 
     @property
+    def proximal_robust_effective_mm(self) -> float:
+        return min(max(self.proximal_support_length_mm, 0.0), self.proximal_robust_usable_length_mm)
+
+    @property
+    def distal_robust_effective_mm(self) -> float:
+        return min(max(self.distal_support_length_mm, 0.0), self.distal_robust_usable_length_mm)
+
+    @property
     def pad_coverage(self) -> float:
         return (self.proximal_effective_mm + self.distal_effective_mm) / self.finger_length_mm
+
+    @property
+    def motion_robust_coverage(self) -> float:
+        return (self.proximal_robust_effective_mm + self.distal_robust_effective_mm) / self.finger_length_mm
 
     @property
     def mounted_coverage(self) -> float:
@@ -278,7 +305,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
 
     # The joint turns with the servo: the sweep is the servo grid, from extension.
     phi = np.asarray(goal.servo_samples_rad)
-    margins = _between_samples(geo, phi, _margins(geo, phi, config, until_unsafe=True), config)
+    margins = _between_samples(geo, phi, _margins(geo, phi, config, until_unsafe=True, include_static_pairs=False), config)
     least = np.min(np.stack(list(margins.values())), axis=0)
     unsafe = least < 0.0
     first_unsafe = int(np.flatnonzero(unsafe)[0]) if unsafe.any() else len(phi)
@@ -296,8 +323,9 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
-    proximal_usable, distal_usable = usable_lengths(
-        geo, phi[window], goal, "revolute" if config.joint_servo else "revolute_idealized")
+    mech_name = "revolute" if config.joint_servo else "revolute_idealized"
+    proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, mech_name)
+    proximal_robust, distal_robust = robust_usable_lengths(geo, phi[window], goal, mech_name)
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
@@ -311,6 +339,8 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
     return RevoluteEvaluation(
         proximal_usable_length_mm=proximal_usable,
         distal_usable_length_mm=distal_usable,
+        proximal_robust_usable_length_mm=proximal_robust,
+        distal_robust_usable_length_mm=distal_robust,
         constraints=MappingProxyType(constraints),
         phi_safe_rad=reach,
         phi_max_rad=phi_max,
@@ -323,10 +353,10 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
 
 
 def _margins(geo: RevoluteGeometry, phi: np.ndarray, config: RevoluteConfig,
-             until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
+             until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair (``solids.margins``, the study's checks)."""
 
-    return solids.margins(geo, phi, joint_checks(config), until_unsafe)
+    return solids.margins(geo, phi, joint_checks(config), until_unsafe, include_static_pairs=include_static_pairs)
 
 
 def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndarray], config,
@@ -336,8 +366,14 @@ def _between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.nda
     ``margins_of``: another mechanism's ``_margins``."""
 
     of = margins_of or _margins
-    return between_samples(geo, phi, margins, config.goal.verify_step_rad, lambda geo, phi: of(geo, phi, config))
+    return between_samples(
+        geo,
+        phi,
+        margins,
+        config.goal.verify_step_rad,
+        lambda geo, phi: of(geo, phi, config, include_static_pairs=False),
+    )
 
 
 __all__ = ["CONSTRAINT_NAMES", "RevoluteEvaluation", "evaluate", "geometry", "hyperextension_violation",
-           "joint_checks", "segment_lengths", "usable_lengths"]
+           "joint_checks", "robust_usable_lengths", "segment_lengths", "usable_lengths"]

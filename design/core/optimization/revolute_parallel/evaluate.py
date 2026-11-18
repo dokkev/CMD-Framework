@@ -22,6 +22,7 @@ fold, and the joint hyperextends with every pair clear (the linkage's v4 rules).
 
 from __future__ import annotations
 
+import functools
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -29,6 +30,8 @@ from types import MappingProxyType
 
 import numpy as np
 
+from core.morphology.intervals import IntervalSet, face_occluded_set
+from core.morphology.mechanism.revolute.solids import contact_faces, crossing_free
 from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.mechanism.revolute_parallel import solids
@@ -40,6 +43,7 @@ from core.optimization.revolute.evaluate import (
     _between_samples,
     hyperextension_violation,
     joint_checks,
+    robust_usable_lengths,
     segment_lengths,
     usable_lengths,
 )
@@ -68,33 +72,58 @@ class ParallelEvaluation(RevoluteEvaluation):
         return tuple(self.constraints[name] for name in CONSTRAINT_NAMES)
 
 
+def _belt_occluders(geo: ParallelGeometry):
+    a, ap, radius = geo.a, geo.ap, geo.pulley_radius_mm
+    diff = a - ap
+    norm = float(np.linalg.norm(diff))
+    strands = []
+    if norm > 1e-9:
+        along = diff / norm
+        side = radius * np.array((-along[1], along[0]), dtype=float)
+        strands = [(ap + side, a + side), (ap - side, a - side)]
+    return strands, [(a, radius), (ap, radius)], [(a, radius)]
+
+
 def belt_kept_lengths(geo: ParallelGeometry, phi_rad: float, free: tuple[float, float], goal) -> tuple[float, float]:
-    """Each face's length kept at ``phi_rad`` (the required flexion): within
-    ``free`` (from its outer end, the fold's crossing), less where the belt's
-    drive lies in front of it, at any distance (``goal.loss.links_block_face``,
-    as CoDe's crossing links): the proximal face against the belt and both
-    pulleys, on its own body; the distal face against the pulley on ``A``
-    (the rest of the belt is the proximal body's, across the fold)."""
+    """Exact usable length at ``phi_rad`` after belt and pulley occlusion (:mod:`core.morphology.intervals`)."""
 
-    from core.morphology.contact.loss import joint_scene
-    from core.morphology.mechanism.linkage.packaging import LINK_REACH_MM
-    from core.morphology.packaging.faces import probe_blocked
+    p_face, p_norm, d_face, d_norm = contact_faces(geo.joint, np.array([phi_rad], dtype=float))
+    strands, p_disks, d_disks = _belt_occluders(geo)
+    p_len = float(np.linalg.norm(p_face[1] - p_face[0]))
+    d_len = float(np.linalg.norm(d_face[0, 1] - d_face[0, 0]))
+    p_base = IntervalSet.closed(0.0, min(float(free[0]), p_len))
+    d_base = IntervalSet.closed(0.0, min(float(free[1]), d_len))
+    p_occ = face_occluded_set(p_face, p_norm, segments=strands, disks=p_disks)
+    d_occ = face_occluded_set(d_face[0], d_norm[0], disks=d_disks)
+    return p_base.difference(p_occ).measure, d_base.difference(d_occ).measure
 
-    scene = joint_scene("revolute_parallel", geo, goal.packaging, [math.degrees(phi_rad)])
-    belt = scene.solids["proximal_pad"]["pulley"]
-    a_pulley = [disk for disk in belt.disks if np.allclose(disk[0], geo.a)]
-    kept = []
-    for side, segments, disks, limit in (("proximal_pad", belt.segments, belt.disks, free[0]),
-                                         ("distal_pad", [], a_pulley, free[1])):
-        face, normal = scene.faces[side]
-        length, blocked = probe_blocked(face, normal, LINK_REACH_MM, segments=segments, disks=disks)
-        share = (np.arange(blocked.shape[1]) + 0.5) / blocked.shape[1]
-        limit = min(float(limit), float(length[0]))
-        folded = share * length[0] > limit
-        # The fold's own length less the blocked pieces short of it: unblocked, exactly the fold's length
-        # (re-reading the fold on the probe's pieces would round it by up to half a piece either way).
-        kept.append(max(limit - float(length[0] * (blocked[0] & ~folded).mean()), 0.0))
-    return kept[0], kept[1]
+
+def _belt_robust_lengths(geo: ParallelGeometry, phi_window: np.ndarray, goal) -> tuple[float, float]:
+    """Motion-robust usable lengths across ``phi_window`` with belt/pulley occlusion."""
+
+    p_face, p_norm, d_faces, d_norms = contact_faces(geo.joint, phi_window)
+    p_len = float(np.linalg.norm(p_face[1] - p_face[0]))
+    d_len = float(np.linalg.norm(d_faces[0, 1] - d_faces[0, 0])) if len(phi_window) else 0.0
+    if goal.count_fold:
+        fold = crossing_free(geo.joint, phi_window)
+        p_lims = np.minimum(fold["proximal_pad"], p_len)
+        d_lims = np.minimum(fold["distal_pad"], d_len)
+    else:
+        p_lims = np.full(len(phi_window), p_len)
+        d_lims = np.full(len(phi_window), d_len)
+    strands, p_disks, d_disks = _belt_occluders(geo)
+    p_occ = face_occluded_set(p_face, p_norm, segments=strands, disks=p_disks)
+    p_sets = [IntervalSet.closed(0.0, float(lim)).difference(p_occ) for lim in p_lims]
+    d_sets = [
+        IntervalSet.closed(0.0, float(d_lims[i])).difference(
+            face_occluded_set(d_faces[i], d_norms[i], disks=d_disks)
+        )
+        for i in range(len(phi_window))
+    ]
+    return (
+        functools.reduce(IntervalSet.intersection, p_sets).measure if p_sets else 0.0,
+        functools.reduce(IntervalSet.intersection, d_sets).measure if d_sets else 0.0,
+    )
 
 
 def mount_depth_violation(x: Sequence[float], config: ParallelConfig) -> float:
@@ -161,7 +190,13 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
         return ParallelEvaluation(constraints=MappingProxyType(constraints), **common)
 
     phi = np.asarray(goal.servo_samples_rad)
-    margins = _between_samples(geo, phi, _margins(geo, phi, config, until_unsafe=True), config, _margins)
+    margins = _between_samples(
+        geo,
+        phi,
+        _margins(geo, phi, config, until_unsafe=True, include_static_pairs=False),
+        config,
+        _margins,
+    )
     least = np.min(np.stack(list(margins.values())), axis=0)
     unsafe = least < 0.0
     first_unsafe = int(np.flatnonzero(unsafe)[0]) if unsafe.any() else len(phi)
@@ -179,9 +214,12 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "revolute_parallel")
-    if goal.links_block_face:
+    if goal.include_linkage_occlusion and goal.integrity_depth_mm is None:
         proximal_usable, distal_usable = belt_kept_lengths(geo, float(phi[window][-1]),
                                                            (proximal_usable, distal_usable), goal)
+        proximal_robust, distal_robust = _belt_robust_lengths(geo, phi[window], goal)
+    else:
+        proximal_robust, distal_robust = robust_usable_lengths(geo, phi[window], goal, "revolute_parallel")
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
     constraints = {
         **static,
@@ -202,15 +240,17 @@ def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
         pad_clearance_mm=float(np.min(np.stack(reported), axis=0)[window].min()) if reported else math.inf,
         proximal_usable_length_mm=proximal_usable,
         distal_usable_length_mm=distal_usable,
+        proximal_robust_usable_length_mm=proximal_robust,
+        distal_robust_usable_length_mm=distal_robust,
         **common,
     )
 
 
 def _margins(geo: ParallelGeometry, phi: np.ndarray, config: ParallelConfig,
-             until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
+             until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair (``solids.margins``, the study's checks)."""
 
-    return solids.margins(geo, phi, joint_checks(config.base), until_unsafe)
+    return solids.margins(geo, phi, joint_checks(config.base), until_unsafe, include_static_pairs=include_static_pairs)
 
 
 __all__ = ["CONSTRAINT_NAMES", "ParallelEvaluation", "belt_kept_lengths", "evaluate", "geometry",

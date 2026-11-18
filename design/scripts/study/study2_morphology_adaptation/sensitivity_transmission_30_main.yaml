@@ -13,7 +13,7 @@ goal_overrides:
   - 0.5235987755982988
   - 2.6179938779914944
   torque_ratio_max: null
-  links_block_face: true
+  include_linkage_occlusion: true
 optimizer:
   algorithm: nsga2
   population: 100

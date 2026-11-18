@@ -21,8 +21,10 @@ the seat follows the shallowest nonpenetrating position toward -Z, within the ex
 rule. The housing dimensions are physical envelopes, not an extra uniform clearance. No spacer is assumed.
 
 New defaults write to `*_tilt_sweep` output directories so they do not overwrite the published historical
-runs. The sections below describe the original fixed-tilt study; their numerical results have not been
-recomputed under the new sweep.
+runs. Under the 2026-11-17 SSoT alignment (`design/SSoT/math_formulation.md` §7.2), `scripts/study/base.yaml`
+declares `profile: study` (`include_linkage_occlusion: false` default; set
+`goal_overrides: {include_linkage_occlusion: true}` for linkage-occlusion sensitivity runs). The sections below
+describe the original fixed-tilt study; their numerical results have not been recomputed under the new sweep.
 
 How far must a reference hand change to carry a given contact interface?
 This is not a search for a new best finger. It measures how much the existing

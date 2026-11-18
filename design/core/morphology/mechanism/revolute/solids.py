@@ -42,9 +42,7 @@ VARIABLE_NAMES = ("a_x_mm", "ac_length_mm", "app_x_mm", "bpp_from_a_mm", "distal
 joint end ``B''`` from ``A`` along ``A->C``, how far below ``A-C`` the distal
 pad's top face lies and below ``O-A`` the proximal pad's, and the distal
 servo's dorsal tilt from ``-X`` (degrees; the goal's PIP servo tilt, fixed or
-searched). The pads are plain blocks, each on its own segment and off the
-joint's housing (:data:`DISTAL_DROP_MIN_MM`'s radius): the proximal pad ends
-at ``A_x`` less it, the distal pad starts at it past ``A``."""
+searched). The pads are plain rectangular blocks on their respective segments."""
 
 
 def servo_rear(tilt_deg: float) -> tuple[float, float]:
@@ -202,12 +200,14 @@ class JointChecks:
 
 
 def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
-            until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
+            until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair beyond the clearance.
 
     ``until_unsafe``: the distal pad is checked against the MCP servo (the
     costly pair: every MCP angle) only up to the first sample another pair
     fails at; past it the motion is unsafe anyway, and its margin is ``inf``.
+    ``include_static_pairs``: when ``False``, skips configuration-invariant
+    pairs (such as ``("mcp_servo", "proximal_pad")``) already verified at ``phi = 0``.
     """
 
     packaging = checks.packaging
@@ -237,7 +237,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
             margin[:end] = (mcp_servo_gaps(solid[:end], packaging, checks.mcp_samples_rad)
                             - packaging.mcp_pad_clearance_mm)
             margins[(name, "mcp_servo")] = margin
-    if packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
+    if include_static_pairs and packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
         gap = proximal_pad_mcp_gap(geo.proximal_pad, packaging, checks.mcp_samples_rad)
         margins[("mcp_servo", "proximal_pad")] = np.full(count, gap - packaging.mcp_pad_clearance_mm)
     return {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}

@@ -131,7 +131,7 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v14"
+    formulation = "linkage-v15"
     """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
     no clearance, the PIP servo against the proximal pad, the transmission
     angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
@@ -170,7 +170,8 @@ class LinkageMechanism(Mechanism):
     v11 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
     v12 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset.
     v13 (2026-11-04): the constraint ``mount_depth_mm`` (the pads' depths against ``goal.pads.mount_policy``: 0 when searched, the production's, whose designs are unchanged; ``shallowest_supported`` sets each depth, the study's, ``core.optimization.mounting``).
-    v14 (2026-11-05): ``goal.loss.links_block_face`` (the study's): at the required flexion each face also less where a crossing link (``A-B'``, ``A'-B``) lies in front of it (``packaging.link_kept_lengths``); off, the production's, whose designs are unchanged; and no constraint ``pad_waste_mm``: a pad mounted past where it counts at the required flexion is allowed, that part only left out of the coverage (it may serve short of it)."""
+    v14 (2026-11-05): ``goal.loss.links_block_face`` (the study's) and no constraint ``pad_waste_mm``.
+    v15 (2026-11-17): SSoT alignment: exact 1D interval-set accessible face calculation, explicit ``profile`` (``prototype`` default ``include_linkage_occlusion=True``, ``study`` default ``include_linkage_occlusion=False``), and ``motion_robust_coverage`` reported alongside endpoint ``pad_coverage``."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
@@ -267,11 +268,14 @@ class LinkageMechanism(Mechanism):
         return {
             "torque_ratio_max": e.torque_ratio_max,
             "pad_coverage": e.pad_coverage,
+            "motion_robust_coverage": e.motion_robust_coverage,
             "curl_deg": e.curl_deg,
             "proximal_ratio_shortfall_mm": e.proximal_ratio_shortfall_mm,
             "distal_ratio_shortfall_mm": e.distal_ratio_shortfall_mm,
             "proximal_effective_mm": e.proximal_effective_mm,
             "distal_effective_mm": e.distal_effective_mm,
+            "proximal_robust_effective_mm": e.proximal_robust_effective_mm,
+            "distal_robust_effective_mm": e.distal_robust_effective_mm,
             "mounted_coverage": e.mounted_coverage,
             "proximal_usable_length_mm": e.proximal_usable_length_mm,
             "distal_usable_length_mm": e.distal_usable_length_mm,

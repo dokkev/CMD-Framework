@@ -86,10 +86,11 @@ def historical_recheck(inputs):
             for face in (True, False):
                 config = saved.config
                 config = replace(config, pip_servo_tilt_rad=math.radians(15),
-                                 bounds={**config.bounds, 'servo_tilt_deg': (15., 15.)}, links_block_face=face,
+                                 bounds={**config.bounds, 'servo_tilt_deg': (15., 15.)},
+                                 include_linkage_occlusion=face,
                                  transmission_angle_range_rad=(math.radians(margin), math.radians(180-margin)))
                 e = saved.mechanism.evaluate(x, config)
-                checks.append(dict(target=row['target'], margin_deg=margin, links_block_face=face,
+                checks.append(dict(target=row['target'], margin_deg=margin, include_linkage_occlusion=face,
                                    feasible=e.feasible, k_max=e.torque_ratio_max,
                                    minimum_angle_margin_deg=math.degrees(e.min_margin_rad),
                                    failures=';'.join(f'{k}={v:.5g}' for k, v in e.constraints.items() if v > 0)))
@@ -103,9 +104,12 @@ def main():
         manifest = json.loads((folder / 'manifest.json').read_text())
         cfg = manifest['config']
         angle = cfg['goal_overrides']['transmission_angle_range_rad']
+        occlusion = cfg['goal_overrides'].get(
+            'include_linkage_occlusion', cfg['goal_overrides'].get('links_block_face')
+        )
         common = dict(run=name, angle_min_deg=round(math.degrees(angle[0])),
                       angle_max_deg=round(math.degrees(angle[1])),
-                      links_block_face=cfg['goal_overrides']['links_block_face'],
+                      include_linkage_occlusion=occlusion,
                       population=cfg['optimizer']['population'], generations=cfg['optimizer']['generations'])
         assert cfg['goal_overrides']['torque_ratio_max'] is None
         for filename in ('manifest.json', 'summary.csv', 'summary_best.csv'):
@@ -162,7 +166,7 @@ def main():
         '- Servo shaft and 15-degree tilt fixed; Study 2 E/Q hierarchy and external range +/-20 mm unchanged.',
         '- Current actual-envelope nonpenetration model, with no universal body allowance; planar assumptions remain.',
         '- Pilot: population 32, 20 generations, seeds 0-2. Main: population 100, 100 generations, seeds 0-2.',
-        '- Positive control: same main budget, 30-150 degrees, links_block_face=False. It does not belong to the primary comparison.', '',
+        '- Positive control: same main budget, 30-150 degrees, include_linkage_occlusion=False. It does not belong to the primary comparison.', '',
         '## Saved results', '',
         '| Run | Target | Found seeds / run | Status | eps_E | eps_Q | Selected k_max |',
         '|---|---|---:|---|---:|---:|---:|']

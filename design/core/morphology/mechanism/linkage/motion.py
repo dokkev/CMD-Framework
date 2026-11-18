@@ -15,6 +15,7 @@ end, so a measure is over slightly more than ``[0, phi]``.
 
 from __future__ import annotations
 
+import functools
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -22,12 +23,13 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.finger import Finger
+from core.morphology.intervals import IntervalSet
 from core.morphology.mechanism.linkage.model import PipSweep, four_bar
 from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
+    accessible_face_intervals,
     assembly,
     contact_faces,
-    link_kept_lengths,
     driver_link_servo_gaps,
     FIXED_MARGIN_PAIRS,
     layout,
@@ -38,7 +40,6 @@ from core.morphology.mechanism.linkage.packaging import (
     usable_pad_lengths,
 )
 from core.morphology.packaging.assembly import margins
-from core.morphology.packaging.faces import crossing_free_lengths
 from core.morphology.packaging.shapes import ServoFootprint
 
 STOP_REASONS = ("closure", "transmission", "dip_backoff", "pip_backoff", "dip_pin", "pad_collision")
@@ -112,18 +113,30 @@ class FingerMotion:
     integrity_free: dict[str, float] | None = None
     """Each face's length no solid comes within the integrity depth of on
     ``[0, phi]`` (``contact.loss.integrity_free``; ``None``: not asked)."""
+    robust_free: dict[str, float] | None = None
+    """Motion-robust usable length ``mu(intersection_{s in [0, phi]} U_i(s))`` [mm]."""
 
 
-def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings, phi_rad: float,
-                 footprint: ServoFootprint | None = None, integrity_depth_mm: float | None = None,
-                 links_block_face: bool = False) -> FingerMotion:
-    """Sweep ``linkage`` (see the module docstring) and measure it on ``[0, phi_rad]``
-    (``links_block_face``: each face less where a crossing link lies in front
-    of it at ``phi_rad``, ``packaging.link_kept_lengths``; with the links bent
-    around the pads only, as it measures them)."""
+def sweep_motion(
+    finger: Finger,
+    packaging: LinkagePackaging,
+    settings: MotionSettings,
+    phi_rad: float,
+    footprint: ServoFootprint | None = None,
+    integrity_depth_mm: float | None = None,
+    include_linkage_occlusion: bool = False,
+    *,
+    include_fold: bool = True,
+) -> FingerMotion:
+    """Sweep ``finger`` and measure it on ``[0, phi_rad]``.
 
-    if links_block_face and not packaging.links_clear_pads:
-        raise ValueError("links_block_face needs packaging.links_clear_pads (the links bent around the pads)")
+    ``include_linkage_occlusion`` independently controls whether crossing links
+    (``A-B'``, ``A'-B``) occlude the contact faces in coverage calculation
+    without altering collision checks or fold loss.
+    """
+
+    if include_linkage_occlusion and not packaging.links_clear_pads:
+        raise ValueError("include_linkage_occlusion needs packaging.links_clear_pads (the links bent around the pads)")
     four_bar(finger)
     footprint = pip_footprint(packaging, finger) if footprint is None else footprint
     step = settings.servo_step_rad
@@ -218,18 +231,29 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
     toggle = joined("margin_at_b_rad")[window_joined]
     link = driver_link_servo_gaps(finger, footprint, joined("bp")[window_joined])
     if packaging.links_clear_pads:
-        # The links bent out of the way: at the required flexion (the window's
-        # last sample) each face from its outer end to where the other face's
-        # line crosses it; past the crossing it lies in the fold, facing the other.
-        b, bp, tip = sweep.b[last:last + 1], sweep.bp[last:last + 1], sweep.tip[last:last + 1]
-        faces = contact_faces(finger, packaging, b, tip)
-        free = crossing_free_lengths(faces[0], faces[2])
         if not at.size:  # the four-bar closes short of the required flexion: no pad measured there
-            free = {side: np.zeros(1) for side in free}
-        elif links_block_face:  # nor where a link stands in front of a face
-            free = link_kept_lengths(finger, b, bp, faces, free)
+            free_vals = {"proximal_pad": 0.0, "distal_pad": 0.0}
+            robust_vals = {"proximal_pad": 0.0, "distal_pad": 0.0}
+        else:
+            w_b, w_bp, w_tip = sweep.b[window], sweep.bp[window], sweep.tip[window]
+            w_faces = contact_faces(finger, packaging, w_b, w_tip)
+            w_sets = accessible_face_intervals(
+                finger,
+                w_b,
+                w_bp,
+                w_faces,
+                include_linkage_occlusion=include_linkage_occlusion,
+                include_fold=include_fold,
+            )
+            free_vals = {side: w_sets[side][-1].measure for side in ("proximal_pad", "distal_pad")}
+            robust_vals = {
+                side: functools.reduce(IntervalSet.intersection, w_sets[side]).measure
+                for side in ("proximal_pad", "distal_pad")
+            }
     else:
-        free = usable_pad_lengths(finger, packaging, sweep.b[window], sweep.bp[window], sweep.tip[window])
+        raw_free = usable_pad_lengths(finger, packaging, sweep.b[window], sweep.bp[window], sweep.tip[window])
+        free_vals = {side: float(lengths.min()) for side, lengths in raw_free.items()}
+        robust_vals = dict(free_vals)
     kept = None
     if integrity_depth_mm is not None:
         # Only here: the loss module (and the other mechanisms' solids it
@@ -259,9 +283,10 @@ def sweep_motion(finger: Finger, packaging: LinkagePackaging, settings: MotionSe
         torque_ratio_min=ratio_min,
         servo_travel_rad=travel,
         pad_clearance_mm=float(reported_pad[n_back:][window].min()),
-        fold_free={side: float(lengths.min()) for side, lengths in free.items()},
+        fold_free=free_vals,
         icr_mm=sweep.icr[window],
         integrity_free=kept,
+        robust_free=robust_vals,
     )
 
 

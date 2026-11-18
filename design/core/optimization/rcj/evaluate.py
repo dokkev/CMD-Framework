@@ -41,9 +41,9 @@ from types import MappingProxyType
 
 import numpy as np
 
+from core.morphology.collision import rect_disk_clearance_mm
 from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
-from core.morphology.packaging.shapes import polygon_to_disk
 from core.morphology.mechanism.rcj import solids
 from core.morphology.mechanism.rcj.solids import TORQUE_RATIO, RcjGeometry
 
@@ -53,6 +53,7 @@ from core.optimization.revolute.evaluate import (
     RevoluteEvaluation,
     _between_samples,
     hyperextension_violation,
+    robust_usable_lengths,
     usable_lengths,
 )
 
@@ -142,10 +143,23 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         static["pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
                                         - clearance) if packaging.pip_servo_pad_check and geo.servo is not None
                                       else 0.0)
-        # Each pad on its own roller's body: touching, not inside.
+        # Each pad on its own roller's body: touching, not inside (closed-form point-to-rectangle).
+        p_box = (
+            float(geo.proximal_pad[:, 0].min()),
+            float(geo.proximal_pad[:, 0].max()),
+            float(geo.proximal_pad[:, 1].min()),
+            float(geo.proximal_pad[:, 1].max()),
+        )
+        d_box = (
+            float(geo.distal_pad_local[:, 0].min()),
+            float(geo.distal_pad_local[:, 0].max()),
+            float(geo.distal_pad_local[:, 1].min()),
+            float(geo.distal_pad_local[:, 1].max()),
+        )
         static["roller_pad_mm"] = -min(
-            float(polygon_to_disk(geo.proximal_pad[None], geo.a[None], r)[0]),
-            float(polygon_to_disk(geo.distal_pad_local[None], np.zeros((1, 2)), r)[0]))
+            rect_disk_clearance_mm(p_box, geo.a, r),
+            rect_disk_clearance_mm(d_box, (0.0, 0.0), r),
+        )
         static["roller_pad_mm"] = 0.0 if abs(static["roller_pad_mm"]) < 1e-9 else static["roller_pad_mm"]
     if max(static.values()) <= 0.0:
         margins_at_rest = _margins(geo, np.zeros(1), config)
@@ -168,7 +182,13 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
 
     # phi on the servo grid, as the 2R's (the servo turns half as far).
     phi = np.asarray(goal.servo_samples_rad)
-    margins = _between_samples(geo, phi, _margins(geo, phi, config, until_unsafe=True), config, _margins)
+    margins = _between_samples(
+        geo,
+        phi,
+        _margins(geo, phi, config, until_unsafe=True, include_static_pairs=False),
+        config,
+        _margins,
+    )
     least = np.min(np.stack(list(margins.values())), axis=0)
     unsafe = least < 0.0
     first_unsafe = int(np.flatnonzero(unsafe)[0]) if unsafe.any() else len(phi)
@@ -187,6 +207,7 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
     phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
     reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
     proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "rcj")
+    proximal_robust, distal_robust = robust_usable_lengths(geo, phi[window], goal, "rcj")
     constraints = {
         **static,
         "rom_deg": math.degrees(goal.required_rom_rad - reach),
@@ -201,6 +222,8 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
         constraints=MappingProxyType(constraints),
         proximal_usable_length_mm=proximal_usable,
         distal_usable_length_mm=distal_usable,
+        proximal_robust_usable_length_mm=proximal_robust,
+        distal_robust_usable_length_mm=distal_robust,
         phi_safe_rad=reach,
         phi_max_rad=phi_max,
         stop_reason=stop_reason,
@@ -212,11 +235,13 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
 
 
 def _margins(geo: RcjGeometry, phi: np.ndarray, config: RcjConfig,
-             until_unsafe: bool = False) -> dict[tuple[str, str], np.ndarray]:
+             until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair (``solids.margins``, the study's MCP samples)."""
 
     goal = config.goal
-    return solids.margins(geo, phi, goal.packaging, goal.mcp_samples_rad, until_unsafe)
+    return solids.margins(
+        geo, phi, goal.packaging, goal.mcp_samples_rad, until_unsafe, include_static_pairs=include_static_pairs
+    )
 
 
 __all__ = ["CONSTRAINT_NAMES", "RcjEvaluation", "evaluate", "geometry", "mount_depth_violation", "roller_mcp_gap_mm"]

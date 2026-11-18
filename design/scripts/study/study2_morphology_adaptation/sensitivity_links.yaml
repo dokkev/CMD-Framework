@@ -1,5 +1,6 @@
-# Study 2 sensitivity: the face rule off (goal.loss.links_block_face,
-# scripts/study/base.yaml). The primary run counts no pad face where a part
+# Study 2 sensitivity: the face rule explicitly off (include_linkage_occlusion: false,
+# matching the Study profile default; compare against include_linkage_occlusion: true).
+# When enabled, no pad face is counted where a part
 # of the transmission passes in front of it at the required flexion: CoDe's
 # crossing links (A-B' and A'-B), the belt 2R's strands and pulleys. This run
 # drops that rule for the two architectures it applies to, on the targets
@@ -13,7 +14,7 @@ targets: scripts/study/study2_morphology_adaptation/targets.yaml
 kinds: [matched]
 only_references: [code_matched, belt_2r_matched]
 only_targets: [long, long_thick, asym_long_proximal, asym_long_distal, asym_proximal_heavy, asym_distal_heavy]
-goal_overrides: {links_block_face: false}
+goal_overrides: {include_linkage_occlusion: false}
 external_range_mm: 20
 optimizer:
   algorithm: nsga2

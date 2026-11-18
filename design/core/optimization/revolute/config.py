@@ -21,12 +21,6 @@ from core.morphology.mechanism.revolute.solids import VARIABLE_NAMES
 from core.optimization.linkage.config import LinkageConfig
 
 
-DISTAL_DROP_MIN_MM = 0.0
-"""(Unused since 2026-11-04: each pad's mounting offset, the design vector's
-drop, is searched on the goal's ``goal.pads.*.mount_offset_mm``, the
-linkage's range; the joint's hardware a collision.)"""
-
-
 def pad_reach_mm(goal: LinkageConfig, radius_mm: float) -> tuple[float, float]:
     """How far each pad may reach toward and past the joint, from ``A``: the
     proximal pad's end at most ``A_x`` plus this, the distal pad's start at
@@ -173,4 +167,4 @@ class RevoluteConfig:
         return self.goal.hypervolume_reference
 
 
-__all__ = ["DISTAL_DROP_MIN_MM", "VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "pad_reach_mm"]
+__all__ = ["VARIABLE_NAMES", "RevoluteConfig", "joint_radius", "pad_reach_mm"]
