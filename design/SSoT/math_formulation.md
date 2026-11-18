@@ -1,6 +1,10 @@
 # CoDe Hand — Canonical 2D Finger Morphology Formulation (SSoT)
 
-> **Status & Scope.** This document is the authoritative **Mathematical Source of Truth (SSoT)** for the 2D planar kinematic, packaging, collision, and contact-coverage formulation of 2-DoF robotic fingers in `design/`. It unifies `CoDe` (crossed four-bar), `2R` (joint-direct-drive revolute), `2R-remote` (remote belt/parallel-driven revolute), and `RCJ` (symmetric 1:1 rolling-contact joint) in a single $SE(2)$ geometric language while separating canonical morphology from study-specific requirements, mounting policies, and numerical optimization encodings.
+> **Status & Scope.** This document is the authoritative **Mathematical Source of Truth (SSoT)** for the 2D planar kinematic, packaging, collision, and contact-coverage formulation of 2-DoF robotic fingers in `design/`. It unifies `CoDe` (crossed four-bar), `2R-DD` (joint-direct-drive revolute), `2R-remote` (remote belt/parallel-driven revolute), and `RCJ` (symmetric 1:1 rolling-contact joint) in a single $SE(2)$ geometric language while separating canonical morphology from study-specific requirements, mounting policies, and numerical optimization encodings.
+>
+> **Names.** `2R-DD` is the serial 2R with its PIP servo on the joint (direct drive, code mechanism `revolute`); `2R-remote` is the belt 2R (`revolute_parallel`).
+>
+> **Authority of definitions vs. implementations.** Reported study and prototype results are produced by the per-mechanism evaluators (`core/optimization/{linkage,revolute,revolute_parallel,rcj}/evaluate.py` and `core/morphology/mechanism/linkage/motion.py`). The modules `core/morphology/{canonical,collision,coverage}.py` are **reference implementations** of this document, used for verification and tests; they do not produce reported numbers. Where this document defines a quantity that results depend on, it states which implementation computes the reported value (§5.2, §6, §7.3).
 >
 > Out-of-plane 3D CAD details (bracket wall thickness, fasteners, bearing flanges, cable routing, and 3D hand-level $SE(3)$ digit placement in `design/core/morphology/code_hand/`) lie outside the scope of this 2D planar model except where explicit coordinate-chart equivalences are stated.
 
@@ -12,7 +16,7 @@
 
 For a discrete mechanism architecture
 $$
-m \in \mathcal{A} = \{\mathrm{CoDe},\; \mathrm{2R},\; \mathrm{2R\text{-}remote},\; \mathrm{RCJ}\},
+m \in \mathcal{A} = \{\mathrm{CoDe},\; \mathrm{2R\text{-}DD},\; \mathrm{2R\text{-}remote},\; \mathrm{RCJ}\},
 $$
 a finger morphology $M$ is a structured 4-tuple of geometric parameter groups:
 $$
@@ -36,7 +40,7 @@ $M$ is a composite of geometric objects (frames in $SE(2)$, compact planar footp
 | **Structure** | $\mathbf{p}_{\mathrm{struct}}$ | $\mathcal{P}_{\mathrm{struct}} \subseteq SE(2)^3$ | Segment boundary reference frames $(T_{p,\mathrm{end}}^{\{P\}},\, T_{d,\mathrm{start}}^{\{D\}},\, T_{d,\mathrm{end}}^{\{D\}})$ |
 | **Contact** | $\mathbf{p}_{\mathrm{contact}}$ | $\big(\mathbb{R}_{>0}^2 \times \mathcal{P}_{c}\big)_{i \in \{p, d\}}$ | Contact dimensions $(\ell_i, h_i)$ and body-referenced poses $T_{c,i}^{\{b_i\}} \in SE(2)$ |
 
-> **Idealized upper-bound ablations.** Declared upper-bound baselines (`revolute_idealized`, `rcj_idealized`) are represented within the identical canonical tuple by setting the distal actuator footprint to the empty set ($G_2 = \varnothing$) while keeping $\mathbf{p}_{\mathrm{mech}}$ unchanged.
+> **Idealized upper-bound ablations are a Study abstraction, not a physical morphology.** A physical finger has nonempty actuator footprints, $G_1, G_2 \neq \varnothing$. The upper-bound baselines `revolute_idealized` and `rcj_idealized` remove the PIP actuator body from packaging ($G_2 = \varnothing$) while keeping $\mathbf{p}_{\mathrm{mech}}$ and the kinematics (hence $k$) unchanged. They reuse the canonical tuple only as a representation convenience. They belong to Layer 4 (a declared ablation of a study), describe no buildable prototype, and are never used as evidence of physical feasibility.
 
 ### 1.2 Five Architectural Layers of the SSoT
 
@@ -45,9 +49,9 @@ The framework strictly separates **what a finger is** ($\mathcal{M}(m)$: Layers 
 | Layer | Name | Responsibility | Examples |
 |---|---|---|---|
 | **Layer 1** | **Canonical Morphology** | Geometric primitives and coordinate charts per group | $m, \mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{act}}, \mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}}$ |
-| **Layer 2** | **Parameter Dependencies** | Structural well-formedness and cross-group physical compatibility defining $\mathcal{M}(m)$ | Loop closure at $\varphi=0$, shaft–pivot alignment $\operatorname{pos}(T_2^{\{P\}}) = \operatorname{pos}(T_{A'}^{\{P\}})$, structural support containment |
+| **Layer 2** | **Parameter Dependencies** | Structural well-formedness and cross-group physical compatibility defining $\mathcal{M}(m)$ | Loop closure at $\varphi=0$, shaft–pivot alignment $\operatorname{pos}(T_2^{\{P\}}) = \operatorname{pos}(T_{A'}^{\{P\}})$, pad attachment to its body |
 | **Layer 3** | **Derived Properties** | Deterministic geometric and kinematic maps on $\mathcal{M}(m)$ | Common geometry $\mathbf{L}(M)$, forward kinematics $T_{PD}(\varphi)$, ICR $\mathbf{r}_{\mathrm{ICR}}(\varphi)$, transmission ratio $k(M,\varphi)$, clearances, accessible contact sets $\mathcal{U}_i(M,\varphi;\eta_L)$ |
-| **Layer 4** | **Design Requirements & Policies** | Study- or prototype-specific constraints, design policies, and objectives | Required ROM $\varphi_{\min}^{\mathrm{des}}$, size bounds $\mathbf{L}_{\min} \le \mathbf{L}(M) \le \mathbf{L}_{\max}$, nonpenetration, context profile $\eta_L$, outer-end pad pinning, `shallowest_supported` mounting policy, $z_A = z_{B,0} = 0$ restriction |
+| **Layer 4** | **Design Requirements & Policies** | Study- or prototype-specific constraints, design policies, and objectives | Required ROM $\varphi_{\min}^{\mathrm{des}}$, size bounds $\mathbf{L}_{\min} \le \mathbf{L}(M) \le \mathbf{L}_{\max}$, nonpenetration, context profile $\eta_L$, pad mounting model (full-length support containment), outer-end pad pinning, `shallowest_supported` mounting policy, idealized actuation $G_2 = \varnothing$, $z_A = z_{B,0} = 0$ restriction |
 | **Layer 5** | **Implementation** | Computational classes, flat search vectors, sampling grids, and solvers | `FingerMorphology`, `Finger`, `VARIABLE_NAMES`, `servo_step_deg`, `prototyping_resolution_mm`, NSGA-II / SMS-EMOA / AGE-MOEA |
 
 A morphology $M \in \mathcal{M}(m)$ that fails a $120^\circ$ ROM requirement or incurs a servo–pad overlap in Layer 4 is **infeasible for that optimization problem**, not mathematically undefined.
@@ -60,8 +64,10 @@ Two strictly separated Layer 4 formulations share Layers 1–3 (`README.md`, *"T
 |---|---|---|
 | **Scientific role** | Physical hardware realization of the CoDe finger (`scripts/optimize/linkage/config.yaml` and extensions) | Controlled cross-architecture scientific comparison across $m \in \mathcal{A}$ (`scripts/study/baseline.yaml`, `base.yaml`, Studies 1–4) |
 | **Envelope & pivot sizing** | Tracks physical build hardware (e.g., 8 mm pivot housings in `config_pivot8.yaml`) | Frozen shared benchmark envelopes (`A: 6, A': 10, B: 6, B': 6 mm`) |
-| **Pad mounting depth $d_i$** | Searched (`mount_policy: searched`, optional `align_mount_offsets`) | Policy-determined (`mount_policy: shallowest_supported`, no spacers) |
+| **Pad mounting depth $d_i$** | Searched in `mount_offset_mm` (the loader's default `mount_policy` is `searched`; no key in `config.yaml`; optional `align_mount_offsets`) | Study files extending `base.yaml`: policy-determined (`mount_policy: shallowest_supported`, no spacers, §4.3). `baseline.yaml` run directly (no `mount_policy` key): searched in `mount_offset_mm: [0, 10]` |
 | **Default `include_linkage_occlusion` ($\eta_L$)** | **`True`** ($\eta_L = 1$): crossing bars occlude contact faces | **`False`** ($\eta_L = 0$): pure geometric fold baseline (sensitivity runs override explicitly) |
+| **Objectives** (`solver.objectives`) | `transmission`, `pad_coverage`, `curl` | `transmission`, `pad_coverage`, `curl` (§8.1); individual study files may override |
+| **MCP flexion in collision checks** | Held at $q_{\mathrm{MCP}} = 0$ (`mcp_flexion_max_rad = 0` set by the YAML loader) | Held at $q_{\mathrm{MCP}} = 0$ (same loader) |
 
 ### 1.4 Representation Space vs. Minimal Design Space
 
@@ -129,7 +135,11 @@ Circular revolute pins carry zero rotational orientation in 2D ($\operatorname{o
 
 #### (a) `CoDe` — Crossed Four-Bar Linkage ($m = \mathrm{CoDe}$)
 
-Four revolute pivots $(A, A', B, B')$ form two rigid bars: driver $A\text{–}B'$ and coupler $A'\text{–}B$. Pivots $A, A'$ belong to $\{P\}$; pivots $B, B'$ belong to $\{D\}$ with $\{D\}$ anchored at $B$ ($T_B^{\{D\}} = I$):
+Four revolute pivots $(A, A', B, B')$ form the four-bar $A\text{–}B'\text{–}B\text{–}A'$. The ground link $A\text{–}A'$ is the proximal body $\{P\}$, and the coupler $B\text{–}B'$ is the distal body $\{D\}$, anchored at $B$ ($T_B^{\{D\}} = I$). The two crossing bars are:
+- the **input link** $A'\text{–}B$, turned about $A'$ by the PIP servo (shaft at $A'$, §3.2; called the "driven link" in `mechanism/linkage/model.py`);
+- the **output rocker** $A\text{–}B'$, which turns about $A$ and carries the distal body at $B'$ (called the "driver link" in the code because it drives the distal segment).
+
+Pivots $A, A'$ belong to $\{P\}$; pivots $B, B'$ belong to $\{D\}$:
 $$
 \boxed{
 \mathbf{p}_{\mathrm{mech}}^{\mathrm{CoDe}}
@@ -151,12 +161,12 @@ where $T_A^{\{P\}} = \operatorname{Trans}(x_A, z_A)$, $T_{A'}^{\{P\}} = \operato
   plus the discrete assembly branch $\sigma_{\mathrm{branch}} \in \{-1, +1\}$, recovering $\mathbf{r}_{B,0}$ as the circle intersection $\mathcal{C}(\mathbf{r}_{A'}, \ell_{A'B}) \cap \mathcal{C}(\mathbf{r}_A - \Delta\mathbf{r}_{B'}, \ell_{AB'})$.
 - **Axis-aligned design subspace (Layer 4):** Setting $z_A = 0$ and $z_{B,0} = 0$ restricts $\mathcal{P}_{\mathrm{mech}}(\mathrm{CoDe})$ to a 6D subspace.
 
-#### (b) `2R` and `2R-remote` — Single Revolute Joint ($m \in \{\mathrm{2R}, \mathrm{2R\text{-}remote}\}$)
+#### (b) `2R-DD` and `2R-remote` — Single Revolute Joint ($m \in \{\mathrm{2R\text{-}DD}, \mathrm{2R\text{-}remote}\}$)
 
 Both architectures share identical single-hinge articulation at $A$ on $+X_P$, with $\{D\}$ anchored at $A$ ($\mathbf{r}_{D,0} = [x_A, 0]^\top$, $\dim \mathcal{P}_{\mathrm{mech}} = 1$):
 $$
 \boxed{
-\mathbf{p}_{\mathrm{mech}}^{\mathrm{2R}} = \mathbf{p}_{\mathrm{mech}}^{\mathrm{2R\text{-}remote}}
+\mathbf{p}_{\mathrm{mech}}^{\mathrm{2R\text{-}DD}} = \mathbf{p}_{\mathrm{mech}}^{\mathrm{2R\text{-}remote}}
 = \big(T_A^{\{P\}}\big), \qquad T_A^{\{P\}}(x_A) = \operatorname{Trans}_x(x_A),\quad x_A > 0
 }
 $$
@@ -223,10 +233,10 @@ whose top mounting face is $[0, \ell_i] \times \{0\}$ ($z_{\mathrm{local}} = -d_
 | Group | Component / Architecture | Parent | Canonical Representation | Minimal Coordinates | Independent DOFs |
 |---|---|---|---|---|---:|
 | **Mechanism** | `CoDe` | $\{P\}, \{D\}$ | $(T_A^{\{P\}}, T_{A'}^{\{P\}}, T_B^{\{P\}}(0), T_{B'}^{\{D\}})$ | $(x_A, z_A, x_{A'}, z_{A'}, x_{B,0}, z_{B,0}, \Delta x_{B'}, \Delta z_{B'})$ | $8$ |
-| | `2R`, `2R-remote` | $\{P\}$ | $(T_A^{\{P\}})$ | $(x_A)$ | $1$ |
+| | `2R-DD`, `2R-remote` | $\{P\}$ | $(T_A^{\{P\}})$ | $(x_A)$ | $1$ |
 | | `RCJ` | $\{P\}$ | $(T_A^{\{P\}}, r)$ | $(x_A, r)$ | $2$ |
-| **Actuation** | MCP ($i=1$), all $m$ | $\{W\}$ | $(G_1, T_1^{\{W\}})$ | $(\psi_{\mathrm{MCP}})$ ($\operatorname{pos}(T_1) \equiv \mathbf{0}$) | $1$ |
-| | PIP ($i=2$), `CoDe`/`2R`/`RCJ` | $\{P\}$ | $(G_2, T_2^{\{P\}})$ | $(\psi_{\mathrm{tilt}})$ ($\operatorname{pos}(T_2)$ derived from $\mathbf{p}_{\mathrm{mech}}$) | $1$ |
+| **Actuation** | MCP ($i=1$), all $m$ | $\{W\}$ | $(G_1, T_1^{\{W\}})$ | $(\psi_{\mathrm{MCP}})$ ($\operatorname{pos}(T_1) \equiv \mathbf{0}$) | $1$ (fixed by configuration in every current run; no search slot) |
+| | PIP ($i=2$), `CoDe`/`2R-DD`/`RCJ` | $\{P\}$ | $(G_2, T_2^{\{P\}})$ | $(\psi_{\mathrm{tilt}})$ ($\operatorname{pos}(T_2)$ derived from $\mathbf{p}_{\mathrm{mech}}$) | $1$ |
 | | PIP ($i=2$), `2R-remote` | $\{P\}$ | $(G_2, T_2^{\{P\}}; r_{\mathrm{pulley}})$ | $(x_{A'}, z_{A'}, \psi_{\mathrm{tilt}}, r_{\mathrm{pulley}})$ | $3$ pose $+ 1$ pulley |
 | **Structure** | $(A'', B'', C)$, all $m$ | $\{P\}, \{D\}$ | $(T_{p,\mathrm{end}}^{\{P\}}, T_{d,\mathrm{start}}^{\{D\}}, T_{d,\mathrm{end}}^{\{D\}})$ | $(s_{p,\mathrm{end}}, s_{d,\mathrm{start}}, s_{d,\mathrm{end}})$ | $3$ |
 | **Contact** | Proximal & Distal ($i \in \{p,d\}$) | $\{P\}, \{D\}$ | $(\ell_i, h_i, T_{c,i}^{\{b_i\}})$ | $(\ell_i, h_i, s_{c,i}, d_i)$ per segment | $4 + 4 = 8$ |
@@ -241,13 +251,14 @@ Every relationship among parameters is classified into one of five mathematical 
 
 | Relationship | Category | Layer | Mathematical Expression / Treatment |
 |---|---|---|---|
-| Architecture $m \mapsto \mathcal{P}_{\mathrm{mech}}(m)$ | **Structural definition** | Layer 1/2 | Selects mechanism manifold (`CoDe` 8D, `2R`/`2R-remote` 1D, `RCJ` 2D) |
-| Non-degenerate pivots & reference closure | **Admissible subspace restriction** | Layer 2 | `CoDe`: $\mathbf{r}_A \neq \mathbf{r}_{A'}$, $\Delta\mathbf{r}_{B'} \neq \mathbf{0}$, $\ell_{AB'}, \ell_{A'B} > 0$, non-collinear closure at $\varphi=0$; `2R`: $x_A > 0$; `RCJ`: $x_A, r > 0$ |
-| MCP shaft at $O$; PIP shaft alignment | **Derived geometry** (by construction) | Layer 2 | $\operatorname{pos}(T_1^{\{W\}}) = \mathbf{0}$; $\operatorname{pos}(T_2^{\{P\}}) = \mathbf{r}_{A'}$ (`CoDe`), $\mathbf{r}_A$ (`2R`, `RCJ`); for `2R-remote`, $\mathbf{r}_{A'} \neq \mathbf{r}_A$ and $r_{\mathrm{pulley}} > 0$ |
+| Architecture $m \mapsto \mathcal{P}_{\mathrm{mech}}(m)$ | **Structural definition** | Layer 1/2 | Selects mechanism manifold (`CoDe` 8D, `2R-DD`/`2R-remote` 1D, `RCJ` 2D) |
+| Non-degenerate pivots & reference closure | **Admissible subspace restriction** | Layer 2 | `CoDe`: $\mathbf{r}_A \neq \mathbf{r}_{A'}$, $\Delta\mathbf{r}_{B'} \neq \mathbf{0}$, $\ell_{AB'}, \ell_{A'B} > 0$, non-collinear closure at $\varphi=0$; `2R-DD`: $x_A > 0$; `RCJ`: $x_A, r > 0$ |
+| MCP shaft at $O$; PIP shaft alignment | **Derived geometry** (by construction) | Layer 2 | $\operatorname{pos}(T_1^{\{W\}}) = \mathbf{0}$; $\operatorname{pos}(T_2^{\{P\}}) = \mathbf{r}_{A'}$ (`CoDe`), $\mathbf{r}_A$ (`2R-DD`, `RCJ`); for `2R-remote`, $\mathbf{r}_{A'} \neq \mathbf{r}_A$ and $r_{\mathrm{pulley}} > 0$ |
 | Axial structural ordering | **Admissible subspace restriction** | Layer 2 | $s_{p,\mathrm{end}} > 0$, $s_{d,\mathrm{end}} > 0$, $s_{d,\mathrm{start}} < s_{d,\mathrm{end}}$ |
-| Contact axial support containment | **Admissible subspace restriction** | Layer 2 | $[s_{c,p}, s_{c,p} + \ell_p] \subseteq [0, s_{p,\mathrm{end}}]$ and $[s_{c,d}, s_{c,d} + \ell_d] \subseteq [s_{d,\mathrm{start}}, s_{d,\mathrm{end}}]$ |
+| Pad attachment to its body | **Admissible subspace restriction** | Layer 2 | $\mu\big([s_{c,i}, s_{c,i} + \ell_i] \cap I_i\big) > 0$ with support interval $I_p = [0, s_{p,\mathrm{end}}]$, $I_d = [s_{d,\mathrm{start}}, s_{d,\mathrm{end}}]$ |
+| Full-length support containment | **Mounting-model requirement** | Layer 4 | $[s_{c,i}, s_{c,i} + \ell_i] \subseteq I_i$ (§4.3); the model every current study and prototype run uses |
 | Axis-aligned four-bar ($z_A = z_{B,0} = 0$) | **Study requirement** (subspace policy) | Layer 4 | Restricts `CoDe` search space to 6D without altering $\mathcal{M}(\mathrm{CoDe})$ |
-| Outer-end pad pinning & `shallowest_supported` | **Study requirement** (design policy) | Layer 4 | Pins $s_{c,p} = s_{p,\mathrm{outer}}$, $s_{c,d} = s_{d,\mathrm{end}} - o_d - \ell_d$, and $d_i = \pi_{\mathrm{mount},i}(M)$ |
+| Outer-end pad pinning & `shallowest_supported` | **Study requirement** (design policy) | Layer 4 | Pins the pads' outer ends ($s_{c,p} = s_{p,\mathrm{outer}}$, $s_{c,d} + \ell_d = s_{d,\mathrm{end}} - o_d$) and sets $d_i = \pi_{\mathrm{mount},i}(M)$ (§4.3) |
 | ROM, collision clearances, transmission angle, size bounds | **Optimization constraint** ($g_j(M) \le 0$) | Layer 4/5 | Evaluated on admissible $M \in \mathcal{M}(m)$ during optimization (`Mechanism.evaluate`) |
 
 ### 4.2 Formal Definition of the Admissible Morphology Space $\mathcal{M}(m)$
@@ -262,32 +273,50 @@ M = (\mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{act}}, \mathbf{p}_{\mathrm{
 &\mathbf{p}_{\mathrm{mech}} \in \mathcal{P}_{\mathrm{mech}}^{\circ}(m),\quad
 \mathbf{p}_{\mathrm{struct}} \in \mathcal{P}_{\mathrm{struct}},\\
 &\mathcal{D}_{\mathrm{act}}(m, \mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{act}}),\\
-&\mathcal{D}_{\mathrm{sup}}(\mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}})
+&\mathcal{D}_{\mathrm{att}}(\mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}})
 \end{aligned}
 \right\}
 }
 $$
 where:
 1. **Non-degenerate mechanism space $\mathcal{P}_{\mathrm{mech}}^{\circ}(m)$:**
-   - $\mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{CoDe}) = \big\{\mathbf{q}_{\mathrm{mech}}^{\mathrm{CoDe}} \in \mathbb{R}^8 : \mathbf{r}_A \neq \mathbf{r}_{A'},\; \Delta\mathbf{r}_{B'} \neq \mathbf{0},\; |\ell_{A'B} - \ell_{AB'}| < \|\mathbf{r}_A - \Delta\mathbf{r}_{B'} - \mathbf{r}_{A'}\|_2 < \ell_{A'B} + \ell_{AB'}\big\}$.
-   - $\mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{2R}) = \mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{2R\text{-}remote}) = \{\operatorname{Trans}_x(x_A) : x_A > 0\}$.
+   - $\mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{CoDe}) = \big\{\mathbf{q}_{\mathrm{mech}}^{\mathrm{CoDe}} \in \mathbb{R}^8 : \mathbf{r}_A \neq \mathbf{r}_{A'},\; \Delta\mathbf{r}_{B'} \neq \mathbf{0},\; |\ell_{A'B} - \ell_{AB'}| < \|\mathbf{r}_A - \Delta\mathbf{r}_{B'} - \mathbf{r}_{A'}\|_2 < \ell_{A'B} + \ell_{AB'}\big\}$. Given the coordinates, $\ell_{A'B}$ and $\ell_{AB'}$ are defined by $\mathbf{r}_{B,0}$ itself (§3.1(a)), so the two triangle inequalities hold automatically in their non-strict form. The strict form only excludes the degenerate closure in which $\mathbf{r}_{B,0}$, $\mathbf{r}_{A'}$ and $\mathbf{r}_A - \Delta\mathbf{r}_{B'}$ are collinear.
+   - $\mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{2R\text{-}DD}) = \mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{2R\text{-}remote}) = \{\operatorname{Trans}_x(x_A) : x_A > 0\}$.
    - $\mathcal{P}_{\mathrm{mech}}^{\circ}(\mathrm{RCJ}) = \{(\operatorname{Trans}_x(x_A), r) : x_A > 0,\; r > 0\}$.
 2. **Mechanism–Actuation compatibility $\mathcal{D}_{\mathrm{act}}(m, \mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{act}})$:**
    $$
    \operatorname{pos}(T_1^{\{W\}}) = \mathbf{0} \;\land\;
    \begin{cases}
    \operatorname{pos}(T_2^{\{P\}}) = \operatorname{pos}(T_{A'}^{\{P\}}), & m = \mathrm{CoDe}, \\[3pt]
-   \operatorname{pos}(T_2^{\{P\}}) = \operatorname{pos}(T_A^{\{P\}}), & m \in \{\mathrm{2R}, \mathrm{RCJ}\}, \\[3pt]
+   \operatorname{pos}(T_2^{\{P\}}) = \operatorname{pos}(T_A^{\{P\}}), & m \in \{\mathrm{2R\text{-}DD}, \mathrm{RCJ}\}, \\[3pt]
    \operatorname{pos}(T_2^{\{P\}}) \neq \operatorname{pos}(T_A^{\{P\}}) \;\land\; r_{\mathrm{pulley}} > 0, & m = \mathrm{2R\text{-}remote}.
    \end{cases}
    $$
-3. **Structure–Contact axial support containment $\mathcal{D}_{\mathrm{sup}}(\mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}})$:**
+   For `2R-remote` the belt and pulleys are assumed to run in an outer $Y$ layer (the evaluator does not check them in-plane), so no in-plane pulley spacing is required. A coplanar belt would additionally need $\|\mathbf{r}_{A'} - \mathbf{r}_A\|_2 \ge 2 r_{\mathrm{pulley}}$.
+3. **Pad attachment $\mathcal{D}_{\mathrm{att}}(\mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}})$:** each pad overlaps its own body's support interval over a positive length, and mounts on or palmar of the body's reference line:
    $$
-   0 \le s_{c,p} < s_{c,p} + \ell_p \le s_{p,\mathrm{end}}, \qquad
-   s_{d,\mathrm{start}} \le s_{c,d} < s_{c,d} + \ell_d \le s_{d,\mathrm{end}}, \qquad
-   d_p \ge 0,\quad d_d \ge 0.
+   \mu\big([s_{c,i},\, s_{c,i} + \ell_i] \cap I_i\big) > 0, \qquad d_i \ge 0, \qquad i \in \{p, d\},
    $$
-   *(Note: In Layer 4/5 module sweeps where a fixed skeleton is tested against oversized candidate modules, `FingerMorphology.validate(require_support_containment=False)` separates kinematic well-formedness from graded support-violation reporting `proximal_support_mm`, `distal_support_mm`.)*
+   with $I_p = [0, s_{p,\mathrm{end}}]$ and $I_d = [s_{d,\mathrm{start}}, s_{d,\mathrm{end}}]$. A real module can be held by a local mounting feature without continuous structure under its whole length, so **full-length containment is not part of $\mathcal{M}(m)$**. It is the current mounting model (§4.3).
+
+---
+
+### 4.3 Pad Mounting Model and Placement Policies (Layer 4)
+
+The following are requirements of a study or prototype build, not properties of the morphology. Results that depend on them hold only under them.
+
+1. **Mounting model: full-length support containment.** Every current study and prototype run requires the pad to lie entirely over its body's structure:
+   $$
+   [s_{c,i},\, s_{c,i} + \ell_i] \subseteq I_i, \qquad i \in \{p, d\}.
+   $$
+   Study 1's "the module fits the frozen finger" verdict is therefore a statement under this model. A partial-support model would replace it by $\mu([s_{c,i}, s_{c,i} + \ell_i] \cap I_i) \ge \lambda_i$ with a declared minimum supported length $\lambda_i \in (0, \ell_i]$ (full containment is $\lambda_i = \ell_i$). Without such a bound, the overhang would be limited only by collisions. `FingerMorphology.validate(require_support_containment=False)` drops this check so that module sweeps can report the graded violation (`proximal_support_mm`, `distal_support_mm`) instead of rejecting the morphology.
+2. **Outer-end pinning.** Each pad is laid from its outer end inward:
+   $$
+   s_{c,p} = s_{p,\mathrm{outer}}, \qquad s_{c,d} + \ell_d = s_{d,\mathrm{end}} - o_d,
+   $$
+   where $s_{p,\mathrm{outer}} \ge 0$ is where the proximal pad starts (the MCP servo's shaft-disk radius when `mcp_servo_and_proximal_pad: true`, else $0$ at $O$) and $o_d \ge 0$ is the distal pad's set-back from the fingertip $C$ (`distal_tip_offset_mm`, $0$ in all current configurations). Under this policy the outer end of each face ($\xi_i = 0$, §7.2) is at $s_{p,\mathrm{outer}}$ on $\{P\}$ and at $s_{d,\mathrm{end}} - o_d$ on $\{D\}$.
+3. **Mounting depth policy $d_i = \pi_{\mathrm{mount},i}(M)$** (`mount_policy: shallowest_supported`, `core/optimization/mounting.py`). This is the least depth on the resolution grid that clears the pad's own-body joint hardware (CoDe: pin housings on its segment and, for the proximal pad, the PIP servo; 2R-DD: the servo at $A$; RCJ: its own roller and, for the proximal pad, the servo). It may be no deeper than that hardware reaches below the reference line over the pad's span (its native support). If no such depth exists, the design is infeasible, because no spacer is assumed. The alternative policy `searched` treats $d_i$ as a design variable on `mount_offset_mm`.
+4. **Total pad depth.** $D_i \triangleq d_i + h_i$ is the palmar depth of face $i$ below its body's reference line (used in §7.3).
 
 ---
 
@@ -316,22 +345,22 @@ s_{d,\mathrm{end}} - s_{d,\mathrm{start}}
 \end{bmatrix}
 }
 $$
-When $\mathbf{r}_{D,0}$ lies on $+X_P$ ($z_{B,0} = 0$ in `CoDe`, and identically in `2R`, `2R-remote`, `RCJ`):
-- $L_f^{\mathrm{CoDe}} = x_{B,0} + s_{d,\mathrm{end}}$, $\quad L_f^{\mathrm{2R}} = L_f^{\mathrm{2R\text{-}remote}} = x_A + s_{d,\mathrm{end}}$, $\quad L_f^{\mathrm{RCJ}} = x_A + 2r + s_{d,\mathrm{end}}$.
+When $\mathbf{r}_{D,0}$ lies on $+X_P$ ($z_{B,0} = 0$ in `CoDe`, and identically in `2R-DD`, `2R-remote`, `RCJ`):
+- $L_f^{\mathrm{CoDe}} = x_{B,0} + s_{d,\mathrm{end}}$, $\quad L_f^{\mathrm{2R\text{-}DD}} = L_f^{\mathrm{2R\text{-}remote}} = x_A + s_{d,\mathrm{end}}$, $\quad L_f^{\mathrm{RCJ}} = x_A + 2r + s_{d,\mathrm{end}}$.
 
 ### 5.2 Forward Kinematics, ICR, and Transmission Ratio
 
 1. **Distal Body Pose $T_{PD}(\varphi; \mathbf{p}_{\mathrm{mech}})$:**
-   - `2R` / `2R-remote`: $\mathbf{r}_D(\varphi) = [x_A, 0]^\top$ for all $\varphi \in \mathbb{R}$.
+   - `2R-DD` / `2R-remote`: $\mathbf{r}_D(\varphi) = [x_A, 0]^\top$ for all $\varphi \in \mathbb{R}$.
    - `RCJ`: $\mathbf{r}_D(\varphi) = [x_A + 2r\cos(\varphi/2),\; -2r\sin(\varphi/2)]^\top$ for all $\varphi \in (-\pi, \pi)$.
    - `CoDe`: For a target distal flexion $\varphi$, let $\mathbf{c}(\varphi) = \mathbf{r}_A - R(-\varphi)\Delta\mathbf{r}_{B'}$. Loop closure requires $\mathbf{r}_B(\varphi) \in \mathcal{C}(\mathbf{r}_{A'}, \ell_{A'B}) \cap \mathcal{C}(\mathbf{c}(\varphi), \ell_{AB'})$, defined on the connected domain $\Phi_{\mathrm{close}}(\mathbf{p}_{\mathrm{mech}}) \subseteq [-\pi, \pi]$ containing $\varphi = 0$ on the reference assembly branch.
 2. **Instantaneous Center of Rotation $\mathbf{r}_{\mathrm{ICR}}(\varphi)$:**
-   - `2R` / `2R-remote`: $\mathbf{r}_{\mathrm{ICR}}(\varphi) \equiv [x_A, 0]^\top$.
+   - `2R-DD` / `2R-remote`: $\mathbf{r}_{\mathrm{ICR}}(\varphi) \equiv [x_A, 0]^\top$.
    - `RCJ`: $\mathbf{r}_{\mathrm{ICR}}(\varphi) = [x_A + r\cos(\varphi/2),\; -r\sin(\varphi/2)]^\top$ (rolling contact point); $x_{\mathrm{ICR},0} = x_A + r$.
    - `CoDe`: Line intersection $(A\text{–}B'(\varphi)) \cap (A'\text{–}B(\varphi))$ in $\{P\}$ (undefined/at infinity only when the two bars become parallel).
 3. **Instantaneous Transmission Ratio $k(M, \varphi) = |\mathrm{d}\varphi / \mathrm{d}\theta_{\mathrm{act}}|$:**
    By virtual work ($\tau_{\mathrm{act}}\,\delta\theta_{\mathrm{act}} = \tau_{\mathrm{distal}}\,\delta\varphi$), $k(M, \varphi)$ is the actuator torque required per unit distal moment held:
-   - `2R` and `2R-remote` (1:1 belt): $k(M, \varphi) \equiv 1$.
+   - `2R-DD` and `2R-remote` (1:1 belt): $k(M, \varphi) \equiv 1$.
    - `RCJ` (symmetric 1:1 rollers): $k(M, \varphi) \equiv 2$.
    - `CoDe`: Differentiating the rigid-bar constraints $\|\mathbf{r}_B - \mathbf{r}_{A'}\|^2 = \ell_{A'B}^2$ and $\|\mathbf{r}_{B'} - \mathbf{r}_A\|^2 = \ell_{AB'}^2$ with respect to the servo crank angle $\theta_{\mathrm{act}} = -\operatorname{atan2}(z_B - z_{A'}, x_B - x_{A'})$ yields the exact closed-form analytical velocity ratio (`CoDeMechanismParams.transmission_ratio`):
      $$
@@ -343,6 +372,8 @@ When $\mathbf{r}_{D,0}$ lies on $+X_P$ ($z_{B,0} = 0$ in `CoDe`, and identically
      $$
      where $\mathbf{u}^\perp = [-u_z, u_x]^\top$ and $\mathbf{u} \times \mathbf{v} = u_x v_z - u_z v_x$. Singularities occur when the **transmission angle** $\gamma_{B'}(\varphi) = \angle(A - B'(\varphi),\, B(\varphi) - B'(\varphi)) \in \{0, \pi\}$.
 
+   **Which $k$ the results use.** The reported $k_{\max}$ (`transmission` objective, `torque_ratio_max` constraint) is computed by `servo_lever` in `mechanism/linkage/motion.py`. That function takes $\max |\mathrm{d}\varphi/\mathrm{d}\theta_{\mathrm{act}}|$ by central differences (`np.gradient`) over the servo grid on the window that reaches the first sample at or past $\varphi_{\min}^{\mathrm{des}}$. The analytical expression above (`CoDeMechanismParams.transmission_ratio`) is the reference used to verify it. The two agree as $\Delta\theta_{\mathrm{act}} \to 0$, but they are not the same number at $\Delta\theta_{\mathrm{act}} = 1^\circ$.
+
 ### 5.3 Master Specification of Layer 3 Derived Quantities
 
 | Quantity | Symbol | Canonical Inputs | Reference Pose / Domain | Exact vs. Numerical |
@@ -351,17 +382,17 @@ When $\mathbf{r}_{D,0}$ lies on $+X_P$ ($z_{B,0} = 0$ in `CoDe`, and identically
 | Forward Kinematics | $T_{PD}(\varphi), \mathbf{r}_C(\varphi)$ | $\mathbf{p}_{\mathrm{mech}}, s_{d,\mathrm{end}}, \varphi$ | $\varphi \in \Phi_{\mathrm{close}}(\mathbf{p}_{\mathrm{mech}})$ | Exact closed-form (circle–circle / trig) |
 | Instantaneous Center of Rotation | $\mathbf{r}_{\mathrm{ICR}}(\varphi), x_{\mathrm{ICR},0}$ | $\mathbf{p}_{\mathrm{mech}}, \varphi$ | $\varphi \in \Phi_{\mathrm{close}}$, non-parallel bars | Exact closed-form |
 | External Descriptor (Study 2) | $E(M) = (L_f, L_p, L_d, x_{\mathrm{ICR},0})$ | $\mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{struct}}$ | Extended ($q_{\mathrm{MCP}}=0, \varphi=0$) | Exact closed-form |
-| Transmission Ratio | $k(M, \varphi)$ | $\mathbf{p}_{\mathrm{mech}}, \varphi$ | $\gamma_{B'}(\varphi) \notin \{0, \pi\}$ | Exact analytical (`canonical.py`); finite-diff over grid in `motion.py` |
-| Peak Torque Ratio | $k_{\max}(M)$ | $\mathbf{p}_{\mathrm{mech}}, \varphi_{\min}^{\mathrm{des}}$ | $\varphi \in [0, \varphi_{\min}^{\mathrm{des}}]$ | Numerical max over $\Delta\theta_{\mathrm{act}}$ grid |
-| Axial Support Rooms | $(S_p, S_d)$ | $\mathbf{p}_{\mathrm{struct}}, s_{c,p}, o_d$ | Body frames $\{P\}, \{D\}$ | Exact closed-form: $S_p = s_{p,\mathrm{end}} - s_{c,p}$, $S_d = s_{d,\mathrm{end}} - o_d - s_{d,\mathrm{start}}$ |
+| Transmission Ratio | $k(M, \varphi)$ | $\mathbf{p}_{\mathrm{mech}}, \varphi$ | $\gamma_{B'}(\varphi) \notin \{0, \pi\}$ | Exact analytical (`canonical.py`, reference) |
+| Peak Torque Ratio | $k_{\max}(M)$ | $\mathbf{p}_{\mathrm{mech}}, \varphi_{\min}^{\mathrm{des}}$ | $\varphi \in [0, \varphi_{\min}^{\mathrm{des}}]$ | **Reported value:** central-difference max over the $\Delta\theta_{\mathrm{act}}$ servo grid (`motion.py`, §5.2) |
+| Axial Support Rooms | $(S_p, S_d)$ | $\mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}}$ | Body frames $\{P\}, \{D\}$ | Exact closed-form: $S_p = s_{p,\mathrm{end}} - s_{c,p}$, $S_d = (s_{c,d} + \ell_d) - s_{d,\mathrm{start}}$ (structure from each pad's outer end inward; under outer-end pinning, §4.3, $S_d = s_{d,\mathrm{end}} - o_d - s_{d,\mathrm{start}}$) |
 
 ---
 
-## 6. Static & Dynamic Collision Formulation
+## 6. Collision Formulation
 
-Static and dynamic collision checks are mathematically and computationally separated (`core/morphology/collision.py`). Under the actual-envelope convention, **touching is admissible ($c \ge 0$) and strict penetration is infeasible ($c < 0$)**; zero artificial body-clearance margin is added.
+Under the actual-envelope convention, **touching is admissible ($c \ge 0$) and strict penetration is infeasible ($c < 0$)**; no artificial body-clearance margin is added. Which pairs are checked is part of the goal (`goal.collision.check`; e.g. `a_pin_and_a_prime_pin: false` and `b_prime_pin_and_pip_servo: false` declare pairs that sit in separate $Y$ layers), so the pair list below is the full candidate set, not every run's.
 
-### 6.1 Analytical Signed-Clearance Primitives
+### 6.1 Analytical Clearance Primitives
 
 1. **Axis-aligned rectangle $B = [u_0, u_1] \times [v_0, v_1]$ vs. disk $(\mathbf{c}, r)$** (pad vs. pivot pin or roller in the pad's parent frame):
    $$
@@ -371,7 +402,7 @@ Static and dynamic collision checks are mathematically and computationally separ
    }, \qquad
    c_{\mathrm{rect\text{-}disk}}(B, \mathbf{c}, r) = \operatorname{dist}(\mathbf{c}, B) - r.
    $$
-   Note that when $\mathbf{c} \in B$, $\operatorname{dist}(\mathbf{c}, B) = 0$ and $c_{\mathrm{rect\text{-}disk}} = -r < 0$.
+   When $\mathbf{c} \in B$, $\operatorname{dist}(\mathbf{c}, B) = 0$ and $c_{\mathrm{rect\text{-}disk}} = -r < 0$. Primitives 1 and 3 are therefore exact for $c \ge 0$ and are only **penetration indicators** for $c < 0$: they saturate inside the body instead of returning the penetration depth. Primitive 4 is a true signed distance. Feasibility ($c \ge 0$) is unaffected, but a constraint violation magnitude from 1 or 3 is not a depth.
 2. **Disk $(\mathbf{c}_1, r_1)$ vs. disk $(\mathbf{c}_2, r_2)$** (pin–pin or roller–roller):
    $$
    c_{\mathrm{disk\text{-}disk}} = \|\mathbf{c}_1 - \mathbf{c}_2\|_2 - (r_1 + r_2).
@@ -389,35 +420,43 @@ Static and dynamic collision checks are mathematically and computationally separ
    $$
 4. **General convex/polygonal clearances** ($c_{\mathrm{poly\text{-}poly}}$, $c_{\mathrm{poly\text{-}servo}}$, $c_{\mathrm{servo\text{-}servo}}$): Computed via exact signed edge-segment distance with interior ray-containment sign (`core/morphology/packaging/_kernels.py`).
 
-### 6.2 Static Collision ($\mathbf{q} = \mathbf{0}$ and Configuration-Invariant Intra-Body Pairs)
+### 6.2 Classification by Relative Motion
 
-Static collision evaluates $c_{\mathrm{pair}}(M) \ge 0$ once prior to any motion sweep:
-- **Strictly configuration-invariant intra-body pairs** (rigidly co-moving on $\{P\}$ or on $\{D\}$, independent of $(q_{\mathrm{MCP}}, \varphi)$ for all motions):
-  - On $\{P\}$: proximal pad vs. $A, A'$ (`CoDe`, `2R-remote`) or proximal roller (`RCJ`); proximal pad vs. PIP servo $G_2$; $A$ pin vs. PIP servo $G_2$ (`a_pin_and_pip_servo`).
-  - On $\{D\}$: distal pad vs. $B, B'$ (`CoDe`), $A$ (`2R-remote`), or distal roller (`RCJ`); $B$ vs. $B'$.
-- **Fixed-MCP ($q_{\mathrm{MCP}} = 0$) invariant pairs**: MCP servo $G_1$ vs. PIP servo $G_2$, proximal pad, and proximal roller.
-- **Extended reference-pose ($\varphi = 0$) cross-body pairs**: distal pad vs. proximal pins/roller, servos, and proximal pad at rest.
+A pair's clearance depends only on the joint coordinates that move one of its bodies relative to the other:
 
-Because intra-body and fixed-MCP pairs are invariant wrt $\varphi$, dynamic motion sweeps pass `include_static_pairs=False` rather than recomputing them at every flexion sample.
+| Bodies of the pair | Relative pose depends on | Class |
+|---|---|---|
+| Same body ($P$–$P$, $D$–$D$, $W$–$W$) | nothing | **Configuration-invariant**: checked once |
+| $W$–$P$ (MCP servo $G_1$ vs. PIP servo $G_2$, proximal pad, proximal roller) | $q_{\mathrm{MCP}}$ only | **Reference-pose check** at $q_{\mathrm{MCP}} = 0$; MCP-motion check if $q_{\mathrm{MCP}}$ is swept |
+| $P$–$D$ (distal pad vs. proximal pad, proximal pins/roller, PIP servo; CoDe bars vs. servo) | $\varphi$ only | **Motion-dependent** in $\varphi$ |
+| $W$–$D$ (distal pad vs. MCP servo) | $q_{\mathrm{MCP}}$ and $\varphi$ | **Motion-dependent** in $\varphi$ at the held $q_{\mathrm{MCP}}$ |
 
-### 6.3 Dynamic Collision & Discrete Checkpoint Policy
+Configuration-invariant pairs:
+- On $\{P\}$: proximal pad vs. $A, A'$ (`CoDe`), $A$ (`2R-remote`) or proximal roller (`RCJ`); proximal pad vs. PIP servo $G_2$; $A$ pin vs. PIP servo $G_2$ (`a_pin_and_pip_servo`).
+- On $\{D\}$: distal pad vs. $B, B'$ (`CoDe`), $A$ (`2R-remote`) or distal roller (`RCJ`); $B$ vs. $B'$.
 
-As the finger flexes ($\varphi > 0$), cross-body relative motion brings the distal body $\{D\}$ toward $\{P\}$ and $\{W\}$. For canonical pad–pad nonpenetration screening up to required flexion $\varphi_{\min}^{\mathrm{des}} \ge 0$, the SSoT defines the discrete checkpoint set:
+A $W$–$P$ pair is **not** configuration-invariant: its clearance changes with MCP flexion. **All current study and prototype configurations hold $q_{\mathrm{MCP}} = 0$** (the YAML loader sets `mcp_flexion_max_rad = 0`), so $W$–$P$ pairs are checked at the reference pose only, and $W$–$D$ pairs are checked along $\varphi$ at $q_{\mathrm{MCP}} = 0$ only. Collisions during MCP motion are **not checked** (§10.1). Setting `mcp_flexion_max_rad > 0` turns on the check over MCP samples (`mcp_samples_rad`, every `mcp_step_rad`).
+
+### 6.3 Motion-Dependent Checks Used for Results
+
+The evaluators check every enabled $P$–$D$ and $W$–$D$ pair along the motion, together with closure, the transmission-angle range (`CoDe`) and $x_C \ge 0$:
+- **`CoDe`** (`motion.py`): the PIP servo is swept on the servo grid (`servo_step_deg`, $1^\circ$) from the hyperextension stopper $-\varphi_{\mathrm{hyp}}$ through flexion. A design is safe up to the first unsafe sample. Pareto-front designs are re-evaluated on `verify_step_deg` ($0.05^\circ$).
+- **`2R-DD`, `2R-remote`, `RCJ`**: the joint is swept on the servo grid. Between samples where a collision could hide, the margins are resampled on the verification grid (`_between_samples`, `solids.between_samples`).
+
+These are dense numerical checks. They are not a proof of continuous nonpenetration between grid samples, except where `_between_samples` bounds the motion between them.
+
+### 6.4 Reference Checkpoint Screening (`collision.py`)
+
+`core/morphology/collision.py` implements a separate, lighter **reference** screen. It checks the static pairs at $\mathbf{q} = \mathbf{0}$ and the pad–pad pair only on the checkpoint set
 $$
-\boxed{
 \Phi_{\mathrm{check}}(\varphi_{\min}^{\mathrm{des}}) =
 \big\{60^\circ + 30^\circ k : k \in \mathbb{Z}_{\ge 0},\; 60^\circ + 30^\circ k \le \varphi_{\min}^{\mathrm{des}}\big\}
 \,\cup\,
-\big\{\varphi_{\min}^{\mathrm{des}}\big\}
-}
+\big\{\varphi_{\min}^{\mathrm{des}}\big\},
 $$
-requiring at every checkpoint:
-$$
-c_{pd}(M, \varphi) \ge 0 \qquad \forall\, \varphi \in \Phi_{\mathrm{check}}(\varphi_{\min}^{\mathrm{des}}).
-$$
-(For $\varphi_{\min}^{\mathrm{des}} < 60^\circ$, $\Phi_{\mathrm{check}} = \{\varphi_{\min}^{\mathrm{des}}\}$.)
+requiring $c_{pd}(M, \varphi) \ge 0$ for all $\varphi \in \Phi_{\mathrm{check}}$ (for $\varphi_{\min}^{\mathrm{des}} < 60^\circ$, $\Phi_{\mathrm{check}} = \{\varphi_{\min}^{\mathrm{des}}\}$). `verify_dynamic_collision_refined` repeats it on a dense grid.
 
-> **Scientific distinction: Discrete Screening vs. Continuous Verification.** Satisfying $c_{pd}(M, \varphi) \ge 0$ on the finite set $\Phi_{\mathrm{check}}$ is a **discrete screening condition**; it does **not** mathematically guarantee $c_{pd}(M, \varphi) \ge 0$ over the continuous interval $[0, \varphi_{\min}^{\mathrm{des}}]$. Separate dense-grid validation (`verify_dynamic_collision_refined` at $\Delta\varphi = 0.05^\circ\text{–}0.5^\circ$, and bounded rotational velocity bisection `_between_samples` for `2R`/`RCJ`) is maintained as a distinct numerical verification layer.
+> This screen is **not** the feasibility criterion of any reported result: it omits every motion-dependent pair except pad–pad, and it samples $\varphi$ sparsely. Passing it does not imply passing §6.3. It is kept for quick tests and cross-checks.
 
 ---
 
@@ -429,15 +468,15 @@ The SSoT strictly distinguishes five quantities that must **never** be used inte
 
 | # | Quantity | Symbol | Definition & Physical Meaning |
 |---:|---|---|---|
-| 1 | **Geometrically supported room** | $S_i(M)$ | Axial structural length available on segment $i$ from the outer datum to $A''$ or $B''$ ($S_p = s_{p,\mathrm{end}} - s_{c,p}$, $S_d = s_{d,\mathrm{end}} - o_d - s_{d,\mathrm{start}}$) |
-| 2 | **Mounted contact length** | $\ell_i$ | Physical axial length of the contact module installed on segment $i$ (admissibility requires $\ell_i \le S_i(M)$) |
+| 1 | **Geometrically supported room** | $S_i(M)$ | Axial structural length on segment $i$ from the pad's outer end to $A''$ or $B''$: $S_p = s_{p,\mathrm{end}} - s_{c,p}$, $S_d = (s_{c,d} + \ell_d) - s_{d,\mathrm{start}}$ (§5.3) |
+| 2 | **Mounted contact length** | $\ell_i$ | Physical axial length of the contact module installed on segment $i$ (the full-length mounting model, §4.3, requires $\ell_i \le S_i(M)$) |
 | 3 | **Effective usable contact length** | $L_i^{\mathrm{eff}}(M, \varphi; \eta_L)$ | 1D Lebesgue measure $\mu(\mathcal{U}_i(M, \varphi; \eta_L))$ of the unoccluded, fold-accessible contact face at flexion $\varphi$ |
 | 4 | **Endpoint Coverage** *(primary)* | $C_{\mathrm{endpoint}}(M; \eta_L)$ | Normalized total effective usable face at the required flexion $\varphi = \varphi_{\min}^{\mathrm{des}}$ |
 | 5 | **Motion-Robust Coverage** *(diagnostic)* | $C_{\mathrm{robust}}(M; \eta_L)$ | Normalized measure of material face points that remain continuously accessible across **all** $\varphi \in [0, \varphi_{\min}^{\mathrm{des}}]$ |
 
 ### 7.2 Material Coordinate & Set-Based Accessible Contact Face
 
-Parameterize each pad's palmar contact face in its **body-fixed material coordinate** $\xi_i \in [0, \ell_i]$, measured from the **outer end** ($\xi_p = 0$ near MCP $O$ toward $A''$; $\xi_d = 0$ at the fingertip $C$ toward $B''$):
+Parameterize each pad's palmar contact face in its **body-fixed material coordinate** $\xi_i \in [0, \ell_i]$, measured from the **outer end** inward. On the proximal pad, $\xi_p = 0$ is at $s_{c,p}$ (the MCP end) and increases toward $A''$. On the distal pad, $\xi_d = 0$ is at $s_{c,d} + \ell_d$ (the fingertip end: $s_{d,\mathrm{end}} - o_d$ under outer-end pinning, §4.3, which is $C$ when $o_d = 0$) and increases toward $B''$:
 $$
 \mathbf{p}_{\mathrm{face},p}^{\{P\}}(\xi_p) =
 \begin{bmatrix} s_{c,p} + \xi_p \\ -(d_p + h_p) \end{bmatrix}, \qquad
@@ -449,15 +488,26 @@ each with local outward palmar unit normal $\mathbf{n}_i^{\{b_i\}} = [0, -1]^\to
 At configuration $\varphi$, let $\mathbf{p}_{i,\varphi}(\xi_i)$ and $\mathbf{n}_{i,\varphi}$ denote the posed face point and outward unit normal in $\{P\}$.
 
 1. **Base accessible set $\mathcal{U}_i^{\mathrm{base}}(M, \varphi) \subseteq [0, \ell_i]$ (Fold rule):**
-   Let $\ell_{i,\mathrm{fold}}(M, \varphi) \ge 0$ be the distance from the outer end $\xi_i = 0$ to the V-fold intersection of the two posed infinite contact-face lines ($\ell_{i,\mathrm{fold}} = +\infty$ when $\varphi \le 0$ or parallel):
+   Let $\tau_{i,\times}(M, \varphi) \in \mathbb{R}$ be the **signed** axial coordinate of the intersection of the two posed infinite contact-face lines, measured along face $i$ from its outer end in the direction of increasing $\xi_i$:
    $$
-   \mathcal{U}_i^{\mathrm{base}}(M, \varphi) = \big[0,\, \min(\ell_i,\, \ell_{i,\mathrm{fold}}(M, \varphi))\big].
+   \mathbf{p}_{i,\varphi}(0) + \tau_{i,\times}\,\mathbf{t}_{i,\varphi} \in \text{line}(\text{face } j), \qquad j \neq i.
    $$
+   Here $\tau_{i,\times} < 0$ means the crossing lies beyond face $i$'s outer end. When the lines are parallel (including $\varphi = 0$), there is no crossing and the face loses nothing:
+   $$
+   \ell_{i,\mathrm{fold}}(M, \varphi) =
+   \begin{cases}
+   \operatorname{clip}\big(\tau_{i,\times}(M, \varphi),\, 0,\, \ell_i\big), & \text{lines cross}, \\
+   \ell_i, & \text{lines parallel},
+   \end{cases}
+   \qquad
+   \mathcal{U}_i^{\mathrm{base}}(M, \varphi) = \big[0,\, \ell_{i,\mathrm{fold}}(M, \varphi)\big].
+   $$
+   A crossing beyond the outer end ($\tau_{i,\times} < 0$) therefore removes the **whole** face. This is the rule implemented in `packaging/faces.py::crossing_free_lengths` (`fold_mode="crossing"`). The finite-segment alternative (`fold_mode="segment"`, `coverage.py`) removes only the part of face $i$ that the other pad's face segment actually hides.
 2. **Linkage / transmission occlusion set $\mathcal{O}_i^{\mathrm{link}}(M, \varphi) \subseteq [0, \ell_i]$:**
-   A point $\mathbf{q} \in \mathbb{R}^2$ on a crossing transmission member $E$ lies **in front of** face $i$ iff its normal coordinate satisfies $v(\mathbf{q}) = (\mathbf{q} - \mathbf{p}_{i,\varphi}(0))^\top \mathbf{n}_{i,\varphi} > 0$. Projecting $E \cap \{v \ge 0\}$ orthogonally onto the tangent axis $\mathbf{t}_{i,\varphi} = (\mathbf{p}_{i,\varphi}(\ell_i) - \mathbf{p}_{i,\varphi}(0))/\ell_i$ yields an **exact closed-form 1D interval** (`core/morphology/intervals.py`):
+   A point $\mathbf{q} \in \mathbb{R}^2$ on a crossing transmission member $E$ lies **in front of** face $i$ iff its normal coordinate satisfies $v(\mathbf{q}) = (\mathbf{q} - \mathbf{p}_{i,\varphi}(0))^\top \mathbf{n}_{i,\varphi} > 0$. Projecting $E \cap \{v > 0\}$ orthogonally onto the tangent axis $\mathbf{t}_{i,\varphi} = (\mathbf{p}_{i,\varphi}(\ell_i) - \mathbf{p}_{i,\varphi}(0))/\ell_i$ yields an **exact closed-form 1D interval** (`core/morphology/intervals.py`):
    - For `CoDe`: $E \in \{A\text{–}B'(\varphi),\, A'\text{–}B(\varphi)\}$ against both faces ($i \in \{p, d\}$).
    - For `2R-remote`: belt tangent strands and pulleys at $(A, A')$ of radius $r_{\mathrm{pulley}}$ against $i = p$, and pulley $A$ against $i = d$.
-   - For `2R` and `RCJ`: $\mathcal{O}_i^{\mathrm{link}}(M, \varphi) = \varnothing$.
+   - For `2R-DD` and `RCJ`: $\mathcal{O}_i^{\mathrm{link}}(M, \varphi) = \varnothing$.
 3. **Configurable accessible contact-face set $\mathcal{U}_i(M, \varphi; \eta_L)$:**
    With indicator $\eta_L \in \{0, 1\}$ (`include_linkage_occlusion`):
    $$
@@ -478,16 +528,19 @@ At configuration $\varphi$, let $\mathbf{p}_{i,\varphi}(\xi_i)$ and $\mathbf{n}_
 > - `profile: prototype` $\implies$ default `include_linkage_occlusion = True` ($\eta_L = 1$).
 >
 > Toggling $\eta_L$ modifies **only** $\mathcal{O}_i^{\mathrm{link}}$; it never disables pad–pad collision checks, fold face loss $\mathcal{U}_i^{\mathrm{base}}$, or structural support constraints.
+>
+> **Neither setting is 3D accessibility.** $\eta_L = 1$ assumes that a crossing member hides the face across its full lateral ($Y$) width. In hardware the bars and belt run in their own $Y$ layers beside or around the module. $\eta_L = 1$ is therefore a conservative 2D projection (a lower bound with respect to transmission occlusion), and $\eta_L = 0$ ignores that occlusion (an upper bound). Prototype runs use $\eta_L = 1$ as the conservative choice, not as a model of real accessibility.
 
 ### 7.3 Endpoint Coverage vs. Motion-Robust Coverage
 
-1. **Endpoint Coverage (Primary Optimization Metric):** Evaluated at $\varphi = \varphi_{\min}^{\mathrm{des}}$, normalized by extended finger length $L_f(M)$:
+1. **Endpoint Coverage (Primary Optimization Metric, `pad_coverage`):** Evaluated at $\varphi = \varphi_{\min}^{\mathrm{des}}$, normalized by extended finger length $L_f(M)$:
    $$
    \boxed{
    C_{\mathrm{endpoint}}(M; \eta_L) =
    \frac{L_p^{\mathrm{eff}}(M, \varphi_{\min}^{\mathrm{des}}; \eta_L) + L_d^{\mathrm{eff}}(M, \varphi_{\min}^{\mathrm{des}}; \eta_L)}{L_f(M)}
    }
    $$
+   The evaluators compute it at the first servo-grid sample at or past $\varphi_{\min}^{\mathrm{des}}$ (§10.1). (Before linkage-v8 the effective length was the least over $[0, \varphi_{\min}^{\mathrm{des}}]$. Some config comments still describe that older rule.)
 2. **Motion-Robust Coverage (Secondary Diagnostic Metric):** Defined via material-coordinate set intersection across the flexion trajectory:
    $$
    \boxed{
@@ -497,11 +550,20 @@ At configuration $\varphi$, let $\mathbf{p}_{i,\varphi}(\xi_i)$ and $\mathbf{n}_
    }
    $$
 
-**Mathematical vs. Empirical Relationship:**
-- **Exact inequality:** Since $\varphi_{\min}^{\mathrm{des}} \in [0, \varphi_{\min}^{\mathrm{des}}]$, $\mathcal{U}_i^{\mathrm{rob}}(M; \eta_L) \subseteq \mathcal{U}_i(M, \varphi_{\min}^{\mathrm{des}}; \eta_L)$, so $0 \le C_{\mathrm{robust}}(M; \eta_L) \le C_{\mathrm{endpoint}}(M; \eta_L) \le (\ell_p + \ell_d)/L_f(M)$ holds universally.
-- **Empirical regime dependence across optimized Pareto fronts:**
-  - *Equal total pad depths ($D_p = D_d$, e.g. `2r_dd_tilt90` or `align_mount_offsets: true`):* The V-crossing distance decreases monotonically with flexion angle $\varphi \in (0, \pi)$, yielding $C_{\mathrm{robust}} = C_{\mathrm{endpoint}}$ on `2R` ($r = 1.000$) and near-perfect rank preservation on `CoDe` ($r = 0.96\text{–}0.99$, Spearman $\rho = 0.97\text{–}1.00$).
-  - *Unequal total pad depths ($D_p \neq D_d$, e.g. `2r_dd_tilt45`, `rcj`, or unaligned `CoDe`):* Under infinite-line V-crossing, two non-collinear face lines at depths $D_p \neq D_d$ intersect at $x_{\times}(\varphi) \approx x_{\mathrm{hinge}} + (D_p - D_d)/\sin\varphi$ as $\varphi \to 0^+$. When $D_p > D_d$, $x_{\times}(\varphi) \to +\infty$ past the fingertip at small flexion angles ($\varphi \approx 1^\circ$), causing $C_{\mathrm{robust}}$ to drop substantially below $C_{\mathrm{endpoint}}$ and breaking rank correlation ($r = -0.32\text{ to }+0.30$). Therefore, correlation between $C_{\mathrm{endpoint}}$ and $C_{\mathrm{robust}}$ is **not** a mathematical identity and must not be assumed when $D_p \neq D_d$.
+**Exact relationship.** Since $\varphi_{\min}^{\mathrm{des}} \in [0, \varphi_{\min}^{\mathrm{des}}]$, $\mathcal{U}_i^{\mathrm{rob}}(M; \eta_L) \subseteq \mathcal{U}_i(M, \varphi_{\min}^{\mathrm{des}}; \eta_L)$. Hence $0 \le C_{\mathrm{robust}}(M; \eta_L) \le C_{\mathrm{endpoint}}(M; \eta_L) \le (\ell_p + \ell_d)/L_f(M)$ for every $M$.
+
+**Small-angle behaviour of the crossing rule (a defect of $C_{\mathrm{robust}}$).** Take a single hinge at $x_h$ through which both reference lines pass (`2R-DD`, `2R-remote`), with face depths $D_p, D_d$ (§4.3). The two face lines cross at
+$$
+x_\times(\varphi) - x_h = \frac{D_p \cos\varphi - D_d}{\sin\varphi}, \qquad \varphi \in (0, \pi).
+$$
+- **$D_p = D_d = D$:** $x_\times - x_h = -D\tan(\varphi/2)$. The crossing moves monotonically toward the MCP as $\varphi$ grows, so the base sets are nested in $\varphi$ and $C_{\mathrm{robust}} = C_{\mathrm{endpoint}}$ exactly at $\eta_L = 0$. For `CoDe` the hinge moves with $\varphi$, so the equality is only approximate. On the optimized fronts the two rank-correlate at $r = 0.96\text{–}0.99$ (Spearman $\rho = 0.97\text{–}1.00$).
+- **$D_p \neq D_d$:** $|x_\times - x_h| \to \infty$ as $\varphi \to 0^+$, whereas at $\varphi = 0$ the lines are parallel and nothing is lost. $\mathcal{U}_i^{\mathrm{base}}(M, \varphi)$ is therefore **discontinuous at $\varphi = 0$**. If $D_p > D_d$, the crossing lies beyond the fingertip, $\tau_{d,\times} < 0$, and the whole distal face is removed. If $D_p < D_d$, the crossing lies behind the MCP end and the whole proximal face is removed. Because the intersection over $[0, \varphi_{\min}^{\mathrm{des}}]$ includes these near-zero angles, $C_{\mathrm{robust}}$ under the crossing rule is set by the $\varphi \to 0^+$ limit, not by the flexed geometry. On the fronts this drops it far below $C_{\mathrm{endpoint}}$ and breaks the rank correlation ($r = -0.32$ to $+0.30$; e.g. `2r_dd_tilt45`, `rcj`, unaligned `CoDe`). $C_{\mathrm{endpoint}}$, evaluated at $\varphi_{\min}^{\mathrm{des}} \ge 90^\circ$, is not affected by this limit.
+
+**Usage rules until the two fold models are compared (§10.3):**
+- The infinite-line crossing rule stays the Study metric for $C_{\mathrm{endpoint}}$ (`pad_coverage`), so existing results remain comparable.
+- The finite-segment rule is kept as a separate evaluation model. Its results are reported under its own name and never mixed with crossing-rule numbers.
+- Neither rule is claimed to represent real contact accessibility better until their difference has been checked against object contact.
+- $C_{\mathrm{robust}}$ under the crossing rule is reported only when $D_p = D_d$. Otherwise it is reported under the segment rule or not at all.
 
 ---
 
@@ -510,15 +572,17 @@ At configuration $\varphi$, let $\mathbf{p}_{i,\varphi}(\xi_i)$ and $\mathbf{n}_
 All active studies are formulated as constrained optimization or evaluation problems over $M \in \mathcal{M}(m)$:
 
 1. **Multi-Objective Finger Design (Prototype & Baseline Study Search):**
-   Given context profile $\eta_L$, required flexion $\varphi_{\min}^{\mathrm{des}}$, hyperextension $\varphi_{\mathrm{hyp}}$, length bounds $[L_{f,\min}, L_{f,\max}]$, and minimum module lengths $(\ell_{p,\min}, \ell_{d,\min})$:
+   Given context profile $\eta_L$, required flexion $\varphi_{\min}^{\mathrm{des}}$ (`goal.motion.dip_flexion_deg`), hyperextension stopper $\varphi_{\mathrm{hyp}}$ (`hyperextension_deg`), transmission-angle range $[\gamma_{\min}, \gamma_{\max}]$ (`transmission_angle_deg`, $[30^\circ, 150^\circ]$), length bounds $[L_{f,\min}, L_{f,\max}]$ (`finger_length_mm`), and minimum module lengths $\ell_{i,\min}$ (the lower end of `goal.pads.*.length_mm`), the search solves the following (objectives as listed in `solver.objectives` of `baseline.yaml` and the prototype `config.yaml`):
    $$
    \min_{M \in \mathcal{M}_{\mathrm{search}}(m)} \Big(\, k_{\max}(M),\; -C_{\mathrm{endpoint}}(M; \eta_L),\; \pi - \varphi_{\max}(M) \,\Big)
    $$
-   subject to static & dynamic nonpenetration, loop closure on $[-\varphi_{\mathrm{hyp}}, \varphi_{\min}^{\mathrm{des}}]$, $\gamma_{B'}(\varphi) \in [\gamma_{\min}, \gamma_{\max}]$ (`CoDe`), $x_C(\varphi) \ge 0$, $L_f(M) \in [L_{f,\min}, L_{f,\max}]$, and $L_i^{\mathrm{eff}}(M, \varphi_{\min}^{\mathrm{des}}; \eta_L) \ge \ell_{i,\min}$.
+   subject to static & dynamic nonpenetration, loop closure on $[-\varphi_{\mathrm{hyp}}, \varphi_{\min}^{\mathrm{des}}]$, $\gamma_{B'}(\varphi) \in [\gamma_{\min}, \gamma_{\max}]$ (`CoDe`), $x_C(\varphi) \ge 0$, $L_f(M) \in [L_{f,\min}, L_{f,\max}]$, and $L_i^{\mathrm{eff}}(M, \varphi_{\min}^{\mathrm{des}}; \eta_L) \ge \ell_{i,\min}$ (`pad_usable_mm`). The transmission-angle range applies over the whole motion, hyperextension included. $q_{\mathrm{MCP}} = 0$ throughout (§6.2).
+
+   The objectives are `transmission` ($k_{\max}$, §5.2), `pad_coverage` ($C_{\mathrm{endpoint}}$, §7.3) and `curl` ($\pi - \varphi_{\max}$). Here $\varphi_{\max}(M)$ is the largest flexion up to which every motion check of §6.3 and $x_C \ge 0$ still hold, capped at $\pi$. Because $\varphi_{\min}^{\mathrm{des}}$ is required, $\varphi_{\max} \ge \varphi_{\min}^{\mathrm{des}}$ on feasible designs, and curling past it costs no $k_{\max}$.
 2. **Study 1 — Fixed-Morphology Contact Accommodation (`study1_fixed_morphology`):**
-   Hold $(m, \mathbf{p}_{\mathrm{mech}}^0, \mathbf{p}_{\mathrm{act}}^0, \mathbf{p}_{\mathrm{struct}}^0)$ frozen at matched external descriptor $E_0$. For each catalog pair $(\ell_p, h_p, \ell_d, h_d)$ and target $\varphi_{\min}^{\mathrm{des}} \in \{90^\circ, 120^\circ, 150^\circ\}$, set $d_i = \pi_{\mathrm{mount},i}(M)$ (`shallowest_supported`) and test Layer 2 support admissibility and Layer 4 feasibility under $\eta_L = 0$ (and sensitivity $\eta_L = 1$).
+   Hold $(m, \mathbf{p}_{\mathrm{mech}}^0, \mathbf{p}_{\mathrm{act}}^0, \mathbf{p}_{\mathrm{struct}}^0)$ frozen at matched external descriptor $E_0$. For each catalog pair $(\ell_p, h_p, \ell_d, h_d)$ and target $\varphi_{\min}^{\mathrm{des}} \in \{90^\circ, 120^\circ, 150^\circ\}$, set $d_i = \pi_{\mathrm{mount},i}(M)$ (`shallowest_supported`) and test feasibility under $\eta_L = 0$ (and sensitivity $\eta_L = 1$). "The module fits" means it satisfies the full-length mounting model of §4.3 as well as the collision and coverage requirements. A different mounting model would change which modules fit.
 3. **Study 2 — Hierarchical Morphology Adaptation (`study2_morphology_adaptation`):**
-   Partition $H = (E, Q, A)$ where $E(M) = (L_f, L_p, L_d, x_{\mathrm{ICR},0})$, $Q(M)$ holds independent internal mechanism coordinates ($\dim Q = 3$ for axis-aligned `CoDe`, $1$ for `RCJ`, $0$ for `2R`/`2R-remote`), and $A$ holds actuation fixed. For any target module pair infeasible at $(E_0, Q_0, A_0)$:
+   Partition $H = (E, Q, A)$ where $E(M) = (L_f, L_p, L_d, x_{\mathrm{ICR},0})$, $Q(M)$ holds independent internal mechanism coordinates ($\dim Q = 3$ for axis-aligned `CoDe`, $1$ for `RCJ`, $0$ for `2R-DD`/`2R-remote`), and $A$ holds actuation fixed. For `CoDe`, the servo mount $A'$ is part of $A$ (held), so only $A$, $B$ (with $s_{d,\mathrm{end}}$) and $B'$ form $Q$. $z_A = z_{B,0} = 0$ is held by the study's bounds, and coordinates that $E$ already determines are not counted in $Q$. For any target module pair infeasible at $(E_0, Q_0, A_0)$:
    - *Level 1 ($E = E_0$ fixed):* $\min_{Q} \varepsilon_Q(M) \triangleq \max_j |q_j - q_{0,j}| / L_{f,0}$ s.t. feasible.
    - *Level 2 (if Level 1 empty):* Lexicographically minimize $\varepsilon_E(M) \triangleq \max_k |e_k - e_{0,k}| / L_{f,0}$, then $\varepsilon_Q(M)$ subject to $\varepsilon_E(M) \le \varepsilon_E^\star + \delta$.
 4. **Study 3 — Transmission-Reflected Contact Mechanics (`study3_transmission`):**
@@ -532,7 +596,14 @@ All active studies are formulated as constrained optimization or evaluation prob
 
 ### 9.1 Flat Optimization Vector (`VARIABLE_NAMES`) Mapping to SSoT
 
-Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_MAPPING`, `morphology_from_design`, `design_from_morphology`):
+Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_MAPPING`, `morphology_from_design`, `design_from_morphology`).
+
+**This is a conditional round-trip mapping, not a bijection between $\mathcal{M}(m)$ and $\mathbb{R}^n$.** The flat vector $x$ holds only the searched coordinates. Everything else in $M$ comes from the run's configuration and policies $\kappa$: contact dimensions $(\ell_i, h_i)$, outer-end pinning ($s_{c,i}$), hardware footprints $G_i$ and pivot sizes, a fixed tilt, the MCP actuator pose, and $d_i$ under `shallowest_supported`. Hence:
+- decoding is $M = \Psi(x; \kappa)$, which needs $\kappa$ (`morphology_from_design(mechanism, x, config)`);
+- encoding $x = \Psi^{-1}(M)$ discards every component that $\kappa$ fixes, so it is defined only on the slice $\{M : M \text{ agrees with } \kappa\}$;
+- with `apply_grid_assembly=True` (prototype), `CoDe` bar lengths are rounded to `prototyping_resolution_mm`, so $\Psi^{-1}(\Psi(x; \kappa)) = x$ holds only up to that resolution.
+
+The correct description is therefore a study-specific coordinate chart on the slice that $\kappa$ fixes.
 
 | Mechanism (`core/optimization/*`) | Slot Name | SSoT Group | Role | Canonical / Derived Relationship |
 |---|---|---|---|---|
@@ -545,7 +616,7 @@ Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_M
 | | `app_offset_mm` | $\mathbf{p}_{\mathrm{struct}}$ | Relative chart | $s_{p,\mathrm{end}} - x_{A'}$ ($s_{p,\mathrm{end}} = x_{A'} + \text{app\_offset}$) |
 | | `bpp_offset_mm` | $\mathbf{p}_{\mathrm{struct}}$ | Relative chart | $x_{B',0} - (x_{B,0} + s_{d,\mathrm{start}})$ ($s_{d,\mathrm{start}} = x_{B',0} - \text{bpp\_offset} - x_{B,0}$) |
 | | `proximal_mount_offset_mm`, `distal_mount_offset_mm` | $\mathbf{p}_{\mathrm{contact}}$ | Canonical or Policy | $d_p, d_d \ge 0$ in $T_{c,i}^{\{b_i\}} = \operatorname{Trans}(s_{c,i}, -d_i)$ |
-| **`revolute`** (`2R`, 7 slots) | `a_x_mm` | $\mathbf{p}_{\mathrm{mech}} \to \mathbf{p}_{\mathrm{act}}$ | Canonical + Induced | $x_A$ in $T_A^{\{P\}}$; induces $\operatorname{pos}(T_2^{\{P\}}) = [x_A, 0]^\top$ |
+| **`revolute`** (`2R-DD`, 7 slots) | `a_x_mm` | $\mathbf{p}_{\mathrm{mech}} \to \mathbf{p}_{\mathrm{act}}$ | Canonical + Induced | $x_A$ in $T_A^{\{P\}}$; induces $\operatorname{pos}(T_2^{\{P\}}) = [x_A, 0]^\top$ |
 | | `ac_length_mm`, `app_x_mm`, `bpp_from_a_mm` | $\mathbf{p}_{\mathrm{struct}}$ | Canonical | $(s_{d,\mathrm{end}},\, s_{p,\mathrm{end}},\, s_{d,\mathrm{start}})$ |
 | | `distal_drop_mm`, `proximal_drop_mm` | $\mathbf{p}_{\mathrm{contact}}$ | Canonical or Policy | $(d_d, d_p)$ |
 | | `servo_tilt_deg` | $\mathbf{p}_{\mathrm{act}}$ | Canonical | $\psi_{\mathrm{tilt}}$ [deg] ($0$ and unused when $G_2 = \varnothing$ in `revolute_idealized`) |
@@ -565,13 +636,15 @@ Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_M
 | `design/core/morphology/collision.py` | Closed-form static clearances (`evaluate_static_collision`), checkpoint screening (`dynamic_checkpoints_deg`, `evaluate_dynamic_collision`), and refined verification (`verify_dynamic_collision_refined`) |
 | `design/core/morphology/intervals.py` | Exact 1D closed-interval algebra (`IntervalSet`) and analytical segment/disk normal-projection occlusion |
 | `design/core/morphology/coverage.py` | Context-profile resolution (`resolve_linkage_occlusion`), `accessible_face_sets`, `evaluate_pad_coverage` ($C_{\mathrm{endpoint}}, C_{\mathrm{robust}}$) |
-| `design/core/optimization/canonical_mapping.py` | Layer 5 $\leftrightarrow$ Layer 1 bijection (`VARIABLE_SLOT_MAPPING`, `morphology_from_design`, `design_from_morphology`) |
+| `design/core/optimization/canonical_mapping.py` | Layer 5 $\leftrightarrow$ Layer 1 conditional round-trip chart, given the configuration (`VARIABLE_SLOT_MAPPING`, `morphology_from_design`, `design_from_morphology`; §9.1) |
+| `design/core/optimization/{linkage,revolute,revolute_parallel,rcj}/evaluate.py`, `core/morphology/mechanism/linkage/motion.py` | **Production evaluators**: the constraints, $k_{\max}$, $C_{\mathrm{endpoint}}$ and $\varphi_{\max}$ behind every reported result (§6.3, §5.2, §7.3) |
+| `design/core/optimization/mounting.py` | Layer 4 `shallowest_supported` depth policy $\pi_{\mathrm{mount},i}$ (§4.3) |
 
 ### 9.3 Master Notation Table
 
 | Symbol | Domain / Units | Definition |
 |---|---|---|
-| $m \in \mathcal{A}$ | Discrete | Architecture in $\{\mathrm{CoDe}, \mathrm{2R}, \mathrm{2R\text{-}remote}, \mathrm{RCJ}\}$ |
+| $m \in \mathcal{A}$ | Discrete | Architecture in $\{\mathrm{CoDe}, \mathrm{2R\text{-}DD}, \mathrm{2R\text{-}remote}, \mathrm{RCJ}\}$ |
 | $M \in \mathcal{M}(m)$ | Tuple | Admissible finger morphology $(\mathbf{p}_{\mathrm{mech}}, \mathbf{p}_{\mathrm{act}}, \mathbf{p}_{\mathrm{struct}}, \mathbf{p}_{\mathrm{contact}})$ |
 | $\{W\}, \{P\}, \{D\}$ | Frames in $\mathbb{R}^2$ | World/MCP palm frame, proximal body frame, distal body frame (`+X` distal, `+Z` dorsal, `-Z` palmar) |
 | $R(\alpha), R_{\mathrm{flex}}(\vartheta)$ | $SO(2)$ | CCW rotation by $\alpha$ [rad]; palmar flexion rotation $R_{\mathrm{flex}}(\vartheta) = R(-\vartheta)$ |
@@ -580,9 +653,14 @@ Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_M
 | $G_i, T_i, \psi_i$ | $\subseteq \mathbb{R}^2, SE(2), \text{rad}$ | Actuator $i \in \{1,2\}$ footprint, pose, and dorsal rear-body tilt ($\operatorname{ori}(T_i) = -\psi_i$) |
 | $s_{p,\mathrm{end}}, s_{d,\mathrm{start}}, s_{d,\mathrm{end}}$ | $\mathbb{R}$ [mm] | Axial coordinates of structural endpoints $(A'', B'', C)$ in their parent frames |
 | $\ell_i, h_i, s_{c,i}, d_i$ | $\mathbb{R}$ [mm] | Contact module $i \in \{p,d\}$ length, thickness, axial start, and palmar mounting offset |
+| $D_i = d_i + h_i$ | $\mathbb{R}_{>0}$ [mm] | Total palmar depth of face $i$ below its body's reference line (§4.3) |
+| $I_p, I_d$ | intervals [mm] | Support intervals $[0, s_{p,\mathrm{end}}]$, $[s_{d,\mathrm{start}}, s_{d,\mathrm{end}}]$ (§4.2) |
+| $s_{p,\mathrm{outer}}, o_d$ | $\mathbb{R}_{\ge 0}$ [mm] | Outer-end pinning: proximal pad start; distal pad set-back from $C$ (Layer 4, §4.3) |
+| $\pi_{\mathrm{mount},i}(M)$ | [mm] | `shallowest_supported` mounting depth policy (Layer 4, §4.3) |
+| $\varphi_{\max}(M)$, $\varphi_{\mathrm{hyp}}$ | [rad] | Largest safe flexion (`curl` objective, §8.1); hyperextension stopper |
 | $\mathbf{L}(M) = [L_f, L_p, L_d]^\top$ | $\mathbb{R}_{>0}^3$ [mm] | Extended finger length and proximal/distal structural spans |
 | $\mathbf{r}_{\mathrm{ICR}}(\varphi), k(M, \varphi)$ | $\mathbb{R}^2$ [mm], $\mathbb{R}_{\ge 0}$ | Instantaneous center of rotation in $\{P\}$ and instantaneous transmission ratio $|\mathrm{d}\varphi/\mathrm{d}\theta_{\mathrm{act}}|$ |
-| $\Phi_{\mathrm{check}}(\varphi_{\min}^{\mathrm{des}})$ | Finite $\subset \mathbb{R}_{\ge 0}$ | Dynamic collision checkpoint set $\{60^\circ + 30^\circ k \le \varphi_{\min}^{\mathrm{des}}\} \cup \{\varphi_{\min}^{\mathrm{des}}\}$ |
+| $\Phi_{\mathrm{check}}(\varphi_{\min}^{\mathrm{des}})$ | Finite $\subset \mathbb{R}_{\ge 0}$ | Reference checkpoint set $\{60^\circ + 30^\circ k \le \varphi_{\min}^{\mathrm{des}}\} \cup \{\varphi_{\min}^{\mathrm{des}}\}$ (`collision.py` only, §6.4) |
 | $\xi_i \in [0, \ell_i]$ | $\mathbb{R}$ [mm] | Body-fixed material coordinate along contact face $i$ from its outer end |
 | $\eta_L \in \{0, 1\}$ | Binary | Linkage-occlusion indicator (`include_linkage_occlusion`: Study default $0$, Prototype default $1$) |
 | $\mathcal{U}_i(M, \varphi; \eta_L)$ | $\subseteq [0, \ell_i]$ | Accessible contact-face subset at flexion $\varphi$; $L_i^{\mathrm{eff}} = \mu(\mathcal{U}_i)$ |
@@ -595,20 +673,22 @@ Implemented in `design/core/optimization/canonical_mapping.py` (`VARIABLE_SLOT_M
 ### 10.1 Explicit Modeling Assumptions & Numerical Approximations
 
 1. **2D Planar Projection & Out-of-Plane Y-Layers:** All kinematics, clearances, and occlusions are evaluated in the sagittal $(x, z)$ plane. Crossing bars (`CoDe` $A\text{–}B'$, $A'\text{–}B$) and remote belts (`2R-remote`) are assumed to occupy lateral $Y$ planes routed clear of the pad blocks (`links_clear_pads`), so they do not physically collide with pad interiors in 2D but optionally occlude palmar access ($\eta_L = 1$).
-2. **Rigid Links, Ideal No-Slip Rollers & Zero-Backlash Drives:** Structural deflection, bearing play, tendon/belt compliance, and RCJ tether thickness/wall retention are unmodeled; `rcj_idealized` and `revolute_idealized` ($G_2 = \varnothing$) serve strictly as theoretical upper bounds.
+2. **Rigid Links, Ideal No-Slip Rollers & Zero-Backlash Drives:** Structural deflection, bearing play, tendon/belt compliance, and RCJ tether thickness/wall retention are unmodeled. `rcj_idealized` and `revolute_idealized` ($G_2 = \varnothing$) are Layer 4 study abstractions that serve only as theoretical upper bounds; they are not prototypes (§1.1).
 3. **Actual-Envelope Nonpenetration:** Hardware envelopes carry nominal CAD dimensions (`MARGIN_TOLERANCE_MM = 1e-9 mm`); manufacturing tolerances must be absorbed into declared envelope parameters (`pivot_diameter_mm`, $h_i$) when configuring Prototype runs.
-4. **Numerical Approximations Kept Separate from Analytical Definitions:**
+4. **MCP held at extension:** every current run fixes $q_{\mathrm{MCP}} = 0$. Palm–proximal pairs are checked only at that reference pose, and collisions during MCP flexion are unchecked (§6.2).
+5. **Full-length pad support:** every current run uses the full-length support-containment mounting model (§4.3). Module-fit conclusions hold under that model only.
+6. **Numerical Approximations Kept Separate from Analytical Definitions:**
    - Optimizer motion sweeps discretize actuator input at `servo_step_deg` ($1.0^\circ$) and verify Pareto fronts at `verify_step_deg` ($0.05^\circ$). Because a $1^\circ$ crank step on high-$k$ four-bars can overshoot $\varphi_{\min}^{\mathrm{des}}$ by $\sim 0.5^\circ\text{–}1.0^\circ$, coarse-grid endpoint evaluations approximate exact analytical evaluation at $\varphi_{\min}^{\mathrm{des}}$ and converge as $\Delta\theta_{\mathrm{act}} \to 0$.
    - Prototype `CoDe` bar lengths are rounded to `prototyping_resolution_mm` ($0.1\text{ mm}$) and re-assembled before evaluation (`apply_grid_assembly=True`).
 
 ### 10.2 Scientific Claim Boundaries
 
-- **Never claim continuous collision freedom from discrete checkpoint screening alone.** Checkpoint feasibility on $\Phi_{\mathrm{check}}$ is a screening filter; continuous nonpenetration requires either exact analytical interval bounds (`_between_samples`) or dense verification (`verify_step_deg`).
+- **Never claim continuous collision freedom from sampled checks alone.** The reference checkpoint screen (§6.4) is not a feasibility criterion at all. The production grid checks (§6.3) are dense, and they bound the motion between samples only where `_between_samples` applies. Do not claim collision freedom during MCP motion (§6.2).
 - **Never claim 3D grasp accessibility from 2D geometric coverage alone.** $C_{\mathrm{endpoint}}$ and $C_{\mathrm{robust}}$ quantify planar palmar line-of-sight/fold exposure under stated $\eta_L$ assumptions, not 3D object-specific contact wrench closure.
 - **Never mix Prototype and Study results** or claim physical hardware validation from planar kinematic optimization runs.
 
 ### 10.3 Open Scientific Questions
 
-1. **Infinite-line V-crossing vs. finite opposing-segment projection at unequal pad depths ($D_p \neq D_d$):** Under the established infinite-line V-crossing rule (`fold_mode="crossing"`), unequal total depths ($D_p > D_d$) produce a small-angle ($\varphi \to 0^+$) line intersection far distal to the physical proximal pad, strongly depressing $C_{\mathrm{robust}}$. Both `"crossing"` (default, preserving historical Endpoint Coverage semantics) and `"segment"` (finite opposing-pad projection) are implemented in `core/morphology/coverage.py` so future studies can evaluate finite-object grasp correlation directly.
+1. **Infinite-line crossing vs. finite-segment fold model.** With $D_p \neq D_d$, the crossing rule makes $\mathcal{U}_i^{\mathrm{base}}$ discontinuous at $\varphi = 0$, and $C_{\mathrm{robust}}$ is set by the $\varphi \to 0^+$ limit (§7.3). Both `"crossing"` (default; the Study metric for $C_{\mathrm{endpoint}}$) and `"segment"` are implemented in `core/morphology/coverage.py`. Which one better predicts real contact accessibility is open: it has to be checked against object-contact outcomes before either is claimed to be better.
 2. **Asymmetric / geared RCJ ratios ($r_p \neq r_d$):** The current canonical `RCJ` model fixes $r_p = r_d = r$ ($k \equiv 2$) matching all benchmark studies. Generalizing $\mathbf{p}_{\mathrm{mech}}^{\mathrm{RCJ}}$ to $(T_A^{\{P\}}, r_p, r_d)$ ($k = 1 + r_p / r_d$) is a natural extension if non-1:1 rolling joints are studied.
 3. **3D lateral ($Y$-axis) linkage occlusion:** In `CoDe` hardware, crossing bars sit laterally beside or around the contact module rather than across its full $Y$-width; quantifying partial 3D grasp occlusion vs. planar $\eta_L \in \{0, 1\}$ bounds requires 3D contact simulation (`sim/isaaclab/`).
