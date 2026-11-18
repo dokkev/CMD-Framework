@@ -1,5 +1,5 @@
 """The contact faces of any finger mechanism: what of them is lost, and to
-what (``loss``), and the retention comparison's modules and solids (``retention``)."""
+what (``loss``)."""
 
 from core.morphology.contact.loss import (
     CATEGORIES,

@@ -10,7 +10,6 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.patches import Polygon
 
-from core.morphology import Fingertip, FingertipParameters
 from visualize.style import GRID, INK, MUTED, axes_style
 
 ACTIVE, PASSIVE = "#f5c518", "white"
@@ -44,14 +43,14 @@ def joints(axis, active, passive) -> None:
 
 
 def phalanx(axis, joint, tip, color=PHALANX) -> None:
-    """The distal phalanx: the fingertip's side silhouette (``core.morphology.Fingertip``)
-    as long as its segment, from its joint along it."""
+    """The distal phalanx's side silhouette, as long as its segment, from its joint along it."""
 
     joint, tip = np.asarray(joint, dtype=float), np.asarray(tip, dtype=float)
     length = float(np.linalg.norm(tip - joint))
-    fingertip = Fingertip(FingertipParameters(total_length_mm=length))
-    outline = np.array(fingertip.side_silhouette_mm(16), dtype=float)
-    outline[:, 1] -= fingertip.rotation_axis_z_mm
+    nose = min(8.0, length)
+    xs = np.linspace(length, length - nose, 9)
+    zs = -2.0 - 7.0 * np.sqrt(np.maximum(0.0, 1.0 - ((xs - (length - nose)) / max(nose, 1e-9)) ** 2))
+    outline = np.vstack((((0.0, 5.0), (length, 5.0)), np.column_stack((xs, zs)), ((0.0, -9.0),)))
     e = (tip - joint) / length
     n = np.array((-e[1], e[0]))
     points = joint + outline[:, :1] * e + outline[:, 1:] * n

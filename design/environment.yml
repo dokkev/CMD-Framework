@@ -1,0 +1,23 @@
+# Conda environment specification for CMD-Framework (`design/`).
+# Create or update:
+#   conda env create -f design/environment.yml
+#   conda env update -f design/environment.yml --prune
+#
+# Runs are recorded with pymoo 0.6.2 on Python 3.11 (see saved `run.json` files).
+# `sim/isaaclab/` uses its own isolated uv environment (`sim/isaaclab/pyproject.toml`).
+name: cmd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11.*
+  - numpy>=1.26,<3
+  - scipy>=1.11
+  - numba>=0.59
+  - pymoo=0.6.2
+  - matplotlib>=3.8
+  - pillow>=10.0
+  - pyyaml>=6.0
+  - shapely>=2.0
+  - trimesh>=4.0
+  - pytest>=8.0
+  - ruff>=0.6

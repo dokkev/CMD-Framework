@@ -1,3 +1,6 @@
+# Copyright (c) 2026, CoDe Hand.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """E6: XM335 step responses on the CoDe hand in Isaac Lab, per servo model and physics backend.
 
     uv run python scripts/code_hand/e6_servo_steps.py --physics mjwarp_stiff|kamino --servo dc_motor|implicit
@@ -17,25 +20,20 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from description import DEFAULT, Description  # noqa: E402
-from e5_isaaclab_backends import physics_cfg, stiffen_mujoco_loops  # noqa: E402
-
-FINGERS = ("index", "middle", "ring")
-TESTS = (("fe small", ["index_fe"], 2.0, 0.5), ("fe large", ["index_fe"], 60.0, 0.8),
-         ("pip large", [f"{d}_pip_servo" for d in FINGERS], 40.0, 0.8))
+from code_isaaclab.assets import DEFAULT_DESCRIPTION_PATH, Description
+from code_isaaclab.loops import resolve_newton_solver, stiffen_mujoco_loops
+from code_isaaclab.physics import SOLVER_BACKENDS, solver_physics_cfg
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--description", type=Path, default=DEFAULT)
-    parser.add_argument("--usd", type=Path, default=DEFAULT.parent / "code_hand_ball.usda")
-    parser.add_argument("--physics", default="mjwarp_stiff")
+    parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION_PATH)
+    parser.add_argument("--usd", type=Path, default=DEFAULT_DESCRIPTION_PATH.parent / "code_hand_ball.usda")
+    parser.add_argument("--physics", choices=SOLVER_BACKENDS, default="mjwarp_stiff")
     parser.add_argument("--servo", choices=("dc_motor", "implicit"), default="dc_motor")
     parser.add_argument("--armature", type=float, help="override the export's servo armature [kg m^2]")
     parser.add_argument("--gravity", action="store_true")
@@ -47,47 +45,46 @@ def main(argv=None) -> int:
 
     import torch
 
-    import isaaclab.sim as sim_utils
-    from isaaclab.actuators import ImplicitActuatorCfg
-    from isaaclab.assets import ArticulationCfg
     from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
     from isaaclab.sim import SimulationCfg, build_simulation_context
     from isaaclab.utils import configclass
 
-    from code_isaaclab.actuators import xm335_actuator_cfg, xm335_gains
+    from code_isaaclab.actuators import xm335_gains
+    from code_isaaclab.hands.code_hand import code_hand_articulation_cfg
 
     desc = Description.load(args.description)
-    servo = desc.data["servo"]
-    gains = xm335_gains(servo)
-    actuated = desc.actuated()
-    passive = [j["name"] for j in desc.joints if j["actuator"] is None]
+    fingers = desc.four_bar_digits()
+    gains = xm335_gains(desc.servo)
+    tests = (
+        ("fe small", [f"{fingers[0]}_fe"], 2.0, 0.5),
+        ("fe large", [f"{fingers[0]}_fe"], 60.0, 0.8),
+        ("pip large", [f"{d}_pip_servo" for d in fingers], 40.0, 0.8),
+    )
 
     @configclass
     class SceneCfg(InteractiveSceneCfg):
-        robot = ArticulationCfg(
-            prim_path="{ENV_REGEX_NS}/Robot",
-            spawn=sim_utils.UsdFileCfg(usd_path=str(args.usd)),
-            init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.3), joint_pos={".*": 0.0}),
-            actuators={
-                "servos": xm335_actuator_cfg(servo, actuated, mode=args.servo, armature=args.armature),
-                "passive": ImplicitActuatorCfg(joint_names_expr=passive, stiffness=0.0, damping=0.0, armature=1e-5),
-            },
+        robot = code_hand_articulation_cfg(
+            desc,
+            args.usd,
+            servo_mode=args.servo,
+            servo_armature=args.armature,
         )
 
-    args.settle = 0.4
     gravity = (0.0, 0.0, -9.81) if args.gravity else (0.0, 0.0, 0.0)
-    sim_cfg = SimulationCfg(dt=args.dt, device="cuda:0", gravity=gravity, physics=physics_cfg(args.physics, args))
-    print(f"{args.physics} / {args.servo}: kp {gains['kp']:.3f} N m/rad, kd {gains['kd']:.4f} N m s/rad, "
-          f"stall {gains['stall']:.3f} N m, no-load {gains['no_load']:.3f} rad/s, "
-          f"armature {args.armature if args.armature is not None else gains['armature']:g}")
+    physics = solver_physics_cfg(args.physics, num_substeps=args.substeps, mjwarp_njmax=40, mjwarp_nconmax=10)
+    sim_cfg = SimulationCfg(dt=args.dt, device="cuda:0", gravity=gravity, physics=physics)
+    print(
+        f"{args.physics} / {args.servo}: kp {gains['kp']:.3f} N m/rad, kd {gains['kd']:.4f} N m s/rad, "
+        f"stall {gains['stall']:.3f} N m, no-load {gains['no_load']:.3f} rad/s, "
+        f"armature {args.armature if args.armature is not None else gains['armature']:g}"
+    )
     record = {}
     with build_simulation_context(sim_cfg=sim_cfg) as sim:
         scene = InteractiveScene(SceneCfg(num_envs=args.num_envs, env_spacing=0.5))
         sim.reset()
         robot = scene["robot"]
         if args.physics == "mjwarp_stiff":
-            from isaaclab_newton.physics import NewtonManager
-            stiffen_mujoco_loops(NewtonManager._solver, args.dt / args.substeps)
+            stiffen_mujoco_loops(resolve_newton_solver(sim), args.dt / args.substeps, min_timeconst=0.0)
         names = robot.joint_names
         n = robot.num_joints
 
@@ -102,7 +99,7 @@ def main(argv=None) -> int:
                 qd.append(robot.data.joint_vel.torch[0, ids].cpu().numpy().copy())
             return np.array(q), np.array(qd)
 
-        for name, joints, step_deg, seconds in TESTS:
+        for name, joints, step_deg, seconds in tests:
             ids = [names.index(j) for j in joints]
             zero = torch.zeros((args.num_envs, n), device=robot.data.joint_pos.torch.device)
             run(0.5, zero, ids)  # back to rest
@@ -118,14 +115,31 @@ def main(argv=None) -> int:
             overshoot = max(0.0, float(rel.max() - 1.0)) * 100.0
             final = math.degrees(goal - q[-1, j])
             ok = np.isfinite(q).all()
-            print(f"  {name:9s} step {step_deg:5.1f} deg | peak speed {peak:6.3f} rad/s "
-                  f"({peak / gains['no_load'] * 100:5.1f} % of no-load) | t90 {t90 * 1e3:6.1f} ms | "
-                  f"overshoot {overshoot:5.1f} % | final error {final:7.4f} deg{'' if ok else ' | NON-FINITE'}")
-            record[name] = {"dt": args.dt, "q_rad": q[:, j].tolist(), "qd_rad_s": qd[:, j].tolist(),
-                            "start_rad": float(start[j]), "goal_rad": goal}
+            print(
+                f"  {name:9s} step {step_deg:5.1f} deg | peak speed {peak:6.3f} rad/s "
+                f"({peak / gains['no_load'] * 100:5.1f} % of no-load) | t90 {t90 * 1e3:6.1f} ms | "
+                f"overshoot {overshoot:5.1f} % | final error {final:7.4f} deg{'' if ok else ' | NON-FINITE'}"
+            )
+            record[name] = {
+                "dt": args.dt,
+                "q_rad": q[:, j].tolist(),
+                "qd_rad_s": qd[:, j].tolist(),
+                "start_rad": float(start[j]),
+                "goal_rad": goal,
+            }
     if args.json:
-        args.json.write_text(json.dumps({"physics": args.physics, "servo": args.servo, "gains": gains,
-                                         "gravity": args.gravity, "tests": record}))
+        args.json.write_text(
+            json.dumps(
+                {
+                    "physics": args.physics,
+                    "servo": args.servo,
+                    "gains": gains,
+                    "gravity": args.gravity,
+                    "tests": record,
+                }
+            ),
+            encoding="utf-8",
+        )
     return 0
 
 

@@ -4,8 +4,8 @@
 """Hand specifications: everything a task needs to know about one hand.
 
 A task is written once against :class:`HandSpec`. Adding a hand, including the CoDe hand built from
-CMD-Framework's exported geometry, means writing one spec module and registering it here. No task code
-changes.
+CMD-Framework's exported geometry (:mod:`code_isaaclab.hands.code_hand`), means writing or calling a spec
+factory and registering it here. No task MDP code changes.
 """
 
 from __future__ import annotations
@@ -40,6 +40,10 @@ class HandSpec:
     """Physics steps per policy step."""
     mjwarp_buffers: dict[str, int] = field(default_factory=lambda: {"njmax": 80, "nconmax": 70})
     """MuJoCo-Warp constraint and contact buffer sizes for this hand (they scale with joints and contacts)."""
+    stiffen_mjwarp_loops: bool = False
+    """Tighten MuJoCo-Warp equality constraints on startup (required for closed four-bar hands)."""
+    four_bar_tables: dict[str, dict[str, list[float]]] | None = None
+    """Per-digit four-bar closure tables used to synchronize passive joints after environment resets."""
 
 
 HANDS: dict[str, HandSpec] = {}
@@ -60,6 +64,6 @@ def get_hand(name: str) -> HandSpec:
         raise KeyError(f"unknown hand {name!r}; registered: {sorted(HANDS)}") from None
 
 
-from . import allegro  # noqa: E402,F401  (registers the reference hand)
+from . import allegro, code_hand  # noqa: E402,F401  (registers the reference hand; exposes CoDe builders)
 
-__all__ = ["HANDS", "HandSpec", "get_hand", "register_hand"]
+__all__ = ["HANDS", "HandSpec", "code_hand", "get_hand", "register_hand"]

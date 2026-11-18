@@ -131,5 +131,4 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_transmission_contac
 only. Existing result directories are protected; use a copied config with a new
 `output` for reruns. Source commit plus working-tree patch/untracked sources,
 resolved model configs, input hashes, original fronts/metadata and selected
-indices are retained. The uploaded `/mnt/data/붙여넣은 마크다운.md` was unavailable;
-no uninspected content from it is used. Study 1–2 data/formulations remain intact.
+indices are retained. Study 1–2 data/formulations remain intact.

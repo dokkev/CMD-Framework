@@ -1,5 +1,8 @@
 """Bind the CoDe parametric model to the Onshape CAD.
 
+The parametric model (``core.morphology.code_hand``) is the source of truth; the Onshape CAD connection is a
+downstream synchronization and verification binding, **not** a source of truth.
+
 - ``CadMap``: which CAD occurrence and mate is which model servo and axis.
 - ``layout_from_snapshot`` / ``configuration_from_snapshot``: read the layout and the joint angles off a CAD
   snapshot (``core.cad.snapshot``). The morphology parameters are the model's; CAD only checks them.

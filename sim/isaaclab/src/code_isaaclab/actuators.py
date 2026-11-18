@@ -39,22 +39,40 @@ def xm335_gains(servo: dict) -> dict[str, float]:
     stall, no_load = float(servo["stall_torque_nm"]), float(servo["no_load_speed_rad_s"])
     if float(servo.get("duty_limit", 1.0)) != 1.0:
         raise ValueError("a PWM limit below 100 % is not representable as a DC-motor clamp; extend the model")
-    return {"kp": stall * float(servo["duty_per_rad"]), "kd": stall / no_load, "stall": stall, "no_load": no_load,
-            "armature": float(servo["armature_kg_m2"])}
+    return {
+        "kp": stall * float(servo["duty_per_rad"]),
+        "kd": stall / no_load,
+        "stall": stall,
+        "no_load": no_load,
+        "armature": float(servo["armature_kg_m2"]),
+    }
 
 
-def xm335_actuator_cfg(servo: dict, joint_names: list[str], mode: ServoMode = "dc_motor",
-                       armature: float | None = None) -> ActuatorBaseCfg:
+def xm335_actuator_cfg(
+    servo: dict, joint_names: list[str], mode: ServoMode = "dc_motor", armature: float | None = None
+) -> ActuatorBaseCfg:
     """The actuator config of a group of XM335-driven joints. ``armature`` overrides the export's placeholder."""
     g = xm335_gains(servo)
     j = g["armature"] if armature is None else armature
     if mode == "dc_motor":
-        return DCMotorCfg(joint_names_expr=list(joint_names), stiffness=g["kp"], damping=g["kd"],
-                          saturation_effort=g["stall"], actuator_velocity_limit=g["no_load"],
-                          actuator_effort_limit=g["stall"], armature=j)
+        return DCMotorCfg(
+            joint_names_expr=list(joint_names),
+            stiffness=g["kp"],
+            damping=g["kd"],
+            saturation_effort=g["stall"],
+            actuator_velocity_limit=g["no_load"],
+            actuator_effort_limit=g["stall"],
+            armature=j,
+        )
     if mode == "implicit":
-        return ImplicitActuatorCfg(joint_names_expr=list(joint_names), stiffness=g["kp"], damping=g["kd"],
-                                   effort_limit_sim=g["stall"], velocity_limit_sim=g["no_load"], armature=j)
+        return ImplicitActuatorCfg(
+            joint_names_expr=list(joint_names),
+            stiffness=g["kp"],
+            damping=g["kd"],
+            effort_limit_sim=g["stall"],
+            velocity_limit_sim=g["no_load"],
+            armature=j,
+        )
     raise ValueError(f"unknown servo mode {mode!r}")
 
 

@@ -4,5 +4,8 @@ __pycache__/
 *.py[cod]
 output/
 
+# Local scratchpad (once untracked with `git rm --cached INSTRUCTION.md`)
+/INSTRUCTION.md
+
 # Figures are PNG only (README.md, "Figures: PNG only, no PDF")
 report/**/*.pdf

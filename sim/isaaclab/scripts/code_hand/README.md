@@ -11,10 +11,11 @@ design/core/morphology/code_hand  (parametric model)
    │  design/scripts/export/code_hand_sim.py      → design/output/sim/code_hand.json
    ▼
 code_hand.json  (bodies, tree joints, loop cuts, four-bar tables, actuator zeros; m / deg / kg; source commit)
+   │  code_isaaclab.assets (Description, write_urdf, write_usd, build_newton)
    │  scripts/code_hand/make_assets.py           → code_hand.urdf, code_hand_{ball,revolute}.usda
-   │                                                [--colliders → <stem>_ball_colliders.usda]
+   │                                                [--colliders] [--passive-limit-margin DEG]
    ▼
-Newton ModelBuilder / add_urdf / add_usd   →   Isaac Lab Articulation (UsdFileCfg, Newton MuJoCo-Warp)
+Newton ModelBuilder / add_urdf / add_usd   →   Isaac Lab Articulation (code_isaaclab.hands.code_hand + code_isaaclab.loops)
 ```
 
 Each finger is a spanning tree plus one cut:

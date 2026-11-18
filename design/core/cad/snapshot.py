@@ -1,6 +1,7 @@
-"""Extract a ground-truth snapshot of the hand from an Onshape assembly.
+"""Extract an observed assembly snapshot of the hand from Onshape for diagnostic comparison.
 
-The snapshot holds what a parametric model must reproduce:
+The CAD snapshot is **not** a source of truth (``core.morphology.code_hand`` is). It records the observed CAD state
+for verification (``check``) or one-off parameter fitting (``fit``):
 - ``servos``: the frame of every servo part (name prefix ``X330``) in the hand frame;
 - ``revolutes``: every revolute mate's axis (origin and direction) in the hand frame, with the two parts it joins
   and its current angle ``rotation_deg`` (Onshape's ``rotationZ``: the first part's rotation relative to the

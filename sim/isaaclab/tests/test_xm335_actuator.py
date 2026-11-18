@@ -9,9 +9,15 @@ import pytest
 import torch
 
 # The export's servo block at 11.1 V (design/scripts/export/code_hand_sim.py), copied so this test needs no export.
-SERVO = {"model": "XM335-T323-T", "supply_voltage_v": 11.1, "stall_torque_nm": 1.03,
-         "no_load_speed_rad_s": 5.550147021341967, "duty_per_rad": 11.509510008905426, "duty_limit": 1.0,
-         "armature_kg_m2": 0.005}
+SERVO = {
+    "model": "XM335-T323-T",
+    "supply_voltage_v": 11.1,
+    "stall_torque_nm": 1.03,
+    "no_load_speed_rad_s": 5.550147021341967,
+    "duty_per_rad": 11.509510008905426,
+    "duty_limit": 1.0,
+    "armature_kg_m2": 0.005,
+}
 
 
 def test_dc_motor_config_is_the_xm335_law():
@@ -21,13 +27,21 @@ def test_dc_motor_config_is_the_xm335_law():
     from code_isaaclab.actuators import xm335_actuator_cfg, xm335_law
 
     cfg = xm335_actuator_cfg(SERVO, ["j"], mode="dc_motor")
-    actuator = DCMotor(cfg, joint_names=["j"], joint_ids=slice(None), num_envs=1, device="cpu",
-                       stiffness=cfg.stiffness, damping=cfg.damping)
+    actuator = DCMotor(
+        cfg,
+        joint_names=["j"],
+        joint_ids=slice(None),
+        num_envs=1,
+        device="cpu",
+        stiffness=cfg.stiffness,
+        damping=cfg.damping,
+    )
     stall = SERVO["stall_torque_nm"]
     for error in torch.linspace(-0.5, 0.5, 21):
         for speed in torch.linspace(-12.0, 12.0, 25):
-            action = ArticulationActions(joint_positions=error.reshape(1, 1), joint_velocities=torch.zeros(1, 1),
-                                         joint_efforts=torch.zeros(1, 1))
+            action = ArticulationActions(
+                joint_positions=error.reshape(1, 1), joint_velocities=torch.zeros(1, 1), joint_efforts=torch.zeros(1, 1)
+            )
             out = actuator.compute(action, torch.zeros(1, 1), speed.reshape(1, 1)).joint_efforts
             # The law, capped at the stall torque (braking beyond it is not modelled).
             expected = torch.clamp(xm335_law(SERVO, error, speed), -stall, stall)

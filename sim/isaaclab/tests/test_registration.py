@@ -6,10 +6,13 @@
 import gymnasium as gym
 import pytest
 
+from isaaclab.utils import configclass
+
 import code_isaaclab.tasks  # noqa: F401
-from code_isaaclab.hands import HANDS, get_hand
+from code_isaaclab.hands import HANDS, get_hand, register_hand
+from code_isaaclab.hands.code_hand import make_code_hand_spec
 from code_isaaclab.physics import HandPhysicsCfg
-from code_isaaclab.tasks.reorient.env_cfg import AllegroReorientEnvCfg
+from code_isaaclab.tasks.reorient.env_cfg import AllegroReorientEnvCfg, HandReorientEnvCfg
 
 
 def test_reorient_task_is_registered_with_project_entry_points():
@@ -26,6 +29,9 @@ def test_the_env_cfg_takes_its_hand_from_the_spec():
     # configclass copies on assignment: compare by value
     assert cfg.scene.robot == hand.robot_cfg and cfg.scene.object == hand.object_cfg
     assert cfg.decimation == hand.decimation
+    # Open-chain reference hand leaves closed-loop hooks inactive.
+    assert cfg.events.stiffen_loops is None
+    assert cfg.events.close_four_bar is None
 
 
 def test_both_backends_are_presets_and_mjwarp_is_sized_for_the_hand():
@@ -50,7 +56,32 @@ def test_coupled_vbd_cfg_assigns_rigid_and_deformable_entries():
 
 
 def test_hands_register_once():
-    from code_isaaclab.hands import register_hand
-
     with pytest.raises(ValueError):
         register_hand(HANDS["allegro"])
+
+
+def test_code_hand_spec_wires_closed_loop_events_and_passive_actuators(monkeypatch):
+    from test_assets_and_loops import make_fixture_description
+
+    desc = make_fixture_description(with_loops=True)
+    spec = make_code_hand_spec(desc, "/tmp/fixture_code_hand.usda", name="fixture_code")
+    monkeypatch.setitem(HANDS, spec.name, spec)
+
+    @configclass
+    class FixtureReorientEnvCfg(HandReorientEnvCfg):
+        hand = "fixture_code"
+
+    cfg = FixtureReorientEnvCfg()
+    assert cfg.actuated_joint_names == ["index_fe", "index_pip_servo", "thumb_ip"]
+    assert cfg.fingertip_body_names == ["index_distal", "thumb_distal"]
+    assert "servos" in cfg.scene.robot.actuators and "passive" in cfg.scene.robot.actuators
+    assert cfg.events.stiffen_loops is not None and cfg.events.stiffen_loops.mode == "startup"
+    assert cfg.events.close_four_bar is not None and cfg.events.close_four_bar.mode == "reset"
+    assert cfg.sim.physics.newton_mjwarp.solver_cfg.njmax == 300
+
+    # Open-chain export (e.g. a 2R-DD baseline) omits passive group and loop events automatically.
+    open_spec = make_code_hand_spec(
+        make_fixture_description(with_loops=False), "/tmp/fixture_open_hand.usda", name="fixture_open"
+    )
+    assert "passive" not in open_spec.robot_cfg.actuators
+    assert open_spec.stiffen_mjwarp_loops is False and open_spec.four_bar_tables is None

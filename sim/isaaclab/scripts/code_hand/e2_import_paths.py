@@ -1,3 +1,6 @@
+# Copyright (c) 2026, CoDe Hand.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """E2: the same loop-closure check as E1, with the hand loaded from each asset path Newton offers.
 
     uv run python scripts/code_hand/e2_import_paths.py --source builder|urdf|usd-ball|usd-revolute [--gravity]
@@ -16,19 +19,16 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from description import DEFAULT, Description, build_newton, quat_to_matrix, rotation_about  # noqa: E402
-
-FINGERS = ("index", "middle", "ring")
+from code_isaaclab.assets import DEFAULT_DESCRIPTION_PATH, Description, build_newton, quat_to_matrix, rotation_about
+from code_isaaclab.loops import stiffen_mujoco_loops
 
 
-def build(source: str, desc: Description, out_dir: Path):
+def build(source: str, desc: Description, out_dir: Path, stem: str = "code_hand"):
     import newton
     import warp as wp
 
@@ -37,35 +37,42 @@ def build(source: str, desc: Description, out_dir: Path):
         return builder
     builder = newton.ModelBuilder()
     if source == "urdf":
-        path = out_dir / "code_hand.urdf"
+        path = out_dir / f"{stem}.urdf"
         builder.add_urdf(str(path), floating=False, collapse_fixed_joints=True)
         root = ET.parse(path).getroot()
-        origins = {j.find("child").get("link"): (j.find("parent").get("link"),
-                                                 [float(v) for v in j.find("origin").get("xyz").split()])
-                   for j in root.findall("joint") if j.get("type") == "fixed"}
+        origins = {
+            j.find("child").get("link"): (
+                j.find("parent").get("link"),
+                [float(v) for v in j.find("origin").get("xyz").split()],
+            )
+            for j in root.findall("joint")
+            if j.get("type") == "fixed"
+        }
         labels = [label.split("/")[-1] for label in builder.body_label]
         for cut in desc.loops:
             (parent, p_xyz), (child, c_xyz) = (origins[f"{cut['name']}_loop_{s}"] for s in ("parent", "child"))
-            j = builder.add_joint_ball(labels.index(parent), labels.index(child),
-                                       parent_xform=wp.transform(wp.vec3(*p_xyz), wp.quat_identity()),
-                                       child_xform=wp.transform(wp.vec3(*c_xyz), wp.quat_identity()),
-                                       label=cut["name"])
+            j = builder.add_joint_ball(
+                labels.index(parent),
+                labels.index(child),
+                parent_xform=wp.transform(wp.vec3(*p_xyz), wp.quat_identity()),
+                child_xform=wp.transform(wp.vec3(*c_xyz), wp.quat_identity()),
+                label=cut["name"],
+            )
             builder.joint_articulation[j] = -1
-        # add_urdf reads no drives: give the actuated joints the same PD as the other paths.
+        actuated = set(desc.actuated())
         for k, label in enumerate(builder.joint_label):
-            name = label.split("/")[-1]
-            if name in desc.actuated():
+            if label.split("/")[-1] in actuated:
                 dof = builder.joint_qd_start[k]
                 builder.joint_target_ke[dof], builder.joint_target_kd[dof] = 5.0, 0.05
         return builder
     loop = source.split("-")[1]
-    builder.add_usd(str(out_dir / f"code_hand_{loop}.usda"))
+    builder.add_usd(str(out_dir / f"{stem}_{loop}.usda"))
     return builder
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--description", type=Path, default=DEFAULT)
+    parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION_PATH)
     parser.add_argument("--source", choices=("builder", "urdf", "usd-ball", "usd-revolute"), default="usd-ball")
     parser.add_argument("--gravity", action="store_true")
     parser.add_argument("--dt", type=float, default=0.002)
@@ -80,7 +87,8 @@ def main(argv=None) -> int:
     from newton.solvers import SolverMuJoCo
 
     desc = Description.load(args.description)
-    builder = build(args.source, desc, args.description.parent)
+    fingers = desc.four_bar_digits()
+    builder = build(args.source, desc, args.description.parent, stem=args.description.stem)
     if not args.gravity:
         builder.gravity = 0.0
     if args.armature is not None:
@@ -91,31 +99,38 @@ def main(argv=None) -> int:
     print("armature (first revolute dof):", builder.joint_armature[builder.joint_qd_start[1]])
     model = builder.finalize()
     solver = SolverMuJoCo(model)
-    if args.eq_timeconst is not None:
-        solref = solver.mjw_model.eq_solref.numpy()
-        solref[..., 0] = args.eq_timeconst
-        solver.mjw_model.eq_solref.assign(solref)
-    if args.eq_solimp is not None:
-        solimp = solver.mjw_model.eq_solimp.numpy()
-        solimp[..., 0], solimp[..., 1] = args.eq_solimp
-        solver.mjw_model.eq_solimp.assign(solimp)
     mj = solver.mj_model
+    if args.eq_timeconst is not None or args.eq_solimp is not None:
+        default_tc = float(solver.mjw_model.eq_solref.numpy().reshape(-1, 2)[0, 0]) if mj.neq else 0.02
+        default_imp = tuple(solver.mjw_model.eq_solimp.numpy().reshape(-1, 5)[0, :2]) if mj.neq else (0.9, 0.95)
+        stiffen_mujoco_loops(
+            solver,
+            args.dt,
+            timeconst=default_tc if args.eq_timeconst is None else args.eq_timeconst,
+            solimp=default_imp if args.eq_solimp is None else tuple(args.eq_solimp),
+        )
     joint_names = [label.split("/")[-1] for label in model.joint_label]
     body_names = [label.split("/")[-1] for label in model.body_label]
     articulation = model.joint_articulation.numpy()
     loop_joints = [k for k, a in enumerate(articulation) if a < 0]
     ke = model.joint_target_ke.numpy()
-    print(f"{args.source}: bodies {model.body_count}, joints {model.joint_count} "
-          f"(loop: {[joint_names[k] for k in loop_joints]}), MuJoCo nv {mj.nv} neq {mj.neq} nu {mj.nu}, "
-          f"driven dofs {int((ke > 0).sum())}")
+    print(
+        f"{args.source}: bodies {model.body_count}, joints {model.joint_count} "
+        f"(loop: {[joint_names[k] for k in loop_joints]}), MuJoCo nv {mj.nv} neq {mj.neq} nu {mj.nu}, "
+        f"driven dofs {int((ke > 0).sum())}"
+    )
 
     q_start = model.joint_q_start.numpy()
-    qi = lambda name: int(q_start[joint_names.index(name)])  # noqa: E731
-    bi = lambda name: body_names.index(name)  # noqa: E731
     X_p, X_c = model.joint_X_p.numpy(), model.joint_X_c.numpy()
     parents, children = model.joint_parent.numpy(), model.joint_child.numpy()
 
-    def anchor_world(pose, xform):
+    def qi(name: str) -> int:
+        return int(q_start[joint_names.index(name)])
+
+    def bi(name: str) -> int:
+        return body_names.index(name)
+
+    def anchor_world(pose: np.ndarray, xform: np.ndarray) -> np.ndarray:
         return pose[:3] + quat_to_matrix(pose[3:]) @ xform[:3]
 
     state0, state1, control = model.state(), model.state(), model.control()
@@ -123,7 +138,7 @@ def main(argv=None) -> int:
     worst = {"residual_mm": 0.0, "pip_err_deg": 0.0, "track_err_deg": 0.0}
     for target in np.linspace(0.0, 45.0, 10):
         tq = control.joint_target_q.numpy()
-        for d in FINGERS:
+        for d in fingers:
             tq[qi(f"{d}_pip_servo")] = math.radians(target)
         control.joint_target_q.assign(tq)
         for _ in range(int(args.settle / args.dt)):
@@ -137,15 +152,20 @@ def main(argv=None) -> int:
         worst["residual_mm"] = max(worst["residual_mm"], sample)
         if args.verbose:
             print(f"  servo target {target:5.1f}: residual {sample:.5f} mm")
-        for d in FINGERS:
+        pip = servo = 0.0
+        for d in fingers:
             servo = math.degrees(jq[qi(f"{d}_pip_servo")])
-            axis = np.array(desc.joint(f"{d}_pip_servo")["axis"])
-            pip = rotation_about(quat_to_matrix(bq[bi(f"{d}_proximal")][3:]), quat_to_matrix(bq[bi(f"{d}_distal")][3:]),
-                                 axis)
+            axis = np.asarray(desc.joint(f"{d}_pip_servo")["axis"], dtype=float)
+            pip = rotation_about(
+                quat_to_matrix(bq[bi(f"{d}_proximal")][3:]),
+                quat_to_matrix(bq[bi(f"{d}_distal")][3:]),
+                axis,
+            )
             worst["pip_err_deg"] = max(worst["pip_err_deg"], abs(pip - desc.pip_from_servo_joint(d, servo)))
             worst["track_err_deg"] = max(worst["track_err_deg"], abs(servo - target))
-        if math.isclose(target, 45.0):
-            print(f"  at servo 45 deg: {d} PIP {pip:.3f}, model {desc.pip_from_servo_joint(d, servo):.3f}")
+        if math.isclose(target, 45.0) and fingers:
+            last = fingers[-1]
+            print(f"  at servo 45 deg: {last} PIP {pip:.3f}, model {desc.pip_from_servo_joint(last, servo):.3f}")
     print("  worst:", {k: round(float(v), 5) for k, v in worst.items()})
     return 0
 

@@ -1,0 +1,48 @@
+# Dependency and tooling manifest for CMD-Framework (`design/`).
+# Primary environment: conda `cmd` (`design/environment.yml`, Python 3.11).
+# Pytest configuration lives at the repository root (`../pytest.ini`) so tests
+# resolve `pythonpath = design` identically whether started from the root or `design/`.
+
+[project]
+name = "cmd-design"
+version = "0.1.0"
+description = "CoDe Hand kinematic morphology, packaging, and multi-objective design studies."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "matplotlib>=3.8",
+    "numba>=0.59",
+    "numpy>=1.26,<3",
+    "pillow>=10.0",
+    "pymoo==0.6.2",
+    "pyyaml>=6.0",
+    "scipy>=1.11",
+    "shapely>=2.0",
+    "trimesh>=4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["output", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "visualize"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "F403"]
+"scripts/**/*.py" = ["E402"]
+"tests/**/*.py" = ["E402"]
+
+[tool.pyright]
+include = ["core", "scripts", "visualize", "tests"]
+exclude = ["**/__pycache__", "output"]
+typeCheckingMode = "basic"

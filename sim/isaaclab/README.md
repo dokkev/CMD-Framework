@@ -15,16 +15,17 @@ CMD-Framework monorepo at `sim/isaaclab/`. It does not modify Isaac Lab.
 | `sim/isaaclab` (this project) | Physics simulation, contact experiments, task environments, later learning and policy evaluation; uv environment |
 | `IsaacLab/` beside the monorepo (`../../../IsaacLab` from here) | Upstream NVIDIA Isaac Lab checkout, unmodified, not part of the monorepo |
 
-Future integration boundary. This is architecture only; there are no exporters or importers yet:
+Integration boundary (`design/scripts/export/code_hand_sim.py` → `scripts/code_hand/make_assets.py`; see
+[scripts/code_hand/README.md](scripts/code_hand/README.md)):
 
 ```text
-CMD-Framework
+CMD-Framework (design/)
     |
-    | versioned morphology / FK / geometry exports
+    | versioned morphology / FK / servo exports (code_hand_sim/1 JSON, source commit recorded)
     v
-code_isaaclab
+code_isaaclab (sim/isaaclab/)
     |
-    | robot assets and interchangeable contact interfaces
+    | URDF / USD robot assets and interchangeable contact interfaces
     v
 simulation environments
 ```
@@ -91,9 +92,11 @@ terminations and reset events. Three parts can be swapped independently:
 
 | Part | Where | Swapped how |
 |---|---|---|
-| Hand | `src/code_isaaclab/hands/`: `HandSpec` (articulation, actuated joints, fingertips, object, goal marker, decimation, MJWarp buffer sizes) and a registry. `allegro.py` takes every value from upstream | Add `hands/<name>.py` with one `register_hand(HandSpec(...))`, then one `HandReorientEnvCfg` subclass and one `gym.register`. No MDP code changes |
-| Physics backend | `src/code_isaaclab/physics.py`: `HandPhysicsCfg` presets `newton_mjwarp` (default, training), `newton_mjwarp_hydro` (hydroelastic contact) and `newton_vbd`; `coupled_vbd_cfg()` for MJWarp + VBD deformable pads (experimental) | `physics=<name>` on any command; a new backend is one more field |
-| Task | `src/code_isaaclab/tasks/reorient/`: `HandReorientEnvCfg` (hand-agnostic), `AllegroReorientEnvCfg`, RSL-RL runner cfg, task id `CoDe-Reorient-Cube-Allegro` | — |
+| Export & assets | `src/code_isaaclab/assets/`: `Description` (`code_hand_sim/1` JSON reader), `write_urdf`, `write_usd`, `build_newton`; CLI in `scripts/code_hand/make_assets.py` | Export a new JSON from `design/` and run `make_assets.py` (`--colliders`, `--passive-limit-margin`) |
+| Closed-loop hooks | `src/code_isaaclab/loops.py`: `stiffen_mujoco_loops` / `stiffen_env_mujoco_loops` (startup) and `FourBarTables` / `sync_four_bar_joints_on_reset` (reset) | Enabled automatically when a `HandSpec` comes from a closed-loop `Description`; no-op for open-chain hands or non-MuJoCo backends |
+| Hand | `src/code_isaaclab/hands/`: `HandSpec` and registry (`allegro.py`), plus `code_hand.py` (`code_hand_articulation_cfg`, `make_code_hand_spec`) | Build a `HandSpec` from an exported `Description` + USD via `make_code_hand_spec(...)`, register it, and subclass `HandReorientEnvCfg`. No MDP code changes |
+| Physics backend | `src/code_isaaclab/physics.py`: `HandPhysicsCfg` presets `newton_mjwarp` (default, training), `newton_mjwarp_hydro` (hydroelastic contact) and `newton_vbd`; `coupled_vbd_cfg()` for MJWarp + VBD deformable pads (experimental); `solver_physics_cfg()` for single-hand solver sweeps | `physics=<name>` on any command; a new backend is one more field |
+| Task | `src/code_isaaclab/tasks/reorient/`: `HandReorientEnvCfg` (hand-agnostic, wires closed-loop events when present), `AllegroReorientEnvCfg`, RSL-RL runner cfg, task id `CoDe-Reorient-Cube-Allegro` | — |
 | Verification | `src/code_isaaclab/verification.py` (`RolloutRecorder`, `compare`) and `scripts/rollout_metrics.py` | The metrics read only the `robot` and `object` entities and the `object_pose` command, so they work for any hand |
 
 Train (MuJoCo-Warp) and play:

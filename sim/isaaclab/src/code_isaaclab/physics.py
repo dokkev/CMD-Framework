@@ -141,4 +141,58 @@ def coupled_vbd_cfg(
     )
 
 
-__all__ = ["HandPhysicsCfg", "HydroelasticShapeCfg", "apply_hand_buffers", "coupled_vbd_cfg"]
+SOLVER_BACKENDS = ("mjwarp", "mjwarp_stiff", "kamino", "kamino_dvi", "xpbd", "vbd", "featherstone")
+"""Named Newton solver configurations used by the single-hand backend experiments (E5-E7)."""
+
+
+def solver_physics_cfg(
+    name: str,
+    *,
+    num_substeps: int = 2,
+    mjwarp_njmax: int = 80,
+    mjwarp_nconmax: int = 70,
+    vbd_iterations: int = 10,
+    xpbd_iterations: int = 30,
+) -> NewtonCfg:
+    """Build a :class:`NewtonCfg` for one named Newton backend (shared by scripts E5-E7)."""
+    from isaaclab_newton.physics import (
+        FeatherstoneSolverCfg,
+        KaminoDVISolverCfg,
+        KaminoPADMMSolverCfg,
+        XPBDSolverCfg,
+    )
+
+    if name in ("mjwarp", "mjwarp_stiff"):
+        solver = MJWarpSolverCfg(
+            integrator="implicitfast",
+            njmax=mjwarp_njmax,
+            nconmax=mjwarp_nconmax,
+            impratio=10.0,
+            cone="elliptic",
+        )
+    elif name == "kamino":
+        solver = KaminoPADMMSolverCfg(use_fk_solver=True)
+    elif name == "kamino_dvi":
+        solver = KaminoDVISolverCfg(use_fk_solver=True)
+    elif name == "xpbd":
+        solver = XPBDSolverCfg(iterations=xpbd_iterations)
+    elif name == "vbd":
+        solver = VBDSolverCfg(
+            iterations=vbd_iterations,
+            class_type="code_isaaclab.vbd_manager:NewtonVBDJointSyncManager",
+        )
+    elif name == "featherstone":
+        solver = FeatherstoneSolverCfg()
+    else:
+        raise ValueError(f"unknown physics backend {name!r}; expected one of {SOLVER_BACKENDS}")
+    return NewtonCfg(solver_cfg=solver, num_substeps=num_substeps)
+
+
+__all__ = [
+    "SOLVER_BACKENDS",
+    "HandPhysicsCfg",
+    "HydroelasticShapeCfg",
+    "apply_hand_buffers",
+    "coupled_vbd_cfg",
+    "solver_physics_cfg",
+]

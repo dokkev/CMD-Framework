@@ -7,7 +7,6 @@ with the linkage and the 2R, so the fronts compare on the same requirements.
 ``goal.link.proximal_length_mm`` bounds ``|OA|`` (``A`` the proximal roller's
 centre, on the servo shaft) and ``goal.link.distal_length_mm`` bounds ``BC``;
 ``solver.search_bounds`` (the linkage's free variables) is read and not used.
-This is not the retention study's RCJ (``core.optimization.rolling_contact_joint``).
 """
 
 from __future__ import annotations

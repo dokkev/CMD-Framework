@@ -1,3 +1,6 @@
+# Copyright (c) 2026, CoDe Hand.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """E4: the same CoDe hand USD (loop cut excluded from the articulation) on each Newton solver.
 
     uv run python scripts/code_hand/e4_backends.py --solver mujoco|kamino|xpbd|featherstone|semi_implicit|vbd
@@ -13,17 +16,15 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import time
 import traceback
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from description import DEFAULT, Description, quat_to_matrix, rotation_about  # noqa: E402
+from code_isaaclab.assets import DEFAULT_DESCRIPTION_PATH, Description, quat_to_matrix, rotation_about
+from code_isaaclab.loops import stiffen_mujoco_loops
 
-FINGERS = ("index", "middle", "ring")
 SOLVERS = ("mujoco", "kamino", "xpbd", "featherstone", "semi_implicit", "vbd")
 
 
@@ -33,11 +34,7 @@ def make_solver(name: str, model, args):
     if name == "mujoco":
         solver = solvers.SolverMuJoCo(model)
         if args.mujoco_stiff:
-            solref, solimp = solver.mjw_model.eq_solref.numpy(), solver.mjw_model.eq_solimp.numpy()
-            solref[..., 0] = max(0.004, 2.0 * args.dt / args.substeps)
-            solimp[..., 0], solimp[..., 1] = 0.99, 0.999
-            solver.mjw_model.eq_solref.assign(solref)
-            solver.mjw_model.eq_solimp.assign(solimp)
+            stiffen_mujoco_loops(solver, args.dt / args.substeps)
         return solver
     if name == "kamino":
         return solvers.SolverKamino(model)
@@ -52,9 +49,9 @@ def make_solver(name: str, model, args):
     raise ValueError(name)
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--description", type=Path, default=DEFAULT)
+    parser.add_argument("--description", type=Path, default=DEFAULT_DESCRIPTION_PATH)
     parser.add_argument("--solver", choices=SOLVERS, default="kamino")
     parser.add_argument("--loop", choices=("ball", "revolute"), default="ball")
     parser.add_argument("--gravity", action="store_true")
@@ -70,10 +67,11 @@ def main(argv=None) -> int:
     import warp as wp
 
     desc = Description.load(args.description)
+    fingers = desc.four_bar_digits()
     builder = newton.ModelBuilder()
     if args.solver == "kamino":
         newton.solvers.SolverKamino.register_custom_attributes(builder)
-    builder.add_usd(str(args.description.parent / f"code_hand_{args.loop}.usda"))
+    builder.add_usd(str(args.description.parent / f"{args.description.stem}_{args.loop}.usda"))
     if not args.gravity:
         builder.gravity = 0.0
     for k, a in enumerate(builder.joint_articulation):
@@ -93,34 +91,33 @@ def main(argv=None) -> int:
     joint_names = [label.split("/")[-1] for label in model.joint_label]
     body_names = [label.split("/")[-1] for label in model.body_label]
     q_start = model.joint_q_start.numpy()
-    bi = lambda name: body_names.index(name)  # noqa: E731
     articulation = model.joint_articulation.numpy()
     loops = [k for k, a in enumerate(articulation) if a < 0]
     X_p, X_c = model.joint_X_p.numpy(), model.joint_X_c.numpy()
     parents, children = model.joint_parent.numpy(), model.joint_child.numpy()
-    axis = {d: np.array(desc.joint(f"{d}_pip_servo")["axis"]) for d in FINGERS}
+    axis = {d: np.asarray(desc.joint(f"{d}_pip_servo")["axis"], dtype=float) for d in fingers}
 
-    def anchor_world(pose, xform):
+    def anchor_world(pose: np.ndarray, xform: np.ndarray) -> np.ndarray:
         return pose[:3] + quat_to_matrix(pose[3:]) @ xform[:3]
 
     state0, state1, control = model.state(), model.state(), model.control()
     newton.eval_fk(model, model.joint_q, model.joint_qd, state0)
-    contacts = None
     worst = {"residual_mm": 0.0, "pip_err_deg": 0.0, "track_err_deg": 0.0}
     sub_dt = args.dt / args.substeps
     steps = int(round(args.settle / args.dt))
     wall = 0.0
+    pip = 0.0
     try:
         for target in np.linspace(0.0, 45.0, 10):
             tq = control.joint_target_q.numpy()
-            for d in FINGERS:
+            for d in fingers:
                 tq[int(q_start[joint_names.index(f"{d}_pip_servo")])] = math.radians(target)
             control.joint_target_q.assign(tq)
             wp.synchronize()
             start = time.perf_counter()
             for _ in range(steps * args.substeps):
                 state0.clear_forces()
-                solver.step(state0, state1, control, contacts, sub_dt)
+                solver.step(state0, state1, control, None, sub_dt)
                 state0, state1 = state1, state0
             wp.synchronize()
             wall += time.perf_counter() - start
@@ -131,10 +128,12 @@ def main(argv=None) -> int:
             for k in loops:
                 r = np.linalg.norm(anchor_world(bq[parents[k]], X_p[k]) - anchor_world(bq[children[k]], X_c[k]))
                 worst["residual_mm"] = max(worst["residual_mm"], 1e3 * float(r))
-            for d in FINGERS:
-                R = lambda name, d=d, bq=bq: quat_to_matrix(bq[bi(f"{d}_{name}")][3:])  # noqa: E731
-                servo = rotation_about(R("proximal"), R("servo_link"), axis[d])
-                pip = rotation_about(R("proximal"), R("distal"), axis[d])
+            for d in fingers:
+                r_prox = quat_to_matrix(bq[body_names.index(f"{d}_proximal")][3:])
+                r_servo = quat_to_matrix(bq[body_names.index(f"{d}_servo_link")][3:])
+                r_dist = quat_to_matrix(bq[body_names.index(f"{d}_distal")][3:])
+                servo = rotation_about(r_prox, r_servo, axis[d])
+                pip = rotation_about(r_prox, r_dist, axis[d])
                 worst["pip_err_deg"] = max(worst["pip_err_deg"], abs(pip - desc.pip_from_servo_joint(d, servo)))
                 worst["track_err_deg"] = max(worst["track_err_deg"], abs(servo - target))
     except Exception as exc:  # noqa: BLE001
@@ -142,9 +141,11 @@ def main(argv=None) -> int:
         traceback.print_exc(limit=2)
         return 1
     rate = 10 * args.settle / wall
-    print(f"{tag} | residual {worst['residual_mm']:9.5f} mm  PIP err {worst['pip_err_deg']:8.4f} deg  "
-          f"servo track {worst['track_err_deg']:8.4f} deg  final PIP {pip:7.2f}  {rate:6.2f}x realtime "
-          f"(dt {args.dt}, substeps {args.substeps})")
+    print(
+        f"{tag} | residual {worst['residual_mm']:9.5f} mm  PIP err {worst['pip_err_deg']:8.4f} deg  "
+        f"servo track {worst['track_err_deg']:8.4f} deg  final PIP {pip:7.2f}  {rate:6.2f}x realtime "
+        f"(dt {args.dt}, substeps {args.substeps})"
+    )
     return 0
 
 

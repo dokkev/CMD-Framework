@@ -4,11 +4,10 @@ flexes the most, sketched as ``visualize.comparison.clearance``'s.
 
     python -m visualize.comparison.rcj [finger_mm] [proximal_mm] [distal_mm]
 
-The kinematics are ``core.morphology.mechanism.rolling_contact_joint``'s (the servo at
+The kinematics are ``core.morphology.mechanism.rcj``'s (the servo at
 the proximal roller's centre ``A`` turns the carrier ``A-B`` by ``theta``,
 the distal phalanx flexes ``phi = 2 theta``, so ``k = 2``). Provisional
-packaging, in one plane: the servo stands on ``A`` (as the retention
-study's), the proximal pad hangs from the MCP servo toward ``A`` with its top
+packaging, in one plane: the servo stands on ``A``, the proximal pad hangs from the MCP servo toward ``A`` with its top
 a roller radius below ``O-A`` (clear of its own roller), the distal pad from
 ``C`` toward ``B`` a searched drop below ``B-C``. Checked from 0 to 180 deg:
 the distal pad and the distal roller against the proximal pad, the proximal

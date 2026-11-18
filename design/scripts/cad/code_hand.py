@@ -8,12 +8,11 @@
     python scripts/cad/code_hand.py push [--dry-run]            # model -> CAD (layout mates, linkage studio)
     python scripts/cad/code_hand.py view                        # Onshape shaded views -> output/cad/
 
-The parameter file (``core/morphology/code_hand/prototype.yaml``) is the source of truth; ``push`` makes the
-CAD follow it. ``fit`` exists to build the model from the CAD: it takes the layout and the joint angles off the
-snapshot, and reports how far the model's fixed morphology is from the CAD.
-The observed joint angles are stored only in ``cad_configuration``; fitting never redefines model zero.
-``fit`` also sets each servo's ``*_actuator_zero_deg`` so that its zero is where its CAD revolute mate reads 0
-(the three fingers must agree; their mean is kept, to 0.001 deg).
+The parameter file (``core/morphology/code_hand/prototype.yaml``) and ``core.morphology.code_hand`` are the
+source of truth; the CAD connection is **not** a source of truth. ``push`` makes the CAD follow the model, and
+``check`` verifies the CAD against the model. ``fit`` is a one-off helper to read layout poses, observed joint
+angles (``cad_configuration``) and ``*_actuator_zero_deg`` offsets from a snapshot; fitting never redefines the
+model's geometric zero or canonical linkage/thumb morphology.
 
 ``check`` fits the joint angles of the live CAD (the CAD may sit in any pose), then compares every servo
 frame and revolute axis with the model. ``push`` deletes the mates under ``remove`` and replaces the layout
