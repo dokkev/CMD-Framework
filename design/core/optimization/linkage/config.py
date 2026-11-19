@@ -38,8 +38,8 @@ def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile
     return include_linkage_occlusion
 
 
-OBJECTIVE_NAMES = ("c_pad_mean",)
-"""The prototype formulation's one objective (problem formulation A.5.4)."""
+OBJECTIVE_NAMES = ("c_pad_mean", "ma_wc")
+"""The prototype formulation's objectives (problem formulation A.5.4)."""
 MOUNT_POLICIES = ("searched", "shallowest_supported")
 """``goal.pads.mount_policy``: the mounting depths searched, or each the least its pad's own hardware needs."""
 SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",

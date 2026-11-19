@@ -5,6 +5,9 @@
 
 ## 결정됨
 
+### Prototype 2목적 (2026-11-19)
+- 2026-11-19: CoDe prototype의 목적을 $(\bar C_{\mathrm{pad}}, MA_{\mathrm{wc}})$ 두 개로 바꿈(SSoT A.5.4). 단일 목적 paper run(`report/code_prototype_2026-11-19.md`)에서 MA 제약이 여유 있게 남아, coverage와 전달의 trade-off를 front로 보기로 함. $MA_{\min}=0.2$는 하한 제약으로 유지. 알고리즘은 NSGA-II와 SMS-EMOA. Study는 $\bar C_{\mathrm{pad}}$ 단일 목적 그대로.
+
 ### 코드를 SSoT에 맞춤 (2026-11-19)
 - 2026-11-19: `design/SSoT/code_formulation.md`의 이행 단계(P1–P6)를 구현. (1) 평가량을 `design/core/evaluation`에 한 벌로 모음: 원기둥 기준 공통 pad 길이, $L_f(\mathbf q)$, $\mathcal Q_{\mathrm{eval}}$ 평균, 유효 운동의 도달, $\gamma$ 범위, MA(균일 $q_2$ 격자의 중앙 차분). (2) CFL은 servo 각 대신 균일 $q_2$로 표본하고, hyperextension과 DIP/PIP backoff 검사를 지움. 2R 계열 세 구조는 `measure_motion`, `joint_coverage`를 공유. (3) 제약 이름에 SSoT 범주를 붙임(`bounds_*`, `static_*`, `f_motion_deg`, `gamma_range_deg`, `ma_min`). `torque_ratio_max`는 `ma_min`으로, fold·integrity 규칙은 삭제. (4) 목적함수는 `c_pad_mean` 하나, 단일 목적 GA 추가. 출력 열은 `c_pad_mean`, `q_max_deg`, `ma_wc`, `c_pad_eval{k}` 등으로, Study 2의 변화량은 `eps_d`, `eps_kappa`로. (5) 옛 SSoT 모듈(`canonical`, `collision`, `coverage`, `canonical_mapping`)과 쓰이지 않던 pad별 교점·가림 함수, `fig_pareto`, `fig_convergence` 삭제. `linkage/config.py`를 `config.py`, `goal.py`, `record.py`로 나눔. 옛 run은 legacy(새 정의로 다시 평가해야 함).
 

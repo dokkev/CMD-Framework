@@ -33,8 +33,13 @@ OBJECTIVES = MappingProxyType({
         value=lambda e: -e.c_pad_mean, column="c_pad_mean",
         label="mean cylinder-based contact pad coverage over Q_eval", role="most_coverage",
         larger_is_better=True),
+    "ma_wc": Objective(
+        value=lambda e: -(e.ma_wc if math.isfinite(e.ma_wc) else 0.0), column="ma_wc",
+        label="worst-case mechanical advantage over [0, q_req]", role="best_transmission",
+        larger_is_better=True),
 })
-"""The prototype formulation's one objective (problem formulation A.5.4)."""
+"""The prototype formulation's objectives (problem formulation A.5.4); a
+study lists the ones it optimizes (``solver.objectives``)."""
 LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm", "apb_mm", "abp_mm")
 """As built: ``B`` from ``O`` in the extended pose, ``B'`` from ``B``, and the bars."""
 BOUND_TOLERANCE = 0.005

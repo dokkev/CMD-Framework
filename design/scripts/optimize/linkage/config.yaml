@@ -189,17 +189,22 @@ goal:
 # 2. Solver -------------------------------------------------------------------
 
 solver:
-  # The prototype formulation's one objective (design/SSoT/problem_formulation.md A.5):
-  #   c_pad_mean   the cylinder-based contact pad coverage, maximized: at each
-  #                pose of Q_eval = {90, (90 + q_req)/2, q_req} deg, the
-  #                part of the two pads a cylinder can hold with both, over
-  #                the posed finger length L_f(q); averaged over the poses.
+  # The prototype formulation's two objectives (design/SSoT/problem_formulation.md A.5),
+  # both maximized:
+  #   c_pad_mean   the cylinder-based contact pad coverage: at each pose of
+  #                Q_eval = {90, (90 + q_req)/2, q_req} deg, the part of the
+  #                two pads a cylinder can hold with both, over the posed
+  #                finger length L_f(q); averaged over the poses.
+  #   ma_wc        the worst-case mechanical advantage over [0, q_req]
+  #                (goal.link.ma_min stays its floor).
   objectives:
     - c_pad_mean
+    - ma_wc
 
   # The hypervolume reference point (the worst value that still counts).
   pareto_front:
     c_pad_mean: 0                 # no pad
+    ma_wc: 0                      # no torque at the PIP
 
   # Where the optimizer looks for the variables no requirement bounds. Search
   # limits, not requirements: keep them wide enough that the front does not
@@ -235,24 +240,24 @@ solver:
     # Which preset runs (output/linkage/<config name>/<preset>/):
     #   quick   a look in about a minute, for trends while exploring
     #   search  the full study, to settle a design (about 15 min)
-    #   paper   the search run until the best C_pad levels off (each run's
+    #   paper   the search run until the front levels off (each run's
     #           history; about 2 h)
     preset: paper
     presets:
       quick:
-        algorithm: ga
+        algorithm: nsga2
         population: 200
         generations: 300
         seeds: [0]
       search:
         # One or a list (scripts/optimize/run.py runs each with every seed),
         # merged into one verified front.
-        algorithm: [ga, nsga2]
+        algorithm: [nsga2, smsemoa]
         population: 200
         generations: 1000
         seeds: [0, 1, 2]
       paper:
-        algorithm: [ga, nsga2]
+        algorithm: [nsga2, smsemoa]
         population: 200
         generations: 3000
         seeds: [0, 1, 2]

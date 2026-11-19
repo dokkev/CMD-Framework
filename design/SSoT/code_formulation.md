@@ -59,7 +59,7 @@
 
 ## 5. 제약과 목적함수
 
-목적함수는 `c_pad_mean` 하나다(`optimization/linkage/mechanism.py`의 `OBJECTIVES`, 2R 계열이 공유). 제약은 구조마다 다음 범주로 나열한다.
+목적함수는 `optimization/linkage/mechanism.py`의 `OBJECTIVES`에 있다(2R 계열이 공유). Prototype은 `c_pad_mean`과 `ma_wc` 둘을, study는 `c_pad_mean` 하나를 `solver.objectives`에 적는다. `ma_wc`가 정의되지 않는 설계(정적 검사 실패)는 0으로 둔다. 제약은 구조마다 다음 범주로 나열한다.
 
 | 범주 | 이름 | 정의 | 위반량(≤ 0이면 만족) |
 |---|---|---|---|
@@ -98,7 +98,7 @@
 | $\gamma$의 범위 | `gamma_min_rad`, `gamma_max_rad` | `gamma_min_deg`, `gamma_max_deg` |
 | $\varepsilon_d$, $\varepsilon_\kappa$ | `eps_d`, `eps_kappa` | `eps_d`, `eps_kappa` |
 
-옛 출력 이름(`pad_coverage`, `torque_ratio_max`, `curl_deg`, `phi_max_deg`, `safe_reach_deg`, `eps_E`, `eps_Q`)은 새 run에서 쓰지 않는다. 옛 run은 legacy다. `run.json`은 여전히 읽히며, 옛 목적함수 목록은 `c_pad_mean`으로 바뀌고 설계는 새 정의로 다시 평가된다. 그림이 필요하면 새 정의로 다시 실행한다. `scripts/study/exploratory/`는 옛 출력을 읽는 기록용 스크립트라 옛 이름을 그대로 둔다.
+옛 출력 이름(`pad_coverage`, `torque_ratio_max`, `curl_deg`, `phi_max_deg`, `safe_reach_deg`, `eps_E`, `eps_Q`)은 새 run에서 쓰지 않는다. 옛 run은 legacy다. `run.json`은 여전히 읽히며, 옛 목적함수 목록은 `[c_pad_mean]`으로 바뀌고 설계는 새 정의로 다시 평가된다. 그림이 필요하면 새 정의로 다시 실행한다. `scripts/study/exploratory/`는 옛 출력을 읽는 기록용 스크립트라 옛 이름을 그대로 둔다.
 
 Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `two-r-idealized-pf1`, `two-r-remote-pf1`, `rcj-pf1`, `rcj-idealized-pf1`이다. 서로 다른 formulation의 run은 비교하지 않는다.
 
@@ -108,7 +108,7 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `t
 |---|---|---|
 | D1 | 형상, 충돌, coverage, k가 세 벌 | 평가량은 `core/evaluation` 한 벌. 충돌 엔진은 CFL의 Assembly와 2R 계열의 `solids.margins`가 남는다(§10) |
 | D2 | pad별 교점 규칙, $L_f(\mathbf 0)$ 정규화, 한 자세 | 원기둥 규칙, $L_f(\mathbf q)$, $\mathcal Q_{\mathrm{eval}}$ 평균 |
-| D3 | 목적함수 셋 | `c_pad_mean` 하나. 단일 목적 GA를 추가했다 |
+| D3 | 목적함수 셋 | `c_pad_mean` 하나. 단일 목적 GA를 추가했다. 2026-11-19: prototype은 `ma_wc`를 둘째 목적으로 더한다(NSGA-II, SMS-EMOA) |
 | D4 | Hyperextension 요구 | 지웠다. YAML에 있으면 오류 |
 | D5 | CFL은 servo 각 균일 표본 | 모든 구조 $q_2$ 균일 표본 |
 | D6 | k를 세 곳에서 따로 계산 | MA를 공용 함수 하나로 계산 |

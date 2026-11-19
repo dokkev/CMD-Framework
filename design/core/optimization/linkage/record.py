@@ -89,7 +89,7 @@ def config_from_json(values: dict) -> LinkageConfig:
     # Runs before the problem formulation (2026-11-18) optimized other objectives:
     # they load with its one objective (their designs re-evaluate under its definitions).
     if values.get("objectives") is not None and set(values["objectives"]) - set(OBJECTIVE_NAMES):
-        values["objectives"] = OBJECTIVE_NAMES
+        values["objectives"] = ("c_pad_mean",)
     if values.get("hypervolume_reference") is not None:
         values["hypervolume_reference"] = {name: value for name, value in values["hypervolume_reference"].items()
                                            if name in OBJECTIVE_NAMES}

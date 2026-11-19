@@ -215,7 +215,7 @@ $$
 
 ## A.5. Prototype 최적화 정식화
 
-이 절의 정식화를 prototype formulation이라 하며, production formulation 또는 CoDe formulation이라고도 부른다. Prototype 설계는 crossed four-bar linkage 구조($K=K_{\mathrm{CFL}}$)를 대상으로 한다. Contact interface 치수의 허용 범위는 형태 요구사항(A.2)으로 주어지고, 최적화는 contact pad coverage를 최대화하는 finger morphology를 찾는다. Mechanical advantage와 운동 범위는 목적함수가 아니라 제약으로 다룬다.
+이 절의 정식화를 prototype formulation이라 하며, production formulation 또는 CoDe formulation이라고도 부른다. Prototype 설계는 crossed four-bar linkage 구조($K=K_{\mathrm{CFL}}$)를 대상으로 한다. Contact interface 치수의 허용 범위는 형태 요구사항(A.2)으로 주어지고, 최적화는 contact pad coverage와 최악의 경우 mechanical advantage를 함께 최대화하는 finger morphology들, 곧 두 값의 Pareto front를 찾는다. Mechanical advantage에는 하한 제약도 두고, 운동 범위는 제약으로만 다룬다.
 
 **CFL의 pivot.** CFL은 네 개의 pivot으로 이루어진다. $A$와 $A'$는 proximal phalanx에, $B$와 $B'$는 distal phalanx에 있다. PIP actuator $A_2$의 출력축은 $A'$에 놓이며, 링크 $A'B$를 돌려 distal phalanx를 굽힌다. 링크 $AB'$는 $A$를 중심으로 돌면서 distal phalanx를 받친다. 설계를 단순하게 하기 위해, 기준 자세에서 $A$는 proximal phalanx의 길이 방향 축 위에, $B$는 distal phalanx의 길이 방향 축 위에 둔다.
 
@@ -286,7 +286,7 @@ $$
 
 평가 자세는 $90^\circ$, 요구 flexion $q_{\mathrm{req}}$, 그리고 그 중간점이다. 예를 들어 $q_{\mathrm{req}}=150^\circ$이면 $\{90^\circ,120^\circ,150^\circ\}$, $q_{\mathrm{req}}=120^\circ$이면 $\{90^\circ,105^\circ,120^\circ\}$이다. 이 정의는 $q_{\mathrm{req}}\ge 90^\circ$를 전제로 한다. 평가 자세가 모두 요구 운동 구간 안에 있으므로, 모든 평가 자세에서 형상이 유효하다는 것은 $\mathcal F_{\mathrm{motion}}$(A.4)이 보장한다.
 
-$\bar C_{\mathrm{pad}}$가 prototype의 목적함수이다(A.5.4). Pad 길이에 상한이 없어도, 이 목적함수는 두 pad의 길이와 배치를 서로 맞추는 방향으로 작용한다.
+$\bar C_{\mathrm{pad}}$는 prototype의 첫째 목적함수이다(A.5.4). Pad 길이에 상한이 없어도, 이 목적함수는 두 pad의 길이와 배치를 서로 맞추는 방향으로 작용한다.
 
 ### A.5.2. Mechanical Advantage
 
@@ -325,7 +325,7 @@ MA_{\mathrm{wc}}(M)
 MA(M,\mathbf q)
 $$
 
-$MA_{\mathrm{wc}}$는 요구 운동 구간 어디에서든 actuator가 distal phalanx에 전달하는 토크 비율의 최솟값이다. 그 하한은 A.5.4에서 제약으로 둔다.
+$MA_{\mathrm{wc}}$는 요구 운동 구간 어디에서든 actuator가 distal phalanx에 전달하는 토크 비율의 최솟값이다. Prototype에서는 둘째 목적함수이며, 그 하한은 제약으로도 둔다(A.5.4).
 
 Mechanical advantage가 커도 linkage가 특이 자세에 가까우면 힘 전달이 불안정해진다. 따라서 transmission 품질을 따로 본다. CFL에서 transmission angle $\gamma(M,\mathbf q)$는 pivot $B'$에서 링크 $B'A$와 distal phalanx 위의 선분 $B'B$가 이루는 각도이다.
 
@@ -355,14 +355,14 @@ $q_{\max}$는 제약에 직접 쓰이지 않는다. $\mathcal F_{\mathrm{motion}
 
 ### A.5.4. 통합 최적화 문제
 
-Prototype 설계는 단일 목적 최적화 문제로 정식화된다.
+Prototype 설계는 2목적 최적화 문제로 정식화된다.
 
 $$
 \boxed{
 \begin{aligned}
 \underset{M}{\operatorname{maximize}}
 \quad&
-\bar C_{\mathrm{pad}}(M)\\[8pt]
+\big(\bar C_{\mathrm{pad}}(M),\;MA_{\mathrm{wc}}(M)\big)\\[8pt]
 \text{subject to}\quad&
 K=K_{\mathrm{CFL}},\\
 &
@@ -380,7 +380,9 @@ $$
 
 $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mathcal G(M,\mathbf q)$로 판정하는 기하학적 조건이다. 앞의 것은 기준 자세에서 손가락이 조립된다는 것을, 뒤의 것은 요구 운동 구간 전체에서 self-collision이 없다는 것을 뜻한다(A.4). Transmission angle과 mechanical advantage 조건은 같은 구간에서 힘 전달이 안정적이고 충분하다는 것을 뜻한다(A.5.2). $MA_{\mathrm{wc}}\ge MA_{\min}$은 최악의 경우 전달비 $\left|dq_2/d\theta_{\mathrm{pip}}\right|$가 $1/MA_{\min}$ 이하라는 것과 같다. Motion feasibility와 transmission angle 조건을 함께 만족하는 것은 $q_{\max}(M)\ge q_{\mathrm{req}}$와 같다.
 
-결과 설계의 $MA_{\mathrm{wc}}$와 $q_{\max}$는 제약을 얼마나 여유 있게 만족하는지를 보여 주는 값으로 함께 보고한다.
+두 목적은 서로 맞선다. Pad를 길게 두어 coverage를 늘리는 링크 배치와, 요구 운동 구간 전체에서 PIP actuator의 토크를 손끝까지 잘 전하는 링크 배치는 일반적으로 같지 않다. 따라서 해는 하나의 설계가 아니라 Pareto front이며, 제작할 설계는 그 위에서 고른다. $MA_{\min}$은 front가 쓸모없는 전달까지 내려가지 않게 하는 하한으로 남는다.
+
+결과 설계의 $q_{\max}$는 제약을 얼마나 여유 있게 만족하는지를 보여 주는 값으로 함께 보고한다.
 
 ## A.6. Study 정식화
 
@@ -530,7 +532,7 @@ $$
 | $c_i(M,\mathbf q)$ | 가용 pad 영역의 크기: 두 pad로 함께 원기둥을 잡을 수 있는 부분 ($\le\ell_i$) |
 | $C_{\mathrm{pad}}(M,\mathbf q)$ | 자세별 contact pad coverage: $(c_1+c_2)/L_f(\mathbf q)$ |
 | $\theta_{\mathrm{pip}}$, $\tau_{\mathrm{pip}}$ | PIP actuator의 입력 각도와 토크 |
-| $MA$, $MA_{\mathrm{wc}}$ | Mechanical advantage, 요구 운동 구간에서의 최악값 |
+| $MA$, $MA_{\mathrm{wc}}$ | Mechanical advantage, 요구 운동 구간에서의 최악값(prototype의 둘째 목적) |
 | $\gamma(M,\mathbf q)$ | CFL의 transmission angle: $B'$에서 $B'A$와 $B'B$ 사이 각도 |
 | $q_{\max}$ | 편 자세에서 출발해 안전하게(유효하고 transmission angle이 허용 범위 안) 도달할 수 있는 최대 distal flexion |
 | $x_{\mathrm{art}}$ | Articulation 위치: 기준 자세에서 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$의 $\mathbf e_x$ 방향 위치 |
@@ -546,6 +548,6 @@ $$
 | $\ell_{i,\min}$ | Pad $i$ 길이의 하한 |
 | $[\alpha_{\min},\alpha_{\max}]$ | PIP actuator housing 방향 $\alpha_2$의 허용 범위 |
 | $q_{\mathrm{req}}$, $\mathcal Q_{\mathrm{req}}$ | 요구 distal flexion, 요구 운동 구간 |
-| $\mathcal Q_{\mathrm{eval}}$, $\bar C_{\mathrm{pad}}$ | Coverage 평가 자세 $\{90^\circ,\ (90^\circ+q_{\mathrm{req}})/2,\ q_{\mathrm{req}}\}$, 그 평균(목적함수 $f$) |
+| $\mathcal Q_{\mathrm{eval}}$, $\bar C_{\mathrm{pad}}$ | Coverage 평가 자세 $\{90^\circ,\ (90^\circ+q_{\mathrm{req}})/2,\ q_{\mathrm{req}}\}$, 그 평균(prototype의 첫째 목적, study의 목적) |
 | $MA_{\min}$ | Mechanical advantage의 하한 (CFL 제약) |
 | $[\gamma_{\min},\gamma_{\max}]$ | Transmission angle의 허용 범위 (CFL 제약) |

@@ -51,9 +51,9 @@ def load(*overrides: str):
 def test_the_goal_sets_the_packaging_and_requirements():
     config, settings = load_yaml(MECHANISM, CONFIG, PINNED)
     packaging = config.packaging
-    assert (settings.algorithm, settings.population_size, settings.generations, settings.seed) == ("ga", 200, 1000, 0)
+    assert (settings.algorithm, settings.population_size, settings.generations, settings.seed) == ("nsga2", 200, 1000, 0)
     assert config.seeds == (0, 1, 2)
-    assert config.objectives == ("c_pad_mean",)
+    assert config.objectives == ("c_pad_mean", "ma_wc")
     assert math.degrees(config.required_rom_rad) == pytest.approx(150.0)
     assert config.extended_length_bounds_mm == (90.0, 110.0)
     assert [math.degrees(v) for v in config.transmission_angle_range_rad] == pytest.approx([30.0, 150.0])
@@ -70,7 +70,7 @@ def test_the_goal_sets_the_packaging_and_requirements():
     assert packaging.proximal_pad.max_length_mm == 110.0
     assert config.minimum_proximal_support_mm == 20.0 and config.minimum_distal_support_mm == 25.0
     # The reference point in minimized terms: coverage negated.
-    assert MECHANISM.hypervolume_reference(config) == {"c_pad_mean": 0.0}
+    assert MECHANISM.hypervolume_reference(config) == {"c_pad_mean": 0.0, "ma_wc": 0.0}
 
 
 def test_a_misspelt_or_missing_entry_is_an_error():
@@ -156,7 +156,7 @@ def test_a_design_is_evaluated_with_the_objective():
     # The least lengths hold on the pads.
     short = MECHANISM.evaluate(TRIMMED, load("goal.pads.proximal.length_mm=[60, null]"))
     assert short.constraints["bounds_proximal_pad_mm"] > 0.0 and not short.feasible
-    assert MECHANISM.objective_values(e, config.objectives) == pytest.approx((-e.c_pad_mean,))
+    assert MECHANISM.objective_values(e, config.objectives) == pytest.approx((-e.c_pad_mean, -e.ma_wc))
     report = MECHANISM.report(e)
     assert report["c_pad_mean"] == e.c_pad_mean and report["q_req_deg"] == pytest.approx(150.0)
 
