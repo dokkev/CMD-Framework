@@ -1,6 +1,6 @@
 """Read a ``goal`` / ``solver`` file into a :class:`~core.optimization.linkage.config.LinkageConfig`.
 
-The file (``scripts/optimize/linkage/config.yaml``) has two levels, by who
+The file (``scripts/optimize/prototype/config.yaml``) has two levels, by who
 sets them: ``goal``, what the finger must do, carry and keep clear (the
 problem formulation's requirements), and ``solver``, how the design is
 searched. Every entry is checked: an unknown or missing one is an error.
@@ -35,7 +35,7 @@ from core.optimization.linkage.config import (
 
 def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     """A config from a ``goal`` / ``solver`` mapping, as written in the file
-    (``scripts/optimize/linkage/config.yaml`` documents every entry). An
+    (``scripts/optimize/prototype/config.yaml`` documents every entry). An
     unknown or missing entry is an error."""
 
     tree = _Table(values, "")

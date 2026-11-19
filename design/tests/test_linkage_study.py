@@ -23,7 +23,7 @@ from core.morphology.mechanism.linkage.design import VARIABLE_NAMES, decode
 from core.optimization.mechanism import mechanism, read_config_file
 from core.optimization.study import load_yaml
 
-CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
+CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "prototype" / "config.yaml"
 MECHANISM = mechanism("linkage")
 X = (40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1)
 """A feasible design of a short run (linkage-v10, 2026-11-04): both pads on
@@ -75,10 +75,12 @@ def test_the_goal_sets_the_packaging_and_requirements():
 
 def test_a_misspelt_or_missing_entry_is_an_error():
     values = read_config_file(CONFIG)
+    values.pop("mechanism")  # run.py's, as it reads it
     values["goal"]["motion"]["dip_flexion"] = 150
     with pytest.raises(ValueError, match="goal.motion.dip_flexion"):
         MECHANISM.config_from_mapping(MECHANISM.split_settings(values)[0])
     values = read_config_file(CONFIG)
+    values.pop("mechanism")
     del values["goal"]["pads"]["distal"]["height_mm"]
     with pytest.raises(ValueError, match="goal.pads.distal.height_mm"):
         MECHANISM.config_from_mapping(MECHANISM.split_settings(values)[0])

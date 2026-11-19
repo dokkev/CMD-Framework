@@ -1,7 +1,7 @@
 # The production CoDe finger study (config.yaml), quick preset at |OC| 84-91 mm: the
 # reference for config_pivot8.yaml.
 #
-#   python scripts/optimize/run.py scripts/optimize/linkage/config_quick.yaml
+#   python scripts/optimize/run.py scripts/optimize/prototype/config_quick.yaml
 base: config.yaml
 goal:
   link:

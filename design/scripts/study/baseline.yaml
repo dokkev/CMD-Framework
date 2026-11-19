@@ -1,4 +1,4 @@
-# The study's own baseline: a frozen copy of scripts/optimize/linkage/config.yaml
+# The study's own baseline: a frozen copy of scripts/optimize/prototype/config.yaml
 # at 6ccab53 (2026-11-04), so a production change does not move the study.
 # Change the study here (or in base.yaml), not in the production file.
 # The reverse also holds: a later production (prototype) change is not copied
@@ -242,11 +242,11 @@ solver:
 
   optimizer:
     # Which preset runs (output/linkage/<config name>/<preset>/):
-    #   quick   a look in about a minute, for trends while exploring
-    #   search  the full study, to settle a design (about 15 min)
-    #   paper   the search run until the best C_pad levels off (each run's
-    #           history; about 2 h)
-    preset: paper
+    #   quick        a look in about a minute, for trends while exploring
+    #   search       the full study, to settle a design (about 15 min)
+    #   convergence  the search run until the best C_pad levels off (each run's
+    #                history; about 2 h)
+    preset: convergence
     presets:
       quick:
         algorithm: ga
@@ -260,7 +260,7 @@ solver:
         population: 200
         generations: 1000
         seeds: [0, 1, 2]
-      paper:
+      convergence:
         algorithm: [ga, nsga2]
         population: 200
         generations: 3000

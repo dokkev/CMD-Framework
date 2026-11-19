@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Run the multi-objective optimization of one finger study, as its config file says.
 
-    python scripts/optimize/run.py                                     # scripts/optimize/linkage/config.yaml
+    python scripts/optimize/run.py                                     # scripts/optimize/prototype/config.yaml
     python scripts/optimize/run.py <config> --append   # into a folder that has runs already
     python scripts/optimize/run.py scripts/study/<file>.yaml   # the paper's mechanism comparison
 
-The config file is the only input. Its folder names the mechanism
-(``scripts/optimize/<mechanism>/``; a top-level ``mechanism:`` entry
-overrides it), and it sets the optimizer (``solver.optimizer`` for the
+The config file is the only input. Its top-level ``mechanism:`` entry names
+the mechanism (absent, its folder's name does: ``scripts/study/<file>`` and
+the prototype, ``scripts/optimize/prototype/``, name it), and it sets the optimizer (``solver.optimizer`` for the
 ``goal`` / ``solver`` studies, ``optimizer`` for the others), the seeds and
 any warm start. For another condition, write another config file (``base:``
 extends one).
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) > 1 or (argv and argv[0].startswith("-")):
         print(__doc__.strip())
         return 2
-    path = Path(argv[0]) if argv else SCRIPTS / "linkage" / "config.yaml"
+    path = Path(argv[0]) if argv else SCRIPTS / "prototype" / "config.yaml"
     values = read_config_file(path)
     found = mechanism(values.pop("mechanism", None) or path.resolve().parent.name)
     output_root = values.pop("output", None)

@@ -2,7 +2,7 @@
 # |OC| in 84-91 mm (config.yaml allows 90-100, and the search runs to 100), and the two pads' contact
 # faces at one depth (goal.alignment.contact_faces, as config.yaml), both pads 3 mm thick (config.yaml: 5 mm).
 #
-#   python scripts/optimize/run.py scripts/optimize/linkage/config_pivot8.yaml
+#   python scripts/optimize/run.py scripts/optimize/prototype/config_pivot8.yaml
 base: config.yaml
 goal:
   pads:

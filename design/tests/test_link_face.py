@@ -35,7 +35,7 @@ def test_profile_defaults_study_false_and_prototype_true():
     study_cfg = study()
     assert study_cfg.profile == "study"
     assert not study_cfg.include_linkage_occlusion
-    production = load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml", ())[0]
+    production = load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "prototype" / "config.yaml", ())[0]
     assert production.profile == "prototype"
     assert production.include_linkage_occlusion
 
@@ -53,7 +53,7 @@ def test_a_link_in_front_of_a_face_takes_that_part_of_it():
 def test_the_removed_loss_rules_are_errors():
     for removed in ("goal.loss.integrity_depth_mm=5", "goal.loss.fold=false"):
         with pytest.raises(ValueError, match="was removed"):
-            load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml", (removed,))
+            load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "prototype" / "config.yaml", (removed,))
 
 
 def test_a_pad_without_a_partner_counts_nothing():
@@ -70,7 +70,7 @@ def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
     from core.optimization.revolute_parallel.evaluate import belt_hidden, geometry
 
     belt = mechanism("revolute_parallel")
-    config = load_yaml(belt, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
+    config = load_yaml(belt, ROOT / "scripts" / "optimize" / "prototype" / "config.yaml",
                        ("goal.hardware.pulley_radius_mm=6", "goal.loss.include_linkage_occlusion=true"))[0]
     # A at 45 mm, A' 15 mm above it; the proximal face 5 mm below OA, the pulley on A 6 mm round:
     # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 45 - sqrt(11) mm on.

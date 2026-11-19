@@ -11,7 +11,7 @@ import pytest
 from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 
-CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
+CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "prototype" / "config.yaml"
 MECHANISM = mechanism("revolute_parallel")
 STUDY = ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[20, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",

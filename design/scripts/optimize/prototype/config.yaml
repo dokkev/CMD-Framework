@@ -10,7 +10,7 @@
 #   python scripts/optimize/run.py
 #
 # This file is the study's only input. For another condition, write a file
-# that extends this one (base: ../linkage/config.yaml) and run it:
+# that extends this one (base: ../prototype/config.yaml) and run it:
 #   python scripts/optimize/run.py path/to/that.yaml
 #
 # One run per seed in solver.optimizer.seeds, then the runs verified on
@@ -33,6 +33,8 @@
 
 # 1. Goal ---------------------------------------------------------------------
 
+# The CoDe (crossed four-bar) mechanism; runs go to output/linkage/<config name>/.
+mechanism: linkage
 profile: prototype
 
 goal:
@@ -247,11 +249,11 @@ solver:
 
   optimizer:
     # Which preset runs (output/linkage/<config name>/<preset>/):
-    #   quick   a look in about a minute, for trends while exploring
-    #   search  the full study, to settle a design (about 15 min)
-    #   paper   the search run until the front levels off (each run's
-    #           history; about 2 h)
-    preset: paper
+    #   quick        a look in about a minute, for trends while exploring
+    #   search       the full study, to settle a design (about 15 min)
+    #   convergence  the search run until the front levels off (each run's
+    #                history; about 2 h)
+    preset: convergence
     presets:
       quick:
         algorithm: nsga2
@@ -265,7 +267,7 @@ solver:
         population: 200
         generations: 1000
         seeds: [0, 1, 2]
-      paper:
+      convergence:
         algorithm: [nsga2, smsemoa]
         population: 200
         generations: 3000

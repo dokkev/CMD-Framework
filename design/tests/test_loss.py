@@ -27,7 +27,7 @@ OVERRIDES = ("goal.hardware.pulley_radius_mm=6", "goal.link.finger_length_mm=[90
 
 
 def config_of(name):
-    return load_yaml(mechanism(name), CONFIGS / "linkage" / "config.yaml", OVERRIDES)[0]
+    return load_yaml(mechanism(name), CONFIGS / "prototype" / "config.yaml", OVERRIDES)[0]
 
 
 @pytest.mark.parametrize("name", list(DESIGNS))
@@ -113,16 +113,16 @@ def test_integrity_keeps_what_no_pose_loses(name):
 
 
 def test_the_access_depth_is_read_from_the_goal_and_the_integrity_rule_is_gone():
-    base = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", OVERRIDES)[0]
+    base = load_yaml(mechanism("linkage"), CONFIGS / "prototype" / "config.yaml", OVERRIDES)[0]
     assert base.access_depth_mm == 20.0
-    given = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
+    given = load_yaml(mechanism("linkage"), CONFIGS / "prototype" / "config.yaml",
                       (*OVERRIDES, "goal.loss.access_depth_mm=15"))[0]
     assert given.access_depth_mm == 15.0
     with pytest.raises(ValueError, match="was removed"):
-        load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
+        load_yaml(mechanism("linkage"), CONFIGS / "prototype" / "config.yaml",
                   (*OVERRIDES, "goal.loss.integrity_depth_mm=3"))
     with pytest.raises(ValueError):
-        load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
+        load_yaml(mechanism("linkage"), CONFIGS / "prototype" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
 
 
 def test_the_probe_meets_what_stands_within_its_depth():

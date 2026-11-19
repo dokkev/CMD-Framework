@@ -11,7 +11,7 @@ from core.morphology.packaging.faces import fold_free_lengths
 from core.optimization.mechanism import mechanism
 from core.morphology.mechanism.linkage.packaging import pip_footprint
 
-CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
+CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "prototype" / "config.yaml"
 PIVOT = np.array((50.0, 0.0))
 
 

@@ -1,6 +1,6 @@
 # A design variant, not the prototype CAD: the production linkage search's balanced finger with every pivot
 # housing at 8 mm, |OC| 84-91 mm, the two pads' mounting offsets equal and both pads 3 mm thick
-# (scripts/optimize/linkage/config_pivot8.yaml, preset search, portfolio_001 balanced: run_009 candidate 2099).
+# (scripts/optimize/prototype/config_pivot8.yaml, preset search, portfolio_001 balanced: run_009 candidate 2099).
 # Lengths are the study's, rounded to its 0.1 mm prototyping resolution. Layout, FE axis, thumb and actuator
 # zeros are the prototype's (base); the CAD has not been changed to this finger.
 base: prototype.yaml

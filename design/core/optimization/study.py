@@ -354,9 +354,13 @@ def load_yaml(mechanism: Mechanism, path: str | Path,
               overrides: Sequence[str] = ()) -> tuple[StudyConfig, OptimizerSettings]:
     """Read a study from a config file (``read_config_file``: its ``base`` and
     ``overrides``): the mechanism's config and the optimizer settings (its
-    ``optimizer`` table, or as :meth:`Mechanism.split_settings` reads it)."""
+    ``optimizer`` table, or as :meth:`Mechanism.split_settings` reads it).
+    ``mechanism`` reads it, whatever the file's own ``mechanism:`` entry (the
+    one ``run.py`` runs) says: the 2R family reads the prototype's goal too."""
 
-    values, settings = mechanism.split_settings(read_config_file(path, overrides))
+    values = read_config_file(path, overrides)
+    values.pop("mechanism", None)
+    values, settings = mechanism.split_settings(values)
     return mechanism.config_from_mapping(values), settings
 
 

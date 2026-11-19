@@ -2,7 +2,7 @@
 
 > **Superseded in part (2026-11-19):** this run optimized $\bar C_{\mathrm{pad}}$ alone with independent pad mounting offsets, at commit `8e22534`'s parent. The prototype now searches $(\bar C_{\mathrm{pad}}, MA_{\mathrm{wc}})$ with aligned offsets; its results are in a separate report.
 
-**Track: prototype optimization** (`design/scripts/optimize/linkage/`). Not a study result; its numbers are not compared
+**Track: prototype optimization** (`design/scripts/optimize/prototype/`). Not a study result; its numbers are not compared
 with the studies' (repository README, "Two optimizations: prototype and study").
 
 ## Setup
@@ -10,7 +10,7 @@ with the studies' (repository README, "Two optimizations: prototype and study").
 | Item | Value |
 |---|---|
 | Formulation | `design/SSoT/problem_formulation.md` A.5 (CoDe), one objective $\bar C_{\mathrm{pad}}$ |
-| Config | `design/scripts/optimize/linkage/config.yaml`, preset `paper` |
+| Config | `design/scripts/optimize/linkage/config.yaml` (now `prototype/`), preset `paper` (now `convergence`) |
 | Goal | $L_f\in[90,100]$ mm, $q_{\mathrm{req}}=150^\circ$, $\gamma\in[30^\circ,150^\circ]$, $MA_{\min}=0.2$, PIP servo tilt $[15^\circ,15^\circ]$ |
 | Optimizers | GA and NSGA-II, seeds 0, 1, 2; population 200, 3000 generations (600 000 evaluations per run) |
 | Warm start | 100 of the 1075 feasible designs of `output/linkage/config/samples/seeds.csv` (resampled under the SSoT rules) |

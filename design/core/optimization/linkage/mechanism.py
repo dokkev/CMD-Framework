@@ -1,6 +1,6 @@
 """The CFL (crossed four-bar, PIP servo at ``A'``) as a pluggable mechanism.
 
-Its problem is the ``goal`` / ``solver`` file (``scripts/optimize/linkage/config.yaml``,
+Its problem is the ``goal`` / ``solver`` file (``scripts/optimize/prototype/config.yaml``,
 :func:`~core.optimization.linkage.goal.config_from_goal`): the prototype
 formulation (``design/SSoT/problem_formulation.md`` A.5), whose one objective
 is the mean contact pad coverage ``c_pad_mean``.

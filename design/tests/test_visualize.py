@@ -23,7 +23,7 @@ from visualize.finger import FingerView, view_of  # noqa: E402
 from visualize.finger.mechanism import JOINTS, FourBarView  # noqa: E402
 from visualize.motion import collisions, index_at, linkage_margins, servo_sweep  # noqa: E402
 
-CONFIG = "scripts/optimize/linkage/config.yaml"
+CONFIG = "scripts/optimize/prototype/config.yaml"
 OPEN = ("goal.hardware.pulley_radius_mm=6", "goal.pads.proximal.length_mm=[0, null]",
         "goal.pads.distal.length_mm=[0, null]")
 """The other mechanisms read the linkage's goal, with a belt's pulleys and pads of any length."""

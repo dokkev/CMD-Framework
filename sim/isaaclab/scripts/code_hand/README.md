@@ -186,7 +186,7 @@ E6, gravity on, armature 5e-3 (the earlier placeholder):
 
 The pads come from a design variant, not the prototype CAD: `design/core/morphology/code_hand/pivot8_balanced.yaml`
 extends `prototype.yaml` with the production search's balanced finger (pivots 8 mm, |OC| 84-91 mm, aligned pad
-offsets, pads 3 mm thick; `scripts/optimize/linkage/config_pivot8.yaml`, preset search) and its pads. The width
+offsets, pads 3 mm thick; `scripts/optimize/prototype/config_pivot8.yaml`, preset search) and its pads. The width
 (19 mm, the XM335 case) is a placeholder.
 
 ```bash
