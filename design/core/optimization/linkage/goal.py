@@ -250,6 +250,15 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     bounds["a_x_mm"] = (resolution if a_low is None else a_low, finger_high if a_high is None else a_high)
     bounds["bc_length_mm"] = (resolution if distal_low is None else distal_low,
                               finger_high if distal_high is None else distal_high)
+    # Their shares of |OC| (oa_ratio, bc_ratio) narrow the search to what the
+    # finger's length range allows; the shares themselves stay constraints.
+    for name, (low, high) in (("a_x_mm", oa_ratio), ("bc_length_mm", bc_ratio)):
+        old_low, old_high = bounds[name]
+        new_low = old_low if low is None else max(old_low, low * finger[0])
+        new_high = old_high if high is None else min(old_high, high * finger_high)
+        if new_high < new_low:
+            raise ValueError(f"goal.link: {name} has no room within its share of the finger's length")
+        bounds[name] = (new_low, new_high)
     bounds["b_x_mm"] = (0.0, finger_high)
     bounds["proximal_mount_offset_mm"], bounds["distal_mount_offset_mm"] = mount_offsets["proximal"], mount_offsets["distal"]
     # The absolute box A' and B' span from A and B.

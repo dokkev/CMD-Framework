@@ -25,7 +25,8 @@ from visualize.motion import collisions, index_at, linkage_margins, servo_sweep 
 
 CONFIG = "scripts/optimize/prototype/config.yaml"
 OPEN = ("goal.hardware.pulley_radius_mm=6", "goal.pads.proximal.length_mm=[0, null]",
-        "goal.pads.distal.length_mm=[0, null]")
+        "goal.pads.distal.length_mm=[0, null]", "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]",
+        "goal.pads.proximal.pivot_gap_max_mm=null", "goal.pads.distal.pivot_gap_max_mm=null")
 """The other mechanisms read the linkage's goal, with a belt's pulleys and pads of any length."""
 MODULES = sorted(name for _, name, _ in pkgutil.walk_packages(visualize.__path__, "visualize."))
 
@@ -98,8 +99,11 @@ def test_every_mechanism_has_a_view(name):
     steps = np.asarray(found.search_steps(config))
     rng = np.random.default_rng(0)
     x = found.to_design(np.round((low + high) / 2.0 / steps) * steps, config)
-    while x is None:  # the middle of the box may leave no room for a pad clear of its pins
+    for _ in range(2000):  # the middle of the box may leave no room for a pad clear of its pins
+        if x is not None:
+            break
         x = found.to_design(np.round((low + rng.random(len(low)) * (high - low)) / steps) * steps, config)
+    assert x is not None, f"no design of {name} in its search box"
     view = view_of(name, config, x)
     pose = min(45.0, view.reachable_deg())
     assert view.margins([0.0, pose]) and view.tip(pose).shape == (2,)
