@@ -71,7 +71,8 @@ from typing import Sequence
 import numpy as np
 
 from core.morphology.finger import Finger
-from core.morphology.intervals import IntervalSet, face_occluded_set
+from core.geometry.primitives import rect_disk_gap_mm
+from core.geometry.intervals import IntervalSet, face_occluded_set
 from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.packaging.assembly import (
     PALM,
@@ -325,18 +326,6 @@ def pin_overlap_mm(finger: Finger, packaging: LinkagePackaging) -> float:
                             ("a_pin", "bp_pin"), ("bp_pin", "b_pin"))
 
 
-def _closed_rect_disk_gap_mm(
-    u0: float, u1: float, v0: float, v1: float, cu: float, cv: float, radius_mm: float
-) -> float:
-    """Closed-form signed clearance ``dist(center, [u0, u1] x [v0, v1]) - r``."""
-
-    lo_u, hi_u = (u0, u1) if u0 <= u1 else (u1, u0)
-    lo_v, hi_v = (v0, v1) if v0 <= v1 else (v1, v0)
-    du = max(lo_u - cu, 0.0, cu - hi_u)
-    dv = max(lo_v - cv, 0.0, cv - hi_v)
-    return math.hypot(du, dv) - radius_mm
-
-
 def own_pin_gaps(finger: Finger, packaging: LinkagePackaging) -> tuple[float, float]:
     """Each pad's least gap to the pin housings of its own body, extended:
     the proximal pad to ``A`` and ``A'``, the distal pad to ``B`` and ``B'``
@@ -353,13 +342,13 @@ def own_pin_gaps(finger: Finger, packaging: LinkagePackaging) -> tuple[float, fl
     j = finger.joint
     r = packaging.pivot_radius_mm
     p_gap = min(
-        _closed_rect_disk_gap_mm(p_span.start_mm, p_span.end_mm, p_bot, p_top, j.a.x_mm, j.a.z_mm, r("a")),
-        _closed_rect_disk_gap_mm(p_span.start_mm, p_span.end_mm, p_bot, p_top, j.ap.x_mm, j.ap.z_mm, r("ap")),
+        rect_disk_gap_mm((p_span.start_mm, p_span.end_mm, p_bot, p_top), (j.a.x_mm, j.a.z_mm), r("a")),
+        rect_disk_gap_mm((p_span.start_mm, p_span.end_mm, p_bot, p_top), (j.ap.x_mm, j.ap.z_mm), r("ap")),
     )
     bp_u, bp_v = j.bp.x_mm - j.b.x_mm, j.bp.z_mm - j.b.z_mm
     d_gap = min(
-        _closed_rect_disk_gap_mm(d_span.start_mm, d_span.end_mm, d_bot, d_top, 0.0, 0.0, r("b")),
-        _closed_rect_disk_gap_mm(d_span.start_mm, d_span.end_mm, d_bot, d_top, bp_u, bp_v, r("bp")),
+        rect_disk_gap_mm((d_span.start_mm, d_span.end_mm, d_bot, d_top), (0.0, 0.0), r("b")),
+        rect_disk_gap_mm((d_span.start_mm, d_span.end_mm, d_bot, d_top), (bp_u, bp_v), r("bp")),
     )
     return (p_gap, d_gap)
 
@@ -737,7 +726,7 @@ def link_kept_lengths(
 ) -> dict[str, np.ndarray]:
     """Exact per-sample usable length ``mu(U_i^base \\ O_i^link)`` of each pad face.
 
-    Uses analytical 1D ray-segment projection intervals (:mod:`core.morphology.intervals`),
+    Uses analytical 1D ray-segment projection intervals (:mod:`core.geometry.intervals`),
     handling disconnected usable intervals without probe-grid discretization error.
     """
 

@@ -30,7 +30,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.intervals import IntervalSet, face_occluded_set
+from core.geometry.intervals import IntervalSet, face_occluded_set
 from core.morphology.mechanism.revolute.solids import contact_faces, crossing_free
 from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
@@ -85,7 +85,7 @@ def _belt_occluders(geo: ParallelGeometry):
 
 
 def belt_kept_lengths(geo: ParallelGeometry, phi_rad: float, free: tuple[float, float], goal) -> tuple[float, float]:
-    """Exact usable length at ``phi_rad`` after belt and pulley occlusion (:mod:`core.morphology.intervals`)."""
+    """Exact usable length at ``phi_rad`` after belt and pulley occlusion (:mod:`core.geometry.intervals`)."""
 
     p_face, p_norm, d_face, d_norm = contact_faces(geo.joint, np.array([phi_rad], dtype=float))
     strands, p_disks, d_disks = _belt_occluders(geo)

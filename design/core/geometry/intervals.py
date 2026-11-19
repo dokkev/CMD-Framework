@@ -1,7 +1,9 @@
-"""Exact 1D interval-set algebra and analytical face-occlusion projections.
+"""One-dimensional interval sets and the parts of a contact face an occluder hides.
 
-Leaf geometry module (depends only on ``packaging.faces``) used by both
-``core.morphology.coverage`` and individual mechanism evaluators.
+A face is a segment from its outer end; a point on it is its distance ``xi``
+from that end. ``segment_occluded_interval`` and ``disk_occluded_interval``
+give the ``xi`` a segment or a disk in front of the face (along its outward
+normal) hides, in closed form.
 """
 
 from __future__ import annotations
@@ -9,11 +11,8 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
-
-from core.morphology.packaging.faces import crossing_free_lengths, fold_free_lengths
 
 _INTERVAL_EPS = 1e-12
 _NORMAL_EPS = 1e-9
@@ -206,80 +205,8 @@ def face_occluded_set(
     return occluded
 
 
-def _segment_fold_interval(
-    face: np.ndarray,
-    other_face: np.ndarray,
-    other_normal: np.ndarray,
-    length: float,
-    expected_free: float,
-) -> IntervalSet:
-    if expected_free >= length - _INTERVAL_EPS:
-        return IntervalSet.closed(0.0, length)
-    outer, inner = face[0], face[1]
-    t = (inner - outer) / length
-    g0, g1 = other_face[0], other_face[1]
-    other_len = float(np.linalg.norm(g1 - g0))
-    if other_len <= _INTERVAL_EPS:
-        return IntervalSet.closed(0.0, length)
-    tg = (g1 - g0) / other_len
-    n = np.asarray(other_normal, dtype=float)
-    rel = outer - g0
-    a, b = float(np.dot(rel, n)), float(np.dot(t, n))
-    if abs(b) < 1e-12:
-        behind_lo, behind_hi = (-math.inf, math.inf) if a < 0.0 else (math.inf, -math.inf)
-    elif b < 0.0:
-        behind_lo, behind_hi = -a / b, math.inf
-    else:
-        behind_lo, behind_hi = -math.inf, -a / b
-    c, d = float(np.dot(rel, tg)), float(np.dot(t, tg))
-    if abs(d) < 1e-12:
-        inside = 0.0 <= c <= other_len
-        facing_lo, facing_hi = (-math.inf, math.inf) if inside else (math.inf, -math.inf)
-    else:
-        r1, r2 = -c / d, (other_len - c) / d
-        facing_lo, facing_hi = min(r1, r2), max(r1, r2)
-    lo = max(0.0, behind_lo, facing_lo)
-    hi = min(length, behind_hi, facing_hi)
-    return IntervalSet.closed(0.0, length).difference(IntervalSet.closed(lo, hi))
-
-
-def base_accessible_sets(
-    proximal_face: np.ndarray,
-    proximal_normal: np.ndarray,
-    distal_face: np.ndarray,
-    distal_normal: np.ndarray,
-    *,
-    fold_mode: Literal["crossing", "segment", "none"] = "crossing",
-) -> dict[str, IntervalSet]:
-    """Base accessible intervals ``U_i^base(M, phi) <= [0, l_i]`` before linkage occlusion."""
-
-    p_f = np.asarray(proximal_face, dtype=float)
-    d_f = np.asarray(distal_face, dtype=float)
-    l_p = float(np.linalg.norm(p_f[1] - p_f[0]))
-    l_d = float(np.linalg.norm(d_f[1] - d_f[0]))
-    if fold_mode == "none":
-        return {
-            "proximal_pad": IntervalSet.closed(0.0, l_p),
-            "distal_pad": IntervalSet.closed(0.0, l_d),
-        }
-    if fold_mode == "crossing":
-        free = crossing_free_lengths(p_f, d_f)
-        return {
-            "proximal_pad": IntervalSet.closed(0.0, min(l_p, float(free["proximal_pad"][0]))),
-            "distal_pad": IntervalSet.closed(0.0, min(l_d, float(free["distal_pad"][0]))),
-        }
-    if fold_mode == "segment":
-        free = fold_free_lengths(p_f, proximal_normal, d_f, distal_normal)
-        return {
-            "proximal_pad": _segment_fold_interval(p_f, d_f, distal_normal, l_p, float(free["proximal_pad"][0])),
-            "distal_pad": _segment_fold_interval(d_f, p_f, proximal_normal, l_d, float(free["distal_pad"][0])),
-        }
-    raise ValueError(f"fold_mode must be 'crossing', 'segment', or 'none'; got {fold_mode!r}")
-
-
 __all__ = [
     "IntervalSet",
-    "base_accessible_sets",
     "disk_occluded_interval",
     "face_occluded_set",
     "segment_occluded_interval",

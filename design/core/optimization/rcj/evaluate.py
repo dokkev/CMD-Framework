@@ -41,7 +41,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from core.morphology.collision import rect_disk_clearance_mm
+from core.geometry.primitives import rect_disk_gap_mm
 from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.mechanism.rcj import solids
@@ -157,8 +157,8 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
             float(geo.distal_pad_local[:, 1].max()),
         )
         static["roller_pad_mm"] = -min(
-            rect_disk_clearance_mm(p_box, geo.a, r),
-            rect_disk_clearance_mm(d_box, (0.0, 0.0), r),
+            rect_disk_gap_mm(p_box, geo.a, r),
+            rect_disk_gap_mm(d_box, (0.0, 0.0), r),
         )
         static["roller_pad_mm"] = 0.0 if abs(static["roller_pad_mm"]) < 1e-9 else static["roller_pad_mm"]
     if max(static.values()) <= 0.0:

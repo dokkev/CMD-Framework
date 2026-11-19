@@ -20,21 +20,33 @@ import math
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, fields
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
 from core._validation import require_finite, require_nonnegative, require_positive
 from core.hardware import DShapedExtrusion, actuator
-from core.morphology.coverage import (
-    PROFILE_DEFAULT_LINKAGE_OCCLUSION,
-    CoverageProfile,
-    resolve_linkage_occlusion,
-)
 from core.morphology.packaging.hardware import ContactPad
 from core.morphology.mechanism.linkage.packaging import LinkagePackaging
 
 from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES
+
+
+CoverageProfile = Literal["study", "prototype"]
+PROFILE_DEFAULT_LINKAGE_OCCLUSION: Mapping[str, bool] = MappingProxyType({"study": False, "prototype": True})
+"""Whether the crossing links hide the contact faces, by default, per profile."""
+
+
+def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile: CoverageProfile) -> bool:
+    """``include_linkage_occlusion`` as given, or the profile's default when omitted."""
+
+    if profile not in PROFILE_DEFAULT_LINKAGE_OCCLUSION:
+        raise ValueError(f"profile must be one of {tuple(PROFILE_DEFAULT_LINKAGE_OCCLUSION)}, got {profile!r}")
+    if include_linkage_occlusion is None:
+        return PROFILE_DEFAULT_LINKAGE_OCCLUSION[profile]
+    if not isinstance(include_linkage_occlusion, bool):
+        raise ValueError("include_linkage_occlusion must be a boolean")
+    return include_linkage_occlusion
 
 
 OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.finger import Finger
-from core.morphology.intervals import IntervalSet
+from core.geometry.intervals import IntervalSet
 from core.morphology.mechanism.linkage.model import PipSweep, four_bar
 from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,

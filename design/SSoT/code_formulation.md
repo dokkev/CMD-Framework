@@ -43,9 +43,9 @@
 
 | 모듈 | 내용 | SSoT |
 |---|---|---|
-| `geometry/primitives.py` | 닫힌 식 거리(점·선분·사각형·원·D형 servo·다각형), 원 교점 | — |
+| `geometry/primitives.py` | 닫힌 식 거리(점–사각형, 사각형–원, 원–원). 다각형과 D형 servo 거리는 `morphology/packaging/_kernels.py`, `shapes.py` | — |
 | `geometry/intervals.py` | 1D 구간 집합 | A.5.1의 $T_i$ |
-| `evaluation/collision.py` | `self_collision(scene)`: layer와 drive pivot 예외를 적용해 겹치는 쌍과 최소 간격을 돌려준다 | self-collision (A.4) |
+| `morphology/packaging/assembly.py` | Self-collision 엔진: body, layer, joint(drive pivot) 예외, keep-out을 가진 solid 배치와 쌍별 간격. 구조 adapter가 이 배치를 만든다 | self-collision (A.4) |
 | `evaluation/feasibility.py` | `f_static(M)`, `f_motion(M, q_req)` | $\mathcal F_{\mathrm{static}}$, $\mathcal F_{\mathrm{motion}}$ (A.4) |
 | `evaluation/coverage.py` | `cylinder_region(faces)`, `c_pad(M, q2)`, `c_pad_mean(M, q_req)` | $T$, $c_i$, $C_{\mathrm{pad}}$, $\bar C_{\mathrm{pad}}$ (A.5.1) |
 | `evaluation/transmission.py` | `ma(M, q2)`, `ma_wc(M, q_req)`, `gamma_ok(M, q_req)` | $MA$, $MA_{\mathrm{wc}}$, $\gamma$ (A.5.2) |
@@ -112,7 +112,7 @@
 | D7 | Layer 예외가 linkage에만 명시 | 모든 solid가 layer를 가짐 | P2 |
 | D8 | `LinkageConfig`가 네 구조의 공용 설정. 862줄. 값의 모양으로 의미가 바뀜 | 문제별 설정 스키마, 구조 공용 로더 | P4 |
 | D9 | 길이를 longitudinal(e_x 투영)이나 $\lvert OC\rvert$로 잼 | 유클리드 길이(SSoT A.3) | P3 |
-| D10 | `canonical.py`, `collision.py`, `coverage.py`, `canonical_mapping.py`가 테스트에서만 쓰임 | 삭제. 쓸 부품만 §4로 옮김 | P1, P6 |
+| D10 | `canonical.py`, `collision.py`, `coverage.py`, `canonical_mapping.py`가 테스트에서만 쓰임 | 삭제. 쓸 부품만 §4로 옮김 | P1 (완료) |
 
 ## 9. 이행 단계
 
@@ -120,7 +120,7 @@
 
 | 단계 | 내용 |
 |---|---|
-| P1 | `geometry/primitives.py`, `geometry/intervals.py`로 기하 부품을 모으고 중복(사각형–원 거리, 원 교점, 자세 변환)을 지운다 |
+| P1 (완료) | `geometry/primitives.py`, `geometry/intervals.py`로 기하 부품을 모으고, 옛 SSoT 모듈(`canonical`, `collision`, `coverage`, `canonical_mapping`), 쓰이지 않던 `hypervolume`, `geometry/planar`, `geometry/transform`을 지웠다 |
 | P2 | Scene과 self-collision, $\mathcal F_{\mathrm{static}}$, $\mathcal F_{\mathrm{motion}}$을 만들고 CFL adapter부터 옮긴다 |
 | P3 | Coverage(원기둥 규칙), $L_f(\mathbf q)$, MA, $\gamma$, $q_{\max}$를 공용 모듈로 옮긴다 |
 | P4 | 문제 객체와 설정 스키마를 만든다. 목적함수를 하나로 줄이고 hyperextension을 지운다. 출력 이름을 바꾸고 소비자 코드를 고친다 |
