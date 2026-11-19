@@ -55,7 +55,7 @@ def _plain(values: Mapping[str, object]) -> dict:
 
 TUPLE_FIELDS = ("transmission_angle_range_rad", "extended_length_bounds_mm", "proximal_length_bounds_mm",
                 "joint_span_bounds_mm", "proximal_length_ratio_bounds", "distal_length_ratio_bounds",
-                "joint_span_ratio_bounds", "icr0_share_bounds",
+                "joint_span_ratio_bounds", "icr0_share_bounds", "oa_ratio_bounds", "bc_ratio_bounds",
                 "objectives", "seeds", "warm_start")
 
 

@@ -208,6 +208,15 @@ class LinkageConfig:
     """``goal.hardware.pulley_radius_mm``: the envelope of a belt's or a
     tendon's pulley on a joint (the mechanisms that drive one through them);
     ``None``: none given."""
+    oa_ratio_bounds: tuple[float | None, float | None] = (None, None)
+    bc_ratio_bounds: tuple[float | None, float | None] = (None, None)
+    """``goal.link.oa_ratio``, ``goal.link.bc_ratio``: ``|OA|`` and ``|BC|``
+    (the four-bar's pivots, not the pads' ends) as shares of the extended
+    ``|OC|``; ``(None, None)``: no limit."""
+    mcp_gap_max_mm: float | None = None
+    """``goal.hardware.pip_servo.mcp_gap_max_mm``: the most gap between the
+    PIP and MCP servo bodies in the extended pose (the PIP servo kept near the
+    MCP servo); ``None``: no limit."""
     icr0_share_bounds: tuple[float | None, float | None] = (None, None)
     """``goal.link.icr0_share``: where the extended pose's centre of rotation
     may lie, as a share of ``|OC|`` from ``O`` (``core.morphology.icr``;
@@ -277,7 +286,7 @@ class LinkageConfig:
         reference = {"c_pad_mean": 0.0}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "proximal_pivot_gap_max_mm",
-                     "distal_pivot_gap_max_mm", "pulley_radius_mm",
+                     "distal_pivot_gap_max_mm", "mcp_gap_max_mm", "pulley_radius_mm",
                      "dorsal_space_mm", "link_radius_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
@@ -458,6 +467,16 @@ class LinkageConfig:
         for value, (low, high) in ((proximal_mm, self.proximal_length_ratio_bounds),
                                    (distal_mm, self.distal_length_ratio_bounds),
                                    (span_mm, self.joint_span_ratio_bounds)):
+            violations += [v for v in (None if low is None else low * finger_mm - value,
+                                       None if high is None else value - high * finger_mm) if v is not None]
+        return violations
+
+    def pivot_ratio_violations(self, oa_mm: float, bc_mm: float, finger_mm: float) -> list[float]:
+        """How far (mm) ``|OA|`` and ``|BC|`` lie outside their shares of the
+        extended ``|OC|`` (``goal.link.oa_ratio``, ``bc_ratio``)."""
+
+        violations = []
+        for value, (low, high) in ((oa_mm, self.oa_ratio_bounds), (bc_mm, self.bc_ratio_bounds)):
             violations += [v for v in (None if low is None else low * finger_mm - value,
                                        None if high is None else value - high * finger_mm) if v is not None]
         return violations

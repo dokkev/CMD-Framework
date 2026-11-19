@@ -93,6 +93,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     proximal_ratio = _range(link.take("proximal_length_ratio"), "goal.link.proximal_length_ratio")
     distal_ratio = _range(link.take("distal_length_ratio"), "goal.link.distal_length_ratio")
     icr0_share = _range(link.values.pop("icr0_share", [None, None]), "goal.link.icr0_share")  # optional
+    # Optional (absent: no limit): |OA| and |BC| as shares of the extended |OC|.
+    oa_ratio = _range(link.values.pop("oa_ratio", [None, None]), "goal.link.oa_ratio")
+    bc_ratio = _range(link.values.pop("bc_ratio", [None, None]), "goal.link.bc_ratio")
     dorsal_space = link.values.pop("dorsal_space_mm", None)  # optional
     if "transmission_angle_deg" in link.values:
         raise ValueError("goal.link.transmission_angle_deg moved to goal.transmission.angle_deg")
@@ -166,6 +169,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         raise ValueError("goal.hardware.pip_servo.tilt_step_deg must be positive")
     if "torque_ratio_max" in pip_servo.values:
         raise ValueError("goal.hardware.pip_servo.torque_ratio_max was replaced by ma_min (MA_wc >= ma_min)")
+    mcp_gap_max = pip_servo.values.pop("mcp_gap_max_mm", None)  # optional (absent: no limit)
+    mcp_gap_max = None if mcp_gap_max is None else float(mcp_gap_max)
     if "ma_min" in pip_servo.values:
         raise ValueError("goal.hardware.pip_servo.ma_min moved to goal.transmission.ma_min")
     pip_servo.done()
@@ -298,6 +303,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         distal_pivot_gap_max_mm=gaps["distal"],
         pulley_radius_mm=None if pulley is None else float(pulley),
         icr0_share_bounds=icr0_share,
+        oa_ratio_bounds=oa_ratio,
+        bc_ratio_bounds=bc_ratio,
+        mcp_gap_max_mm=mcp_gap_max,
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
         profile=profile,

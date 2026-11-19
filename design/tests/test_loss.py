@@ -23,6 +23,7 @@ DESIGNS = {
 }
 """A design of each mechanism (the mechanisms' own tests' designs)."""
 OVERRIDES = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]", 
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.hardware.pulley_radius_mm=6", "goal.link.finger_length_mm=[90, 110]",
              "goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]")
 

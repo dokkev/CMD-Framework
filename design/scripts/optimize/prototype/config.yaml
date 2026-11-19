@@ -48,9 +48,11 @@ goal:
 
   # The morphology's size (m in A.2): L_f, and the phalanges' shares rho_i.
   link:
-    finger_length_mm: [84, 91]    # |OC| extended
+    finger_length_mm: [88, 92]    # |OC| extended (about 90 mm)
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
+    oa_ratio: [0.32, 0.38]        # |OA| / L_f, the pivot A; the max keeps the PIP servo near the MCP (optional)
+    bc_ratio: [0.17, null]        # |BC| / L_f, the pivot B to the fingertip (optional)
 
   # The CFL's transmission constraints on [0, q_req] (A.5.2).
   transmission:

@@ -281,6 +281,9 @@ def _static_constraints(finger: Finger, footprint: ServoFootprint, config: Linka
     span_violations += config.length_ratio_violations(finger.proximal.length_mm, finger.distal.length_mm, span, length)
     # The extended centre of rotation within its share of |OC| (the bending-point control).
     span_violations += config.icr0_violations(linkage_icr_x(finger), length)
+    # |OA| and |BC| (the pivots) as shares of |OC|.
+    span_violations += config.pivot_ratio_violations(common["proximal_length_mm"],
+                                                     finger.joint.b.distance_to(finger.tip), length)
     # A clears the keep-out at the servo's shaft A'.
     pivot_pin = (0.0 if packaging.allow_collision_pip_servo_to_joint_a else
                  short(("a_pin", "pip_shaft")))
@@ -311,7 +314,10 @@ def _static_constraints(finger: Finger, footprint: ServoFootprint, config: Linka
     # 2. The servos: the two bodies, A against the PIP servo, the PIP servo
     # and the proximal pad.
     servo_rest = reference_poses(finger, np.asarray(config.mcp_servo_angles_rad))
-    constraints["static_mcp_servo_mm"] = -least_margin_mm(built, servo_rest, packaging, ("mcp_servo", "pip_servo"))
+    servo_gap = least_margin_mm(built, servo_rest, packaging, ("mcp_servo", "pip_servo"))
+    # Apart, and (goal.hardware.pip_servo.mcp_gap_max_mm) not farther than the most gap.
+    constraints["static_mcp_servo_mm"] = max(-servo_gap, -math.inf if config.mcp_gap_max_mm is None
+                                             else servo_gap - config.mcp_gap_max_mm)
     if packaging.a_pin_servo_check:
         constraints["static_pivot_pin_mm"] = max(pivot_pin, short(("a_pin", "pip_servo")))
     # The PIP servo and the proximal pad (one body, still kept apart), and the

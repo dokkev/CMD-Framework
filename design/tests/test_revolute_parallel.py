@@ -14,6 +14,7 @@ from core.optimization.study import load_yaml
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "prototype" / "config.yaml"
 MECHANISM = mechanism("revolute_parallel")
 STUDY = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]", 
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[20, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",
          "goal.motion.required_flexion_deg=110", "goal.hardware.pulley_radius_mm=6")

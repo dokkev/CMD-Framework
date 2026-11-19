@@ -34,6 +34,7 @@ required flexion."""
 
 
 PINNED = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]", 
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
@@ -663,3 +664,30 @@ def test_a_pads_inner_end_may_be_held_near_its_pivot():
     assert held.constraints["bounds_distal_pad_mm"] == pytest.approx(2.0, abs=1e-6) and not held.feasible
     assert MECHANISM.evaluate(X, load(f"goal.pads.distal.pivot_gap_max_mm={gap + 1.0}")).constraints[
         "bounds_distal_pad_mm"] <= 0.0
+
+
+def test_the_pivots_may_be_bounded_as_shares_of_the_finger():
+    # |OA| and |BC| (the four-bar's pivots) over the extended |OC|.
+    e = MECHANISM.evaluate(X, load())
+    oc = e.finger_length_mm
+    oa, bc = e.finger.joint.a.x_mm, e.finger.joint.b.distance_to(e.finger.tip)
+    assert bc == pytest.approx(X[VARIABLE_NAMES.index("bc_length_mm")], abs=0.06)
+    short_a = MECHANISM.evaluate(X, load(f"goal.link.oa_ratio=[{(oa + 2.0) / oc}, null]"))
+    assert short_a.constraints["bounds_proportions_mm"] == pytest.approx(2.0, abs=1e-6)
+    short_c = MECHANISM.evaluate(X, load(f"goal.link.bc_ratio=[{(bc + 3.0) / oc}, null]"))
+    assert short_c.constraints["bounds_proportions_mm"] == pytest.approx(3.0, abs=1e-6)
+    assert MECHANISM.evaluate(X, load(f"goal.link.oa_ratio=[{(oa - 1.0) / oc}, null]",
+                                      f"goal.link.bc_ratio=[{(bc - 1.0) / oc}, null]")).constraints[
+        "bounds_proportions_mm"] <= 0.0
+
+
+def test_the_pip_servo_may_be_kept_near_the_mcp_servo():
+    from core.morphology.mechanism.linkage.packaging import assembly, least_margin_mm, reference_poses
+
+    config = load()
+    e = MECHANISM.evaluate(X, config)
+    gap = least_margin_mm(assembly(e.finger, config.packaging), reference_poses(e.finger), config.packaging,
+                          ("mcp_servo", "pip_servo"))
+    assert gap > 1.0 and e.constraints["static_mcp_servo_mm"] == pytest.approx(-gap)
+    near = MECHANISM.evaluate(X, load(f"goal.hardware.pip_servo.mcp_gap_max_mm={gap - 1.0}"))
+    assert near.constraints["static_mcp_servo_mm"] == pytest.approx(1.0, abs=1e-6) and not near.feasible
