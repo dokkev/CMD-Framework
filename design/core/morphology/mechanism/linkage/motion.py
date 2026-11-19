@@ -178,8 +178,13 @@ def coverage(finger: Finger, packaging: LinkagePackaging, poses_rad: Sequence[fl
     sweep = finger.sweep_pip(np.asarray(poses_rad, dtype=float))
     a = np.array((joint.a.x_mm, joint.a.z_mm))
     ap = np.array((joint.ap.x_mm, joint.ap.z_mm))
-    l1 = finger.proximal.end_mm
-    l2 = finger.distal.end_mm - finger.distal.start_mm
+    # The phalanges' structures (r_1,end, r_2,start): each reaches its pad's
+    # inner end and holds its own pivot's housing, whichever is nearer the
+    # joint, so the gap between them is never longer than |AB|.
+    radius = packaging.pivot_radius_mm
+    l1 = max(finger.proximal.end_mm, joint.a.x_mm + radius("a"))
+    distal_from_b = min(finger.distal.start_mm, -radius("b"))  # along B -> C
+    l2 = finger.distal.end_mm - distal_from_b
     found = []
     for index, q in enumerate(poses_rad):
         if index >= len(sweep.q_pip_rad):
@@ -193,7 +198,7 @@ def coverage(finger: Finger, packaging: LinkagePackaging, poses_rad: Sequence[fl
             bars = [(a, bp), (ap, b)]
             hidden = (face_occluded_set(proximal_face, proximal_normal, segments=bars),
                       face_occluded_set(distal_face, distal_normal, segments=bars))
-        distal_start = b + finger.distal.start_mm * (tip - b) / finger.distal.end_mm
+        distal_start = b + distal_from_b * (tip - b) / finger.distal.end_mm
         found.append(PoseCoverage(
             float(q),
             common_length_mm(proximal_face, distal_face, hidden),

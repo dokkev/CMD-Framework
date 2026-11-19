@@ -217,7 +217,7 @@ $$
 
 이 절의 정식화를 prototype formulation이라 하며, production formulation 또는 CoDe formulation이라고도 부른다. Prototype 설계는 crossed four-bar linkage 구조($K=K_{\mathrm{CFL}}$)를 대상으로 한다. Contact interface 치수의 허용 범위는 형태 요구사항(A.2)으로 주어지고, 최적화는 contact pad coverage와 최악의 경우 mechanical advantage를 함께 최대화하는 finger morphology들, 곧 두 값의 Pareto front를 찾는다. Mechanical advantage에는 하한 제약도 두고, 운동 범위는 제약으로만 다룬다.
 
-**CFL의 pivot.** CFL은 네 개의 pivot으로 이루어진다. $A$와 $A'$는 proximal phalanx에, $B$와 $B'$는 distal phalanx에 있다. PIP actuator $A_2$의 출력축은 $A'$에 놓이며, 링크 $A'B$를 돌려 distal phalanx를 굽힌다. 링크 $AB'$는 $A$를 중심으로 돌면서 distal phalanx를 받친다. 설계를 단순하게 하기 위해, 기준 자세에서 $A$는 proximal phalanx의 길이 방향 축 위에, $B$는 distal phalanx의 길이 방향 축 위에 둔다.
+**CFL의 pivot.** CFL은 네 개의 pivot으로 이루어진다. $A$와 $A'$는 proximal phalanx에, $B$와 $B'$는 distal phalanx에 있다. PIP actuator $A_2$의 출력축은 $A'$에 놓이며, 링크 $A'B$를 돌려 distal phalanx를 굽힌다. 링크 $AB'$는 $A$를 중심으로 돌면서 distal phalanx를 받친다. 설계를 단순하게 하기 위해, 기준 자세에서 $A$는 proximal phalanx의 길이 방향 축 위에, $B$는 distal phalanx의 길이 방향 축 위에 둔다. 각 phalanx 구조는 자기 pad를 끝까지 받치고 자기 pivot의 housing도 품는다. 따라서 $\mathbf r_{1,\mathrm{end}}$는 proximal pad의 안쪽 끝과 $A$ housing의 distal 쪽 끝 가운데 관절에 더 가까운 점이고, $\mathbf r_{2,\mathrm{start}}$는 distal pad의 안쪽 끝과 $B$ housing의 proximal 쪽 끝 가운데 관절에 더 가까운 점이다. 두 구조 사이 간격 $L_{vp}$는 $|AB|$보다 길 수 없다.
 
 **정렬.** 위 배치를 관절 축 정렬(joint axes)이라 하며, 기준 자세에서 두 phalanx 축이 한 직선 위에 놓인다. Prototype은 여기에 접촉면 정렬(contact faces)을 더한다. 두 pad의 접촉면을 각자의 링크 축에서 같은 깊이에 두어(장착 깊이와 pad 두께의 합이 같음), 기준 자세에서 두 접촉면도 한 직선 위에 놓이게 한다. 두 정렬을 함께 두면 기준 자세에서 두 pad는 한 직선 위에서 겹칠 수 없다. 따라서 두 pad 길이의 하한의 합이, 가장 긴 손가락에서 그 직선에 남는 길이를 넘으면 해가 없다. 이 조건은 필요조건이며, 굽히는 동안의 충돌은 $\mathcal F_{\mathrm{motion}}$이 판정한다.
 

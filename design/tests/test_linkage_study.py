@@ -463,9 +463,17 @@ def test_the_objective_is_the_cylinder_rule_at_each_evaluation_pose():
         hidden = (face_occluded_set(proximal, proximal_normal, segments=bars),
                   face_occluded_set(distal[0], distal_normal[0], segments=bars))
         assert pose.common_mm == pytest.approx(common_length_mm(proximal, distal[0], hidden))
-        start = b + linkage.distal.start_mm * (tip - b) / linkage.distal.end_mm
-        l1, l2 = linkage.proximal.end_mm, linkage.distal.end_mm - linkage.distal.start_mm
+        # Each structure reaches its pad's inner end and holds its own pivot's housing.
+        radius = config.packaging.pivot_radius_mm
+        l1 = max(linkage.proximal.end_mm, linkage.joint.a.x_mm + radius("a"))
+        from_b = min(linkage.distal.start_mm, -radius("b"))
+        start = b + from_b * (tip - b) / linkage.distal.end_mm
+        l2 = linkage.distal.end_mm - from_b
         assert pose.finger_length_mm == pytest.approx(posed_finger_length_mm(l1, l2, (l1, 0.0), start))
+    # Extended, the gap between the structures is no longer than |AB| less the housings.
+    joint = linkage.joint
+    assert l1 + l2 <= e.finger_length_mm and \
+        e.finger_length_mm - l1 - l2 <= joint.b.x_mm - joint.a.x_mm - radius("a") - radius("b") + 1e-3
 
 
 def test_every_pad_mounts_on_its_link_line_whatever_it_meets():
