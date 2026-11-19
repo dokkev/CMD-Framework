@@ -71,7 +71,9 @@ def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
 
     belt = mechanism("revolute_parallel")
     config = load_yaml(belt, ROOT / "scripts" / "optimize" / "prototype" / "config.yaml",
-                       ("goal.hardware.pulley_radius_mm=6", "goal.loss.include_linkage_occlusion=true"))[0]
+                       ("goal.hardware.pulley_radius_mm=6", "goal.loss.include_linkage_occlusion=true",
+                        "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.b=6",
+                        "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5"))[0]
     # A at 45 mm, A' 15 mm above it; the proximal face 5 mm below OA, the pulley on A 6 mm round:
     # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 45 - sqrt(11) mm on.
     exact_start = 45.0 - math.sqrt(6.0**2 - 5.0**2)

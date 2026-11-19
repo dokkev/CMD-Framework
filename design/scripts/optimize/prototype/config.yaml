@@ -96,7 +96,7 @@ goal:
       # value per study (a range would always end at its min); sweep it to
       # see what thickness costs. The pad is a plain block (no chamfer: a
       # chamfer only shortens the contact face).
-      height_mm: 5
+      height_mm: 4
       # How far A'' may lie past the extended pose's centre of rotation (mm;
       # A-B' crossing A'-B). null: no limit, the faces' crossing (pad_coverage)
       # already leaves out what folds in.
@@ -104,7 +104,7 @@ goal:
     distal:
       length_mm: [25, null]
       mount_offset_mm: [0, 10]
-      height_mm: 5
+      height_mm: 4
 
   # The finger's links, each [min, max] (null: no limit). Requirements on the
   # finger's size, not objectives: the front may sit on them (the run reports
@@ -159,17 +159,14 @@ goal:
   collision:
     # Sizes and ranges the checks use.
     param:
-      # Each pivot's size, its tolerance included. Half of A's / B's is also how
-      # far palmar of its link line the proximal / distal pad starts.
-      #   A is 9 mm in fact but kept at 6, which starts the proximal pad 3 mm below OA.
-      #   A' is 7 mm in fact; 10 keeps the A-A' check as for the real pins
-      #   (3 + 5 = 4.5 + 3.5). The cost: the distal pad is checked against a
-      #   smaller A (1.5 mm less radius) and a larger A' (1.5 mm more) than real.
+      # Each pivot's size, its tolerance included (2026-11-19: every pivot
+      # 8 mm, the prototype's hardware). Half of A's / B's is also how far
+      # palmar of its link line the proximal / distal pad starts.
       pivot_diameter_mm:
-        a: 6
-        a_prime: 10
-        b: 6
-        b_prime: 6
+        a: 8
+        a_prime: 8
+        b: 8
+        b_prime: 8
 
     # Which pairs are checked.
     check:

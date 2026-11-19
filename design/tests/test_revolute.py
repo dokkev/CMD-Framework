@@ -12,7 +12,8 @@ from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 
 ROOT = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
-PINNED = ("goal.link.finger_length_mm=[90, 100]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
+PINNED = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.link.finger_length_mm=[90, 100]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.motion.dip_flexion_deg=120",
           "goal.hardware.pip_servo.tilt_angle_deg=[90, 90]", "goal.link.proximal_length_ratio=[null, null]",
           "goal.link.distal_length_ratio=[null, null]")

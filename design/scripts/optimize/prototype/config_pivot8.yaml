@@ -1,6 +1,6 @@
-# The production CoDe finger study (config.yaml) with every pivot housing at 8 mm (A, A', B and B') and the
-# |OC| in 84-91 mm (config.yaml allows 90-100, and the search runs to 100), and the two pads' contact
-# faces at one depth (goal.alignment.contact_faces, as config.yaml), both pads 3 mm thick (config.yaml: 5 mm).
+# The production CoDe finger study (config.yaml) at |OC| 84-91 mm (config.yaml: 90-100) with both
+# pads 3 mm thick (config.yaml: 4 mm). Its 8 mm pivots are config.yaml's own since 2026-11-19, so
+# they are no longer set here.
 #
 #   python scripts/optimize/run.py scripts/optimize/prototype/config_pivot8.yaml
 base: config.yaml
@@ -12,13 +12,6 @@ goal:
       height_mm: 3
   link:
     finger_length_mm: [84, 91]
-  collision:
-    param:
-      pivot_diameter_mm:
-        a: 8
-        a_prime: 8
-        b: 8
-        b_prime: 8
 solver:
   optimizer:
     preset: search

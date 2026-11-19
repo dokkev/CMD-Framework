@@ -16,7 +16,8 @@ from core.optimization.mounting import footprint_reach_mm, mounting
 from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "prototype" / "config.yaml"
-RULES = ("goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
+RULES = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
          "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
          "goal.collision.check.a_pin_and_a_prime_pin=true", "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
          "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
