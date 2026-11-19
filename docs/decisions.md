@@ -6,6 +6,7 @@
 ## 결정됨
 
 ### Prototype 2목적 (2026-11-19)
+- 2026-11-19: v2의 k_max = 2.5(MA_wc ≥ 0.4). quick sweep(k_max 3, 2.75, 2.5, 2.25, 2.0)에서 |AB| ≤ 26~28 mm의 최고 C̄_pad가 2.5 아래로 급히 떨어짐(|AB| ≤ 26: 0.674, 0.667, 0.644, 0.585, 0.449). compact한 four-bar를 우선해 2.5로 정함.
 - 2026-11-19: Prototype v2(`config_v2.yaml`): CAD bound 해제, 목적 (C̄_pad 최대, \|AB\| 최소), MA_wc ≥ 1/3 (k_max = 3). 링크–pad 가림을 완전 금지하면 해가 없을 것으로 보고, 짧은 four-bar로 가림과 B의 손끝 쏠림을 함께 줄이려는 변형. 목적 `ab_mm`(편 자세 \|AB\|, 최소화)을 추가.
 - 2026-11-19: CFL의 phalanx 구조 끝(r₁,end, r₂,start)을 pad 안쪽 끝과 자기 pivot housing 가운데 관절 쪽 점으로 정의(SSoT A.5). 이전에는 pad 끝이라 pad가 pivot 앞에서 끝나면 L_vp > |AB|가 되어 L_f(q)가 줄고 C_pad가 부풀었음(v1 quick 최적 0.674 → 0.606). 또 `goal.pads.extend_past_pivots`(prototype true): A″ₓ ≥ Aₓ, B″ₓ ≤ Bₓ. pad가 pivot housing 밑으로 지나가므로 장착 깊이는 사실상 housing 반지름 이상.
 - 2026-11-19: Prototype v0(`scripts/optimize/prototype/config_v0.yaml`: `base: config.yaml`, 차이 없음. config.yaml이 전체 정의이고 각 버전은 차이만 적음). Onshape CAD(`core/morphology/code_hand/prototype.yaml`)에 맞춘 설정: L_f [89, 91] mm(사용자 수정; CAD 맞춤 quick은 [88, 92]로 돌림), \|OA\|/L_f [0.37, 0.42](CAD 0.397), BC/L_f [0.22, 0.28](CAD 0.253), 양쪽 \|pivot − pad 끝\| ≤ 15 mm, pivot 8 mm, pad 4 mm, 두 정렬, 2목적. quick front에서 CAD와 설계 벡터 거리 4.8 mm인 설계(C̄_pad 0.663, MA 0.462)가 나옴. v1(`config_v1.yaml`)은 같은 goal에 C̄_pad 단일 목적(SSoT A.5.4의 2목적과 다른 변형).
