@@ -10,8 +10,8 @@ Start with [GOAL.md](../GOAL.md) for the research north star and claim disciplin
 | [README.md](../README.md) | Monorepo layout, environment overview, prototype vs. study rules, coordinate conventions |
 | [report/PROGRESS.md](../report/PROGRESS.md) | Current defensible claims (C1–C7), evidence boundaries, limitations, and next validation steps |
 | [report/README.md](../report/README.md) | Index of all current and snapshot study/prototype reports under `report/` |
-| [design/SSoT/high-level-formulation.md](../design/SSoT/high-level-formulation.md) | **Source of truth** (paper Appendix A, Korean): morphology $M=(K,C,A,S)$, static/motion feasibility, cylinder-based pad coverage, prototype formulation, Study 1 |
-| [docs/formulation.md](formulation.md) | Pointer to `design/SSoT/high-level-formulation.md` |
+| [design/SSoT/problem_formulation.md](../design/SSoT/problem_formulation.md) | **Source of truth** (paper Appendix A, Korean): morphology $M=(K,C,A,S)$, static/motion feasibility, cylinder-based pad coverage, prototype formulation, Study 1 |
+| [docs/formulation.md](formulation.md) | Pointer to `design/SSoT/problem_formulation.md` |
 | [docs/decisions.md](decisions.md) | Chronological engineering and study-formulation decision log (through 2026-11-18) |
 | [design/scripts/study/study1_fixed_morphology/README.md](../design/scripts/study/study1_fixed_morphology/README.md) | Study 1 specification: fixed-morphology contact accommodation and active tilt sweep |
 | [design/scripts/study/study2_morphology_adaptation/README.md](../design/scripts/study/study2_morphology_adaptation/README.md) | Study 2 specification: E/Q adaptation hierarchy and ROM-conditioned baselines |
@@ -25,7 +25,7 @@ Start with [GOAL.md](../GOAL.md) for the research north star and claim disciplin
 
 Documents under `docs/legacy/` record earlier formulations (`palmar-pad-v3`, `linkage-v2`, `contact-retention-v1`) and the deleted `scripts/optimize/comparison/` pipeline from October 2026. Kept for provenance only—do not use them as specifications for current code:
 
-- [legacy/math_formulation_2026-11-17.md](legacy/math_formulation_2026-11-17.md) — 2026-11-17 2D SSoT aligned to the evaluators; superseded on 2026-11-18 by `design/SSoT/high-level-formulation.md`, which is written to intended function rather than to the code
+- [legacy/math_formulation_2026-11-17.md](legacy/math_formulation_2026-11-17.md) — 2026-11-17 2D SSoT aligned to the evaluators; superseded on 2026-11-18 by `design/SSoT/problem_formulation.md`, which is written to intended function rather than to the code
 - [legacy/linkage_v2_sweeps.md](legacy/linkage_v2_sweeps.md) — Formulation v2 (`linkage-v2-rev2`) ROM and pad-length sweeps
 - [legacy/optimization/linkage.md](legacy/optimization/linkage.md) — Formulation v1 (`palmar-pad-v3`) linkage seed-generator design doc
 - [legacy/optimization/retention.md](legacy/optimization/retention.md) — Early `contact-retention-v1` comparison metric

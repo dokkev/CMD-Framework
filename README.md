@@ -11,7 +11,7 @@ cmd_framework/
 ├── docs/              formulation, decision log, legacy archive (docs/README.md)
 ├── report/            study reports and paper figures (report/figures/)
 ├── design/            CMD-Framework: mechanism geometry, kinematics, optimization, studies
-│   ├── SSoT/          source of truth: high-level formulation (design/SSoT/high-level-formulation.md)
+│   ├── SSoT/          source of truth: problem formulation (design/SSoT/problem_formulation.md)
 │   ├── core/          morphology, mechanisms (crossed four-bar FK), packaging, evaluators, optimizer
 │   ├── scripts/       optimization runs and studies (scripts/study/…)
 │   ├── visualize/     plotting

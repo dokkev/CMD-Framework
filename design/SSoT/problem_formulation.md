@@ -6,7 +6,7 @@
 2. **요구사항 (A.2–A.3).** Contact interface의 치수와 손가락의 크기·비율을 하한과 상한으로 지정한다.
 3. **기하와 운동 (A.4).** Morphology는 joint 자세에 따라 형상을 만들고, 그 형상에 self-collision이 없는 자세의 집합이 유효한 운동 범위를 정한다.
 4. **최적화 (A.5).** 요구사항, 요구 운동, 전달 성능 조건을 만족하는 morphology 가운데 contact pad coverage가 가장 큰 것을 찾는다.
-5. **비교 연구 (A.6).** 여러 mechanism 구조를 같은 외형에 맞춘 뒤, contact interface만 바꿔 가며 각 구조가 얼마나 수용하는지 평가한다.
+5. **비교 연구 (A.6).** 여러 mechanism 구조를 같은 외형에 맞춘 뒤, contact interface만 바꿔 가며 각 구조가 얼마나 수용하는지(Study 1), 수용하지 못하면 손가락을 얼마나 바꿔야 하는지(Study 2) 평가한다.
 
 Contact interface는 이 문제의 출발점이다. 그 치수는 요구사항으로 먼저 주어지고, mechanism, actuation, structure는 그것을 수용하도록 설계된다.
 
@@ -394,18 +394,24 @@ $$
 
 $K_{\mathrm{2R\text{-}DD}}$는 PIP actuator가 PIP joint에 직접 붙은 serial revolute 구조이다. $K_{\mathrm{2R\text{-}remote}}$는 같은 revolute joint를 떨어진 PIP actuator가 belt로 구동하는 구조로, 이때 $\Gamma$가 비어 있지 않다. $K_{\mathrm{RCJ}}$에서 joint actuator를 없앤 이상화 구조($\mathcal G_2=\varnothing$)는 물리적으로 만들 수 있는 구조가 아니므로, 상한으로만 따로 보고한다.
 
+**외형 descriptor.** 손가락의 외형을 다음 네 양으로 나타낸다.
+
+$$
+\mathbf d(M)=\big(L_f,\;L_1,\;L_2,\;x_{\mathrm{art}}\big)
+$$
+
+여기서 $x_{\mathrm{art}}=\mathbf e_x^{\mathsf T}\big(\mathbf r_{\mathrm{ICR}}(\mathbf 0)-\mathbf r_O\big)$는 articulation 위치로, 기준 자세에서 distal phalanx의 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$를 MCP 축에서 $\mathbf e_x$ 방향으로 잰 위치이다. Revolute joint에서는 joint 위치이고, CFL과 RCJ에서는 회전 중심이 움직이므로 기준 자세에서의 값을 쓴다.
+
 **기준 morphology.** 각 구조 $K\in\mathcal K$에 대해 기준 morphology $M_0^K=(K,C_0,A_0^K,S_0^K)$를 하나씩 둔다. 구조 사이의 차이가 손가락 크기나 비율에서 오지 않도록, 모든 기준 morphology는 같은 외형을 갖는다.
 
 $$
-L_f\big(M_0^K\big)=L_f^0,\qquad
-L_i\big(M_0^K\big)=L_i^0\;(i=1,2),\qquad
-x_{\mathrm{art}}\big(M_0^K\big)=x_{\mathrm{art}}^0,
+\mathbf d\big(M_0^K\big)=\mathbf d^0,
 \qquad \forall K\in\mathcal K
 $$
 
-여기서 $x_{\mathrm{art}}=\mathbf e_x^{\mathsf T}\big(\mathbf r_{\mathrm{ICR}}(\mathbf 0)-\mathbf r_O\big)$는 articulation 위치로, 기준 자세에서 distal phalanx의 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$를 MCP 축에서 $\mathbf e_x$ 방향으로 잰 위치이다. Revolute joint에서는 joint 위치이고, CFL과 RCJ에서는 회전 중심이 움직이므로 기준 자세에서의 값을 쓴다. Mechanism, actuation, structure를 어떻게 구성해 이 외형을 맞추는지는 구조마다 다르다.
+Mechanism, actuation, structure를 어떻게 구성해 이 외형을 맞추는지는 구조마다 다르다.
 
-**평가 기준.** Study에서도 A.4–A.5의 정의를 그대로 쓴다. 유효 자세 $\mathcal Q_{\mathrm{valid}}$, 최대 안전 flexion $q_{\max}$, coverage $\bar C_{\mathrm{pad}}$가 그 예이다. 다만 두 가지가 다르다.
+**평가 기준.** Study에서도 A.4–A.5의 정의를 그대로 쓴다. 유효 자세 $\mathcal Q_{\mathrm{valid}}$, 최대 안전 flexion $q_{\max}$, coverage $\bar C_{\mathrm{pad}}$가 그 예이다. 다만 다음이 다르다.
 - Transmission angle 조건은 linkage가 있는 CFL에만 적용한다. 다른 구조에서는 이 조건이 항상 만족된다고 본다.
 - Mechanical advantage 제약 $MA_{\mathrm{wc}}\ge MA_{\min}$도 CFL에만 적용한다. 다른 구조의 mechanical advantage는 구조로 정해지는 상수이기 때문이다. 2R-DD와 2R-remote는 $MA\equiv 1$, 대칭 RCJ는 $MA\equiv 1/2$이다.
 - Coverage를 계산할 때 transmission 요소(링크, belt)가 pad를 가리는 효과는 기본적으로 고려하지 않는다. 이 요소들은 pad와 다른 lateral layer에 놓이기 때문이다(A.4). 가림의 영향은 민감도 분석으로 따로 본다.
@@ -450,6 +456,48 @@ $$
 
 **해석.** $\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$가 클수록, 그 구조는 손가락을 바꾸지 않고도 더 다양한 contact interface를 수용한다. 같은 외형을 가진 구조끼리 비교하므로, 이 차이는 손가락 크기가 아니라 mechanism과 actuation 배치에서 온다고 볼 수 있다. 이 결과는 2차원 측면 모델에서 기하학적으로 공간이 있다는 뜻이며, 실제로 제작하거나 교체할 수 있다는 뜻은 아니다.
 
+### A.6.3. Study 2: 수용을 위한 형태 변화량
+
+Study 2는 Study 1에서 수용하지 못한 module에 대해, 그 module을 수용하려면 손가락을 얼마나, 그리고 어느 부분을 바꿔야 하는지 묻는다. 새로운 최적 손가락을 찾는 것이 아니라, 기존 구조가 얼마나 바뀌어야 하는지를 잰다.
+
+**바꿀 수 있는 것과 고정하는 것.** Morphology의 변화를 두 묶음으로 나눈다.
+- 외형 $\mathbf d(M)$ (A.6.1)
+- Mechanism 내부 형상 $\boldsymbol\kappa(M)$: mechanism $K$의 좌표 가운데 외형으로 정해지지 않는 나머지. CFL에서는 pivot $A$, $B$, $B'$의 위치이고, RCJ에서는 roller 반지름이다. 2R-DD와 2R-remote에서는 외형이 정해지면 mechanism도 정해지므로 $\boldsymbol\kappa$가 없다.
+
+Actuation은 기준 그대로 고정한다($A=A_0^K$). Actuator housing, 출력축 위치, 방향이 모두 포함되며, CFL에서 PIP actuator의 출력축이 놓이는 $A'$도 고정된다. Structure는 외형에 맞춰 정해지고, pad의 장착 위치는 Study 1과 같은 장착 규칙으로 정한다(A.6.2).
+
+**변화량.** 각 묶음의 변화량은 가장 크게 바뀐 좌표의 변화를 기준 손가락 길이로 나눈 값이다.
+
+$$
+\varepsilon_d(M)=\frac{\big\|\mathbf d(M)-\mathbf d^0\big\|_\infty}{L_f^0},
+\qquad
+\varepsilon_\kappa(M)=\frac{\big\|\boldsymbol\kappa(M)-\boldsymbol\kappa_0^K\big\|_\infty}{L_f^0}
+$$
+
+두 변화량은 따로 보고하며, 하나의 점수로 합치지 않는다.
+
+**단계적 탐색.** Module $c\notin\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$에 대해, 바꾸는 범위를 다음 순서로 넓힌다. 각 단계에서 morphology $M$은 module $c$를 장착하고 A.6.2의 수용 판정을 만족해야 한다.
+1. **Level 1: mechanism 내부만 바꾼다.** 외형은 기준 그대로 둔다.
+$$
+\min_{M}\;\varepsilon_\kappa(M)
+\quad\text{s.t.}\quad
+\mathbf d(M)=\mathbf d^0,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+$$
+2. **Level 2: 외형도 바꾼다.** Level 1에서 수용하는 설계가 없을 때만 진행한다. 외형 변화를 먼저 최소화하고, 그 값을 크게 넘지 않는 범위에서 mechanism 변화를 최소화한다.
+$$
+\varepsilon_d^\star=\min_{M}\;\varepsilon_d(M)
+\quad\text{s.t.}\quad
+A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+$$
+$$
+\min_{M}\;\varepsilon_\kappa(M)
+\quad\text{s.t.}\quad
+\varepsilon_d(M)\le\varepsilon_d^\star+\delta,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+$$
+여기서 $\delta$는 작은 허용 폭이다. 외형 변화를 먼저 최소화하므로, mechanism을 크게 바꿔 외형 변화를 감추는 설계는 고르지 않는다.
+
+**해석.** 같은 module에 대해 구조마다 필요한 변화량을 비교한다. Level 1에서 수용하는 구조는 외형을 그대로 둔 채 module을 받을 수 있다. 다만 pad의 길이가 기준 phalanx보다 길면, 구조와 무관하게 외형이 바뀌어야 한다. Structure의 지지 가정(A.3, $\ell_i\le L_i$)에 따라 그 phalanx가 적어도 pad 길이만큼 길어져야 하기 때문이다. 따라서 구조 사이의 차이는 이 최소 외형 변화를 넘는 부분에서 나타난다. 탐색에서 수용하는 설계를 찾지 못했다는 것은 주어진 탐색 범위 안에서 찾지 못했다는 뜻이며, 그런 설계가 존재하지 않는다는 증명은 아니다.
+
 ## A.7. 기호 정리
 
 **Morphology.** 설계를 이루는 요소.
@@ -486,6 +534,9 @@ $$
 | $\gamma(M,\mathbf q)$ | CFL의 transmission angle: $B'$에서 $B'A$와 $B'B$ 사이 각도 |
 | $q_{\max}$ | 편 자세에서 출발해 안전하게(유효하고 transmission angle이 허용 범위 안) 도달할 수 있는 최대 distal flexion |
 | $x_{\mathrm{art}}$ | Articulation 위치: 기준 자세에서 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$의 $\mathbf e_x$ 방향 위치 |
+| $\mathbf d(M)$ | 외형 descriptor $(L_f,L_1,L_2,x_{\mathrm{art}})$ |
+| $\boldsymbol\kappa(M)$ | Mechanism 내부 형상: 외형으로 정해지지 않는 mechanism 좌표 |
+| $\varepsilon_d$, $\varepsilon_\kappa$ | 외형 변화량, mechanism 내부 변화량 (Study 2) |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
 
