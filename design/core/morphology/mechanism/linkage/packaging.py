@@ -72,7 +72,6 @@ import numpy as np
 
 from core.morphology.finger import Finger
 from core.geometry.primitives import rect_disk_gap_mm
-from core.geometry.intervals import IntervalSet, face_occluded_set
 from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.packaging.assembly import (
     PALM,
@@ -89,7 +88,6 @@ from core.morphology.packaging.assembly import (
     Poses,
     margins,
 )
-from core.morphology.packaging.faces import crossing_free_lengths, probe_blocked, probe_free_lengths
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, segment_polygon_gaps
 
@@ -137,9 +135,8 @@ class LinkagePackaging(Packaging):
     links_clear_pads: bool = False
     """The links (``A-B'``, ``A'-B``) bend around the pads, out of their way
     (as the serial 2R's truss of links): a pad is usable up to where the two
-    contact faces cross in the fold instead (``face_crossing_lengths``).
-    Always so in the goal/solver study (2026-10-27); ``False`` (runs before
-    it): up to the first link crossing it (``usable_pad_lengths``)."""
+    contact faces cross in the fold instead. Always so in the goal/solver
+    study (2026-10-27)."""
     pads_off_pins: bool = False
     """Each pad keeps clear of its own body's pin housings (the proximal pad
     of ``A`` and ``A'``, the distal pad of ``B`` and ``B'``) and may end
@@ -548,93 +545,6 @@ def _posed(finger: Finger, local: np.ndarray, b: np.ndarray, c: np.ndarray) -> n
     return b[:, None] + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
 
 
-def usable_pad_lengths(
-    finger: Finger, packaging: LinkagePackaging, b: np.ndarray, bp: np.ndarray, c: np.ndarray,
-) -> dict[str, np.ndarray]:
-    """Per-sample length of each pad's face the links leave free, from its outer end.
-
-    The driver link ``A-B'`` and the coupler ``A'-B`` sit in other layers, but
-    where one passes through a pad's block in the side view (over its span,
-    between the mounting line and the pad's height), it runs across the
-    contact interface. (Passing further palmar, in front of the face, is the
-    curling finger itself.) The free length runs from
-    the pad's outer end (``a`` of the proximal pad, the ``C`` end of the distal
-    one) to the first such point. Each link loses its pin envelope at both
-    ends: ``A`` and ``B`` sit on the mounting lines as the links' own pivots.
-    Samples are four-bar poses in the proximal-link frame (``(n, 2)``).
-    """
-
-    b, bp, c = np.atleast_2d(b), np.atleast_2d(bp), np.atleast_2d(c)
-    count = len(b)
-    a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
-    ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
-    radius = packaging.pivot_radius_mm
-    links = [_trimmed(a, bp, radius("a"), radius("bp")), _trimmed(ap, b, radius("ap"), radius("b"))]
-    spans = pad_spans(finger, packaging)
-
-    proximal = spans["proximal_pad"]  # frame: x along the mounting line, z dorsal of it
-    offsets = pad_offsets(finger, packaging)
-    line = np.array((0.0, -offsets["proximal_pad"]))
-    near = np.full(count, np.inf)
-    for start, end in links:
-        low, _ = _block_extent(start - line, end - line, proximal.start_mm, proximal.end_mm,
-                               packaging.proximal_pad.height_mm)
-        near = np.fmin(near, low)
-    proximal_free = np.where(np.isfinite(near), near - proximal.start_mm, proximal.length_mm)
-
-    distal = spans["distal_pad"]  # frame: u along B->C from B, v dorsal
-    e = (c - b) / finger.distal.end_mm
-    n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-
-    top = offsets["distal_pad"]
-
-    def local(points: np.ndarray) -> np.ndarray:  # v from the pad's top face
-        rel = points - b
-        return np.stack((np.sum(rel * e, axis=1), np.sum(rel * n, axis=1) + top), axis=1)
-
-    far = np.full(count, -np.inf)
-    for start, end in links:
-        _, high = _block_extent(local(start), local(end), distal.start_mm, distal.end_mm,
-                                packaging.distal_pad.height_mm)
-        far = np.fmax(far, high)
-    distal_free = np.where(np.isfinite(far), distal.end_mm - far, distal.length_mm)
-    return {"proximal_pad": np.maximum(proximal_free, 0.0), "distal_pad": np.maximum(distal_free, 0.0)}
-
-
-def probe_contact_lengths(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
-                          bp: np.ndarray, depth_mm: float, solids: str = "all") -> dict[str, np.ndarray]:
-    """Each contact face's reachable length (:func:`probe_free_lengths`) at
-    the posed ``B``, ``C`` and ``B'`` (``(n, 2)``), MCP at 0, against the
-    ``solids`` in front of it, whatever their Y layer (seen from the side, an
-    object meets the outer layers' links first): ``"all"``, every solid of
-    the finger but its own pad; ``"pads"``, the other pad alone;
-    ``"hardware"``, all but the pads (the links ``A-B'``
-    and ``A'-B``, the four pins' housings, the PIP and MCP servos)."""
-
-    b, c, bp = np.atleast_2d(b), np.atleast_2d(c), np.atleast_2d(bp)
-    count = len(b)
-    proximal_face, proximal_normal, distal_face, distal_normal = contact_faces(finger, packaging, b, c)
-    proximal = np.broadcast_to(proximal_pad_polygon(finger, packaging), (count, *proximal_pad_polygon(finger,
-                                                                                                    packaging).shape))
-    distal = distal_pad_polygon(finger, packaging, b, c)
-    shared_polygons, segments, disks = [], [], []
-    if solids not in ("all", "pads", "hardware"):
-        raise ValueError(f"solids must be all, pads or hardware, not {solids!r}")
-    if solids != "pads":
-        shared_polygons += [pip_footprint(packaging, finger).outline, packaging.mcp_footprint().outline]
-        a = np.broadcast_to((finger.joint.a.x_mm, finger.joint.a.z_mm), (count, 2))
-        ap = np.broadcast_to((finger.joint.ap.x_mm, finger.joint.ap.z_mm), (count, 2))
-        segments = [np.stack((a, bp), axis=1), np.stack((ap, b), axis=1)]
-        disks = [(a, packaging.pivot_radius_mm("a")), (ap, packaging.pivot_radius_mm("ap")),
-                 (b, packaging.pivot_radius_mm("b")), (bp, packaging.pivot_radius_mm("bp"))]
-    other = {"proximal": [] if solids == "hardware" else [distal], "distal": [] if solids == "hardware" else [proximal]}
-    proximal_free = probe_free_lengths(np.broadcast_to(proximal_face, (count, 2, 2)), proximal_normal, depth_mm,
-                                       [*other["proximal"], *shared_polygons], segments, disks)
-    distal_free = probe_free_lengths(distal_face, distal_normal, depth_mm, [*other["distal"], *shared_polygons],
-                                     segments, disks)
-    return {"proximal_pad": proximal_free, "distal_pad": distal_free}
-
-
 def contact_faces(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray):
     """The linkage's two contact faces as :func:`fold_free_lengths` takes them:
     the proximal one fixed, the distal one at the posed ``B`` and ``C``."""
@@ -651,145 +561,6 @@ def contact_faces(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c:
     outer = b + distal.end_mm * e + face_v * n
     inner = b + distal.start_mm * e + face_v * n
     return proximal_face, np.array((0.0, -1.0)), np.stack((outer, inner), axis=1), -n
-
-
-def face_crossing_lengths(
-    finger: Finger, packaging: LinkagePackaging, b: np.ndarray, c: np.ndarray,
-) -> dict[str, np.ndarray]:
-    """Per-sample length of each pad's face outside the fold, from its outer end.
-
-    The two contact faces, extended, cross where the finger folds: past that
-    point each face lies inside the V the other one closes, facing it, where
-    no object reaches. Each pad counts from its outer end (``a`` of the
-    proximal pad, the ``C`` end of the distal one) to the crossing; faces in
-    line or parallel lose nothing. The linkage's faces
-    (:func:`contact_faces`) measured by the one rule every mechanism's are
-    (``packaging.faces.crossing_free_lengths``). Samples are four-bar poses in
-    the proximal-link frame, given by the posed ``B`` and ``C`` (``(n, 2)``).
-    """
-
-    proximal_face, _, distal_face, _ = contact_faces(finger, packaging, b, c)
-    return crossing_free_lengths(proximal_face, distal_face)
-
-
-LINK_REACH_MM = 1000.0
-"""How far in front of a face the links are looked for: any distance."""
-
-
-def accessible_face_intervals(
-    finger: Finger,
-    b: np.ndarray,
-    bp: np.ndarray,
-    faces,
-    *,
-    include_linkage_occlusion: bool,
-    include_fold: bool = True,
-) -> dict[str, list[IntervalSet]]:
-    """Exact per-sample material-coordinate accessible sets ``U_i(M, phi; eta_L) <= [0, l_i]``."""
-
-    b, bp = np.atleast_2d(b), np.atleast_2d(bp)
-    count = len(b)
-    proximal_face, proximal_normal, distal_face, distal_normal = faces
-    p_len = float(np.linalg.norm(proximal_face[1] - proximal_face[0]))
-    d_len = float(np.linalg.norm(distal_face[0, 1] - distal_face[0, 0])) if count else 0.0
-    if include_fold:
-        fold = crossing_free_lengths(proximal_face, distal_face)
-        p_limits = np.minimum(fold["proximal_pad"], p_len)
-        d_limits = np.minimum(fold["distal_pad"], d_len)
-    else:
-        p_limits = np.full(count, p_len)
-        d_limits = np.full(count, d_len)
-
-    if not include_linkage_occlusion:
-        return {
-            "proximal_pad": [IntervalSet.closed(0.0, float(lim)) for lim in p_limits],
-            "distal_pad": [IntervalSet.closed(0.0, float(lim)) for lim in d_limits],
-        }
-
-    a = np.array((finger.joint.a.x_mm, finger.joint.a.z_mm), dtype=float)
-    ap = np.array((finger.joint.ap.x_mm, finger.joint.ap.z_mm), dtype=float)
-    p_sets: list[IntervalSet] = []
-    d_sets: list[IntervalSet] = []
-    for idx in range(count):
-        segs = [(a, bp[idx]), (ap, b[idx])]
-        p_base = IntervalSet.closed(0.0, float(p_limits[idx]))
-        d_base = IntervalSet.closed(0.0, float(d_limits[idx]))
-        p_occ = face_occluded_set(proximal_face, proximal_normal, segments=segs)
-        d_occ = face_occluded_set(distal_face[idx], distal_normal[idx], segments=segs)
-        p_sets.append(p_base.difference(p_occ))
-        d_sets.append(d_base.difference(d_occ))
-    return {"proximal_pad": p_sets, "distal_pad": d_sets}
-
-
-def link_kept_lengths(
-    finger: Finger, b: np.ndarray, bp: np.ndarray, faces, free: dict[str, np.ndarray],
-) -> dict[str, np.ndarray]:
-    """Exact per-sample usable length ``mu(U_i^base \\ O_i^link)`` of each pad face.
-
-    Uses analytical 1D ray-segment projection intervals (:mod:`core.geometry.intervals`),
-    handling disconnected usable intervals without probe-grid discretization error.
-    """
-
-    b, bp = np.atleast_2d(b), np.atleast_2d(bp)
-    count = len(b)
-    a = np.array((finger.joint.a.x_mm, finger.joint.a.z_mm), dtype=float)
-    ap = np.array((finger.joint.ap.x_mm, finger.joint.ap.z_mm), dtype=float)
-    proximal_face, proximal_normal, distal_face, distal_normal = faces
-    p_len = float(np.linalg.norm(proximal_face[1] - proximal_face[0]))
-    d_len = float(np.linalg.norm(distal_face[0, 1] - distal_face[0, 0])) if count else 0.0
-    p_limits = np.minimum(np.asarray(free["proximal_pad"], dtype=float), p_len)
-    d_limits = np.minimum(np.asarray(free["distal_pad"], dtype=float), d_len)
-    p_out = np.empty(count, dtype=float)
-    d_out = np.empty(count, dtype=float)
-    for idx in range(count):
-        segs = [(a, bp[idx]), (ap, b[idx])]
-        p_base = IntervalSet.closed(0.0, float(p_limits[idx]))
-        d_base = IntervalSet.closed(0.0, float(d_limits[idx]))
-        p_occ = face_occluded_set(proximal_face, proximal_normal, segments=segs)
-        d_occ = face_occluded_set(distal_face[idx], distal_normal[idx], segments=segs)
-        p_out[idx] = p_base.difference(p_occ).measure
-        d_out[idx] = d_base.difference(d_occ).measure
-    return {"proximal_pad": p_out, "distal_pad": d_out}
-
-
-def _trimmed(start: np.ndarray, end: np.ndarray, radius: float,
-             end_radius: float | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Segments ``start-end`` shortened by ``radius`` at the start and
-    ``end_radius`` (default: the same) at the end, to a point at most."""
-
-    direction = end - start
-    length = np.where((norm := np.linalg.norm(direction, axis=1)) > 0.0, norm, 1.0)
-    if end_radius is None or end_radius == radius:
-        head = tail = np.minimum(radius / length, 0.5)[:, None]
-    else:  # the two trims meet at most, in proportion
-        total = np.maximum((radius + end_radius) / length, 1.0)
-        head, tail = (radius / length / total)[:, None], (end_radius / length / total)[:, None]
-    return start + head * direction, end - tail * direction
-
-
-def _block_extent(start: np.ndarray, end: np.ndarray, low: float, high: float,
-                  height: float) -> tuple[np.ndarray, np.ndarray]:
-    """Least and most ``u`` of each segment's part inside a pad block,
-    ``low < u < high`` and ``-height < v < 0``.
-
-    Points are ``(u, v)`` in a pad's line frame, ``(n, 2)``; ``(inf, -inf)``
-    where the segment misses the block.
-    """
-
-    t_low, t_high = np.zeros(len(start)), np.ones(len(start))
-    for axis, (lo, hi) in ((0, (low, high)), (1, (-height, 0.0))):
-        a, d = start[:, axis], end[:, axis] - start[:, axis]
-        with np.errstate(divide="ignore", invalid="ignore"):
-            enter, leave = (lo - a) / d, (hi - a) / d
-        first, second = np.minimum(enter, leave), np.maximum(enter, leave)
-        flat = d == 0.0  # parallel: inside the slab all along, or never
-        inside = (a > lo) & (a < hi)
-        t_low = np.where(flat, np.where(inside, t_low, np.inf), np.maximum(t_low, first))
-        t_high = np.where(flat, np.where(inside, t_high, -np.inf), np.minimum(t_high, second))
-    valid = t_low < t_high
-    u0, du = start[:, 0], end[:, 0] - start[:, 0]
-    ua, ub = u0 + np.where(valid, t_low, 0.0) * du, u0 + np.where(valid, t_high, 0.0) * du
-    return np.where(valid, np.minimum(ua, ub), np.inf), np.where(valid, np.maximum(ua, ub), -np.inf)
 
 
 def pad_margins(
@@ -859,16 +630,13 @@ __all__ = [
     "PARTS",
     "ServoClearance",
     "a_pin_servo_gap_mm",
-    "accessible_face_intervals",
     "assembly",
     "bp_pin_servo_margins",
     "checked_pairs",
     "contact_faces",
-    "link_kept_lengths",
     "distal_pad_local",
     "distal_pad_polygon",
     "driver_link_servo_gaps",
-    "face_crossing_lengths",
     "gap_mm",
     "layer_separated_pairs",
     "layout",
@@ -882,9 +650,7 @@ __all__ = [
     "pip_servo_pad_gap_mm",
     "pivot_pin_gap_mm",
     "poses",
-    "probe_contact_lengths",
     "proximal_pad_polygon",
     "reference_poses",
     "servo_clearance",
-    "usable_pad_lengths",
 ]

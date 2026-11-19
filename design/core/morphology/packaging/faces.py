@@ -26,9 +26,10 @@ def fold_free_lengths(
     hidden. The other face's segment, not its endless line, decides: barely
     flexed, two faces at different depths cross far from either pad, and
     hide nothing (the lines alone would hide a whole face there). Where the
-    other face covers the crossing, this is the crossing rule
-    (:func:`face_crossing_lengths`); the length lost grows continuously with
-    the flexion.
+    other face covers the crossing, this is the old per-face crossing rule;
+    the length lost grows continuously with the flexion. (Kept for the loss
+    diagnostics, ``core.morphology.contact.loss``; the coverage is the
+    cylinder rule, ``core.evaluation.coverage``.)
     """
 
     def faces(face, normal):
@@ -76,46 +77,6 @@ def fold_free_lengths(
     proximal_length, proximal_hidden = hidden(proximal_face, distal_face, distal_normal)
     distal_length, distal_hidden = hidden(distal_face, proximal_face, proximal_normal)
     return {"proximal_pad": proximal_length - proximal_hidden, "distal_pad": distal_length - distal_hidden}
-
-
-def crossing_free_lengths(proximal_face: np.ndarray, distal_face: np.ndarray) -> dict[str, np.ndarray]:
-    """Per-sample length of each contact face outside the fold: from its
-    outer end to where the other face's line crosses it.
-
-    Faces are segments ``(n, 2, 2)`` (or ``(2, 2)``), their outer end first
-    (the MCP end of the proximal face, the fingertip end of the distal one),
-    in the proximal frame. The two faces, extended, cross where the finger
-    folds; past the crossing each lies inside the V the other closes, facing
-    it, where no object reaches. Faces in line or parallel lose nothing. Any
-    mechanism's faces (the linkage's ``packaging.face_crossing_lengths`` is
-    this, from its posed ``B`` and ``C``).
-    """
-
-    proximal_face = np.asarray(proximal_face, dtype=float)
-    distal_face = np.asarray(distal_face, dtype=float)
-    proximal_face = proximal_face[None] if proximal_face.ndim == 2 else proximal_face
-    distal_face = distal_face[None] if distal_face.ndim == 2 else distal_face
-    count = max(len(proximal_face), len(distal_face))
-    proximal_face = np.broadcast_to(proximal_face, (count, 2, 2))
-    distal_face = np.broadcast_to(distal_face, (count, 2, 2))
-    p0, d0 = proximal_face[:, 0], distal_face[:, 0]
-    p_length = np.linalg.norm(proximal_face[:, 1] - p0, axis=1)
-    d_length = np.linalg.norm(distal_face[:, 1] - d0, axis=1)
-    tp = (proximal_face[:, 1] - p0) / np.where(p_length > 0.0, p_length, 1.0)[:, None]
-    td = (distal_face[:, 1] - d0) / np.where(d_length > 0.0, d_length, 1.0)[:, None]
-
-    def cross(u: np.ndarray, v: np.ndarray) -> np.ndarray:
-        return u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
-
-    turn = cross(tp, td)
-    crossing = np.abs(turn) > 1e-9
-    safe = np.where(crossing, turn, 1.0)
-    gap = d0 - p0
-    s = cross(gap, td) / safe  # along the proximal face from its outer end
-    t = cross(gap, tp) / safe  # along the distal face from its outer end
-    proximal_free = np.where(crossing, np.clip(s, 0.0, p_length), p_length)
-    distal_free = np.where(crossing, np.clip(t, 0.0, d_length), d_length)
-    return {"proximal_pad": proximal_free, "distal_pad": distal_free}
 
 
 def fold_hidden_points(face: np.ndarray, other_face: np.ndarray, other_normal: np.ndarray,
@@ -192,7 +153,6 @@ def probe_blocked(face: np.ndarray, normal: np.ndarray, depth_mm: float, polygon
 
 
 __all__ = [
-    "crossing_free_lengths",
     "PROBE_STEP_MM",
     "fold_free_lengths",
     "fold_hidden_points",

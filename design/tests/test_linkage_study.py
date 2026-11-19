@@ -362,24 +362,6 @@ def test_the_four_bar_span_may_be_bounded():
         "bounds_proportions_mm"] <= 0.0
 
 
-def test_a_pad_counts_up_to_where_the_faces_cross():
-    from core.morphology.mechanism.linkage.packaging import face_crossing_lengths
-
-    config = load()
-    linkage = decode(X, config.link_length_resolution_mm)
-    spans = pad_spans(linkage, config.packaging)
-    sweep = linkage.sweep_servo(np.radians([0.0, 1.0, 40.0]) * (1.0 if linkage.sweep_servo(
-        [0.0, 0.01]).q_driver_rad[-1] >= 0.0 else -1.0))
-    free = face_crossing_lengths(linkage, config.packaging, sweep.b, sweep.tip)
-    # Extended, the faces lie in one line: nothing is lost.
-    assert free["proximal_pad"][0] == pytest.approx(spans["proximal_pad"].length_mm)
-    assert free["distal_pad"][0] == pytest.approx(spans["distal_pad"].length_mm)
-    # Barely flexed, they cross below the centre of rotation, between A and B:
-    # past the proximal pad, which ends short of A; folded further, nearer.
-    assert free["proximal_pad"][1] == pytest.approx(spans["proximal_pad"].length_mm)
-    assert free["proximal_pad"][2] <= free["proximal_pad"][1]
-
-
 def test_the_links_may_be_bounded_as_shares_of_the_finger():
     # The finger's segments: |OA''| and |B''C|.
     e = MECHANISM.evaluate(X, load())
@@ -480,19 +462,6 @@ def test_every_pad_mounts_on_its_link_line_whatever_it_meets():
         assert pad_offsets(finger, config.packaging) == {"proximal_pad": 0.0, "distal_pad": 0.0}
     assert MECHANISM.evaluate(X, config).feasible
     assert not MECHANISM.evaluate(under, config).feasible
-
-def test_a_crossing_at_the_distal_faces_end_is_still_a_crossing():
-    from core.morphology.packaging.faces import crossing_free_lengths
-
-    # Inclined faces whose lines cross exactly at the distal face's inner end
-    # (u = 0 there): the proximal face counts to the crossing, not whole.
-    proximal = np.array(((0.0, -5.0), (30.0, -5.0)))
-    distal = np.array(((35.0, -25.0), (15.0, -5.0)))
-    free = crossing_free_lengths(proximal, distal)
-    assert free["proximal_pad"][0] == pytest.approx(15.0)
-    nudged = crossing_free_lengths(proximal, distal + (0.0, 1e-6))
-    assert nudged["proximal_pad"][0] == pytest.approx(15.0, abs=1e-4)  # continuous
-
 
 def test_the_search_does_not_bound_a_by_the_segment_ratio():
     from core.optimization.study import MechanismProblem

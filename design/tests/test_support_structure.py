@@ -164,29 +164,6 @@ def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
         packaging_from_mapping({"pip_servo_at": "a"})
 
 
-def test_a_link_across_a_pad_ends_its_free_length() -> None:
-    from core.morphology.mechanism.linkage.packaging import usable_pad_lengths
-
-    linkage = decode(GOOD)
-    spans = pad_spans(linkage, HOUSING_ONLY)
-    b, c = xz(linkage.joint.b)[None], xz(linkage.tip)[None]
-    # The driver link A-B' straight down through the proximal pad at x = A_x = 36;
-    # the coupler A'-B stays dorsal of both pads.
-    free = usable_pad_lengths(linkage, HOUSING_ONLY, b, np.array([[36.0, -20.0]]), c)
-    assert free["proximal_pad"][0] == pytest.approx(36.0 - spans["proximal_pad"].start_mm)
-    assert free["distal_pad"][0] == pytest.approx(spans["distal_pad"].length_mm)
-
-
-def test_only_a_crossing_of_the_pad_block_counts() -> None:
-    from core.morphology.mechanism.linkage.packaging import _block_extent
-
-    # A 5 mm block over 10 < u < 40: a segment across it, one palmar of it.
-    across = _block_extent(np.array([[20.0, 5.0]]), np.array([[30.0, -15.0]]), 10.0, 40.0, 5.0)
-    below = _block_extent(np.array([[15.0, -8.0]]), np.array([[35.0, -8.0]]), 10.0, 40.0, 5.0)
-    assert (across[0][0], across[1][0]) == pytest.approx((22.5, 25.0))
-    assert (below[0][0], below[1][0]) == (np.inf, -np.inf)
-
-
 def test_y_layers_decide_which_pairs_are_checked() -> None:
     pairs = checked_pairs(HOUSING_ONLY)
 

@@ -23,7 +23,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from core.morphology.packaging.faces import crossing_free_lengths, fold_free_lengths
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import Packaging
 from core.morphology.packaging.shapes import (
@@ -168,22 +167,6 @@ def contact_faces(geo, phi_rad: np.ndarray):
     return proximal_face, np.array((0.0, -1.0)), distal_face, palmar - origin
 
 
-def fold_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
-    """Each face's length the other leaves unhidden at ``phi`` (``(n,)`` each;
-    the v4 to v6 measure, kept for the loss diagnostics)."""
-
-    return fold_free_lengths(*contact_faces(geo, np.atleast_1d(phi_rad)))
-
-
-def crossing_free(geo, phi_rad: np.ndarray) -> dict[str, np.ndarray]:
-    """Each face's length outside the fold at ``phi`` (``(n,)`` each): from
-    its outer end to where the other face's line crosses it
-    (``packaging.faces.crossing_free_lengths``, as the linkage's)."""
-
-    proximal_face, _, distal_face, _ = contact_faces(geo, np.atleast_1d(phi_rad))
-    return crossing_free_lengths(proximal_face, distal_face)
-
-
 @dataclass(frozen=True)
 class JointChecks:
     """What a 2R's motion is checked against."""
@@ -304,5 +287,5 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
 
 
 __all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples",
-           "carrier_local", "contact_faces", "crossing_free", "fold_free", "geometry",
+           "carrier_local", "contact_faces", "geometry",
            "margins", "servo_rear"]
