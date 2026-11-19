@@ -97,11 +97,13 @@ class LinkageMotion:
 def _gaps(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings,
           b: np.ndarray, bp: np.ndarray, tip: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
     """Every checked pair's gap at the posed samples: the pads against the other
-    body's parts, the distal pins against the PIP servo, the links as capsules."""
+    body's parts, the distal pins against the PIP servo and ``B`` against ``A``
+    (when checked), the links as capsules."""
 
     found = pad_margins(finger, packaging, b, tip, bp, settings.mcp_samples_rad)
-    pins = [pair for pair in (layout(packaging).pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin"))
-            if pair is not None]
+    checked = layout(packaging)
+    pins = [pair for pair in (*(checked.pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin")),
+                              checked.pair("a_pin", "b_pin")) if pair is not None]
     if pins:
         found.update(margins(assembly(finger, packaging), poses(finger, b, tip, bp), packaging, pins))
     if settings.link_radius_mm is not None:

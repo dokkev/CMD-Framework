@@ -144,6 +144,22 @@ def test_pad_pairs_follow_the_checks():
     assert off.packaging.proximal_pad_start_mm == 0.0
 
 
+def test_the_pins_of_the_two_phalanges_and_b_prime_against_the_servo_are_checked_by_default():
+    # The prototype's defaults (2026-11-19); the tests' own PINNED leaves them as written.
+
+    from core.morphology.mechanism.linkage.packaging import layout
+
+    def pairs(config):
+        return {pair.key for pair in layout(config.packaging).pairs}
+
+    values = read_config_file(CONFIG)
+    values.pop("mechanism")
+    on = pairs(MECHANISM.config_from_mapping(MECHANISM.split_settings(values)[0]))
+    assert ("a_pin", "b_pin") in on and ("bp_pin", "pip_servo") in on
+    off = pairs(load("goal.collision.check.a_pin_and_b_pin=false", "goal.collision.check.b_prime_pin_and_pip_servo=false"))
+    assert ("a_pin", "b_pin") not in off and ("bp_pin", "pip_servo") not in off
+
+
 def test_a_design_is_evaluated_with_the_objective():
     config = load("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
     e = MECHANISM.evaluate(TRIMMED, config)

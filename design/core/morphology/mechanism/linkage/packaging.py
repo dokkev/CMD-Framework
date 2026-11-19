@@ -112,6 +112,10 @@ class LinkagePackaging(Packaging):
     """``True``: the ``B'`` pin envelope may pass through the PIP servo body
     (the driver link sits in another Y layer). ``False``: it keeps the body
     clearance from the body over the motion, which ends the safe range."""
+    pin_a_b_check: bool = False
+    """``True``: ``A``'s and ``B``'s pin housings, on the two phalanges, must
+    not overlap over the motion. ``False``: a pin's housing may touch the
+    other body's pins (:data:`PIN_CHECKED`)."""
     ap_clearance_diameter_mm: float = 7.0
     """Virtual clearance around the PIP servo's shaft ``A'``, what ``A``'s pin
     envelope keeps clear of. The
@@ -245,6 +249,8 @@ def layout(packaging: LinkagePackaging) -> Layout:
         unchecked.add(("distal_pad", "mcp_servo"))
     if packaging.allow_collision_pip_servo_to_joint_bp:
         unchecked.add(("bp_pin", "pip_servo"))
+    if packaging.pin_a_b_check:
+        unchecked.discard(("a_pin", "b_pin"))
     keep_outs = [KeepOut("a_pin", "bp_pin", touch=True), KeepOut("bp_pin", "b_pin", touch=True)]
     if not packaging.allow_collision_pip_servo_to_joint_a:
         keep_outs.append(KeepOut("a_pin", "pip_shaft"))

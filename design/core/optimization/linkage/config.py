@@ -56,15 +56,16 @@ SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_fro
 RELATIVE_BOUNDS = ("ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm")
 """``A'`` from ``A`` and ``B'`` from ``B``, as searched (:mod:`~core.optimization.linkage.search`)."""
 COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin_and_pip_servo",
-                    "proximal_pad_and_distal_pad", "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad")
-COLLISION_DEFAULTS = {"a_pin_and_pip_servo": True, "a_pin_and_a_prime_pin": False, "b_prime_pin_and_pip_servo": False,
+                    "proximal_pad_and_distal_pad", "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad",
+                    "a_pin_and_b_pin")
+COLLISION_DEFAULTS = {"a_pin_and_pip_servo": True, "a_pin_and_a_prime_pin": False, "b_prime_pin_and_pip_servo": True,
                       "proximal_pad_and_distal_pad": True, "pip_servo_and_proximal_pad": True,
-                      "mcp_servo_and_proximal_pad": True}
+                      "mcp_servo_and_proximal_pad": True, "a_pin_and_b_pin": True}
 """The pairs checked by default (problem formulation A.4). Off: ``A``'s
 housing against the keep-out around the servo shaft at ``A'`` (within the
-servo's front, so ``a_pin_and_pip_servo`` already covers it), and ``B'``
-against the PIP servo (the middle link ``A-B'`` lies in another lateral
-layer than the servo)."""
+servo's front, so ``a_pin_and_pip_servo`` already covers it). On since
+2026-11-19: ``B'``'s housing against the PIP servo body and ``A``'s against
+``B``'s (the study's baseline.yaml keeps both off, as it ran)."""
 DEPRECATED_CHECKS = ("a_pin_and_proximal_pad", "b_pin_and_distal_pad", "distal_carrier_and_pip_servo")
 """Checks removed 2026-11-03, ignored in a goal: the contact interface spaces
 start at a set line (no drop to choose; their link's since 2026-11-04, each

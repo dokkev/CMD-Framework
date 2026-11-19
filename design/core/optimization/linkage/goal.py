@@ -199,6 +199,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         allow_collision_pip_servo_to_joint_a=not checks["a_pin_and_a_prime_pin"],
         a_pin_servo_check=checks["a_pin_and_pip_servo"],
         allow_collision_pip_servo_to_joint_bp=not checks["b_prime_pin_and_pip_servo"],
+        pin_a_b_check=checks["a_pin_and_b_pin"],
         pad_pad_check=checks["proximal_pad_and_distal_pad"],
         pads_off_pins=True,  # each pad clear of its own pins, ending anywhere (2026-10-27)
         links_clear_pads=True,  # the links bent around the pads: every face usable (2026-10-27)

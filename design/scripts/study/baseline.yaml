@@ -189,6 +189,9 @@ goal:
       # radius) and checks it against the MCP servo; false starts it at O,
       # unchecked.
       mcp_servo_and_proximal_pad: true
+      # A's and B's pin housings (2026-11-19: added, on in the prototype;
+      # off here, as the study ran).
+      a_pin_and_b_pin: false
       # Always checked, not options: the pads against the pivots of both bodies
       # (each pad ending anywhere, short of its own pins or past them), the
       # distal pad against the PIP and MCP servos, and the two servo bodies
