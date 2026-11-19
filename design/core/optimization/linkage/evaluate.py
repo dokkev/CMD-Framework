@@ -347,11 +347,16 @@ def overhang_violations(finger: Finger, config: LinkageConfig) -> tuple[float, f
 def pivot_gap_violations(finger: Finger, config: LinkageConfig) -> tuple[float, float]:
     """How far (mm) each pad's inner end (``A''``, ``B''``) lies from its own
     pivot (``A``, ``B``) beyond ``goal.pads.*.pivot_gap_max_mm``, along the
-    finger in the extended pose (0 within it, or without a limit)."""
+    finger in the extended pose (0 within it, or without a limit), or, with
+    ``goal.pads.extend_past_pivots``, short of it."""
 
     gaps = (abs(finger.proximal_end.x_mm - finger.joint.a.x_mm), abs(finger.distal_start.x_mm - finger.joint.b.x_mm))
     limits = (config.proximal_pivot_gap_max_mm, config.distal_pivot_gap_max_mm)
-    return tuple(0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(gaps, limits))
+    found = [0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(gaps, limits)]
+    if config.pads_extend_past_pivots:  # how far each pad stops short of its pivot
+        found = [max(found[0], finger.joint.a.x_mm - finger.proximal_end.x_mm),
+                 max(found[1], finger.distal_start.x_mm - finger.joint.b.x_mm)]
+    return tuple(found)
 
 
 __all__ = [

@@ -14,10 +14,8 @@ goal:
   pads:
     proximal:
       pivot_gap_max_mm: null
-      mount_offset_mm: [0, 0]     # the pad on its link line (no spacer)
     distal:
       pivot_gap_max_mm: null
-      mount_offset_mm: [0, 0]
 solver:
   objectives:
     - c_pad_mean

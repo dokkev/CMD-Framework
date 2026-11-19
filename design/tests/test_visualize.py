@@ -26,7 +26,8 @@ from visualize.motion import collisions, index_at, linkage_margins, servo_sweep 
 CONFIG = "scripts/optimize/prototype/config.yaml"
 OPEN = ("goal.hardware.pulley_radius_mm=6", "goal.pads.proximal.length_mm=[0, null]",
         "goal.pads.distal.length_mm=[0, null]", "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]",
-        "goal.pads.proximal.pivot_gap_max_mm=null", "goal.pads.distal.pivot_gap_max_mm=null")
+        "goal.pads.proximal.pivot_gap_max_mm=null", "goal.pads.distal.pivot_gap_max_mm=null",
+        "goal.pads.extend_past_pivots=false")
 """The other mechanisms read the linkage's goal, with a belt's pulleys and pads of any length."""
 MODULES = sorted(name for _, name, _ in pkgutil.walk_packages(visualize.__path__, "visualize."))
 

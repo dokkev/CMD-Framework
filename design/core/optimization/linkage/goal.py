@@ -117,6 +117,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     on_links = pads.values.pop("on_links", False)  # the pads' ends searched (2026-11-03; on links 2026-10-27 to then)
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
+    extend_past = pads.values.pop("extend_past_pivots", False)  # optional (absent: the pads may stop short)
+    if not isinstance(extend_past, bool):
+        raise ValueError("goal.pads.extend_past_pivots must be true or false")
     mount_policy = pads.values.pop("mount_policy", "searched")
     if mount_policy not in MOUNT_POLICIES:
         raise ValueError(f"goal.pads.mount_policy must be one of {MOUNT_POLICIES}")
@@ -308,6 +311,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         relative_bounds=relative,
         proximal_overhang_max_mm=overhangs["proximal"],
         distal_overhang_max_mm=overhangs["distal"],
+        pads_extend_past_pivots=extend_past,
         proximal_pivot_gap_max_mm=gaps["proximal"],
         distal_pivot_gap_max_mm=gaps["distal"],
         pulley_radius_mm=None if pulley is None else float(pulley),

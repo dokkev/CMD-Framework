@@ -196,6 +196,11 @@ class LinkageConfig:
     the proximal pad past the proximal body's front (its joint's housing, the
     servo), the distal pad behind the distal body's back, in the extended
     pose; ``None``: no limit."""
+    pads_extend_past_pivots: bool = False
+    """``goal.pads.extend_past_pivots``: each pad's inner end at or past its own
+    pivot toward the joint, ``A''_x >= A_x`` and ``B''_x <= B_x`` in the extended
+    pose (a pad never stops short of its pivot; it then runs under the pivot's
+    housing, so its mounting depth reaches at least the housing's radius)."""
     proximal_pivot_gap_max_mm: float | None = None
     distal_pivot_gap_max_mm: float | None = None
     """How far each pad's inner end may lie from its own joint's pivot along

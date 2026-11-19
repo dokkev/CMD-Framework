@@ -243,6 +243,8 @@ def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[floa
         offsets = (grid(v["proximal_mount_offset_mm"]), grid(v["distal_mount_offset_mm"]))
         proximal_most, distal_least = _clear_of_pins(config, a_x, v["a_z_mm"], b_x, offsets)
         p_high = min(p_high, proximal_most)
+        if config.pads_extend_past_pivots:  # A'' at or past A, B'' at or past B (toward the joint)
+            p_low, d_high = max(p_low, a_x), min(d_high, b_x)
         if p_high < p_low:
             return None
         app = grid(p_low + v["app_share"] * (p_high - p_low))

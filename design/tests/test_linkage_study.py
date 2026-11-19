@@ -34,6 +34,7 @@ required flexion."""
 
 
 PINNED = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
+    "goal.pads.extend_past_pivots=false", 
     "goal.link.oa_ratio=[null, null]", "goal.link.bc_ratio=[null, null]", 
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
@@ -699,3 +700,28 @@ def test_the_pip_servo_may_be_kept_near_the_mcp_servo():
     assert gap > 1.0 and e.constraints["static_mcp_servo_mm"] == pytest.approx(-gap)
     near = MECHANISM.evaluate(X, load(f"goal.hardware.pip_servo.mcp_gap_max_mm={gap - 1.0}"))
     assert near.constraints["static_mcp_servo_mm"] == pytest.approx(1.0, abs=1e-6) and not near.feasible
+
+
+def test_pads_may_be_held_to_extend_past_their_pivots():
+    from core.optimization.linkage.search import search_box, to_design
+
+    # X's proximal pad ends short of A: a violation of that much.
+    e = MECHANISM.evaluate(X, load())
+    short = e.finger.joint.a.x_mm - e.finger.proximal_end.x_mm
+    assert short > 0.0
+    held = MECHANISM.evaluate(X, load("goal.pads.extend_past_pivots=true"))
+    assert held.constraints["bounds_proximal_pad_mm"] >= short - 1e-9 and not held.feasible
+    # The search only offers pads that reach their pivots.
+    config = load("goal.pads.extend_past_pivots=true", "goal.pads.proximal.mount_offset_mm=[0, 10]",
+                  "goal.pads.distal.mount_offset_mm=[0, 10]")
+    low, high = search_box(config)
+    rng = np.random.default_rng(0)
+    decoded = 0
+    for _ in range(400):
+        x = to_design(rng.uniform(low, high), config)
+        if x is None:
+            continue
+        decoded += 1
+        f = decode(x, config.link_length_resolution_mm)
+        assert f.proximal_end.x_mm >= f.joint.a.x_mm - 1e-9 and f.distal_start.x_mm <= f.joint.b.x_mm + 1e-9
+    assert decoded > 0
