@@ -35,7 +35,7 @@ def matched_revolute(finger_mm: float, proximal_mm: float, distal_mm: float):
     config, _ = load_yaml(found, REPOSITORY_ROOT / "scripts/optimize/prototype/config.yaml", [
         f"goal.pads.proximal.length_mm=[{proximal_mm}, {proximal_mm}]",
         f"goal.pads.distal.length_mm=[{distal_mm}, {distal_mm}]",
-        "goal.motion.dip_flexion_deg=10", f"goal.link.finger_length_mm=[40, {finger_mm}]"])
+        "goal.motion.required_flexion_deg=10", f"goal.link.finger_length_mm=[40, {finger_mm}]"])
     start = config.goal.packaging.proximal_pad_start_mm
     low, high = config.bounds["distal_drop_mm"]
     tilt = config.bounds["servo_tilt_deg"][0]

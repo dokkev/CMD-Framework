@@ -6,6 +6,7 @@
 ## 결정됨
 
 ### Prototype 2목적 (2026-11-19)
+- 2026-11-19: Prototype `config.yaml` 정리(278줄 → 130줄 남짓, config 객체는 그대로). `goal.motion.dip_flexion_deg` → `required_flexion_deg`, γ 범위와 `ma_min`을 `goal.transmission`(`angle_deg`, `ma_min`)으로 묶음(옛 키는 안내 오류). SSoT에 없는 옵션은 생략 가능, 생략하면 지금 값: `symmetric_four_bar` false, `past_icr_max_mm` null, `tilt_step_deg` 5, `collision.check`(`COLLISION_DEFAULTS`), `solver.pareto_front` 0. `joint_span_ratio`(≤ 0.35)는 SSoT에 없지만 작동 중인 제약이라 남김.
 - 2026-11-19: 2026-11-04의 요구사항 위계(pad 하한이 있으면 phalanx 비율 하한을 제약에서 빼고 `*_ratio_shortfall_mm`로 보고)를 삭제. SSoT A.2대로 설정한 비율은 항상 제약. Prototype의 `proximal_length_ratio`, `distal_length_ratio`는 [null, null](이전에도 pad 하한 때문에 꺼져 있었으므로 결과 같음). Prototype hardware는 pivot 4개 모두 8 mm, pad 두께 4 mm.
 - 2026-11-19: 정렬을 `goal.alignment` 표로 모음. `joint_axes`(A, B를 축 위에, a_z = b_z = 0으로 고정, 옛 `search_bounds.a_z_mm/b_z_mm`를 대신함)와 `contact_faces`(옛 `goal.pads.align_mount_offsets`). 둘 다 true면 run과 seed 샘플링 전에 pad 하한 길이의 합이 한 직선에 들어가는지 확인하고, 안 되면 warning을 내고 멈춤(필요조건). Prototype은 둘 다 true, study는 `joint_axes`만 true.
 - 2026-11-19: `goal.pads.align_mount_offsets`가 장착면이 아니라 **접촉면**을 맞추도록 바꿈. distal 장착 깊이 = proximal 장착 깊이 + (h_P − h_D), 곧 두 pad의 장착 깊이 + 두께가 같아 편 자세에서 두 접촉면이 한 직선에 놓임. 두께가 같으면 이전과 같음. Prototype 설정은 이 옵션을 켬.

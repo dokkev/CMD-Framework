@@ -16,7 +16,7 @@ MECHANISM = mechanism("revolute_parallel")
 STUDY = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[20, null]",
          "goal.link.finger_length_mm=[99.5, 100]", "goal.link.proximal_length_mm=[40, 60]",
-         "goal.motion.dip_flexion_deg=110", "goal.hardware.pulley_radius_mm=6")
+         "goal.motion.required_flexion_deg=110", "goal.hardware.pulley_radius_mm=6")
 X = (50.0, 50.0, 38.6, 25.0, 3.0, 3.0, 20.0, 5.0, 15.0)
 """|OA| = |AC| = 50, pads 29.1 + 25 mm (the proximal one to where the faces
 cross at 120 deg) 3 mm below their lines, the servo tilted 20 deg on A', 15 mm
@@ -43,7 +43,7 @@ def test_the_belt_turns_the_joint_by_the_servo_angle():
 
 def test_no_dead_centre_limits_the_flexion():
     # The parallelogram stopped at 120 deg (transmission 30-150 deg); the belt does not.
-    e = MECHANISM.evaluate(X, load("goal.motion.dip_flexion_deg=130"))
+    e = MECHANISM.evaluate(X, load("goal.motion.required_flexion_deg=130"))
     assert e.stop_reason != "transmission" and e.q_max_deg > 120.0
 
 

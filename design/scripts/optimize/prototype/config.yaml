@@ -1,245 +1,113 @@
-# CoDe finger design study (core/optimization/linkage).
+# CoDe prototype optimization (design/SSoT/problem_formulation.md A.5).
 #
-# PROTOTYPE OPTIMIZATION ("production"): this file and the files extending it
-# design the finger that gets built. They are not the study's
-# (scripts/study/, frozen from this file at 6ccab53) and must not be mixed
-# with it: no study rule or output comes in here, nothing here goes into a
-# study config, and results are not compared across the two (README.md,
-# "Two optimizations: prototype and study").
+#   python scripts/optimize/run.py scripts/optimize/prototype/config.yaml
 #
-#   python scripts/optimize/run.py
+# Designs the finger that gets built. Kept apart from the study
+# (scripts/study/): no rule or result crosses between the two (README.md,
+# "Two optimizations: prototype and study"). For another condition, write a
+# file with `base: config.yaml` and the entries it changes.
 #
-# This file is the study's only input. For another condition, write a file
-# that extends this one (base: ../prototype/config.yaml) and run it:
-#   python scripts/optimize/run.py path/to/that.yaml
-#
-# One run per seed in solver.optimizer.seeds, then the runs verified on
-# solver.sampling.verify_step_deg and merged (output/linkage/portfolio_NNN/
-# seeds.csv). Every entry below is required; an
-# unknown one is an error.
-#
-# Two levels, by who sets them:
-#   goal    what the finger must do, carry and keep clear (the user; the GUI's form)
-#   solver  how the design is searched (defaults suffice; an advanced tab)
-# Requirements live in goal; solver only limits the search.
-# Lengths in mm, angles in degrees.
-#
-# Fixed in the code, not options:
-#   - no stopper margin past goal.motion.dip_flexion_deg;
-#   - the fingertip C stays ahead of the MCP (x >= 0, MCP at 0) while flexing;
-#   - the servos are taken at their model's nominal size, with no tolerance;
-#   - each pad's length is searched in [min, max] (goal.pads.*.length_mm).
+# Every entry is required unless marked optional; an unknown one is an
+# error. Lengths in mm, angles in degrees, ranges [min, max] (null: no limit;
+# [a, a] fixes a value).
 
-
-# 1. Goal ---------------------------------------------------------------------
-
-# The CoDe (crossed four-bar) mechanism; runs go to output/linkage/<config name>/.
-mechanism: linkage
+mechanism: linkage                # CoDe (crossed four-bar); runs go to output/linkage/<config name>/
 profile: prototype
 
-goal:
-  # The ranges of motion the finger must reach safely.
-  motion:
-    # Required distal flexion q_req: the relative angle between the two
-    # phalanx axes (0 extended, 180 antiparallel). Every pose on [0, q_req]
-    # must be valid (F_motion), with the transmission angle in range and
-    # MA_wc >= ma_min there. The MCP is held at 0. No hyperextension is
-    # required (problem formulation, 2026-11-18).
-    dip_flexion_deg: 150
+# 1. Goal: what the finger must do and carry ----------------------------------
 
-  # The contact modules each pad must carry. Each pad is its link's contact
-  # interface space: a block whose mounting surface lies mount_offset_mm
-  # palmar of the link line (O-A, B-C; the one datum), its thickness palmar
-  # of that; length and A'' / B'' are measured along that line. The offset is
-  # a design variable on the same range for every mechanism (the 2R's
-  # segments too): mounted on the line, a pad must end short of its own pin;
-  # hung below it, it may run under the pin and its face lies deeper (the
-  # fold costs more). The pins and the servos are collisions either way.
-  # The pads' ends A'' and B'' are searched with the links (on_links: false):
-  # each pad may run past its joint (the proximal one past A toward B, the
-  # distal one back past B toward A) as far as it pays in coverage against
-  # the curl it costs. (on_links: true searches each pad on its own link
-  # only, A'' at A and B'' at B; scripts/optimize/extend_pads.py then grows
-  # them afterwards.)
-  # Alignment in the extended pose (design/SSoT/problem_formulation.md A.5):
-  #   joint_axes     A and B on their phalanges' axes, so the two axes lie on
-  #                  one line (A_z = B_z = 0; not searched).
-  #   contact_faces  the two pads' contact faces at one depth below their
-  #                  link lines (mount_offset_mm + height_mm equal): one
-  #                  offset searched, the other shifted by the pads' height
-  #                  difference (the 2R-DD's drops too).
-  # Before it starts, the run checks (necessary conditions only) that the
-  # mounting offsets can take up the pads' height difference (contact_faces)
-  # and, both true putting the two faces on one line, that the least pads fit
-  # on it without overlapping; if not, it stops with a warning.
+goal:
+  motion:
+    # q_req: every pose of [0, q_req] must be valid (A.4) and meet the
+    # transmission constraints below.
+    required_flexion_deg: 150
+
+  # Both on one line in the extended pose (A.5):
+  #   joint_axes     A and B on their phalanges' axes (A_z = B_z = 0).
+  #   contact_faces  the two contact faces at one depth below their link
+  #                  lines (mount_offset_mm + height_mm equal).
+  # The run first checks that the least pads can be aligned and fit on one
+  # line, and stops with a warning if not.
   alignment:
     joint_axes: true
     contact_faces: true
 
+  # The contact pads (C): a block mount_offset_mm below its link line (O-A,
+  # B-C), height_mm thick; its length and ends are searched.
   pads:
-    on_links: false
     proximal:
-      # Mounting length a-b (A'' included), [min, max], laid from the pad's
-      # outer end (the MCP servo side; for the distal pad, C), the rest of the
-      # line toward the joint left empty.
-      #   min  a constraint: the module to carry (0: none).
-      #   max  a goal and a cap: the pad is never longer, and the longer the
-      #        better up to it. null: the finger's own limit,
-      #        goal.link.finger_length_mm's max (no pad outgrows the finger).
-      # The length is searched in [min, max]; [L, L] is exactly L.
-      length_mm: [20, null]
-      # The mounting surface's offset below the link line, [min, max] searched
-      # (a number: held at it; [0, 0]: on the line). Up to the 2R-DD's servo
-      # radius (9.5 mm) and a little more, so its pads too may pass under it.
-      mount_offset_mm: [0, 10]
-      # How deep the space is, the module and its mounting together. One
-      # value per study (a range would always end at its min); sweep it to
-      # see what thickness costs. The pad is a plain block (no chamfer: a
-      # chamfer only shortens the contact face).
+      length_mm: [20, null]       # least length (the module to carry); null max: the finger's
+      mount_offset_mm: [0, 10]    # searched depth of the mounting surface
       height_mm: 4
-      # How far A'' may lie past the extended pose's centre of rotation (mm;
-      # A-B' crossing A'-B). null: no limit, the faces' crossing (pad_coverage)
-      # already leaves out what folds in.
-      past_icr_max_mm: null
     distal:
       length_mm: [25, null]
       mount_offset_mm: [0, 10]
       height_mm: 4
 
-  # The finger's links, each [min, max] (null: no limit). Requirements on the
-  # finger's size, not objectives: the front may sit on them (the run reports
-  # it), which then says the size limit binds.
+  # The morphology's size (m in A.2): L_f, and the phalanges' shares rho_i.
   link:
-    # |OC| in the extended pose.
-    finger_length_mm: [90, 100]
-    # The finger's segments, |OA''| (the MCP O to where the proximal body ends)
-    # and |B''C| (where the distal body starts to the fingertip C), and |AB|
-    # (the four-bar's span along the finger) as shares of the extended |OC|,
-    # [min, max] (null: no limit). Each bound set is a constraint (problem
-    # formulation A.2). (proximal_length_mm, distal_length_mm and
-    # joint_span_mm, optional, bound them in mm.)
+    finger_length_mm: [90, 100]   # |OC| extended
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
-    joint_span_ratio: [null, 0.35]
-    # true: the four-bar an antiparallelogram, |B'B| = |A'A| and |AB'| = |A'B|
-    # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
-    # A'A, as a rolling contact joint's.
-    symmetric_four_bar: false
-    # Transmission angle gamma at B' (between B'->A and B'->B) on [0, q_req],
-    # [min, max] (a 30 deg margin from 0 and 180).
-    transmission_angle_deg: [30, 150]
+    joint_span_ratio: [null, 0.35]  # |AB| / L_f (optional; not in A.2: kept until decided)
 
-  # The actuators the finger is built around.
+  # The CFL's transmission constraints on [0, q_req] (A.5.2).
+  transmission:
+    angle_deg: [30, 150]          # transmission angle gamma at B'
+    ma_min: 0.2                   # MA_wc >= ma_min (null: none)
+
+  # The actuators (A).
   hardware:
     pip_servo:
-      model: xm335              # core.hardware.ACTUATORS
-      # Dorsal tilt of the servo body from -X, [min, max], searched every
-      # tilt_step_deg from min; [a, a] holds it at a.
-      tilt_angle_deg: [15, 15]
-      tilt_step_deg: 5
-      # The least worst-case mechanical advantage MA_wc = min |d theta / d q2|
-      # on [0, q_req] (CFL only: the 2Rs' MA is 1, the symmetric RCJ's 1/2).
-      # null: no limit. 0.2: the servo delivers at least a fifth of its torque.
-      ma_min: 0.2
+      model: xm335                # core.hardware.ACTUATORS
+      tilt_angle_deg: [15, 15]    # dorsal tilt of the body from -X (alpha_2)
     mcp_servo:
       model: xm335
 
-  # Collision checks. No clearance is added: touching is allowed, and the
-  # tolerances are part of the sizes below and of the pads.
+  # Self-collision (A.4): every pair is checked (touching allowed) but a
+  # pivot and the actuator housing on it, and parts in other lateral layers
+  # (core.optimization.linkage.config.COLLISION_DEFAULTS). Sizes include
+  # their tolerances.
   collision:
-    # Sizes and ranges the checks use.
     param:
-      # Each pivot's size, its tolerance included (2026-11-19: every pivot
-      # 8 mm, the prototype's hardware). Half of A's / B's is also how far
-      # palmar of its link line the proximal / distal pad starts.
-      pivot_diameter_mm:
+      pivot_diameter_mm:          # the prototype's pins (2026-11-19)
         a: 8
         a_prime: 8
         b: 8
         b_prime: 8
 
-    # Which pairs are checked.
-    check:
-      # true: must not collide over the motion; false: may overlap in the side
-      # view (separate Y layers, or a joint interface).
-      # A's housing and the PIP servo body (2026-10-27: on; A no longer hangs
-      # off the servo on a bracket inside its outline).
-      a_pin_and_pip_servo: true
-      # A's housing and the keep-out around the servo shaft at A' (10 mm, within
-      # the servo's 19 mm front: implied by a_pin_and_pip_servo, so off).
-      a_pin_and_a_prime_pin: false
-      # The middle link A-B' sits in another Y layer than the servo.
-      b_prime_pin_and_pip_servo: false
-      proximal_pad_and_distal_pad: true
-      # The PIP servo body and the proximal pad (one body, still kept apart):
-      # true lets the servo come down to the pad's top face, A's radius below
-      # OA (this replaces the old rule "the servo stays above OA"); false lets
-      # them overlap (separate Y layers).
-      pip_servo_and_proximal_pad: true
-      # true starts the proximal pad at the MCP servo's shaft disk (its model's
-      # radius) and checks it against the MCP servo; false starts it at O,
-      # unchecked.
-      mcp_servo_and_proximal_pad: true
-      # Always checked, not options: the pads against the pivots of both bodies
-      # (each pad ending anywhere, short of its own pins or past them), the
-      # distal pad against the PIP and MCP servos, and the two servo bodies
-      # against each other.
 
-
-# 2. Solver -------------------------------------------------------------------
+# 2. Solver: how the designs are searched -------------------------------------
 
 solver:
-  # The prototype formulation's two objectives (design/SSoT/problem_formulation.md A.5),
-  # both maximized:
-  #   c_pad_mean   the cylinder-based contact pad coverage: at each pose of
-  #                Q_eval = {90, (90 + q_req)/2, q_req} deg, the part of the
-  #                two pads a cylinder can hold with both, over the posed
-  #                finger length L_f(q); averaged over the poses.
-  #   ma_wc        the worst-case mechanical advantage over [0, q_req]
-  #                (goal.link.ma_min stays its floor).
+  # Both maximized (A.5.4): the cylinder-based pad coverage over Q_eval and
+  # the worst-case mechanical advantage over [0, q_req].
   objectives:
     - c_pad_mean
     - ma_wc
 
-  # The hypervolume reference point (the worst value that still counts).
-  pareto_front:
-    c_pad_mean: 0                 # no pad
-    ma_wc: 0                      # no torque at the PIP
-
-  # Where the optimizer looks for the variables no requirement bounds. Search
-  # limits, not requirements: keep them wide enough that the front does not
-  # sit on them (the run reports bound hits). A' and B' are searched relative
-  # to A and B. The rest come from the goal, searched so that it holds:
-  #   |OC|            goal.link.finger_length_mm (B_x = |OC| - BC)
-  #   BC              goal.link.distal_length_mm (if given)
-  #   A_x = |OA|      goal.link.proximal_length_mm (if given) and _ratio, |AB|'s, between O and B
-  #   A'_x            from the least that keeps the PIP servo off the MCP servo
-  # A null max there is taken as finger_length_mm's max.
+  # Search limits for what no requirement bounds (A' and B' relative to A
+  # and B; the pads' ends past A' and B'). Keep them wide: the run reports
+  # a front sitting on one.
   search_bounds:
-    ap_from_a_x_mm: [-20, 30]     # A'_x - A_x
-    ap_from_a_z_mm: [0, 25]       # A'_z - A_z
-    bp_from_b_x_mm: [-50, 20]     # B'_x - B_x (extended)
-    bp_from_b_z_mm: [-60, 80]     # B'_z - B_z
-    # The pads may end short of A' and B' or past them: searched as shares of
-    # where they fit (core.optimization.linkage.search), these bound the box.
-    app_offset_mm: [-60, 60]      # A''_x - A'_x: the proximal pad past A'
-    bpp_offset_mm: [-60, 60]      # B'_x - B''_x: the distal pad past B'
+    ap_from_a_x_mm: [-20, 30]
+    ap_from_a_z_mm: [0, 25]
+    bp_from_b_x_mm: [-50, 20]
+    bp_from_b_z_mm: [-60, 80]
+    app_offset_mm: [-60, 60]
+    bpp_offset_mm: [-60, 60]
 
-  # Motion sampling.
   sampling:
     flexion_step_deg: 1.0         # uniform q2 grid of the motion
-    verify_step_deg: 0.05         # fine grid for verifying the front
+    verify_step_deg: 0.05         # the front re-checked on this grid
 
-  # Resolution the prototype is made to: each part's dimensions are rounded
-  # to it (B re-assembled from the rounded bars).
-  prototyping_resolution_mm: 0.1
+  prototyping_resolution_mm: 0.1  # every dimension rounded to it
 
   optimizer:
-    # Which preset runs (output/linkage/<config name>/<preset>/):
-    #   quick        a look in about a minute, for trends while exploring
-    #   search       the full study, to settle a design (about 15 min)
-    #   convergence  the search run until the front levels off (each run's
-    #                history; about 2 h)
+    # output/linkage/<config name>/<preset>/:
+    #   quick        a look in about a minute
+    #   search       to settle a design (about 15 min)
+    #   convergence  until the front levels off (about 2 h)
     preset: convergence
     presets:
       quick:
@@ -248,9 +116,7 @@ solver:
         generations: 300
         seeds: [0]
       search:
-        # One or a list (scripts/optimize/run.py runs each with every seed),
-        # merged into one verified front.
-        algorithm: [nsga2, smsemoa]
+        algorithm: [nsga2, smsemoa]   # each run with every seed, merged into one verified front
         population: 200
         generations: 1000
         seeds: [0, 1, 2]
@@ -259,6 +125,6 @@ solver:
         population: 200
         generations: 3000
         seeds: [0, 1, 2]
-    # Feasible designs sampled under this goal (scripts/optimize/sample_seeds.py).
+    # Feasible designs of this goal (scripts/optimize/sample_seeds.py).
     warm_start:
       - output/linkage/config/samples/seeds.csv

@@ -23,7 +23,7 @@ RULES = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm
          "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
          "goal.link.distal_length_mm=[25, null]", "goal.link.joint_span_ratio=[null, null]",
          "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]",
-         "goal.pads.on_links=false", "goal.motion.dip_flexion_deg=120",
+         "goal.pads.on_links=false", "goal.motion.required_flexion_deg=120",
          "goal.pads.mount_policy=shallowest_supported")
 LINKAGE, REVOLUTE = mechanism("linkage"), mechanism("revolute")
 CODE = [40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1, 0.0, 0.0]

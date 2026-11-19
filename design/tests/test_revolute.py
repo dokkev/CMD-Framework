@@ -14,7 +14,7 @@ from core.optimization.study import load_yaml
 ROOT = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
 PINNED = (  # the hardware these tests were written for (pivots 6/10/6/6 mm, 5 mm pads)
     "goal.collision.param.pivot_diameter_mm.a=6", "goal.collision.param.pivot_diameter_mm.a_prime=10", "goal.collision.param.pivot_diameter_mm.b=6", "goal.collision.param.pivot_diameter_mm.b_prime=6", "goal.pads.proximal.height_mm=5", "goal.pads.distal.height_mm=5", "goal.link.finger_length_mm=[90, 100]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
-          "goal.pads.distal.length_mm=[25, null]", "goal.motion.dip_flexion_deg=120",
+          "goal.pads.distal.length_mm=[25, null]", "goal.motion.required_flexion_deg=120",
           "goal.hardware.pip_servo.tilt_angle_deg=[90, 90]", "goal.link.proximal_length_ratio=[null, null]",
           "goal.link.distal_length_ratio=[null, null]")
 """The study these tests were written for, whatever the config file now asks."""
@@ -181,7 +181,7 @@ def test_each_pad_mounts_on_its_segment_line():
 def test_the_coverage_is_the_cylinder_rule_on_the_hinge():
     # Both faces lie 5 mm palmar of the hinge A, so they cross on the bisector and a
     # point at distance s from A's foot on one face pairs with the point at s on the other.
-    config = load(*SHORT_PADS, "goal.motion.dip_flexion_deg=150")
+    config = load(*SHORT_PADS, "goal.motion.required_flexion_deg=150")
     long = (60.0, 40.0, 50.0, 10.0, 0.0, 0.0, 90.0)
     e = MECHANISM.evaluate(long, config)
     from core.evaluation import common_length_mm
@@ -201,7 +201,7 @@ def test_the_coverage_is_the_cylinder_rule_on_the_hinge():
 def test_a_collision_between_samples_is_caught_on_the_optimization_grid():
     # The pads graze each other near 153.7 deg, between the 1 deg steps:
     # the coarse sweep finds what the verification grid does.
-    overrides = (*FIXED_PADS, "goal.motion.dip_flexion_deg=180")
+    overrides = (*FIXED_PADS, "goal.motion.required_flexion_deg=180")
     x = (52.0, 58.0, 42.0, 33.0, 0.0, 0.0, 90.0)
     coarse = load(*overrides)
     fine = MECHANISM.refine(coarse, coarse.goal.verify_step_rad)

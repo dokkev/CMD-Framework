@@ -57,6 +57,14 @@ RELATIVE_BOUNDS = ("ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_fro
 """``A'`` from ``A`` and ``B'`` from ``B``, as searched (:mod:`~core.optimization.linkage.search`)."""
 COLLISION_CHECKS = ("a_pin_and_pip_servo", "a_pin_and_a_prime_pin", "b_prime_pin_and_pip_servo",
                     "proximal_pad_and_distal_pad", "pip_servo_and_proximal_pad", "mcp_servo_and_proximal_pad")
+COLLISION_DEFAULTS = {"a_pin_and_pip_servo": True, "a_pin_and_a_prime_pin": False, "b_prime_pin_and_pip_servo": False,
+                      "proximal_pad_and_distal_pad": True, "pip_servo_and_proximal_pad": True,
+                      "mcp_servo_and_proximal_pad": True}
+"""The pairs checked by default (problem formulation A.4). Off: ``A``'s
+housing against the keep-out around the servo shaft at ``A'`` (within the
+servo's front, so ``a_pin_and_pip_servo`` already covers it), and ``B'``
+against the PIP servo (the middle link ``A-B'`` lies in another lateral
+layer than the servo)."""
 DEPRECATED_CHECKS = ("a_pin_and_proximal_pad", "b_pin_and_distal_pad", "distal_carrier_and_pip_servo")
 """Checks removed 2026-11-03, ignored in a goal: the contact interface spaces
 start at a set line (no drop to choose; their link's since 2026-11-04, each
@@ -87,7 +95,7 @@ class LinkageConfig:
     bounds: Mapping[str, tuple[float, float]]
     packaging: LinkagePackaging = field(default_factory=LinkagePackaging)
     required_rom_rad: float = math.radians(150.0)
-    """``goal.motion.dip_flexion_deg``: the rotation of ``BC`` relative to
+    """``goal.motion.required_flexion_deg``: the rotation of ``BC`` relative to
     ``OA`` (``phi = q_pip + q_dip``) every design must reach safely; ``k_max``
     and the effective pads are taken on ``[0, required_rom_rad]``."""
     mcp_flexion_max_rad: float = math.radians(90.0)
@@ -100,7 +108,7 @@ class LinkageConfig:
     transmission_angle_range_rad: tuple[float, float] = (math.radians(30.0), math.radians(150.0))
     """The transmission angle at ``B'`` stays within it over the whole motion."""
     ma_min: float | None = None
-    """``goal.hardware.pip_servo.ma_min``: the least worst-case mechanical
+    """``goal.transmission.ma_min``: the least worst-case mechanical
     advantage ``MA_wc`` on ``[0, q_req]`` (CFL only; ``None``: no limit)."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 110.0)
     """``|OC|`` in the extended pose."""
@@ -468,6 +476,7 @@ class LinkageConfig:
 
 __all__ = [
     "COLLISION_CHECKS",
+    "COLLISION_DEFAULTS",
     "DEPRECATED_CHECKS",
     "MOUNT_POLICIES",
     "OBJECTIVE_NAMES",

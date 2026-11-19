@@ -166,7 +166,7 @@ def test_a_design_is_evaluated_with_the_objective():
 
 def test_the_transmission_range_bounds_the_motion():
     wide = MECHANISM.evaluate(X, load())
-    narrow = MECHANISM.evaluate(X, load("goal.link.transmission_angle_deg=[70, 110]"))
+    narrow = MECHANISM.evaluate(X, load("goal.transmission.angle_deg=[70, 110]"))
     assert narrow.q_max_rad < wide.q_max_rad
     assert narrow.constraints["gamma_range_deg"] > 0.0 and not narrow.feasible
 
@@ -174,12 +174,12 @@ def test_the_transmission_range_bounds_the_motion():
 def test_ma_min_may_be_set():
     pads = ("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
     assert load(*pads).ma_min == pytest.approx(0.2)  # the goal's default
-    free = MECHANISM.evaluate(TRIMMED, load(*pads, "goal.hardware.pip_servo.ma_min=null"))
+    free = MECHANISM.evaluate(TRIMMED, load(*pads, "goal.transmission.ma_min=null"))
     assert free.feasible and free.constraints["ma_min"] == 0.0
     ma = free.ma_wc
     assert 0.0 < ma < 2.0
     for limit, feasible in ((ma - 0.01, True), (ma + 0.01, False)):
-        e = MECHANISM.evaluate(TRIMMED, load(*pads, f"goal.hardware.pip_servo.ma_min={limit}"))
+        e = MECHANISM.evaluate(TRIMMED, load(*pads, f"goal.transmission.ma_min={limit}"))
         assert e.constraints["ma_min"] == pytest.approx(limit - ma)
         assert e.feasible is feasible
 

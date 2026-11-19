@@ -25,7 +25,7 @@
 # Lengths in mm, angles in degrees.
 #
 # Fixed in the code, not options:
-#   - no stopper margin past goal.motion.dip_flexion_deg;
+#   - no stopper margin past goal.motion.required_flexion_deg;
 #   - the fingertip C stays ahead of the MCP (x >= 0, MCP at 0) while flexing;
 #   - the servos are taken at their model's nominal size, with no tolerance;
 #   - each pad's length is searched in [min, max] (goal.pads.*.length_mm).
@@ -41,9 +41,9 @@ goal:
     # Required distal flexion q_req: the relative angle between the two
     # phalanx axes (0 extended, 180 antiparallel). Every pose on [0, q_req]
     # must be valid (F_motion), with the transmission angle in range and
-    # MA_wc >= ma_min there. The MCP is held at 0. No hyperextension is
+    # MA_wc >= goal.transmission.ma_min there. The MCP is held at 0. No hyperextension is
     # required (problem formulation, 2026-11-18).
-    dip_flexion_deg: 150
+    required_flexion_deg: 150
 
   # The contact modules each pad must carry. Each pad is its link's contact
   # interface space: a block whose mounting surface lies mount_offset_mm
@@ -126,9 +126,16 @@ goal:
     # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
     # A'A, as a rolling contact joint's.
     symmetric_four_bar: false
-    # Transmission angle gamma at B' (between B'->A and B'->B) on [0, q_req],
-    # [min, max] (a 30 deg margin from 0 and 180).
-    transmission_angle_deg: [30, 150]
+
+  # The CFL's transmission constraints on [0, q_req] (problem formulation A.5.2).
+  transmission:
+    # Transmission angle gamma at B' (between B'->A and B'->B), [min, max]
+    # (a 30 deg margin from 0 and 180).
+    angle_deg: [30, 150]
+    # The least worst-case mechanical advantage MA_wc = min |d theta / d q2|
+    # (CFL only: the 2Rs' MA is 1, the symmetric RCJ's 1/2). null: no limit.
+    # 0.2: the servo delivers at least a fifth of its torque.
+    ma_min: 0.2
 
   # The actuators the finger is built around.
   hardware:
@@ -138,10 +145,6 @@ goal:
       # tilt_step_deg from min; [a, a] holds it at a.
       tilt_angle_deg: [0, 90]
       tilt_step_deg: 5
-      # The least worst-case mechanical advantage MA_wc = min |d theta / d q2|
-      # on [0, q_req] (CFL only: the 2Rs' MA is 1, the symmetric RCJ's 1/2).
-      # null: no limit. 0.2: the servo delivers at least a fifth of its torque.
-      ma_min: 0.2
     mcp_servo:
       model: xm335
 

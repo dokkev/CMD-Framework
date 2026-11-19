@@ -19,6 +19,7 @@ from core.hardware import actuator
 from core.morphology.mechanism.linkage.packaging import LinkagePackaging
 from core.morphology.packaging.hardware import ContactPad
 from core.optimization.linkage.config import (
+    COLLISION_DEFAULTS,
     COLLISION_CHECKS,
     DEPRECATED_CHECKS,
     DEPRECATED_PARAMS,
@@ -47,7 +48,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     goal, solver = tree.table("goal"), tree.table("solver")
     tree.done()
     motion, pads, link = goal.table("motion"), goal.table("pads"), goal.table("link")
-    alignment = goal.table("alignment")
+    alignment, transmission = goal.table("alignment"), goal.table("transmission")
     align_link, align = alignment.take("joint_axes"), alignment.take("contact_faces")
     alignment.done()
     for name, value in (("joint_axes", align_link), ("contact_faces", align)):
@@ -69,7 +70,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     loss.done()
     if "hyperextension_deg" in motion.values:
         raise ValueError("goal.motion.hyperextension_deg was removed (no hyperextension requirement)")
-    angles = {"dip_flexion_deg": math.radians(float(motion.take("dip_flexion_deg")))}
+    if "dip_flexion_deg" in motion.values:
+        raise ValueError("goal.motion.dip_flexion_deg was renamed goal.motion.required_flexion_deg (q_req)")
+    required_flexion = math.radians(float(motion.take("required_flexion_deg")))
     motion.done()
 
     objectives = tuple(solver.take("objectives"))
@@ -91,13 +94,22 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     distal_ratio = _range(link.take("distal_length_ratio"), "goal.link.distal_length_ratio")
     icr0_share = _range(link.values.pop("icr0_share", [None, None]), "goal.link.icr0_share")  # optional
     dorsal_space = link.values.pop("dorsal_space_mm", None)  # optional
-    angle_low, angle_high = _range(link.take("transmission_angle_deg"), "goal.link.transmission_angle_deg")
-    symmetric = link.take("symmetric_four_bar")
+    if "transmission_angle_deg" in link.values:
+        raise ValueError("goal.link.transmission_angle_deg moved to goal.transmission.angle_deg")
+    # Optional (absent: false): the four-bar an antiparallelogram.
+    symmetric = link.values.pop("symmetric_four_bar", False)
     if not isinstance(symmetric, bool):
         raise ValueError("goal.link.symmetric_four_bar must be true or false")
     link.done()
+    # The CFL's transmission constraints (problem formulation A.5.2): gamma's
+    # range and the least worst-case mechanical advantage.
+    angle_low, angle_high = _range(transmission.take("angle_deg"), "goal.transmission.angle_deg")
     angle = (math.radians(0.0 if angle_low is None else angle_low),
              math.radians(180.0 if angle_high is None else angle_high))
+    ma_min = transmission.take("ma_min")
+    if ma_min is not None and not float(ma_min) > 0.0:
+        raise ValueError("goal.transmission.ma_min must be positive, or null")
+    transmission.done()
 
     on_links = pads.values.pop("on_links", False)  # the pads' ends searched (2026-11-03; on links 2026-10-27 to then)
     if not isinstance(on_links, bool):
@@ -114,7 +126,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         high = finger_high if high is None else high
         height = float(pad.take("height_mm"))
         if side == "proximal":
-            past_icr = pad.take("past_icr_max_mm")
+            past_icr = pad.values.pop("past_icr_max_mm", None)  # optional (absent: no limit)
             past_icr = None if past_icr is None else float(past_icr)
         pad.values.pop("drop_mm", None)  # removed 2026-11-03: the space starts at a set line (the link's)
         # The mounting surface's offset below the link line, searched in [min, max]
@@ -146,19 +158,20 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     tilt_low, tilt_high = _range(pip_servo.take("tilt_angle_deg"), "goal.hardware.pip_servo.tilt_angle_deg")
     if tilt_low is None or tilt_high is None:
         raise ValueError("goal.hardware.pip_servo.tilt_angle_deg needs both ends")
-    tilt_step = float(pip_servo.take("tilt_step_deg"))
+    tilt_step = float(pip_servo.values.pop("tilt_step_deg", 5.0))  # optional: a searched tilt's grid
     if not tilt_step > 0.0:
         raise ValueError("goal.hardware.pip_servo.tilt_step_deg must be positive")
     if "torque_ratio_max" in pip_servo.values:
         raise ValueError("goal.hardware.pip_servo.torque_ratio_max was replaced by ma_min (MA_wc >= ma_min)")
-    ma_min = pip_servo.values.pop("ma_min", None)
-    if ma_min is not None and not float(ma_min) > 0.0:
-        raise ValueError("goal.hardware.pip_servo.ma_min must be positive, or null")
+    if "ma_min" in pip_servo.values:
+        raise ValueError("goal.hardware.pip_servo.ma_min moved to goal.transmission.ma_min")
     pip_servo.done()
     mcp_model = mcp_servo.take("model")
     mcp_servo.done()
 
-    param, check = collision.table("param"), collision.table("check")
+    # The pairs checked follow the problem formulation (A.4); a goal may
+    # still set one, for a diagnosis (absent: COLLISION_DEFAULTS).
+    param, check = collision.table("param"), _Table(collision.values.pop("check", {}), "goal.collision.check")
     collision.done()
     diameters = param.table("pivot_diameter_mm")
     link_radius = param.values.pop("link_radius_mm", None)  # optional
@@ -169,7 +182,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     diameters.done()
     for name in DEPRECATED_CHECKS:
         check.values.pop(name, None)
-    checks = {name: check.take(name) for name in COLLISION_CHECKS}
+    checks = {name: check.values.pop(name, COLLISION_DEFAULTS[name]) for name in COLLISION_CHECKS}
     check.done()
     for name, value in checks.items():
         if not isinstance(value, bool):
@@ -193,10 +206,10 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         pad_mcp_check=checks["mcp_servo_and_proximal_pad"], distal_pad_mcp_check=True,
     )
 
-    reference = solver.table("pareto_front")
-    # Every listed objective has its entry; others may stay for another run.
-    hypervolume = {name: reference.take(name) for name in objectives}
-    hypervolume.update({name: reference.take(name) for name in OBJECTIVE_NAMES if name in reference.values})
+    # The hypervolume reference point (optional: absent, 0 for every objective).
+    reference = _Table(solver.values.pop("pareto_front", {}), "solver.pareto_front")
+    hypervolume = {name: reference.values.pop(name, 0.0) for name in objectives}
+    hypervolume.update({name: reference.values.pop(name) for name in OBJECTIVE_NAMES if name in reference.values})
     reference.done()
     search = solver.table("search_bounds")
     # A and B on their phalanges' axes (goal.alignment.joint_axes): the
@@ -245,7 +258,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     return LinkageConfig(
         bounds=bounds,
         packaging=packaging,
-        required_rom_rad=angles["dip_flexion_deg"],
+        required_rom_rad=required_flexion,
         mcp_flexion_max_rad=0.0,
         mcp_rotation_checked=False,
         transmission_angle_range_rad=angle,

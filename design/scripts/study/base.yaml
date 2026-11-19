@@ -19,7 +19,7 @@ output: output/study
 
 goal:
   motion:
-    dip_flexion_deg: 120
+    required_flexion_deg: 120
   link:
     finger_length_mm: [80, 90]
     # No anatomical proportions: the segments and the four-bar's span are

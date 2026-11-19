@@ -76,7 +76,7 @@ def test_each_pad_clears_its_own_roller():
 
 def test_ma_min_holds_the_cfl_only():
     # The RCJ's MA is a constant 1/2: an ma_min binds the CFL alone (problem formulation A.6.1).
-    assert MECHANISM.evaluate(X, load("goal.hardware.pip_servo.ma_min=0.9")).constraints["ma_min"] == 0.0
+    assert MECHANISM.evaluate(X, load("goal.transmission.ma_min=0.9")).constraints["ma_min"] == 0.0
 
 
 def test_the_search_coordinates_round_trip():
