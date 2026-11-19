@@ -1,0 +1,24 @@
+# Prototype v2: config.yaml's goal, free of its CAD-fitted bounds (as v1),
+# maximizing the pad coverage C_pad and minimizing the four-bar's span |AB|
+# (extended), with the worst-case mechanical advantage held at k_max = 3
+# (MA_wc >= 1/3). A short four-bar keeps the links off the pads' faces and
+# B off the fingertip; the front shows what coverage each span buys. A
+# variant of the problem formulation's objectives (A.5.4).
+#
+#   python scripts/optimize/run.py scripts/optimize/prototype/config_v2.yaml
+base: config.yaml
+goal:
+  link:
+    oa_ratio: [null, null]
+    bc_ratio: [null, null]
+  pads:
+    proximal:
+      pivot_gap_max_mm: null
+    distal:
+      pivot_gap_max_mm: null
+  transmission:
+    ma_min: 0.3333333333          # k_max = 1 / MA_min = 3
+solver:
+  objectives:
+    - c_pad_mean
+    - ab_mm

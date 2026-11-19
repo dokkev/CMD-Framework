@@ -220,7 +220,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
 
     # The hypervolume reference point (optional: absent, 0 for every objective).
     reference = _Table(solver.values.pop("pareto_front", {}), "solver.pareto_front")
-    hypervolume = {name: reference.values.pop(name, 0.0) for name in objectives}
+    # Absent, each objective's worst: no coverage, no torque, |AB| the finger's whole length.
+    worst = {"c_pad_mean": 0.0, "ma_wc": 0.0, "ab_mm": finger_high}
+    hypervolume = {name: reference.values.pop(name, worst[name]) for name in objectives}
     hypervolume.update({name: reference.values.pop(name) for name in OBJECTIVE_NAMES if name in reference.values})
     reference.done()
     search = solver.table("search_bounds")

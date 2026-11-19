@@ -46,7 +46,7 @@ def face_shift_mm(packaging) -> float:
     return float(packaging.proximal_pad.height_mm - packaging.distal_pad.height_mm)
 
 
-OBJECTIVE_NAMES = ("c_pad_mean", "ma_wc")
+OBJECTIVE_NAMES = ("c_pad_mean", "ma_wc", "ab_mm")
 """The prototype formulation's objectives (problem formulation A.5.4)."""
 MOUNT_POLICIES = ("searched", "shallowest_supported")
 """``goal.pads.mount_policy``: the mounting depths searched, or each the least its pad's own hardware needs."""

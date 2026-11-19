@@ -37,6 +37,10 @@ OBJECTIVES = MappingProxyType({
         value=lambda e: -(e.ma_wc if math.isfinite(e.ma_wc) else 0.0), column="ma_wc",
         label="worst-case mechanical advantage over [0, q_req]", role="best_transmission",
         larger_is_better=True),
+    "ab_mm": Objective(
+        value=lambda e: e.ab_mm, column="ab_mm",
+        label="four-bar span |AB| in the extended pose", role="most_compact",
+        larger_is_better=False),
 })
 """The prototype formulation's objectives (problem formulation A.5.4); a
 study lists the ones it optimizes (``solver.objectives``)."""
@@ -223,6 +227,7 @@ class LinkageMechanism(Mechanism):
         return {
             **evaluation_report(e),
             "icr0_share": icr0_share_of(e.finger.joint, e.finger_length_mm),
+            "ab_mm": e.ab_mm,
             "app_offset_used_mm": round(e.finger.proximal.end_mm - e.finger.joint.ap.x_mm, 9),
             "bpp_offset_used_mm": round(e.finger.joint.bp.x_mm - e.finger.distal_start.x_mm, 9),
             "servo_lowest_z_mm": e.servo_lowest_z_mm,
