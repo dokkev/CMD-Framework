@@ -324,17 +324,30 @@ class LinkageConfig:
                 self._extended_pad_bounds(bounds, narrow)
 
     def alignment_warning(self) -> str | None:
-        """Why no design can exist with both alignments on, if the least pads
-        cannot fit (``None``: they can). With the axes and the contact faces each
-        on one line, the two faces lie on one line in the extended pose: the
-        pads may not overlap along it, so their least lengths must fit between
-        the proximal pad's start (past the MCP servo) and the distal pad's
-        outer end (``C`` less its offset) of the longest finger. A necessary
-        condition only: the motion still decides."""
+        """Why the alignments leave no design (``None``: they may not). Two
+        checks, each a necessary condition only (the motion still decides):
 
-        if not (self.align_kinematic_link and self.align_contact_line):
+        - ``contact_line``: some mounting offset in both pads' ranges puts the
+          faces at one depth, the pads' height difference taken up by the
+          offsets (:func:`face_shift_mm`);
+        - with ``kinematic_link`` too, the two faces lie on one line in the
+          extended pose: the pads may not overlap along it, so their least
+          lengths must fit between the proximal pad's start (past the MCP
+          servo) and the distal pad's outer end (``C`` less its offset) of the
+          longest finger."""
+
+        if not self.align_contact_line:
             return None
         packaging = self.packaging
+        shift = face_shift_mm(packaging)
+        (p_low, p_high), (d_low, d_high) = (self.bounds["proximal_mount_offset_mm"],
+                                            self.bounds["distal_mount_offset_mm"])
+        if min(p_high, d_high - shift) < max(p_low, d_low - shift) - 1e-9:
+            return (f"goal.alignment.contact_line: the pads' heights differ by {shift:.1f} mm, which no mounting "
+                    f"offsets in proximal [{p_low:g}, {p_high:g}] and distal [{d_low:g}, {d_high:g}] mm take up "
+                    f"(no design)")
+        if not self.align_kinematic_link:
+            return None
         need = (max(self.minimum_proximal_support_mm, packaging.proximal_pad.length_mm or 0.0)
                 + max(self.minimum_distal_support_mm, packaging.distal_pad.length_mm or 0.0))
         room = (self.extended_length_bounds_mm[1] - packaging.proximal_pad_start_mm

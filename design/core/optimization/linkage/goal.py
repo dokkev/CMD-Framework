@@ -135,10 +135,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         shift = pad_values["proximal"][2].height_mm - pad_values["distal"][2].height_mm
         low = max(mount_offsets["proximal"][0], mount_offsets["distal"][0] - shift)
         high = min(mount_offsets["proximal"][1], mount_offsets["distal"][1] - shift)
-        if high < low:
-            raise ValueError("goal.alignment.contact_line: no mount_offset_mm in both ranges puts the faces "
-                             "at one depth")
-        mount_offsets = {"proximal": (low, high), "distal": (low + shift, high + shift)}
+        if high >= low:  # else the ranges stay as given: LinkageConfig.alignment_warning stops the run
+            mount_offsets = {"proximal": (low, high), "distal": (low + shift, high + shift)}
 
     pip_servo, mcp_servo = hardware.table("pip_servo"), hardware.table("mcp_servo")
     pulley = hardware.values.pop("pulley_radius_mm", None)  # optional

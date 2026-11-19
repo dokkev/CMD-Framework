@@ -66,8 +66,10 @@ goal:
   #                   link lines (mount_offset_mm + height_mm equal): one
   #                   offset searched, the other shifted by the pads' height
   #                   difference (the 2R-DD's drops too).
-  # Both true puts the two faces on one line: the run first checks that the
-  # least pads fit on it without overlapping, and stops with a warning if not.
+  # Before it starts, the run checks (necessary conditions only) that the
+  # mounting offsets can take up the pads' height difference (contact_line)
+  # and, both true putting the two faces on one line, that the least pads fit
+  # on it without overlapping; if not, it stops with a warning.
   alignment:
     kinematic_link: true
     contact_line: true

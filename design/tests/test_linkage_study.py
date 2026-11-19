@@ -563,10 +563,19 @@ def test_aligned_mounting_offsets_search_one_offset_for_both_pads():
         assert 2.0 <= d["proximal_mount_offset_mm"] <= 6.0
         assert len(from_design(design, aligned)) == len(names)
     assert decoded > 0
-    # Ranges with no offset in common cannot be aligned.
-    with pytest.raises(ValueError, match="faces at one depth"):
-        load("goal.alignment.contact_line=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
-             "goal.pads.distal.mount_offset_mm=[2,10]")
+    # Ranges with no offset in common cannot be aligned: a warning, not an error.
+    apart = load("goal.alignment.contact_line=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
+                 "goal.pads.distal.mount_offset_mm=[2,10]")
+    assert "no mounting offsets" in apart.alignment_warning()
+    # Nor heights the offsets cannot take up (proximal 8 mm, distal 3 mm, both in [0, 2]).
+    tall = load("goal.alignment.contact_line=true", "goal.pads.proximal.height_mm=8",
+                "goal.pads.distal.height_mm=3", "goal.pads.proximal.mount_offset_mm=[0,2]",
+                "goal.pads.distal.mount_offset_mm=[0,2]")
+    assert "differ by 5.0 mm" in tall.alignment_warning()
+    # Unaligned, the same pads are no concern.
+    assert load("goal.alignment.contact_line=false", "goal.pads.proximal.height_mm=8",
+                "goal.pads.distal.height_mm=3", "goal.pads.proximal.mount_offset_mm=[0,2]",
+                "goal.pads.distal.mount_offset_mm=[0,2]").alignment_warning() is None
 
 
 def test_aligned_pads_of_different_heights_put_their_faces_at_one_depth():
