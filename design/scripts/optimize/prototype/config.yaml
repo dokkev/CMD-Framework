@@ -44,6 +44,7 @@ goal:
       length_mm: [0, null]
       mount_offset_mm: [0, 10]
       height_mm: 4
+      pivot_gap_max_mm: null      # most |B''_x - B_x| extended (optional; null: none)
 
   # The morphology's size (m in A.2): L_f, and the phalanges' shares rho_i.
   link:

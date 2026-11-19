@@ -270,7 +270,8 @@ def _static_constraints(finger: Finger, footprint: ServoFootprint, config: Linka
         if config.proximal_pad_past_icr_max_mm is not None and icr_x is not None:  # not past the fold
             topology = (max(topology[0], finger.proximal.end_mm - icr_x - config.proximal_pad_past_icr_max_mm),
                         topology[1])
-        topology = tuple(max(value, over) for value, over in zip(topology, overhang_violations(finger, config)))
+        topology = tuple(max(value, over, gap) for value, over, gap in
+                         zip(topology, overhang_violations(finger, config), pivot_gap_violations(finger, config)))
     else:  # the pads run from A and B outward
         topology = (finger.joint.a.x_mm - finger.proximal.end_mm, finger.distal.start_mm)
     span, (span_low, span_high) = finger.joint.a.distance_to(finger.joint.b), config.joint_span_bounds_mm
@@ -337,12 +338,23 @@ def overhang_violations(finger: Finger, config: LinkageConfig) -> tuple[float, f
     return tuple(0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(over, limits))
 
 
+def pivot_gap_violations(finger: Finger, config: LinkageConfig) -> tuple[float, float]:
+    """How far (mm) each pad's inner end (``A''``, ``B''``) lies from its own
+    pivot (``A``, ``B``) beyond ``goal.pads.*.pivot_gap_max_mm``, along the
+    finger in the extended pose (0 within it, or without a limit)."""
+
+    gaps = (abs(finger.proximal_end.x_mm - finger.joint.a.x_mm), abs(finger.distal_start.x_mm - finger.joint.b.x_mm))
+    limits = (config.proximal_pivot_gap_max_mm, config.distal_pivot_gap_max_mm)
+    return tuple(0.0 if limit is None else max(value - limit, 0.0) for value, limit in zip(gaps, limits))
+
+
 __all__ = [
     "CONSTRAINT_NAMES",
     "INVALID",
     "MOTION_CONSTRAINTS",
     "STATIC_CONSTRAINTS",
     "UNSWEPT",
+    "pivot_gap_violations",
     "LinkageEvaluation",
     "evaluate",
     "motion_settings",

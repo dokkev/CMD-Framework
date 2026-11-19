@@ -652,3 +652,14 @@ def test_runs_recorded_with_aligned_mounting_offsets_load_as_aligned_contact_fac
     recorded = config_to_json(load("goal.alignment.contact_faces=true"))
     recorded["align_mount_offsets"] = recorded.pop("align_contact_faces")
     assert config_from_json(recorded).align_contact_faces
+
+
+def test_a_pads_inner_end_may_be_held_near_its_pivot():
+    # |B''_x - B_x| (and |A''_x - A_x|), extended: absent, no limit.
+    e = MECHANISM.evaluate(X, load())
+    gap = abs(e.finger.distal_start.x_mm - e.finger.joint.b.x_mm)
+    assert gap > 2.0 and e.constraints["bounds_distal_pad_mm"] <= 0.0
+    held = MECHANISM.evaluate(X, load(f"goal.pads.distal.pivot_gap_max_mm={gap - 2.0}"))
+    assert held.constraints["bounds_distal_pad_mm"] == pytest.approx(2.0, abs=1e-6) and not held.feasible
+    assert MECHANISM.evaluate(X, load(f"goal.pads.distal.pivot_gap_max_mm={gap + 1.0}")).constraints[
+        "bounds_distal_pad_mm"] <= 0.0

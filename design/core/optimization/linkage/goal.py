@@ -117,7 +117,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     mount_policy = pads.values.pop("mount_policy", "searched")
     if mount_policy not in MOUNT_POLICIES:
         raise ValueError(f"goal.pads.mount_policy must be one of {MOUNT_POLICIES}")
-    pad_values, overhangs, mount_offsets = {}, {}, {}
+    pad_values, overhangs, gaps, mount_offsets = {}, {}, {}, {}
     for side in ("proximal", "distal"):
         pad = pads.table(side)
         low, high = _range(pad.take("length_mm"), f"goal.pads.{side}.length_mm", scalar=True)
@@ -139,6 +139,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         # Optional (absent: no overhang limit).
         overhang = pad.values.pop("overhang_max_mm", None)
         overhangs[side] = None if overhang is None else float(overhang)
+        # Optional (absent: no limit): the pad's inner end within this of its pivot.
+        gap = pad.values.pop("pivot_gap_max_mm", None)
+        gaps[side] = None if gap is None else float(gap)
         pad.done()
         pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, length_mm=None,
                                                   max_length_mm=high))
@@ -291,6 +294,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         relative_bounds=relative,
         proximal_overhang_max_mm=overhangs["proximal"],
         distal_overhang_max_mm=overhangs["distal"],
+        proximal_pivot_gap_max_mm=gaps["proximal"],
+        distal_pivot_gap_max_mm=gaps["distal"],
         pulley_radius_mm=None if pulley is None else float(pulley),
         icr0_share_bounds=icr0_share,
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),

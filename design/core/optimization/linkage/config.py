@@ -196,6 +196,14 @@ class LinkageConfig:
     the proximal pad past the proximal body's front (its joint's housing, the
     servo), the distal pad behind the distal body's back, in the extended
     pose; ``None``: no limit."""
+    proximal_pivot_gap_max_mm: float | None = None
+    distal_pivot_gap_max_mm: float | None = None
+    """How far each pad's inner end may lie from its own joint's pivot along
+    the finger in the extended pose (``goal.pads.*.pivot_gap_max_mm``):
+    ``|A''_x - A_x|``, ``|B''_x - B_x|``; ``None``: no limit. It keeps the
+    pivot near where its phalanx starts carrying the pad (2026-11-19: without
+    it the distal pivot ``B`` runs to the fingertip for the mechanical
+    advantage)."""
     pulley_radius_mm: float | None = None
     """``goal.hardware.pulley_radius_mm``: the envelope of a belt's or a
     tendon's pulley on a joint (the mechanisms that drive one through them);
@@ -268,7 +276,8 @@ class LinkageConfig:
             raise ValueError(f"unknown objectives in the reference point: {sorted(unknown)}")
         reference = {"c_pad_mean": 0.0}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
-        for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
+        for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "proximal_pivot_gap_max_mm",
+                     "distal_pivot_gap_max_mm", "pulley_radius_mm",
                      "dorsal_space_mm", "link_radius_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
