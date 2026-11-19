@@ -237,9 +237,8 @@ solver:
     # Which preset runs (output/linkage/<config name>/<preset>/):
     #   quick   a look in about a minute, for trends while exploring
     #   search  the full study, to settle a design (about 15 min)
-    #   paper   the search run until its hypervolume levels off, for the
-    #           convergence check (visualize.study.convergence;
-    #           about 45 min)
+    #   paper   the search run until the best C_pad levels off (each run's
+    #           history; about 2 h)
     preset: paper
     presets:
       quick:
