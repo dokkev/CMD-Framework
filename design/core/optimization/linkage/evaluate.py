@@ -237,10 +237,9 @@ def mount_depth_violation(finger: Finger, config: LinkageConfig) -> float:
 
     if config.mount_policy == "searched":
         return 0.0
-    from core.optimization.mounting import linkage_mounting
+    from core.optimization.mounting import depth_violation_mm, linkage_mounting
 
-    cap = max(config.bounds["proximal_mount_offset_mm"][1], config.bounds["distal_mount_offset_mm"][1])
-    return linkage_mounting(finger, config).violation_mm(finger.pad_offsets_mm, cap)
+    return depth_violation_mm(linkage_mounting(finger, config), finger.pad_offsets_mm, config)
 
 
 def _static_constraints(finger: Finger, footprint: ServoFootprint, config: LinkageConfig,

@@ -450,4 +450,14 @@ def mounting(mechanism: str, x: Sequence[float], config) -> Mounting:
     raise ValueError(f"no mounting policy for mechanism {mechanism!r}")
 
 
-__all__ = ["Mounting", "clearing_depth_mm", "disk_reach_mm", "footprint_reach_mm", "linkage_mounting", "mounting", "parallel_mounting", "rcj_mounting", "revolute_mounting", "shallowest"]
+def depth_violation_mm(mounted: Mounting, depths_mm: Sequence[float], goal) -> float:
+    """How far (mm) the pads' depths are from the policy's: 0 when the depths are searched
+    (``goal.mount_policy``), else ``mounted.violation_mm`` up to the goal's deepest offset."""
+
+    if goal.mount_policy == "searched":
+        return 0.0
+    cap = max(goal.bounds["proximal_mount_offset_mm"][1], goal.bounds["distal_mount_offset_mm"][1])
+    return mounted.violation_mm(depths_mm, cap)
+
+
+__all__ = ["Mounting", "depth_violation_mm", "clearing_depth_mm", "disk_reach_mm", "footprint_reach_mm", "linkage_mounting", "mounting", "parallel_mounting", "rcj_mounting", "revolute_mounting", "shallowest"]

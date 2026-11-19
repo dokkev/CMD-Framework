@@ -94,12 +94,10 @@ def mount_depth_violation(x: Sequence[float], config: ParallelConfig) -> float:
 
     if config.goal.mount_policy == "searched":
         return 0.0
-    from core.optimization.mounting import parallel_mounting
+    from core.optimization.mounting import depth_violation_mm, parallel_mounting
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    cap = max(config.goal.bounds["proximal_mount_offset_mm"][1], config.goal.bounds["distal_mount_offset_mm"][1])
-    return parallel_mounting(x, config).violation_mm((v["proximal_drop_mm"], v["distal_drop_mm"]), cap)
-
+    return depth_violation_mm(parallel_mounting(x, config), (v["proximal_drop_mm"], v["distal_drop_mm"]), config.goal)
 
 def evaluate(x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation:
     """Evaluate one design (static checks first; a design failing one is not swept)."""
