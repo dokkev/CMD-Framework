@@ -16,7 +16,7 @@ from core.optimization.mounting import footprint_reach_mm, mounting
 from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
-RULES = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
+RULES = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.align_mount_offsets=false", "goal.pads.proximal.length_mm=[20, null]",
          "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
          "goal.collision.check.a_pin_and_a_prime_pin=true", "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
          "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",

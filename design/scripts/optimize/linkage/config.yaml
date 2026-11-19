@@ -64,7 +64,7 @@ goal:
     # true: the two pads' mounting offsets (mount_offset_mm below) held equal,
     # one offset searched on the overlap of their ranges (the 2R-DD's drops
     # too); false: each pad its own offset.
-    align_mount_offsets: false
+    align_mount_offsets: true
     proximal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
       # outer end (the MCP servo side; for the distal pad, C), the rest of the

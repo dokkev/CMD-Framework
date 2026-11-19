@@ -33,7 +33,7 @@ TRIMMED = X
 required flexion."""
 
 
-PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
+PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.align_mount_offsets=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
           "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
