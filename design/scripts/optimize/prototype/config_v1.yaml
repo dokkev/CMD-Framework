@@ -5,7 +5,7 @@
 #
 #   python scripts/optimize/run.py scripts/optimize/prototype/config_v1.yaml
 base: config.yaml
-# None of the CAD-fitted bounds of config.yaml (2026-11-19): the pivots' shares
+# None of config.yaml's CAD-fitted bounds (2026-11-19): the pivots' shares
 # and the pads' ends near their pivots are left free; the finger stays about 90 mm.
 goal:
   link:
