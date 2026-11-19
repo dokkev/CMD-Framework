@@ -36,11 +36,12 @@ goal:
   # B-C), height_mm thick; its length and ends are searched.
   pads:
     proximal:
-      length_mm: [20, null]       # least length (the module to carry); null max: the finger's
+      length_mm: [0, null]        # [least, most] (null most: the finger's). No least: the cylinder
+                                  # coverage keeps the pads matched; the front shows what each length costs
       mount_offset_mm: [0, 10]    # searched depth of the mounting surface
       height_mm: 4
     distal:
-      length_mm: [25, null]
+      length_mm: [0, null]
       mount_offset_mm: [0, 10]
       height_mm: 4
 
