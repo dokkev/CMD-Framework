@@ -29,7 +29,7 @@ not fit a level servo, not that CoDe cannot use one. The belt 2R is identical at
 sweep is informative for the 2R-DD and the RCJ, whose servo sits at the joint.
 
 New defaults write to `*_tilt_sweep` output directories so they do not overwrite the published historical
-runs. Under the 2026-11-17 SSoT alignment (`design/SSoT/math_formulation.md` §7.2), `scripts/study/base.yaml`
+runs. Under the 2026-11-17 SSoT alignment (`docs/legacy/math_formulation_2026-11-17.md` §7.2, now legacy), `scripts/study/base.yaml`
 declares `profile: study`, which defaults `include_linkage_occlusion: false`; pass
 `goal_overrides: {include_linkage_occlusion: true}` for linkage-occlusion sensitivity runs. The sections below
 describe the original fixed-tilt study; their numerical results have not been recomputed under the new sweep.

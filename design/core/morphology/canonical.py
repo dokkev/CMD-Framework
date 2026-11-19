@@ -1,6 +1,7 @@
 """Canonical 2D Finger Morphology SSoT (Layers 1, 2, and 3).
 
-Realizes the mathematical formulation in ``design/SSoT/math_formulation.md``:
+Realizes the legacy formulation in ``docs/legacy/math_formulation_2026-11-17.md``
+(the source of truth is now ``design/SSoT/high-level-formulation.md``):
 
 .. math::
     M = (\\mathbf p_{\\mathrm{mech}}, \\mathbf p_{\\mathrm{act}},

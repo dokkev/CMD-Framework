@@ -21,7 +21,7 @@ the seat follows the shallowest nonpenetrating position toward -Z, within the ex
 rule. The housing dimensions are physical envelopes, not an extra uniform clearance. No spacer is assumed.
 
 New defaults write to `*_tilt_sweep` output directories so they do not overwrite the published historical
-runs. Under the 2026-11-17 SSoT alignment (`design/SSoT/math_formulation.md` §7.2), `scripts/study/base.yaml`
+runs. Under the 2026-11-17 SSoT alignment (`docs/legacy/math_formulation_2026-11-17.md` §7.2, now legacy), `scripts/study/base.yaml`
 declares `profile: study` (`include_linkage_occlusion: false` default; set
 `goal_overrides: {include_linkage_occlusion: true}` for linkage-occlusion sensitivity runs). The sections below
 describe the original fixed-tilt study; their numerical results have not been recomputed under the new sweep.
