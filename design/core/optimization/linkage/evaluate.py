@@ -217,6 +217,7 @@ def motion_settings(config: LinkageConfig) -> MotionSettings:
         transmission_angle_range_rad=config.transmission_angle_range_rad,
         mcp_samples_rad=config.mcp_samples_rad,
         link_radius_mm=config.link_radius_mm,
+        verify_step_rad=config.verify_step_rad,
     )
 
 

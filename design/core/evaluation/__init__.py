@@ -17,7 +17,13 @@ from core.evaluation.coverage import (
     pad_coverage,
     posed_finger_length_mm,
 )
-from core.evaluation.motion import MotionSamples, gamma_violation_deg, reach_rad, uniform_samples_rad
+from core.evaluation.motion import (
+    MotionSamples,
+    gamma_violation_deg,
+    reach_rad,
+    resample_between,
+    uniform_samples_rad,
+)
 from core.evaluation.transmission import mechanical_advantage, worst_mechanical_advantage
 
 __all__ = [
@@ -31,6 +37,7 @@ __all__ = [
     "pad_coverage",
     "posed_finger_length_mm",
     "reach_rad",
+    "resample_between",
     "uniform_samples_rad",
     "worst_mechanical_advantage",
 ]

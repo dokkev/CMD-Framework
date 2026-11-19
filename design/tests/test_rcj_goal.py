@@ -88,7 +88,7 @@ def test_the_search_coordinates_round_trip():
 def test_the_servo_tilts_as_the_2rs():
     from core.optimization.rcj import geometry
 
-    config = load("goal.hardware.pip_servo.tilt_angle_deg=45")
+    config = load("goal.hardware.pip_servo.tilt_angle_deg=[45, 45]")
     assert config.bounds["servo_tilt_deg"] == (45.0, 45.0)
     x = (*X[:7], 45.0)
     rear = geometry(x, config).servo.rear

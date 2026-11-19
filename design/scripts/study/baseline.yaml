@@ -130,14 +130,14 @@ goal:
   hardware:
     pip_servo:
       model: xm335              # core.hardware.ACTUATORS
-      # Dorsal tilt of the servo body from -X: one value (fixed), or [min, max]
-      # searched every tilt_step_deg from min.
+      # Dorsal tilt of the servo body from -X, [min, max], searched every
+      # tilt_step_deg from min; [a, a] holds it at a.
       tilt_angle_deg: [0, 90]
       tilt_step_deg: 5
       # The least worst-case mechanical advantage MA_wc = min |d theta / d q2|
       # on [0, q_req] (CFL only: the 2Rs' MA is 1, the symmetric RCJ's 1/2).
-      # null: no limit.
-      ma_min: null
+      # null: no limit. 0.2: the servo delivers at least a fifth of its torque.
+      ma_min: 0.2
     mcp_servo:
       model: xm335
 

@@ -127,7 +127,7 @@ def best_rows(rows: list[dict[str, Any]], delta: float) -> list[dict[str, Any]]:
     rank = {"frozen_feasible": 0, "level1": 1, "level2": 2, "not_found": 3}
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
-        grouped.setdefault((row["reference_id"], row["target"]), []).append(row)
+        grouped.setdefault((row["reference_id"], row["target"], row.get("required_flexion_deg")), []).append(row)
     best = []
     for group in grouped.values():
         level = min(rank[row["status"]] for row in group)
@@ -194,25 +194,32 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
                                **{f"q_{k}": _round(v) for k, v in part.mechanism(reference.x, reference.config).items()},
                                "x": ";".join(repr(float(v)) for v in reference.x)})
     shared.write_csv(output / "references.csv", reference_rows)
-    for target in targets:
-        for reference in built:
+    # Each required flexion (problem formulation A.6.3: as Study 1's); absent, the references' own.
+    flexions = [float(value) for value in config.get("required_flexion_deg") or [None]] \
+        if config.get("required_flexion_deg") else [None]
+    jobs = [(target, reference, flexion) for target in targets for reference in built for flexion in flexions]
+    for target, reference, flexion in jobs:
             found = mechanism(reference.mechanism)
             part = partitions.partition(reference.mechanism)
             carried = with_modules(reference.config, target.modules)
+            if flexion is not None:
+                carried = shared.with_required_flexion(carried, flexion)
             scale = part.external(reference.x, carried)["finger_length_mm"]
             pair = output / "targets" / target.module_id / reference.reference_id
+            if flexion is not None:
+                pair = pair / f"phi{flexion:g}"
             if pair.is_dir():  # this study's own earlier result for the pair: replaced
                 shutil.rmtree(pair)
             for seed in seeds:
                 settings = OptimizerSettings(optimizer["algorithm"], int(optimizer["population"]),
                                              int(optimizer["generations"]), seed)
-                print(f"{target.module_id} / {reference.reference_id} / seed {seed} ...", flush=True)
+                print(f"{target.module_id} / {reference.reference_id} / q_req {flexion} / seed {seed} ...", flush=True)
                 result = adapt(found, part, reference.x, carried, settings, scale,
                                float(config["external_range_mm"]), workers=int(config.get("workers", 1)))
                 for step in result.steps:
                     if step.result is not None:
                         save_step(step, pair / f"seed_{seed}" / step.level, source_git_commit=commit.get("commit"))
-                row = {"seed": seed, **summary_row(reference, target, result, scale)}
+                row = {"seed": seed, "required_flexion_deg": flexion, **summary_row(reference, target, result, scale)}
                 rows.append(row)
                 print(f"  {row['status']}: eps_kappa {row['final_mechanism_cost']}, eps_d {row['final_external_cost']}",
                       flush=True)
@@ -224,6 +231,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
         "study": "study2_morphology_adaptation", "config": config,
         "run_filters": {"targets": [t.module_id for t in targets], "references": [r.reference_id for r in built]},
         "lexicographic_delta": delta,
+        "required_flexion_deg": flexions,
         "references": reference_values, "targets": target_values,
         "descriptors": list(DESCRIPTORS),
         "partitions": {name: {"coordinates": list(cls.coordinates), "actuation": list(cls.actuation)}

@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
-from core.morphology.packaging.hardware import Packaging
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import (
     PadSpan,
     ServoFootprint,
@@ -213,7 +213,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
     if packaging.pad_checks_mcp("distal_pad"):
         end = count
         if until_unsafe:
-            failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -1e-9)
+            failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -MARGIN_TOLERANCE_MM)
             end = int(failing[0]) + 1 if failing.size else count
         for name, solid in moving.items():
             margin = np.full(count, np.inf)
@@ -223,7 +223,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
     if include_static_pairs and packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
         gap = proximal_pad_mcp_gap(geo.proximal_pad, packaging, checks.mcp_samples_rad)
         margins[("mcp_servo", "proximal_pad")] = np.full(count, gap - packaging.mcp_pad_clearance_mm)
-    return {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
+    return {pair: np.where(np.abs(margin) < MARGIN_TOLERANCE_MM, 0.0, margin) for pair, margin in margins.items()}
 
 
 def bar_capsule_margins(geo, phi: np.ndarray, radius_mm: float, clearance: float) -> dict[tuple[str, str], np.ndarray]:
@@ -247,43 +247,18 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
                     margins_of: Callable[[object, np.ndarray], dict[tuple[str, str], np.ndarray]]
                     ) -> dict[tuple[str, str], np.ndarray]:
     """``margins`` with the motion between samples checked on the verification
-    grid where a collision could hide there.
+    grid where a collision could hide (``core.evaluation.resample_between``).
 
-    The distal solids turn rigidly about ``A``, so no point of them moves more
-    than ``distal_reach_mm`` per radian: a margin falls at most that fast, and
-    two neighbouring clear samples whose margins sum to less than the reach
-    times their step may pass through a collision between them. Those steps
-    are resampled on ``verify_step_rad`` by ``margins_of(geo, phi)``, up to
-    the first unsafe sample; the first that collides inside lowers the
-    margins at its end to the least inside. (On the verification grid itself
-    nothing is resampled.) Any ``geo`` whose ``distal_reach_mm`` bounds its
+    The distal solids turn rigidly about the joint, so no point of them moves
+    more than ``distal_reach_mm`` per radian: over a step a gap falls at most
+    the reach times the step. Any ``geo`` whose ``distal_reach_mm`` bounds its
     speed serves (the belt 2R's, the RCJ's).
     """
 
-    fine = verify_step_rad
-    least = np.min(np.stack(list(margins.values())), axis=0)
-    unsafe = np.flatnonzero(least < 0.0)
-    end = int(unsafe[0]) if unsafe.size else len(phi) - 1
-    step = np.diff(phi[:end + 1])
-    clear = least[:end]
-    suspect = np.flatnonzero((clear + least[1:end + 1] < geo.distal_reach_mm * step)
-                             & (step > fine * (1.0 + 1e-9)))
-    if not suspect.size:
-        return margins
-    counts = np.ceil(step[suspect] / fine - 1e-9).astype(int)
-    inner = np.concatenate([np.linspace(phi[i], phi[i + 1], count + 1)[1:-1] for i, count in zip(suspect, counts)])
-    owner = np.repeat(suspect, counts - 1)
-    fine_margins = margins_of(geo, inner)
-    fine_least = np.min(np.stack(list(fine_margins.values())), axis=0)
-    hit = np.flatnonzero(fine_least < 0.0)
-    if not hit.size:
-        return margins
-    interval = owner[hit[0]]
-    inside = owner == interval
-    result = {pair: margin.copy() for pair, margin in margins.items()}
-    for pair, margin in fine_margins.items():
-        result[pair][interval + 1] = min(result[pair][interval + 1], float(margin[inside].min()))
-    return result
+    from core.evaluation.motion import resample_between
+
+    return resample_between(phi, margins, geo.distal_reach_mm * np.diff(phi), verify_step_rad,
+                            lambda q: margins_of(geo, q))
 
 
 __all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples",

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
-from core.morphology.packaging.hardware import Packaging
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import ServoFootprint
 from core.morphology.mechanism.revolute.solids import (
     VARIABLE_NAMES as REVOLUTE_NAMES,
@@ -76,7 +76,7 @@ def margins(geo: ParallelGeometry, phi: np.ndarray, checks: JointChecks,
     margins = {
         ("distal_pad", "pip_servo"): footprint_gaps(distal, geo.servo, packaging) - clearance,
     }
-    margins = {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
+    margins = {pair: np.where(np.abs(margin) < MARGIN_TOLERANCE_MM, 0.0, margin) for pair, margin in margins.items()}
     return {
         **revolute_margins(joint, phi, checks, until_unsafe=until_unsafe, include_static_pairs=include_static_pairs),
         **margins,

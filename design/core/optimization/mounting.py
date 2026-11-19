@@ -45,7 +45,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-TOLERANCE_MM = 1e-6
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM
+
+TOLERANCE_MM = MARGIN_TOLERANCE_MM
 """A gap this far below 0 still counts as touching."""
 SIDES = ("proximal", "distal")
 

@@ -87,3 +87,16 @@ def test_motion_samples_constraints_and_mechanical_advantage():
     short = MotionSamples(q[:50], np.ones(50, dtype=bool), 2.0 * q[:50])
     assert short.f_motion_violation_deg(math.radians(120)) == pytest.approx(71.0)
     assert worst_mechanical_advantage(short, math.radians(120)) == 0.0
+
+
+def test_a_collision_between_two_clear_samples_is_found_on_the_finer_grid():
+    from core.evaluation import resample_between
+
+    q = np.radians([0.0, 1.0, 2.0])
+    coarse = {("a", "b"): np.array([0.4, 0.3, 0.4])}
+    # The true gap dips below 0 between 1 and 2 deg; the samples miss it.
+    true_gap = lambda inner: {("a", "b"): 0.3 - 2.0 * np.sin(np.pi * (np.degrees(inner) - 1.0))}  # noqa: E731
+    found = resample_between(q, coarse, np.array([2.0, 2.0]), np.radians(0.1), true_gap)
+    assert found[("a", "b")][2] < 0.0 and found[("a", "b")][1] == pytest.approx(0.3)
+    # A step that moves too little to close the gaps is not resampled.
+    assert resample_between(q, coarse, np.array([0.1, 0.1]), np.radians(0.1), true_gap)[("a", "b")][2] == 0.4

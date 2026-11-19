@@ -7,6 +7,8 @@ targets: scripts/study/study2_morphology_adaptation/targets.yaml
 # Which references to run: matched (primary), native (secondary; needs the
 # study searches rerun under the current rules first).
 kinds: [matched]
+# The required flexions q_req each adaptation is searched at (as Study 1's).
+required_flexion_deg: [90, 120, 150]
 # Every change is normalized by the reference finger's length (2026-11-06).
 # Level 2 moves each external descriptor at most this far from the reference
 # (the modelled envelope; the finger's length bounds widened to match).

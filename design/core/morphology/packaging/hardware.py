@@ -41,7 +41,7 @@ pressed into 1 mm aluminium walls: the 8 mm housing is wider than the flange."""
 
 
 
-MARGIN_TOLERANCE_MM = 1e-9
+MARGIN_TOLERANCE_MM = 1e-6
 """A margin this near 0 (mm) is clear: a part set exactly the clearance away
 must not fail by rounding."""
 

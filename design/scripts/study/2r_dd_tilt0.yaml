@@ -5,4 +5,4 @@ mechanism: revolute
 goal:
   hardware:
     pip_servo:
-      tilt_angle_deg: 0
+      tilt_angle_deg: [0, 0]

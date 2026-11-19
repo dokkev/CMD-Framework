@@ -4,4 +4,4 @@ mechanism: linkage
 goal:
   hardware:
     pip_servo:
-      tilt_angle_deg: 15
+      tilt_angle_deg: [15, 15]

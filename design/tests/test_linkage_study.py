@@ -36,7 +36,7 @@ required flexion."""
 PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
-          "goal.hardware.pip_servo.tilt_angle_deg=10",
+          "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
           "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
           "goal.link.distal_length_mm=[25, null]", "goal.link.joint_span_ratio=[null, null]",
           "goal.link.proximal_length_ratio=[null, null]", "goal.link.distal_length_ratio=[null, null]",
@@ -88,7 +88,7 @@ def test_the_tilt_is_fixed_or_searched_in_whole_degrees():
     from core.optimization.linkage import search
     from core.optimization.study import MechanismProblem
 
-    fixed = load("goal.hardware.pip_servo.tilt_angle_deg=20.25")  # off the grid: kept as it is
+    fixed = load("goal.hardware.pip_servo.tilt_angle_deg=[20.25, 20.25]")  # off the grid: kept as it is
     assert fixed.bounds["servo_tilt_deg"] == (20.25, 20.25)
     problem = MechanismProblem(MECHANISM, fixed)
     x = problem.to_mm(np.round((problem.xl + problem.xu) / 2))
@@ -170,7 +170,8 @@ def test_the_transmission_range_bounds_the_motion():
 
 def test_ma_min_may_be_set():
     pads = ("goal.pads.proximal.length_mm=[15, null]", "goal.pads.distal.length_mm=[20, null]")
-    free = MECHANISM.evaluate(TRIMMED, load(*pads))
+    assert load(*pads).ma_min == pytest.approx(0.2)  # the goal's default
+    free = MECHANISM.evaluate(TRIMMED, load(*pads, "goal.hardware.pip_servo.ma_min=null"))
     assert free.feasible and free.constraints["ma_min"] == 0.0
     ma = free.ma_wc
     assert 0.0 < ma < 2.0
@@ -210,7 +211,7 @@ def test_the_motion_is_sampled_on_a_uniform_flexion_grid(monkeypatch):
     config = load()
     evaluation = MECHANISM.evaluate(X, config)
     linkage = decode(X, config.link_length_resolution_mm)
-    swept, mcp = calls[-1]
+    swept, mcp = calls[0]  # the coarse sweep (later calls resample between its samples)
     # From extension (no hyperextension), the MCP held at 0.
     assert swept[0] == pytest.approx((linkage.joint.b.x_mm, linkage.joint.b.z_mm)) and mcp == (0.0,)
     q = linkage.sweep_pip(np.arange(len(swept)) * config.flexion_step_rad).q_pip_rad

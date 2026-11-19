@@ -10,4 +10,4 @@ goal:
   hardware:
     pulley_radius_mm: 6
     pip_servo:
-      tilt_angle_deg: 10
+      tilt_angle_deg: [10, 10]

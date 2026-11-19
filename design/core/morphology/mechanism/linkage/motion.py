@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.evaluation import MotionSamples, PoseCoverage, common_length_mm, posed_finger_length_mm
-from core.evaluation.motion import uniform_samples_rad
+from core.evaluation.motion import resample_between, uniform_samples_rad
 from core.geometry.intervals import IntervalSet, face_occluded_set
 from core.morphology.finger import Finger
 from core.morphology.mechanism.linkage.model import four_bar
@@ -32,14 +32,16 @@ from core.morphology.mechanism.linkage.packaging import (
     LinkagePackaging,
     assembly,
     contact_faces,
+    distal_pad_polygon,
     layout,
     link_capsule_margins,
     pad_margins,
     poses,
 )
 from core.morphology.packaging.assembly import margins
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM
 
-TOUCH_MM = 1e-6
+TOUCH_MM = MARGIN_TOLERANCE_MM
 """Gaps above ``-TOUCH_MM`` count as touching, not overlapping (``code_formulation.md`` §2)."""
 
 
@@ -55,6 +57,9 @@ class MotionSettings:
     link_radius_mm: float | None = None
     """The links as capsules of this radius against the pads they are not
     mounted on (``None``: not checked)."""
+    verify_step_rad: float | None = None
+    """The finer step the motion between samples is checked on where a
+    collision could hide (``None``: not checked)."""
 
 
 @dataclass(frozen=True)
@@ -89,13 +94,11 @@ class LinkageMotion:
         return "transmission"
 
 
-def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings) -> LinkageMotion:
-    """Sample the flexion from extension to pi (as far as the four-bar closes) and check each pose."""
+def _gaps(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings,
+          b: np.ndarray, bp: np.ndarray, tip: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
+    """Every checked pair's gap at the posed samples: the pads against the other
+    body's parts, the distal pins against the PIP servo, the links as capsules."""
 
-    joint = four_bar(finger)
-    sweep = finger.sweep_pip(uniform_samples_rad(math.pi, settings.step_rad))
-    count = len(sweep.q_pip_rad)
-    b, bp, tip = sweep.b, sweep.bp, sweep.tip
     found = pad_margins(finger, packaging, b, tip, bp, settings.mcp_samples_rad)
     pins = [pair for pair in (layout(packaging).pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin"))
             if pair is not None]
@@ -103,6 +106,40 @@ def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionS
         found.update(margins(assembly(finger, packaging), poses(finger, b, tip, bp), packaging, pins))
     if settings.link_radius_mm is not None:
         found.update(link_capsule_margins(finger, packaging, b, tip, bp, settings.link_radius_mm))
+    return found
+
+
+def _moved_mm(finger: Finger, packaging: LinkagePackaging, b: np.ndarray, bp: np.ndarray,
+              tip: np.ndarray) -> np.ndarray:
+    """How far the distal body's farthest points (``B``, ``B'``, ``C`` and the
+    distal pad's corners) move from each sample to the next (mm)."""
+
+    corners = distal_pad_polygon(finger, packaging, b, tip)
+    points = np.concatenate((b[:, None], bp[:, None], tip[:, None], corners), axis=1)
+    return np.max(np.linalg.norm(np.diff(points, axis=0), axis=2), axis=1)
+
+
+def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings) -> LinkageMotion:
+    """Sample the flexion from extension to pi (as far as the four-bar closes) and check each pose."""
+
+    joint = four_bar(finger)
+    sweep = finger.sweep_pip(uniform_samples_rad(math.pi, settings.step_rad))
+    count = len(sweep.q_pip_rad)
+    q = np.asarray(sweep.q_pip_rad, dtype=float)
+    b, bp, tip = sweep.b, sweep.bp, sweep.tip
+    found = _gaps(finger, packaging, settings, b, bp, tip)
+    if settings.verify_step_rad is not None and count > 1 and found:
+
+        def gaps_at(inner: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
+            fine = finger.sweep_pip(inner)
+            gaps = _gaps(finger, packaging, settings, fine.b, fine.bp, fine.tip)
+            if len(fine.q_pip_rad) < len(inner):  # the four-bar stops closing inside: a collision there
+                gaps = {pair: np.concatenate((gap, np.full(len(inner) - len(gap), -math.inf)))
+                        for pair, gap in gaps.items()}
+            return gaps
+
+        found = resample_between(q, found, _moved_mm(finger, packaging, b, bp, tip), settings.verify_step_rad,
+                                 gaps_at)
     least = np.min(np.stack(list(found.values())), axis=0) if found else np.full(count, math.inf)
     reported = [gap for pair, gap in found.items() if pair not in FIXED_MARGIN_PAIRS]
     reported_least = np.min(np.stack(reported), axis=0) if reported else np.full(count, math.inf)
@@ -112,7 +149,7 @@ def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionS
     valid = (least >= -TOUCH_MM) & (tip[:, 0] >= -TOUCH_MM)
     a = np.array((joint.a.x_mm, joint.a.z_mm))
     samples = MotionSamples(
-        q_rad=np.asarray(sweep.q_pip_rad, dtype=float),
+        q_rad=q,
         valid=valid,
         theta_rad=np.asarray(sweep.servo_rad, dtype=float),
         gamma_rad=transmission_angle(a, bp, b),

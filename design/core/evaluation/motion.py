@@ -9,6 +9,7 @@ angle. Everything below reads those samples.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -94,4 +95,41 @@ class MotionSamples:
         return gamma_violation_deg(self.gamma_rad[self.window(q_req_rad)], self.gamma_range_rad)
 
 
-__all__ = ["MotionSamples", "gamma_violation_deg", "reach_rad", "uniform_samples_rad"]
+def resample_between(q_rad: np.ndarray, margins: Mapping[tuple[str, str], np.ndarray], moved_mm: np.ndarray,
+                     fine_step_rad: float, margins_at: Callable[[np.ndarray], Mapping[tuple[str, str], np.ndarray]]
+                     ) -> dict[tuple[str, str], np.ndarray]:
+    """``margins`` (per pair, per sample of ``q_rad``) with the motion between
+    samples checked on a ``fine_step_rad`` grid where a collision could hide.
+
+    ``moved_mm[i]`` bounds how far any moving solid travels from sample ``i``
+    to ``i + 1``: a gap falls at most that much over the step, so two clear
+    neighbours whose gaps sum to less than it may pass through a collision.
+    Those steps (up to the first unsafe sample) are resampled by
+    ``margins_at(q)``; the first one that collides inside lowers the gaps at
+    its end to the least found inside (``code_formulation.md`` §6).
+    """
+
+    least = np.min(np.stack(list(margins.values())), axis=0)
+    unsafe = np.flatnonzero(least < 0.0)
+    end = int(unsafe[0]) if unsafe.size else len(q_rad) - 1
+    step = np.diff(q_rad[:end + 1])
+    suspect = np.flatnonzero((least[:end] + least[1:end + 1] < np.asarray(moved_mm)[:end])
+                             & (step > fine_step_rad * (1.0 + 1e-9)))
+    if not suspect.size:
+        return dict(margins)
+    counts = np.ceil(step[suspect] / fine_step_rad - 1e-9).astype(int)
+    inner = np.concatenate([np.linspace(q_rad[i], q_rad[i + 1], count + 1)[1:-1] for i, count in zip(suspect, counts)])
+    owner = np.repeat(suspect, counts - 1)
+    fine = margins_at(inner)
+    hit = np.flatnonzero(np.min(np.stack(list(fine.values())), axis=0) < 0.0)
+    if not hit.size:
+        return dict(margins)
+    interval = owner[hit[0]]
+    inside = owner == interval
+    result = {pair: np.array(gap, dtype=float) for pair, gap in margins.items()}
+    for pair, gap in fine.items():
+        result[pair][interval + 1] = min(result[pair][interval + 1], float(np.asarray(gap)[inside].min()))
+    return result
+
+
+__all__ = ["MotionSamples", "gamma_violation_deg", "reach_rad", "resample_between", "uniform_samples_rad"]

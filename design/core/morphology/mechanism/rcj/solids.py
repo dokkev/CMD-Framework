@@ -42,7 +42,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
-from core.morphology.packaging.hardware import Packaging
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk, turn_points
 from core.morphology.mechanism.revolute.solids import carrier_local, servo_rear
 
@@ -206,7 +206,7 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     if packaging.pad_checks_mcp("distal_pad"):
         end = count
         if until_unsafe:
-            failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -1e-9)
+            failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -MARGIN_TOLERANCE_MM)
             end = int(failing[0]) + 1 if failing.size else count
         margin = np.full(count, np.inf)
         margin[:end] = mcp_servo_gaps(distal[:end], packaging, mcp_samples_rad) - packaging.mcp_pad_clearance_mm
@@ -214,7 +214,7 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
     if include_static_pairs and packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
         gap = proximal_pad_mcp_gap(geo.proximal_pad, packaging, mcp_samples_rad)
         margins[("mcp_servo", "proximal_pad")] = np.full(count, gap - packaging.mcp_pad_clearance_mm)
-    return {pair: np.where(np.abs(margin) < 1e-9, 0.0, margin) for pair, margin in margins.items()}
+    return {pair: np.where(np.abs(margin) < MARGIN_TOLERANCE_MM, 0.0, margin) for pair, margin in margins.items()}
 
 
 __all__ = ["SERVO_REAR", "TORQUE_RATIO", "VARIABLE_NAMES", "RcjGeometry", "finger_length_mm", "geometry", "margins",

@@ -219,7 +219,7 @@ def test_a_reference_that_carries_the_interface_stops_at_once(monkeypatch):
 def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     config = tmp_path / "config.yaml"
     values = run.read_config_file(STUDY / "config.yaml")
-    values.update(output=str(tmp_path / "out"), workers=1)
+    values.update(output=str(tmp_path / "out"), workers=1, required_flexion_deg=[120])
     values["optimizer"].update(population=12, generations=3, seeds=[0, 1])
     config.write_text(yaml.safe_dump(values))
     reference_id = "rcj_tilt0_matched__tilt90"
@@ -238,7 +238,8 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     with (tmp_path / "out" / "summary_best.csv").open() as stream:
         best = list(csv.DictReader(stream))
     assert len(best) == 1 and best[0]["seeds_run"] == "2"
-    saved = sorted((out / "targets" / "long" / reference_id / "seed_0").iterdir())
+    assert all(row["required_flexion_deg"] == "120.0" for row in rows[0])
+    saved = sorted((out / "targets" / "long" / reference_id / "phi120" / "seed_0").iterdir())
     assert saved
     # The sweep rotates the 0-degree base reference; seats are subsequently recomputed per module.
     expected_reference = list(matched("rcj_tilt0")[2])

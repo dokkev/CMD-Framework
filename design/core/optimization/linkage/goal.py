@@ -137,8 +137,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     pulley = hardware.values.pop("pulley_radius_mm", None)  # optional
     hardware.done()
     pip_model = pip_servo.take("model")
-    tilt_low, tilt_high = _range(pip_servo.take("tilt_angle_deg"), "goal.hardware.pip_servo.tilt_angle_deg",
-                                 scalar=True)
+    # A range only: [a, a] holds the tilt at a (code_formulation.md §1, principle 5).
+    tilt_low, tilt_high = _range(pip_servo.take("tilt_angle_deg"), "goal.hardware.pip_servo.tilt_angle_deg")
     if tilt_low is None or tilt_high is None:
         raise ValueError("goal.hardware.pip_servo.tilt_angle_deg needs both ends")
     tilt_step = float(pip_servo.take("tilt_step_deg"))

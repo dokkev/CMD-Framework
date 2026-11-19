@@ -37,6 +37,7 @@ from core.evaluation import (
 from core.geometry.intervals import IntervalSet
 from core.morphology.contact.loss import dorsal_space_mm, joint_scene
 from core.morphology.packaging.gaps import footprint_gaps
+from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM
 from core.morphology.packaging.shapes import polygon_to_disk
 from core.morphology.mechanism.revolute import solids
 from core.morphology.mechanism.revolute.solids import JointChecks, RevoluteGeometry, between_samples, contact_faces
@@ -52,7 +53,7 @@ MOTION_CONSTRAINTS = ("f_motion_deg", "gamma_range_deg", "ma_min")
 """As the CFL's; the transmission angle and ``MA_min`` hold for the CFL only (0 here)."""
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 UNSWEPT = 1.0e2
-TOUCH_MM = 1e-6
+TOUCH_MM = MARGIN_TOLERANCE_MM
 """Gaps above ``-TOUCH_MM`` count as touching (``code_formulation.md`` §2)."""
 
 
