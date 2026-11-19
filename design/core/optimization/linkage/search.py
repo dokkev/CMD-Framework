@@ -42,7 +42,7 @@ from core.morphology.packaging.hardware import Packaging
 from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode
 from core.morphology.mechanism.linkage.measures import extended_icr_x, symmetric_bp
 
-from core.optimization.linkage.config import LinkageConfig
+from core.optimization.linkage.config import LinkageConfig, face_shift_mm
 
 
 SEARCH_NAMES = ("finger_length_mm", "bc_length_mm", "b_z_mm", "a_z_mm", "ap_from_a_z_mm", "ap_x_share",
@@ -207,7 +207,7 @@ def _on_grid(value: float, resolution: float) -> float:
 def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[float, ...] | None:
     v = dict(zip(search_names(config), (float(c) for c in coordinates)))
     if config.align_mount_offsets:
-        v["distal_mount_offset_mm"] = v["proximal_mount_offset_mm"]
+        v["distal_mount_offset_mm"] = v["proximal_mount_offset_mm"] + face_shift_mm(config.packaging)
     if config.mount_policy != "searched":  # set below, once the pads' ends are: here the deepest allowed
         for name in MOUNT_NAMES:
             v[name] = config.bounds[name][1]
@@ -279,8 +279,8 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
     variables the vector predates at their defaults)."""
 
     d = {**DEFAULT_VALUES, **dict(zip(VARIABLE_NAMES, (float(value) for value in x)))}
-    if config.align_mount_offsets:  # a design with its own offsets: the proximal one for both
-        d["distal_mount_offset_mm"] = d["proximal_mount_offset_mm"]
+    if config.align_mount_offsets:  # a design with its own offsets: the proximal one sets both
+        d["distal_mount_offset_mm"] = d["proximal_mount_offset_mm"] + face_shift_mm(config.packaging)
     ap_range, a_range = _ranges(config, d["b_x_mm"], d["ap_z_mm"], d["servo_tilt_deg"],
                                 math.hypot(d["b_x_mm"] + d["bc_length_mm"], d["b_z_mm"]))
 

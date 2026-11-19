@@ -563,7 +563,32 @@ def test_aligned_mounting_offsets_search_one_offset_for_both_pads():
         assert 2.0 <= d["proximal_mount_offset_mm"] <= 6.0
         assert len(from_design(design, aligned)) == len(names)
     assert decoded > 0
-    # Ranges that do not overlap cannot be aligned.
-    with pytest.raises(ValueError, match="do not overlap"):
+    # Ranges with no offset in common cannot be aligned.
+    with pytest.raises(ValueError, match="faces at one depth"):
         load("goal.pads.align_mount_offsets=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
              "goal.pads.distal.mount_offset_mm=[2,10]")
+
+
+def test_aligned_pads_of_different_heights_put_their_faces_at_one_depth():
+    from core.optimization.linkage.search import search_box, to_design
+    from core.optimization.mounting import _aligned
+
+    # A proximal pad 3 mm thicker mounts 3 mm shallower: offset + height equal.
+    aligned = load("goal.pads.align_mount_offsets=true", "goal.pads.proximal.height_mm=8",
+                   "goal.pads.distal.height_mm=5", "goal.pads.proximal.mount_offset_mm=[0,6]",
+                   "goal.pads.distal.mount_offset_mm=[2,10]")
+    assert aligned.bounds["proximal_mount_offset_mm"] == (0.0, 6.0)
+    assert aligned.bounds["distal_mount_offset_mm"] == (3.0, 9.0)
+    low, high = search_box(aligned)
+    rng = np.random.default_rng(0)
+    decoded = 0
+    for _ in range(300):
+        design = to_design(rng.uniform(low, high), aligned)
+        if design is None:
+            continue
+        decoded += 1
+        d = dict(zip(VARIABLE_NAMES, design))
+        assert d["proximal_mount_offset_mm"] + 8.0 == pytest.approx(d["distal_mount_offset_mm"] + 5.0)
+    assert decoded > 0
+    # The least depths 1 (proximal) and 2 (distal) give faces 9 and 7 deep: both at 9.
+    assert _aligned((1.0, 2.0), aligned.packaging) == pytest.approx((1.0, 4.0))

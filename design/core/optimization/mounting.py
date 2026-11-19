@@ -21,8 +21,9 @@ and placement:
   (2026-11-05: a housing the pad only skirts carries nothing). The 2R's
   distal pad hangs from a truss off the output at ``A``: the servo sets
   only its clearance, unless the two depths are aligned
-  (``goal.pads.align_mount_offsets``: one depth, the deeper least one, for
-  both pads; the distal pad then supported to the servo's reach).
+  (``goal.pads.align_mount_offsets``: both contact faces at one depth, the
+  deeper the least depths give; the distal pad then supported to the
+  servo's reach).
 - **C, deeper than that support** (a proximal pad needing clearance from a
   servo it does not run under, say): no design. No spacer is assumed.
 
@@ -45,6 +46,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from core.optimization.linkage.config import face_shift_mm
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM
 
 TOLERANCE_MM = MARGIN_TOLERANCE_MM
@@ -233,7 +235,7 @@ def _linkage_mounting(finger, config) -> Mounting:
         return [proximal, gaps[1] >= -TOLERANCE_MM]
 
     depths = shallowest(clear, guesses, _caps(config), config.resolution_mm)
-    return Mounting(_aligned(depths) if config.align_mount_offsets else tuple(depths),
+    return Mounting(_aligned(depths, config.packaging) if config.align_mount_offsets else tuple(depths),
                     on_grid(native, config.resolution_mm))
 
 
@@ -323,7 +325,7 @@ def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
         under = max(under, footprint_reach_mm(servo.outline, spans[0], clearance))
     native = (under if not clear((0.0, 0.0))[0] else 0.0, reach if goal.align_mount_offsets else 0.0)
     depths = shallowest(clear, guesses, _caps(goal), goal.resolution_mm)
-    return Mounting(_aligned(depths) if goal.align_mount_offsets else tuple(depths),
+    return Mounting(_aligned(depths, goal.packaging) if goal.align_mount_offsets else tuple(depths),
                     on_grid(native, goal.resolution_mm))
 
 
@@ -401,17 +403,19 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
     at_rest = clear((0.0, 0.0))
     native = (0.0 if at_rest[0] else proximal, 0.0 if at_rest[1] else distal)
     depths = shallowest(clear, guesses, _caps(goal), goal.resolution_mm)
-    return Mounting(_aligned(depths) if goal.align_mount_offsets else tuple(depths),
+    return Mounting(_aligned(depths, goal.packaging) if goal.align_mount_offsets else tuple(depths),
                     on_grid(native, goal.resolution_mm))
 
 
-def _aligned(depths: Sequence[float | None]) -> tuple[float | None, float | None]:
-    """Both pads at the deeper of their least depths (each still clear there: its hardware is above it)."""
+def _aligned(depths: Sequence[float | None], packaging) -> tuple[float | None, float | None]:
+    """Both contact faces at the deeper of the faces the least depths give
+    (each pad still clear there: its hardware is above it)."""
 
     if any(depth is None for depth in depths):
         return (None, None)
-    deepest = max(depths)
-    return (deepest, deepest)
+    shift = face_shift_mm(packaging)
+    proximal = max(depths[0], depths[1] - shift)
+    return (proximal, proximal + shift)
 
 
 _CACHE: dict[tuple, tuple[object, Mounting]] = {}

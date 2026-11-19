@@ -126,12 +126,14 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         pad_values[side] = (low, high, ContactPad(height_mm=height, offset_mm=0.0, length_mm=None,
                                                   max_length_mm=high))
     pads.done()
-    if align:  # both on the overlap of their ranges
-        low = max(mount_offsets["proximal"][0], mount_offsets["distal"][0])
-        high = min(mount_offsets["proximal"][1], mount_offsets["distal"][1])
+    if align:  # the faces at one depth: the distal offset the proximal one shifted by the heights' difference
+        shift = pad_values["proximal"][2].height_mm - pad_values["distal"][2].height_mm
+        low = max(mount_offsets["proximal"][0], mount_offsets["distal"][0] - shift)
+        high = min(mount_offsets["proximal"][1], mount_offsets["distal"][1] - shift)
         if high < low:
-            raise ValueError("goal.pads.align_mount_offsets: the pads' mount_offset_mm ranges do not overlap")
-        mount_offsets = {"proximal": (low, high), "distal": (low, high)}
+            raise ValueError("goal.pads.align_mount_offsets: no mount_offset_mm in both ranges puts the faces "
+                             "at one depth")
+        mount_offsets = {"proximal": (low, high), "distal": (low + shift, high + shift)}
 
     pip_servo, mcp_servo = hardware.table("pip_servo"), hardware.table("mcp_servo")
     pulley = hardware.values.pop("pulley_radius_mm", None)  # optional

@@ -38,6 +38,14 @@ def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile
     return include_linkage_occlusion
 
 
+def face_shift_mm(packaging) -> float:
+    """The distal pad's mounting offset less the proximal pad's that puts both
+    contact faces at one depth below their link lines (offset plus height):
+    the aligned pads' rule (``goal.pads.align_mount_offsets``, 2026-11-19)."""
+
+    return float(packaging.proximal_pad.height_mm - packaging.distal_pad.height_mm)
+
+
 OBJECTIVE_NAMES = ("c_pad_mean", "ma_wc")
 """The prototype formulation's objectives (problem formulation A.5.4)."""
 MOUNT_POLICIES = ("searched", "shallowest_supported")
@@ -146,9 +154,10 @@ class LinkageConfig:
     supports (``core.optimization.mounting``; with ``align_mount_offsets``,
     both at the deeper of the two)."""
     align_mount_offsets: bool = False
-    """The two pads' mounting offsets held equal (``goal.pads.align_mount_offsets``,
-    2026-11-04): one offset searched on both ranges' overlap, both pads' mounting
-    surfaces then the same distance below their link lines. False: each its own."""
+    """The two pads' contact faces held at one depth (``goal.pads.align_mount_offsets``;
+    2026-11-04 the mounting surfaces, 2026-11-19 the faces): one offset searched,
+    the other shifted by the pads' height difference (:func:`face_shift_mm`), so
+    in the extended pose both faces lie on one line. False: each its own."""
     pads_on_links: bool = False
     """Searched with each pad on its own link only (``goal.pads.on_links``;
     false, the default since 2026-11-03, searches the pads' ends ``A''`` and
