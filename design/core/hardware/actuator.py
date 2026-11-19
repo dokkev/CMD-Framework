@@ -45,6 +45,18 @@ class DShapedExtrusion:
             )
 
     @property
+    def front_extent_mm(self) -> float:
+        """The body's reach ahead of the shaft beyond its rounded cap: none."""
+
+        return 0.0
+
+    @property
+    def cap_radius_mm(self) -> float:
+        """The rounded cap about the shaft."""
+
+        return self.radius_mm
+
+    @property
     def longitudinal_extent_mm(self) -> float:
         """Total Y extent from the rear face to the rounded tip."""
 
@@ -65,6 +77,48 @@ class DShapedExtrusion:
             (-self.rear_extent_mm, self.radius_mm),
             (-self.depth_mm / 2.0, self.depth_mm / 2.0),
         )
+
+
+@dataclass(frozen=True)
+class BoxExtrusion:
+    """Rectangular XY profile extruded along local Z (mm): ``width_mm`` across,
+    ``length_mm`` along, the shaft ``shaft_from_front_mm`` behind the front
+    face and centred across (the XL330/XC330 frame)."""
+
+    width_mm: float
+    length_mm: float
+    shaft_from_front_mm: float
+    depth_mm: float
+
+    def __post_init__(self) -> None:
+        for name in ("width_mm", "length_mm", "shaft_from_front_mm", "depth_mm"):
+            object.__setattr__(self, name, require_positive(name, getattr(self, name)))
+        if self.shaft_from_front_mm >= self.length_mm:
+            raise ValueError("shaft_from_front_mm must lie within length_mm")
+
+    @property
+    def radius_mm(self) -> float:
+        """Half the width (the footprint's half-width, as a D-shaped body's radius)."""
+
+        return self.width_mm / 2.0
+
+    @property
+    def rear_extent_mm(self) -> float:
+        return self.length_mm - self.shaft_from_front_mm
+
+    @property
+    def front_extent_mm(self) -> float:
+        return self.shaft_from_front_mm
+
+    @property
+    def cap_radius_mm(self) -> float:
+        """No rounded cap."""
+
+        return 0.0
+
+    @property
+    def longitudinal_extent_mm(self) -> float:
+        return self.length_mm
 
 
 @dataclass(frozen=True)
@@ -91,12 +145,12 @@ class MechanicalParameters:
 class Actuator:
     """Minimal actuator value object: body geometry and mechanics."""
 
-    geometry: DShapedExtrusion
+    geometry: "DShapedExtrusion | BoxExtrusion"
     mechanics: MechanicalParameters
 
     def __post_init__(self) -> None:
-        if not isinstance(self.geometry, DShapedExtrusion):
-            raise TypeError("geometry must be a DShapedExtrusion instance")
+        if not isinstance(self.geometry, (DShapedExtrusion, BoxExtrusion)):
+            raise TypeError("geometry must be a DShapedExtrusion or BoxExtrusion instance")
         if not isinstance(self.mechanics, MechanicalParameters):
             raise TypeError("mechanics must be a MechanicalParameters instance")
 
@@ -110,6 +164,7 @@ class Actuator:
 __all__ = [
     "ACTUATOR_SHAFT_AXIS_XYZ",
     "Actuator",
+    "BoxExtrusion",
     "DShapedExtrusion",
     "MechanicalParameters",
     "Vector3",

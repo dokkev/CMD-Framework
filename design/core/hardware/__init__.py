@@ -3,6 +3,7 @@
 from core.hardware.actuator import (
     ACTUATOR_SHAFT_AXIS_XYZ,
     Actuator,
+    BoxExtrusion,
     DShapedExtrusion,
     MechanicalParameters,
     Vector3,
@@ -33,6 +34,7 @@ __all__ = [
     "ACTUATOR_SHAFT_AXIS_XYZ",
     "Actuator",
     "actuator",
+    "BoxExtrusion",
     "DShapedExtrusion",
     "MechanicalParameters",
     "Vector3",

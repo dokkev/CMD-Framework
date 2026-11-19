@@ -12,6 +12,7 @@ import numpy as np
 
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import (
+    servo_footprint,
     ServoFootprint,
     point_segment_distance,
     polygon_edges,
@@ -148,7 +149,7 @@ def servo_floor_x(packaging: Packaging, pivot_z: float, rear: tuple[float, float
     angles = tuple(mcp_angles_rad)
 
     def clear(x: float) -> bool:
-        footprint = ServoFootprint((x, pivot_z), rear, servo.radius_mm, servo.rear_extent_mm)
+        footprint = servo_footprint(servo, (x, pivot_z), rear)
         return packaging.mcp_servo_gap_mm(footprint, angles) - 0.0 >= 0.0
 
     high = 200.0

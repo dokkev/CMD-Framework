@@ -29,7 +29,7 @@ import numpy as np  # noqa: E402
 
 import core.morphology.packaging.gaps as packaging_module  # noqa: E402
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps  # noqa: E402
-from core.morphology.packaging.shapes import ServoFootprint, polygon_to_disk  # noqa: E402
+from core.morphology.packaging.shapes import ServoFootprint, polygon_to_disk  # noqa: E402, servo_footprint
 from core.optimization.mechanism import mechanism  # noqa: E402
 from core.optimization.study import load_yaml  # noqa: E402
 from visualize import gaps, sketch  # noqa: E402
@@ -53,7 +53,7 @@ class Rcj:
         u0 = max(bc - distal, 0.0)
         self.distal_local = np.array(((u0, -drop - height), (bc, -drop - height), (bc, -drop), (u0, -drop)))
         servo = packaging.pip_servo
-        self.servo = ServoFootprint((a_x, 0.0), (0.0, 1.0), servo.radius_mm, servo.rear_extent_mm)
+        self.servo = servo_footprint(servo, (a_x, 0.0), (0.0, 1.0))
 
     @property
     def finger_mm(self) -> float:

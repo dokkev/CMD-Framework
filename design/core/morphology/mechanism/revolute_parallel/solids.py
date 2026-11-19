@@ -18,7 +18,7 @@ import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
-from core.morphology.packaging.shapes import ServoFootprint
+from core.morphology.packaging.shapes import ServoFootprint, servo_footprint
 from core.morphology.mechanism.revolute.solids import (
     VARIABLE_NAMES as REVOLUTE_NAMES,
     JointChecks,
@@ -58,8 +58,7 @@ def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float) 
     ap = np.array((joint.a_x_mm + v["ap_from_a_x_mm"], v["ap_from_a_z_mm"]))
     servo = packaging.pip_servo
     tilt = math.radians(v["servo_tilt_deg"])
-    footprint = ServoFootprint((float(ap[0]), float(ap[1])), (-math.cos(tilt), math.sin(tilt)),
-                               servo.radius_mm, servo.rear_extent_mm)
+    footprint = servo_footprint(servo, (float(ap[0]), float(ap[1])), (-math.cos(tilt), math.sin(tilt)))
     return ParallelGeometry(joint, ap, footprint, pulley_radius_mm)
 
 

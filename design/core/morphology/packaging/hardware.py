@@ -29,7 +29,7 @@ from typing import Sequence
 import numpy as np
 
 from core.hardware import DShapedExtrusion, XM335Actuator
-from core.morphology.packaging.shapes import ServoFootprint, separation, turn_points
+from core.morphology.packaging.shapes import ServoFootprint, separation, turn_points, servo_footprint
 
 PIVOT_CLEARANCE_DIAMETER_MM = 8.0
 """Diameter of the metal around each pivot pin (``A``, ``A'``, ``B``, ``B'``) in
@@ -173,7 +173,10 @@ class Packaging:
         shaft disk with ``pad_mcp_check``, plus the pad's
         offset."""
 
-        clear = self.mcp_servo.radius_mm + self.mcp_pad_clearance_mm if self.pad_mcp_check else 0.0
+        # A D-shaped body's shaft disk; a box's reach ahead along the finger (+x).
+        body = (self.mcp_servo.cap_radius_mm if self.mcp_servo.cap_radius_mm > 0.0
+                else float(self.mcp_footprint().outline[:, 0].max()))
+        clear = body + self.mcp_pad_clearance_mm if self.pad_mcp_check else 0.0
         return clear + self.proximal_pad.offset_mm
 
     @property
@@ -196,9 +199,7 @@ class Packaging:
         in the proximal-link frame.
         """
 
-        footprint = ServoFootprint(
-            (0.0, 0.0), self.mcp_servo_rear, self.mcp_servo.radius_mm, self.mcp_servo.rear_extent_mm
-        )
+        footprint = servo_footprint(self.mcp_servo, (0.0, 0.0), self.mcp_servo_rear)
         return footprint.turned(mcp_flexion_rad)
 
     def mcp_servo_gap_mm(self, pip_servo: ServoFootprint, mcp_samples_rad: Sequence[float]) -> float:

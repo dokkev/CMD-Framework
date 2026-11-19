@@ -89,7 +89,7 @@ from core.morphology.packaging.assembly import (
     margins,
 )
 from core.morphology.packaging.hardware import Packaging
-from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, segment_polygon_gaps
+from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, segment_polygon_gaps, servo_footprint
 
 
 DEFAULT_DRIVER_SAMPLES_RAD = tuple(math.radians(degrees) for degrees in range(0, 91))
@@ -613,12 +613,8 @@ def pip_footprint(packaging: LinkagePackaging, finger: Finger) -> ServoFootprint
     (``finger.servo``: how it is mounted)."""
 
     tilt = finger.servo.tilt_rad
-    return ServoFootprint(
-        (finger.joint.ap.x_mm, finger.joint.ap.z_mm),
-        (-math.cos(tilt), math.sin(tilt)),
-        packaging.pip_servo.radius_mm,
-        packaging.pip_servo.rear_extent_mm,
-    )
+    return servo_footprint(packaging.pip_servo, (finger.joint.ap.x_mm, finger.joint.ap.z_mm),
+                           (-math.cos(tilt), math.sin(tilt)))
 
 
 __all__ = [

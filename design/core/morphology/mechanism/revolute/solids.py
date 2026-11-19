@@ -26,6 +26,7 @@ import numpy as np
 from core.morphology.packaging.gaps import footprint_gaps, mcp_servo_gaps, polygon_gaps, proximal_pad_mcp_gap
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import (
+    servo_footprint,
     PadSpan,
     ServoFootprint,
     carrier_outline,
@@ -132,8 +133,7 @@ def geometry(x: Sequence[float], packaging: Packaging) -> RevoluteGeometry:
     proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
     distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
-    servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]),
-                           packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm)
+    servo = servo_footprint(packaging.pip_servo, (v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]))
     # The mounting line from B'' to the fingertip end, whatever the module.
     mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],

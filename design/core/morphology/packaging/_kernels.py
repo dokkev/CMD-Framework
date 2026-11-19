@@ -204,19 +204,21 @@ def polygon_to_disk(polygons, centers, radius):
 
 
 @njit(cache=True, inline="always")
-def _box_distance(x, z, radius, rear):
-    dx = max(max(-rear - x, 0.0), x)
+def _box_distance(x, z, radius, rear, front):
+    dx = max(max(-rear - x, 0.0), x - front)
     dz = max(abs(z) - radius, 0.0)
     return math.hypot(dx, dz)
 
 
 @njit(cache=True, inline="always")
-def _footprint_segment(sx, sy, ex, ey, radius, rear):
-    """Distance from one segment (servo frame) to the D-shaped footprint."""
+def _footprint_segment(sx, sy, ex, ey, radius, rear, front, cap):
+    """Distance from one segment (servo frame) to the footprint: the box
+    ``[-rear, front] x [-radius, radius]`` and, if ``cap`` > 0, a disk of
+    ``cap`` about the shaft (a D-shaped body: ``front`` 0, ``cap`` the radius)."""
 
-    disk = max(_point_segment(0.0, 0.0, sx, sy, ex, ey) - radius, 0.0)
-    to_box = min(_box_distance(sx, sy, radius, rear), _box_distance(ex, ey, radius, rear))
-    cx = (-rear, 0.0, 0.0, -rear)
+    disk = max(_point_segment(0.0, 0.0, sx, sy, ex, ey) - cap, 0.0) if cap > 0.0 else np.inf
+    to_box = min(_box_distance(sx, sy, radius, rear, front), _box_distance(ex, ey, radius, rear, front))
+    cx = (-rear, front, front, -rear)
     cz = (-radius, -radius, radius, radius)
     for k in range(4):
         to_box = min(to_box, _point_segment(cx[k], cz[k], sx, sy, ex, ey))
@@ -227,7 +229,7 @@ def _footprint_segment(sx, sy, ex, ey, radius, rear):
 
 
 @njit(cache=True)
-def footprint_distance(start, end, pivot_x, pivot_z, fx, fz, sx, sz, radius, rear):
+def footprint_distance(start, end, pivot_x, pivot_z, fx, fz, sx, sz, radius, rear, front, cap):
     """Distance from each segment (linkage plane) to a servo footprint: pivot,
     the unit ``forward`` and ``side`` axes, radius and rear extent."""
 
@@ -236,12 +238,12 @@ def footprint_distance(start, end, pivot_x, pivot_z, fx, fz, sx, sz, radius, rea
         ax, az = start[i, 0] - pivot_x, start[i, 1] - pivot_z
         bx, bz = end[i, 0] - pivot_x, end[i, 1] - pivot_z
         out[i] = _footprint_segment(ax * fx + az * fz, ax * sx + az * sz,
-                                    bx * fx + bz * fz, bx * sx + bz * sz, radius, rear)
+                                    bx * fx + bz * fz, bx * sx + bz * sz, radius, rear, front, cap)
     return out
 
 
 @njit(cache=True)
-def polygon_to_footprint(polygons, pivot_x, pivot_z, fx, fz, sx, sz, radius, rear):
+def polygon_to_footprint(polygons, pivot_x, pivot_z, fx, fz, sx, sz, radius, rear, front, cap):
     """Gap from polygons to a servo footprint per sample (0 when they touch or overlap)."""
 
     count, m = polygons.shape[0], polygons.shape[1]
@@ -256,6 +258,6 @@ def polygon_to_footprint(polygons, pivot_x, pivot_z, fx, fz, sx, sz, radius, rea
             ax, az = polygons[i, a, 0] - pivot_x, polygons[i, a, 1] - pivot_z
             bx, bz = polygons[i, b, 0] - pivot_x, polygons[i, b, 1] - pivot_z
             least = min(least, _footprint_segment(ax * fx + az * fz, ax * sx + az * sz,
-                                                  bx * fx + bz * fz, bx * sx + bz * sz, radius, rear))
+                                                  bx * fx + bz * fz, bx * sx + bz * sz, radius, rear, front, cap))
         out[i] = least
     return out

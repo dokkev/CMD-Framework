@@ -43,7 +43,7 @@ import numpy as np
 
 from core.morphology.packaging.gaps import footprint_gaps, polygon_gaps
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
-from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk, turn_points
+from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk, turn_points, servo_footprint
 from core.morphology.mechanism.revolute.solids import carrier_local, servo_rear, with_mcp_pairs
 
 
@@ -157,8 +157,8 @@ def geometry(x: Sequence[float], packaging: Packaging, joint_servo: bool = True)
     proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
     distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
-    servo = ServoFootprint((v["a_x_mm"], 0.0), servo_rear(v.get("servo_tilt_deg", 0.0)),
-                           packaging.pip_servo.radius_mm, packaging.pip_servo.rear_extent_mm) if joint_servo else None
+    servo = (servo_footprint(packaging.pip_servo, (v["a_x_mm"], 0.0), servo_rear(v.get("servo_tilt_deg", 0.0)))
+             if joint_servo else None)
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                        servo, proximal_length, distal_length, proximal_room, distal_room, v["proximal_drop_mm"],
                        carrier_local(distal_outline, v["distal_drop_mm"], packaging))

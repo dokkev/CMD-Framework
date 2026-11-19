@@ -122,32 +122,45 @@ def segment_polygon_gaps(polygons: np.ndarray, start: np.ndarray, end: np.ndarra
 
 @dataclass(frozen=True)
 class ServoFootprint:
-    """A servo's D-shaped section in the linkage plane.
+    """A servo's section in the linkage plane, about its shaft ``pivot``.
 
-    A disk of ``radius_mm`` around the shaft ``pivot`` and the rectangle
-    reaching ``rear_extent_mm`` from it along the unit ``rear`` direction,
-    ``radius_mm`` to either side.
+    The rectangle from ``rear_extent_mm`` behind the shaft (along the unit
+    ``rear`` direction) to ``front_mm`` ahead of it, ``radius_mm`` to either
+    side, and, for a D-shaped body (``front_mm`` 0), a disk of ``cap_mm``
+    (default ``radius_mm``) around the shaft. A box-shaped body (the XC330
+    frame) has ``cap_mm`` 0.
     """
 
     pivot: tuple[float, float]
     rear: tuple[float, float]
     radius_mm: float
     rear_extent_mm: float
+    front_mm: float = 0.0
+    cap_mm: float | None = None
+
+    @property
+    def cap(self) -> float:
+        return self.radius_mm if self.cap_mm is None else self.cap_mm
 
     @property
     def reach_mm(self) -> float:
         """Radius of the circle around the shaft that contains the footprint."""
 
-        return math.hypot(self.radius_mm, self.rear_extent_mm)
+        r = self.radius_mm
+        return max(math.hypot(r, self.rear_extent_mm), math.hypot(r, self.front_mm), self.cap)
 
     @property
     def outline(self) -> np.ndarray:
-        """The closed D outline in the plane, ``(n, 2)``."""
+        """The closed outline in the plane, ``(n, 2)``: D-shaped, or a box."""
 
         r = self.radius_mm
-        cap = [(r * math.cos(t), r * math.sin(t))
-               for t in (math.pi / 2 - math.pi * k / 24 for k in range(25))]
-        local = np.array(cap + [(-self.rear_extent_mm, -r), (-self.rear_extent_mm, r)])
+        if self.cap > 0.0:
+            cap = [(self.cap * math.cos(t), self.cap * math.sin(t))
+                   for t in (math.pi / 2 - math.pi * k / 24 for k in range(25))]
+            local = np.array(cap + [(-self.rear_extent_mm, -r), (-self.rear_extent_mm, r)])
+        else:
+            local = np.array([(self.front_mm, r), (self.front_mm, -r), (-self.rear_extent_mm, -r),
+                              (-self.rear_extent_mm, r)])
         forward, side = self._axes()
         return np.array(self.pivot) + local[:, :1] * forward + local[:, 1:] * side
 
@@ -168,6 +181,8 @@ class ServoFootprint:
             (cosine * rx - sine * rz, sine * rx + cosine * rz),
             self.radius_mm,
             self.rear_extent_mm,
+            self.front_mm,
+            self.cap_mm,
         )
 
     def distance_to_footprint(self, other: "ServoFootprint") -> float:
@@ -189,7 +204,8 @@ class ServoFootprint:
         forward, side = self._axes()
         return _kernels.footprint_distance(as_points(start), as_points(end), float(self.pivot[0]), float(self.pivot[1]),
                                            float(forward[0]), float(forward[1]), float(side[0]), float(side[1]),
-                                           float(self.radius_mm), float(self.rear_extent_mm))
+                                           float(self.radius_mm), float(self.rear_extent_mm),
+                                           float(self.front_mm), float(self.cap))
 
     def _axes(self) -> tuple[np.ndarray, np.ndarray]:
         """Unit vectors of the servo frame: ``forward`` (away from the rear body) and ``side``."""
@@ -204,7 +220,16 @@ def polygon_to_footprint(polygons: np.ndarray, footprint: "ServoFootprint") -> n
     forward, side = footprint._axes()
     return _kernels.polygon_to_footprint(as_polygons(polygons), float(footprint.pivot[0]), float(footprint.pivot[1]),
                                          float(forward[0]), float(forward[1]), float(side[0]), float(side[1]),
-                                         float(footprint.radius_mm), float(footprint.rear_extent_mm))
+                                         float(footprint.radius_mm), float(footprint.rear_extent_mm),
+                                         float(footprint.front_mm), float(footprint.cap))
+
+
+def servo_footprint(body, pivot: tuple[float, float], rear: tuple[float, float]) -> ServoFootprint:
+    """A servo body (``core.hardware``: D-shaped or a box) about its shaft at
+    ``pivot``, its rear along ``rear``."""
+
+    return ServoFootprint(tuple(pivot), tuple(rear), body.radius_mm, body.rear_extent_mm,
+                          body.front_extent_mm, body.cap_radius_mm)
 
 
 @dataclass(frozen=True)
@@ -257,6 +282,7 @@ __all__ = [
     "polygon_edges",
     "polygon_to_disk",
     "polygon_to_footprint",
+    "servo_footprint",
     "polygons_gap",
     "segment_polygon_gaps",
     "segments_cross",

@@ -42,3 +42,25 @@ def test_the_compact_servos_build_a_prototype():
         # The CAD's design vector evaluates with it (feasible or not).
         x = (35.7, 67.2, 0.0, 37.5, 12.4, 60.5, 6.5, 15.0, 22.8, 0.0, 5.8, 0.7, 4.0, 4.0)
         assert mechanism("linkage").evaluate(x, config) is not None
+
+
+def test_a_box_body_is_a_rectangle_about_its_offset_shaft():
+    import numpy as np
+
+    from core.hardware import actuator
+    from core.morphology.packaging.shapes import servo_footprint
+
+    body = actuator("xc330").geometry
+    assert (body.radius_mm, body.front_extent_mm, body.rear_extent_mm, body.cap_radius_mm) == (10.0, 9.5, 24.5, 0.0)
+    # Shaft at the origin, rear along -x: the box spans x in [-24.5, 9.5], z in [-10, 10].
+    box = servo_footprint(body, (0.0, 0.0), (-1.0, 0.0))
+    xs, zs = box.outline[:, 0], box.outline[:, 1]
+    assert (xs.min(), xs.max(), zs.min(), zs.max()) == (-24.5, 9.5, -10.0, 10.0)
+    points = np.array([(12.5, 0.0), (9.5 + 3.0, 10.0 + 4.0), (0.0, 0.0), (-30.0, 0.0)])
+    distance = box.distance_to_segments(points, points)
+    assert distance == pytest.approx([3.0, 5.0, 0.0, 5.5])
+    # No rounded cap: a point 9 mm ahead at 9.5 mm aside is outside a D (radius 10) but inside the box.
+    corner = np.array([(9.0, 9.4)])
+    assert box.distance_to_segments(corner, corner)[0] == 0.0
+    d_shape = servo_footprint(actuator("xm335").geometry, (0.0, 0.0), (-1.0, 0.0))
+    assert d_shape.distance_to_segments(corner, corner)[0] > 0.0
