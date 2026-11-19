@@ -42,7 +42,7 @@ partitions = run.partitions
 BASELINE = Modules(20.0, 3.0, 20.0, 3.0)
 LONG_THICK = Modules(35.0, 8.0, 35.0, 8.0)
 PROTOTYPE = tuple(float(v) for v in run.read_config_file(STUDY / "references.yaml")["morphology"]["x"])
-"""The current prototype (report/prototype.md), as references.yaml holds it."""
+"""The current prototype (report/legacy/prototype.md), as references.yaml holds it."""
 E0 = {"finger_length_mm": 90.0, "proximal_span_mm": 43.3, "distal_span_mm": 30.2}
 
 

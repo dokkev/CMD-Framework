@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hardware audit of the CoDe prototype (report/prototype.md) on the existing planar model.
+"""Hardware audit of the CoDe prototype (report/legacy/prototype.md) on the existing planar model.
 
 Re-evaluates the prototype design vector (run_004 #2113, references.yaml) with
 its own optimization config (proto_tilt10_align, linkage-v12) and with the

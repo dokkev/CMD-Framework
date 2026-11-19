@@ -135,7 +135,7 @@ design in its range and budget. It is not a proof that none exists.
 
 - **Matched (the primary result).** Every mechanism is built to one external
   morphology: the current prototype's (L_f 90.0, S_p 43.3, S_d 30.2,
-  ICR 55.05 mm; `report/prototype.md`). Its design vector is held in
+  ICR 55.05 mm; `report/legacy/prototype.md`). Its design vector is held in
   `references.yaml` (tracked, with its source run, formulation and commit as
   a record), not read from an optimizer output, so a clean checkout runs the
   study and a rerun portfolio does not move the reference. Each mechanism

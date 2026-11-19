@@ -2,7 +2,7 @@
 # Study 2's reference hands (E0, Q0, A0). Paths are from the repository root.
 #
 # Matched (the primary result): one external morphology for every mechanism,
-# the current prototype's (report/prototype.md): finger length, the two
+# the current prototype's (report/legacy/prototype.md): finger length, the two
 # contact-bearing spans and the articulation station. Each mechanism is built
 # to it once, keeping its own architecture (partitions.py, `template`):
 #   - CoDe: the prototype itself (its linkage and servo on A');
@@ -26,7 +26,7 @@ morphology:
     role: balanced
     formulation: linkage-v12
     commit: 73340852fc0832024c077d1ff5b32b7a5ce2108d
-    document: report/prototype.md
+    document: report/legacy/prototype.md
 
 matched:
   - {id: code_matched, config: scripts/study/code_tilt15.yaml}

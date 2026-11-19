@@ -8,8 +8,8 @@ Start with [GOAL.md](../GOAL.md) for the research north star and claim disciplin
 |---|---|
 | [GOAL.md](../GOAL.md) | Research objective, embodiment invariance $R = (H, C)$, Studies 1–4 & A–D, claim discipline |
 | [README.md](../README.md) | Monorepo layout, environment overview, prototype vs. study rules, coordinate conventions |
-| [report/PROGRESS.md](../report/PROGRESS.md) | Current defensible claims (C1–C7), evidence boundaries, limitations, and next validation steps |
-| [report/README.md](../report/README.md) | Index of all current and snapshot study/prototype reports under `report/` |
+| [report/legacy/PROGRESS.md](../report/legacy/PROGRESS.md) | Claims (C1–C7) as of 2026-11-17, before the SSoT rules; superseded once the studies are rerun |
+| [report/README.md](../report/README.md) | Reports under the SSoT rules (`report/`) and the pre-SSoT archive (`report/legacy/`) |
 | [design/SSoT/problem_formulation.md](../design/SSoT/problem_formulation.md) | **Source of truth** (paper Appendix A, Korean): morphology $M=(K,C,A,S)$, static/motion feasibility, cylinder-based pad coverage, prototype formulation, Study 1 |
 | [docs/formulation.md](formulation.md) | Pointer to `design/SSoT/problem_formulation.md` |
 | [docs/decisions.md](decisions.md) | Chronological engineering and study-formulation decision log (through 2026-11-18) |
