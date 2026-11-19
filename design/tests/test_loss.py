@@ -112,48 +112,17 @@ def test_integrity_keeps_what_no_pose_loses(name):
         assert deep[side] <= float(face_loss(built, "probe", 3.0)[side].free.min()) + 1e-9
 
 
-def test_the_loss_depths_are_read_from_the_goal():
+def test_the_access_depth_is_read_from_the_goal_and_the_integrity_rule_is_gone():
     base = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", OVERRIDES)[0]
-    assert base.integrity_depth_mm is None and base.access_depth_mm == 20.0
+    assert base.access_depth_mm == 20.0
     given = load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
-                      (*OVERRIDES, "goal.loss.integrity_depth_mm=3", "goal.loss.access_depth_mm=15"))[0]
-    assert given.integrity_depth_mm == 3.0 and given.access_depth_mm == 15.0
-    with pytest.raises(ValueError):
+                      (*OVERRIDES, "goal.loss.access_depth_mm=15"))[0]
+    assert given.access_depth_mm == 15.0
+    with pytest.raises(ValueError, match="was removed"):
         load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml",
-                  (*OVERRIDES, "goal.loss.integrity_depth_mm=-1"))
+                  (*OVERRIDES, "goal.loss.integrity_depth_mm=3"))
     with pytest.raises(ValueError):
         load_yaml(mechanism("linkage"), CONFIGS / "linkage" / "config.yaml", (*OVERRIDES, "goal.loss.depth_mm=3"))
-
-
-FEASIBLE = {
-    "revolute": (64.2, 31.3, 25.6, 30.7, 9.5, 9.5, 0.0),  # the pads tangent to the servo's housing
-    "linkage": (40.6, 66.0, 0.0, 44.4, 12.1, 56.9, 6.0, 10.0, 33.9, 0.0, -7.0, -12.1),  # pads on the link lines
-}
-"""A design of each mechanism feasible on the production goal with any pad length and segment."""
-
-
-def integrity_config(name, *overrides):
-    found = mechanism(name)
-    return found, load_yaml(found, CONFIGS / "linkage" / "config.yaml",
-                            ("goal.pads.proximal.length_mm=[0, null]", "goal.pads.distal.length_mm=[0, null]",
-                             "goal.link.proximal_length_ratio=[null, null]",
-                             "goal.link.distal_length_ratio=[null, null]",
-                             "goal.loss.integrity_depth_mm=3", *overrides))[0]
-
-
-@pytest.mark.parametrize("name", list(FEASIBLE))
-def test_every_evaluator_keeps_the_integrity_rules_length(name):
-    found, config = integrity_config(name)
-    goal = getattr(config, "goal", config)
-    assert goal.integrity_depth_mm == 3.0
-    evaluation = found.evaluate(FEASIBLE[name], config)
-    assert evaluation.feasible
-    phi = np.arange(0.0, np.degrees(goal.required_rom_rad) + 1e-9, 1.0)
-    kept = integrity_free(scene(name, config, FEASIBLE[name], phi), 3.0)
-    assert evaluation.proximal_usable_length_mm == pytest.approx(kept["proximal_pad"], abs=1.0)
-    assert evaluation.distal_usable_length_mm == pytest.approx(kept["distal_pad"], abs=1.0)
-    # (Without a depth the faces count to their lines' crossing at the
-    # required flexion, a different measure: neither bounds the other.)
 
 
 def test_the_probe_meets_what_stands_within_its_depth():

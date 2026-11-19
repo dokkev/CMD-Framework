@@ -38,6 +38,46 @@ def shortfall_mm(need: float, have: float) -> float:
     return 0.0 if 0.0 < value <= LENGTH_TOLERANCE_MM else value
 
 
+def evaluation_report(e: Any) -> dict[str, Any]:
+    """The problem formulation's quantities of one evaluation, as reported in
+    ``pareto.csv`` / ``seeds.csv`` (``code_formulation.md`` §7), whatever the
+    mechanism. The evaluation carries the shared fields (``poses``, ``q_max_rad``,
+    ``ma_wc``, ``finger_length_mm``, the pads' lengths and rooms, ...)."""
+
+    row: dict[str, Any] = {
+        "c_pad_mean": e.c_pad_mean,
+        "q_max_deg": math.degrees(e.q_max_rad),
+        "valid_reach_deg": math.degrees(e.valid_reach_rad),
+        "ma_wc": e.ma_wc,
+        "q_req_deg": math.degrees(e.required_rom_rad),
+        "stop_reason": e.stop_reason,
+        "collision_pair": e.collision_pair,
+        "finger_length_mm": e.finger_length_mm,
+        "proximal_length_mm": e.proximal_length_mm,
+        "proximal_support_length_mm": e.proximal_support_length_mm,
+        "distal_support_length_mm": e.distal_support_length_mm,
+        "proximal_room_mm": e.proximal_room_mm,
+        "distal_room_mm": e.distal_room_mm,
+        "required_proximal_mm": e.required_proximal_mm,
+        "required_distal_mm": e.required_distal_mm,
+        "proximal_depth_mm": e.proximal_depth_mm,
+        "distal_depth_mm": e.distal_depth_mm,
+        "pad_clearance_mm": e.pad_clearance_mm,
+        "least_tip_x_mm": e.least_tip_x_mm,
+        "gamma_min_deg": math.degrees(e.gamma_min_rad),
+        "gamma_max_deg": math.degrees(e.gamma_max_rad),
+        "proximal_ratio_shortfall_mm": e.proximal_ratio_shortfall_mm,
+        "distal_ratio_shortfall_mm": e.distal_ratio_shortfall_mm,
+        "bound_hits": ";".join(e.bound_hits),
+    }
+    for index, pose in enumerate(e.poses, start=1):
+        row[f"q_eval{index}_deg"] = math.degrees(pose.q_rad)
+        row[f"c_pad_eval{index}"] = pose.c_pad
+        row[f"c_common_eval{index}_mm"] = pose.common_mm
+        row[f"lf_eval{index}_mm"] = pose.finger_length_mm
+    return row
+
+
 @dataclass(frozen=True)
 class Objective:
     """One objective, minimized by ``value``.
@@ -311,6 +351,7 @@ __all__ = [
     "Objective",
     "StudyConfig",
     "SummaryColumn",
+    "evaluation_report",
     "mechanism",
     "read_config_file",
 ]

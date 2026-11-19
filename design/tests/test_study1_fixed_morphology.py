@@ -180,8 +180,8 @@ def test_the_face_rule_off_is_set_on_every_reference_and_recorded(face_on_off):
 
 
 def test_the_face_rule_off_only_adds_feasible_assemblies(face_on_off):
-    """F_ON is a subset of F_OFF: the geometry is frozen and only the occlusion penalty goes, so no
-    assembly feasible with the rule fails without it, and no usable length shrinks."""
+    """F_ON is a subset of F_OFF: the geometry is frozen and only the occlusion goes, so no
+    assembly feasible with the rule fails without it, and no coverage shrinks."""
 
     on, off = face_on_off["on"][1], face_on_off["off"][1]
     assert on.keys() == off.keys()
@@ -189,9 +189,8 @@ def test_the_face_rule_off_only_adds_feasible_assemblies(face_on_off):
         assert row["mounted"] == off[key]["mounted"], key
         if row["feasible"] == "True":
             assert off[key]["feasible"] == "True", key
-        for length in ("proximal_effective_mm", "distal_effective_mm"):
-            if row[length]:
-                assert float(off[key][length]) >= float(row[length]) - 1e-6, (key, length)
+        if row["c_pad_mean"]:
+            assert float(off[key]["c_pad_mean"]) >= float(row["c_pad_mean"]) - 1e-9, key
 
 
 def test_the_face_rule_does_not_touch_mechanisms_without_links_in_front(face_on_off):
@@ -201,26 +200,6 @@ def test_the_face_rule_does_not_touch_mechanisms_without_links_in_front(face_on_
     for key, row in on.items():
         if row["mechanism"] in ("revolute", "rcj", "rcj_idealized"):
             assert off[key] == row, key
-
-
-def test_an_unblocked_face_keeps_exactly_its_fold_length(face_on_off):
-    """For belt 2R faces where neither strands nor the 6 mm pulley on A protrude in front of the
-    contact face, ON must read the exact same length as OFF. On ``distal_30x3`` at 90 deg, the
-    30 mm x 3 mm distal pad reaches 4.9483 mm from A (< sqrt(6^2 - 3^2) = 5.1962 mm), so exact
-    interval geometry captures the 0.247851 mm pulley occlusion that 0.5 mm midpoint probing missed."""
-
-    import math
-
-    on, off = face_on_off["on"][1], face_on_off["off"][1]
-    for key, row in on.items():
-        if row["mechanism"] == "revolute_parallel" and row["proximal_effective_mm"]:
-            assert row["proximal_effective_mm"] == off[key]["proximal_effective_mm"], key
-            if key == "belt_2r_matched__distal_30x3__phi90":
-                ac_mm = 90.0 - 55.05169906
-                expected = 30.0 - (math.sqrt(6.0**2 - 3.0**2) - (ac_mm - 30.0))
-                assert float(row["distal_effective_mm"]) == pytest.approx(expected, abs=1e-5)
-            else:
-                assert row["distal_effective_mm"] == off[key]["distal_effective_mm"], key
 
 
 def test_a_goal_override_can_set_a_packaging_field_on_every_reference():

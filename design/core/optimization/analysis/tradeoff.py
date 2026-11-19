@@ -103,27 +103,27 @@ def with_modules(config, modules: Modules):
     return with_goal(config, goal)
 
 
-MOUNTING = ("proximal_support_mm", "distal_support_mm", "dorsal_space_mm", "pip_servo_pad_mm", "mcp_servo_mm",
-            "pad_collision_mm", "pivot_pin_mm", "pin_spacing_mm", "extended_length_mm", "valid_reference",
-            "a_pin_servo_mm", "pad_drop_mm", "roller_pad_mm", "mount_depth_mm")
-"""Checks of the extended finger with its modules: failing one, it cannot carry them."""
+def is_static(name: str) -> bool:
+    """A check of the reference pose alone: a morphology bound (``bounds_*``) or ``F_static`` (``static_*``)."""
+
+    return name.startswith(("bounds_", "static_"))
 
 
 def phi_max_deg(found: Mechanism, config, x: Sequence[float], modules: Modules) -> float:
-    """How far (deg) the fixed finger ``x`` flexes, continuously from
-    extension, carrying ``modules`` (NaN: it cannot mount them)."""
+    """``q_max`` (deg) of the fixed finger ``x`` carrying ``modules`` (NaN: it
+    fails a static check with them)."""
 
     evaluation = found.evaluate(x, with_modules(config, modules))
     if evaluation is None:
         return math.nan
-    if any(evaluation.constraints.get(name, 0.0) > 0.0 for name in MOUNTING):
+    if any(value > 0.0 for name, value in evaluation.constraints.items() if is_static(name)):
         return math.nan
-    return math.degrees(evaluation.phi_max_rad)
+    return math.degrees(evaluation.q_max_rad)
 
 
 def proximal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
                    lengths_mm: Sequence[float]) -> np.ndarray:
-    """``phi_max`` (deg) for each proximal module length, the rest of ``modules`` kept."""
+    """``q_max`` (deg) for each proximal module length, the rest of ``modules`` kept."""
 
     return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, proximal_length_mm=length))
                      for length in lengths_mm])
@@ -131,11 +131,11 @@ def proximal_curve(found: Mechanism, config, x: Sequence[float], modules: Module
 
 def distal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
                  lengths_mm: Sequence[float]) -> np.ndarray:
-    """``phi_max`` (deg) for each distal module length, the rest of ``modules`` kept."""
+    """``q_max`` (deg) for each distal module length, the rest of ``modules`` kept."""
 
     return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, distal_length_mm=length))
                      for length in lengths_mm])
 
 
-__all__ = ["MODULE_OVERRIDES", "MOUNTING", "Modules", "distal_curve", "goal_of", "load", "phi_max_deg",
+__all__ = ["MODULE_OVERRIDES", "Modules", "is_static", "distal_curve", "goal_of", "load", "phi_max_deg",
            "proximal_curve", "with_goal", "with_modules"]

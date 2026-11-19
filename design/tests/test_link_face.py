@@ -1,7 +1,8 @@
-"""Linkage-occlusion coverage rule (``goal.loss.include_linkage_occlusion``):
-at the required flexion, a CoDe pad's face excludes portions occluded by a
-crossing link (driver A-B' or coupler A'-B), with explicit context defaults
-(``profile: study`` -> False, ``profile: prototype`` -> True)."""
+"""Linkage occlusion in the coverage (``goal.loss.include_linkage_occlusion``):
+a crossing link (A-B' or A'-B) of the CFL, or the 2R-remote's belt and
+pulleys, hides the part of a face it passes in front of, before the
+cylinder rule pairs the two faces. Defaults: ``profile: study`` off,
+``profile: prototype`` on."""
 
 from __future__ import annotations
 
@@ -12,10 +13,8 @@ import numpy as np
 import pytest
 
 from core.morphology.mechanism.linkage.design import decode
-from core.morphology.mechanism.linkage.motion import sweep_motion
 from core.morphology.mechanism.linkage.packaging import contact_faces, link_kept_lengths
 from core.morphology.packaging.faces import crossing_free_lengths
-from core.optimization.linkage.evaluate import motion_settings
 from core.optimization.linkage.mechanism import resolve_preset
 from core.optimization.mechanism import mechanism, read_config_file
 from core.optimization.study import load_yaml
@@ -72,11 +71,10 @@ def test_a_link_in_front_of_a_face_takes_that_part_of_it():
     off = study()
     on = dataclasses.replace(off, include_linkage_occlusion=True)
     before, after = LINKAGE.evaluate(BALANCED, off), LINKAGE.evaluate(BALANCED, on)
-    # The coupler takes most of the distal face, the driver A-B' the proximal face's inner ~10 mm.
-    assert after.distal_usable_length_mm < 20.0 < before.distal_usable_length_mm
-    assert after.proximal_usable_length_mm == pytest.approx(before.proximal_usable_length_mm - 9.9, abs=1.0)
-    assert after.pad_coverage < before.pad_coverage
-    assert after.constraints["pad_usable_mm"] > 0.0  # its 25 mm distal module no longer fits
+    # The coupler runs across the distal face at 120 deg: the pads share less there.
+    assert [pose.common_mm for pose in after.poses] <= [pose.common_mm for pose in before.poses]
+    assert after.c_pad_mean < before.c_pad_mean
+    assert after.feasible == before.feasible  # the coverage is the objective, not a constraint
 
 
 def test_the_driver_link_counts_as_the_coupler_does():
@@ -96,31 +94,24 @@ def test_links_behind_the_faces_take_nothing():
         assert kept[side][0] == pytest.approx(min(free[side][0], length[side]), abs=1e-6)
 
 
-def test_the_rule_needs_the_links_bent_around_the_pads_and_no_integrity_depth():
-    config = study()
-    finger = decode(BALANCED, config.link_length_resolution_mm)
-    packaging = dataclasses.replace(config.packaging, links_clear_pads=False)
-    with pytest.raises(ValueError, match="links_clear_pads"):
-        sweep_motion(finger, packaging, motion_settings(config), config.required_rom_rad,
-                     include_linkage_occlusion=True)
-    with pytest.raises(ValueError, match="integrity_depth_mm"):
-        load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
-                  ("goal.loss.include_linkage_occlusion=true", "goal.loss.integrity_depth_mm=5"))
+def test_the_removed_loss_rules_are_errors():
+    for removed in ("goal.loss.integrity_depth_mm=5", "goal.loss.fold=false"):
+        with pytest.raises(ValueError, match="was removed"):
+            load_yaml(LINKAGE, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml", (removed,))
 
 
-def test_a_pad_past_where_it_counts_is_left_out_of_the_coverage_not_forbidden():
+def test_a_pad_without_a_partner_counts_nothing():
     on = dataclasses.replace(study(), include_linkage_occlusion=True)
-    assert "pad_waste_mm" not in LINKAGE.constraint_names
     e = LINKAGE.evaluate(BALANCED, on)
-    # The distal pad mounted past what the coupler leaves: that part counts for nothing, nothing more.
-    assert e.distal_support_length_mm > e.distal_usable_length_mm
-    assert e.distal_effective_mm == pytest.approx(e.distal_usable_length_mm)
+    for pose in e.poses:  # only the length both pads cover from the crossing counts
+        assert pose.common_mm <= min(e.proximal_support_length_mm, e.distal_support_length_mm) + 1e-9
 
 
 def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
     import math
 
-    from core.optimization.revolute_parallel.evaluate import belt_kept_lengths, geometry
+    from core.morphology.mechanism.revolute.solids import contact_faces
+    from core.optimization.revolute_parallel.evaluate import belt_hidden, geometry
 
     belt = mechanism("revolute_parallel")
     config = load_yaml(belt, ROOT / "scripts" / "optimize" / "linkage" / "config.yaml",
@@ -128,9 +119,11 @@ def test_the_belt_and_its_pulleys_in_front_of_a_face_take_that_part_of_it():
     # A at 45 mm, A' 15 mm above it; the proximal face 5 mm below OA, the pulley on A 6 mm round:
     # it stands in front of the face from 45 - sqrt(6^2 - 5^2) = 45 - sqrt(11) mm on.
     exact_start = 45.0 - math.sqrt(6.0**2 - 5.0**2)
+    q = math.radians(120.0)
     for app_x, lost in ((41.0, 0.0), (42.0, 42.0 - exact_start)):
         geo = geometry([45.0, 45.0, app_x, 3.0, 0.0, 0.0, 10.0, 0.0, 15.0], config)
-        proximal, distal = belt_kept_lengths(geo, math.radians(120.0), (1e3, 1e3), config.goal)
-        assert proximal == pytest.approx(geo.joint.proximal_length_mm - lost, abs=1e-9)
+        proximal, proximal_normal, distal, distal_normal = contact_faces(geo.joint, np.array([q]))
+        hidden = belt_hidden(geo)(q, proximal, proximal_normal, distal[0], distal_normal[0])
+        assert hidden[0].measure == pytest.approx(lost, abs=1e-9)
         # The distal pad starts 3 mm past A: the pulley on A takes its first few tenths.
-        assert geo.joint.distal_length_mm - 1.0 < distal < geo.joint.distal_length_mm
+        assert 0.0 < hidden[1].measure < 1.0

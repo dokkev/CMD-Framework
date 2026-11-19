@@ -41,22 +41,21 @@ def test_equal_rollers_roll_the_distal_segment_twice_as_far_as_the_carrier():
 
 def test_a_design_is_swept_and_reported():
     e = MECHANISM.evaluate(X, load())
-    assert e.torque_ratio_max == 2.0
-    # The faces (30 and 28 mm), each to where the other's line crosses it folded to 150 deg.
+    # The servo turns the carrier by half the flexion: MA = 1/2 (MA_wc is 0 where the motion falls short).
+    assert e.ma_wc == pytest.approx(0.5) or e.constraints["f_motion_deg"] > 0.0
     assert (e.proximal_support_length_mm, e.distal_support_length_mm) == pytest.approx((30.0, 28.0))
-    assert e.proximal_effective_mm == pytest.approx(min(30.0, e.proximal_usable_length_mm))
-    assert e.distal_effective_mm == pytest.approx(min(28.0, e.distal_usable_length_mm))
-    from core.morphology.mechanism.revolute.solids import crossing_free
+    # The coverage at each pose of Q_eval, by the shared cylinder rule.
+    from core.evaluation import common_length_mm, evaluation_poses_rad
+    from core.morphology.mechanism.revolute.solids import contact_faces
     from core.optimization.rcj import geometry
 
     config = load()
-    phi = np.asarray(config.goal.servo_samples_rad)
-    last = phi[np.flatnonzero(phi >= config.goal.required_rom_rad - 1e-12)[0]]
-    free = crossing_free(geometry(X, config), [last])
-    assert e.proximal_usable_length_mm == pytest.approx(free["proximal_pad"][0])
-    assert e.distal_usable_length_mm == pytest.approx(free["distal_pad"][0])
-    assert 0.0 < e.distal_effective_mm < e.proximal_effective_mm < 30.0
-    assert 0.0 < math.degrees(e.phi_safe_rad) < 180.0 and e.collision_pair
+    poses = evaluation_poses_rad(config.goal.required_rom_rad)
+    assert [pose.q_rad for pose in e.poses] == pytest.approx(poses)
+    proximal_face, _, distal_faces, _ = contact_faces(geometry(X, config), np.array([poses[-1]]))
+    assert e.poses[-1].common_mm == pytest.approx(common_length_mm(proximal_face, distal_faces[0]))
+    assert 0.0 < e.c_pad_mean < 1.0
+    assert 0.0 < e.q_max_deg < 180.0 and e.collision_pair
     report = MECHANISM.report(e)
     assert report["roller_radius_mm"] == 9.5 and report["proximal_depth_mm"] == pytest.approx(14.5)
 
@@ -64,20 +63,19 @@ def test_a_design_is_swept_and_reported():
 def test_each_pad_clears_its_own_roller():
     # On B-C (drop 0) from 1 mm past B the distal pad is inside the distal roller.
     inside = MECHANISM.evaluate((*X[:5], 0.0, 9.5, 0.0), load())
-    assert inside.constraints["roller_pad_mm"] == pytest.approx(8.5)
+    assert inside.constraints["static_roller_pad_mm"] == pytest.approx(8.5)
     clear = MECHANISM.evaluate((*X[:4], 9.5, 0.0, 9.5, 0.0), load())
-    assert clear.constraints["roller_pad_mm"] <= 0.0
+    assert clear.constraints["static_roller_pad_mm"] <= 0.0
     # The proximal pad, ending under the proximal roller, clears it only a radius below O-A.
-    assert MECHANISM.evaluate((*X[:3], 50.0, *X[4:6], 5.0, 0.0), load()).constraints["roller_pad_mm"] > 0.0
+    assert MECHANISM.evaluate((*X[:3], 50.0, *X[4:6], 5.0, 0.0), load()).constraints["static_roller_pad_mm"] > 0.0
     # Each drop is at most r.
-    assert MECHANISM.evaluate((*X[:5], 10.0, 9.5, 0.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
-    assert MECHANISM.evaluate((*X[:6], 10.0, 0.0), load()).constraints["pad_drop_mm"] == pytest.approx(0.5)
+    assert MECHANISM.evaluate((*X[:5], 10.0, 9.5, 0.0), load()).constraints["bounds_pad_drop_mm"] == pytest.approx(0.5)
+    assert MECHANISM.evaluate((*X[:6], 10.0, 0.0), load()).constraints["bounds_pad_drop_mm"] == pytest.approx(0.5)
 
 
-def test_k_is_held_against_the_goals_limit():
-    assert MECHANISM.evaluate(X, load("goal.hardware.pip_servo.torque_ratio_max=2.0")).constraints["torque_ratio"] == 0.0
-    assert MECHANISM.evaluate(X, load("goal.hardware.pip_servo.torque_ratio_max=1.5")).constraints[
-        "torque_ratio"] == pytest.approx(0.5)
+def test_ma_min_holds_the_cfl_only():
+    # The RCJ's MA is a constant 1/2: an ma_min binds the CFL alone (problem formulation A.6.1).
+    assert MECHANISM.evaluate(X, load("goal.hardware.pip_servo.ma_min=0.9")).constraints["ma_min"] == 0.0
 
 
 def test_the_search_coordinates_round_trip():
@@ -118,18 +116,18 @@ def test_the_idealized_rcj_has_no_servo_and_rollers_down_to_the_pin():
     x = (52.0, 4.0, 40.0, 39.5, 1.0, 4.0, 4.0, 0.0)  # |OC| 100, rollers of 4 mm
     assert geometry(x, config).servo is None
     e = ideal.evaluate(x, config)
-    assert e.constraints["pip_servo_pad_mm"] == 0.0
+    assert e.constraints["static_pip_servo_pad_mm"] == 0.0
     # No servo to keep off the MCP servo: its proximal roller is, 52 mm out, far clear of it.
     from core.optimization.rcj.evaluate import roller_mcp_gap_mm
 
-    assert e.constraints["mcp_servo_mm"] < -30.0
+    assert e.constraints["static_mcp_servo_mm"] < -30.0
     # Pulled back to |OA| 10 mm, the roller runs into the MCP servo (its 9.5 mm front about O).
     near = geometry((10.0, 4.0, 82.0, 39.5, 1.0, 4.0, 4.0, 0.0), config)
     assert roller_mcp_gap_mm(near, config.goal.packaging, config.goal.mcp_servo_angles_rad) < 0.0
-    assert e.torque_ratio_max == 2.0 and e.roller_radius_mm == 4.0
+    assert e.ma_wc in (0.0, pytest.approx(0.5)) and e.roller_radius_mm == 4.0
     # The same design with the servo is checked against it; the idealized one has no such pair.
     packaged = MECHANISM.evaluate(x, load())
-    assert packaged.constraints["mcp_servo_mm"] != 0.0 or packaged.constraints["pip_servo_pad_mm"] != 0.0
+    assert packaged.constraints["static_mcp_servo_mm"] != 0.0 or packaged.constraints["static_pip_servo_pad_mm"] != 0.0
     assert ideal.config_from_json(ideal.config_to_json(config)).joint_servo is False
 
 
@@ -165,4 +163,4 @@ def test_the_rollers_are_checked_against_the_mcp_servo():
     # A roller larger than the servo's front sticks out of it: checked as itself (r 20 at |OA| 25).
     big = (25.0, 20.0, 35.0, 30.0, 1.0, 0.0, 0.0, 0.0)
     e = MECHANISM.evaluate(big, load("goal.pads.proximal.length_mm=[0, null]"))
-    assert e.constraints["mcp_servo_mm"] > 0.0
+    assert e.constraints["static_mcp_servo_mm"] > 0.0

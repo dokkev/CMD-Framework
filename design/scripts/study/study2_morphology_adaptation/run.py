@@ -111,7 +111,7 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
         row["mechanism_change_mm"] = max((abs(evaluation.mechanism[name] - reference_mechanism[name])
                                           for name in reference_mechanism), default=0.0)
         base = evaluation.base
-        row["final_phi_max_deg"] = math.degrees(base.phi_max_rad)
+        row["final_q_max_deg"] = math.degrees(base.q_max_rad)
         row["final_clearance_mm"] = base.pad_clearance_mm
         row["final_x"] = ";".join(repr(float(v)) for v in final.x)  # exact: re-evaluates the same
     return {name: _round(value) for name, value in row.items()}

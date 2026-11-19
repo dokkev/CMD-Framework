@@ -13,7 +13,7 @@ goal_overrides:
   transmission_angle_range_rad:
   - 0.17453292519943295
   - 2.9670597283903604
-  torque_ratio_max: null
+  ma_min: null
   include_linkage_occlusion: true
 optimizer:
   algorithm: nsga2

@@ -43,21 +43,10 @@ def bound_hits(x: Sequence[float], config: ParallelConfig, finger_length_mm: flo
 
 class ParallelMechanism(RevoluteMechanism):
     name = "revolute_parallel"
-    formulation = "revolute-parallel-goal-v13"
-    """The 2R with its servo on ``A'``, as the linkage's (2026-10-27).
-    v2 (2026-10-28): the idealized 2R's v3 joint and pads (v1 runs predate
-    them), ``|OA|`` and ``BC`` held to the goal's shares of ``|OC|``. v3
-    (2026-10-28): driven through a belt (``k = 1``, no dead centre; the
-    parallelogram of v1-v2 cannot keep its transmission angle in [30, 150]
-    deg past 120 deg of flexion), its pulleys on ``A`` and ``A'``
-    (``goal.hardware.pulley_radius_mm``) in the outer layer, as the linkage's
-    links (not checked against the pads); the servo's tilt searched, ``A``'s
-    pin and the distal pad's carrier checked against the servo, the fold and
-    the hyperextension, as the linkage's v4. v4 (2026-10-29): the integrity rule (``goal.loss.integrity_depth_mm``), as the linkage's v5. v5 (2026-10-29): the 2R's search ranges for the pads' ends (no setback: each pad reaches the joint's housing and past it by its overhang (``goal.pads.*.overhang_max_mm``), the housing a collision (``pad_reach_mm``)),
-    its own pad rules unchanged (shelved). v6 (2026-11-03): the 2R's v7, the
-    pads tangent to the pin's housing at ``A`` (the pulleys in the outer layer). v7: the 2R's v8. v8: its v9. v9: its v10. v10: no constraint ``pad_waste_mm``: a pad mounted past where it counts at the required flexion is allowed, that part only left out of the coverage (it may serve short of it).
-    v11 (2026-11-05): the constraint ``mount_depth_mm`` (the pads' drops against ``goal.pads.mount_policy``: 0 when searched, whose designs are unchanged; ``shallowest_supported``, the study's, sets each drop by ``A``'s pin and, for the proximal pad, the servo on ``A'``, ``core.optimization.mounting.parallel_mounting``); with ``goal.loss.links_block_face`` each face also less where the belt or its pulleys lie in front of it at the required flexion.
-    v12 (2026-11-06): a pad no longer than its segment's room (a module of a set length longer than its segment no longer mounts, as the 2R-DD's and the linkage's; searched designs, whose pads fit their room, unchanged)."""
+    formulation = "two-r-remote-pf1"
+    """The 2R-remote (belt from a servo on ``A'``, ``MA = 1``) under the
+    problem formulation (2026-11-18), as the CFL's; the belt and pulleys hide
+    the faces they pass in front of with ``include_linkage_occlusion``."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
 
@@ -114,7 +103,7 @@ class ParallelMechanism(RevoluteMechanism):
                 *(float(value) for value in x[JOINT_VARIABLES:]))
 
     def refine(self, config: ParallelConfig, step_rad: float) -> ParallelConfig:
-        goal = dataclasses.replace(config.goal, servo_step_rad=step_rad)
+        goal = dataclasses.replace(config.goal, flexion_step_rad=step_rad)
         return dataclasses.replace(config, base=dataclasses.replace(config.base, goal=goal))
 
     def evaluate(self, x: Sequence[float], config: ParallelConfig) -> ParallelEvaluation | None:

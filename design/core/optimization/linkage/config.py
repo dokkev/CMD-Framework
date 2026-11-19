@@ -49,7 +49,8 @@ def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile
     return include_linkage_occlusion
 
 
-OBJECTIVE_NAMES = ("transmission", "pad_coverage", "curl", "finger_length", "support_balance")
+OBJECTIVE_NAMES = ("c_pad_mean",)
+"""The prototype formulation's one objective (problem formulation A.5.4)."""
 MOUNT_POLICIES = ("searched", "shallowest_supported")
 """``goal.pads.mount_policy``: the mounting depths searched, or each the least its pad's own hardware needs."""
 SEARCH_BOUNDS = ("a_z_mm", "b_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm",
@@ -92,8 +93,6 @@ class LinkageConfig:
     """``goal.motion.dip_flexion_deg``: the rotation of ``BC`` relative to
     ``OA`` (``phi = q_pip + q_dip``) every design must reach safely; ``k_max``
     and the effective pads are taken on ``[0, required_rom_rad]``."""
-    hyperextension_rad: float = math.radians(10.0)
-    """PIP hyperextension the linkage must reach (the stopper)."""
     mcp_flexion_max_rad: float = math.radians(90.0)
     """MCP flexion up to which the pads must clear the MCP servo (with
     :attr:`mcp_rotation_checked`)."""
@@ -103,10 +102,9 @@ class LinkageConfig:
     everything at MCP 0. On: runs recorded before then."""
     transmission_angle_range_rad: tuple[float, float] = (math.radians(30.0), math.radians(150.0))
     """The transmission angle at ``B'`` stays within it over the whole motion."""
-    torque_ratio_max: float | None = None
-    """``goal.hardware.pip_servo.torque_ratio_max``: the most ``k_max`` (PIP
-    servo torque per distal moment held, on ``[0, required_rom_rad]``)
-    allowed; ``None``: no limit."""
+    ma_min: float | None = None
+    """``goal.hardware.pip_servo.ma_min``: the least worst-case mechanical
+    advantage ``MA_wc`` on ``[0, q_req]`` (CFL only; ``None``: no limit)."""
     extended_length_bounds_mm: tuple[float, float] = (90.0, 110.0)
     """``|OC|`` in the extended pose."""
     proximal_length_bounds_mm: tuple[float | None, float | None] = (None, None)
@@ -127,13 +125,11 @@ class LinkageConfig:
     pip_servo_tilt_rad: float | None = None
     """The PIP servo's dorsal tilt as an input (the variable is held at it);
     ``None``: optimized within its bounds."""
-    servo_step_rad: float = math.radians(1.0)
-    servo_horizon_rad: float = math.pi
-    """PIP servo step and the most rotation swept from extension."""
+    flexion_step_rad: float = math.radians(1.0)
+    """The uniform ``q_2`` grid step of the motion (``code_formulation.md`` §6)."""
     verify_step_rad: float = math.radians(0.05)
-    """Servo step the front is verified on."""
+    """Flexion step the front is verified on."""
     mcp_step_rad: float = math.radians(1.0)
-    dip_backoff_tolerance_rad: float = math.radians(0.05)
     resolution_mm: float = 0.1
     link_length_resolution_mm: float | None = 0.1
     """The prototyping resolution: the design grid, and the bars ``|A'B|``,
@@ -141,9 +137,7 @@ class LinkageConfig:
     objectives: tuple[str, ...] | None = None
     """Objectives to optimize, by name; ``None``: the mechanism's defaults."""
     hypervolume_reference: Mapping[str, float] | None = None
-    """Per objective, in its own terms (``pad_coverage`` as a share,
-    ``curl`` as ``180 - phi_max`` in degrees); missing entries take the
-    defaults: ``k_max`` 2.3, coverage 0, ``180 - phi_req``, the finger's max."""
+    """Per objective, in its own terms; ``c_pad_mean`` defaults to 0."""
     seeds: tuple[int, ...] = (0,)
     """Optimizer seeds, one run each, merged into one front."""
     tilt_step_deg: float = 1.0
@@ -210,16 +204,6 @@ class LinkageConfig:
     of this radius, each checked against the pads it does not carry, in the
     side view (the comparison model); ``None``: the links pass beside the
     pads (the outer layer), unchecked."""
-    count_fold: bool = True
-    """``goal.loss.fold``: each face less what the other hides in the fold
-    (the v4 measure); false: a module mounted and clear through the motion
-    counts whole (the comparison model's accommodation)."""
-    integrity_depth_mm: float | None = None
-    """``goal.loss.integrity_depth_mm``: the objective's loss rule
-    (``core.morphology.contact.loss.integrity_free``): a face's point is
-    lost when, at any pose to the required flexion, it is hidden in the fold
-    or any solid but its own pad lies within this depth in front of it.
-    ``None``: the fold alone, as measured before linkage-v5."""
     profile: CoverageProfile = "prototype"
     """Explicit formulation context: ``"prototype"`` (default ``include_linkage_occlusion=True``)
     or ``"study"`` (default ``include_linkage_occlusion=False``)."""
@@ -233,17 +217,8 @@ class LinkageConfig:
     (reports only, not the objective)."""
 
     def __post_init__(self) -> None:
-        if self.include_linkage_occlusion is None and self.integrity_depth_mm is not None:
-            resolved_occlusion = False
-        else:
-            resolved_occlusion = resolve_linkage_occlusion(
-                self.include_linkage_occlusion, profile=self.profile
-            )
-        if resolved_occlusion and self.integrity_depth_mm is not None:
-            raise ValueError(
-                "include_linkage_occlusion and integrity_depth_mm are not supported together"
-            )
-        object.__setattr__(self, "include_linkage_occlusion", resolved_occlusion)
+        object.__setattr__(self, "include_linkage_occlusion",
+                           resolve_linkage_occlusion(self.include_linkage_occlusion, profile=self.profile))
         given = {name: value for name, value in self.bounds.items() if name not in DEPRECATED_VARIABLES}
         for name, value in DEFAULT_VALUES.items():  # a variable left out: fixed
             given.setdefault(name, (value, value))
@@ -261,11 +236,9 @@ class LinkageConfig:
                 raise ValueError(f"{name} lower bound exceeds its upper bound")
             bounds[name] = (lower, upper)
         object.__setattr__(self, "bounds", MappingProxyType(bounds))
-        for name in ("required_rom_rad", "servo_step_rad", "servo_horizon_rad", "verify_step_rad",
-                     "mcp_step_rad", "resolution_mm"):
+        for name in ("required_rom_rad", "flexion_step_rad", "verify_step_rad", "mcp_step_rad", "resolution_mm"):
             require_positive(name, getattr(self, name))
-        for name in ("hyperextension_rad", "mcp_flexion_max_rad", "dip_backoff_tolerance_rad",
-                     "minimum_proximal_support_mm", "minimum_distal_support_mm"):
+        for name in ("mcp_flexion_max_rad", "minimum_proximal_support_mm", "minimum_distal_support_mm"):
             require_nonnegative(name, getattr(self, name))
         if self.required_rom_rad > math.pi + 1e-12:
             raise ValueError("the required flexion may not exceed 180 deg (BC antiparallel to OA)")
@@ -283,12 +256,10 @@ class LinkageConfig:
         unknown = set(given) - set(OBJECTIVE_NAMES)
         if unknown:
             raise ValueError(f"unknown objectives in the reference point: {sorted(unknown)}")
-        reference = {"transmission": 2.3, "pad_coverage": 0.0,
-                     "curl": 180.0 - math.degrees(self.required_rom_rad),
-                     "finger_length": self.extended_length_bounds_mm[1], "support_balance": 0.0}
+        reference = {"c_pad_mean": 0.0}
         object.__setattr__(self, "hypervolume_reference", MappingProxyType({**reference, **given}))
         for name in ("proximal_overhang_max_mm", "distal_overhang_max_mm", "pulley_radius_mm",
-                     "integrity_depth_mm", "dorsal_space_mm", "link_radius_mm"):
+                     "dorsal_space_mm", "link_radius_mm"):
             if getattr(self, name) is not None:
                 require_nonnegative(name, getattr(self, name))
         if self.relative_bounds is not None:
@@ -400,12 +371,9 @@ class LinkageConfig:
 
     @property
     def mcp_servo_angles_rad(self) -> tuple[float, ...]:
-        """MCP angles the two servos are checked at: MCP hyperextension to
-        extension (flexion only turns the PIP servo away), or 0."""
+        """MCP angles the two servos are checked at: the formulation holds ``q_1 = 0``."""
 
-        if not self.mcp_rotation_checked:
-            return (0.0,)
-        return tuple(np.linspace(-self.hyperextension_rad, 0.0, 3))
+        return (0.0,)
 
     @property
     def mcp_samples_rad(self) -> tuple[float, ...]:
@@ -418,9 +386,11 @@ class LinkageConfig:
         return tuple(index * self.mcp_step_rad for index in range(count))
 
     @property
-    def servo_samples_rad(self) -> tuple[float, ...]:
-        count = int(math.floor(self.servo_horizon_rad / self.servo_step_rad + 1e-9)) + 1
-        return tuple(index * self.servo_step_rad for index in range(count))
+    def flexion_samples_rad(self) -> tuple[float, ...]:
+        """The uniform ``q_2`` grid from extension to pi."""
+
+        count = int(math.floor(math.pi / self.flexion_step_rad + 1e-9)) + 1
+        return tuple(index * self.flexion_step_rad for index in range(count))
 
     def module_sets_segment(self, side: str) -> bool:
         """Whether a contact module requirement (``goal.pads.<side>.length_mm``'s
@@ -501,27 +471,18 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     hardware, collision = goal.table("hardware"), goal.table("collision")
     loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, profile defaults apply
     goal.done()
-    integrity_depth = loss.values.pop("integrity_depth_mm", None)
-    count_fold = loss.values.pop("fold", True)
-    if not isinstance(count_fold, bool):
-        raise ValueError("goal.loss.fold must be true or false")
+    for removed in ("integrity_depth_mm", "fold"):
+        if removed in loss.values:
+            raise ValueError(f"goal.loss.{removed} was removed (the cylinder-based coverage replaces it)")
     access_depth = float(loss.values.pop("access_depth_mm", 20.0))
     raw_occlusion = loss.values.pop("include_linkage_occlusion", None)
     if raw_occlusion is not None and not isinstance(raw_occlusion, bool):
         raise ValueError("goal.loss.include_linkage_occlusion must be true or false")
-    if raw_occlusion is True and integrity_depth is not None:
-        raise ValueError(
-            "goal.loss.include_linkage_occlusion and integrity_depth_mm: the integrity's lengths "
-            "would drop the links' (not supported together)"
-        )
-    include_linkage_occlusion = (
-        False
-        if (raw_occlusion is None and integrity_depth is not None)
-        else resolve_linkage_occlusion(raw_occlusion, profile=profile)
-    )
+    include_linkage_occlusion = resolve_linkage_occlusion(raw_occlusion, profile=profile)
     loss.done()
-    angles = {name: math.radians(float(motion.take(name)))
-              for name in ("dip_flexion_deg", "hyperextension_deg")}
+    if "hyperextension_deg" in motion.values:
+        raise ValueError("goal.motion.hyperextension_deg was removed (no hyperextension requirement)")
+    angles = {"dip_flexion_deg": math.radians(float(motion.take("dip_flexion_deg")))}
     motion.done()
 
     objectives = tuple(solver.take("objectives"))
@@ -604,9 +565,11 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     tilt_step = float(pip_servo.take("tilt_step_deg"))
     if not tilt_step > 0.0:
         raise ValueError("goal.hardware.pip_servo.tilt_step_deg must be positive")
-    torque_ratio_max = pip_servo.take("torque_ratio_max")
-    if torque_ratio_max is not None and not float(torque_ratio_max) > 0.0:
-        raise ValueError("goal.hardware.pip_servo.torque_ratio_max must be positive, or null")
+    if "torque_ratio_max" in pip_servo.values:
+        raise ValueError("goal.hardware.pip_servo.torque_ratio_max was replaced by ma_min (MA_wc >= ma_min)")
+    ma_min = pip_servo.values.pop("ma_min", None)
+    if ma_min is not None and not float(ma_min) > 0.0:
+        raise ValueError("goal.hardware.pip_servo.ma_min must be positive, or null")
     pip_servo.done()
     mcp_model = mcp_servo.take("model")
     mcp_servo.done()
@@ -657,8 +620,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     bounds = dict(given)
     search.done()
     sampling = solver.table("sampling")
-    steps = {name: math.radians(float(sampling.take(name)))
-             for name in ("servo_step_deg", "verify_step_deg", "dip_backoff_tolerance_deg")}
+    steps = {name: math.radians(float(sampling.take(name))) for name in ("flexion_step_deg", "verify_step_deg")}
     sampling.done()
     resolution = float(solver.take("prototyping_resolution_mm"))
     optimizer = solver.table("optimizer")
@@ -690,11 +652,10 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         bounds=bounds,
         packaging=packaging,
         required_rom_rad=angles["dip_flexion_deg"],
-        hyperextension_rad=angles["hyperextension_deg"],
         mcp_flexion_max_rad=0.0,
         mcp_rotation_checked=False,
         transmission_angle_range_rad=angle,
-        torque_ratio_max=None if torque_ratio_max is None else float(torque_ratio_max),
+        ma_min=None if ma_min is None else float(ma_min),
         extended_length_bounds_mm=finger,
         proximal_length_bounds_mm=proximal_length,
         joint_span_bounds_mm=joint_span,
@@ -704,9 +665,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         minimum_proximal_support_mm=pad_values["proximal"][0],
         minimum_distal_support_mm=pad_values["distal"][0],
         pip_servo_tilt_rad=tilt_rad,
-        servo_step_rad=steps["servo_step_deg"],
+        flexion_step_rad=steps["flexion_step_deg"],
         verify_step_rad=steps["verify_step_deg"],
-        dip_backoff_tolerance_rad=steps["dip_backoff_tolerance_deg"],
         resolution_mm=resolution,
         link_length_resolution_mm=resolution,
         objectives=objectives,
@@ -726,10 +686,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         icr0_share_bounds=icr0_share,
         dorsal_space_mm=None if dorsal_space is None else float(dorsal_space),
         link_radius_mm=None if link_radius is None else float(link_radius),
-        count_fold=count_fold,
         profile=profile,
         include_linkage_occlusion=include_linkage_occlusion,
-        integrity_depth_mm=None if integrity_depth is None else float(integrity_depth),
         access_depth_mm=access_depth,
     )
 
@@ -834,9 +792,9 @@ def config_to_json(config: LinkageConfig) -> dict:
 
 
 def config_from_json(values: dict) -> LinkageConfig:
-    """Rebuild a config recorded by :func:`config_to_json`. Runs recorded as
-    ``linkage_v3`` (2026-10-23 to 26) carry fields of the formulations it was
-    built on, all at the values this one fixes; they are dropped."""
+    """Rebuild a config recorded by :func:`config_to_json`. Fields of earlier
+    formulations (hyperextension, ``torque_ratio_max``, the fold and integrity
+    rules, ...) are dropped."""
 
     raw = dict(values)
     legacy_occlusion = raw.pop("links_block_face", None)
@@ -848,6 +806,15 @@ def config_from_json(values: dict) -> LinkageConfig:
         values["profile"] = (
             "study" if values.get("mount_policy") == "shallowest_supported" else "prototype"
         )
+    # Runs before the problem formulation (2026-11-18) optimized other objectives:
+    # they load with its one objective (their designs re-evaluate under its definitions).
+    if values.get("objectives") is not None and set(values["objectives"]) - set(OBJECTIVE_NAMES):
+        values["objectives"] = OBJECTIVE_NAMES
+    if values.get("hypervolume_reference") is not None:
+        values["hypervolume_reference"] = {name: value for name, value in values["hypervolume_reference"].items()
+                                           if name in OBJECTIVE_NAMES}
+    if "servo_step_rad" in raw:
+        values["flexion_step_rad"] = raw["servo_step_rad"]
     values["bounds"] = {name: tuple(bounds) for name, bounds in values["bounds"].items()}
     for name in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):  # runs before 2026-11-04: on the lines
         values["bounds"].setdefault(name, (0.0, 0.0))

@@ -303,15 +303,6 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
     return result
 
 
-def hyperextension_margin(geo, hyperextension_rad: float, step_rad: float,
-                          margins_of: Callable[[object, np.ndarray], dict[tuple[str, str], np.ndarray]]) -> float:
-    """The least margin of any checked pair while the joint hyperextends to
-    ``hyperextension_rad`` on a ``step_rad`` grid (``margins_of(geo, phi)``)."""
-
-    back = -np.unique(np.append(np.arange(step_rad, hyperextension_rad, step_rad), hyperextension_rad))
-    return min(float(margin.min()) for margin in margins_of(geo, back).values())
-
-
 __all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples",
-           "carrier_local", "contact_faces", "crossing_free", "fold_free", "geometry", "hyperextension_margin",
+           "carrier_local", "contact_faces", "crossing_free", "fold_free", "geometry",
            "margins", "servo_rear"]

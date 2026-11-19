@@ -59,7 +59,7 @@ def test_a_pad_under_its_hardware_mounts_at_the_least_depth_that_clears_it():
     assert 0.0 < partly.depths_mm[0] < servo and fully.depths_mm[0] == pytest.approx(servo)
     # The least: a step shallower collides, as the evaluator sees it.
     shallower = [45.0, 55.0, 40.0, 29.0, 0.0, round(partly.depths_mm[0] - 0.1, 9), 90.0]
-    assert REVOLUTE.evaluate(shallower, dd).constraints["pip_servo_pad_mm"] > 0.0
+    assert REVOLUTE.evaluate(shallower, dd).constraints["static_pip_servo_pad_mm"] > 0.0
 
 
 def test_the_two_depths_are_independent():
@@ -84,7 +84,7 @@ def test_the_2r_dds_servo_supports_its_distal_pad_only_when_the_depths_are_align
     assert found.depths_mm == (servo, servo) and found.native_mm == (pytest.approx(servo), pytest.approx(servo))
     assert found.cases == ("B", "B")
     x = [45.0, 55.0, 44.0, 4.0, servo, servo, 90.0]
-    assert REVOLUTE.evaluate(x, aligned).constraints["mount_depth_mm"] == 0.0
+    assert REVOLUTE.evaluate(x, aligned).constraints["bounds_mount_depth_mm"] == 0.0
     # The proximal pad only partly under it: the servo carries it no deeper
     # than its housing reaches over the pad, short of the distal pad's depth.
     found = mounting("revolute", [45.0, 55.0, 40.0, 4.0, 0.0, 0.0, 90.0], aligned)
@@ -102,8 +102,8 @@ def test_a_servo_housing_carries_its_own_segments_pad_as_deep_as_it_reaches_over
     low = [*CODE[:4], 6.0, *CODE[5:10], -6.9, *CODE[11:]]
     found = mounting("linkage", low, code)
     assert found.cases == ("B", "A") and found.depths_mm[0] == found.native_mm[0] == 2.5
-    assert LINKAGE.evaluate([*low[:12], 0.0, 0.0], code).constraints["mount_depth_mm"] == pytest.approx(2.5)
-    assert LINKAGE.evaluate([*low[:12], 2.5, 0.0], code).constraints["mount_depth_mm"] == 0.0
+    assert LINKAGE.evaluate([*low[:12], 0.0, 0.0], code).constraints["bounds_mount_depth_mm"] == pytest.approx(2.5)
+    assert LINKAGE.evaluate([*low[:12], 2.5, 0.0], code).constraints["bounds_mount_depth_mm"] == 0.0
     # The 2R-DD's alike: the servo's footprint over the pad, not its whole reach.
     partly = mounting("revolute", [45.0, 55.0, 40.0, 29.0, 0.0, 0.0, 90.0], dd)  # its end 5 mm short of A
     assert partly.native_mm[0] == 8.1 < dd.goal.packaging.pip_servo.radius_mm
@@ -122,16 +122,16 @@ def test_a_depth_beyond_the_native_support_is_no_design():
     capped, _ = load("goal.pads.distal.mount_offset_mm=[0, 2]")
     found = mounting("linkage", CODE_UNDER_B, capped)
     assert found.cases[1] == "C" and not found.supported
-    assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 2.0], capped).constraints["mount_depth_mm"] > 0.0
+    assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 2.0], capped).constraints["bounds_mount_depth_mm"] > 0.0
 
 
 def test_an_evaluated_design_must_carry_the_policys_depths():
     code, _ = load()
-    assert LINKAGE.evaluate(CODE_UNDER_B, code).constraints["mount_depth_mm"] == 0.0
+    assert LINKAGE.evaluate(CODE_UNDER_B, code).constraints["bounds_mount_depth_mm"] == 0.0
     deeper = [*CODE_UNDER_B[:13], 3.5]  # hung lower than it needs
     shallower = [*CODE_UNDER_B[:13], 0.0]  # into B's housing
-    assert LINKAGE.evaluate(deeper, code).constraints["mount_depth_mm"] == pytest.approx(0.5)
-    assert LINKAGE.evaluate(shallower, code).constraints["mount_depth_mm"] == pytest.approx(3.0)
+    assert LINKAGE.evaluate(deeper, code).constraints["bounds_mount_depth_mm"] == pytest.approx(0.5)
+    assert LINKAGE.evaluate(shallower, code).constraints["bounds_mount_depth_mm"] == pytest.approx(3.0)
     # The search sets them, not searches them: its vector is the geometry evaluated.
     assert not any("mount" in name for name in search_names(code))
     assert to_design(from_design(CODE_UNDER_B, code), code) == tuple(CODE_UNDER_B)
@@ -145,10 +145,9 @@ def test_the_pads_against_each_other_and_the_motion_stay_the_evaluators():
     thin = with_modules(code, Modules(20.0, 3.0, 35.0, 3.0))
     assert mounting("linkage", CODE_UNDER_B, thick) == mounting("linkage", CODE_UNDER_B, thin)
     evaluation = LINKAGE.evaluate(CODE_UNDER_B, thick)
-    static = ("valid_reference", "pivot_pin_mm", "pin_spacing_mm", "proximal_support_mm", "distal_support_mm",
-              "mount_depth_mm", "pip_servo_pad_mm", "pad_collision_mm")
+    static = [name for name in evaluation.constraints if name.startswith(("bounds_", "static_"))]
     assert all(evaluation.constraints[name] <= 0.0 for name in static)  # it mounts, extended
-    assert not evaluation.feasible and evaluation.constraints["rom_deg"] > 0.0  # the pads meet in the fold
+    assert not evaluation.feasible and evaluation.constraints["f_motion_deg"] > 0.0  # the pads meet in the fold
 
 
 def test_the_policy_is_the_studys_and_one_per_pad():
@@ -156,7 +155,7 @@ def test_the_policy_is_the_studys_and_one_per_pad():
     assert code.mount_policy == dd.goal.mount_policy == "shallowest_supported"
     production, _ = load("goal.pads.mount_policy=searched")
     assert production.mount_policy == "searched"
-    assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 3.5], production).constraints["mount_depth_mm"] == 0.0
+    assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 3.5], production).constraints["bounds_mount_depth_mm"] == 0.0
     # Aligned, CoDe's pads share the deeper least depth too, each against its own housings.
     aligned, _ = load("goal.pads.align_mount_offsets=true")
     found = mounting("linkage", CODE_UNDER_B, aligned)
@@ -186,8 +185,8 @@ def test_the_belt_2rs_servo_on_a_prime_carries_the_proximal_pad_running_under_it
     # The search sets the drops: none searched, its designs at the policy's depths.
     assert not any("drop" in name for name in belt.search_names(config))
     x = [*low[:4], 0.0, 4.2, *low[6:]]  # distal_drop_mm, proximal_drop_mm
-    assert belt.evaluate(x, config).constraints["mount_depth_mm"] == 0.0
-    assert belt.evaluate(low, config).constraints["mount_depth_mm"] == pytest.approx(4.2)
+    assert belt.evaluate(x, config).constraints["bounds_mount_depth_mm"] == 0.0
+    assert belt.evaluate(low, config).constraints["bounds_mount_depth_mm"] == pytest.approx(4.2)
     assert belt.to_design(belt.from_design(x, config), config) == pytest.approx(tuple(x))
 
 
@@ -207,8 +206,8 @@ def test_the_rcj_mounts_each_pad_under_its_own_roller():
     assert found.depths_mm[1] == found.native_mm[1] == pytest.approx(4.1)
     assert disk_reach_mm((0.0, 0.0), 9.5, (8.6, 30.0)) == pytest.approx((9.5 ** 2 - 8.6 ** 2) ** 0.5)
     x = [*RCJ_X[:5], *found.depths_mm[::-1], 10.0]  # distal_drop_mm, proximal_drop_mm, the tilt
-    assert RCJ.evaluate(x, config).constraints["mount_depth_mm"] == 0.0
-    assert RCJ.evaluate(RCJ_X, config).constraints["mount_depth_mm"] == pytest.approx(9.5)
+    assert RCJ.evaluate(x, config).constraints["bounds_mount_depth_mm"] == 0.0
+    assert RCJ.evaluate(RCJ_X, config).constraints["bounds_mount_depth_mm"] == pytest.approx(9.5)
     # The search sets them: no drop searched, and its designs carry the policy's depths.
     assert not any("drop" in name for name in RCJ.search_names(config))
     assert RCJ.to_design(RCJ.from_design(x, config), config) == tuple(x)

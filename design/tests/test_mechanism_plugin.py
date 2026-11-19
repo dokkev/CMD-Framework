@@ -105,7 +105,18 @@ def test_unknown_mechanisms_and_objectives_are_named() -> None:
         MECHANISM.active_objectives(ToyConfig(objectives=("speed",)))
 
 
-@pytest.mark.parametrize("algorithm", sorted(OPTIMIZERS))
+MULTI_OBJECTIVE = sorted(set(OPTIMIZERS) - {"ga"})
+"""The optimizers for several objectives (``ga`` takes one)."""
+
+
+def test_the_single_objective_optimizer_finds_a_feasible_design() -> None:
+    settings = OptimizerSettings(algorithm="ga", population_size=20, generations=5)
+    result = run_study(MECHANISM, ToyConfig(objectives=("transmission",)), settings)
+    assert result.pareto and all(c.evaluation.feasible for c in result.pareto)
+    assert min(c.evaluation.x for c in result.pareto) < 3.0
+
+
+@pytest.mark.parametrize("algorithm", MULTI_OBJECTIVE)
 def test_every_optimizer_finds_a_feasible_front(algorithm: str) -> None:
     settings = OptimizerSettings(algorithm=algorithm, population_size=20, generations=5)
     result = run_study(MECHANISM, ToyConfig(), settings)
@@ -114,7 +125,7 @@ def test_every_optimizer_finds_a_feasible_front(algorithm: str) -> None:
     assert all(c.evaluation.feasible for c in result.pareto)
 
 
-@pytest.mark.parametrize("algorithm", sorted(OPTIMIZERS))
+@pytest.mark.parametrize("algorithm", MULTI_OBJECTIVE)
 def test_a_run_records_every_generation(tmp_path, algorithm: str) -> None:
     settings = OptimizerSettings(algorithm=algorithm, population_size=20, generations=5)
     result = run_study(MECHANISM, ToyConfig(), settings)
@@ -164,7 +175,7 @@ def test_complementary_runs_merge_into_one_verified_front(tmp_path, monkeypatch)
     from core.optimization.seeds import select_seeds
 
     monkeypatch.setitem(registry.MECHANISMS, "toy", __name__)
-    plan = portfolio(SETTINGS, sorted(OPTIMIZERS))
+    plan = portfolio(SETTINGS, MULTI_OBJECTIVE)
     runs = [load_run(save_result(run_study(MECHANISM, ToyConfig(), each), tmp_path / f"run_{i}"))
             for i, each in enumerate(plan)]
     selection = select_seeds(runs)

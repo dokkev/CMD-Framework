@@ -154,6 +154,7 @@ class PymooOptimizer(Optimizer):
 
 
 OPTIMIZERS: dict[str, Optimizer] = {
+    "ga": PymooOptimizer("ga", "pymoo.algorithms.soo.nonconvex.ga:GA"),  # single objective
     "nsga2": PymooOptimizer("nsga2", "pymoo.algorithms.moo.nsga2:NSGA2"),
     "smsemoa": PymooOptimizer("smsemoa", "pymoo.algorithms.moo.sms:SMSEMOA"),
     "agemoea": PymooOptimizer("agemoea", "pymoo.algorithms.moo.age:AGEMOEA"),  # needs numba
@@ -161,7 +162,7 @@ OPTIMIZERS: dict[str, Optimizer] = {
     "spea2": PymooOptimizer("spea2", "pymoo.algorithms.moo.spea2:SPEA2"),
     "nsga3": PymooOptimizer("nsga3", "pymoo.algorithms.moo.nsga3:NSGA3", reference_directions=True),
 }
-"""Every optimizer, by the name configs use. All are multi-objective."""
+"""Every optimizer, by the name configs use. ``ga`` is single-objective; the rest are multi-objective."""
 
 
 def portfolio(settings: OptimizerSettings, algorithms, runs_per_algorithm: int = 1) -> list[OptimizerSettings]:

@@ -27,7 +27,8 @@ from core.morphology.mechanism.linkage import (
     make_finger,
     pad_margins,
     reference_poses,
-    sweep_motion,
+    coverage,
+    sweep_flexion,
 )
 from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.mechanism.linkage.packaging import JOINTS, PARTS, PIN_CHECKED, PINS, assembly, pad_spans
@@ -256,15 +257,12 @@ def test_a_linkage_is_checked_and_swept_without_a_study():
     found = pad_margins(linkage, PRODUCTION, *(rest.points[name] for name in ("b", "c", "bp")))
     assert set(found) == set(checked_pairs(PRODUCTION))
     assert min(float(margin.min()) for margin in found.values()) >= 0.0
-    step = math.radians(1.0)
-    settings = MotionSettings(servo_samples_rad=tuple(np.arange(0.0, math.pi + 1e-9, step)), servo_step_rad=step,
-                              hyperextension_rad=0.0, mcp_samples_rad=(0.0,),
-                              transmission_angle_range_rad=(math.radians(30.0), math.radians(150.0)),
-                              dip_backoff_tolerance_rad=math.radians(0.05))
-    motion = sweep_motion(linkage, PRODUCTION, settings, math.radians(150.0))
-    assert motion.phi_safe_rad >= math.radians(150.0) - 1e-9
-    assert motion.torque_ratio_max > 0.0 and motion.pad_clearance_mm >= 0.0
-    assert set(motion.fold_free) == {"proximal_pad", "distal_pad"}
+    settings = MotionSettings(step_rad=math.radians(1.0),
+                              transmission_angle_range_rad=(math.radians(30.0), math.radians(150.0)))
+    motion = sweep_flexion(linkage, PRODUCTION, settings)
+    assert motion.samples.valid_reach_rad() >= math.radians(150.0) - 1e-9
+    assert float(motion.reported_margin_mm[motion.samples.window(math.radians(150.0))].min()) >= 0.0
+    assert len(coverage(linkage, PRODUCTION, [math.radians(90.0)], False)) == 1
     built = assembly(linkage, PRODUCTION)
     assert set(built.shapes) == {part.name for part in built.layout.parts}
 
@@ -315,13 +313,7 @@ def test_the_finger_tracks_its_centre_of_rotation_at_every_step():
     # Turned with the MCP, and over the swept motion.
     turned = finger.solve(math.radians(30.0), float(q[4]))
     assert turned.icr.array == pytest.approx(finger.solve(0.0, float(q[4])).icr.rotated(-math.radians(30.0)).array)
-    step = math.radians(1.0)
-    settings = MotionSettings(servo_samples_rad=tuple(np.arange(0.0, math.pi + 1e-9, step)), servo_step_rad=step,
-                              hyperextension_rad=0.0, mcp_samples_rad=(0.0,),
-                              transmission_angle_range_rad=(math.radians(30.0), math.radians(150.0)),
-                              dip_backoff_tolerance_rad=math.radians(0.05))
-    motion = sweep_motion(finger, PRODUCTION, settings, math.radians(150.0))
-    assert motion.icr_mm.shape[1] == 2 and motion.icr_mm[0] == pytest.approx(finger.icr.array)
+    assert sweep.icr[0] == pytest.approx(finger.icr.array)
 
 
 def test_the_2r_is_a_pin_its_finger_owns():

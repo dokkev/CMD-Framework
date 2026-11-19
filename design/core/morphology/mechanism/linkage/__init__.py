@@ -39,11 +39,12 @@ from core.morphology.mechanism.linkage.packaging import (
     servo_clearance,
 )
 from core.morphology.mechanism.linkage.measures import extended_icr_x, finger_length_mm, linkage_icr_x, overhang_mm, pad_lengths
-from core.morphology.mechanism.linkage.motion import FingerMotion, MotionSettings, servo_lever, servo_sense, sweep_motion
+from core.morphology.mechanism.linkage.motion import LinkageMotion, MotionSettings, coverage, servo_sense, sweep_flexion
 from core.morphology.mechanism.linkage.pad_extension import extended, grow_pads
 from core.morphology.mechanism.linkage.seed import SKETCH_LINKAGE
 
 __all__ = [
+    "coverage",
     "DEFAULT_VALUES",
     "JOINTS",
     "LAYERS",
@@ -55,7 +56,7 @@ __all__ = [
     "Segment",
     "ServoMount",
     "make_finger",
-    "FingerMotion",
+    "LinkageMotion",
     "FingerPose",
     "KinematicClosureError",
     "LinkagePackaging",
@@ -81,7 +82,6 @@ __all__ = [
     "read_design",
     "reference_poses",
     "servo_clearance",
-    "servo_lever",
     "servo_sense",
-    "sweep_motion",
+    "sweep_flexion",
 ]

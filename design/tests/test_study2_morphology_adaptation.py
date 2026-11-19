@@ -302,7 +302,7 @@ def test_a_module_longer_than_its_segment_does_not_mount(name):
     if x is None:  # its supports cannot carry it at any depth: no design at all
         return
     evaluation = found.evaluate(x, config)
-    assert not evaluation.feasible and evaluation.constraints["distal_support_mm"] > 0.0
+    assert not evaluation.feasible and evaluation.constraints["bounds_distal_pad_mm"] > 0.0
     # Evaluated as the matched designs are built, with no support check: a room check of its own.
     reference = matched(name)[2]
     assert part.external(reference, config)["distal_span_mm"] < 45.0
@@ -333,7 +333,7 @@ def test_a_module_set_box_bound_is_left_to_the_evaluators_graded_support(name):
         assert not mounting(found.name, x, config).supported
         return
     evaluation = found.evaluate(frozen, config)
-    assert not evaluation.feasible and 0.0 < evaluation.constraints["distal_support_mm"] < 100.0
+    assert not evaluation.feasible and 0.0 < evaluation.constraints["bounds_distal_pad_mm"] < 100.0
 
 
 def test_seeds_are_aggregated_by_the_hierarchys_own_lexicographic_rule():

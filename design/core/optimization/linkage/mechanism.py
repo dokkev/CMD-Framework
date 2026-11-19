@@ -1,9 +1,9 @@
-"""The four-bar linkage finger (PIP servo at ``A'``) as a pluggable mechanism.
+"""The CFL (crossed four-bar, PIP servo at ``A'``) as a pluggable mechanism.
 
-Its study is the ``goal`` / ``solver`` file (``scripts/optimize/linkage/config.yaml``,
-:func:`~core.optimization.linkage.config.config_from_goal`); the objectives
-are any of ``transmission`` (``k_max``), ``pad_coverage`` (the effective pads
-over ``|OC|``), ``curl`` (``180 - phi_max``) and ``finger_length``.
+Its problem is the ``goal`` / ``solver`` file (``scripts/optimize/linkage/config.yaml``,
+:func:`~core.optimization.linkage.config.config_from_goal`): the prototype
+formulation (``design/SSoT/problem_formulation.md`` A.5), whose one objective
+is the mean contact pad coverage ``c_pad_mean``.
 """
 
 from __future__ import annotations
@@ -22,32 +22,17 @@ from core.morphology.mechanism.linkage.measures import extended_icr_x
 from core.optimization.linkage.config import LinkageConfig, config_from_goal, config_from_json, config_to_json
 from core.optimization.linkage import search
 from core.optimization.linkage.evaluate import CONSTRAINT_NAMES, LinkageEvaluation, evaluate
-from core.optimization.mechanism import Mechanism, Objective, SummaryColumn
+from core.optimization.mechanism import Mechanism, Objective, SummaryColumn, evaluation_report
 from core.optimization.optimizer import OptimizerSettings
 
 
 OBJECTIVES = MappingProxyType({
-    "transmission": Objective(
-        value=lambda e: e.torque_ratio_max, column="torque_ratio_max",
-        label="worst torque ratio k_max on [0, dip_flexion]", role="best_transmission",
-        larger_is_better=False),
-    "pad_coverage": Objective(
-        value=lambda e: -e.pad_coverage, column="pad_coverage",
-        label="effective pad coverage on [0, dip_flexion]", role="most_pad", larger_is_better=True),
-    "curl": Objective(
-        value=lambda e: e.curl_deg, column="curl_deg",
-        label="180 deg - phi_max", role="most_curl", larger_is_better=False),
-    "finger_length": Objective(
-        value=lambda e: e.finger_length_mm, column="finger_length_mm",
-        label="finger length |OC| [mm]", role="shortest", larger_is_better=False, default=False),
-    "support_balance": Objective(
-        value=lambda e: -(e.support_balance_mm + SUPPORT_TIE * (e.proximal_room_mm + e.distal_room_mm)),
-        column="support_balance_mm", label="min(S_p - l_p, S_d - l_d), the total support breaking ties [mm]",
-        role="most_support", larger_is_better=True, default=False),
+    "c_pad_mean": Objective(
+        value=lambda e: -e.c_pad_mean, column="c_pad_mean",
+        label="mean cylinder-based contact pad coverage over Q_eval", role="most_coverage",
+        larger_is_better=True),
 })
-SUPPORT_TIE = 1e-4
-"""Weight of the total support length in ``support_balance``: below the
-0.1 mm length grid over any finger's supports, so only a tie-breaker."""
+"""The prototype formulation's one objective (problem formulation A.5.4)."""
 LINK_COLUMNS = ("b_built_x_mm", "b_built_z_mm", "bp_from_b_x_mm", "bp_from_b_z_mm", "apb_mm", "abp_mm")
 """As built: ``B`` from ``O`` in the extended pose, ``B'`` from ``B``, and the bars."""
 BOUND_TOLERANCE = 0.005
@@ -131,59 +116,22 @@ def icr0_share_of(p: FourBar, finger_length_mm: float) -> float:
 
 class LinkageMechanism(Mechanism):
     name = "linkage"
-    formulation = "linkage-v15"
-    """The ``goal`` / ``solver`` config (2026-10-23): pads below their pivots,
-    no clearance, the PIP servo against the proximal pad, the transmission
-    angle in a range, ``pad_coverage`` (effective) and ``curl`` (``180 - phi_max``).
-    Earlier formulations (``palmar-pad-v3``, ``linkage-v2-rev2``) were removed
-    on 2026-10-26. v4 (2026-10-28): a face loses only what the other face's
-    segment hides (``packaging.fold_free_lengths``; v3 crossed the faces'
-    endless lines, which, barely flexed, could hide a whole face), and,
-    optional in the goal, the pads' drops searched (``goal.pads.*.drop_mm``)
-    and their overhang past their body limited (``overhang_max_mm``). v5
-    (2026-10-29): optional in the goal, the integrity rule
-    (``goal.loss.integrity_depth_mm``): a face's point is lost when hidden in
-    the fold or with any solid but its own pad within the depth in front, at
-    any pose to the required flexion; absent, v4's measure. v6 (2026-10-29):
-    the distal carrier over the whole mounting line from ``B''`` (the support,
-    whatever module it carries); optional in the goal, the comparison model's
-    capsule links, proximal support plate and dorsal space. v7 (2026-11-03):
-    the pins are bearing housings, checked against the PIP servo and the
-    contact interfaces only; gaps within ``MARGIN_TOLERANCE_MM`` of zero are
-    no violation (``violation_mm``); the length ratios read the segments
-    (``|OA''|``, ``|B''C|``); each contact interface starts on the line
-    tangent to its link's pin clearance, parallel to the link (no drops, no
-    carriers). v8 (2026-11-03): each pad counts at the required flexion only,
-    from its outer end to where the other pad's face line crosses its own
-    (``packaging.face_crossing_lengths``; v4 to v7: on ``[0, phi_req]``, less
-    what the other face's segment hides), self-collision left to the checks;
-    the pads' ends searched (``goal.pads.on_links`` false) and the segment
-    ratios without maxima; no pad mounted past where it counts
-    (``pad_waste_mm``); a pad within its link, clear of its pins and the
-    PIP servo, on the link line (``packaging.pad_offsets``), else tangent to its pin.
-    v9 (2026-11-03): the hyperextension measured as the distal segment's
-    rotation back (the 2R's), the pads checked through it; the faces' crossing
-    by the shared rule (``faces.crossing_free_lengths``); the search no longer
-    bounds ``A`` by the proximal segment ratio (it bounds ``|OA''|``). v10
-    (2026-11-04): every pad mounted on its link line (offset 0, as the
-    2R-DD's), its pins and the servo collisions only; no pad runs under its pin.
-    v11 (2026-11-04): a contact module's least length, not the segment's least share, bounds its segment from below; the share gives way and is reported (``*_ratio_shortfall_mm``).
-    v12 (2026-11-04): each pad's mounting offset below its segment's line (the one datum) a design variable on the goal's range, the same for every mechanism (``goal.pads.*.mount_offset_mm``); the joints' hardware collisions at any offset.
-    v13 (2026-11-04): the constraint ``mount_depth_mm`` (the pads' depths against ``goal.pads.mount_policy``: 0 when searched, the production's, whose designs are unchanged; ``shallowest_supported`` sets each depth, the study's, ``core.optimization.mounting``).
-    v14 (2026-11-05): ``goal.loss.links_block_face`` (the study's) and no constraint ``pad_waste_mm``.
-    v15 (2026-11-17): SSoT alignment: exact 1D interval-set accessible face calculation, explicit ``profile`` (``prototype`` default ``include_linkage_occlusion=True``, ``study`` default ``include_linkage_occlusion=False``), and ``motion_robust_coverage`` reported alongside endpoint ``pad_coverage``."""
+    formulation = "cfl-pf1"
+    """The problem formulation (2026-11-18, ``design/SSoT/problem_formulation.md``):
+    the flexion sampled on a uniform ``q_2`` grid, ``F_static`` / ``F_motion``,
+    the transmission angle range and ``MA_wc >= ma_min`` as constraints, the
+    mean cylinder-based coverage as the one objective. Earlier formulations
+    (``linkage-v1`` to ``linkage-v15``) are in ``docs/decisions.md``."""
     variable_names = VARIABLE_NAMES
     constraint_names = CONSTRAINT_NAMES
     objectives = OBJECTIVES
     summary = (
-        SummaryColumn("k_max", 6, lambda r: f"{float(r['torque_ratio_max']):.3f}"),
-        SummaryColumn("coverage", 8, lambda r: f"{float(r['pad_coverage']):.3f}"),
-        SummaryColumn("phi_max", 8, lambda r: f"{float(r['phi_max_deg']):.1f}°"),
-        SummaryColumn("|OC| mm", 8, lambda r: f"{float(r['finger_length_mm']):.1f}"),
+        SummaryColumn("C_pad", 7, lambda r: f"{float(r['c_pad_mean']):.3f}"),
+        SummaryColumn("MA_wc", 6, lambda r: f"{float(r['ma_wc']):.3f}"),
+        SummaryColumn("q_max", 7, lambda r: f"{float(r['q_max_deg']):.1f}°"),
+        SummaryColumn("L_f mm", 7, lambda r: f"{float(r['finger_length_mm']):.1f}"),
         SummaryColumn("pads P + D mm", 15, lambda r: f"{float(r['proximal_support_length_mm']):.1f} + "
                                                      f"{float(r['distal_support_length_mm']):.1f}"),
-        SummaryColumn("effective P + D", 15, lambda r: f"{float(r['proximal_effective_mm']):.1f} + "
-                                                       f"{float(r['distal_effective_mm']):.1f}"),
         SummaryColumn("pad clr", 8, lambda r: f"{float(r['pad_clearance_mm']):.2f}mm"),
         SummaryColumn(" bounds", 0, lambda r: f" {r['bound_hits'] or '-'}"),
     )
@@ -251,7 +199,7 @@ class LinkageMechanism(Mechanism):
         return tuple(x)
 
     def refine(self, config: LinkageConfig, step_rad: float) -> LinkageConfig:
-        return dataclasses.replace(config, servo_step_rad=step_rad)  # the config's backoff tolerance
+        return dataclasses.replace(config, flexion_step_rad=step_rad)
 
     def evaluate(self, x: Sequence[float], config: LinkageConfig) -> LinkageEvaluation | None:
         try:
@@ -266,51 +214,12 @@ class LinkageMechanism(Mechanism):
 
     def report(self, e: LinkageEvaluation) -> dict[str, Any]:
         return {
-            "torque_ratio_max": e.torque_ratio_max,
-            "pad_coverage": e.pad_coverage,
-            "motion_robust_coverage": e.motion_robust_coverage,
-            "curl_deg": e.curl_deg,
-            "proximal_ratio_shortfall_mm": e.proximal_ratio_shortfall_mm,
-            "distal_ratio_shortfall_mm": e.distal_ratio_shortfall_mm,
-            "proximal_effective_mm": e.proximal_effective_mm,
-            "distal_effective_mm": e.distal_effective_mm,
-            "proximal_robust_effective_mm": e.proximal_robust_effective_mm,
-            "distal_robust_effective_mm": e.distal_robust_effective_mm,
-            "mounted_coverage": e.mounted_coverage,
-            "proximal_usable_length_mm": e.proximal_usable_length_mm,
-            "distal_usable_length_mm": e.distal_usable_length_mm,
-            "torque_ratio_min": e.torque_ratio_min,
-            "finger_length_mm": e.finger_length_mm,
+            **evaluation_report(e),
             "icr0_share": icr0_share_of(e.finger.joint, e.finger_length_mm),
-            "proximal_room_mm": e.proximal_room_mm, "distal_room_mm": e.distal_room_mm,
-            "support_balance_mm": e.support_balance_mm,
-            "required_proximal_mm": e.required_proximal_mm,
-            "required_distal_mm": e.required_distal_mm,
-            "phi_max_deg": math.degrees(e.phi_max_rad),
-            "safe_reach_deg": math.degrees(e.phi_safe_rad),
-            "stop_reason": e.stop_reason,
-            "collision_pair": e.collision_pair,
-            "proximal_support_length_mm": e.proximal_support_length_mm,
-            "distal_support_length_mm": e.distal_support_length_mm,
             "app_offset_used_mm": round(e.finger.proximal.end_mm - e.finger.joint.ap.x_mm, 9),
             "bpp_offset_used_mm": round(e.finger.joint.bp.x_mm - e.finger.distal_start.x_mm, 9),
-            "proximal_depth_mm": e.proximal_depth_mm,
-            "distal_depth_mm": e.distal_depth_mm,
-            "pad_clearance_mm": e.pad_clearance_mm,
-            "min_margin_deg": math.degrees(e.min_margin_rad),
-            "toggle_margin_deg": math.degrees(e.toggle_margin_rad),
-            "hyperextension_phi_deg": math.degrees(e.hyperextension_phi_rad),
-            "least_tip_x_mm": e.least_tip_x_mm,
-            "servo_travel_deg": math.degrees(e.servo_travel_rad),
-            "lever_max_mm": e.lever_max_mm,
-            "driver_link_servo_clearance_mm": e.driver_link_servo_clearance_mm,
             "servo_lowest_z_mm": e.servo_lowest_z_mm,
-            "bound_hits": ";".join(e.bound_hits),
             **dict(zip(LINK_COLUMNS, link_values(e.finger.joint))),
-            "phi_max_stop": e.phi_max_stop,
-            "dip_flexion_deg": math.degrees(e.required_rom_rad),
-            "usable_pip_deg": math.degrees(e.usable_pip_rad),
-            "proximal_length_mm": e.proximal_length_mm,
         }
 
     def hypervolume_reference(self, config: LinkageConfig) -> Mapping[str, float]:

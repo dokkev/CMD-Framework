@@ -38,17 +38,12 @@ profile: study
 goal:
   # The ranges of motion the finger must reach safely.
   motion:
-    # Distal flexion. The four-bar's instantaneous centre of rotation moves as
-    # it flexes, so the angle is taken about the virtual remote centre of
-    # rotation of OA and BC: the rotation of the line BC relative to the line
-    # OA (0 extended, 180 antiparallel), which is phi = q_pip + q_dip in the
-    # code. The least required, and always usable: feasibility and k_max are
-    # judged on [0, dip_flexion_deg] only (no stopper margin); past it only
-    # the curl objective looks, at how far the finger would stay safe.
+    # Required distal flexion q_req: the relative angle between the two
+    # phalanx axes (0 extended, 180 antiparallel). Every pose on [0, q_req]
+    # must be valid (F_motion), with the transmission angle in range and
+    # MA_wc >= ma_min there. The MCP is held at 0. No hyperextension is
+    # required (problem formulation, 2026-11-18).
     dip_flexion_deg: 150
-    # PIP hyperextension (the stopper at -10 deg). The MCP is held at 0: the
-    # pads and the PIP servo are checked against the MCP servo there only.
-    hyperextension_deg: 10
 
   # The contact modules each pad must carry. Each pad is its link's contact
   # interface space: a block whose mounting surface lies mount_offset_mm
@@ -127,9 +122,8 @@ goal:
     # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
     # A'A, as a rolling contact joint's.
     symmetric_four_bar: false
-    # Transmission angle at B' (between B'->A and B'->B) over the whole
-    # motion, hyperextension included, [min, max] ([30, 150] is v1/v2's 30 deg
-    # margin from 0 and 180).
+    # Transmission angle gamma at B' (between B'->A and B'->B) on [0, q_req],
+    # [min, max] (a 30 deg margin from 0 and 180).
     transmission_angle_deg: [30, 150]
 
   # The actuators the finger is built around.
@@ -140,10 +134,10 @@ goal:
       # searched every tilt_step_deg from min.
       tilt_angle_deg: [0, 90]
       tilt_step_deg: 5
-      # The most k_max allowed: the PIP servo's torque per distal moment held,
-      # the worst on [0, motion.dip_flexion_deg] (the serial 2R's is 1, the
-      # RCJ's 2). null: no limit (k_max is then only an objective, if listed).
-      torque_ratio_max: null
+      # The least worst-case mechanical advantage MA_wc = min |d theta / d q2|
+      # on [0, q_req] (CFL only: the 2Rs' MA is 1, the symmetric RCJ's 1/2).
+      # null: no limit.
+      ma_min: null
     mcp_servo:
       model: xm335
 
@@ -197,42 +191,17 @@ goal:
 # 2. Solver -------------------------------------------------------------------
 
 solver:
-  # What the front trades off:
-  #   transmission   k_max on [0, goal.motion.dip_flexion_deg], minimized
-  #   pad_coverage   (L_p,eff + L_d,eff) / |OC|, maximized: the share of the
-  #                  fully extended finger (MCP at 0, phi 0) the two pads'
-  #                  effective faces cover. A pad's effective length is its
-  #                  face (a-b, so at most its max) from its outer end up to
-  #                  where the two contact faces, extended, cross, the least
-  #                  over [0, dip_flexion_deg]: past it a face lies inside the
-  #                  fold, facing the other. The links (A-B', A'-B) are bent
-  #                  around the pads and take nothing (2026-10-27; before, the
-  #                  face up to the first link crossing it). A longer finger lengthens the
-  #                  denominator too, so it pays only for packing more pad into
-  #                  the same length; with the pads at their max it favours a
-  #                  shorter finger (goal.link.finger_length_mm's min then
-  #                  matters).
-  #   curl           180 deg - phi_max, minimized: phi_max the most flexion that stays
-  #                  safe (C_x >= 0 included). goal.motion.dip_flexion_deg
-  #                  stays the least required, and k_max is still taken on
-  #                  [0, dip_flexion_deg], so curling further costs no k_max.
-  # Any of them, also finger_length (|OC|, when shorter is better than the
-  # range goal.link.finger_length_mm already asks for). Each one added makes
-  # the front a dimension bigger and the search slower to converge (two
-  # needed 1000 generations x 3+ seeds).
+  # The prototype formulation's one objective (design/SSoT/problem_formulation.md A.5):
+  #   c_pad_mean   the cylinder-based contact pad coverage, maximized: at each
+  #                pose of Q_eval = {90, (90 + q_req)/2, q_req} deg, the
+  #                part of the two pads a cylinder can hold with both, over
+  #                the posed finger length L_f(q); averaged over the poses.
   objectives:
-    - transmission
-    - pad_coverage
-    - curl
+    - c_pad_mean
 
-  # The Pareto front's hypervolume reference point, per objective: the worst
-  # value that still counts, to compare fronts (seeds, runs, conditions) on
-  # one number. One study keeps one point (finger_length, when optimized:
-  # goal.link.finger_length_mm's max).
+  # The hypervolume reference point (the worst value that still counts).
   pareto_front:
-    transmission: 2.3
-    pad_coverage: 0               # no pad
-    curl: null                    # null: 180 - dip_flexion_deg (just the required flexion)
+    c_pad_mean: 0                 # no pad
 
   # Where the optimizer looks for the variables no requirement bounds. Search
   # limits, not requirements: keep them wide enough that the front does not
@@ -257,9 +226,8 @@ solver:
 
   # Motion sampling.
   sampling:
-    servo_step_deg: 1.0           # optimization grid
+    flexion_step_deg: 1.0         # uniform q2 grid of the motion
     verify_step_deg: 0.05         # fine grid for verifying the front
-    dip_backoff_tolerance_deg: 0.05
 
   # Resolution the prototype is made to: each part's dimensions are rounded
   # to it (B re-assembled from the rounded bars).
@@ -275,19 +243,19 @@ solver:
     preset: paper
     presets:
       quick:
-        algorithm: smsemoa
+        algorithm: ga
         population: 200
         generations: 300
         seeds: [0]
       search:
         # One or a list (scripts/optimize/run.py runs each with every seed),
         # merged into one verified front.
-        algorithm: [nsga2, smsemoa, agemoea]
+        algorithm: [ga, nsga2]
         population: 200
         generations: 1000
         seeds: [0, 1, 2]
       paper:
-        algorithm: [nsga2, smsemoa, agemoea]
+        algorithm: [ga, nsga2]
         population: 200
         generations: 3000
         seeds: [0, 1, 2]

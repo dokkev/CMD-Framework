@@ -37,13 +37,13 @@ def test_the_belt_turns_the_joint_by_the_servo_angle():
     # The pulleys (6 mm) run in the outer layer: the pads keep off the pin's housing (3 mm) only.
     assert config.joint_radius_mm == 3.0 and config.pulley_radius_mm == 6.0
     e = MECHANISM.evaluate(X, config)
-    assert e.feasible and e.torque_ratio_max == 1.0
+    assert e.feasible and e.ma_wc == pytest.approx(1.0)
 
 
 def test_no_dead_centre_limits_the_flexion():
     # The parallelogram stopped at 120 deg (transmission 30-150 deg); the belt does not.
     e = MECHANISM.evaluate(X, load("goal.motion.dip_flexion_deg=130"))
-    assert e.stop_reason != "transmission" and math.degrees(e.phi_safe_rad) > 120.0
+    assert e.stop_reason != "transmission" and e.q_max_deg > 120.0
 
 
 def test_the_tilt_is_searched_within_the_goals_range():
@@ -59,10 +59,10 @@ def test_the_joint_pin_pulleys_and_carrier_are_checked():
     config = load()
     # A' 10 mm behind A, 3 above: the servo's body over A's pin.
     over = MECHANISM.evaluate((*X[:7], -10.0, 3.0), config)
-    assert over.constraints["a_pin_servo_mm"] > 0.0
+    assert over.constraints["static_a_pin_servo_mm"] > 0.0
     # The distal pad 2 mm past A: inside the pin's housing.
     near = MECHANISM.evaluate((*X[:3], 2.0, *X[4:]), config)
-    assert near.constraints["distal_support_mm"] > 0.0
+    assert near.constraints["bounds_distal_pad_mm"] > 0.0
     # No distal carrier since 2026-11-03 (the goal's pads are contact interface spaces).
     from core.optimization.revolute_parallel import geometry
     from core.optimization.revolute_parallel.evaluate import _margins

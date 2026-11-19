@@ -56,7 +56,7 @@ from core.optimization.analysis.tradeoff import with_modules  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 
 DEFAULT_CONFIG = HERE / "config.yaml"
-MOUNTING = ("proximal_support_mm", "distal_support_mm", "mount_depth_mm")
+MOUNTING = ("bounds_proximal_pad_mm", "bounds_distal_pad_mm", "bounds_mount_depth_mm")
 """The evaluators' constraints on a module mounting at all: on its segment's
 room, at the policy's depth. Past them the assembly does not mount, whatever
 else fails (an unmountable linkage design reads INVALID everywhere)."""
@@ -111,11 +111,10 @@ def assembly(reference, pair, flexions_deg) -> list[dict[str, Any]]:
         row.update({
             "feasible": bool(evaluation.feasible), "failure": ";".join(failed),
             "proximal_depth_mm": values[part.depths[0]], "distal_depth_mm": values[part.depths[1]],
-            "phi_max_deg": float(report["phi_max_deg"]), "stop_reason": report.get("stop_reason"),
+            "q_max_deg": float(report["q_max_deg"]), "stop_reason": report.get("stop_reason"),
             "collision_pair": report.get("collision_pair"),
-            "coverage": float(report["pad_coverage"]),
-            "proximal_effective_mm": float(report["proximal_effective_mm"]),
-            "distal_effective_mm": float(report["distal_effective_mm"]),
+            "c_pad_mean": float(report["c_pad_mean"]),
+            "ma_wc": float(report["ma_wc"]),
             "finger_length_mm": float(report["finger_length_mm"]),
         })
         rows.append(row)

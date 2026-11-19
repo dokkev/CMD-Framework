@@ -42,26 +42,18 @@ from types import MappingProxyType
 import numpy as np
 
 from core.geometry.primitives import rect_disk_gap_mm
-from core.optimization.mechanism import shortfall_mm
 from core.morphology.packaging.gaps import footprint_gaps
 from core.morphology.mechanism.rcj import solids
 from core.morphology.mechanism.rcj.solids import TORQUE_RATIO, RcjGeometry
 
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
-from core.optimization.revolute.evaluate import (
-    UNSWEPT,
-    RevoluteEvaluation,
-    _between_samples,
-    hyperextension_violation,
-    robust_usable_lengths,
-    usable_lengths,
-)
+from core.optimization.revolute.evaluate import MOTION_CONSTRAINTS, UNSWEPT, RevoluteEvaluation, measure_motion
 
 
-STATIC_CONSTRAINTS = ("extended_length_mm", "proximal_length_mm", "pad_drop_mm", "mcp_servo_mm",
-                      "pip_servo_pad_mm", "proximal_support_mm", "distal_support_mm", "mount_depth_mm",
-                      "roller_pad_mm", "pad_collision_mm")
-MOTION_CONSTRAINTS = ("rom_deg", "hyperextension_mm", "curl_tip_x_mm", "pad_usable_mm", "torque_ratio")
+STATIC_CONSTRAINTS = ("bounds_finger_length_mm", "bounds_proportions_mm", "bounds_pad_drop_mm",
+                      "bounds_proximal_pad_mm", "bounds_distal_pad_mm", "bounds_mount_depth_mm",
+                      "static_mcp_servo_mm", "static_pip_servo_pad_mm", "static_roller_pad_mm",
+                      "static_pad_collision_mm")
 CONSTRAINT_NAMES = STATIC_CONSTRAINTS + MOTION_CONSTRAINTS
 def geometry(x: Sequence[float], config: RcjConfig) -> RcjGeometry:
     """The solids of a design vector, with the study's packaging."""
@@ -71,14 +63,11 @@ def geometry(x: Sequence[float], config: RcjConfig) -> RcjGeometry:
 
 @dataclass(frozen=True)
 class RcjEvaluation(RevoluteEvaluation):
-    """Constraints, objectives and diagnostics, named as the linkage's and the 2R's."""
+    """Constraints, objective and diagnostics, named as the CFL's and the 2R's."""
 
-    torque_ratio_max: float = TORQUE_RATIO
     roller_radius_mm: float = math.nan
 
-    @property
-    def g(self) -> tuple[float, ...]:
-        return tuple(self.constraints[name] for name in CONSTRAINT_NAMES)
+    constraint_names = CONSTRAINT_NAMES
 
 
 def roller_mcp_gap_mm(geo: RcjGeometry, packaging, mcp_samples_rad) -> float:
@@ -118,29 +107,29 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                                        geo.finger_length_mm)
     oa += goal.icr0_violations(geo.a_x_mm + r, geo.finger_length_mm)  # the rollers' contact
     static = {
-        "extended_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),
-        "proximal_length_mm": max(oa, default=0.0),
+        "bounds_finger_length_mm": max(length_low - geo.finger_length_mm, geo.finger_length_mm - length_high),
+        "bounds_proportions_mm": max(oa, default=0.0),
         # Each pad at most the joint's radius below its line.
-        "pad_drop_mm": max(geo.distal_drop_mm, geo.proximal_drop_mm) - r,
+        "bounds_pad_drop_mm": max(geo.distal_drop_mm, geo.proximal_drop_mm) - r,
         # At least its min, and on its body: no further than the roller's front
         # (plus the overhang), the distal pad no further behind B than its reach.
-        "proximal_support_mm": max(goal.minimum_proximal_support_mm - geo.proximal_length_mm,
+        "bounds_proximal_pad_mm": max(goal.minimum_proximal_support_mm - geo.proximal_length_mm,
                                    -geo.proximal_room_mm, geo.proximal_length_mm - geo.proximal_room_mm,
                                    x[VARIABLE_NAMES.index("app_x_mm")] - (geo.a_x_mm + proximal_reach(goal, r))),
-        "distal_support_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
+        "bounds_distal_pad_mm": max(goal.minimum_distal_support_mm - geo.distal_length_mm, -geo.distal_room_mm,
                                  geo.distal_length_mm - geo.distal_room_mm,
                                  -x[VARIABLE_NAMES.index("bpp_from_b_mm")] - distal_reach(goal, r)),
-        "mount_depth_mm": mount_depth_violation(x, config),
+        "bounds_mount_depth_mm": mount_depth_violation(x, config),
     }
-    stages = (("mcp_servo_mm", "pip_servo_pad_mm", "roller_pad_mm"), ("pad_collision_mm",))
+    stages = (("static_mcp_servo_mm", "static_pip_servo_pad_mm", "static_roller_pad_mm"), ("static_pad_collision_mm",))
     if max(static.values()) <= 0.0:
         mcp_angles = np.asarray(goal.mcp_servo_angles_rad)
         # The servo on A and the proximal roller, which may outgrow the servo's front, against the
         # MCP servo (the idealized RCJ: the roller alone).
         roller = -(roller_mcp_gap_mm(geo, packaging, mcp_angles) - clearance)
-        static["mcp_servo_mm"] = (roller if geo.servo is None
+        static["static_mcp_servo_mm"] = (roller if geo.servo is None
                                   else max(roller, -(packaging.mcp_servo_gap_mm(geo.servo, mcp_angles) - clearance)))
-        static["pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
+        static["static_pip_servo_pad_mm"] = (-(float(footprint_gaps(geo.proximal_pad[None], geo.servo, packaging)[0])
                                         - clearance) if packaging.pip_servo_pad_check and geo.servo is not None
                                       else 0.0)
         # Each pad on its own roller's body: touching, not inside (closed-form point-to-rectangle).
@@ -156,14 +145,14 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
             float(geo.distal_pad_local[:, 1].min()),
             float(geo.distal_pad_local[:, 1].max()),
         )
-        static["roller_pad_mm"] = -min(
+        static["static_roller_pad_mm"] = -min(
             rect_disk_gap_mm(p_box, geo.a, r),
             rect_disk_gap_mm(d_box, (0.0, 0.0), r),
         )
-        static["roller_pad_mm"] = 0.0 if abs(static["roller_pad_mm"]) < 1e-9 else static["roller_pad_mm"]
+        static["static_roller_pad_mm"] = 0.0 if abs(static["static_roller_pad_mm"]) < 1e-9 else static["static_roller_pad_mm"]
     if max(static.values()) <= 0.0:
         margins_at_rest = _margins(geo, np.zeros(1), config)
-        static["pad_collision_mm"] = -min(float(margin[0]) for margin in margins_at_rest.values())
+        static["static_pad_collision_mm"] = -min(float(margin[0]) for margin in margins_at_rest.values())
     for name in stages[0] + stages[1]:
         static.setdefault(name, UNSWEPT)
     shortfalls = goal.length_ratio_shortfalls(v["app_x_mm"], v["bc_length_mm"] - v["bpp_from_b_mm"],
@@ -175,63 +164,18 @@ def evaluate(x: Sequence[float], config: RcjConfig) -> RcjEvaluation:
                   distal_support_length_mm=geo.distal_length_mm,
                   proximal_depth_mm=geo.proximal_drop_mm + packaging.proximal_pad.height_mm,
                   distal_depth_mm=geo.distal_drop_mm + packaging.distal_pad.height_mm,
+                  proximal_room_mm=geo.proximal_room_mm, distal_room_mm=geo.distal_room_mm,
+                  required_proximal_mm=goal.minimum_proximal_support_mm,
+                  required_distal_mm=goal.minimum_distal_support_mm,
                   roller_radius_mm=r)
     if max(static.values()) > 0.0:
         constraints = {**static, **{name: UNSWEPT for name in MOTION_CONSTRAINTS}}
         return RcjEvaluation(constraints=MappingProxyType(constraints), **common)
 
-    # phi on the servo grid, as the 2R's (the servo turns half as far).
-    phi = np.asarray(goal.servo_samples_rad)
-    margins = _between_samples(
-        geo,
-        phi,
-        _margins(geo, phi, config, until_unsafe=True, include_static_pairs=False),
-        config,
-        _margins,
-    )
-    least = np.min(np.stack(list(margins.values())), axis=0)
-    unsafe = least < 0.0
-    first_unsafe = int(np.flatnonzero(unsafe)[0]) if unsafe.any() else len(phi)
-    reach = float(min(phi[first_unsafe - 1], math.pi)) if first_unsafe > 0 else 0.0
-    stop_reason, collision_pair = ("curl" if reach >= math.pi - 1e-12 else "horizon"), ""
-    if first_unsafe < len(phi) and reach < math.pi - 1e-12:
-        stop_reason = "pad_collision"
-        collision_pair = "/".join(next(pair for pair, margin in margins.items() if margin[first_unsafe] < 0.0))
-    at = np.flatnonzero(phi >= goal.required_rom_rad - 1e-12)
-    last = int(at[0]) if at.size else max(first_unsafe - 1, 0)
-    window = np.zeros(len(phi), dtype=bool)
-    window[:last + 1] = True
-    tip_x = geo.tip(phi)[:, 0]
-    failing = unsafe | (tip_x < 0.0)
-    first_failing = int(np.flatnonzero(failing)[0]) if failing.any() else len(phi)
-    phi_max = float(min(phi[first_failing - 1], math.pi)) if first_failing > 0 else 0.0
-    reported = [margin for pair, margin in margins.items() if pair != ("mcp_servo", "proximal_pad")]
-    proximal_usable, distal_usable = usable_lengths(geo, phi[window], goal, "rcj")
-    proximal_robust, distal_robust = robust_usable_lengths(geo, phi[window], goal, "rcj")
-    constraints = {
-        **static,
-        "rom_deg": math.degrees(goal.required_rom_rad - reach),
-        "hyperextension_mm": hyperextension_violation(geo, config, _margins),
-        "curl_tip_x_mm": -float(tip_x[window].min()),
-        "pad_usable_mm": max(
-            shortfall_mm(goal.minimum_proximal_support_mm, min(max(geo.proximal_length_mm, 0.0), proximal_usable)),
-            shortfall_mm(goal.minimum_distal_support_mm, min(max(geo.distal_length_mm, 0.0), distal_usable))),
-        "torque_ratio": 0.0 if goal.torque_ratio_max is None else TORQUE_RATIO - goal.torque_ratio_max,
-    }
-    return RcjEvaluation(
-        constraints=MappingProxyType(constraints),
-        proximal_usable_length_mm=proximal_usable,
-        distal_usable_length_mm=distal_usable,
-        proximal_robust_usable_length_mm=proximal_robust,
-        distal_robust_usable_length_mm=distal_robust,
-        phi_safe_rad=reach,
-        phi_max_rad=phi_max,
-        stop_reason=stop_reason,
-        collision_pair=collision_pair,
-        least_tip_x_mm=float(tip_x[window].min()),
-        pad_clearance_mm=float(np.min(np.stack(reported), axis=0)[window].min()) if reported else math.inf,
-        **common,
-    )
+    # The servo turns the carrier by half the flexion: MA = 1/2.
+    motion, fields = measure_motion(geo, geo, config, _margins, ma=1.0 / TORQUE_RATIO, l1_mm=v["app_x_mm"],
+                                    l2_mm=v["bc_length_mm"] - v["bpp_from_b_mm"], distal_start_u_mm=v["bpp_from_b_mm"])
+    return RcjEvaluation(constraints=MappingProxyType({**static, **motion}), **fields, **common)
 
 
 def _margins(geo: RcjGeometry, phi: np.ndarray, config: RcjConfig,
