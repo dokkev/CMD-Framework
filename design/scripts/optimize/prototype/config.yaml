@@ -46,7 +46,7 @@ goal:
 
   # The morphology's size (m in A.2): L_f, and the phalanges' shares rho_i.
   link:
-    finger_length_mm: [90, 100]   # |OC| extended
+    finger_length_mm: [84, 91]    # |OC| extended
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
 

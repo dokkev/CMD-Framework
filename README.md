@@ -43,8 +43,8 @@ separate packaging assumptions and separate outputs. **Never mix them.**
 | | Prototype optimization | Study optimization |
 |---|---|---|
 | Purpose | Design the CoDe finger that gets built (hardware workstream, `report/legacy/prototype_hardware.md`) | Answer GOAL.md's research questions: mechanism comparison, Studies 1-4 (`report/legacy/kinematic_study_freeze.md`) |
-| Configs | `design/scripts/optimize/prototype/config.yaml` and the files extending it (`config_pivot8.yaml`, ...) | `design/scripts/study/base.yaml` → `baseline.yaml` (a frozen copy of the production config at 6ccab53) and the files under `design/scripts/study/` |
-| Packaging | Follows the hardware as it is chosen (e.g. pivots A, A', B, B' 8 mm in `config_pivot8.yaml`); `profile: prototype` defaults `include_linkage_occlusion: true` | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes; `profile: study` defaults `include_linkage_occlusion: false` |
+| Configs | `design/scripts/optimize/prototype/config.yaml` and any file extending it | `design/scripts/study/base.yaml` → `baseline.yaml` (a frozen copy of the production config at 6ccab53) and the files under `design/scripts/study/` |
+| Packaging | Follows the hardware as it is chosen (pivots A, A', B, B' 8 mm, 4 mm pads, since 2026-11-19); `profile: prototype` defaults `include_linkage_occlusion: true` | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes; `profile: study` defaults `include_linkage_occlusion: false` |
 | Outputs | `design/output/linkage/<config>/...`, hand variants such as `core/morphology/code_hand/pivot8_balanced.yaml`, sim exports | `design/output/study/...`, `report/` study reports |
 | Code name | "production" | "study" |
 
