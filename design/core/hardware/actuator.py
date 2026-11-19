@@ -71,12 +71,14 @@ class DShapedExtrusion:
 class MechanicalParameters:
     """Mechanical actuator properties used by later design/simulation code."""
 
-    gear_ratio: float
+    gear_ratio: float | None
+    """``None``: not published."""
     max_output_torque_nm: float
     mass_g: float
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "gear_ratio", require_positive("gear_ratio", self.gear_ratio))
+        if self.gear_ratio is not None:
+            object.__setattr__(self, "gear_ratio", require_positive("gear_ratio", self.gear_ratio))
         object.__setattr__(
             self,
             "max_output_torque_nm",
