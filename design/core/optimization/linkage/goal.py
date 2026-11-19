@@ -48,13 +48,13 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     tree.done()
     motion, pads, link = goal.table("motion"), goal.table("pads"), goal.table("link")
     alignment = goal.table("alignment")
-    align_link, align = alignment.take("kinematic_link"), alignment.take("contact_line")
+    align_link, align = alignment.take("joint_axes"), alignment.take("contact_faces")
     alignment.done()
-    for name, value in (("kinematic_link", align_link), ("contact_line", align)):
+    for name, value in (("joint_axes", align_link), ("contact_faces", align)):
         if not isinstance(value, bool):
             raise ValueError(f"goal.alignment.{name} must be true or false")
     if "align_mount_offsets" in pads.values:
-        raise ValueError("goal.pads.align_mount_offsets moved to goal.alignment.contact_line")
+        raise ValueError("goal.pads.align_mount_offsets moved to goal.alignment.contact_faces")
     hardware, collision = goal.table("hardware"), goal.table("collision")
     loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, profile defaults apply
     goal.done()
@@ -199,7 +199,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     hypervolume.update({name: reference.take(name) for name in OBJECTIVE_NAMES if name in reference.values})
     reference.done()
     search = solver.table("search_bounds")
-    # A and B on their phalanges' axes (goal.alignment.kinematic_link): the
+    # A and B on their phalanges' axes (goal.alignment.joint_axes): the
     # axes' offsets are not searched (absent, or [0, 0]).
     axis_names = ("a_z_mm", "b_z_mm")
     given = {name: _bounds(search.take(name), f"solver.search_bounds.{name}") for name in SEARCH_BOUNDS
@@ -208,7 +208,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         for name in axis_names:
             found = search.values.pop(name, None)
             if found is not None and _bounds(found, f"solver.search_bounds.{name}") != (0.0, 0.0):
-                raise ValueError(f"solver.search_bounds.{name}: goal.alignment.kinematic_link puts it at 0")
+                raise ValueError(f"solver.search_bounds.{name}: goal.alignment.joint_axes puts it at 0")
             given[name] = (0.0, 0.0)
     relative = {name: given.pop(name) for name in RELATIVE_BOUNDS}
     bounds = dict(given)
@@ -270,8 +270,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         symmetric_four_bar=symmetric,
         proximal_pad_past_icr_max_mm=past_icr,
         pads_on_links=on_links,
-        align_kinematic_link=align_link,
-        align_contact_line=align,
+        align_joint_axes=align_link,
+        align_contact_faces=align,
         mount_policy=mount_policy,
         warm_start=warm_start,
         relative_bounds=relative,

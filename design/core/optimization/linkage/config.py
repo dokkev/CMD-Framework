@@ -41,7 +41,7 @@ def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile
 def face_shift_mm(packaging) -> float:
     """The distal pad's mounting offset less the proximal pad's that puts both
     contact faces at one depth below their link lines (offset plus height):
-    the aligned pads' rule (``goal.alignment.contact_line``, 2026-11-19)."""
+    the aligned pads' rule (``goal.alignment.contact_faces``, 2026-11-19)."""
 
     return float(packaging.proximal_pad.height_mm - packaging.distal_pad.height_mm)
 
@@ -151,13 +151,13 @@ class LinkageConfig:
     on ``mount_offset_mm``; ``shallowest_supported``, not searched but the
     least depth (on the resolution grid, at most ``mount_offset_mm``'s max)
     that clears the pad's own joint hardware, within what that hardware
-    supports (``core.optimization.mounting``; with ``align_contact_line``,
+    supports (``core.optimization.mounting``; with ``align_contact_faces``,
     both at the deeper of the two)."""
-    align_kinematic_link: bool = False
-    """``A`` and ``B`` on their phalanges' axes (``goal.alignment.kinematic_link``):
+    align_joint_axes: bool = False
+    """``A`` and ``B`` on their phalanges' axes (``goal.alignment.joint_axes``):
     in the extended pose the two axes lie on one line (``a_z = b_z = 0``)."""
-    align_contact_line: bool = False
-    """The two pads' contact faces held at one depth (``goal.alignment.contact_line``;
+    align_contact_faces: bool = False
+    """The two pads' contact faces held at one depth (``goal.alignment.contact_faces``;
     2026-11-04 the mounting surfaces, 2026-11-19 the faces): one offset searched,
     the other shifted by the pads' height difference (:func:`face_shift_mm`), so
     in the extended pose both faces lie on one line. False: each its own."""
@@ -327,26 +327,26 @@ class LinkageConfig:
         """Why the alignments leave no design (``None``: they may not). Two
         checks, each a necessary condition only (the motion still decides):
 
-        - ``contact_line``: some mounting offset in both pads' ranges puts the
+        - ``contact_faces``: some mounting offset in both pads' ranges puts the
           faces at one depth, the pads' height difference taken up by the
           offsets (:func:`face_shift_mm`);
-        - with ``kinematic_link`` too, the two faces lie on one line in the
+        - with ``joint_axes`` too, the two faces lie on one line in the
           extended pose: the pads may not overlap along it, so their least
           lengths must fit between the proximal pad's start (past the MCP
           servo) and the distal pad's outer end (``C`` less its offset) of the
           longest finger."""
 
-        if not self.align_contact_line:
+        if not self.align_contact_faces:
             return None
         packaging = self.packaging
         shift = face_shift_mm(packaging)
         (p_low, p_high), (d_low, d_high) = (self.bounds["proximal_mount_offset_mm"],
                                             self.bounds["distal_mount_offset_mm"])
         if min(p_high, d_high - shift) < max(p_low, d_low - shift) - 1e-9:
-            return (f"goal.alignment.contact_line: the pads' heights differ by {shift:.1f} mm, which no mounting "
+            return (f"goal.alignment.contact_faces: the pads' heights differ by {shift:.1f} mm, which no mounting "
                     f"offsets in proximal [{p_low:g}, {p_high:g}] and distal [{d_low:g}, {d_high:g}] mm take up "
                     f"(no design)")
-        if not self.align_kinematic_link:
+        if not self.align_joint_axes:
             return None
         need = (max(self.minimum_proximal_support_mm, packaging.proximal_pad.length_mm or 0.0)
                 + max(self.minimum_distal_support_mm, packaging.distal_pad.length_mm or 0.0))
@@ -354,7 +354,7 @@ class LinkageConfig:
                 - packaging.distal_pad.offset_mm)
         if need <= room + 1e-9:
             return None
-        return (f"goal.alignment: with the kinematic link and the contact line both aligned, the pads lie on "
+        return (f"goal.alignment: with the joint axes and the contact faces both aligned, the pads lie on "
                 f"one line in the extended pose; their least lengths need {need:.1f} mm but the longest finger "
                 f"leaves {room:.1f} mm for them (no design)")
 

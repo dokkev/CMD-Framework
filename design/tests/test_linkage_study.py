@@ -33,7 +33,7 @@ TRIMMED = X
 required flexion."""
 
 
-PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_line=false", "goal.pads.proximal.length_mm=[20, null]",
+PINNED = ("goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
           "goal.collision.check.a_pin_and_a_prime_pin=true",
           "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
@@ -543,9 +543,9 @@ def test_aligned_mounting_offsets_search_one_offset_for_both_pads():
 
     free = load()
     assert "distal_mount_offset_mm" in search_names(free)
-    aligned = load("goal.alignment.contact_line=true", "goal.pads.proximal.mount_offset_mm=[0,6]",
+    aligned = load("goal.alignment.contact_faces=true", "goal.pads.proximal.mount_offset_mm=[0,6]",
                    "goal.pads.distal.mount_offset_mm=[2,10]")
-    assert aligned.align_contact_line
+    assert aligned.align_contact_faces
     # One offset, on the overlap of the two ranges.
     assert aligned.bounds["proximal_mount_offset_mm"] == aligned.bounds["distal_mount_offset_mm"] == (2.0, 6.0)
     names = search_names(aligned)
@@ -564,16 +564,16 @@ def test_aligned_mounting_offsets_search_one_offset_for_both_pads():
         assert len(from_design(design, aligned)) == len(names)
     assert decoded > 0
     # Ranges with no offset in common cannot be aligned: a warning, not an error.
-    apart = load("goal.alignment.contact_line=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
+    apart = load("goal.alignment.contact_faces=true", "goal.pads.proximal.mount_offset_mm=[0,1]",
                  "goal.pads.distal.mount_offset_mm=[2,10]")
     assert "no mounting offsets" in apart.alignment_warning()
     # Nor heights the offsets cannot take up (proximal 8 mm, distal 3 mm, both in [0, 2]).
-    tall = load("goal.alignment.contact_line=true", "goal.pads.proximal.height_mm=8",
+    tall = load("goal.alignment.contact_faces=true", "goal.pads.proximal.height_mm=8",
                 "goal.pads.distal.height_mm=3", "goal.pads.proximal.mount_offset_mm=[0,2]",
                 "goal.pads.distal.mount_offset_mm=[0,2]")
     assert "differ by 5.0 mm" in tall.alignment_warning()
     # Unaligned, the same pads are no concern.
-    assert load("goal.alignment.contact_line=false", "goal.pads.proximal.height_mm=8",
+    assert load("goal.alignment.contact_faces=false", "goal.pads.proximal.height_mm=8",
                 "goal.pads.distal.height_mm=3", "goal.pads.proximal.mount_offset_mm=[0,2]",
                 "goal.pads.distal.mount_offset_mm=[0,2]").alignment_warning() is None
 
@@ -583,7 +583,7 @@ def test_aligned_pads_of_different_heights_put_their_faces_at_one_depth():
     from core.optimization.mounting import _aligned
 
     # A proximal pad 3 mm thicker mounts 3 mm shallower: offset + height equal.
-    aligned = load("goal.alignment.contact_line=true", "goal.pads.proximal.height_mm=8",
+    aligned = load("goal.alignment.contact_faces=true", "goal.pads.proximal.height_mm=8",
                    "goal.pads.distal.height_mm=5", "goal.pads.proximal.mount_offset_mm=[0,6]",
                    "goal.pads.distal.mount_offset_mm=[2,10]")
     assert aligned.bounds["proximal_mount_offset_mm"] == (0.0, 6.0)
@@ -605,30 +605,30 @@ def test_aligned_pads_of_different_heights_put_their_faces_at_one_depth():
 
 def test_the_alignments_are_read_from_one_table():
     config = load()
-    assert config.align_kinematic_link and config.bounds["a_z_mm"] == config.bounds["b_z_mm"] == (0.0, 0.0)
-    with pytest.raises(ValueError, match="moved to goal.alignment.contact_line"):
+    assert config.align_joint_axes and config.bounds["a_z_mm"] == config.bounds["b_z_mm"] == (0.0, 0.0)
+    with pytest.raises(ValueError, match="moved to goal.alignment.contact_faces"):
         load("goal.pads.align_mount_offsets=true")
-    with pytest.raises(ValueError, match="kinematic_link puts it at 0"):
+    with pytest.raises(ValueError, match="joint_axes puts it at 0"):
         load("solver.search_bounds.a_z_mm=[0, 5]")
-    free = load("goal.alignment.kinematic_link=false", "solver.search_bounds.a_z_mm=[0, 5]",
+    free = load("goal.alignment.joint_axes=false", "solver.search_bounds.a_z_mm=[0, 5]",
                 "solver.search_bounds.b_z_mm=[0, 0]")
-    assert not free.align_kinematic_link and free.bounds["a_z_mm"] == (0.0, 5.0)
+    assert not free.align_joint_axes and free.bounds["a_z_mm"] == (0.0, 5.0)
 
 
 def test_both_alignments_warn_when_the_least_pads_cannot_share_the_line(tmp_path, capsys):
     import importlib.util
 
-    fits = load("goal.alignment.contact_line=true")
+    fits = load("goal.alignment.contact_faces=true")
     assert fits.alignment_warning() is None
-    crowded = load("goal.alignment.contact_line=true", "goal.pads.proximal.length_mm=[60, null]",
+    crowded = load("goal.alignment.contact_faces=true", "goal.pads.proximal.length_mm=[60, null]",
                    "goal.pads.distal.length_mm=[60, null]")
     assert "no design" in crowded.alignment_warning()
     assert load("goal.pads.proximal.length_mm=[60, null]", "goal.pads.distal.length_mm=[60, null]",
-                "goal.alignment.contact_line=false").alignment_warning() is None
+                "goal.alignment.contact_faces=false").alignment_warning() is None
     # The run stops before it starts.
     path = tmp_path / "crowded.yaml"
     path.write_text(f"base: {CONFIG}\nmechanism: linkage\noutput: {tmp_path / 'runs'}\n"
-                    "goal:\n  link:\n    finger_length_mm: [90, 110]\n  alignment:\n    contact_line: true\n"
+                    "goal:\n  link:\n    finger_length_mm: [90, 110]\n  alignment:\n    contact_faces: true\n"
                     "  pads:\n    proximal:\n      length_mm: [60, null]\n    distal:\n      length_mm: [60, null]\n")
     spec = importlib.util.spec_from_file_location("run_script", CONFIG.parents[1] / "run.py")
     run = importlib.util.module_from_spec(spec)
@@ -638,9 +638,9 @@ def test_both_alignments_warn_when_the_least_pads_cannot_share_the_line(tmp_path
     assert not (tmp_path / "runs").exists()
 
 
-def test_runs_recorded_with_aligned_mounting_offsets_load_as_aligned_contact_lines():
+def test_runs_recorded_with_aligned_mounting_offsets_load_as_aligned_contact_facess():
     from core.optimization.linkage.record import config_from_json, config_to_json
 
-    recorded = config_to_json(load("goal.alignment.contact_line=true"))
-    recorded["align_mount_offsets"] = recorded.pop("align_contact_line")
-    assert config_from_json(recorded).align_contact_line
+    recorded = config_to_json(load("goal.alignment.contact_faces=true"))
+    recorded["align_mount_offsets"] = recorded.pop("align_contact_faces")
+    assert config_from_json(recorded).align_contact_faces

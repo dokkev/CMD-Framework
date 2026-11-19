@@ -60,19 +60,19 @@ goal:
   # only, A'' at A and B'' at B; scripts/optimize/extend_pads.py then grows
   # them afterwards.)
   # Alignment in the extended pose (design/SSoT/problem_formulation.md A.5):
-  #   kinematic_link  A and B on their phalanges' axes, so the two axes lie on
-  #                   one line (A_z = B_z = 0; not searched).
-  #   contact_line    the two pads' contact faces at one depth below their
-  #                   link lines (mount_offset_mm + height_mm equal): one
-  #                   offset searched, the other shifted by the pads' height
-  #                   difference (the 2R-DD's drops too).
+  #   joint_axes     A and B on their phalanges' axes, so the two axes lie on
+  #                  one line (A_z = B_z = 0; not searched).
+  #   contact_faces  the two pads' contact faces at one depth below their
+  #                  link lines (mount_offset_mm + height_mm equal): one
+  #                  offset searched, the other shifted by the pads' height
+  #                  difference (the 2R-DD's drops too).
   # Before it starts, the run checks (necessary conditions only) that the
-  # mounting offsets can take up the pads' height difference (contact_line)
+  # mounting offsets can take up the pads' height difference (contact_faces)
   # and, both true putting the two faces on one line, that the least pads fit
   # on it without overlapping; if not, it stops with a warning.
   alignment:
-    kinematic_link: true
-    contact_line: true
+    joint_axes: true
+    contact_faces: true
 
   pads:
     on_links: false

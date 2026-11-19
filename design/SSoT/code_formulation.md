@@ -127,7 +127,7 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `t
 
 **결정(2026-11-19).**
 - $MA_{\min}=0.2$(CFL), 맞닿음 허용 오차 $10^{-6}$ mm 하나, 기울기는 범위로만, CFL도 표본 사이를 다시 본다, Study 2는 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$ 모두.
-- 정렬은 `goal.alignment`의 `kinematic_link`, `contact_line` 두 값이다(`LinkageConfig.align_kinematic_link`, `align_contact_line`). `contact_line`은 distal 깊이를 proximal 깊이 + (h_P − h_D)로 둔다(`face_shift_mm`). `run.py`와 `sample_seeds.py`는 시작 전에 `alignment_warning`으로 정적 필요조건을 본다. `contact_line`이면 두께 차이를 두 장착 깊이 범위로 메울 수 있는지, 둘 다 true면 pad 하한 길이의 합이 한 직선에 들어가는지 확인한다. 깨지면 warning을 내고 시작하지 않는다(설정 오류가 아님). CoDe prototype은 둘 다 true다.
+- 정렬은 `goal.alignment`의 `joint_axes`, `contact_faces` 두 값이다(`LinkageConfig.align_joint_axes`, `align_contact_faces`). `contact_faces`은 distal 깊이를 proximal 깊이 + (h_P − h_D)로 둔다(`face_shift_mm`). `run.py`와 `sample_seeds.py`는 시작 전에 `alignment_warning`으로 정적 필요조건을 본다. `contact_faces`이면 두께 차이를 두 장착 깊이 범위로 메울 수 있는지, 둘 다 true면 pad 하한 길이의 합이 한 직선에 들어가는지 확인한다. 깨지면 warning을 내고 시작하지 않는다(설정 오류가 아님). CoDe prototype은 둘 다 true다.
 - 2R 계열의 충돌 엔진을 Assembly로 옮기지 않는다. 2R 계열의 쌍 목록은 구조당 40줄 정도로 짧고, Assembly로 옮기면 구조마다 Part·Layout·Poses를 새로 만들어야 해서 코드가 늘어난다. 대신 중복된 MCP servo 쌍 처리를 `revolute.solids.with_mcp_pairs`로 모았다.
 
 **남은 항목.**

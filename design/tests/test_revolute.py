@@ -12,7 +12,7 @@ from core.optimization.mechanism import mechanism
 from core.optimization.study import load_yaml
 
 ROOT = Path(__file__).resolve().parents[1] / "scripts" / "optimize"
-PINNED = ("goal.link.finger_length_mm=[90, 100]", "goal.alignment.contact_line=false", "goal.pads.proximal.length_mm=[20, null]",
+PINNED = ("goal.link.finger_length_mm=[90, 100]", "goal.alignment.contact_faces=false", "goal.pads.proximal.length_mm=[20, null]",
           "goal.pads.distal.length_mm=[25, null]", "goal.motion.dip_flexion_deg=120",
           "goal.hardware.pip_servo.tilt_angle_deg=[90, 90]", "goal.link.proximal_length_ratio=[null, null]",
           "goal.link.distal_length_ratio=[null, null]")
@@ -270,7 +270,7 @@ def test_aligned_mounting_offsets_hold_the_2r_dds_drops_equal():
     from core.optimization.revolute.config import VARIABLE_NAMES
     from core.optimization.revolute.search import SEARCH_NAMES, search_box, to_design
 
-    config = load("goal.alignment.contact_line=true")
+    config = load("goal.alignment.contact_faces=true")
     low, high = search_box(config)
     rng = np.random.default_rng(0)
     decoded = 0

@@ -6,7 +6,7 @@
 ## 결정됨
 
 ### Prototype 2목적 (2026-11-19)
-- 2026-11-19: 정렬을 `goal.alignment` 표로 모음. `kinematic_link`(A, B를 축 위에, a_z = b_z = 0으로 고정, 옛 `search_bounds.a_z_mm/b_z_mm`를 대신함)와 `contact_line`(옛 `goal.pads.align_mount_offsets`). 둘 다 true면 run과 seed 샘플링 전에 pad 하한 길이의 합이 한 직선에 들어가는지 확인하고, 안 되면 warning을 내고 멈춤(필요조건). Prototype은 둘 다 true, study는 `kinematic_link`만 true.
+- 2026-11-19: 정렬을 `goal.alignment` 표로 모음. `joint_axes`(A, B를 축 위에, a_z = b_z = 0으로 고정, 옛 `search_bounds.a_z_mm/b_z_mm`를 대신함)와 `contact_faces`(옛 `goal.pads.align_mount_offsets`). 둘 다 true면 run과 seed 샘플링 전에 pad 하한 길이의 합이 한 직선에 들어가는지 확인하고, 안 되면 warning을 내고 멈춤(필요조건). Prototype은 둘 다 true, study는 `joint_axes`만 true.
 - 2026-11-19: `goal.pads.align_mount_offsets`가 장착면이 아니라 **접촉면**을 맞추도록 바꿈. distal 장착 깊이 = proximal 장착 깊이 + (h_P − h_D), 곧 두 pad의 장착 깊이 + 두께가 같아 편 자세에서 두 접촉면이 한 직선에 놓임. 두께가 같으면 이전과 같음. Prototype 설정은 이 옵션을 켬.
 - 2026-11-19: CoDe prototype의 목적을 $(\bar C_{\mathrm{pad}}, MA_{\mathrm{wc}})$ 두 개로 바꿈(SSoT A.5.4). 단일 목적 paper run(`report/code_prototype_2026-11-19.md`)에서 MA 제약이 여유 있게 남아, coverage와 전달의 trade-off를 front로 보기로 함. $MA_{\min}=0.2$는 하한 제약으로 유지. 알고리즘은 NSGA-II와 SMS-EMOA. Study는 $\bar C_{\mathrm{pad}}$ 단일 목적 그대로.
 

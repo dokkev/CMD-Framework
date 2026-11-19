@@ -21,7 +21,7 @@ and placement:
   (2026-11-05: a housing the pad only skirts carries nothing). The 2R's
   distal pad hangs from a truss off the output at ``A``: the servo sets
   only its clearance, unless the two depths are aligned
-  (``goal.alignment.contact_line``: both contact faces at one depth, the
+  (``goal.alignment.contact_faces``: both contact faces at one depth, the
   deeper the least depths give; the distal pad then supported to the
   servo's reach).
 - **C, deeper than that support** (a proximal pad needing clearance from a
@@ -235,7 +235,7 @@ def _linkage_mounting(finger, config) -> Mounting:
         return [proximal, gaps[1] >= -TOLERANCE_MM]
 
     depths = shallowest(clear, guesses, _caps(config), config.resolution_mm)
-    return Mounting(_aligned(depths, config.packaging) if config.align_contact_line else tuple(depths),
+    return Mounting(_aligned(depths, config.packaging) if config.align_contact_faces else tuple(depths),
                     on_grid(native, config.resolution_mm))
 
 
@@ -323,9 +323,9 @@ def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
              else reach)
     if servo is not None and packaging.pip_servo_pad_check:  # the belt 2R's servo on A', on the proximal body
         under = max(under, footprint_reach_mm(servo.outline, spans[0], clearance))
-    native = (under if not clear((0.0, 0.0))[0] else 0.0, reach if goal.align_contact_line else 0.0)
+    native = (under if not clear((0.0, 0.0))[0] else 0.0, reach if goal.align_contact_faces else 0.0)
     depths = shallowest(clear, guesses, _caps(goal), goal.resolution_mm)
-    return Mounting(_aligned(depths, goal.packaging) if goal.align_contact_line else tuple(depths),
+    return Mounting(_aligned(depths, goal.packaging) if goal.align_contact_faces else tuple(depths),
                     on_grid(native, goal.resolution_mm))
 
 
@@ -403,7 +403,7 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
     at_rest = clear((0.0, 0.0))
     native = (0.0 if at_rest[0] else proximal, 0.0 if at_rest[1] else distal)
     depths = shallowest(clear, guesses, _caps(goal), goal.resolution_mm)
-    return Mounting(_aligned(depths, goal.packaging) if goal.align_contact_line else tuple(depths),
+    return Mounting(_aligned(depths, goal.packaging) if goal.align_contact_faces else tuple(depths),
                     on_grid(native, goal.resolution_mm))
 
 
