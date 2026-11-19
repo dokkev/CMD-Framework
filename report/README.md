@@ -5,8 +5,9 @@ Reports and paper figures from runs under the current SSoT
 | Report | What |
 |---|---|
 | [code_prototype_2026-11-19.md](code_prototype_2026-11-19.md) | CoDe prototype, paper preset: $\bar C_{\mathrm{pad}}=0.720$ |
+| [study1_fixed_morphology_2026-11-19.md](study1_fixed_morphology_2026-11-19.md) | Study 1: 71 modules × 5 architectures × tilt × $q_{\mathrm{req}}$ |
 
-Study 1 and Study 2 are being rerun.
+Study 2 is being rerun.
 
 ## Legacy
 
