@@ -12,7 +12,7 @@ fingertip) and reaches toward the joint as far as its length; one longer
 than its support does not mount. (The architecture capability, the shortest
 finger re-optimized for each module pair, is the accommodation study's.)
 
-:func:`phi_max_deg` is the finger's continuous reach: from extension, the
+`q_max_deg` is the finger's continuous reach: from extension, the
 last pose before any check fails (pad against pad, servo or carrier; the
 linkage's closure and transmission range; the fingertip behind ``O``), the
 evaluator's ``phi_max``; the distal carrier's flexion relative to the
@@ -109,7 +109,7 @@ def is_static(name: str) -> bool:
     return name.startswith(("bounds_", "static_"))
 
 
-def phi_max_deg(found: Mechanism, config, x: Sequence[float], modules: Modules) -> float:
+def q_max_deg(found: Mechanism, config, x: Sequence[float], modules: Modules) -> float:
     """``q_max`` (deg) of the fixed finger ``x`` carrying ``modules`` (NaN: it
     fails a static check with them)."""
 
@@ -125,7 +125,7 @@ def proximal_curve(found: Mechanism, config, x: Sequence[float], modules: Module
                    lengths_mm: Sequence[float]) -> np.ndarray:
     """``q_max`` (deg) for each proximal module length, the rest of ``modules`` kept."""
 
-    return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, proximal_length_mm=length))
+    return np.array([q_max_deg(found, config, x, dataclasses.replace(modules, proximal_length_mm=length))
                      for length in lengths_mm])
 
 
@@ -133,9 +133,9 @@ def distal_curve(found: Mechanism, config, x: Sequence[float], modules: Modules,
                  lengths_mm: Sequence[float]) -> np.ndarray:
     """``q_max`` (deg) for each distal module length, the rest of ``modules`` kept."""
 
-    return np.array([phi_max_deg(found, config, x, dataclasses.replace(modules, distal_length_mm=length))
+    return np.array([q_max_deg(found, config, x, dataclasses.replace(modules, distal_length_mm=length))
                      for length in lengths_mm])
 
 
-__all__ = ["MODULE_OVERRIDES", "Modules", "is_static", "distal_curve", "goal_of", "load", "phi_max_deg",
+__all__ = ["MODULE_OVERRIDES", "Modules", "is_static", "distal_curve", "goal_of", "load", "q_max_deg",
            "proximal_curve", "with_goal", "with_modules"]

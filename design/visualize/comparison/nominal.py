@@ -82,12 +82,12 @@ def main(argv: list[str]) -> int:
     seeds = Path(argv[0]) if argv else DEFAULT_SEEDS
     role = argv[1] if len(argv) > 1 else "balanced"
     row, config, linkage = linkage_seed(seeds, role)
-    proximal, distal = round(float(row["proximal_effective_mm"])), round(float(row["distal_effective_mm"]))
+    proximal, distal = round(float(row["proximal_support_length_mm"])), round(float(row["distal_support_length_mm"]))
     finger = round(float(row["finger_length_mm"]), 1)
     _, revolute_config, (x, revolute) = matched_revolute(finger, proximal, distal)
     geo = geometry(x, revolute_config)
 
-    linkage_max, revolute_max = float(row["phi_max_deg"]), math.degrees(revolute.phi_max_rad)
+    linkage_max, revolute_max = float(row["q_max_deg"]), math.degrees(revolute.q_max_rad)
     poses = [0.0, 90.0, revolute_max, linkage_max]
     if abs(revolute_max - 90.0) < 0.5:  # no column twice: one between instead
         poses[2] = 0.5 * (90.0 + linkage_max)
@@ -100,7 +100,7 @@ def main(argv: list[str]) -> int:
             solids.plane_axes(axis)
             axis.set_title(text, color=COLLIDE if "collides" in text else INK, fontsize=10, loc="left")
     axes[0, 0].set_ylabel(f"CoDe linkage\n|OC| {float(row['finger_length_mm']):.0f} mm, k_max "
-                          f"{float(row['torque_ratio_max']):.2f}, max {linkage_max:.0f}°", color=COLORS["linkage"])
+                          f"{float(row['ma_wc']):.2f}, max {linkage_max:.0f}°", color=COLORS["linkage"])
     axes[1, 0].set_ylabel(f"Serial 2R\n|OC| {revolute.finger_length_mm:.0f} mm (|OA| {x[0]:.1f}), k 1, "
                           f"max {revolute_max:.0f}°", color=COLORS["revolute"])
     axes[0, -1].legend(handles=[
@@ -108,7 +108,7 @@ def main(argv: list[str]) -> int:
                    label="active joint (servo)"),
         plt.Line2D([], [], marker="o", linestyle="", markersize=8, markerfacecolor=solids.PASSIVE, markeredgecolor=INK,
                    label="passive joint")], loc="lower right", frameon=False, fontsize=8)
-    figure.suptitle(f"Same finger (|OC| ≤ {finger:.0f} mm) and pads ({proximal} + {distal} mm usable, "
+    figure.suptitle(f"Same finger (|OC| ≤ {finger:.0f} mm) and pads ({proximal} + {distal} mm, "
                     f"{config.packaging.proximal_pad.height_mm:.0f} mm thick): the 2R stops at "
                     f"{revolute_max:.0f}° ({revolute.collision_pair.replace('_', ' ')})", color=INK, fontsize=11, x=0.01, ha="left")
     output = save_comparison(figure, "nominal")

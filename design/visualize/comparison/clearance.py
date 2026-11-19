@@ -36,12 +36,12 @@ def main(argv: list[str]) -> int:
     seeds = Path(argv[0]) if argv else DEFAULT_SEEDS
     role = argv[1] if len(argv) > 1 else "balanced"
     row, config, linkage = linkage_seed(seeds, role)
-    proximal, distal = round(float(row["proximal_effective_mm"])), round(float(row["distal_effective_mm"]))
+    proximal, distal = round(float(row["proximal_support_length_mm"])), round(float(row["distal_support_length_mm"]))
     finger = round(float(row["finger_length_mm"]), 1)
     _, revolute_config, (x, revolute) = matched_revolute(finger, proximal, distal)
     views = {"linkage": FingerView("linkage", FourBarView(linkage, config.packaging), row),
              "revolute": view_of("revolute", revolute_config, x)}
-    linkage_max, revolute_max = float(row["phi_max_deg"]), math.degrees(revolute.phi_max_rad)
+    linkage_max, revolute_max = float(row["q_max_deg"]), math.degrees(revolute.q_max_rad)
     phi_l = np.arange(0.0, views["linkage"].reachable_deg() + 1e-9, STEP_DEG)
     phi_r = np.arange(0.0, 180.0 + 1e-9, STEP_DEG)
     margins_l, margins_r = views["linkage"].margins(phi_l), views["revolute"].margins(phi_r)
@@ -57,7 +57,7 @@ def main(argv: list[str]) -> int:
             sketch.frame(axis, (-16.0, 102.0), (-60.0, 30.0))
             axis.set_title(f"{pose:.0f}°", color=INK, fontsize=10, loc="left")
         if name == "linkage":
-            label = f"CoDe linkage: |OC| {finger:.0f} mm, k_max {float(row['torque_ratio_max']):.2f}"
+            label = f"CoDe linkage: |OC| {finger:.0f} mm, MA_wc {float(row['ma_wc']):.2f}"
             title = f"CoDe linkage: safe to {linkage_max:.0f}°"
         else:
             label = (f"Serial 2R: |OC| {revolute.finger_length_mm:.0f} mm (|OA| {x[0]:.1f}, "
@@ -67,7 +67,7 @@ def main(argv: list[str]) -> int:
         sketches[0].title.set_color(COLORS[name])
         clearance_axes(figure.add_subplot(grid[r, 3]), phis, margins, phi_max, colors, title)
     figure.suptitle(f"Clearance of every checked pair as the finger flexes: same finger (|OC| ≤ {finger:.0f} mm) "
-                    f"and pads ({proximal} + {distal} mm usable, "
+                    f"and pads ({proximal} + {distal} mm, "
                     f"{config.packaging.proximal_pad.height_mm:.0f} mm tall); shaded: past the safe range",
                     color=INK, fontsize=11, x=0.01, ha="left")
     output = save_comparison(figure, "clearance")

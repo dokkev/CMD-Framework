@@ -91,7 +91,7 @@ def historical_recheck(inputs):
                                  transmission_angle_range_rad=(math.radians(margin), math.radians(180-margin)))
                 e = saved.mechanism.evaluate(x, config)
                 checks.append(dict(target=row['target'], margin_deg=margin, include_linkage_occlusion=face,
-                                   feasible=e.feasible, k_max=e.torque_ratio_max,
+                                   feasible=e.feasible, ma_wc=e.ma_wc,
                                    minimum_angle_margin_deg=math.degrees(e.min_margin_rad),
                                    failures=';'.join(f'{k}={v:.5g}' for k, v in e.constraints.items() if v > 0)))
     shared.write_csv(OUT / 'historical_candidate_recheck.csv', checks)
@@ -111,7 +111,7 @@ def main():
                       angle_max_deg=round(math.degrees(angle[1])),
                       include_linkage_occlusion=occlusion,
                       population=cfg['optimizer']['population'], generations=cfg['optimizer']['generations'])
-        assert cfg['goal_overrides']['torque_ratio_max'] is None
+        assert cfg['goal_overrides']['ma_min'] is None
         for filename in ('manifest.json', 'summary.csv', 'summary_best.csv'):
             path = folder / filename
             inputs[str(path.relative_to(OUT))] = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -130,14 +130,14 @@ def main():
                 evaluation = saved.mechanism.evaluate(x, config)
                 assert evaluation.feasible, (name, row['target'], dict(evaluation.constraints))
                 assert math.isclose(x[saved.mechanism.variable_names.index('servo_tilt_deg')], 15)
-                result.update(k_max=evaluation.torque_ratio_max, k_min=evaluation.torque_ratio_min,
+                result.update(ma_wc=evaluation.ma_wc,
                               min_transmission_margin_deg=math.degrees(evaluation.min_margin_rad))
                 if name.startswith('main_'):
                     candidate_figure(result, x, config)
                 for margin in (30, 20, 10):
                     checked = saved.mechanism.evaluate(x, replace(config, transmission_angle_range_rad=(math.radians(margin), math.radians(180-margin))))
                     crosschecks.append(dict(source_run=name, target=row['target'], margin_deg=margin,
-                                            feasible=checked.feasible, k_max=checked.torque_ratio_max,
+                                            feasible=checked.feasible, ma_wc=checked.ma_wc,
                                             failures=';'.join(k for k, v in checked.constraints.items() if v > 0)))
             selected.append(result)
     shared.write_csv(OUT / 'summary_runs.csv', rows)

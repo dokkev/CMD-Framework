@@ -95,11 +95,11 @@ def main(argv: list[str]) -> int:
     seeds = Path(argv[0]) if argv else DEFAULT_SEEDS
     role = argv[1] if len(argv) > 1 else "balanced"
     row, config, linkage = linkage_seed(seeds, role)
-    proximal, distal = round(float(row["proximal_effective_mm"])), round(float(row["distal_effective_mm"]))
+    proximal, distal = round(float(row["proximal_support_length_mm"])), round(float(row["distal_support_length_mm"]))
     finger = round(float(row["finger_length_mm"]), 1)
     _, revolute_config, (x, revolute) = matched_revolute(finger, proximal, distal)
     geo = geometry(x, revolute_config)
-    linkage_max, revolute_max = float(row["phi_max_deg"]), math.degrees(revolute.phi_max_rad)
+    linkage_max, revolute_max = float(row["q_max_deg"]), math.degrees(revolute.q_max_rad)
 
     figure, axes = plt.subplots(1, 2, figsize=(11.0, 6.2), facecolor="white", sharex=True, sharey=True,
                                 constrained_layout=True)

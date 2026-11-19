@@ -55,8 +55,8 @@ def trials(reference, target, cfg, directory, commit):
         evaluation = found.evaluate(result.final.x, final_config)
         if not evaluation.feasible:
             raise ValueError(f'selected design failed readback: {reference.reference_id}, {target.module_id}')
-        selected['k_max'] = getattr(evaluation, 'torque_ratio_max', None)
-        selected['phi_max_deg'] = math.degrees(evaluation.phi_max_rad)
+        selected['ma_wc'] = getattr(evaluation, 'ma_wc', None)
+        selected['q_max_deg'] = math.degrees(evaluation.q_max_rad)
     return rows, selected, result, final_config
 
 

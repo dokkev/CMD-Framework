@@ -76,10 +76,8 @@ def main() -> int:
                                                 "proximal_length_mm", "proximal_thickness_mm",
                                                 "distal_length_mm", "distal_thickness_mm")}
                            | {"on_failure": row["failure"],
-                              "on_proximal_effective_mm": row["proximal_effective_mm"],
-                              "on_distal_effective_mm": row["distal_effective_mm"],
-                              "off_proximal_effective_mm": off[key]["proximal_effective_mm"],
-                              "off_distal_effective_mm": off[key]["distal_effective_mm"]})
+                              "on_c_pad_mean": row["c_pad_mean"],
+                              "off_c_pad_mean": off[key]["c_pad_mean"]})
     rows = [{"reference_id": ref, "required_flexion_deg": flexion, "mounted": m, "n_on": a, "n_off": b,
              "delta_n": b - a} for (ref, flexion), (a, b, m) in sorted(counts.items())]
     for name, table in (("faceoff_counts.csv", rows), ("faceoff_changes.csv", changes)):

@@ -48,7 +48,7 @@ def linkage_k(row: dict[str, str], linkage: Finger) -> tuple[np.ndarray, np.ndar
     servo, sweep = servo_sweep(linkage, STEP_DEG)
     phi = np.degrees(sweep.total_flexion_rad)
     theta = np.degrees(np.abs(servo[:len(phi)]))
-    keep = phi <= float(row["safe_reach_deg"]) + 1e-9
+    keep = phi <= float(row["valid_reach_deg"]) + 1e-9
     theta, phi = theta[keep], phi[keep]
     return theta, phi, np.gradient(phi, theta)
 

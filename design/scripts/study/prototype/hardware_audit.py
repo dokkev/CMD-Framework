@@ -56,8 +56,8 @@ def raw_gaps(name, x, config):
     report = found.report(evaluation)
     packaging = config.packaging
     finger = decode(x, config.link_length_resolution_mm)
-    phi_max = float(report["phi_max_deg"])
-    hyper = -math.degrees(getattr(config, "hyperextension_rad", 0.0) or 0.0)  # the required hyperextension, included
+    phi_max = float(report["q_max_deg"])
+    hyper = 0.0  # the required hyperextension, included
     sweep = finger.sweep_pip(np.radians(np.arange(hyper, phi_max + 1e-9, PHI_STEP_DEG)))
     built = assembly(finger, packaging)
     moving = poses(finger, sweep.b, sweep.tip, sweep.bp)
@@ -120,7 +120,7 @@ def raw_gaps(name, x, config):
          "fixed by proximal_pad_start"),
     ]
     housings = {pin: packaging.pivot_radius_mm(pin) * 2 for pin in ("a", "ap", "b", "bp")}
-    summary = {"config": name, "feasible_at_req": bool(evaluation.feasible), "phi_max_deg": phi_max,
+    summary = {"config": name, "feasible_at_req": bool(evaluation.feasible), "q_max_deg": phi_max,
                "stop_reason": report.get("stop_reason"), "extra_body_allowance_mm": clearance,
                "pin_housing_diameters_mm": housings, "bearing_note": "PIVOT_CLEARANCE_DIAMETER_MM docstring: "
                "McMaster 57155K424, 3 mm shaft, 6 mm OD, 2 mm wide, 7.2 x 0.6 mm flange, in 1 mm walls",
@@ -163,7 +163,7 @@ def thickness_envelope(x, config):
                 e = found.evaluate(x, dataclasses.replace(c, required_rom_rad=math.radians(flexion)))
                 row[f"feasible_{flexion}"] = bool(e.feasible)
                 row[f"failing_{flexion}"] = ";".join(sorted(k for k, v in e.constraints.items() if v > 0))
-            row["phi_max_deg"] = round(float(found.report(found.evaluate(x, c))["phi_max_deg"]), 1)
+            row["q_max_deg"] = round(float(found.report(found.evaluate(x, c))["q_max_deg"]), 1)
             rows.append(row)
     return rows
 
@@ -183,13 +183,13 @@ def main():
               "kinematics": "existing FK (decode + sweep_pip); no geometry added"}
     (OUT / "audit.json").write_text(json.dumps(record, indent=2, default=str) + "\n")
     for r in results:
-        print("==", r["config"], "| feasible", r["feasible_at_req"], "| phi_max", round(r["phi_max_deg"], 1),
+        print("==", r["config"], "| feasible", r["feasible_at_req"], "| phi_max", round(r["q_max_deg"], 1),
               "| clearance", r["extra_body_allowance_mm"], "| housings", r["pin_housing_diameters_mm"])
         for g in r["gaps"]:
             print(f"  {g['raw_gap_mm']:8.3f}  {g['pair']:48s} {g['model_status']:34s} {g['note']}")
     print("MCP sweep:", record["mcp_sweep_prototype_config"])
     for r in envelope:
-        print(r["module_length_mm"], r["module_thickness_mm"], r["feasible_120"], r["feasible_150"], r["phi_max_deg"])
+        print(r["module_length_mm"], r["module_thickness_mm"], r["feasible_120"], r["feasible_150"], r["q_max_deg"])
 
 
 if __name__ == "__main__":

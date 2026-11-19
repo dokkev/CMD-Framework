@@ -167,7 +167,7 @@ def coverage_versus_rom(rows, out: Path) -> None:
                   markerfacecolor=color(reference) if FILLED.get(reference, True) else "white",
                   linestyle=(0, (3, 2)) if dashed else "-", linewidth=1.6, label=LABEL[reference])
         mounted = [r for r in mine if number(r["required_flexion_deg"]) == PHI and r["mounted"] == "True"]
-        right.scatter([number(r["phi_max_deg"]) for r in mounted], [number(r["coverage"]) for r in mounted],
+        right.scatter([number(r["q_max_deg"]) for r in mounted], [number(r["c_pad_mean"]) for r in mounted],
                       s=16, color=color(reference) if FILLED.get(reference, True) else "white",
                       edgecolors=color(reference), linewidths=0.9, alpha=0.8, marker="D" if dashed else "o")
     left.set(xlabel="required flexion φ_req (deg)", ylabel=f"share of the {total} module pairs carried",

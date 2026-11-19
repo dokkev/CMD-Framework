@@ -6,7 +6,7 @@
 The study searched with each pad on its own link (``goal.pads.on_links``):
 the proximal pad to ``A``, the distal one from ``B``. Each design keeps its
 links (so its ``k``) and gets the pad ends ``A''`` (toward ``B``) and
-``B''`` (toward ``A``) that give the most coverage (``pad_coverage``: each
+``B''`` (toward ``A``) that give the most coverage (``c_pad_mean``: each
 face up to where the two faces cross in the fold) while the design stays
 feasible and flexes as far as it did (its ``phi_max``, so its curl;
 ``--to-required``: only as far as the required flexion, trading curl for
@@ -56,9 +56,9 @@ def _configs(run_dir: str):
 
 def _score(x, config, phi_max_rad: float) -> float:
     e = MECHANISM.evaluate(x, config)
-    if e is None or not e.feasible or e.phi_max_rad < phi_max_rad - 1e-9:
+    if e is None or not e.feasible or e.q_max_rad < phi_max_rad - 1e-9:
         return -math.inf
-    return e.pad_coverage
+    return e.c_pad_mean
 
 
 def extend(task: tuple[str, list[float], bool]) -> tuple[list[float], dict, float, float]:
@@ -67,14 +67,14 @@ def extend(task: tuple[str, list[float], bool]) -> tuple[list[float], dict, floa
     base = MECHANISM.evaluate(x, verify)
     # The flexion to keep: the design's own (verified; the screening compares
     # on its own grid), or only the required one (feasibility holds it).
-    phi_max = 0.0 if to_required else base.phi_max_rad
-    coarse_phi_max = 0.0 if to_required else MECHANISM.evaluate(x, config).phi_max_rad
+    phi_max = 0.0 if to_required else base.q_max_rad
+    coarse_phi_max = 0.0 if to_required else MECHANISM.evaluate(x, config).q_max_rad
 
     def verified(y: list[float]):
         e = MECHANISM.evaluate(y, verify)
-        return e if e is not None and e.feasible and e.phi_max_rad >= phi_max - 1e-9 else None
+        return e if e is not None and e.feasible and e.q_max_rad >= phi_max - 1e-9 else None
 
-    y, p, d, e = grow_pads(x, lambda y: _score(y, config, coarse_phi_max), verified, lambda e: e.pad_coverage)
+    y, p, d, e = grow_pads(x, lambda y: _score(y, config, coarse_phi_max), verified, lambda e: e.c_pad_mean)
     if e is None:
         return list(x), MECHANISM.report(base), 0.0, 0.0
     return y, MECHANISM.report(e), float(p), float(d)
@@ -100,7 +100,7 @@ def main(argv: list[str]) -> int:
         for row, (y, report, p, d) in zip(rows, results):
             values = {"seed_role": row["seed_role"], "run": row["run"], "candidate": row["candidate"],
                       **dict(zip(VARIABLE_NAMES, y)), **report,
-                      "coverage_on_links": row["pad_coverage"], "proximal_extension_mm": p,
+                      "coverage_on_links": row["c_pad_mean"], "proximal_extension_mm": p,
                       "distal_extension_mm": d}
             if writer is None:
                 columns = list(values)
@@ -108,10 +108,9 @@ def main(argv: list[str]) -> int:
                 writer.writeheader()
             writer.writerow(values)
             if row["seed_role"] != "pareto":
-                print(f"{row['seed_role']:28s} coverage {100 * float(row['pad_coverage']):5.1f} -> "
-                      f"{100 * float(report['pad_coverage']):5.1f} %  (A'' +{p:.1f}, B'' -{d:.1f} mm; "
-                      f"P + D {report['proximal_effective_mm']:.1f} + {report['distal_effective_mm']:.1f}, "
-                      f"k {report['torque_ratio_max']:.2f}, phi_max {report['phi_max_deg']:.1f})")
+                print(f"{row['seed_role']:28s} coverage {100 * float(row['c_pad_mean']):5.1f} -> "
+                      f"{100 * float(report['c_pad_mean']):5.1f} %  (A'' +{p:.1f}, B'' -{d:.1f} mm; "
+                      f"MA_wc {report['ma_wc']:.2f}, q_max {report['q_max_deg']:.1f})")
     print(f"wrote {len(rows)} designs -> {out.relative_to(REPOSITORY_ROOT)}")
     return 0
 

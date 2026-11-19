@@ -236,7 +236,7 @@ solver:
     #   quick   a look in about a minute, for trends while exploring
     #   search  the full study, to settle a design (about 15 min)
     #   paper   the search run until its hypervolume levels off, for the
-    #           paper's convergence figure (visualize.paper.fig_convergence;
+    #           convergence check (visualize.study.convergence;
     #           about 45 min)
     preset: paper
     presets:

@@ -19,7 +19,7 @@ class Convergence:
     objective: str
     best: np.ndarray
     """``(generations,)``: the best value found up to each generation, in the
-    objective's own terms (``pad_coverage`` as a share, larger better); NaN
+    objective's own terms (``c_pad_mean`` as a share, larger better); NaN
     before the first feasible design."""
     evaluations: np.ndarray
     """``(generations,)``: evaluations made up to each generation."""

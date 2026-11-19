@@ -47,7 +47,7 @@ def finalize(out):
         r['selected_stage']=stage;r['selected_run']=str(path.relative_to(ROOT))
         r['selected_upper_mm']=upper
         readback=saved.mechanism.report(e)
-        r['phi_max_deg']=readback['phi_max_deg']
+        r['q_max_deg']=readback['q_max_deg']
         r['assembled_length_mm']=readback['finger_length_mm']
         r['assembled_minus_descriptor_length_mm']=r['assembled_length_mm']-r['final_length_mm']
         r['length_upper_active']=r['final_length_mm']>=upper-cfg['upper_margin_mm']

@@ -52,11 +52,11 @@ def main(argv: list[str]) -> int:
         axis.axis("off")
     for axis, pose in zip(axes.flat, poses):
         motion_panel(axis, finger, pose)
-    p, d = finger.pads_mm
+    p, _ = finger.pads_mm
     figure.suptitle(f"{LABELS[mechanism]}, {run_dir.name} {role} ({row['run']}): "
-                    f"P {p:.1f} + D {d:.1f} mm = {100 * float(row['pad_coverage']):.0f}%, "
-                    f"k ≤ {float(row['torque_ratio_max']):.2f}, safe to {float(row['safe_reach_deg']):.0f}°, "
-                    f"curl {float(row['curl_deg']):.0f}°", color=MUTED, fontsize=8.5, x=0.01, ha="left")
+                    f"common {p:.1f} mm, coverage {100 * float(row['c_pad_mean']):.0f}%, "
+                    f"MA_wc {float(row['ma_wc']):.2f}, q_max {float(row['q_max_deg']):.0f}°",
+                    color=MUTED, fontsize=8.5, x=0.01, ha="left")
     out = save(figure, f"fig_design_{run_dir.name}_{role}")
     print(f"saved {out}")
     return 0

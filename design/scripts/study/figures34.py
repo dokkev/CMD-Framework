@@ -104,9 +104,9 @@ def main():
     for ax,spec in zip(axs,manifest['fronts']):
         archived=read(S3/'inputs'/spec['id']/'pareto.csv')
         k=next(c['mechanism']for c in designs if c['candidate_id'].startswith(spec['id']+'__'))
-        ax.scatter(number(archived,'pad_coverage'),number(archived,'torque_ratio_max'),s=3,color=COLORS[k],alpha=.25)
+        ax.scatter(number(archived,'c_pad_mean'),number(archived,'ma_wc'),s=3,color=COLORS[k],alpha=.25)
         chosen=[archived[i]for i in spec['selected_csv_indices']]
-        ax.scatter(number(chosen,'pad_coverage'),number(chosen,'torque_ratio_max'),s=16,facecolors='none',edgecolors=INK)
+        ax.scatter(number(chosen,'c_pad_mean'),number(chosen,'ma_wc'),s=16,facecolors='none',edgecolors=INK)
         ax.set_title(f'{SHORT_LABELS[k]}\n{len(archived)} archived / {len(chosen)} sampled',fontsize=9)
         ax.set_xlabel('Original coverage');ax.grid(color=GRID)
     axs[0].set_ylabel('Original max transmission ratio')

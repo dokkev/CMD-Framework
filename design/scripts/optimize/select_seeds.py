@@ -9,7 +9,7 @@ The verified, mutually non-dominated candidates are written with a
 ``seed_role``, for the objectives the runs optimized:
 
 - the best at each objective, e.g. ``best_transmission`` (smallest ``k_max``)
-  and ``best_curl`` (largest ``phi_safe_max``);
+  (the roles follow the problem's objectives, ``most_coverage`` for ``c_pad_mean``);
 - ``balanced``: the closest to the ideal point with each objective scaled to
   ``[0, 1]`` over the verified front (the compromise of them all);
 - ``pareto``: every other verified non-dominated candidate.

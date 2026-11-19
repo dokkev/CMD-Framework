@@ -52,7 +52,7 @@ def design_of(argument: str):
     path, _, role = rest.partition(":")
     seeds = Path(path)
     rows = read_rows(seeds)
-    row = with_role(rows, role) if role else max(rows, key=lambda r: float(r["pad_coverage"]))
+    row = with_role(rows, role) if role else max(rows, key=lambda r: float(r["c_pad_mean"]))
     run = load_run(seeds.parent.parent / row["run"].split("/")[-1])
     label = f"{SHORT_LABELS.get(mechanism, mechanism)} {seeds.parent.parent.name}{f' {role}' if role else ' best'}"
     return mechanism, run.config, run.mechanism.read_design(row), label, row
@@ -117,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
             axis.set_xticks(range(0, 151, 30))
         row_axes[0].set_ylim(0.0, 100.0)
         row_axes[0].set_ylabel("faces lost [% of P + D]", color=INK)
-        row_axes[0].set_title(f"{label}: coverage {100 * float(row['pad_coverage']):.0f} %", color=COLORS.get(
+        row_axes[0].set_title(f"{label}: coverage {100 * float(row['c_pad_mean']):.0f} %", color=COLORS.get(
             mechanism, INK), fontsize=9, loc="left")
         row_axes[1].set_ylim(0.0, 100.0)
         row_axes[1].set_title(f"what hides it, probe {LARGE_DEPTH_MM:g} mm (each alone)", color=MUTED, fontsize=9,

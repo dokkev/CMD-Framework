@@ -223,7 +223,7 @@ class LinkageMechanism(Mechanism):
         }
 
     def hypervolume_reference(self, config: LinkageConfig) -> Mapping[str, float]:
-        """The reference point in minimized terms (``pad_coverage`` negated)."""
+        """The reference point in minimized terms (``c_pad_mean`` negated)."""
 
         return {name: -value if self.objectives[name].larger_is_better else value
                 for name, value in config.hypervolume_reference.items()}

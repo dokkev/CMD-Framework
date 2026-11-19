@@ -167,15 +167,18 @@ class FingerView:
     def phi_max_deg(self) -> float:
         """The safe flexion: the row's (verified), else the joint's reach."""
 
-        return float(self.row["phi_max_deg"]) if self.row else self.reachable_deg()
+        return float(self.row["q_max_deg"]) if self.row else self.reachable_deg()
 
     @property
     def pads_mm(self) -> tuple[float, float]:
-        """The pads' effective lengths (the row's; NaN without one)."""
+        """The pads' common length at the last evaluation pose (the row's; NaN
+        without one): the cylinder rule counts the same length on both pads."""
 
         if not self.row:
             return math.nan, math.nan
-        return float(self.row["proximal_effective_mm"]), float(self.row["distal_effective_mm"])
+        last = max(int(key[len("c_common_eval"):-len("_mm")]) for key in self.row if key.startswith("c_common_eval"))
+        common = float(self.row[f"c_common_eval{last}_mm"])
+        return common, common
 
     def reachable_deg(self) -> float:
         return self.joint.reachable_deg()

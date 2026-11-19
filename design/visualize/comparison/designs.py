@@ -52,8 +52,8 @@ def matched_revolute(finger_mm: float, proximal_mm: float, distal_mm: float):
                     x = tuple(round(float(v), 1) for v in (a, ac, start + proximal_mm, ac - distal_mm, drop,
                                                             config.joint_radius_mm, tilt))
                     e = found.evaluate(x, config)
-                    if e.feasible and (best is None or (e.phi_max_rad, -e.finger_length_mm)
-                                       > (best[1].phi_max_rad, -best[1].finger_length_mm)):
+                    if e.feasible and (best is None or (e.q_max_rad, -e.finger_length_mm)
+                                       > (best[1].q_max_rad, -best[1].finger_length_mm)):
                         best = (x, e)
 
     # Coarse over |OC|, |OA| and the distal pad's drop, then fine about the best.

@@ -59,13 +59,13 @@ def main(argv: list[str]) -> int:
     sketch.frame(axis, XLIM, YLIM)
     axis.set_title(f"distal pad every 10°, 0–{to_deg:.0f}°", color=INK, fontsize=10, loc="left")
 
-    phi_max = float(row["phi_max_deg"])
+    phi_max = float(row["q_max_deg"])
     gaps.clearance_axes(figure.add_subplot(grid[1, :]), phi, margins, phi_max, {},
                         f"gap of each checked pair; safe to {phi_max:.0f}° ({row['collision_pair'].replace('_', ' ')})")
     study = seeds.parent.parent.name
     figure.suptitle(
         f"Serial 2R ({study}, {role}): |OA| {x[0]:.1f}, |AC| {x[1]:.1f} mm, "
-        f"pads {float(row['proximal_effective_mm']):.1f} + {float(row['distal_effective_mm']):.1f} mm, "
+        f"coverage {100.0 * float(row['c_pad_mean']):.0f} %, "
         f"distal pad {x[4]:.1f} mm below A-C (finger {float(row['distal_depth_mm']):.1f} mm deep there)",
         color=INK, fontsize=11, x=0.01, ha="left")
     output = save_comparison(figure, "revolute_motion")

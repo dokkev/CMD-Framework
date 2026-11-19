@@ -62,13 +62,13 @@ def main(argv: list[str] | None = None) -> int:
         table = []
         for index, (run, info) in enumerate(runs_of(config_dir)):
             history = load_history(run)
-            curve = best_by_generation(history, "pad_coverage", larger_is_better=True)
+            curve = best_by_generation(history, "c_pad_mean", larger_is_better=True)
             optimizer = info.get("optimizer", {})
             mechanism = info.get("mechanism", "linkage")
             generations = range(len(curve.best))
             table += [{"run": run.name, "algorithm": optimizer.get("algorithm"), "seed": optimizer.get("seed"),
                        "generation": g, "evaluations": int(curve.evaluations[g]),
-                       "best_pad_coverage": float(curve.best[g])} for g in generations]
+                       "best_c_pad_mean": float(curve.best[g])} for g in generations]
             axis.plot([g + 1 for g in generations], 100.0 * curve.best, color=COLORS.get(mechanism, INK),
                       linestyle=SEED_DASHES[index % len(SEED_DASHES)], linewidth=1.4,
                       label=f"{optimizer.get('algorithm')}/{optimizer.get('seed')}")

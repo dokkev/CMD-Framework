@@ -127,8 +127,8 @@ def run(config_path=HERE / 'config.yaml', pilot=False):
             base = dict(candidate_id=c['id'], mechanism=c['name'], group=c['group'], upper_bound=c['upper'], module_id=module_id)
             acceptance.append(dict(**base, feasible=feasible, failure='no_mount' if e is None else
                     ';'.join(k for k, v in e.constraints.items() if v > 0),
-                    evaluated_design=json.dumps(x), phi_max_deg=None if e is None else float(np.degrees(e.phi_max_rad)),
-                    coverage=None if e is None else found.report(e)['pad_coverage']))
+                    evaluated_design=json.dumps(x), q_max_deg=None if e is None else float(np.degrees(e.q_max_rad)),
+                    coverage=None if e is None else found.report(e)['c_pad_mean']))
             if not feasible:
                 continue
             t = Transmission(c['name'], x, config)

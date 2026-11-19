@@ -72,7 +72,7 @@ def design_metrics(row, x, stage):
     q,q0=part.mechanism(x,None),part.mechanism(reference,None)
     scale=e0['finger_length_mm']
     return {**row,'x':json.dumps(x),'selected_stage':stage,
-        **({'phi_max_deg':None,'length_upper_active':None,'length_lower_active':None}if stage=='minimum_length'else {}),
+        **({'q_max_deg':None,'length_upper_active':None,'length_lower_active':None}if stage=='minimum_length'else {}),
         'final_length_mm':e['finger_length_mm'],
         'external_cost':max(abs(e[k]-e0[k])for k in e0)/scale,
         'mechanism_cost':max((abs(q[k]-q0[k])for k in q0),default=0.)/scale,
@@ -176,7 +176,7 @@ def run(path,only_targets=None,only_refs=None,resume=False):
                         minimum_length_x=json.dumps(primary.x),
                         length_upper_active=e['finger_length_mm']>=selected_upper-cfg['upper_margin_mm'],
                         length_lower_active=e['finger_length_mm']<=cfg['length_lower_mm']+cfg['upper_margin_mm'],
-                        phi_max_deg=__import__('math').degrees(final.evaluation.base.phi_max_rad))
+                        q_max_deg=__import__('math').degrees(final.evaluation.base.q_max_rad))
                     row.update({f'reference_{k}':v for k,v in e0.items()})
                     row.update({f'final_{k}':v for k,v in e.items()})
                     row.update({f'delta_{k}':e[k]-e0[k]for k in DESCRIPTORS})
