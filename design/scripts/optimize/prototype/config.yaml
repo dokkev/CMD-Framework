@@ -40,19 +40,20 @@ goal:
                                   # coverage keeps the pads matched; the front shows what each length costs
       mount_offset_mm: [0, 10]    # searched depth of the mounting surface
       height_mm: 4
+      pivot_gap_max_mm: 15        # most |A''_x - A_x| extended (CAD 7.6; optional)
     distal:
       length_mm: [0, null]
       mount_offset_mm: [0, 10]
       height_mm: 4
-      pivot_gap_max_mm: 15        # most |B''_x - B_x| extended (optional; null: none)
+      pivot_gap_max_mm: 15        # most |B''_x - B_x| extended (CAD 7.4; optional)
 
   # The morphology's size (m in A.2): L_f, and the phalanges' shares rho_i.
   link:
-    finger_length_mm: [88, 92]    # |OC| extended (about 90 mm)
+    finger_length_mm: [89, 91]    # |OC| extended (about 90 mm)
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
-    oa_ratio: [0.32, 0.38]        # |OA| / L_f, the pivot A; the max keeps the PIP servo near the MCP (optional)
-    bc_ratio: [0.17, null]        # |BC| / L_f, the pivot B to the fingertip (optional)
+    oa_ratio: [0.37, 0.42]        # |OA| / L_f, the pivot A (CAD 0.397; optional)
+    bc_ratio: [0.22, 0.28]        # |BC| / L_f, the pivot B to the fingertip (CAD 0.253; optional)
 
   # The CFL's transmission constraints on [0, q_req] (A.5.2).
   transmission:

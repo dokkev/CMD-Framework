@@ -1,0 +1,27 @@
+# Prototype v1: config.yaml's goal with the pad coverage C_pad as the one
+# objective (MA_wc stays only the floor goal.transmission.ma_min). A variant
+# of the problem formulation's two objectives (A.5.4), to see how far the
+# coverage alone goes.
+#
+#   python scripts/optimize/run.py scripts/optimize/prototype/config_v1.yaml
+base: config.yaml
+solver:
+  objectives:
+    - c_pad_mean
+  optimizer:
+    presets:
+      quick:
+        algorithm: ga
+        population: 200
+        generations: 300
+        seeds: [0]
+      search:
+        algorithm: [ga, nsga2]
+        population: 200
+        generations: 1000
+        seeds: [0, 1, 2]
+      convergence:
+        algorithm: [ga, nsga2]
+        population: 200
+        generations: 3000
+        seeds: [0, 1, 2]
