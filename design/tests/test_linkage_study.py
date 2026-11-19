@@ -219,6 +219,16 @@ def test_the_motion_is_sampled_on_a_uniform_flexion_grid(monkeypatch):
     assert evaluation.constraints["f_motion_deg"] >= 0.0
 
 
+def test_a_four_bar_that_stops_closing_between_samples_collides_there():
+    # Checked between samples, this design's four-bar closes at none of the
+    # fine angles of a suspect step: the step is a collision, not an error.
+    x = (19.6, 19.8, 0.0, 49.4, 14.5, -4.7, -22.9, 15.0, 78.0, 0.0, -3.8, -73.2, 9.8, 5.8)
+    config = load_yaml(MECHANISM, CONFIG, ())[0]
+    assert config.verify_step_rad is not None
+    e = MECHANISM.evaluate(x, config)
+    assert e is not None and not e.feasible
+
+
 def test_runs_record_the_mechanism_and_reload(tmp_path):
     import json
 

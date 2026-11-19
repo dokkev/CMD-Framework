@@ -132,6 +132,8 @@ def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionS
 
         def gaps_at(inner: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
             fine = finger.sweep_pip(inner)
+            if not len(fine.q_pip_rad):  # closes at none of them
+                return {pair: np.full(len(inner), -math.inf) for pair in found}
             gaps = _gaps(finger, packaging, settings, fine.b, fine.bp, fine.tip)
             if len(fine.q_pip_rad) < len(inner):  # the four-bar stops closing inside: a collision there
                 gaps = {pair: np.concatenate((gap, np.full(len(inner) - len(gap), -math.inf)))
