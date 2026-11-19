@@ -1,5 +1,7 @@
 # CoDe prototype, rerun under the SSoT (2026-11-19)
 
+> **Superseded in part (2026-11-19):** this run optimized $\bar C_{\mathrm{pad}}$ alone with independent pad mounting offsets, at commit `8e22534`'s parent. The prototype now searches $(\bar C_{\mathrm{pad}}, MA_{\mathrm{wc}})$ with aligned offsets; its results are in a separate report.
+
 **Track: prototype optimization** (`design/scripts/optimize/linkage/`). Not a study result; its numbers are not compared
 with the studies' (repository README, "Two optimizations: prototype and study").
 
@@ -13,7 +15,7 @@ with the studies' (repository README, "Two optimizations: prototype and study").
 | Optimizers | GA and NSGA-II, seeds 0, 1, 2; population 200, 3000 generations (600 000 evaluations per run) |
 | Warm start | 100 of the 1075 feasible designs of `output/linkage/config/samples/seeds.csv` (resampled under the SSoT rules) |
 | Verification | front re-evaluated on the 0.05° grid |
-| Output | `design/output/linkage/config/paper/` (`run_001`–`run_006`, `portfolio_001`) |
+| Output | `design/output/linkage/config/paper_single_objective/` (`run_001`–`run_006`, `portfolio_001`) |
 
 ## Convergence
 
@@ -36,7 +38,7 @@ objective.
 
 ![CoDe prototype](figures/code_prototype_2026-11-19.png)
 
-*At $q_2=0^\circ$, $90^\circ$, $120^\circ$, $150^\circ$ (`python -m visualize.finger output/linkage/config/paper/portfolio_001/seeds.csv balanced --phi 0 90 120 150`). At $150^\circ$ the distal pad touches the proximal pad.*
+*At $q_2=0^\circ$, $90^\circ$, $120^\circ$, $150^\circ$ (`python -m visualize.finger output/linkage/config/paper_single_objective/portfolio_001/seeds.csv balanced --phi 0 90 120 150`). At $150^\circ$ the distal pad touches the proximal pad.*
 
 | Quantity | Value |
 |---|---|
