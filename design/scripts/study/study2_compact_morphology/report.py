@@ -109,7 +109,7 @@ It is not a manipulation-performance or hardware-buildability experiment.
 
 The original Study2 allowed total length 70–110 mm and each external descriptor
 within ±20 mm of the reference. Its results are preserved. The extension removes
-that reference-proximity box and minimizes total length rather than eps_E first.
+that reference-proximity box and minimizes total length rather than eps_d first.
 
 ## Given interfaces
 
@@ -129,15 +129,15 @@ Primary objective: minimum absolute extended finger length. Secondary: minimum
 maximum proximal-span, distal-span and articulation change (eps_shape)
 within primary best-found length +0.1 mm. Total length is excluded from this
 secondary norm because its fixed change would mask smaller shape changes.
-The original full four-descriptor eps_E is reported separately. Pool
+The original full four-descriptor eps_d is reported separately. Pool
 retained primary/secondary incumbents across seeds, then select minimum eps_shape
 under the pooled best length +0.1 mm cap (sorted absolute shape changes break
-retained-candidate ties, then length and eps_Q). The shortest actual secondary discovery
+retained-candidate ties, then length and eps_kappa). The shortest actual secondary discovery
 also counts toward the pooled length. Diagnostic secondary runs that included total length in the max norm were
 retired, as that term masked shape changes. Valid primary searches were reused
 after exact config/settings checks, and only secondary searches reran.
 Selected designs are re-evaluated using
-their saved stage configs. eps_Q is reported separately, never added to eps_E.
+their saved stage configs. eps_kappa is reported separately, never added to eps_d.
 
 The common length domain starts [40,160] mm; a failed search or an upper-active
 best triggers [40,240] mm. Support/span and dependent mechanism bounds propagate.

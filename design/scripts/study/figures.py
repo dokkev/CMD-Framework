@@ -219,8 +219,8 @@ def matched_comparison(rows, out: Path) -> None:
 # Study 2 ---------------------------------------------------------------------
 
 def adaptation_costs(best, floor, out: Path, sensitivity=None) -> None:
-    """Each target's least external change (eps_E) and the mechanism change
-    within it (eps_Q), per reference, apart; the span floor the module forces."""
+    """Each target's least external change (eps_d) and the mechanism change
+    within it (eps_kappa), per reference, apart; the span floor the module forces."""
 
     targets = list(dict.fromkeys(r["target"] for r in best))
     references = (*PRIMARY, *UPPER)

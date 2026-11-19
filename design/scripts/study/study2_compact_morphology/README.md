@@ -18,10 +18,10 @@ actuator relocation optimization.
 2. Within `L <= primary best-found L + 0.1 mm`, minimize `eps_shape = max(|ΔS_p|,|ΔS_d|,|Δarticulation|)/L0`.
    Total length is excluded here: it is already controlled by the primary cap
    and would otherwise mask support/articulation changes. Original four-descriptor
-   eps_E remains reported, but is not the secondary objective.
+   eps_d remains reported, but is not the secondary objective.
 3. Pool saved primary and secondary incumbents across seeds, use their shortest
    actual discovered length to impose a common +0.1 mm eligibility cap, and
-   select smallest eps_shape, then sorted absolute shape changes, length and eps_Q
+   select smallest eps_shape, then sorted absolute shape changes, length and eps_kappa
    for deterministic retained-candidate ties. A primary candidate
    remains eligible even if its seed's secondary winner is outside that global
    cap. Secondary discoveries can lower the best-found length.

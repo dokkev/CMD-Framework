@@ -61,7 +61,7 @@ def candidate_figure(row, x, config):
     axes[2].legend(fontsize=8)
     axes[2].grid(alpha=.2)
     fig.suptitle(f"{row['target']}: face rule ON, CoDe tilt 15 degrees, k_max={row['k_max']:.3f}\n"
-                 f"eps_E={float(row['final_external_cost']):.3f}, eps_Q={float(row['final_mechanism_cost']):.3f}; planar model")
+                 f"eps_d={float(row['final_external_cost']):.3f}, eps_kappa={float(row['final_mechanism_cost']):.3f}; planar model")
     fig.savefig(OUT / f"{row['target']}_candidate.png", dpi=180)
     plt.close(fig)
 
@@ -168,7 +168,7 @@ def main():
         '- Pilot: population 32, 20 generations, seeds 0-2. Main: population 100, 100 generations, seeds 0-2.',
         '- Positive control: same main budget, 30-150 degrees, include_linkage_occlusion=False. It does not belong to the primary comparison.', '',
         '## Saved results', '',
-        '| Run | Target | Found seeds / run | Status | eps_E | eps_Q | Selected k_max |',
+        '| Run | Target | Found seeds / run | Status | eps_d | eps_kappa | Selected k_max |',
         '|---|---|---:|---|---:|---:|---:|']
     for row in selected:
         k = '-' if row['k_max'] is None else f"{row['k_max']:.4f}"
@@ -177,8 +177,8 @@ def main():
         'At least one relaxed-angle search finds a face-rule-ON solution: the earlier proximal failure is not',
         'an established architectural impossibility. This does not demonstrate a global optimum or robustness',
         'across optimizer seeds. k_max is read back from each selected design rather than inferred from its angle bound.', '',
-        'For the asym_long_proximal main-margin10 candidate, k_max is about 5.063, eps_E about 0.202 and',
-        'eps_Q about 0.171. Rechecking that exact geometry at a 20-degree minimum fails only the required',
+        'For the asym_long_proximal main-margin10 candidate, k_max is about 5.063, eps_d about 0.202 and',
+        'eps_kappa about 0.171. Rechecking that exact geometry at a 20-degree minimum fails only the required',
         'hyperextension (about 2 degrees missing); at a 30-degree minimum both ROM and hyperextension fail.',
         'Thus the relaxed limit matters at the extension end as well as at the requested 120-degree posture.', '',
         'That candidate changes finger length by +8.5 mm, proximal support span by +15.6 mm, distal span by',
@@ -203,7 +203,7 @@ def main():
     report.write_text('\n'.join(lines))
     for row in selected:
         print(row['run'], row['target'], row['status'], 'seeds', row['seeds_found']+'/'+row['seeds_run'],
-              'eps_E', row['final_external_cost'], 'eps_Q', row['final_mechanism_cost'], 'k_max', row['k_max'])
+              'eps_d', row['final_external_cost'], 'eps_kappa', row['final_mechanism_cost'], 'k_max', row['k_max'])
 
 
 if __name__ == '__main__':

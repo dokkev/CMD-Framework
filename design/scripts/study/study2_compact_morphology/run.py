@@ -181,7 +181,7 @@ def run(path,only_targets=None,only_refs=None,resume=False):
                     row.update({f'final_{k}':v for k,v in e.items()})
                     row.update({f'delta_{k}':e[k]-e0[k]for k in DESCRIPTORS})
                 rows.append(row)
-                manifest['objective']='min nominal total length; then min max change of proximal/distal support spans and articulation; full eps_E reported separately'
+                manifest['objective']='min nominal total length; then min max change of proximal/distal support spans and articulation; full eps_d reported separately'
                 shared.write_csv(out/'summary.csv',rows)
                 shared.write_csv(out/'summary_best.csv',best_rows(rows,cfg['length_tolerance_mm']))
                 (out/'manifest.json').write_text(json.dumps(manifest,indent=2,default=str))

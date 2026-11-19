@@ -282,7 +282,7 @@ def with_goal_overrides(found: list[Reference], overrides: dict[str, Any] | None
 
 
 def span_floor(reference_external, modules: Modules, config) -> float:
-    """The least ``eps_E`` a module forces on a reference (normalized by its
+    """The least ``eps_d`` a module forces on a reference (normalized by its
     finger's length): the spans it needs past the reference's, the proximal one
     from the pad's start (``|OA''| >= start + l_p``), the distal one from the
     tip (``|B''C| >= l_d``). No mechanism adapts below it; the differences

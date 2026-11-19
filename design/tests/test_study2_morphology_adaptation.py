@@ -342,7 +342,7 @@ def test_seeds_are_aggregated_by_the_hierarchys_own_lexicographic_rule():
                 "final_external_cost": external, "final_mechanism_cost": mech}
 
     delta = 0.1 / 90.0
-    # Within delta of the least eps_E, the least eps_Q wins; past it, it does not.
+    # Within delta of the least eps_d, the least eps_kappa wins; past it, it does not.
     best = run.best_rows([row(0, 0.100, 0.08), row(1, 0.100 + delta / 2, 0.01), row(2, 0.2, 0.0)], delta)[0]
     assert best["best_seed"] == 1 and best["seeds_found"] == 3
     best = run.best_rows([row(0, 0.100, 0.08), row(1, 0.100 + 2 * delta, 0.01)], delta)[0]

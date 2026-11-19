@@ -160,7 +160,7 @@ def test_secondary_shape_cost_is_not_masked_by_primary_total_length_change():
     b={**a,'distal_span_mm':e0['distal_span_mm']+4.8}
     assert wrapper.shape_cost(SimpleNamespace(external=a))==pytest.approx(20.6/90)
     assert wrapper.shape_cost(SimpleNamespace(external=b))==pytest.approx(15/90)
-    # The original full eps_E would be identical (30.7/90) for both designs.
+    # The original full eps_d would be identical (30.7/90) for both designs.
     from core.optimization.analysis.adaptation import change
     assert change(a,e0,90)==pytest.approx(change(b,e0,90))
 

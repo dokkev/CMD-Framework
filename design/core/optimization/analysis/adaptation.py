@@ -20,7 +20,7 @@ never searched.
 
 Each change is measured as the largest change of its group, normalized by
 one engineering scale (the reference finger's length):
-``eps_E = max_i |e_i - e0_i| / s`` and ``eps_Q = max_j |q_j - q0_j| / s``.
+``eps_d = max_i |e_i - e0_i| / s`` and ``eps_kappa = max_j |q_j - q0_j| / s``.
 The two are reported separately, never summed.
 
 The hierarchy (:func:`adapt`), each step a single-objective constrained
@@ -29,9 +29,9 @@ on the existing evaluator (``Mechanism.evaluate``), which alone decides
 feasibility (mounting, collisions, the required flexion, the modules usable):
 
 1. the reference as it is (``E``, ``Q``, ``A`` fixed): feasible, stop;
-2. Level 1: ``min eps_Q`` with ``E = E0``, ``A = A0``;
-3. Level 2, only if Level 1 found nothing: ``min eps_E`` over ``E`` and
-   ``Q`` (``A = A0``), then ``min eps_Q`` with ``eps_E <= eps_E* + delta``
+2. Level 1: ``min eps_kappa`` with ``E = E0``, ``A = A0``;
+3. Level 2, only if Level 1 found nothing: ``min eps_d`` over ``E`` and
+   ``Q`` (``A = A0``), then ``min eps_kappa`` with ``eps_d <= eps_d* + delta``
    (lexicographic: the external change first).
 
 "Not found" means the optimizer found no feasible design in its range and
@@ -40,7 +40,7 @@ budget, not that none exists.
 Scope: 2D in-plane kinematic morphology under a fixed mounting and actuator
 architecture. ``E`` is the four longitudinal descriptors; section depth, the
 dorsal and palmar envelope, standoffs or spacers and the width are not
-searched (the mounting depths are the policy's), so ``eps_E`` is not the
+searched (the mounting depths are the policy's), so ``eps_d`` is not the
 hand's whole morphological change.
 """
 
@@ -62,7 +62,7 @@ OFFSETS = tuple(f"d_{name}" for name in DESCRIPTORS)
 """Level 2 searches ``E`` as offsets from the reference (0 on the grid, whatever ``E0`` is)."""
 COSTS = ("mechanism_cost", "external_cost")
 CAP = "external_cap"
-"""The constraint holding ``eps_E`` to Level 2's least (``eps_E* + delta``)."""
+"""The constraint holding ``eps_d`` to Level 2's least (``eps_d* + delta``)."""
 
 
 class Partition(ABC):
@@ -125,7 +125,7 @@ class AdaptationEvaluation:
     external_cost: float
     mechanism_cost: float
     cap: float = 0.0
-    """``eps_E`` less its allowed most (``<= 0``: within it)."""
+    """``eps_d`` less its allowed most (``<= 0``: within it)."""
     constraints: Mapping[str, float] = field(default_factory=dict)
 
     @property
@@ -160,9 +160,9 @@ class AdaptationMechanism(Mechanism):
         self.variable_names = base.variable_names
         self.constraint_names = (*base.constraint_names, CAP)
         self.objectives = {
-            "mechanism_cost": Objective(lambda e: e.mechanism_cost, "mechanism_cost", "eps_Q", "least_mechanism",
+            "mechanism_cost": Objective(lambda e: e.mechanism_cost, "mechanism_cost", "eps_kappa", "least_mechanism",
                                         False),
-            "external_cost": Objective(lambda e: e.external_cost, "external_cost", "eps_E", "least_external",
+            "external_cost": Objective(lambda e: e.external_cost, "external_cost", "eps_d", "least_external",
                                        False),
         }
 

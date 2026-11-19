@@ -5,6 +5,9 @@
 
 ## 결정됨
 
+### 코드를 SSoT에 맞춤 (2026-11-19)
+- 2026-11-19: `design/SSoT/code_formulation.md`의 이행 단계(P1–P6)를 구현. (1) 평가량을 `design/core/evaluation`에 한 벌로 모음: 원기둥 기준 공통 pad 길이, $L_f(\mathbf q)$, $\mathcal Q_{\mathrm{eval}}$ 평균, 유효 운동의 도달, $\gamma$ 범위, MA(균일 $q_2$ 격자의 중앙 차분). (2) CFL은 servo 각 대신 균일 $q_2$로 표본하고, hyperextension과 DIP/PIP backoff 검사를 지움. 2R 계열 세 구조는 `measure_motion`, `joint_coverage`를 공유. (3) 제약 이름에 SSoT 범주를 붙임(`bounds_*`, `static_*`, `f_motion_deg`, `gamma_range_deg`, `ma_min`). `torque_ratio_max`는 `ma_min`으로, fold·integrity 규칙은 삭제. (4) 목적함수는 `c_pad_mean` 하나, 단일 목적 GA 추가. 출력 열은 `c_pad_mean`, `q_max_deg`, `ma_wc`, `c_pad_eval{k}` 등으로, Study 2의 변화량은 `eps_d`, `eps_kappa`로. (5) 옛 SSoT 모듈(`canonical`, `collision`, `coverage`, `canonical_mapping`)과 쓰이지 않던 pad별 교점·가림 함수, `fig_pareto`, `fig_convergence` 삭제. `linkage/config.py`를 `config.py`, `goal.py`, `record.py`로 나눔. 옛 run은 legacy(새 정의로 다시 평가해야 함).
+
 ### SSoT 재정의 (2026-11-18)
 - 2026-11-18: SSoT를 코드가 아니라 기능 기준으로 다시 씀. 기준 문서는 `design/SSoT/problem_formulation.md`(논문 Appendix A, 한국어). 2026-11-17의 `math_formulation.md`는 코드에 맞춰 쓴 문서라 `docs/legacy/math_formulation_2026-11-17.md`로 옮김. 주요 결정: (1) 형태 길이는 유클리드 거리이며, 기준 자세에서 두 phalanx 축은 한 직선 위에 놓인다. (2) q₂는 두 phalanx 사이의 상대 회전각이다. (3) self-collision은 형상 $\mathcal G(M,\mathbf q)$로 정의하고, $\mathcal F_{\mathrm{static}}$(기준 자세)과 $\mathcal F_{\mathrm{motion}}$(요구 운동 구간)으로 나눈다. (4) pad coverage는 원기둥 기준(두 pad가 함께 쓸 수 있는 부분만)으로 재며, 같은 자세의 $L_f(\mathbf q)$로 정규화하고, $\{90^\circ, (90^\circ+q_{\mathrm{req}})/2, q_{\mathrm{req}}\}$에서 평균한다. (5) prototype은 coverage를 단일 목적으로 하고, MA 하한(CFL 전용), transmission angle, 형태 범위를 제약으로 둔다. hyperextension 요구는 삭제한다. (6) 2R-remote(belt 2R)라는 이름을 쓴다. 코드는 아직 이 정의를 따르지 않는다.
 

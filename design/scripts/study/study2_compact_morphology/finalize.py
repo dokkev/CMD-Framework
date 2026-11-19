@@ -72,7 +72,7 @@ def finalize(out):
                 improvement_last_20_mm=None if values[80]is None or values[100]is None else values[80]-values[100]))
     shared.write_csv(out/'convergence.csv',convergence)
     record=dict(input_summary_sha256=hashlib.sha256((out/'summary.csv').read_bytes()).hexdigest(),
-        aggregation='pool saved primary and secondary winners across seeds; retain L <= pooled best L + tolerance; min support/articulation max change; sorted absolute shape changes then L then eps_Q',
+        aggregation='pool saved primary and secondary winners across seeds; retain L <= pooled best L + tolerance; min support/articulation max change; sorted absolute shape changes then L then eps_kappa',
         source=shared.git_commit(out/'aggregation_source'),verified_selected=sum('final_config'in r for r in best),
         primary_domains='finite common domains; existing hardware and actuator layout bounds preserved',
         reference='matched 90mm morphology; compact baseline differences reported separately')

@@ -100,7 +100,7 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
     reference_external = AdaptationMechanism(
         mechanism(reference.mechanism), partitions.partition(reference.mechanism), reference.x,
         reference.config, "mechanism", "mechanism_cost", scale_mm).reference_external
-    # The least eps_E the module itself forces; the mechanisms differ only above it.
+    # The least eps_d the module itself forces; the mechanisms differ only above it.
     row["external_floor"] = shared.span_floor(reference_external, target.modules, reference.config)
     row["external_excess"] = result.external_cost - row["external_floor"]
     if final is not None:
@@ -119,9 +119,9 @@ def summary_row(reference: Reference, target, result: AdaptationResult, scale_mm
 
 def best_rows(rows: list[dict[str, Any]], delta: float) -> list[dict[str, Any]]:
     """Each reference and target over its seeds: the best outcome by the
-    hierarchy's own rule (frozen; then Level 1, least ``eps_Q``; then Level 2,
-    least ``eps_E`` and, among the seeds within ``delta`` of it, as ``adapt``'s
-    cap allows, least ``eps_Q``), how many seeds found one, and the spread of
+    hierarchy's own rule (frozen; then Level 1, least ``eps_kappa``; then Level 2,
+    least ``eps_d`` and, among the seeds within ``delta`` of it, as ``adapt``'s
+    cap allows, least ``eps_kappa``), how many seeds found one, and the spread of
     their changes."""
 
     rank = {"frozen_feasible": 0, "level1": 1, "level2": 2, "not_found": 3}
@@ -214,7 +214,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
                         save_step(step, pair / f"seed_{seed}" / step.level, source_git_commit=commit.get("commit"))
                 row = {"seed": seed, **summary_row(reference, target, result, scale)}
                 rows.append(row)
-                print(f"  {row['status']}: eps_Q {row['final_mechanism_cost']}, eps_E {row['final_external_cost']}",
+                print(f"  {row['status']}: eps_kappa {row['final_mechanism_cost']}, eps_d {row['final_external_cost']}",
                       flush=True)
                 shared.write_csv(output / "summary.csv", rows)
                 shared.write_csv(output / "summary_best.csv", best_rows(rows, delta))

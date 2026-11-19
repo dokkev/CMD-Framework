@@ -112,7 +112,7 @@ def run(config_path):
                                  baseline_x=list(conditioned.x), config=found.config_to_json(baseline_config),
                                  rom_external_cost=best['final_external_cost'], rom_mechanism_cost=best['final_mechanism_cost'])
             (folder / 'baseline.json').write_text(json.dumps(baseline_spec, indent=2, default=str)+'\n')
-            print(f"  baseline {best['status']}: eps_E={best['final_external_cost']}, eps_Q={best['final_mechanism_cost']}", flush=True)
+            print(f"  baseline {best['status']}: eps_d={best['final_external_cost']}, eps_kappa={best['final_mechanism_cost']}", flush=True)
             nominal_external = part.external(original.x, original.config)
             nominal_scale = nominal_external['finger_length_mm']
             for target_id in cfg['targets']:
@@ -127,7 +127,7 @@ def run(config_path):
                 interface_best.append(dict(**extra, **best_target))
                 shared.write_csv(output / 'interface_summary.csv', interface_rows)
                 shared.write_csv(output / 'interface_best.csv', interface_best)
-                print(f"    {target_id}: {best_target['status']}, eps_E={best_target['final_external_cost']}, eps_Q={best_target['final_mechanism_cost']}", flush=True)
+                print(f"    {target_id}: {best_target['status']}, eps_d={best_target['final_external_cost']}, eps_kappa={best_target['final_mechanism_cost']}", flush=True)
     record.update(status='complete', baseline_conditions=len(baseline_best),
                   interface_conditions=len(interface_best), blocked_conditions=len(blocked))
     manifest.write_text(json.dumps(record, indent=2, default=str)+'\n')

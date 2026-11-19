@@ -74,7 +74,7 @@ class CompactMechanism(AdaptationMechanism):
     def metadata(self):
         return {**super().metadata(), 'length_cap_mm': self.length_cap_mm,
                 'search_domain': 'absolute external dimensions; no reference proximity box',
-                'secondary': 'min max absolute change of proximal span, distal span, articulation / reference length; full eps_E reported separately'}
+                'secondary': 'min max absolute change of proximal span, distal span, articulation / reference length; full eps_d reported separately'}
 
 
 def compact_config(base, reference, config, bounds_mm):

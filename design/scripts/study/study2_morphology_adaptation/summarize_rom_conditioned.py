@@ -79,7 +79,7 @@ def main():
         '- If a ROM baseline is not found, its target conditions are blocked, not labelled interface-infeasible.',
         '- ROM-conditioned baselines may differ in E/Q across architectures; only the initial nominal descriptors are matched.', '',
         '## Baseline preparation', '',
-        '| Reference | ROM | Status | eps_E from nominal | eps_Q from nominal |',
+        '| Reference | ROM | Status | eps_d from nominal | eps_kappa from nominal |',
         '|---|---:|---|---:|---:|']
     for row in baseline:
         lines.append(f"| {row['reference_id']} | {row['required_flexion_deg']} | {row['status']} | {row['final_external_cost']} | {row['final_mechanism_cost']} |")
@@ -138,7 +138,7 @@ def plot(rows, blocked):
         ax.set_xticks([90,120,150])
         ax.tick_params(axis='x', labelbottom=True)
         ax.set_xlabel('Required ROM [deg]')
-        ax.set_ylabel('Additional interface eps_E')
+        ax.set_ylabel('Additional interface eps_d')
         ax.axhline(0,color='#aaaaaa',linewidth=.6)
         ax.grid(alpha=.2)
     axes.flat[-1].axis('off')
