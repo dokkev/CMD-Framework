@@ -120,8 +120,6 @@ class LinkageEvaluation:
     """How far each pad's contact face lies palmar of its link's line (``O-A``, ``B-C``)."""
     bound_hits: tuple[str, ...] = ()
     """Search limits the design sits at (set by the mechanism, which knows the box)."""
-    proximal_ratio_shortfall_mm: float = 0.0
-    distal_ratio_shortfall_mm: float = 0.0
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -151,10 +149,7 @@ def evaluate(finger: Finger, config: LinkageConfig) -> LinkageEvaluation:
 
     packaging, joint = config.packaging, four_bar(finger)
     offsets = pad_offsets(finger, packaging)
-    shortfalls = config.length_ratio_shortfalls(finger.proximal.length_mm, finger.distal.length_mm,
-                                                finger_length_mm(finger))
     common = dict(
-        proximal_ratio_shortfall_mm=shortfalls[0], distal_ratio_shortfall_mm=shortfalls[1],
         ab_mm=math.hypot(joint.b.x_mm - joint.a.x_mm, joint.b.z_mm - joint.a.z_mm),
         finger_length_mm=finger_length_mm(finger),
         proximal_length_mm=math.hypot(joint.a.x_mm, joint.a.z_mm),

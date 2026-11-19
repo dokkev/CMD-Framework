@@ -66,8 +66,6 @@ def evaluation_report(e: Any) -> dict[str, Any]:
         "least_tip_x_mm": e.least_tip_x_mm,
         "gamma_min_deg": math.degrees(e.gamma_min_rad),
         "gamma_max_deg": math.degrees(e.gamma_max_rad),
-        "proximal_ratio_shortfall_mm": e.proximal_ratio_shortfall_mm,
-        "distal_ratio_shortfall_mm": e.distal_ratio_shortfall_mm,
         "bound_hits": ";".join(e.bound_hits),
     }
     for index, pose in enumerate(e.poses, start=1):

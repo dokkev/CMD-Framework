@@ -115,21 +115,11 @@ goal:
     # The finger's segments, |OA''| (the MCP O to where the proximal body ends)
     # and |B''C| (where the distal body starts to the fingertip C), and |AB|
     # (the four-bar's span along the finger) as shares of the extended |OC|,
-    # [min, max] (null: no limit; before 2026-11-03 |OA| and BC, each at
-    # most 0.55; the maxima dropped 2026-11-03, the pads' ends searched: a
-    # max on |OA''| or |B''C| capped the pads, not the finger). |AB| at most 0.35 of
-    # it, a shorter four-bar (above 0.40 the |OA| and BC minimums bind it
-    # anyway, as |OA| and BC then; at 0.35 k_max rises from 1.63 to 1.75 and the coverage within
-    # k <= 2 falls from 74 to 69 %, quick runs 2026-10-27). (proximal_length_mm,
-    # distal_length_mm and joint_span_mm, optional, bound them in mm.)
-    # Requirement hierarchy (2026-11-04): finger (length, flexion), then the
-    # contact modules (goal.pads), then these proportions, then the mechanism;
-    # physical feasibility (collisions, closure) always. Where a pad's least
-    # length is set (> 0), it, not the segment's least share, bounds that
-    # segment from below: the share gives way, its shortfall reported
-    # (*_ratio_shortfall_mm). Without a module the least share is a constraint.
-    proximal_length_ratio: [0.35, null]
-    distal_length_ratio: [0.25, null]
+    # [min, max] (null: no limit). Each bound set is a constraint (problem
+    # formulation A.2). (proximal_length_mm, distal_length_mm and
+    # joint_span_mm, optional, bound them in mm.)
+    proximal_length_ratio: [null, null]
+    distal_length_ratio: [null, null]
     joint_span_ratio: [null, 0.35]
     # true: the four-bar an antiparallelogram, |B'B| = |A'A| and |AB'| = |A'B|
     # (B' set by A, A' and B, not searched): k = 2 where B'B is parallel to
