@@ -9,7 +9,7 @@ angle. Everything below reads those samples.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -96,7 +96,8 @@ class MotionSamples:
 
 
 def resample_between(q_rad: np.ndarray, margins: Mapping[tuple[str, str], np.ndarray], moved_mm: np.ndarray,
-                     fine_step_rad: float, margins_at: Callable[[np.ndarray], Mapping[tuple[str, str], np.ndarray]]
+                     fine_step_rad: float,
+                     margins_at: Callable[[np.ndarray, Sequence[tuple[str, str]]], Mapping[tuple[str, str], np.ndarray]]
                      ) -> dict[tuple[str, str], np.ndarray]:
     """``margins`` (per pair, per sample of ``q_rad``) with the motion between
     samples checked on a ``fine_step_rad`` grid where a collision could hide.
@@ -105,22 +106,33 @@ def resample_between(q_rad: np.ndarray, margins: Mapping[tuple[str, str], np.nda
     to ``i + 1``: a gap falls at most that much over the step, so two clear
     neighbours whose gaps sum to less than it may pass through a collision.
     Those steps (up to the first unsafe sample) are resampled by
-    ``margins_at(q)``; the first one that collides inside lowers the gaps at
-    its end to the least found inside (``code_formulation.md`` §6).
+    ``margins_at(q, pairs)``, for the pairs that could collide in them (a
+    pair whose own neighbouring gaps sum to the travel or more cannot); the
+    first step that collides inside lowers those pairs' gaps at its end to
+    the least found inside (``code_formulation.md`` §6).
     """
 
-    least = np.min(np.stack(list(margins.values())), axis=0)
+    keys = list(margins)
+    stacked = np.stack([np.asarray(margins[key], dtype=float) for key in keys])
+    least = np.min(stacked, axis=0)
     unsafe = np.flatnonzero(least < 0.0)
     end = int(unsafe[0]) if unsafe.size else len(q_rad) - 1
     step = np.diff(q_rad[:end + 1])
-    suspect = np.flatnonzero((least[:end] + least[1:end + 1] < np.asarray(moved_mm)[:end])
-                             & (step > fine_step_rad * (1.0 + 1e-9)))
+    # A pair can collide inside a step only if its own two gaps sum to less
+    # than the travel: those pairs, on those steps, are resampled.
+    per_pair = ((stacked[:, :end] + stacked[:, 1:end + 1] < np.asarray(moved_mm)[:end])
+                & (step > fine_step_rad * (1.0 + 1e-9)))
+    suspect = np.flatnonzero(per_pair.any(axis=0))
     if not suspect.size:
         return dict(margins)
+    pairs = [keys[index] for index in np.flatnonzero(per_pair.any(axis=1))]
     counts = np.ceil(step[suspect] / fine_step_rad - 1e-9).astype(int)
-    inner = np.concatenate([np.linspace(q_rad[i], q_rad[i + 1], count + 1)[1:-1] for i, count in zip(suspect, counts)])
+    # Each suspect step's inner points, q_i + (k / count) (q_{i+1} - q_i) for k = 1 .. count - 1, at once.
     owner = np.repeat(suspect, counts - 1)
-    fine = margins_at(inner)
+    k = np.arange(len(owner)) - np.repeat(np.cumsum(counts - 1) - (counts - 1), counts - 1) + 1
+    share = k / np.repeat(counts, counts - 1)
+    inner = q_rad[owner] + share * (q_rad[owner + 1] - q_rad[owner])
+    fine = margins_at(inner, pairs)
     hit = np.flatnonzero(np.min(np.stack(list(fine.values())), axis=0) < 0.0)
     if not hit.size:
         return dict(margins)

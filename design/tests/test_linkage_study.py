@@ -221,13 +221,13 @@ def test_the_motion_is_sampled_on_a_uniform_flexion_grid(monkeypatch):
     import importlib
 
     module = importlib.import_module("core.morphology.mechanism.linkage.motion")
-    real, calls = module.pad_margins, []
+    real, calls = module.poses, []
 
-    def recording(linkage, packaging, b, c, bp, mcp):
+    def recording(linkage, b, c, bp, mcp=(0.0,)):
         calls.append((np.array(b), tuple(mcp)))
-        return real(linkage, packaging, b, c, bp, mcp)
+        return real(linkage, b, c, bp, mcp)
 
-    monkeypatch.setattr(module, "pad_margins", recording)
+    monkeypatch.setattr(module, "poses", recording)
     config = load()
     evaluation = MECHANISM.evaluate(X, config)
     linkage = decode(X, config.link_length_resolution_mm)

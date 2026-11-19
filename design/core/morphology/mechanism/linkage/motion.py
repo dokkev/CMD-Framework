@@ -29,13 +29,12 @@ from core.morphology.finger import Finger
 from core.morphology.mechanism.linkage.model import four_bar
 from core.morphology.mechanism.linkage.packaging import (
     FIXED_MARGIN_PAIRS,
+    PADS,
     LinkagePackaging,
     assembly,
     contact_faces,
     distal_pad_polygon,
-    layout,
     link_capsule_margins,
-    pad_margins,
     poses,
 )
 from core.morphology.packaging.assembly import margins
@@ -95,19 +94,24 @@ class LinkageMotion:
 
 
 def _gaps(finger: Finger, packaging: LinkagePackaging, settings: MotionSettings,
-          b: np.ndarray, bp: np.ndarray, tip: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
+          b: np.ndarray, bp: np.ndarray, tip: np.ndarray,
+          only: Sequence[tuple[str, str]] | None = None) -> dict[tuple[str, str], np.ndarray]:
     """Every checked pair's gap at the posed samples: the pads against the other
     body's parts, the distal pins against the PIP servo and ``B`` against ``A``
-    (when checked), the links as capsules."""
+    (when checked), the links as capsules; ``only`` those pairs, if given."""
 
-    found = pad_margins(finger, packaging, b, tip, bp, settings.mcp_samples_rad)
-    checked = layout(packaging)
-    pins = [pair for pair in (*(checked.pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin")),
-                              checked.pair("a_pin", "b_pin")) if pair is not None]
-    if pins:
-        found.update(margins(assembly(finger, packaging), poses(finger, b, tip, bp), packaging, pins))
+    built = assembly(finger, packaging)
+    checked = built.layout
+    pairs = [*checked.pairs_with(PADS),
+             *(pair for pair in (*(checked.pair(pin, "pip_servo") for pin in ("bp_pin", "b_pin")),
+                                 checked.pair("a_pin", "b_pin")) if pair is not None)]
+    if only is not None:
+        wanted = set(only)
+        pairs = [pair for pair in pairs if pair.key in wanted]
+    found = margins(built, poses(finger, b, tip, bp, settings.mcp_samples_rad), packaging, pairs) if pairs else {}
     if settings.link_radius_mm is not None:
-        found.update(link_capsule_margins(finger, packaging, b, tip, bp, settings.link_radius_mm))
+        capsules = link_capsule_margins(finger, packaging, b, tip, bp, settings.link_radius_mm)
+        found.update(capsules if only is None else {pair: gap for pair, gap in capsules.items() if pair in wanted})
     return found
 
 
@@ -132,11 +136,11 @@ def sweep_flexion(finger: Finger, packaging: LinkagePackaging, settings: MotionS
     found = _gaps(finger, packaging, settings, b, bp, tip)
     if settings.verify_step_rad is not None and count > 1 and found:
 
-        def gaps_at(inner: np.ndarray) -> dict[tuple[str, str], np.ndarray]:
+        def gaps_at(inner: np.ndarray, pairs) -> dict[tuple[str, str], np.ndarray]:
             fine = finger.sweep_pip(inner)
             if not len(fine.q_pip_rad):  # closes at none of them
-                return {pair: np.full(len(inner), -math.inf) for pair in found}
-            gaps = _gaps(finger, packaging, settings, fine.b, fine.bp, fine.tip)
+                return {pair: np.full(len(inner), -math.inf) for pair in pairs}
+            gaps = _gaps(finger, packaging, settings, fine.b, fine.bp, fine.tip, pairs)
             if len(fine.q_pip_rad) < len(inner):  # the four-bar stops closing inside: a collision there
                 gaps = {pair: np.concatenate((gap, np.full(len(inner) - len(gap), -math.inf)))
                         for pair, gap in gaps.items()}

@@ -95,8 +95,24 @@ def test_a_collision_between_two_clear_samples_is_found_on_the_finer_grid():
     q = np.radians([0.0, 1.0, 2.0])
     coarse = {("a", "b"): np.array([0.4, 0.3, 0.4])}
     # The true gap dips below 0 between 1 and 2 deg; the samples miss it.
-    true_gap = lambda inner: {("a", "b"): 0.3 - 2.0 * np.sin(np.pi * (np.degrees(inner) - 1.0))}  # noqa: E731
+    true_gap = lambda inner, pairs: {("a", "b"): 0.3 - 2.0 * np.sin(np.pi * (np.degrees(inner) - 1.0))}  # noqa: E731
     found = resample_between(q, coarse, np.array([2.0, 2.0]), np.radians(0.1), true_gap)
     assert found[("a", "b")][2] < 0.0 and found[("a", "b")][1] == pytest.approx(0.3)
     # A step that moves too little to close the gaps is not resampled.
     assert resample_between(q, coarse, np.array([0.1, 0.1]), np.radians(0.1), true_gap)[("a", "b")][2] == 0.4
+
+
+def test_only_the_pairs_that_could_collide_are_resampled():
+    from core.evaluation import resample_between
+
+    q = np.radians([0.0, 1.0, 2.0])
+    coarse = {("a", "b"): np.array([0.4, 0.3, 0.4]), ("c", "d"): np.array([5.0, 5.0, 5.0])}
+    asked = []
+
+    def gaps(inner, pairs):
+        asked.append(set(pairs))
+        return {("a", "b"): 0.3 - 2.0 * np.sin(np.pi * (np.degrees(inner) - 1.0))}
+
+    found = resample_between(q, coarse, np.array([2.0, 2.0]), np.radians(0.1), gaps)
+    # (c, d)'s gaps sum to 10 mm against a 2 mm travel: it cannot collide in between.
+    assert asked == [{("a", "b")}] and found[("a", "b")][2] < 0.0 and found[("c", "d")][2] == 5.0

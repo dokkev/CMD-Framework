@@ -342,8 +342,7 @@ def _gap(first: str, second: str, posed: _Posed, packaging: Packaging) -> np.nda
             - other.radius_mm
     if isinstance(one, Disk) and isinstance(other, Disk):
         apart = poses.point(one.at) - poses.point(other.at)
-        distance = np.fromiter((math.hypot(dx, dz) for dx, dz in apart), float, count)
-        return distance - (one.radius_mm + other.radius_mm)
+        return np.hypot(apart[:, 0], apart[:, 1]) - (one.radius_mm + other.radius_mm)
     if isinstance(one, Disk) and isinstance(other, Bar):
         center = poses.point(one.at)
         return (point_segment_distance(center, poses.point(other.start), poses.point(other.end))

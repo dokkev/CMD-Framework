@@ -270,7 +270,7 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
     from core.evaluation.motion import resample_between
 
     return resample_between(phi, margins, geo.distal_reach_mm * np.diff(phi), verify_step_rad,
-                            lambda q: margins_of(geo, q))
+                            lambda q, pairs: {pair: gap for pair, gap in margins_of(geo, q).items() if pair in pairs})
 
 
 __all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples", "with_mcp_pairs",
