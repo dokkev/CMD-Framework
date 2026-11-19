@@ -219,6 +219,8 @@ $$
 
 **CFL의 pivot.** CFL은 네 개의 pivot으로 이루어진다. $A$와 $A'$는 proximal phalanx에, $B$와 $B'$는 distal phalanx에 있다. PIP actuator $A_2$의 출력축은 $A'$에 놓이며, 링크 $A'B$를 돌려 distal phalanx를 굽힌다. 링크 $AB'$는 $A$를 중심으로 돌면서 distal phalanx를 받친다. 설계를 단순하게 하기 위해, 기준 자세에서 $A$는 proximal phalanx의 길이 방향 축 위에, $B$는 distal phalanx의 길이 방향 축 위에 둔다.
 
+**정렬.** 위 배치를 kinematic link 정렬이라 하며, 기준 자세에서 두 phalanx 축이 한 직선 위에 놓인다. Prototype은 여기에 contact line 정렬을 더한다. 두 pad의 접촉면을 각자의 링크 축에서 같은 깊이에 두어(장착 깊이와 pad 두께의 합이 같음), 기준 자세에서 두 접촉면도 한 직선 위에 놓이게 한다. 두 정렬을 함께 두면 기준 자세에서 두 pad는 한 직선 위에서 겹칠 수 없다. 따라서 두 pad 길이의 하한의 합이, 가장 긴 손가락에서 그 직선에 남는 길이를 넘으면 해가 없다. 이 조건은 필요조건이며, 굽히는 동안의 충돌은 $\mathcal F_{\mathrm{motion}}$이 판정한다.
+
 **설계 변수와 고정 요소.** Morphology $M=(K,C,A,S)$의 각 요소 가운데 탐색하는 것과 주어지는 것은 다음과 같다.
 
 | 요소 | 구성 | 취급 |

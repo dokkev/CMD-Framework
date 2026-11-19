@@ -74,7 +74,7 @@ def search_names(config: LinkageConfig) -> tuple[str, ...]:
     else:
         names = (*SEARCH_NAMES[:-2], *PAD_SHARE_NAMES) if config.packaging.pads_off_pins else SEARCH_NAMES
     return tuple(name for name in names if not (config.symmetric_four_bar and name in SYMMETRIC_DROPPED)
-                 and not (config.align_mount_offsets and name == "distal_mount_offset_mm")
+                 and not (config.align_contact_line and name == "distal_mount_offset_mm")
                  and not (config.mount_policy != "searched" and name in MOUNT_NAMES))
 
 
@@ -206,7 +206,7 @@ def _on_grid(value: float, resolution: float) -> float:
 
 def to_design(coordinates: Sequence[float], config: LinkageConfig) -> tuple[float, ...] | None:
     v = dict(zip(search_names(config), (float(c) for c in coordinates)))
-    if config.align_mount_offsets:
+    if config.align_contact_line:
         v["distal_mount_offset_mm"] = v["proximal_mount_offset_mm"] + face_shift_mm(config.packaging)
     if config.mount_policy != "searched":  # set below, once the pads' ends are: here the deepest allowed
         for name in MOUNT_NAMES:
@@ -279,7 +279,7 @@ def from_design(x: Sequence[float], config: LinkageConfig) -> tuple[float, ...]:
     variables the vector predates at their defaults)."""
 
     d = {**DEFAULT_VALUES, **dict(zip(VARIABLE_NAMES, (float(value) for value in x)))}
-    if config.align_mount_offsets:  # a design with its own offsets: the proximal one sets both
+    if config.align_contact_line:  # a design with its own offsets: the proximal one sets both
         d["distal_mount_offset_mm"] = d["proximal_mount_offset_mm"] + face_shift_mm(config.packaging)
     ap_range, a_range = _ranges(config, d["b_x_mm"], d["ap_z_mm"], d["servo_tilt_deg"],
                                 math.hypot(d["b_x_mm"] + d["bc_length_mm"], d["b_z_mm"]))

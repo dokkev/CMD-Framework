@@ -47,6 +47,14 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     goal, solver = tree.table("goal"), tree.table("solver")
     tree.done()
     motion, pads, link = goal.table("motion"), goal.table("pads"), goal.table("link")
+    alignment = goal.table("alignment")
+    align_link, align = alignment.take("kinematic_link"), alignment.take("contact_line")
+    alignment.done()
+    for name, value in (("kinematic_link", align_link), ("contact_line", align)):
+        if not isinstance(value, bool):
+            raise ValueError(f"goal.alignment.{name} must be true or false")
+    if "align_mount_offsets" in pads.values:
+        raise ValueError("goal.pads.align_mount_offsets moved to goal.alignment.contact_line")
     hardware, collision = goal.table("hardware"), goal.table("collision")
     loss = _Table(goal.values.pop("loss", {}), "goal.loss")  # optional: absent, profile defaults apply
     goal.done()
@@ -94,12 +102,9 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     on_links = pads.values.pop("on_links", False)  # the pads' ends searched (2026-11-03; on links 2026-10-27 to then)
     if not isinstance(on_links, bool):
         raise ValueError("goal.pads.on_links must be true or false")
-    align = pads.values.pop("align_mount_offsets", False)  # one offset for both pads (2026-11-04)
     mount_policy = pads.values.pop("mount_policy", "searched")
     if mount_policy not in MOUNT_POLICIES:
         raise ValueError(f"goal.pads.mount_policy must be one of {MOUNT_POLICIES}")
-    if not isinstance(align, bool):
-        raise ValueError("goal.pads.align_mount_offsets must be true or false")
     pad_values, overhangs, mount_offsets = {}, {}, {}
     for side in ("proximal", "distal"):
         pad = pads.table(side)
@@ -131,7 +136,7 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         low = max(mount_offsets["proximal"][0], mount_offsets["distal"][0] - shift)
         high = min(mount_offsets["proximal"][1], mount_offsets["distal"][1] - shift)
         if high < low:
-            raise ValueError("goal.pads.align_mount_offsets: no mount_offset_mm in both ranges puts the faces "
+            raise ValueError("goal.alignment.contact_line: no mount_offset_mm in both ranges puts the faces "
                              "at one depth")
         mount_offsets = {"proximal": (low, high), "distal": (low + shift, high + shift)}
 
@@ -196,7 +201,17 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
     hypervolume.update({name: reference.take(name) for name in OBJECTIVE_NAMES if name in reference.values})
     reference.done()
     search = solver.table("search_bounds")
-    given = {name: _bounds(search.take(name), f"solver.search_bounds.{name}") for name in SEARCH_BOUNDS}
+    # A and B on their phalanges' axes (goal.alignment.kinematic_link): the
+    # axes' offsets are not searched (absent, or [0, 0]).
+    axis_names = ("a_z_mm", "b_z_mm")
+    given = {name: _bounds(search.take(name), f"solver.search_bounds.{name}") for name in SEARCH_BOUNDS
+             if not (align_link and name in axis_names)}
+    if align_link:
+        for name in axis_names:
+            found = search.values.pop(name, None)
+            if found is not None and _bounds(found, f"solver.search_bounds.{name}") != (0.0, 0.0):
+                raise ValueError(f"solver.search_bounds.{name}: goal.alignment.kinematic_link puts it at 0")
+            given[name] = (0.0, 0.0)
     relative = {name: given.pop(name) for name in RELATIVE_BOUNDS}
     bounds = dict(given)
     search.done()
@@ -257,7 +272,8 @@ def config_from_goal(values: Mapping[str, Any]) -> LinkageConfig:
         symmetric_four_bar=symmetric,
         proximal_pad_past_icr_max_mm=past_icr,
         pads_on_links=on_links,
-        align_mount_offsets=align,
+        align_kinematic_link=align_link,
+        align_contact_line=align,
         mount_policy=mount_policy,
         warm_start=warm_start,
         relative_bounds=relative,

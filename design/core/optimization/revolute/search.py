@@ -101,7 +101,7 @@ def _ranges(config: RevoluteConfig, length: float, tilt_deg: float):
 def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[float, ...] | None:
     v = {name: 0.0 for name in DROP_NAMES}  # set below when the policy sets them
     v.update(zip(search_names(config), (float(c) for c in coordinates)))
-    if config.goal.align_mount_offsets:  # the goal's rule: the distal drop sets both faces' depth
+    if config.goal.align_contact_line:  # the goal's rule: the distal drop sets both faces' depth
         v["proximal_drop_mm"] = v["distal_drop_mm"] - face_shift_mm(config.goal.packaging)
     resolution = config.resolution_mm
     grid = lambda value: round(round(value / resolution) * resolution, 9)  # noqa: E731
@@ -134,7 +134,7 @@ def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[flo
 
 def from_design(x: Sequence[float], config: RevoluteConfig) -> tuple[float, ...]:
     d = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    if config.goal.align_mount_offsets:
+    if config.goal.align_contact_line:
         d["proximal_drop_mm"] = d["distal_drop_mm"] - face_shift_mm(config.goal.packaging)
     length = d["a_x_mm"] + d["ac_length_mm"]
     ac_range, pads = _ranges(config, length, d["servo_tilt_deg"])

@@ -35,7 +35,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+from core.optimization.mechanism import alignment_warning, mechanism, read_config_file  # noqa: E402
 from core.optimization.study import MechanismProblem  # noqa: E402
 
 CHUNK = 500
@@ -112,6 +112,10 @@ def main(argv: list[str]) -> int:
     seed = int(argv[3]) if len(argv) > 3 else 0
     source = Path(argv[4]) if len(argv) > 4 else None
     found, config = _load(path)
+    warning = alignment_warning(config)
+    if warning:  # no design can exist: nothing to sample
+        print(f"warning: {warning}", file=sys.stderr)
+        return 1
     problem = MechanismProblem(found, config)
     output = REPOSITORY_ROOT / "output" / found.name / path.stem / "samples" / "seeds.csv"
     pool_designs: dict[tuple[float, ...], None] = {}

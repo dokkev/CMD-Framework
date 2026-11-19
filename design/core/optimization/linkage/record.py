@@ -78,6 +78,8 @@ def config_from_json(values: dict) -> LinkageConfig:
 
     raw = dict(values)
     legacy_occlusion = raw.pop("links_block_face", None)
+    if "align_mount_offsets" in raw:  # before 2026-11-19 (then the mounting surfaces)
+        raw["align_contact_line"] = raw.pop("align_mount_offsets")
     known = {f.name for f in fields(LinkageConfig)}
     values = {name: value for name, value in raw.items() if name in known}
     if "include_linkage_occlusion" not in values:

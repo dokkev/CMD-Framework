@@ -341,7 +341,18 @@ def _merged(base: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any
     return merged
 
 
+def alignment_warning(config) -> str | None:
+    """Why the goal's alignments leave no design (a linkage goal's own check,
+    ``LinkageConfig.alignment_warning``; the 2R family wraps one as ``goal``),
+    or ``None``."""
+
+    goal = getattr(config, "goal", config)
+    check = getattr(goal, "alignment_warning", None)
+    return check() if check is not None else None
+
+
 __all__ = [
+    "alignment_warning",
     "LENGTH_TOLERANCE_MM",
     "shortfall_mm",
     "INVALID",

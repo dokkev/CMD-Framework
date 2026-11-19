@@ -59,13 +59,21 @@ goal:
   # the curl it costs. (on_links: true searches each pad on its own link
   # only, A'' at A and B'' at B; scripts/optimize/extend_pads.py then grows
   # them afterwards.)
+  # Alignment in the extended pose (design/SSoT/problem_formulation.md A.5):
+  #   kinematic_link  A and B on their phalanges' axes, so the two axes lie on
+  #                   one line (A_z = B_z = 0; not searched).
+  #   contact_line    the two pads' contact faces at one depth below their
+  #                   link lines (mount_offset_mm + height_mm equal): one
+  #                   offset searched, the other shifted by the pads' height
+  #                   difference (the 2R-DD's drops too).
+  # Both true puts the two faces on one line: the run first checks that the
+  # least pads fit on it without overlapping, and stops with a warning if not.
+  alignment:
+    kinematic_link: true
+    contact_line: true
+
   pads:
     on_links: false
-    # true: the two pads' contact faces held at one depth below their link
-    # lines (mount_offset_mm + height_mm equal), so in the extended pose both
-    # faces lie on one line; one offset searched, the other shifted by the
-    # pads' height difference (the 2R-DD's drops too). false: each its own.
-    align_mount_offsets: true
     proximal:
       # Mounting length a-b (A'' included), [min, max], laid from the pad's
       # outer end (the MCP servo side; for the distal pad, C), the rest of the
@@ -217,8 +225,6 @@ solver:
   #   A'_x            from the least that keeps the PIP servo off the MCP servo
   # A null max there is taken as finger_length_mm's max.
   search_bounds:
-    a_z_mm: [0, 0]                # A on the proximal axis
-    b_z_mm: [0, 0]                # BC on the axis when extended
     ap_from_a_x_mm: [-20, 30]     # A'_x - A_x
     ap_from_a_z_mm: [0, 25]       # A'_z - A_z
     bp_from_b_x_mm: [-50, 20]     # B'_x - B_x (extended)

@@ -39,7 +39,6 @@ goal:
     # is no design (case C, core.optimization.mounting). The two depths are
     # independent.
     mount_policy: shallowest_supported
-    align_mount_offsets: false
     # The study's own mounting-depth range (the most allowed), set here so a
     # production change does not move it.
     proximal:

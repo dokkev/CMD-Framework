@@ -1,12 +1,11 @@
 # The production CoDe finger study (config.yaml) with every pivot housing at 8 mm (A, A', B and B') and the
-# |OC| in 84-91 mm (config.yaml allows 90-100, and the search runs to 100), and the two pads' mounting
-# offsets held equal (goal.pads.align_mount_offsets), both pads 3 mm thick (config.yaml: 5 mm).
+# |OC| in 84-91 mm (config.yaml allows 90-100, and the search runs to 100), and the two pads' contact
+# faces at one depth (goal.alignment.contact_line, as config.yaml), both pads 3 mm thick (config.yaml: 5 mm).
 #
 #   python scripts/optimize/run.py scripts/optimize/linkage/config_pivot8.yaml
 base: config.yaml
 goal:
   pads:
-    align_mount_offsets: true
     proximal:
       height_mm: 3
     distal:

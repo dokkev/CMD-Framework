@@ -43,7 +43,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from core.optimization.linkage.mechanism import resolve_preset  # noqa: E402
-from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
+from core.optimization.mechanism import alignment_warning, mechanism, read_config_file  # noqa: E402
 from core.optimization.seeds import print_selection, select_seeds, write_seeds  # noqa: E402
 from core.optimization.study import StudyResult, load_run, run_study, save_result  # noqa: E402
 
@@ -67,6 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     algorithms = _algorithms(values)
     values, settings = found.split_settings(values)
     config = found.config_from_mapping(values)
+    warning = alignment_warning(config)
+    if warning:  # no design can exist: nothing to run
+        print(f"warning: {warning}", file=sys.stderr)
+        return 1
     seeds = tuple(getattr(config, "seeds", ()) or (settings.seed,))
     # The population takes at most half its size of warm-start designs.
     initial = warm_designs(found, getattr(config, "warm_start", ()) or ())[: settings.population_size // 2]

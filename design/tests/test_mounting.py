@@ -16,7 +16,7 @@ from core.optimization.mounting import footprint_reach_mm, mounting
 from core.optimization.study import load_yaml
 
 CONFIG = Path(__file__).resolve().parents[1] / "scripts" / "optimize" / "linkage" / "config.yaml"
-RULES = ("goal.link.finger_length_mm=[90, 110]", "goal.pads.align_mount_offsets=false", "goal.pads.proximal.length_mm=[20, null]",
+RULES = ("goal.link.finger_length_mm=[90, 110]", "goal.alignment.contact_line=false", "goal.pads.proximal.length_mm=[20, null]",
          "goal.pads.distal.length_mm=[25, null]", "goal.collision.check.a_pin_and_pip_servo=false",
          "goal.collision.check.a_pin_and_a_prime_pin=true", "goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",
          "goal.hardware.pip_servo.tilt_step_deg=1", "goal.pads.proximal.past_icr_max_mm=null",
@@ -77,7 +77,7 @@ def test_the_2r_dds_servo_supports_its_distal_pad_only_when_the_depths_are_align
     assert found.native_mm[1] == 0.0 and found.cases[1] == "C" and not found.supported
     # Aligned: one depth for both pads, the deeper least one, the distal pad
     # carried to the servo's reach.
-    _, aligned = load("goal.pads.align_mount_offsets=true")
+    _, aligned = load("goal.alignment.contact_line=true")
     both = [45.0, 55.0, 44.0, 4.0, 0.0, 0.0, 90.0]  # the proximal pad under the servo's lowest too
     found = mounting("revolute", both, aligned)
     servo = aligned.goal.packaging.pip_servo.radius_mm
@@ -157,7 +157,7 @@ def test_the_policy_is_the_studys_and_one_per_pad():
     assert production.mount_policy == "searched"
     assert LINKAGE.evaluate([*CODE_UNDER_B[:13], 3.5], production).constraints["bounds_mount_depth_mm"] == 0.0
     # Aligned, CoDe's pads share the deeper least depth too, each against its own housings.
-    aligned, _ = load("goal.pads.align_mount_offsets=true")
+    aligned, _ = load("goal.alignment.contact_line=true")
     found = mounting("linkage", CODE_UNDER_B, aligned)
     assert found.depths_mm == (3.0, 3.0) and found.cases[1] == "B"
 

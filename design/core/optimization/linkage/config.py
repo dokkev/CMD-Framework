@@ -41,7 +41,7 @@ def resolve_linkage_occlusion(include_linkage_occlusion: bool | None, *, profile
 def face_shift_mm(packaging) -> float:
     """The distal pad's mounting offset less the proximal pad's that puts both
     contact faces at one depth below their link lines (offset plus height):
-    the aligned pads' rule (``goal.pads.align_mount_offsets``, 2026-11-19)."""
+    the aligned pads' rule (``goal.alignment.contact_line``, 2026-11-19)."""
 
     return float(packaging.proximal_pad.height_mm - packaging.distal_pad.height_mm)
 
@@ -151,10 +151,13 @@ class LinkageConfig:
     on ``mount_offset_mm``; ``shallowest_supported``, not searched but the
     least depth (on the resolution grid, at most ``mount_offset_mm``'s max)
     that clears the pad's own joint hardware, within what that hardware
-    supports (``core.optimization.mounting``; with ``align_mount_offsets``,
+    supports (``core.optimization.mounting``; with ``align_contact_line``,
     both at the deeper of the two)."""
-    align_mount_offsets: bool = False
-    """The two pads' contact faces held at one depth (``goal.pads.align_mount_offsets``;
+    align_kinematic_link: bool = False
+    """``A`` and ``B`` on their phalanges' axes (``goal.alignment.kinematic_link``):
+    in the extended pose the two axes lie on one line (``a_z = b_z = 0``)."""
+    align_contact_line: bool = False
+    """The two pads' contact faces held at one depth (``goal.alignment.contact_line``;
     2026-11-04 the mounting surfaces, 2026-11-19 the faces): one offset searched,
     the other shifted by the pads' height difference (:func:`face_shift_mm`), so
     in the extended pose both faces lie on one line. False: each its own."""
@@ -319,6 +322,28 @@ class LinkageConfig:
                 narrow("b_x_mm", low=bounds["bp_x_mm"][0] - boffset_hi)
             if self._pads_on_axis and not packaging.pads_off_pins:
                 self._extended_pad_bounds(bounds, narrow)
+
+    def alignment_warning(self) -> str | None:
+        """Why no design can exist with both alignments on, if the least pads
+        cannot fit (``None``: they can). With the axes and the contact faces each
+        on one line, the two faces lie on one line in the extended pose: the
+        pads may not overlap along it, so their least lengths must fit between
+        the proximal pad's start (past the MCP servo) and the distal pad's
+        outer end (``C`` less its offset) of the longest finger. A necessary
+        condition only: the motion still decides."""
+
+        if not (self.align_kinematic_link and self.align_contact_line):
+            return None
+        packaging = self.packaging
+        need = (max(self.minimum_proximal_support_mm, packaging.proximal_pad.length_mm or 0.0)
+                + max(self.minimum_distal_support_mm, packaging.distal_pad.length_mm or 0.0))
+        room = (self.extended_length_bounds_mm[1] - packaging.proximal_pad_start_mm
+                - packaging.distal_pad.offset_mm)
+        if need <= room + 1e-9:
+            return None
+        return (f"goal.alignment: with the kinematic link and the contact line both aligned, the pads lie on "
+                f"one line in the extended pose; their least lengths need {need:.1f} mm but the longest finger "
+                f"leaves {room:.1f} mm for them (no design)")
 
     @property
     def _pads_on_axis(self) -> bool:

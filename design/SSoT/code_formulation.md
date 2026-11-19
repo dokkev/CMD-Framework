@@ -127,6 +127,7 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `t
 
 **결정(2026-11-19).**
 - $MA_{\min}=0.2$(CFL), 맞닿음 허용 오차 $10^{-6}$ mm 하나, 기울기는 범위로만, CFL도 표본 사이를 다시 본다, Study 2는 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$ 모두.
+- 정렬은 `goal.alignment`의 `kinematic_link`, `contact_line` 두 값이다(`LinkageConfig.align_kinematic_link`, `align_contact_line`). `contact_line`은 distal 깊이를 proximal 깊이 + (h_P − h_D)로 둔다(`face_shift_mm`). 둘 다 true면 `run.py`와 `sample_seeds.py`가 `alignment_warning`으로 정적 필요조건을 먼저 보고, 깨지면 warning을 내고 끝낸다.
 - 2R 계열의 충돌 엔진을 Assembly로 옮기지 않는다. 2R 계열의 쌍 목록은 구조당 40줄 정도로 짧고, Assembly로 옮기면 구조마다 Part·Layout·Poses를 새로 만들어야 해서 코드가 늘어난다. 대신 중복된 MCP servo 쌍 처리를 `revolute.solids.with_mcp_pairs`로 모았다.
 
 **남은 항목.**
