@@ -49,7 +49,6 @@ goal:
     finger_length_mm: [90, 100]   # |OC| extended
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
-    joint_span_ratio: [null, 0.35]  # |AB| / L_f (optional; not in A.2: kept until decided)
 
   # The CFL's transmission constraints on [0, q_req] (A.5.2).
   transmission:
