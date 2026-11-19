@@ -4,12 +4,14 @@ flexion, the PIP servo on ``A'``, the pads on their links
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from core.morphology.mechanism.linkage.design import decode
+from core.morphology.mechanism.linkage.motion import MotionSettings, _gaps
 from core.morphology.mechanism.linkage.packaging import (
     distal_pad_polygon,
-    pad_margins,
     pip_footprint,
     proximal_pad_polygon,
 )
@@ -34,8 +36,12 @@ class FourBarView(KinematicJoint):
         return self.finger
 
     def margins(self, phi_deg) -> dict[tuple[str, str], np.ndarray]:
+        """Every pair the evaluation checks (``motion._gaps``): the pads, and
+        the pins against the PIP servo and each other where checked."""
+
         s = self.sweep(phi_deg)
-        return pad_margins(self.finger, self.packaging, s.b, s.tip, s.bp, (0.0,))
+        settings = MotionSettings(step_rad=math.radians(1.0), transmission_angle_range_rad=(0.0, math.pi))
+        return _gaps(self.finger, self.packaging, settings, s.b, s.bp, s.tip)
 
     def distal_pad(self, phi_deg: float) -> np.ndarray:
         s = self.sweep([phi_deg])
