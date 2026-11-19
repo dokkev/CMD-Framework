@@ -2,7 +2,11 @@
 
 Reports and paper figures from runs under the current SSoT
 (`design/SSoT/problem_formulation.md`, `design/SSoT/code_formulation.md`).
-Nothing here yet: the CoDe prototype, Study 1 and Study 2 are being rerun.
+| Report | What |
+|---|---|
+| [code_prototype_2026-11-19.md](code_prototype_2026-11-19.md) | CoDe prototype, paper preset: $\bar C_{\mathrm{pad}}=0.720$ |
+
+Study 1 and Study 2 are being rerun.
 
 ## Legacy
 
