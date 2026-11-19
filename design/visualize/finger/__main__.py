@@ -88,7 +88,7 @@ def main(argv: list[str]) -> int:
         view.draw(axis, pose)
     p, d = view.pads_mm
     reach = f"safe to {view.phi_max_deg:.0f}°" if view.row else f"reaches {view.reachable_deg():.0f}°"
-    pads = "" if p != p else f", pads P {p:.1f} + D {d:.1f} mm"
+    pads = "" if p != p else f", common pad length |T| {p:.1f} mm at q_req"
     k_max = float(np.nanmax(view.k(np.linspace(0.0, end, 181))))
     figure.suptitle(f"{caption}{pads}, {reach}, k ≤ {k_max:.2f}",
                     color=MUTED, fontsize=10, x=0.01, ha="left")
