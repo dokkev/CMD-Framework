@@ -144,7 +144,7 @@ def test_a_fixed_pad_length_sets_the_pad_and_needs_room_on_its_line() -> None:
 
 def test_a_pad_is_a_plain_block_and_a_recorded_chamfer_is_left_out() -> None:
     from core.morphology.mechanism.linkage.design import read_design
-    from core.optimization.linkage.config import packaging_from_mapping
+    from core.optimization.linkage.record import packaging_from_mapping
 
     block = pad_outline(PadSpan(0.0, 30.0, 30.0), ContactPad(height_mm=5.0))
     assert block == pytest.approx(np.array(((0.0, -5.0), (30.0, -5.0), (30.0, 0.0), (0.0, 0.0))))

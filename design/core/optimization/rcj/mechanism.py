@@ -8,7 +8,8 @@ import dataclasses
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from core.optimization.linkage.config import config_from_goal, config_from_json, config_to_json
+from core.optimization.linkage.goal import config_from_goal
+from core.optimization.linkage.record import config_from_json, config_to_json
 from core.optimization.linkage.mechanism import bound_hits_of
 from core.optimization.rcj import search
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig

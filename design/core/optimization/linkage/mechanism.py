@@ -1,7 +1,7 @@
 """The CFL (crossed four-bar, PIP servo at ``A'``) as a pluggable mechanism.
 
 Its problem is the ``goal`` / ``solver`` file (``scripts/optimize/linkage/config.yaml``,
-:func:`~core.optimization.linkage.config.config_from_goal`): the prototype
+:func:`~core.optimization.linkage.goal.config_from_goal`): the prototype
 formulation (``design/SSoT/problem_formulation.md`` A.5), whose one objective
 is the mean contact pad coverage ``c_pad_mean``.
 """
@@ -19,7 +19,9 @@ from core.morphology.mechanism.linkage import FourBar
 from core.morphology.mechanism.linkage.design import DEFAULT_VALUES, VARIABLE_NAMES, decode, read_design
 from core.morphology.mechanism.linkage.measures import extended_icr_x
 
-from core.optimization.linkage.config import LinkageConfig, config_from_goal, config_from_json, config_to_json
+from core.optimization.linkage.config import LinkageConfig
+from core.optimization.linkage.goal import config_from_goal
+from core.optimization.linkage.record import config_from_json, config_to_json
 from core.optimization.linkage import search
 from core.optimization.linkage.evaluate import CONSTRAINT_NAMES, LinkageEvaluation, evaluate
 from core.optimization.mechanism import Mechanism, Objective, SummaryColumn, evaluation_report
