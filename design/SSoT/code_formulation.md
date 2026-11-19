@@ -8,7 +8,7 @@
 2. **구조는 형상과 표본만 낸다.** 구조(CFL, 2R-DD, 2R-remote, RCJ)별 코드는 자기 형상(충돌 간격, contact face, phalanx 끝점)과 운동 표본만 만든다. 그 결과를 SSoT의 양으로 바꾸는 것은 공용 함수다(§3).
 3. **제약은 SSoT의 범주를 이름에 단다.** 형태 범위는 `bounds_*`, $\mathcal F_{\mathrm{static}}$은 `static_*`, 운동 제약은 `f_motion_deg`, `gamma_range_deg`, `ma_min`이다(§5).
 4. **이름은 SSoT를 따른다.** 코드 식별자와 출력 열 이름은 SSoT 기호에서 정한다(§7). 같은 이름에 다른 뜻을 담지 않는다.
-5. **값의 모양으로 의미를 바꾸지 않는다.** 새로 만드는 설정은 "숫자면 고정, 리스트면 탐색" 같은 형태를 쓰지 않는다. 고정은 하한과 상한이 같은 범위로 표현한다(SSoT A.2). 남아 있는 예외는 §10에 적는다.
+5. **값의 모양으로 의미를 바꾸지 않는다.** 설정은 "숫자면 고정, 리스트면 탐색" 같은 형태를 쓰지 않는다. 고정은 하한과 상한이 같은 범위로 표현한다(SSoT A.2). PIP servo 기울기 `tilt_angle_deg`는 범위만 받는다. 남아 있는 예외는 §10에 적는다.
 
 ## 2. 공통 규약
 
@@ -18,7 +18,7 @@
 | 각도 | 내부 계산은 rad, 설정과 출력은 deg. Flexion은 $+x$를 $-z$ 쪽으로 돌리는 방향이 양수 |
 | 길이 | mm |
 | 자세 | $\mathbf q=(q_1,q_2)$. 모든 평가에서 $q_1=0$(YAML 로더가 MCP 표본을 0 하나로 둔다). $q_2$는 두 phalanx 축 사이의 상대 회전각 |
-| 맞닿음 | 간격 $g\ge -10^{-6}$ mm이면 겹치지 않은 것으로 본다(`TOUCH_MM`) |
+| 맞닿음 | 간격 $g\ge -10^{-6}$ mm이면 겹치지 않은 것으로 본다. 상수는 `packaging.hardware.MARGIN_TOLERANCE_MM` 하나다 |
 | Body와 layer | CFL의 solid는 `morphology/packaging/assembly.py`의 `Part`로 body와 lateral layer를 가진다. 서로 다른 layer의 쌍과 joint(pin과 그것이 잇는 body)는 검사하지 않는다. 2R 계열은 검사할 쌍을 `solids.margins`에 나열하며, 다른 layer에 있는 belt와 carrier는 목록에서 뺀다 |
 
 ## 3. 구조와 공용 모듈의 경계
@@ -67,7 +67,7 @@
 | $\mathcal F_{\mathrm{static}}$ | `static_closure`(CFL), `static_pin_spacing_mm`, `static_pivot_pin_mm`, `static_mcp_servo_mm`, `static_pip_servo_pad_mm`, `static_pad_collision_mm`, (RCJ) `static_roller_pad_mm`, (2R-remote) `static_a_pin_servo_mm` | 기준 자세의 형상이 존재하고 겹침이 없음 | 최대 겹침 깊이(mm) |
 | $\mathcal F_{\mathrm{motion}}$ | `f_motion_deg` | $\mathcal Q_{\mathrm{req}}\subseteq\mathcal Q_{\mathrm{valid}}$ | $q_{\mathrm{req}}$ 중 유효하게 도달하지 못한 각도(deg) |
 | 전달 | `gamma_range_deg` (CFL) | $\gamma\in[\gamma_{\min},\gamma_{\max}]$ on $\mathcal Q_{\mathrm{req}}$ | 범위 밖으로 벗어난 최대 각도(deg) |
-| 전달 | `ma_min` (CFL) | $MA_{\mathrm{wc}}\ge MA_{\min}$ | $MA_{\min}-MA_{\mathrm{wc}}$ (설정이 없으면 0) |
+| 전달 | `ma_min` (CFL) | $MA_{\mathrm{wc}}\ge MA_{\min}$, 기본 $MA_{\min}=0.2$ | $MA_{\min}-MA_{\mathrm{wc}}$ (null이면 0) |
 
 정적 제약(`bounds_*`, `static_*`)을 하나라도 어기면 운동을 평가하지 않고, 운동 제약을 `UNSWEPT`(100)로 둔다. 기준 자세에서 CFL이 닫히지 않으면 모든 제약을 `INVALID`(1000)로 둔다.
 
@@ -76,7 +76,7 @@
 | 항목 | 규칙 |
 |---|---|
 | 운동 표본 | $q_2$를 0부터 $\pi$까지 균일 간격 `flexion_step_rad`(기본 1°)로 표본한다. CFL은 `FourBar.sweep_pip`로 각 $q_2$를 직접 푼다(닫히지 않는 표본부터는 없음) |
-| 표본 사이 | 2R 계열은 distal 끝의 이동 거리로 간격이 0 밑으로 내려갈 수 있는 구간을 찾아 `verify_step_rad`(기본 0.05°)로 다시 본다. CFL은 다시 보지 않는다. 대신 front의 설계를 `verify_step_rad` 격자에서 다시 평가한다 |
+| 표본 사이 | 한 칸 동안 distal 쪽이 움직일 수 있는 거리보다 두 이웃 표본의 간격 합이 작으면, 그 칸을 `verify_step_rad`(기본 0.05°)로 다시 본다(`core.evaluation.resample_between`). 이동 거리는 2R 계열에서 관절에서 가장 먼 distal 점까지의 거리 × 각도 간격, CFL에서 표본 사이에 실제로 움직인 거리($B$, $B'$, $C$, distal pad 꼭짓점 중 최대)다. Front의 설계는 `verify_step_rad` 격자에서 다시 평가한다 |
 | 유효성 | 표본의 모든 검사 쌍 간격이 $\ge -10^{-6}$ mm이고, 손끝이 MCP 앞($x_C\ge -10^{-6}$)이다. 손끝 조건은 palm과의 충돌을 대신한다 |
 | $MA$ | $\lvert d\theta/dq_2\rvert$를 균일 격자 위의 중앙 차분(`np.gradient`)으로 구한다. CFL의 $\theta$는 PIP servo가 돌리는 링크 $A'B$의 회전각이다. 2R 계열은 $\theta=q_2$(MA 1), RCJ는 $\theta=q_2/2$(MA 1/2) |
 | $MA_{\mathrm{wc}}$ | $[0,q_{\mathrm{req}}]$ 표본의 최솟값. 유효한 운동이 $q_{\mathrm{req}}$에 닿지 못하면 0 |
@@ -123,10 +123,12 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `t
 - 구조별 테스트: CFL의 coverage가 face와 가림을 독립적으로 계산한 값과 같은지, 2R-DD의 공통 길이가 해석식 $\min(\text{끝})-\max(\text{시작}, D\tan(q/2))$와 같은지, RCJ의 MA가 1/2인지
 - 전체 파이프라인: `scripts/optimize/run.py`로 GA와 NSGA-II를 짧게 돌려 run 저장, 0.05° 재검증, 병합까지 확인
 
-## 10. 남은 항목
+## 10. 결정과 남은 항목
 
-- **충돌 엔진 통합.** 2R 계열도 CFL처럼 Assembly(`Part`, `Layout`)로 solid를 배치하면 검사 쌍 목록과 layer 예외를 한 규칙으로 정할 수 있다. 지금은 2R 계열이 쌍을 손으로 나열한다
-- **설정 스키마.** 2R 계열이 `LinkageConfig`를 공용 goal로 감싸는 구조가 남아 있다. PIP servo 기울기는 YAML에서 숫자면 고정, 리스트면 탐색이다. 범위 하나로 받도록 바꿀 수 있다
-- **표본 사이 검증.** CFL은 최적화 격자에서 표본 사이를 다시 보지 않는다. 2R 계열처럼 이동 거리 상한으로 다시 볼지 정해야 한다
-- **허용 오차.** 맞닿음은 $10^{-6}$ mm인데, packaging의 `MARGIN_TOLERANCE_MM`은 $10^{-9}$ mm다
-- **기본값.** $MA_{\min}$은 설정에서 null(제약 없음)이다. 값을 정해야 한다
+**결정(2026-11-19).**
+- $MA_{\min}=0.2$(CFL), 맞닿음 허용 오차 $10^{-6}$ mm 하나, 기울기는 범위로만, CFL도 표본 사이를 다시 본다, Study 2는 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$ 모두.
+- 2R 계열의 충돌 엔진을 Assembly로 옮기지 않는다. 2R 계열의 쌍 목록은 구조당 40줄 정도로 짧고, Assembly로 옮기면 구조마다 Part·Layout·Poses를 새로 만들어야 해서 코드가 늘어난다. 대신 중복된 MCP servo 쌍 처리를 `revolute.solids.with_mcp_pairs`로 모았다.
+
+**남은 항목.**
+- **설정 스키마.** 2R 계열이 `LinkageConfig`를 공용 goal로 감싼다. pad 길이 `length_mm`와 장착 깊이 `mount_offset_mm`는 아직 "숫자면 고정"을 받는다
+- **Layer 규칙의 표현.** CFL은 Assembly의 layer로, 2R 계열은 쌍 목록에서 빼는 방식으로 같은 규칙을 표현한다

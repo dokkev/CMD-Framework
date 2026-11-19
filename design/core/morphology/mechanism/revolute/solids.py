@@ -186,11 +186,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
             until_unsafe: bool = False, *, include_static_pairs: bool = True) -> dict[tuple[str, str], np.ndarray]:
     """Per-sample margin of every checked pair beyond the clearance.
 
-    ``until_unsafe``: the distal pad is checked against the MCP servo (the
-    costly pair: every MCP angle) only up to the first sample another pair
-    fails at; past it the motion is unsafe anyway, and its margin is ``inf``.
-    ``include_static_pairs``: when ``False``, skips configuration-invariant
-    pairs (such as ``("mcp_servo", "proximal_pad")``) already verified at ``phi = 0``.
+    ``until_unsafe`` and ``include_static_pairs``: as :func:`with_mcp_pairs`.
     """
 
     packaging = checks.packaging
@@ -210,18 +206,34 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
             margins[(name, "proximal_pad")] = polygon_gaps(solid, proximal, packaging) - clearance
     if checks.link_radius_mm is not None:  # the comparison model: the bars as capsules, in the side view
         margins.update(bar_capsule_margins(geo, phi, checks.link_radius_mm, clearance))
+    return with_mcp_pairs(margins, distal, geo.proximal_pad, packaging, checks.mcp_samples_rad,
+                          until_unsafe, include_static_pairs)
+
+
+def with_mcp_pairs(margins: dict[tuple[str, str], np.ndarray], distal_pad: np.ndarray, proximal_pad: np.ndarray,
+                   packaging: Packaging, mcp_samples_rad: Sequence[float], until_unsafe: bool,
+                   include_static_pairs: bool) -> dict[tuple[str, str], np.ndarray]:
+    """``margins`` with the pads against the MCP servo, snapped to 0 within the touching tolerance.
+
+    ``until_unsafe``: the distal pad is checked against the MCP servo (the
+    costly pair: every MCP angle) only up to the first sample another pair
+    fails at; past it the motion is unsafe anyway, and its margin is ``inf``.
+    ``include_static_pairs``: the proximal pad's pair (fixed in the proximal
+    frame) too; off along the motion, where the reference pose has checked it.
+    """
+
+    count = len(distal_pad)
+    margins = dict(margins)
     if packaging.pad_checks_mcp("distal_pad"):
         end = count
-        if until_unsafe:
+        if until_unsafe and margins:
             failing = np.flatnonzero(np.min(np.stack(list(margins.values())), axis=0) < -MARGIN_TOLERANCE_MM)
             end = int(failing[0]) + 1 if failing.size else count
-        for name, solid in moving.items():
-            margin = np.full(count, np.inf)
-            margin[:end] = (mcp_servo_gaps(solid[:end], packaging, checks.mcp_samples_rad)
-                            - packaging.mcp_pad_clearance_mm)
-            margins[(name, "mcp_servo")] = margin
-    if include_static_pairs and packaging.pad_checks_mcp("proximal_pad"):  # fixed in the proximal frame
-        gap = proximal_pad_mcp_gap(geo.proximal_pad, packaging, checks.mcp_samples_rad)
+        margin = np.full(count, np.inf)
+        margin[:end] = mcp_servo_gaps(distal_pad[:end], packaging, mcp_samples_rad) - packaging.mcp_pad_clearance_mm
+        margins[("distal_pad", "mcp_servo")] = margin
+    if include_static_pairs and packaging.pad_checks_mcp("proximal_pad"):
+        gap = proximal_pad_mcp_gap(proximal_pad, packaging, mcp_samples_rad)
         margins[("mcp_servo", "proximal_pad")] = np.full(count, gap - packaging.mcp_pad_clearance_mm)
     return {pair: np.where(np.abs(margin) < MARGIN_TOLERANCE_MM, 0.0, margin) for pair, margin in margins.items()}
 
@@ -261,6 +273,6 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
                             lambda q: margins_of(geo, q))
 
 
-__all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples",
+__all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples", "with_mcp_pairs",
            "carrier_local", "contact_faces", "geometry",
            "margins", "servo_rear"]
