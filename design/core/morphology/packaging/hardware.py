@@ -119,6 +119,9 @@ class Packaging:
     a_pin_servo_check: bool = False
     """The ``A`` pin also keeps clear of the PIP servo body (it hangs off the
     servo on a bracket otherwise)."""
+    a_pin_mcp_check: bool = False
+    """The CFL's ``A`` pin housing keeps clear of the MCP servo body (both in the
+    central layer; otherwise a pin may touch the MCP servo, :data:`PIN_CHECKED`)."""
     pad_pad_check: bool = True
     """The two pads keep clear of each other."""
     distal_pad_mcp_check: bool | None = None

@@ -89,6 +89,15 @@ def test_the_2r_remote_servo_is_fixed_proximal_of_its_joint_and_still_comparable
     assert rules[0]["bounds"] == rules[1]["bounds"] and rules[0]["relative_bounds"] == rules[1]["relative_bounds"]
 
 
+def test_the_study_keeps_the_cfls_a_pin_off_the_mcp_servo():
+    from core.morphology.mechanism.linkage.packaging import layout
+
+    for name in ("cfl.yaml", "cfl_ideal.yaml"):
+        _, config = load(STUDY / name)
+        assert config.packaging.a_pin_mcp_check  # A.4: only a pivot and its own actuator may overlap
+        assert layout(config.packaging).pair("a_pin", "mcp_servo") is not None
+
+
 def test_a_native_reference_may_fix_some_coordinates_of_its_found_design():
     import importlib.util
     import sys

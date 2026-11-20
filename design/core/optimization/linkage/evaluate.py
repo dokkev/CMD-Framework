@@ -320,6 +320,9 @@ def _static_constraints(finger: Finger, footprint: ServoFootprint, config: Linka
         servo_gap = least_margin_mm(built, servo_rest, packaging, ("mcp_servo", "pip_servo"))
         constraints["static_mcp_servo_mm"] = max(-servo_gap, -math.inf if config.mcp_gap_max_mm is None
                                                  else servo_gap - config.mcp_gap_max_mm)
+    if packaging.a_pin_mcp_check:  # A's housing off the MCP servo body (with or without a PIP servo)
+        a_gap = least_margin_mm(built, servo_rest, packaging, ("a_pin", "mcp_servo"))
+        constraints["static_mcp_servo_mm"] = max(constraints["static_mcp_servo_mm"], violation_mm(a_gap))
     if packaging.a_pin_servo_check:
         constraints["static_pivot_pin_mm"] = max(pivot_pin, short(("a_pin", "pip_servo")))
     # The PIP servo and the proximal pad (one body, still kept apart), and the

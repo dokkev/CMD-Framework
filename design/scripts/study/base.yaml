@@ -108,6 +108,7 @@ goal:
       pip_servo_and_proximal_pad: true    # the servo may come down to the pad's top face
       mcp_servo_and_proximal_pad: true    # the proximal pad starts at the MCP servo's shaft disk
       a_pin_and_b_pin: false
+      a_pin_and_mcp_servo: true           # A's housing off the MCP servo body (2026-11-20)
 
   # Linkage occlusion (goal.loss.include_linkage_occlusion) defaults to false
   # under profile: study; pass goal_overrides: {include_linkage_occlusion: true}

@@ -262,6 +262,8 @@ def layout(packaging: LinkagePackaging) -> Layout:
         keep_outs.append(KeepOut("a_pin", "pip_shaft"))
     if packaging.a_pin_servo_check:
         keep_outs.append(KeepOut("a_pin", "pip_servo"))
+    if packaging.a_pin_mcp_check:
+        keep_outs.append(KeepOut("a_pin", "mcp_servo"))
     if packaging.pip_servo_pad_check:
         keep_outs.append(KeepOut("pip_servo", "proximal_pad"))
     keep_outs = [keep for keep in keep_outs if not {keep.first, keep.second} & set(servo_parts)]
