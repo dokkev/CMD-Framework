@@ -136,7 +136,7 @@ the required flexion of 120°, and the module usable at that flexion.
    `|OA|`, `B_x`, `BC` and the box `A'` and `B'` span from them; each
    mechanism's pad ranges, built again from its goal). No other bound and no
    physical requirement changes. The finger's least length also drops by
-   `external_range_mm` (to 70 mm): a shorter finger is an external change,
+   `external_range_mm` (from 90 to 60 mm; 30 mm since 2026-11-19): a shorter finger is an external change,
    and it is counted in `eps_d`.
 
    Box bounds that a module's length sets (the 2R's and RCJ's pad ends,

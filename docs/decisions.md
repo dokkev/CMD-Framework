@@ -159,3 +159,4 @@
 - ~~`comparison/` 예산·두께·palmar budget·paper pipeline TODO~~ → Study 1–4 (`design/scripts/study/`) 및 탐색 연구 E01–E10 (`report/exploratory/`) 체제로 전환 완료.
 - 2026-11-19: `GOAL.md`를 `design/SSoT/research-objective.md`로 옮김. Study 3/4 삭제. Study 2는 contact module 치수 (ℓ, h)에 대한 연속 landscape로 재정의: native 기준 설계, 영역 경계 비교(점별 Δε_d 대신), 양방향 warm start, 경계점 큰 예산 재확인, 기존 8개 target은 표시점으로 유지.
 - 2026-11-19: Study native 기준을 q_req별(90/120/150)로 따로 찾고, 각 기준은 자기 q_req에서만 평가. Study goal의 L_f는 90 mm 고정([89.95, 90.05]: L_f가 파생값이라 정확한 등호는 반올림으로 놓침). 이전 base.yaml의 search q_req는 120이었음(예전 baseline.yaml 150을 덮어씀). scripts/optimize/run.py에 --set/--tag 추가. Study 1 tilt sweep은 native 설계(자기 tilt)를 함께 유지(include_reference). Study 2 run.py의 tilt sweep은 제거. CFL native의 MA 하한은 두지 않음.
+- 2026-11-19: Study 2 Level 2의 외형 이동 범위 external_range_mm 20 → 30 (L_f 60-120 mm). 긴 module에서 ±20 mm에 막혀 not found가 되는 경우를 줄이기 위함.

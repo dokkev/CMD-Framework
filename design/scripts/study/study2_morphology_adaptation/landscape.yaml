@@ -11,7 +11,7 @@ references: scripts/study/study2_morphology_adaptation/references_native.yaml
 kinds: [native]
 catalog: scripts/study/study1_fixed_morphology/modules.yaml   # its baseline is the held module; its named pairs the markers
 required_flexion_deg: [90, 120, 150]
-external_range_mm: 20               # Level 2 moves each external descriptor at most this far
+external_range_mm: 30               # Level 2 moves each external descriptor at most this far (L_f 60-120 mm)
 
 # The grid of every section (lengths x thicknesses).
 grid:
