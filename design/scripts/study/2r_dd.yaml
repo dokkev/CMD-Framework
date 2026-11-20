@@ -1,5 +1,5 @@
-# 2R-DD (servo at the joint A), its servo's tilt searched in 0-45 deg with the
-# rest (native, 2026-11-19).
+# 2R-DD: the serial 2R, its servo at the joint A. Its tilt searched in 0-45 deg
+# with the rest (native, 2026-11-19).
 base: base.yaml
 mechanism: revolute
 goal:

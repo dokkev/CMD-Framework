@@ -6,6 +6,7 @@
 ## 결정됨
 
 ### Prototype 2목적 (2026-11-19)
+- 2026-11-19: Study 설정 정리. `base.yaml`+`baseline.yaml` → `base.yaml` 하나(study의 전체 goal과 solver). 구조별 파일 6개(`cfl`, `cfl_ideal`, `2r_dd`, `2r_remote`, `rcj`, `rcj_ideal`)는 mechanism과 구조 고유 설정만, tilt 변형 파일은 구조별 파일 위에 tilt 한 줄. 17개 study 설정 모두 정리 전과 config 객체가 같음. native search는 tilt 0~45°를 함께 탐색, Study 1/2의 tilt sweep은 0/15/30/45°.
 - 2026-11-19: Study 1/2를 native reference로 전환(`references_native.yaml`, `kinds: [native]`). matched는 모든 구조를 CoDe prototype의 외형(L_f, 두 pad 구간, 관절 위치)에 맞춰 CoDe에 유리할 수 있으므로, 각 구조를 study goal로 따로 최적화한 설계끼리 비교. portfolio는 `run.py scripts/study/<file>.yaml`로 만들어야 함(아직 안 돌림). 결과 폴더는 `*_native`. matched reference 파일은 기록으로 유지. 또 study의 CFL과 CoDe prototype을 구분: study 설정 `code_tilt15`/`code_ideal` → `cfl_tilt15`/`cfl_ideal`, 그림 이름 study는 "CFL", prototype 설정(`profile: prototype`)의 설계는 "CoDe prototype".
 - 2026-11-19: Study에 이상화 CFL(`linkage_idealized`, `cfl-idealized-pf1`, `scripts/study/code_ideal.yaml`, reference `code_ideal_matched`, upper bound) 추가. PIP servo 몸체와 그 축 주변 keep-out을 빼고(충돌 쌍, 정적 검사 3개, 탐색의 A′ servo floor, overhang), A′ pin housing과 전달 제약(γ, MA)은 유지. 비교 규칙에서는 servo 유무 플래그 5개를 actuation으로 보고 제외. 기준 형상에서는 Study 1 결과가 CoDe와 같음(q_req 150°, module 71개 중 feasible 36개, C̄_pad 중앙값 0.386).
 - 2026-11-19: v2의 k_max = 2.5(MA_wc ≥ 0.4). quick sweep(k_max 3, 2.75, 2.5, 2.25, 2.0)에서 |AB| ≤ 26~28 mm의 최고 C̄_pad가 2.5 아래로 급히 떨어짐(|AB| ≤ 26: 0.674, 0.667, 0.644, 0.585, 0.449). compact한 four-bar를 우선해 2.5로 정함.

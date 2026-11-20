@@ -65,7 +65,7 @@ COLLISION_DEFAULTS = {"a_pin_and_pip_servo": True, "a_pin_and_a_prime_pin": Fals
 housing against the keep-out around the servo shaft at ``A'`` (within the
 servo's front, so ``a_pin_and_pip_servo`` already covers it). On since
 2026-11-19: ``B'``'s housing against the PIP servo body and ``A``'s against
-``B``'s (the study's baseline.yaml keeps both off, as it ran)."""
+``B``'s (the study's base.yaml keeps both off, as it ran)."""
 DEPRECATED_CHECKS = ("a_pin_and_proximal_pad", "b_pin_and_distal_pad", "distal_carrier_and_pip_servo")
 """Checks removed 2026-11-03, ignored in a goal: the contact interface spaces
 start at a set line (no drop to choose; their link's since 2026-11-04, each

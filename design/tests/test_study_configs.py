@@ -13,7 +13,7 @@ from core.optimization.linkage.mechanism import resolve_preset
 from core.optimization.mechanism import mechanism, read_config_file
 
 STUDY = Path(__file__).resolve().parents[1] / "scripts" / "study"
-FILES = sorted(path for path in STUDY.glob("*.yaml") if path.name not in ("base.yaml", "baseline.yaml"))
+FILES = sorted(path for path in STUDY.glob("*.yaml") if path.name != "base.yaml")
 
 
 def load(path: Path):

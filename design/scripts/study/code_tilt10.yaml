@@ -1,7 +1,5 @@
-# CoDe (crossed four-bar), the PIP servo laid back 10 deg: the prototype's
-# layout, the servo against the MCP servo's body.
-base: base.yaml
-mechanism: linkage
+# CFL (cfl.yaml) with its servo's tilt held at 10 deg.
+base: cfl.yaml
 goal:
   hardware:
     pip_servo:

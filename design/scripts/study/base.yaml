@@ -1,6 +1,10 @@
-# The paper's mechanism comparison: one goal, one search budget, every
-# mechanism. Each file here extends this one and names its mechanism and
-# what it changes (the PIP servo's tilt, ...):
+# The studies' mechanism comparison: one goal, one search budget, every
+# mechanism (design/SSoT/problem_formulation.md A.6). The files here:
+#
+#   base.yaml       this goal and solver, shared by every mechanism
+#   <mechanism>.yaml   one per mechanism, only what it is and owns:
+#                   cfl, cfl_ideal, 2r_dd, 2r_remote, rcj, rcj_ideal
+#   <mechanism>_tilt<deg>.yaml   a mechanism with its servo tilt held
 #
 #   python scripts/optimize/run.py scripts/study/<file>.yaml
 #
@@ -8,50 +12,151 @@
 # Change the goal here, for every mechanism at once, not in one file.
 #
 # STUDY OPTIMIZATION: separate from the prototype optimization
-# (scripts/optimize/prototype/, "production"). Do not bring a prototype
+# (scripts/optimize/prototype/, the CoDe prototype). Do not bring a prototype
 # condition in here (its pivot sizes, bounds, pad settings, ...), and do not
 # compare a study result with a prototype run. A prototype design may enter
 # only as a frozen reference design vector, re-evaluated under these rules
-# (README.md, "Two optimizations: prototype and study").
-base: baseline.yaml
+# (README.md, "Two optimizations: prototype and study"). Every entry is
+# required unless marked optional; lengths in mm, angles in degrees.
+
 profile: study
 output: output/study
 
+
+# 1. Goal ---------------------------------------------------------------------
+
 goal:
   motion:
+    # q_req: every pose of [0, q_req] must be valid (A.4) and meet the
+    # transmission constraints below; the MCP held at 0.
     required_flexion_deg: 120
+
+  # In the extended pose: A and B on their phalanges' axes; the pads' faces
+  # each at its own depth (not aligned).
+  alignment:
+    joint_axes: true
+    contact_faces: false
+
+  # The contact pads: a block below its link line (O-A, B-C), its length
+  # searched in [min, max] (null max: the finger's), its ends searched with
+  # the links (on_links: false), each kept off its own pins.
+  pads:
+    on_links: false
+    # Each pad's mounting depth set, not searched: 0 when the pad does not
+    # reach its own joint hardware (case A), else the least depth that clears
+    # it, no deeper than that hardware reaches below the line on the pad's own
+    # body (case B: the CFL's pin housings and, for the proximal pad, its PIP
+    # servo; the 2R-DD's servo for its proximal pad; the RCJ's rollers and its
+    # servo for the proximal pad); deeper needs a spacer and is no design
+    # (case C, core.optimization.mounting). The two depths are independent.
+    mount_policy: shallowest_supported
+    proximal:
+      length_mm: [20, null]
+      mount_offset_mm: [0, 10]    # the most depth allowed
+      height_mm: 5
+      past_icr_max_mm: null
+    distal:
+      length_mm: [25, null]
+      mount_offset_mm: [0, 10]
+      height_mm: 5
+
+  # The finger's size: |OC| extended; no anatomical proportions (the segments
+  # and the four-bar's span left to the physical constraints).
   link:
     finger_length_mm: [80, 90]
-    # No anatomical proportions: the segments and the four-bar's span are
-    # left to the physical constraints (production bounds them by ratio).
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
     joint_span_ratio: [null, null]
-  pads:
-    # Each pad's mounting depth below its reference line set, not searched:
-    # 0 when the pad does not reach its own joint hardware (case A), else the
-    # least depth that clears it, no deeper than that hardware reaches below
-    # the line on the pad's own body (case B: CoDe's pin housings and, for
-    # the proximal pad, its PIP servo; the 2R-DD's servo for its proximal
-    # pad, its distal pad hanging from a truss off the output with none,
-    # unless aligned; the RCJ's rollers, each its own segment's, and its
-    # servo for the proximal pad); deeper needs a spacer and
-    # is no design (case C, core.optimization.mounting). The two depths are
-    # independent.
-    mount_policy: shallowest_supported
-    # The study's own mounting-depth range (the most allowed), set here so a
-    # production change does not move it.
-    proximal:
-      mount_offset_mm: [0, 10]
-    distal:
-      mount_offset_mm: [0, 10]
+    symmetric_four_bar: false
+
+  # The CFL's transmission constraints on [0, q_req] (A.5.2; CFL only: the
+  # 2Rs' MA is 1, the symmetric RCJ's 1/2).
+  transmission:
+    angle_deg: [30, 150]          # transmission angle gamma at B'
+    ma_min: 0.2                   # MA_wc >= ma_min (null: none)
+
+  # The actuators (each mechanism file sets its servo's tilt).
+  hardware:
+    pip_servo:
+      model: xm335                # core.hardware.ACTUATORS
+      tilt_angle_deg: [0, 90]     # dorsal tilt of the body from -X, searched every tilt_step_deg
+      tilt_step_deg: 5
+    mcp_servo:
+      model: xm335
+
+  # Self-collision (A.4). No clearance is added: the tolerances are part of
+  # the sizes.
+  collision:
+    param:
+      # Each pivot's size, its tolerance included (the study's frozen sizes;
+      # A' at 10 changes no study result, 2026-11-17).
+      pivot_diameter_mm:
+        a: 6
+        a_prime: 10
+        b: 6
+        b_prime: 6
+    # Which pairs are checked (the study ran with these; the prototype's
+    # defaults differ for B' and A-B).
+    check:
+      a_pin_and_pip_servo: true
+      a_pin_and_a_prime_pin: false        # implied by a_pin_and_pip_servo
+      b_prime_pin_and_pip_servo: false    # the driver link in another layer than the servo
+      proximal_pad_and_distal_pad: true
+      pip_servo_and_proximal_pad: true    # the servo may come down to the pad's top face
+      mcp_servo_and_proximal_pad: true    # the proximal pad starts at the MCP servo's shaft disk
+      a_pin_and_b_pin: false
 
   # Linkage occlusion (goal.loss.include_linkage_occlusion) defaults to false
-  # under profile: study (SSoT §7.2); pass goal_overrides: {include_linkage_occlusion: true}
+  # under profile: study; pass goal_overrides: {include_linkage_occlusion: true}
   # for linkage-occlusion sensitivity runs.
 
+
+# 2. Solver -------------------------------------------------------------------
+
 solver:
+  # The studies' one objective: the cylinder-based pad coverage over Q_eval.
+  objectives:
+    - c_pad_mean
+
+  pareto_front:
+    c_pad_mean: 0                 # no pad
+
+  # Search limits for what no requirement bounds (A' and B' relative to A and
+  # B; the pads' ends past A' and B'). Keep them wide: the run reports a front
+  # sitting on one.
+  search_bounds:
+    ap_from_a_x_mm: [-20, 30]
+    ap_from_a_z_mm: [0, 25]
+    bp_from_b_x_mm: [-50, 20]
+    bp_from_b_z_mm: [-60, 80]
+    app_offset_mm: [-60, 60]
+    bpp_offset_mm: [-60, 60]
+
+  sampling:
+    flexion_step_deg: 1.0         # uniform q2 grid of the motion
+    verify_step_deg: 0.05         # the front re-checked on this grid
+
+  prototyping_resolution_mm: 0.1  # every dimension rounded to it
+
   optimizer:
+    #   quick        a look in about a minute
+    #   search       the study's runs (two optimizers x three seeds, 1000 generations)
+    #   convergence  until the best C_pad levels off
     preset: search
-    # No warm start: the production samples were drawn under another goal.
-    warm_start: []
+    presets:
+      quick:
+        algorithm: ga
+        population: 200
+        generations: 300
+        seeds: [0]
+      search:
+        algorithm: [ga, nsga2]    # each run with every seed, merged into one verified front
+        population: 200
+        generations: 1000
+        seeds: [0, 1, 2]
+      convergence:
+        algorithm: [ga, nsga2]
+        population: 200
+        generations: 3000
+        seeds: [0, 1, 2]
+    warm_start: []                # none: the prototype's samples were drawn under another goal

@@ -1,13 +1,6 @@
-# The serial 2R driven through a belt from a servo on A' (revolute_parallel,
-# k = 1): the servo where CoDe's PIP servo is, searched relative to A, tilted
-# 10 deg as CoDe's (code_tilt10.yaml), so the two compare at one servo layout.
-# The belt and its pulleys (6 mm, as decided 2026-10-28) run in the outer layer:
-# no collision with the pads; when goal.loss.include_linkage_occlusion is enabled
-# in a sensitivity study, portions occluded at the required flexion do not count.
-base: base.yaml
-mechanism: revolute_parallel
+# 2R-remote (2r_remote.yaml) with its servo's tilt held at 10 deg.
+base: 2r_remote.yaml
 goal:
   hardware:
-    pulley_radius_mm: 6
     pip_servo:
       tilt_angle_deg: [10, 10]

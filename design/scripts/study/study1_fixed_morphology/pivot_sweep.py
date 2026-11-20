@@ -9,8 +9,8 @@ reference alike (``goal_overrides``), and nothing else. The study's rules tie tw
 - A's and B's radii are where each pad starts below its link line, so the pads move with the pivots;
 - the RCJ's smallest roller is bounded by B's radius.
 
-The study's own value is A 6, A' 10, B 6, B' 6 mm (``baseline.yaml``). A' changes no result
-(``baseline.yaml``). A study sensitivity, not the prototype's packaging (README.md, "Two optimizations").
+The study's own value is A 6, A' 10, B 6, B' 6 mm (``scripts/study/base.yaml``). A' changes no result
+(``scripts/study/base.yaml``). A study sensitivity, not the prototype's packaging (README.md, "Two optimizations").
 
 Writes ``output/study/study1_pivot_sweep/d<diameter>/`` (a Study 1 run each, its config included) and
 ``pivot_counts.csv`` beside them.

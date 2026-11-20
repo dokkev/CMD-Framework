@@ -7,4 +7,4 @@ mechanism: linkage_idealized
 goal:
   hardware:
     pip_servo:
-      tilt_angle_deg: [15, 15]    # unused without the body; kept as cfl_tilt15's
+      tilt_angle_deg: [15, 15]    # unused without the body

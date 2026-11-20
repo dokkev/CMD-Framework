@@ -1,9 +1,5 @@
-# The studies' CFL (crossed four-bar linkage) with its PIP servo laid back 15
-# deg (the nominal tilt, as in the CAD). A mechanism of the comparison, searched
-# under the study's goal: not the CoDe prototype (scripts/optimize/prototype/),
-# whose rules and designs stay apart.
-base: base.yaml
-mechanism: linkage
+# CFL (cfl.yaml) with its servo's tilt held at 15 deg.
+base: cfl.yaml
 goal:
   hardware:
     pip_servo:

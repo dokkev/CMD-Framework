@@ -1,7 +1,5 @@
-# 2R-DD (servo at the joint A), its servo laid along the proximal segment
-# (0 deg): the proximal pad then runs under the servo's body.
-base: base.yaml
-mechanism: revolute
+# 2R-DD (2r_dd.yaml) with its servo's tilt held at 0 deg.
+base: 2r_dd.yaml
 goal:
   hardware:
     pip_servo:

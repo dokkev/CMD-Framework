@@ -1,7 +1,7 @@
-# RCJ (equal rollers rolling without slip; the servo on the proximal roller's
-# centre A drives the carrier A-B, k = 2), its servo's tilt searched in 0-45
-# deg with the rest (native, 2026-11-19). Ideal no-slip kinematics: the crossed
-# cables are not modelled, so every design is provisional.
+# RCJ: equal rollers rolling without slip, the servo on the proximal roller's
+# centre A driving the carrier A-B (k = 2). Ideal no-slip kinematics: the
+# crossed cables are not modelled, so every design is provisional. Its tilt
+# searched in 0-45 deg with the rest (native, 2026-11-19).
 base: base.yaml
 mechanism: rcj
 goal:
