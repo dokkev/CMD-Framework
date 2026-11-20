@@ -1,5 +1,34 @@
 # Study 2: morphology adaptation for contact accommodation
 
+## Landscape (2026-11-19, the primary Study 2 result)
+
+`design/SSoT/problem_formulation.md` A.6.3: the least external change
+$\varepsilon_{d,K}^\star$ over a grid of module lengths and thicknesses, per
+native reference, required flexion and section (symmetric, proximal, distal).
+
+```bash
+python scripts/study/study2_morphology_adaptation/landscape.py [landscape.yaml] [--resume] \
+    [--references cfl_native,2r_dd_native] [--flexions 120] [--sections symmetric]
+python scripts/study/study2_morphology_adaptation/figure_landscape.py output/study/study2_landscape
+```
+
+- Each grid point is `run.py`'s hierarchy (frozen, Level 1, Level 2), searched in
+  two sweeps (`up` from the smallest module, `down` from the largest), each point
+  warm-started from the neighbours its sweep has already solved
+  (`adaptation.adapt(..., warm=...)`); the better sweep is kept, and their gap is
+  reported (`direction_gap`).
+- Boundary points (not found, an outcome other than a neighbour's, or an
+  $\varepsilon_d$ jump above `recheck.jump`) are searched again at
+  `recheck.optimizer`'s budget, warm-started from both sweeps and the neighbours.
+- `rows.csv` holds every search, `landscape.csv` each point's best; `--resume`
+  runs only the missing searches. `markers.csv` places the catalog's named pairs
+  (the eight earlier targets) on the sections, or in the table.
+- Figures (PNG): $\varepsilon_d^\star$ and excess heatmaps (one cell per optimized
+  point, nothing interpolated, not found hatched, rechecked dotted, markers
+  outlined) and the regions $\varepsilon_d^\star \le \tau$ outlined per reference.
+
+The discrete-target runs below (`run.py`, `config.yaml`) remain for the markers' table.
+
 ## Active nominal and tilt-sweep configuration (2026-11-09)
 
 Production and the active nominal CoDe hand use a CAD-derived **15 degree** PIP servo rear-body tilt

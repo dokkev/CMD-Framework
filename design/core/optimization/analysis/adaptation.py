@@ -354,11 +354,28 @@ def _search(base: Mechanism, partition: Partition, reference, config, settings: 
                                   external_range_mm, external_cap)
     if not adapted.search_names(config):
         return Step(level, "no_freedom")
-    result = run_study(adapted, config, settings, initial_designs=[w for w in warm if w is not None], workers=workers)
+    result = run_study(adapted, config, settings, initial_designs=_startable(adapted, config, warm), workers=workers)
     best = _best(result, adapted, objective)
     if best is None:
         return Step(level, "not_found", evaluations=result.evaluation_count, result=result)
     return Step(level, "found", best.x, best.evaluation, result.evaluation_count, result)
+
+
+def _startable(adapted: AdaptationMechanism, config, warm: Sequence[Sequence[float] | None]) -> list:
+    """The warm designs this search can start from: those whose free coordinates
+    it can read (a neighbour's design, built for another module, may not be)."""
+
+    found = []
+    for x in warm:
+        if x is None:
+            continue
+        try:
+            values = adapted.from_design(x, config)
+        except (ValueError, KeyError, ZeroDivisionError):
+            continue
+        if all(math.isfinite(float(v)) for v in values):
+            found.append(x)
+    return found
 
 
 def save_step(step: Step, directory, *, source_git_commit: str | None = None):
@@ -384,9 +401,14 @@ def save_step(step: Step, directory, *, source_git_commit: str | None = None):
 
 def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], config,
           settings: OptimizerSettings, scale_mm: float, external_range_mm: float,
-          workers: int = 1) -> AdaptationResult:
+          workers: int = 1, warm: Sequence[Sequence[float]] = ()) -> AdaptationResult:
     """The hierarchy for one reference ``reference`` (a design vector) and the
-    contact interface ``config`` carries (``tradeoff.with_modules``)."""
+    contact interface ``config`` carries (``tradeoff.with_modules``).
+
+    ``warm``: further designs (the base mechanism's vectors, e.g. a neighbouring
+    module's adapted designs) each search also starts from, besides the reference."""
+
+    warm = [tuple(float(v) for v in x) for x in warm if x is not None]
 
     reference = tuple(float(v) for v in reference)
     frozen_mechanism = AdaptationMechanism(base, partition, reference, config, "mechanism", "mechanism_cost",
@@ -401,14 +423,14 @@ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], con
     frozen = Step("frozen", "infeasible", frozen_x, frozen_eval, 1)
 
     level1 = _search(base, partition, reference, config, settings, "level1", "mechanism", "mechanism_cost",
-                     scale_mm, warm=[frozen_x], workers=workers)
+                     scale_mm, warm=[frozen_x, *warm], workers=workers)
     if level1.status == "found":
         return AdaptationResult("level1", (frozen, level1), level1)
 
     length = frozen_mechanism.reference_external["finger_length_mm"]
     free_config = with_finger_lengths(config, length - external_range_mm, length + external_range_mm)
     first = _search(base, partition, reference, free_config, settings, "level2_external", "external",
-                    "external_cost", scale_mm, external_range_mm, warm=[frozen_x], workers=workers)
+                    "external_cost", scale_mm, external_range_mm, warm=[frozen_x, *warm], workers=workers)
     if first.status != "found":
         return AdaptationResult("not_found", (frozen, level1, first), None)
     # Lexicographic: among the least external changes, the least mechanism change.

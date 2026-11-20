@@ -56,6 +56,8 @@
 | `optimization/mounting.py` | `shallowest_supported` 장착 규칙, `depth_violation_mm` | A.6.2 장착 규칙 |
 | `optimization/analysis/adaptation.py` | Study 2의 단계적 탐색, $\varepsilon_d$, $\varepsilon_\kappa$ | A.6.3 |
 | `scripts/study/study1_fixed_morphology/run.py` | Study 1 수용 판정 | A.6.2 |
+| `scripts/study/study2_morphology_adaptation/landscape.py` | Study 2 landscape: 단면 격자, 양방향 warm start, 경계점 재확인 | A.6.3 Landscape, 탐색 규율 |
+| `scripts/study/study2_morphology_adaptation/figure_landscape.py` | $\varepsilon_d^\star$, 초과분 heatmap, $\mathcal R_K(\tau)$ 경계 | A.6.3 구조 사이의 비교 |
 
 ## 5. 제약과 목적함수
 

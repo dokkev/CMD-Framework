@@ -1,0 +1,54 @@
+# Study 2: the morphology-change landscape (design/SSoT/problem_formulation.md A.6.3).
+#
+#   python scripts/study/study2_morphology_adaptation/landscape.py [landscape.yaml] [--resume]
+#   python scripts/study/study2_morphology_adaptation/figure_landscape.py <output>
+#
+# For each reference, required flexion and section: the least external change
+# eps_d* over a grid of module lengths and thicknesses, each grid point the
+# adaptation hierarchy of run.py (frozen, Level 1, Level 2). Lengths in mm.
+
+references: scripts/study/study2_morphology_adaptation/references_native.yaml
+kinds: [native]
+catalog: scripts/study/study1_fixed_morphology/modules.yaml   # its baseline is the held module; its named pairs the markers
+required_flexion_deg: [90, 120, 150]
+external_range_mm: 20               # Level 2 moves each external descriptor at most this far
+
+# The grid of every section (lengths x thicknesses).
+grid:
+  length_mm: [15, 20, 25, 30, 35, 40, 45]
+  thickness_mm: [3, 4, 5, 6, 7, 8, 9]
+
+# The 2D sections of (l_p, h_p, l_d, h_d):
+#   symmetric  l_p = l_d = l, h_p = h_d = h
+#   proximal   (l_p, h_p) varied, the distal module the catalog's baseline
+#   distal     (l_d, h_d) varied, the proximal module the catalog's baseline
+sections: [symmetric, proximal, distal]
+
+# Each point is searched twice, warm-started from its already-solved
+# neighbours: once from the smallest module outward (up), once from the largest
+# inward (down). The better is kept, so the sweep order does not set the map.
+directions: [up, down]
+optimizer:
+  algorithm: nsga2
+  population: 100
+  generations: 100
+  seeds: [0, 1, 2]
+
+# Points on a boundary are searched again, at a larger budget with other seeds,
+# warm-started from both directions' results and the neighbours', before they
+# are reported as a boundary: a point whose outcome (frozen, Level 1, Level 2,
+# not found) differs from a neighbour's, a point not found, or one whose eps_d
+# differs from a neighbour's by more than jump.
+recheck:
+  jump: 0.05                        # eps_d (fraction of L_f)
+  optimizer:
+    algorithm: nsga2
+    population: 200
+    generations: 300
+    seeds: [3, 4, 5, 6, 7, 8]
+
+# The figures' region thresholds tau (R_K(tau): eps_d* <= tau).
+thresholds: [0.0, 0.05, 0.10]
+
+workers: 8
+output: output/study/study2_landscape
