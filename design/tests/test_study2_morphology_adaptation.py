@@ -57,6 +57,12 @@ def matched(config_file: str, modules: Modules = BASELINE):
     return found, part, part.compose(external, coordinates, template, carried), carried
 
 
+MATCHED = {"references": "scripts/study/study2_morphology_adaptation/references_nominal15.yaml", "kinds": ["matched"]}
+"""The studies run native references (2026-11-19), whose portfolios a study
+search writes; the machinery is tested on the matched ones, built from the
+tracked design vector alone."""
+MATCHED_SWEEP = ["code_matched", "2r_dd_tilt0_matched", "belt_2r_matched", "rcj_tilt0_matched"]
+
 CONFIGS = ("code_tilt10", "2r_dd_tilt0", "2r_dd_tilt90", "belt_2r_tilt10", "rcj_tilt0", "rcj_tilt90", "rcj_ideal")
 
 
@@ -64,6 +70,8 @@ CONFIGS = ("code_tilt10", "2r_dd_tilt0", "2r_dd_tilt90", "belt_2r_tilt10", "rcj_
 def test_active_sweep_changes_only_tilt_and_keeps_it_fixed_in_each_search(study):
     shared = run.shared
     values = run.read_config_file(ROOT / "scripts/study" / study / "config.yaml")
+    values.update(MATCHED)
+    values["servo_tilt_sweep"]["references"] = MATCHED_SWEEP
     nominal = shared.load_references(tuple(values["kinds"]), ROOT, values["references"])
     expanded = shared.sweep_references(nominal, values["servo_tilt_sweep"])
     by_id = {r.reference_id: r for r in nominal}
@@ -219,6 +227,8 @@ def test_a_reference_that_carries_the_interface_stops_at_once(monkeypatch):
 def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     config = tmp_path / "config.yaml"
     values = run.read_config_file(STUDY / "config.yaml")
+    values.update(MATCHED)
+    values["servo_tilt_sweep"]["references"] = MATCHED_SWEEP
     values.update(output=str(tmp_path / "out"), workers=1, required_flexion_deg=[120])
     values["optimizer"].update(population=12, generations=3, seeds=[0, 1])
     config.write_text(yaml.safe_dump(values))

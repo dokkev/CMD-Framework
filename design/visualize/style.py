@@ -29,10 +29,13 @@ DASHES = {"revolute_idealized": (0, (3, 2)), "revolute": "-", "revolute_parallel
 LABELS = {"revolute_idealized": "2R, ideal (no joint servo)", "revolute": "2R-DD (servo at joint)",
           "revolute_parallel": "2R, servo on A' (belt)", "rcj": "RCJ (rolling contact)",
           "rcj_idealized": "RCJ, ideal (no joint servo)",
-          "linkage": "CoDe (crossed four-bar)", "linkage_idealized": "CoDe, ideal (no PIP servo)"}
+          "linkage": "CFL (crossed four-bar)", "linkage_idealized": "CFL, ideal (no PIP servo)"}
+PROTOTYPE_LABEL = "CoDe prototype (crossed four-bar)"
+"""A linkage design under a prototype config (``profile: prototype``): the hand
+that gets built, named apart from the studies' CFL mechanism."""
 SHORT_LABELS = {"revolute_idealized": "2R ideal", "revolute": "2R-DD", "revolute_parallel": "2R belt",
-                "rcj": "RCJ", "rcj_idealized": "RCJ ideal", "linkage": "CoDe",
-                "linkage_idealized": "CoDe ideal"}
+                "rcj": "RCJ", "rcj_idealized": "RCJ ideal", "linkage": "CFL",
+                "linkage_idealized": "CFL ideal"}
 NAMES = {"linkage": "CoDe linkage", "revolute": "2R-DD"}
 """The two-mechanism comparisons' names."""
 

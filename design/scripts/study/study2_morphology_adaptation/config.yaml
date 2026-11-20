@@ -2,11 +2,11 @@
 # repository root.
 #
 #   python scripts/study/study2_morphology_adaptation/run.py [config.yaml]
-references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
+references: scripts/study/study2_morphology_adaptation/references_native.yaml
 targets: scripts/study/study2_morphology_adaptation/targets.yaml
-# Which references to run: matched (primary), native (secondary; needs the
-# study searches rerun under the current rules first).
-kinds: [matched]
+# native (2026-11-19): each architecture's own design; the matched references
+# (all built to the CoDe prototype's morphology) are kept, not run.
+kinds: [native]
 # The required flexions q_req each adaptation is searched at (as Study 1's).
 required_flexion_deg: [90, 120, 150]
 # Every change is normalized by the reference finger's length (2026-11-06).
@@ -22,9 +22,9 @@ optimizer:
   # takes the best and counts how many seeds found one.
   seeds: [0, 1, 2]
 workers: 8
-output: output/study/study2_morphology_adaptation_tilt_sweep
+output: output/study/study2_morphology_adaptation_native
 
 # Actuation is swept outside the fixed-tilt morphology search.
 servo_tilt_sweep:
   angles_deg: [0, 15, 30, 45, 60, 75, 90]
-  references: [code_matched, 2r_dd_tilt0_matched, belt_2r_matched, rcj_tilt0_matched]
+  references: [cfl_native, 2r_dd_native, 2r_remote_native, rcj_native]

@@ -1,0 +1,24 @@
+# Studies 1-2's reference hands, native (2026-11-19): each architecture's own
+# design, searched under its study config (scripts/study/<file>.yaml: one goal,
+# one budget, every mechanism) and taken from its portfolio by role. No
+# architecture is built to another's morphology (the matched references,
+# references_nominal15.yaml, take the CoDe prototype's; kept for the record).
+#
+# The portfolios come from
+#   python scripts/optimize/run.py scripts/study/<file>.yaml
+# which writes output/study/<mechanism>/<file>/portfolio_NNN. The study's one
+# objective is the pad coverage, so "balanced" is its best design.
+native:
+  - {id: cfl_native, config: scripts/study/cfl_tilt15.yaml,
+     portfolio: output/study/linkage/cfl_tilt15/portfolio_001, role: balanced}
+  - {id: 2r_dd_native, config: scripts/study/2r_dd_tilt0.yaml,
+     portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: balanced}
+  - {id: 2r_remote_native, config: scripts/study/belt_2r_tilt15.yaml,
+     portfolio: output/study/revolute_parallel/belt_2r_tilt15/portfolio_001, role: balanced}
+  - {id: rcj_native, config: scripts/study/rcj_tilt0.yaml,
+     portfolio: output/study/rcj/rcj_tilt0/portfolio_001, role: balanced}
+  # Idealized: no joint or PIP servo body; upper bounds, reported apart.
+  - {id: cfl_ideal_native, config: scripts/study/cfl_ideal.yaml,
+     portfolio: output/study/linkage_idealized/cfl_ideal/portfolio_001, role: balanced, upper_bound: true}
+  - {id: rcj_ideal_native, config: scripts/study/rcj_ideal.yaml,
+     portfolio: output/study/rcj_idealized/rcj_ideal/portfolio_001, role: balanced, upper_bound: true}

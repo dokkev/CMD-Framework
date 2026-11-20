@@ -1,21 +1,21 @@
-references: scripts/study/study2_morphology_adaptation/references_nominal15.yaml
+references: scripts/study/study2_morphology_adaptation/references_native.yaml
 # Study 1: contact accommodation at a fixed morphology. Every reference hand
-# (Study 2's references.yaml: the tracked morphology, each architecture built
-# to it) carries every module pair of the catalog (modules.yaml), each at
+# (references_native.yaml: each architecture's own design under the study's
+# goal) carries every module pair of the catalog (modules.yaml), each at
 # every required flexion. Paths are from the repository root.
 #
 #   python scripts/study/study1_fixed_morphology/run.py
 modules: scripts/study/study1_fixed_morphology/modules.yaml
-# matched (the primary comparison); native needs the study searches rerun
-# under the current rules first.
-kinds: [matched]
+# native (2026-11-19): each architecture's own design; the matched references
+# (all built to the CoDe prototype's morphology) are kept, not run.
+kinds: [native]
 # Each assembly is evaluated asking each of these (deg): reached, and each
 # module usable there.
 required_flexion_deg: [90, 120, 150]
 workers: 8
-output: output/study/study1_fixed_morphology_tilt_sweep
+output: output/study/study1_fixed_morphology_native
 
 # Actuation is swept outside the fixed-tilt morphology search.
 servo_tilt_sweep:
   angles_deg: [0, 15, 30, 45, 60, 75, 90]
-  references: [code_matched, 2r_dd_tilt0_matched, belt_2r_matched, rcj_tilt0_matched]
+  references: [cfl_native, 2r_dd_native, 2r_remote_native, rcj_native]

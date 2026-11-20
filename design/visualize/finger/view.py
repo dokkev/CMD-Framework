@@ -17,7 +17,7 @@ from core.optimization.mechanism import mechanism as find_mechanism
 from core.optimization.study import load_run
 from visualize import sketch
 from visualize.finger import solid
-from visualize.style import LABELS
+from visualize.style import LABELS, PROTOTYPE_LABEL
 
 EXACT_BAND_MM = 1.0e6
 """The figures' gaps are exact however far (the checks bound the far ones from below only)."""
@@ -148,10 +148,12 @@ class FingerView:
     mechanism: str
     joint: JointView
     row: dict[str, str] | None = None
+    prototype: bool = False
+    """A design under a prototype config (the CoDe prototype), not a study's."""
 
     @property
     def label(self) -> str:
-        return LABELS[self.mechanism]
+        return PROTOTYPE_LABEL if self.prototype else LABELS[self.mechanism]
 
     @property
     def state(self) -> Any:
@@ -269,7 +271,8 @@ def view_of(mechanism: str, config: Any, x, row: dict[str, str] | None = None) -
 
     if mechanism not in JOINTS:
         raise ValueError(f"no view of {mechanism!r}; one of {sorted(JOINTS)}")
-    return FingerView(mechanism, JOINTS[mechanism].load(config, tuple(float(v) for v in x)), row)
+    return FingerView(mechanism, JOINTS[mechanism].load(config, tuple(float(v) for v in x)), row,
+                      getattr(config, "profile", None) == "prototype")
 
 
 def view_from_row(row: dict[str, str], study: Path, mechanism: str | None = None) -> FingerView:

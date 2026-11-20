@@ -51,3 +51,19 @@ def test_the_study_does_not_follow_the_production_config():
                 break
             chain = (chain.parent / base).resolve()
             assert chain.parent == STUDY.resolve(), f"{path.name} extends {chain} outside scripts/study"
+
+
+def test_the_studies_run_native_references_of_every_architecture():
+    import yaml
+
+    root = STUDY.parent
+    for study in ("study1_fixed_morphology", "study2_morphology_adaptation"):
+        values = read_config_file(STUDY / study / "config.yaml")
+        assert values["kinds"] == ["native"] and values["references"].endswith("references_native.yaml")
+    native = yaml.safe_load((STUDY / "study2_morphology_adaptation" / "references_native.yaml").read_text())["native"]
+    # Each a study config of its own (the CFL's is not the prototype's) and a portfolio under output/study.
+    assert {spec["id"] for spec in native} == {"cfl_native", "2r_dd_native", "2r_remote_native", "rcj_native",
+                                               "cfl_ideal_native", "rcj_ideal_native"}
+    for spec in native:
+        assert spec["config"].startswith("scripts/study/") and spec["portfolio"].startswith("output/study/")
+        assert (root.parent / spec["config"]).exists()
