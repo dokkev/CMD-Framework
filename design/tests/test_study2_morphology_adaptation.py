@@ -54,11 +54,17 @@ CONFIG_FILES = {
 """Each tested reference: its mechanism file and the servo tilt held."""
 
 
+MATCHED_WINDOW = ("solver.search_bounds.ap_from_a_x_mm=[-20, 30]", "solver.search_bounds.ap_from_a_z_mm=[0, 25]")
+"""The 2R-remote's servo window its matched reference is built in (the study's
+file fixes its pose, 2026-11-20; references*.yaml set the same)."""
+
+
 def matched(name: str, modules: Modules = BASELINE):
     """A mechanism's matched reference (the prototype's morphology) and its config carrying ``modules``."""
 
     config_file, tilt_deg = CONFIG_FILES[name]
-    found, config = run.load_config(f"scripts/study/{config_file}.yaml", ROOT, tilt_deg)
+    found, config = run.load_config(f"scripts/study/{config_file}.yaml", ROOT, tilt_deg,
+                                    MATCHED_WINDOW if config_file == "2r_remote" else ())
     part = partitions.partition(found.name)
     carried = with_modules(config, modules)
     external = partitions.partition("linkage").external(PROTOTYPE, carried)

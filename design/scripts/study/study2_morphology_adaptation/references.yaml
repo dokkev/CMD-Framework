@@ -33,7 +33,10 @@ matched:
   - {id: code_matched, config: scripts/study/cfl.yaml, tilt_deg: 10}
   - {id: 2r_dd_tilt0_matched, config: scripts/study/2r_dd.yaml, tilt_deg: 0}
   - {id: 2r_dd_tilt90_matched, config: scripts/study/2r_dd.yaml, tilt_deg: 90}
-  - {id: belt_2r_matched, config: scripts/study/2r_remote.yaml, tilt_deg: 10}
+  # Matched to the prototype's A' (2026-11-20: the study's 2R-remote fixes its servo pose; the
+  # matched reference keeps the window it was built in).
+  - {id: belt_2r_matched, config: scripts/study/2r_remote.yaml, tilt_deg: 10,
+     set: ["solver.search_bounds.ap_from_a_x_mm=[-20, 30]", "solver.search_bounds.ap_from_a_z_mm=[0, 25]"]}
   - {id: rcj_tilt0_matched, config: scripts/study/rcj.yaml, tilt_deg: 0}
   - {id: rcj_tilt90_matched, config: scripts/study/rcj.yaml, tilt_deg: 90}
   # No roller wall, bearing or cable retention is modelled: an upper bound,

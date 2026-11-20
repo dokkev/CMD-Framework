@@ -126,14 +126,16 @@ def flexions_for(reference: Reference, flexions) -> list[float]:
     return [v for v in flexions if math.isclose(v, reference.design_flexion_deg)]
 
 
-def load_config(path: str, root: Path = REPOSITORY_ROOT, tilt_deg: float | None = None):
+def load_config(path: str, root: Path = REPOSITORY_ROOT, tilt_deg: float | None = None, overrides=()):
     """A study config file's mechanism and config (its optimizer settings
     aside), its servo's tilt held at ``tilt_deg`` if given (a mechanism file
-    searches it; a reference may fix it)."""
+    searches it; a reference may fix it), and ``overrides`` (``key=value``, a
+    reference's ``set``) applied."""
 
     from core.optimization.linkage.mechanism import resolve_preset
 
-    overrides = () if tilt_deg is None else (f"goal.hardware.pip_servo.tilt_angle_deg=[{tilt_deg}, {tilt_deg}]",)
+    overrides = tuple(overrides) + (() if tilt_deg is None else
+                                    (f"goal.hardware.pip_servo.tilt_angle_deg=[{tilt_deg}, {tilt_deg}]",))
     values = read_config_file(root / path, overrides)
     found = mechanism(values.pop("mechanism"))
     values.pop("output", None)
@@ -176,7 +178,7 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
             raise ValueError(f"references.yaml: {source_mechanism.name} has {len(source_mechanism.variable_names)}"
                              f" design variables, the morphology gives {len(source_x)}")
         for spec in values["matched"]:
-            found, config = load_config(spec["config"], root, spec.get("tilt_deg"))
+            found, config = load_config(spec["config"], root, spec.get("tilt_deg"), spec.get("set", ()))
             part = partitions.partition(found.name)
             carried = with_modules(config, baseline)
             external = partitions.partition(source_mechanism.name).external(source_x, carried)
@@ -189,13 +191,20 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
                                    bool(spec.get("upper_bound", False))))
     if "native" in kinds:
         for spec in values.get("native") or ():
-            found, config = load_config(spec["config"], root, spec.get("tilt_deg"))
+            found, config = load_config(spec["config"], root, spec.get("tilt_deg"), spec.get("set", ()))
             flexion = spec.get("required_flexion_deg")
             if flexion is not None:  # designed for it: its goal asks it
                 config = with_required_flexion(config, float(flexion))
             name, x, source = _native(spec, root)
             if name != found.name:
                 raise ValueError(f"reference {spec['id']}: a {name} design under a {found.name} config")
+            if spec.get("design"):  # the found design with some coordinates set (an actuation fixed after the search)
+                names = found.variable_names
+                unknown = set(spec["design"]) - set(names)
+                if unknown:
+                    raise ValueError(f"reference {spec['id']}: no design variables {sorted(unknown)}")
+                x = tuple(float(spec["design"].get(n, v)) for n, v in zip(names, x))
+                source = f"{source} with {spec['design']}"
             built.append(Reference(spec["id"], "native", name, x, config, spec["config"], source,
                                    bool(spec.get("upper_bound", False)),
                                    design_flexion_deg=None if flexion is None else float(flexion)))
@@ -251,6 +260,11 @@ ACTUATION_FIELDS = ("pip_servo_tilt_rad", "pulley_radius_mm")
 the servo's tilt and the belt's pulleys."""
 
 
+SERVO_PLACEMENT_BOUNDS = ("ap_x_mm", "ap_z_mm", "ap_from_a_x_mm", "ap_from_a_z_mm")
+"""Search bounds on where the PIP servo's output shaft ``A'`` sits: actuation
+(A.6.1), each architecture's own (the 2R-remote keeps it proximal of its joint)."""
+
+
 PIP_SERVO_FIELDS = ("pip_servo_body", "a_pin_servo_check", "pip_servo_pad_check",
                     "allow_collision_pip_servo_to_joint_a", "allow_collision_pip_servo_to_joint_bp")
 """The linkage packaging's fields that only say whether the PIP servo's body is
@@ -273,7 +287,11 @@ def comparison_rules(config) -> dict[str, Any]:
     if any(field.name == "pip_servo_body" for field in dataclasses.fields(packaging)):
         rules["packaging"] = {field.name: getattr(packaging, field.name) for field in dataclasses.fields(packaging)
                               if field.name not in PIP_SERVO_FIELDS}
-    rules["bounds"] = {name: tuple(value) for name, value in goal.bounds.items() if name != "servo_tilt_deg"}
+    rules["bounds"] = {name: tuple(value) for name, value in goal.bounds.items()
+                       if name != "servo_tilt_deg" and name not in SERVO_PLACEMENT_BOUNDS}
+    if rules.get("relative_bounds"):
+        rules["relative_bounds"] = {name: tuple(value) for name, value in rules["relative_bounds"].items()
+                                    if name not in SERVO_PLACEMENT_BOUNDS}
     return {name: (dict(value) if hasattr(value, "items") else value) for name, value in rules.items()}
 
 

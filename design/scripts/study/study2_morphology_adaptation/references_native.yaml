@@ -14,6 +14,11 @@
 # architecture with a servo searches its tilt in 0-45 deg with the rest, so its
 # native design carries its own best tilt. The idealized ones (no joint or PIP
 # servo body) are upper bounds, reported apart.
+#
+# The 2R-remote's PIP servo pose is fixed (2026-11-20; scripts/study/2r_remote.yaml):
+# its portfolios were searched with the servo free, and the objective does not
+# see the pose, so each found design is taken with the fixed pose set (design:)
+# - feasible with the same coverage and reach - not searched again.
 native:
   # q_req 90
   - {id: cfl_native_q90, config: scripts/study/cfl.yaml, required_flexion_deg: 90,
@@ -21,7 +26,8 @@ native:
   - {id: 2r_dd_native_q90, config: scripts/study/2r_dd.yaml, required_flexion_deg: 90,
      portfolio: output/study/revolute/2r_dd_q90/portfolio_001, role: balanced}
   - {id: 2r_remote_native_q90, config: scripts/study/2r_remote.yaml, required_flexion_deg: 90,
-     portfolio: output/study/revolute_parallel/2r_remote_q90/portfolio_001, role: balanced}
+     portfolio: output/study/revolute_parallel/2r_remote_q90/portfolio_001, role: balanced,
+     design: {servo_tilt_deg: 15, ap_from_a_x_mm: -10, ap_from_a_z_mm: 15}}
   - {id: rcj_native_q90, config: scripts/study/rcj.yaml, required_flexion_deg: 90,
      portfolio: output/study/rcj/rcj_q90/portfolio_001, role: balanced}
   - {id: cfl_ideal_native_q90, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 90,
@@ -34,7 +40,8 @@ native:
   - {id: 2r_dd_native_q120, config: scripts/study/2r_dd.yaml, required_flexion_deg: 120,
      portfolio: output/study/revolute/2r_dd_q120/portfolio_001, role: balanced}
   - {id: 2r_remote_native_q120, config: scripts/study/2r_remote.yaml, required_flexion_deg: 120,
-     portfolio: output/study/revolute_parallel/2r_remote_q120/portfolio_001, role: balanced}
+     portfolio: output/study/revolute_parallel/2r_remote_q120/portfolio_001, role: balanced,
+     design: {servo_tilt_deg: 15, ap_from_a_x_mm: -10, ap_from_a_z_mm: 15}}
   - {id: rcj_native_q120, config: scripts/study/rcj.yaml, required_flexion_deg: 120,
      portfolio: output/study/rcj/rcj_q120/portfolio_001, role: balanced}
   - {id: cfl_ideal_native_q120, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 120,
@@ -47,7 +54,8 @@ native:
   - {id: 2r_dd_native_q150, config: scripts/study/2r_dd.yaml, required_flexion_deg: 150,
      portfolio: output/study/revolute/2r_dd_q150/portfolio_001, role: balanced}
   - {id: 2r_remote_native_q150, config: scripts/study/2r_remote.yaml, required_flexion_deg: 150,
-     portfolio: output/study/revolute_parallel/2r_remote_q150/portfolio_001, role: balanced}
+     portfolio: output/study/revolute_parallel/2r_remote_q150/portfolio_001, role: balanced,
+     design: {servo_tilt_deg: 15, ap_from_a_x_mm: -10, ap_from_a_z_mm: 15}}
   - {id: rcj_native_q150, config: scripts/study/rcj.yaml, required_flexion_deg: 150,
      portfolio: output/study/rcj/rcj_q150/portfolio_001, role: balanced}
   - {id: cfl_ideal_native_q150, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 150,

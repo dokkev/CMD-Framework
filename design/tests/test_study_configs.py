@@ -70,3 +70,39 @@ def test_the_studies_run_native_references_of_every_architecture():
     for spec in native:
         assert spec["config"].startswith("scripts/study/") and spec["portfolio"].startswith("output/study/")
         assert (root.parent / spec["config"]).exists()
+
+
+def test_the_2r_remote_servo_is_fixed_proximal_of_its_joint_and_still_comparable():
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("study_shared", STUDY / "shared.py")
+    shared = importlib.util.module_from_spec(spec)
+    sys.modules["study_shared"] = shared  # its dataclasses look their module up
+    spec.loader.exec_module(shared)
+    _, remote = load(STUDY / "2r_remote.yaml")
+    _, cfl = load(STUDY / "cfl.yaml")
+    assert remote.bounds["ap_from_a_x_mm"] == (-10.0, -10.0)  # A' fixed, proximal of the joint
+    assert remote.bounds["ap_from_a_z_mm"] == (15.0, 15.0)
+    # Where the servo sits is actuation (A.6.1), not a shared rule.
+    rules = shared.comparison_rules(remote), shared.comparison_rules(cfl)
+    assert rules[0]["bounds"] == rules[1]["bounds"] and rules[0]["relative_bounds"] == rules[1]["relative_bounds"]
+
+
+def test_a_native_reference_may_fix_some_coordinates_of_its_found_design():
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("study_shared_design", STUDY / "shared.py")
+    shared = importlib.util.module_from_spec(spec)
+    sys.modules["study_shared_design"] = shared
+    spec.loader.exec_module(shared)
+    found = read_config_file(STUDY / "study2_morphology_adaptation" / "references_native.yaml")["native"]
+    fixed = {s["id"]: s["design"] for s in found if s.get("design")}
+    # The 2R-remote's servo pose, fixed after the search, matches its study file.
+    assert set(fixed) == {f"2r_remote_native_q{q}" for q in (90, 120, 150)}
+    _, remote = load(STUDY / "2r_remote.yaml")
+    for design in fixed.values():
+        assert remote.bounds["ap_from_a_x_mm"] == (design["ap_from_a_x_mm"],) * 2
+        assert remote.bounds["ap_from_a_z_mm"] == (design["ap_from_a_z_mm"],) * 2
+        assert remote.bounds["servo_tilt_deg"] == (design["servo_tilt_deg"],) * 2
