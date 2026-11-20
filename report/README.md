@@ -6,6 +6,7 @@ Reports and paper figures from runs under the current SSoT
 |---|---|
 | [code_prototype_2026-11-19.md](code_prototype_2026-11-19.md) | CoDe prototype, paper preset: $\bar C_{\mathrm{pad}}=0.720$ |
 | [study1_fixed_morphology_2026-11-19.md](study1_fixed_morphology_2026-11-19.md) | Study 1: 71 modules × 5 architectures × tilt × $q_{\mathrm{req}}$ |
+| [study1_fixed_morphology_native_2026-11-20.md](study1_fixed_morphology_native_2026-11-20.md) | Study 1 on native references (18 = 6 architectures × $q_{\mathrm{req}}$), pad coverage figure |
 | [study2_morphology_adaptation_2026-11-19.md](study2_morphology_adaptation_2026-11-19.md) | Study 2: 8 targets × 29 references × $q_{\mathrm{req}}$, Level 1/2 adaptation |
 
 
