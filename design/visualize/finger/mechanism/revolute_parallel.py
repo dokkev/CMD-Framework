@@ -30,7 +30,7 @@ class BeltPinView(PinView):
         for sign in (1.0, -1.0):  # the belt's two strands
             axis.plot(*np.array((ap + sign * side, a + sign * side)).T, color=sketch.INK, linewidth=1.0, zorder=3.5)
         near, far = geo.joint.posed(geo.joint.distal_mount, [math.radians(phi_deg)])[0]
-        sketch.links(axis, ((0.0, 0.0), a, ap), (a, near, far, a))
+        sketch.body_links(axis, proximal=[((0.0, 0.0), a, ap)], distal=[(a, near, far, a)])
         sketch.nodes(axis, a, near, far)
         sketch.active(axis, (0.0, 0.0), ap)
 

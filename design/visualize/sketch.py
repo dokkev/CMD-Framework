@@ -1,5 +1,8 @@
-"""The schematic finger in the flexion plane: servos as boxes, servo-driven
-joints yellow, links red, pads green (a pad that collides outlined red).
+"""The schematic finger in the flexion plane, coloured as ``visualize.finger.solid``:
+servos grey, servo-driven joints yellow, the proximal body's links red and the
+distal body's blue, a transmission bar between them black or grey (the CFL's
+``A-B'`` and ``A'-B``, the RCJ's carrier), pads filled pink (proximal) and blue
+(distal) outlined in their body's colour (a pad that collides outlined red).
 
 The pieces each mechanism's view (``visualize.finger.mechanism``) draws its
 finger from. Each function draws on a Matplotlib axis in the proximal frame
@@ -11,10 +14,14 @@ from __future__ import annotations
 import numpy as np
 from matplotlib.patches import Circle, Polygon
 
-from visualize.style import COLLIDE, INK, MUTED, shades
+from visualize.style import COLLIDE, DISTAL_PAD, INK, MUTED, PROXIMAL_PAD, SERVO, shades
 
 LINK, JOINT, JOINT_EDGE, NODE = "#ff0a1e", "#ffff88", "#d01020", "#111111"
+PROXIMAL, DISTAL, BLACK_BAR, GRAY_BAR = "#ff1027", "#071c9e", "#111111", "#7a7a7a"
+"""The proximal body's links, the distal body's, and the bars between them (as ``visualize.finger.solid``)."""
 PAD, PAD_EDGE, SERVO_EDGE = "#d5e8d4", "#82b366", INK
+PADS = {"proximal": (PROXIMAL_PAD, "#e11d48"), "distal": (DISTAL_PAD, "#2563eb")}
+"""Each pad's fill and outline (``visualize.finger.solid``'s)."""
 ROLLER, ROLLER_EDGE = "#f2f2f2", "#555555"
 XLIM, YLIM = (-14.0, 104.0), (-62.0, 30.0)
 """The paper's sketches, one scale for every mechanism."""
@@ -32,19 +39,31 @@ def frame(axis, xlim=XLIM, ylim=YLIM) -> None:
 
 
 def servo(axis, outline) -> None:
-    axis.add_patch(Polygon(np.asarray(outline), closed=True, facecolor="white", edgecolor=SERVO_EDGE,
+    axis.add_patch(Polygon(np.asarray(outline), closed=True, facecolor=SERVO, edgecolor=SERVO_EDGE,
                            linewidth=1.2, joinstyle="round", zorder=1))
 
 
-def pad(axis, polygon, hit: bool = False) -> None:
-    axis.add_patch(Polygon(np.asarray(polygon), closed=True, facecolor=PAD, edgecolor=COLLIDE if hit else PAD_EDGE,
+def pad(axis, polygon, hit: bool = False, which: str | None = None) -> None:
+    """A pad, filled as its body's (``which``: proximal or distal; ``None``: plain green)."""
+
+    fill, edge = PADS[which] if which else (PAD, PAD_EDGE)
+    axis.add_patch(Polygon(np.asarray(polygon), closed=True, facecolor=fill, edgecolor=COLLIDE if hit else edge,
                            linewidth=2.0 if hit else 1.0, zorder=2))
 
 
-def links(axis, *chains) -> None:
+def links(axis, *chains, color: str = LINK, zorder: float = 3) -> None:
     for chain in chains:
         points = np.asarray(chain, dtype=float)
-        axis.plot(points[:, 0], points[:, 1], color=LINK, linewidth=3.0, solid_capstyle="round", zorder=3)
+        axis.plot(points[:, 0], points[:, 1], color=color, linewidth=3.0, solid_capstyle="round", zorder=zorder)
+
+
+def body_links(axis, proximal=(), distal=(), black=(), gray=()) -> None:
+    """Each body's links in its colour, and the bars between the bodies."""
+
+    links(axis, *black, color=BLACK_BAR, zorder=2.8)
+    links(axis, *gray, color=GRAY_BAR, zorder=2.9)
+    links(axis, *proximal, color=PROXIMAL)
+    links(axis, *distal, color=DISTAL)
 
 
 def active(axis, *centers, radius: float = 4.0) -> None:

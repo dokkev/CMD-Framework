@@ -243,8 +243,8 @@ class FingerView:
         if style == "sketch":
             sketch.palm(axis, self.packaging)
             self.joint.draw_sketch(axis, phi_deg, hit)
-            sketch.pad(axis, self.proximal_pad(), "proximal_pad" in hit)
-            sketch.pad(axis, self.distal_pad(phi_deg), "distal_pad" in hit)
+            sketch.pad(axis, self.proximal_pad(), "proximal_pad" in hit, "proximal")
+            sketch.pad(axis, self.distal_pad(phi_deg), "distal_pad" in hit, "distal")
             return
         if style != "solid":
             raise ValueError(f"style {style!r}: solid or sketch")

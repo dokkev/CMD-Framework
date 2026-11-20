@@ -56,7 +56,8 @@ class PinView(KinematicJoint):
         geo = self.geometry
         a = np.array((geo.a_x_mm, 0.0))
         near, far = geo.posed(geo.distal_mount, [math.radians(phi_deg)])[0]
-        sketch.links(axis, ((0.0, 0.0), a), (a, near, far, a))  # the distal phalanx: a truss to the pad's ends
+        sketch.body_links(axis, proximal=[((0.0, 0.0), a)],
+                          distal=[(a, near, far, a)])  # the distal phalanx: a truss to the pad's ends
         sketch.nodes(axis, near, far)
         if self.config.joint_servo:
             sketch.servo(axis, geo.distal_servo.outline)

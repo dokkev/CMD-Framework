@@ -55,9 +55,14 @@ class FourBarView(KinematicJoint):
         b, c, bp = s.b[0], s.tip[0], s.bp[0]
         joint = self.finger.joint
         o, a, ap = (0.0, 0.0), joint.a.array, joint.ap.array
-        sketch.servo(axis, pip_footprint(self.packaging, self.finger).outline)
-        sketch.links(axis, (o, a), (o, ap), (ap, b), (a, bp), (bp, b, c, bp))
-        sketch.nodes(axis, a, b, bp, c)
+        if self.packaging.pip_servo_body:  # the idealized CFL has none
+            sketch.servo(axis, pip_footprint(self.packaging, self.finger).outline)
+        # Each rigid body with its pad's inner end: A'' (on O-A) with O, A and A';
+        # B'' (on B-C) with B, B' and C. A-B' black, the driver A'-B grey.
+        app, bpp = self.finger.proximal_end.array, self.distal_start(phi_deg)
+        sketch.body_links(axis, proximal=[(o, a), (o, app), (app, a), (app, ap), (o, ap)],
+                          distal=[(bp, b, c, bp), (bpp, b), (bpp, bp), (bpp, c)], black=[(a, bp)], gray=[(ap, b)])
+        sketch.nodes(axis, a, b, bp, c, app, bpp)
         sketch.active(axis, o, ap)
 
     def status(self, phi_deg: float) -> list[str]:
@@ -77,7 +82,8 @@ class FourBarView(KinematicJoint):
         b, c, bp = s.b[0], s.tip[0], s.bp[0]
         joint, packaging = self.finger.joint, self.packaging
         o, a, ap = np.zeros(2), joint.a.array, joint.ap.array
-        solid.servo(axis, pip_footprint(packaging, self.finger).outline, "proximal", "pip_servo" in hit)
+        if packaging.pip_servo_body:  # the idealized CFL has none
+            solid.servo(axis, pip_footprint(packaging, self.finger).outline, "proximal", "pip_servo" in hit)
         grown = 0.0
         for name, center, group in (("a", a, "proximal"), ("ap", ap, "proximal"), ("bp", bp, "distal"),
                                     ("b", b, "distal")):

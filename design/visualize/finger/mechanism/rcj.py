@@ -66,7 +66,7 @@ class RollerView:
         for center, name in ((geo.a, "proximal_roller"), (b, "distal_roller")):
             sketch.roller(axis, center, geo.roller_radius_mm, name in hit)
         near, far = geo.posed(geo.distal_mount, [phi])[0]
-        sketch.links(axis, ((0.0, 0.0), geo.a), (geo.a, b), (b, near, far, b))
+        sketch.body_links(axis, proximal=[((0.0, 0.0), geo.a)], distal=[(b, near, far, b)], gray=[(geo.a, b)])
         sketch.nodes(axis, b, near, far)
         sketch.active(axis, (0.0, 0.0), geo.a)
 
