@@ -1,17 +1,16 @@
 # CoDe Hand
 
 A research platform for Contact Morphology Design: a robotic hand designed around its contact interfaces. The project
-goal and claim discipline are in [GOAL.md](GOAL.md).
+goal and claim discipline are in [design/SSoT/research-objective.md](design/SSoT/research-objective.md).
 
 ## Layout
 
 ```text
 cmd_framework/
-├── GOAL.md            project north star
 ├── docs/              formulation, decision log, legacy archive (docs/README.md)
 ├── report/            study reports and paper figures (report/figures/)
 ├── design/            CMD-Framework: mechanism geometry, kinematics, optimization, studies
-│   ├── SSoT/          source of truth: problem formulation (design/SSoT/problem_formulation.md)
+│   ├── SSoT/          source of truth: research objective (research-objective.md), problem formulation (problem_formulation.md)
 │   ├── core/          morphology, mechanisms (crossed four-bar FK), packaging, evaluators, optimizer
 │   ├── scripts/       optimization runs and studies (scripts/study/…)
 │   ├── visualize/     plotting
@@ -42,7 +41,7 @@ separate packaging assumptions and separate outputs. **Never mix them.**
 
 | | Prototype optimization | Study optimization |
 |---|---|---|
-| Purpose | Design the CoDe finger that gets built (hardware workstream, `report/legacy/prototype_hardware.md`) | Answer GOAL.md's research questions: mechanism comparison, Studies 1-4 (`report/legacy/kinematic_study_freeze.md`) |
+| Purpose | Design the CoDe finger that gets built (hardware workstream, `report/legacy/prototype_hardware.md`) | Answer the research objective's questions (`design/SSoT/research-objective.md`): mechanism comparison, Studies 1-2 (`report/legacy/kinematic_study_freeze.md`) |
 | Configs | `design/scripts/optimize/prototype/config.yaml` and any file extending it | `design/scripts/study/base.yaml` (the study's whole goal and solver, its own since 6ccab53), one file per mechanism (`cfl`, `cfl_ideal`, `2r_dd`, `2r_remote`, `rcj`, `rcj_ideal`) and tilt variants on them |
 | Packaging | Follows the hardware as it is chosen (pivots A, A', B, B' 8 mm, 4 mm pads, since 2026-11-19); `profile: prototype` defaults `include_linkage_occlusion: true` | Fixed and shared by every mechanism: pivots A 6, A' 10, B 6, B' 6 mm, idealized planar envelopes; `profile: study` defaults `include_linkage_occlusion: false` |
 | Outputs | `design/output/linkage/<config>/...`, hand variants such as `core/morphology/code_hand/pivot8_balanced.yaml`, sim exports | `design/output/study/...`, `report/` study reports |

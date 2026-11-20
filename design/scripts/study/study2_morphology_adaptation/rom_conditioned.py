@@ -76,7 +76,7 @@ def run(config_path):
     inputs = output / 'inputs'
     inputs.mkdir()
     for name, path in [('config.yaml', Path(config_path)), ('references.yaml', ROOT / cfg['references']),
-                       ('modules.yaml', ROOT / shared.CATALOG), ('GOAL.md', ROOT.parent / 'GOAL.md')]:
+                       ('modules.yaml', ROOT / shared.CATALOG), ('research-objective.md', ROOT / 'SSoT/research-objective.md')]:
         shutil.copy2(path, inputs / name)
     record = dict(study='study2_rom_conditioned', status='running', config=cfg, source=source,
                   baseline_selection='existing E-then-Q hierarchy, best over declared seeds; no target-specific baseline selection',

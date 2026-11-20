@@ -118,8 +118,8 @@ def run(path,only_targets=None,only_refs=None,resume=False):
         run_filters=dict(targets=[t.module_id for t in targets],references=[r.reference_id for r in refs]),
         objective='min absolute extended length; then min external change within length tolerance',
         claim='best-found; no global minimum certificate; physical and ideal references separate')
-    for p in [Path(path).resolve(),ROOT/shared.REFERENCES,ROOT/shared.CATALOG,ROOT.parent/'GOAL.md']:
-        rel=p.relative_to(ROOT if p.is_relative_to(ROOT) else ROOT.parent)  # GOAL.md: monorepo root
+    for p in [Path(path).resolve(),ROOT/shared.REFERENCES,ROOT/shared.CATALOG,ROOT/'SSoT/research-objective.md']:
+        rel=p.relative_to(ROOT if p.is_relative_to(ROOT) else ROOT.parent)
         dst=out/'inputs'/rel
         if resume and dst.exists():continue
         dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dst)

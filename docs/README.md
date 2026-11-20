@@ -1,12 +1,12 @@
 # Documentation Index
 
-Start with [GOAL.md](../GOAL.md) for the research north star and claim discipline, and the root [README.md](../README.md) for the repository layout and the separation between **prototype** and **study** optimizations.
+Start with [research-objective.md](../design/SSoT/research-objective.md) for the research north star and claim discipline, and the root [README.md](../README.md) for the repository layout and the separation between **prototype** and **study** optimizations.
 
 ## Active Documentation
 
 | Location | Scope |
 |---|---|
-| [GOAL.md](../GOAL.md) | Research objective, embodiment invariance $R = (H, C)$, Studies 1–4 & A–D, claim discipline |
+| [research-objective.md](../design/SSoT/research-objective.md) | Research objective, embodiment invariance $R = (H, C)$, Studies 1–2 & A–D, claim discipline |
 | [README.md](../README.md) | Monorepo layout, environment overview, prototype vs. study rules, coordinate conventions |
 | [report/legacy/PROGRESS.md](../report/legacy/PROGRESS.md) | Claims (C1–C7) as of 2026-11-17, before the SSoT rules; superseded once the studies are rerun |
 | [report/README.md](../report/README.md) | Reports under the SSoT rules (`report/`) and the pre-SSoT archive (`report/legacy/`) |

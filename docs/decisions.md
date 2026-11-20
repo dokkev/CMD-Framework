@@ -157,3 +157,4 @@
 
 - ~~**integrity D** 값 (`loss.integrity_depth_mm`)~~ → `face_crossing_lengths` 및 `links_block_face` 규칙으로 대체 (2026-11-03~05).
 - ~~`comparison/` 예산·두께·palmar budget·paper pipeline TODO~~ → Study 1–4 (`design/scripts/study/`) 및 탐색 연구 E01–E10 (`report/exploratory/`) 체제로 전환 완료.
+- 2026-11-19: `GOAL.md`를 `design/SSoT/research-objective.md`로 옮김. Study 3/4 삭제. Study 2는 contact module 치수 (ℓ, h)에 대한 연속 landscape로 재정의: native 기준 설계, 영역 경계 비교(점별 Δε_d 대신), 양방향 warm start, 경계점 큰 예산 재확인, 기존 8개 target은 표시점으로 유지.

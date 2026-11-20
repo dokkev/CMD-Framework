@@ -205,12 +205,25 @@ Mechanism compactness, transmission characteristics and contact-interface capaci
 
 ## 6. Evaluation Strategy
 
-The project's experiments should provide evidence for the central research objective. Each study answers part of a supporting question in Section 4; its formulation and configuration live in its own README, not here.
+The project's experiments should provide evidence for the central research objective. Each study answers part of a supporting question in Section 4; its formulation is in `problem_formulation.md` (A.6) and its configuration in its own folder under `scripts/study/`.
 
 - **Study 1: Fixed-Morphology Contact Accommodation** (question 1). Which contact interfaces can a frozen reference hand carry, with its ROM and usable contact coverage?
-- **Study 2: Morphology Adaptation** (question 2). How much must the mechanism and the external morphology change to carry an interface that a reference hand cannot? Each kind of change is recorded separately. A compact-accommodation extension asks instead for the smallest finger that carries each interface, and the spans and articulation shifts that this costs.
-- **Study 3: Transmission-Reflected Contact Mechanics** (toward question 3). How does each transmission map identical local contact mechanics to the actuator? This identifies an embodiment dependence to control for when interface experiments are interpreted.
-- **Study 4: Joint Contact Interface** (question 1, around the joint). Can a bridge across the proximal and distal regions make the joint itself a continuous functional contact surface? A polycentric advantage is tested, not presumed.
+- **Study 2: Morphology Adaptation Landscape** (question 2). How much must the external morphology change to carry a contact interface, as a function of the interface's dimensions?
+
+  For each architecture $K$ and required flexion $q_{\mathrm{req}}$, the study maps the least external change
+
+  $$\varepsilon_{d,K}^*(\ell_p, h_p, \ell_d, h_d;\, q_{\mathrm{req}})$$
+
+  over a grid of contact-module lengths $\ell$ and thicknesses $h$, instead of at a few chosen targets. Mechanism changes and external changes are recorded separately.
+
+  - **Reference designs.** Each architecture starts from its own native design (its own search under the common study goal), never from a morphology matched to CoDe's. The compared architectures are CoDe, 2R-DD, 2R-remote and RCJ, with the idealized CFL and RCJ as declared upper bounds.
+  - **Sections of the 4D space.** First the symmetric section ($\ell_p = \ell_d = \ell$, $h_p = h_d = h$). Then asymmetric sections that vary one module with the other held: proximal only, and distal only.
+  - **Two landscapes per architecture.** The total change $\varepsilon_d^*$, and the excess above the mounting floor, $\varepsilon_d^* - \varepsilon_{\mathrm{floor}}$. The floor is the external change the module's length alone forces on any architecture. It is a lower bound derived from mounting, not a feasible optimum, so the excess also carries the other geometric constraints and the search error.
+  - **Comparison across architectures.** The references differ, so a pointwise difference of $\varepsilon_d$ between two architectures is not a difference on one finger. Architectures are compared by their regions: the boundary of $\varepsilon_d^* \le \tau$ for declared thresholds $\tau$ (including the frozen-feasible region, $\varepsilon_d^* = 0$) and the boundary of the region where no design is found, overlaid on one $(\ell, h)$ domain. Where an architecture finds no design, no value is reported.
+  - **Discrete targets as markers.** The eight targets of the earlier Study 2 stay as marked points of the landscape (those on the symmetric section are drawn on it; the asymmetric ones on their own sections or in a table), which ties the landscape to the earlier results.
+  - **Search discipline.** A coarse grid first; each point is warm-started from its neighbours in both sweep directions and the better result kept, so the sweep order does not bias the map; the grid is refined only where the change rises sharply or feasibility switches. Every point near a boundary is re-run at a larger budget and with other seeds before it is drawn as a boundary: "not found" is a statement about the search budget, not about existence. Figures mark the optimized points; anything interpolated between them is drawn apart from them. Feasibility boundaries are kept as discontinuities, not smoothed.
+
+  A compact-accommodation extension asks instead for the smallest finger that carries each interface, and the spans and articulation shifts that this costs.
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 
@@ -225,7 +238,7 @@ Learning-based interface experiments (Studies A–D) are set out in Section 8.
 - Candidate designs are design alternatives, not statistical replicates. A search that finds nothing is not proof that no design exists.
 - Matched morphology reduces confounding; it does not establish perfect causal isolation.
 - Separate demonstrated observations, model-derived findings, assumptions and hypotheses.
-- Planar feasibility is not buildability. Local reflected stiffness is not validated actuator response. Geometric bridge continuity is not skin durability or usable loaded contact.
+- Planar feasibility is not buildability.
 - Quantitative figures must read saved results, with source commit or patch, configs, input artifacts and sampling provenance. Missing models or artifacts block their branch of work; do not invent measurements.
 - The next useful research decision is one that improves controlled interface variation or exposes its limits, whether or not it favors CoDe.
 
@@ -233,7 +246,7 @@ Learning-based interface experiments (Studies A–D) are set out in Section 8.
 
 ## 8. Learning-Based Manipulation Research
 
-This section is the north star for the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–4, and Section 7 applies to it in full.
+This section is the north star for the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–2, and Section 7 applies to it in full.
 
 ### 8.1 Objective
 

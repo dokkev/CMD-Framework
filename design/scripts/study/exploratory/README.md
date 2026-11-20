@@ -1,7 +1,7 @@
 # Exploratory studies E01–E10
 
 These are small, independent investigations of the CoDe architecture,
-judged against `GOAL.md`. The registry, revisions, per-study reports and
+judged against `SSoT/research-objective.md`. The registry, revisions, per-study reports and
 synthesis are in `report/exploratory/`.
 
 All the scripts reuse the Study 1/2 infrastructure (`common.py` →
