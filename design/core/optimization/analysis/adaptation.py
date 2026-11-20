@@ -399,6 +399,22 @@ def save_step(step: Step, directory, *, source_git_commit: str | None = None):
     return output
 
 
+def frozen_step(base: Mechanism, partition: Partition, reference: Sequence[float], config,
+                scale_mm: float) -> Step:
+    """Level 0: the reference itself carrying the interface ``config`` carries,
+    its depths reset by the mounting policy; ``feasible`` exactly when Study 1
+    accepts the module (problem formulation A.6.2)."""
+
+    reference = tuple(float(v) for v in reference)
+    frozen_mechanism = AdaptationMechanism(base, partition, reference, config, "mechanism", "mechanism_cost",
+                                           scale_mm)
+    frozen_x = partition.compose(frozen_mechanism.reference_external, frozen_mechanism.reference_coordinates,
+                                 reference, config)
+    frozen_eval = None if frozen_x is None else frozen_mechanism.evaluate(frozen_x, config)
+    status = "feasible" if frozen_eval is not None and frozen_eval.feasible else "infeasible"
+    return Step("frozen", status, frozen_x, frozen_eval, 1)
+
+
 def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], config,
           settings: OptimizerSettings, scale_mm: float, external_range_mm: float,
           workers: int = 1, warm: Sequence[Sequence[float]] = ()) -> AdaptationResult:
@@ -409,18 +425,13 @@ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], con
     module's adapted designs) each search also starts from, besides the reference."""
 
     warm = [tuple(float(v) for v in x) for x in warm if x is not None]
-
     reference = tuple(float(v) for v in reference)
+    frozen = frozen_step(base, partition, reference, config, scale_mm)
+    if frozen.status == "feasible":
+        return AdaptationResult("frozen_feasible", (frozen,), frozen)
+    frozen_x = frozen.x
     frozen_mechanism = AdaptationMechanism(base, partition, reference, config, "mechanism", "mechanism_cost",
                                            scale_mm)
-    # The reference itself, its depths reset by the policy for this interface.
-    frozen_x = partition.compose(frozen_mechanism.reference_external, frozen_mechanism.reference_coordinates,
-                                 reference, config)
-    frozen_eval = None if frozen_x is None else frozen_mechanism.evaluate(frozen_x, config)
-    if frozen_eval is not None and frozen_eval.feasible:
-        frozen = Step("frozen", "feasible", frozen_x, frozen_eval, 1)
-        return AdaptationResult("frozen_feasible", (frozen,), frozen)
-    frozen = Step("frozen", "infeasible", frozen_x, frozen_eval, 1)
 
     level1 = _search(base, partition, reference, config, settings, "level1", "mechanism", "mechanism_cost",
                      scale_mm, warm=[frozen_x, *warm], workers=workers)
@@ -444,4 +455,4 @@ def adapt(base: Mechanism, partition: Partition, reference: Sequence[float], con
 
 
 __all__ = ["CAP", "COSTS", "DESCRIPTORS", "LEVELS", "OFFSETS", "FINGER_BOUNDED", "save_step", "with_finger_lengths", "AdaptationEvaluation", "AdaptationMechanism",
-           "AdaptationResult", "Partition", "Step", "adapt", "change"]
+           "AdaptationResult", "Partition", "Step", "adapt", "change", "frozen_step"]

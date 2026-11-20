@@ -172,3 +172,36 @@ def test_a_region_is_outlined_where_it_meets_the_rest_inside_the_grid():
     # Only the two sides the region shares with the excluded cell; none on the domain's edge.
     assert segments == {((1.0, 1.0), (1.0, 2.0)), ((1.0, 1.0), (2.0, 1.0))}
     assert figure.region_segments(np.ones((2, 2), bool), x, y) == []
+
+
+study1 = _module("study1_run", ROOT / "scripts/study/study1_fixed_morphology/run.py")
+MATCHED_REFERENCES = shared.references(study2.read_config_file(ROOT / MATCHED), ("matched",), BASELINE.modules, ROOT)
+AGREEMENT_PAIRS = [pair for pair in CATALOG if pair.group == "named"] + [
+    landscape.section_pair(section, length, thickness, BASELINE)
+    for section in landscape.SECTIONS for length, thickness in ((15, 3), (30, 6), (45, 9))]
+"""The catalog's named pairs (the landscape's markers) and a few grid points of each section."""
+
+
+@pytest.mark.parametrize("reference", MATCHED_REFERENCES, ids=lambda r: r.reference_id)
+def test_level_0_accepts_exactly_what_study_1_accepts(reference):
+    """Study 2 starts where Study 1 ends (A.6.3, Level 0): its frozen step and
+    Study 1's acceptance agree on every module and required flexion."""
+
+    from core.optimization.analysis.adaptation import frozen_step
+
+    found = mechanism(reference.mechanism)
+    part = study2.partitions.partition(reference.mechanism)
+    flexions = (90.0, 120.0, 150.0)
+    accepted, rejected, disagree = 0, 0, []
+    for pair in AGREEMENT_PAIRS:
+        study1_rows = study1.assembly(reference, pair, flexions)
+        for flexion, row in zip(flexions, study1_rows):
+            carried = shared.with_required_flexion(with_modules(reference.config, pair.modules), flexion)
+            scale = part.external(reference.x, carried)["finger_length_mm"]
+            level0 = frozen_step(found, part, reference.x, carried, scale).status == "feasible"
+            accepted += level0
+            rejected += not level0
+            if level0 != bool(row["feasible"]):
+                disagree.append((pair.module_id, flexion, row["feasible"], row.get("failure")))
+    assert not disagree, disagree
+    assert accepted and rejected, "some modules accepted, some not: the comparison is not vacuous"
