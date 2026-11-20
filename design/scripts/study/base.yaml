@@ -4,7 +4,9 @@
 #   base.yaml       this goal and solver, shared by every mechanism
 #   <mechanism>.yaml   one per mechanism, only what it is and owns:
 #                   cfl, cfl_ideal, 2r_dd, 2r_remote, rcj, rcj_ideal
-#   <mechanism>_tilt<deg>.yaml   a mechanism with its servo tilt held
+#
+# A mechanism with its servo tilt held is no file of its own: a study
+# reference gives its mechanism file and tilt_deg (shared.load_config).
 #
 #   python scripts/optimize/run.py scripts/study/<file>.yaml
 #

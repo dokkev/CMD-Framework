@@ -1,6 +1,0 @@
-# CFL (cfl.yaml) with its servo's tilt held at 10 deg.
-base: cfl.yaml
-goal:
-  hardware:
-    pip_servo:
-      tilt_angle_deg: [10, 10]

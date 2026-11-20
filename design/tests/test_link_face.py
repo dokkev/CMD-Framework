@@ -19,12 +19,13 @@ from core.optimization.study import load_yaml
 ROOT = Path(__file__).resolve().parents[1]
 LINKAGE = mechanism("linkage")
 BALANCED = (27.2, 89.9, 0.0, 36.3, 11.1, 65.7, 10.1, 10.0, 0.1, 0.0, 8.3, 12.3, 3.0, 3.0)
-"""code_tilt10's balanced seed before the rule (B on C): at 120 deg the coupler
+"""The CFL's (tilt 10) balanced seed before the rule (B on C): at 120 deg the coupler
 runs from A' down past the proximal pad's inner end and across the distal face."""
 
 
 def study():
-    values = read_config_file(ROOT / "scripts" / "study" / "code_tilt10.yaml")
+    values = read_config_file(ROOT / "scripts" / "study" / "cfl.yaml",
+                              ("goal.hardware.pip_servo.tilt_angle_deg=[10, 10]",))
     values.pop("mechanism"), values.pop("output")
     resolve_preset(values)
     values, _ = LINKAGE.split_settings(values)

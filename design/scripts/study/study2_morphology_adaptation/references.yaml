@@ -7,7 +7,8 @@
 #   - CoDe: the prototype itself (its linkage and servo on A');
 #   - 2R-DD, belt 2R: E fixes the 2R; the belt's servo where CoDe's A' is;
 #   - RCJ: the smallest rollers its hardware allows.
-# Each takes its study config (scripts/study/*.yaml: goal, actuation, rules).
+# Each takes its mechanism file (scripts/study/<mechanism>.yaml: goal, actuation,
+# rules), its servo tilt held at tilt_deg.
 #
 # The prototype's design vector is held here (tracked), not read from an
 # optimizer output: the reference is an input of the study and does not move
@@ -15,7 +16,8 @@
 morphology:
   id: prototype
   mechanism: linkage
-  config: scripts/study/code_tilt10.yaml
+  config: scripts/study/cfl.yaml
+  tilt_deg: 10                    # the servo tilt held (the mechanism file searches it)
   x: [35.7, 67.2, 0.0, 37.5, 12.4, 60.5, 6.5, 10.0, 22.8, 0.0, 5.8, 0.7, 3.0, 3.0]
   # Where it came from (a record; nothing is read from it).
   provenance:
@@ -28,12 +30,12 @@ morphology:
     document: report/legacy/prototype.md
 
 matched:
-  - {id: code_matched, config: scripts/study/code_tilt10.yaml}
-  - {id: 2r_dd_tilt0_matched, config: scripts/study/2r_dd_tilt0.yaml}
-  - {id: 2r_dd_tilt90_matched, config: scripts/study/2r_dd_tilt90.yaml}
-  - {id: belt_2r_matched, config: scripts/study/belt_2r_tilt10.yaml}
-  - {id: rcj_tilt0_matched, config: scripts/study/rcj_tilt0.yaml}
-  - {id: rcj_tilt90_matched, config: scripts/study/rcj_tilt90.yaml}
+  - {id: code_matched, config: scripts/study/cfl.yaml, tilt_deg: 10}
+  - {id: 2r_dd_tilt0_matched, config: scripts/study/2r_dd.yaml, tilt_deg: 0}
+  - {id: 2r_dd_tilt90_matched, config: scripts/study/2r_dd.yaml, tilt_deg: 90}
+  - {id: belt_2r_matched, config: scripts/study/2r_remote.yaml, tilt_deg: 10}
+  - {id: rcj_tilt0_matched, config: scripts/study/rcj.yaml, tilt_deg: 0}
+  - {id: rcj_tilt90_matched, config: scripts/study/rcj.yaml, tilt_deg: 90}
   # No roller wall, bearing or cable retention is modelled: an upper bound,
   # reported apart from the rest.
   - {id: rcj_ideal_matched, config: scripts/study/rcj_ideal.yaml, upper_bound: true}
@@ -43,13 +45,13 @@ matched:
 # study config. Run once the study searches are rerun under the current rules
 # (config.yaml `kinds`).
 native:
-  - {id: code_native, config: scripts/study/code_tilt10.yaml,
+  - {id: code_native, config: scripts/study/cfl.yaml, tilt_deg: 10,
      portfolio: output/study/linkage/code_tilt10/portfolio_001, role: balanced}
-  - {id: 2r_dd_tilt0_native, config: scripts/study/2r_dd_tilt0.yaml,
+  - {id: 2r_dd_tilt0_native, config: scripts/study/2r_dd.yaml, tilt_deg: 0,
      portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: balanced}
-  - {id: 2r_dd_tilt90_native, config: scripts/study/2r_dd_tilt90.yaml,
+  - {id: 2r_dd_tilt90_native, config: scripts/study/2r_dd.yaml, tilt_deg: 90,
      portfolio: output/study/revolute/2r_dd_tilt90/portfolio_001, role: balanced}
-  - {id: belt_2r_native, config: scripts/study/belt_2r_tilt10.yaml,
+  - {id: belt_2r_native, config: scripts/study/2r_remote.yaml, tilt_deg: 10,
      portfolio: output/study/revolute_parallel/belt_2r_tilt10/portfolio_001, role: balanced}
-  - {id: rcj_tilt90_native, config: scripts/study/rcj_tilt90.yaml,
+  - {id: rcj_tilt90_native, config: scripts/study/rcj.yaml, tilt_deg: 90,
      portfolio: output/study/rcj/rcj_tilt90/portfolio_001, role: balanced}

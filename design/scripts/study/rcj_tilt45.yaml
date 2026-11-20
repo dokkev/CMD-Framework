@@ -1,6 +1,0 @@
-# RCJ (rcj.yaml) with its servo's tilt held at 45 deg.
-base: rcj.yaml
-goal:
-  hardware:
-    pip_servo:
-      tilt_angle_deg: [45, 45]

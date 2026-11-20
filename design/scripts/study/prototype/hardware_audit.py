@@ -3,7 +3,7 @@
 
 Re-evaluates the prototype design vector (run_004 #2113, references.yaml) with
 its own optimization config (proto_tilt10_align, linkage-v12) and with the
-Study 1/2 config (code_tilt10.yaml). It reports, from the existing FK and
+Study 1/2 config (cfl.yaml, its servo tilt held at 10 deg). It reports, from the existing FK and
 assembly model:
 - the raw side-view gaps (no clearance subtracted) of every hardware pair
   that E06 flagged or that the planar model exempts by a Y-layer rule, over
@@ -172,9 +172,9 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     x = prototype_x()
     run = load_run(RUN)
-    _, study_config = shared.load_config("scripts/study/code_tilt10.yaml")
+    _, study_config = shared.load_config("scripts/study/cfl.yaml", tilt_deg=10)
     results = [raw_gaps("prototype run config (proto_tilt10_align run_004, linkage-v12 goal)", x, run.config),
-               raw_gaps("study config (code_tilt10.yaml)", x, study_config)]
+               raw_gaps("study config (cfl.yaml, tilt 10)", x, study_config)]
     envelope = thickness_envelope(x, run.config)
     shared.write_csv(OUT / "thickness_envelope.csv", envelope)
     record = {"design_x": x, "source": shared.git_commit(OUT), "results": results,

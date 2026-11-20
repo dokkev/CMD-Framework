@@ -1,6 +1,0 @@
-# 2R-remote (2r_remote.yaml) with its servo's tilt held at 10 deg.
-base: 2r_remote.yaml
-goal:
-  hardware:
-    pip_servo:
-      tilt_angle_deg: [10, 10]

@@ -28,7 +28,8 @@ LENGTH = 20.0
 
 
 def ideal_2r_config():
-    values = read_config_file(common.ROOT / "scripts/study/2r_dd_tilt0.yaml")
+    values = read_config_file(common.ROOT / "scripts/study/2r_dd.yaml",
+                              ("goal.hardware.pip_servo.tilt_angle_deg=[0, 0]",))
     values.pop("mechanism")
     values.pop("output", None)
     found = mechanism("revolute_idealized")

@@ -46,10 +46,19 @@ PROTOTYPE = tuple(float(v) for v in run.read_config_file(STUDY / "references.yam
 E0 = {"finger_length_mm": 90.0, "proximal_span_mm": 43.3, "distal_span_mm": 30.2}
 
 
-def matched(config_file: str, modules: Modules = BASELINE):
+CONFIG_FILES = {
+    "code_tilt10": ("cfl", 10), "2r_dd_tilt0": ("2r_dd", 0), "2r_dd_tilt90": ("2r_dd", 90),
+    "belt_2r_tilt10": ("2r_remote", 10), "rcj_tilt0": ("rcj", 0), "rcj_tilt90": ("rcj", 90),
+    "rcj_ideal": ("rcj_ideal", None),
+}
+"""Each tested reference: its mechanism file and the servo tilt held."""
+
+
+def matched(name: str, modules: Modules = BASELINE):
     """A mechanism's matched reference (the prototype's morphology) and its config carrying ``modules``."""
 
-    found, config = run.load_config(f"scripts/study/{config_file}.yaml", ROOT)
+    config_file, tilt_deg = CONFIG_FILES[name]
+    found, config = run.load_config(f"scripts/study/{config_file}.yaml", ROOT, tilt_deg)
     part = partitions.partition(found.name)
     carried = with_modules(config, modules)
     external = partitions.partition("linkage").external(PROTOTYPE, carried)
@@ -63,7 +72,7 @@ search writes; the machinery is tested on the matched ones, built from the
 tracked design vector alone."""
 MATCHED_SWEEP = ["code_matched", "2r_dd_tilt0_matched", "belt_2r_matched", "rcj_tilt0_matched"]
 
-CONFIGS = ("code_tilt10", "2r_dd_tilt0", "2r_dd_tilt90", "belt_2r_tilt10", "rcj_tilt0", "rcj_tilt90", "rcj_ideal")
+CONFIGS = tuple(CONFIG_FILES)
 
 
 @pytest.mark.parametrize("study", ("study1_fixed_morphology", "study2_morphology_adaptation"))
@@ -278,7 +287,7 @@ def test_the_reference_needs_no_optimizer_output(monkeypatch):
 
 @pytest.mark.parametrize("name", CONFIGS)
 def test_level_2_widens_every_bound_the_finger_length_set_and_no_other(name):
-    found, config = run.load_config(f"scripts/study/{name}.yaml", ROOT)
+    found, config = run.load_config(f"scripts/study/{CONFIG_FILES[name][0]}.yaml", ROOT, CONFIG_FILES[name][1])
     widened = with_finger_lengths(config, 70.0, 110.0)
     assert goal_of(widened).extended_length_bounds_mm == (70.0, 110.0)
     moved = {key for key in config.bounds if config.bounds[key] != widened.bounds[key]}

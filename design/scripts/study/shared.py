@@ -113,12 +113,15 @@ class Reference:
     servo_tilt_deg: float | None = None
 
 
-def load_config(path: str, root: Path = REPOSITORY_ROOT):
-    """A study config file's mechanism and config (its optimizer settings aside)."""
+def load_config(path: str, root: Path = REPOSITORY_ROOT, tilt_deg: float | None = None):
+    """A study config file's mechanism and config (its optimizer settings
+    aside), its servo's tilt held at ``tilt_deg`` if given (a mechanism file
+    searches it; a reference may fix it)."""
 
     from core.optimization.linkage.mechanism import resolve_preset
 
-    values = read_config_file(root / path)
+    overrides = () if tilt_deg is None else (f"goal.hardware.pip_servo.tilt_angle_deg=[{tilt_deg}, {tilt_deg}]",)
+    values = read_config_file(root / path, overrides)
     found = mechanism(values.pop("mechanism"))
     values.pop("output", None)
     resolve_preset(values)
@@ -160,7 +163,7 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
             raise ValueError(f"references.yaml: {source_mechanism.name} has {len(source_mechanism.variable_names)}"
                              f" design variables, the morphology gives {len(source_x)}")
         for spec in values["matched"]:
-            found, config = load_config(spec["config"], root)
+            found, config = load_config(spec["config"], root, spec.get("tilt_deg"))
             part = partitions.partition(found.name)
             carried = with_modules(config, baseline)
             external = partitions.partition(source_mechanism.name).external(source_x, carried)
@@ -173,7 +176,7 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
                                    bool(spec.get("upper_bound", False))))
     if "native" in kinds:
         for spec in values.get("native") or ():
-            found, config = load_config(spec["config"], root)
+            found, config = load_config(spec["config"], root, spec.get("tilt_deg"))
             name, x, source = _native(spec, root)
             if name != found.name:
                 raise ValueError(f"reference {spec['id']}: a {name} design under a {found.name} config")
