@@ -12,7 +12,7 @@
 | $q_{\mathrm{req}}$ | 90°, 120°, 150° |
 | PIP servo tilt sweep | 0°–90° in 15° steps, for CoDe, 2R-DD, 2R-remote and RCJ; the idealized RCJ at its nominal |
 | Rules | $MA_{\min}=0.2$ (CFL only), $\gamma\in[30^\circ,150^\circ]$, $\bar C_{\mathrm{pad}}$ over $\{90^\circ,\tfrac{90^\circ+q_{\mathrm{req}}}{2},q_{\mathrm{req}}\}$ |
-| Output | `design/output/study/study1_fixed_morphology_tilt_sweep/assembly_results.csv` (6177 assemblies) |
+| Output | `design/output/legacy/study1_fixed_morphology_tilt_sweep/assembly_results.csv` (6177 assemblies) |
 
 Nothing is optimized: each assembly is evaluated once and a failure is reported, not redesigned.
 
