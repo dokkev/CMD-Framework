@@ -396,7 +396,7 @@ $$
 \mathcal K=\{K_{\mathrm{2R\text{-}DD}},\;K_{\mathrm{2R\text{-}remote}},\;K_{\mathrm{CFL}},\;K_{\mathrm{RCJ}}\}
 $$
 
-$K_{\mathrm{2R\text{-}DD}}$는 PIP actuator가 PIP joint에 직접 붙은 serial revolute 구조이다. $K_{\mathrm{2R\text{-}remote}}$는 같은 revolute joint를 떨어진 PIP actuator가 belt로 구동하는 구조로, 이때 $\Gamma$가 비어 있지 않다. $K_{\mathrm{RCJ}}$에서 joint actuator를 없앤 이상화 구조($\mathcal G_2=\varnothing$)는 물리적으로 만들 수 있는 구조가 아니므로, 상한으로만 따로 보고한다. $K_{\mathrm{CFL}}$에서 PIP actuator의 housing을 없앤 이상화 구조($\mathcal G_2=\varnothing$, 링크와 $A'$의 pivot은 남김)도 같은 이유로 상한으로만 보고한다. 전달 제약($\gamma$, $MA_{\mathrm{wc}}$)은 linkage의 성질이므로 그대로 둔다.
+$K_{\mathrm{2R\text{-}DD}}$는 PIP actuator가 PIP joint에 직접 붙은 serial revolute 구조이다. $K_{\mathrm{2R\text{-}remote}}$는 같은 revolute joint를 떨어진 PIP actuator가 belt로 구동하는 구조로, 이때 $\Gamma$가 비어 있지 않다. $K_{\mathrm{RCJ}}$에서 joint actuator를 없앤 이상화 구조($\mathcal G_2=\varnothing$)는 물리적으로 만들 수 있는 구조가 아니므로, 상한으로만 따로 보고한다. $K_{\mathrm{CFL}}$에서 PIP actuator의 housing을 없앤 이상화 구조($\mathcal G_2=\varnothing$, 링크와 $A'$의 pivot은 남김)도 같은 이유로 상한으로만 보고한다. Transmission angle 조건($\gamma$)은 linkage의 성질이므로 그대로 둔다.
 
 **외형 descriptor.** 손가락의 외형을 다음 네 양으로 나타낸다.
 
@@ -406,18 +406,20 @@ $$
 
 여기서 $x_{\mathrm{art}}=\mathbf e_x^{\mathsf T}\big(\mathbf r_{\mathrm{ICR}}(\mathbf 0)-\mathbf r_O\big)$는 articulation 위치로, 기준 자세에서 distal phalanx의 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$를 MCP 축에서 $\mathbf e_x$ 방향으로 잰 위치이다. Revolute joint에서는 joint 위치이고, CFL과 RCJ에서는 회전 중심이 움직이므로 기준 자세에서의 값을 쓴다.
 
-**기준 morphology.** 각 구조 $K\in\mathcal K$에 대해 기준 morphology $M_0^K=(K,C_0,A_0^K,S_0^K)$를 하나씩 둔다. 구조 사이의 차이가 손가락 크기나 비율에서 오지 않도록, 모든 기준 morphology는 같은 외형을 갖는다.
+**기준 morphology.** 각 구조 $K\in\mathcal K$에 대해 기준 morphology $M_0^K=(K,C_0,A_0^K,S_0^K)$를 하나씩 둔다. 기준은 그 구조 자신의 native 설계이다. 즉 모든 구조에 같은 study goal(요구 flexion, $L_f$ 범위, pad 요구, actuator, 충돌 규칙)을 주고, 구조마다 따로 $\bar C_{\mathrm{pad}}$를 최대화해 얻은 설계이다.
 
 $$
-\mathbf d\big(M_0^K\big)=\mathbf d^0,
-\qquad \forall K\in\mathcal K
+M_0^K=\arg\max_{M\in\mathcal M_K}\;\bar C_{\mathrm{pad}}(M)
+\quad\text{s.t. study goal},
+\qquad
+\mathbf d_0^K=\mathbf d\big(M_0^K\big)
 $$
 
-Mechanism, actuation, structure를 어떻게 구성해 이 외형을 맞추는지는 구조마다 다르다.
+기준의 외형 $\mathbf d_0^K$는 구조마다 다를 수 있다. 한 구조(예: CFL)의 외형에 다른 구조를 맞추면 그 구조에 유리한 형상에서 비교하게 되므로, 외형을 서로 맞추지 않는다. 대신 goal을 같게 두고, 각 구조가 자기에게 가장 좋은 형상에서 출발하게 한다. PIP actuator의 housing 방향 $\alpha_2$도 이 탐색에서 구조마다 정해진다.
 
 **평가 기준.** Study에서도 A.4–A.5의 정의를 그대로 쓴다. 유효 자세 $\mathcal Q_{\mathrm{valid}}$, 최대 안전 flexion $q_{\max}$, coverage $\bar C_{\mathrm{pad}}$가 그 예이다. 다만 다음이 다르다.
 - Transmission angle 조건은 linkage가 있는 CFL에만 적용한다. 다른 구조에서는 이 조건이 항상 만족된다고 본다.
-- Mechanical advantage 제약 $MA_{\mathrm{wc}}\ge MA_{\min}$도 CFL에만 적용한다. 다른 구조의 mechanical advantage는 구조로 정해지는 상수이기 때문이다. 2R-DD와 2R-remote는 $MA\equiv 1$, 대칭 RCJ는 $MA\equiv 1/2$이다.
+- Mechanical advantage에는 제약을 두지 않는다($MA_{\min}$ 없음). $MA_{\mathrm{wc}}$는 결과로 보고해 비교한다. CFL 외의 구조에서는 구조로 정해지는 상수이다. 2R-DD와 2R-remote는 $MA\equiv 1$, 대칭 RCJ는 $MA\equiv 1/2$이다.
 - Coverage를 계산할 때 transmission 요소(링크, belt)가 pad를 가리는 효과는 기본적으로 고려하지 않는다. 이 요소들은 pad와 다른 lateral layer에 놓이기 때문이다(A.4). 가림의 영향은 민감도 분석으로 따로 본다.
 
 ### A.6.2. Study 1: 고정 morphology의 contact 수용 능력
@@ -458,11 +460,11 @@ $$
 
 요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$에서 평가한다. 수용된 module에 대해서는 coverage $\bar C_{\mathrm{pad}}\big(M^K(c)\big)$와 $q_{\max}\big(M^K(c)\big)$를 함께 보고한다. 수용되지 않은 module은 손가락을 다시 설계하지 않고, 어느 조건에서 실패했는지만 기록한다.
 
-**해석.** $\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$가 클수록, 그 구조는 손가락을 바꾸지 않고도 더 다양한 contact interface를 수용한다. 같은 외형을 가진 구조끼리 비교하므로, 이 차이는 손가락 크기가 아니라 mechanism과 actuation 배치에서 온다고 볼 수 있다. 이 결과는 2차원 측면 모델에서 기하학적으로 공간이 있다는 뜻이며, 실제로 제작하거나 교체할 수 있다는 뜻은 아니다.
+**해석.** $\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$가 클수록, 그 구조는 손가락을 바꾸지 않고도 더 다양한 contact interface를 수용한다. 각 구조는 같은 goal 아래의 자기 native 설계에서 평가하므로, 이 차이는 한 구조에 맞춘 외형에서 오는 것이 아니다. 다만 기준의 외형이 구조마다 다르므로, 기준의 외형 $\mathbf d_0^K$를 함께 보고한다. 이 결과는 2차원 측면 모델에서 기하학적으로 공간이 있다는 뜻이며, 실제로 제작하거나 교체할 수 있다는 뜻은 아니다.
 
-### A.6.3. Study 2: 수용을 위한 형태 변화량
+### A.6.3. Study 2: 형태 변화량의 landscape
 
-Study 2는 Study 1에서 수용하지 못한 module에 대해, 그 module을 수용하려면 손가락을 얼마나, 그리고 어느 부분을 바꿔야 하는지 묻는다. 새로운 최적 손가락을 찾는 것이 아니라, 기존 구조가 얼마나 바뀌어야 하는지를 잰다.
+Study 2는 contact module의 치수가 달라질 때, 그 module을 수용하려면 손가락을 얼마나, 그리고 어느 부분을 바꿔야 하는지 묻는다. 몇 개의 module에서만 재지 않고, module 치수의 연속 공간 위에서 변화량을 함수로 그린다. 새로운 최적 손가락을 찾는 것이 아니라, 기준 morphology가 얼마나 바뀌어야 하는지를 잰다.
 
 **바꿀 수 있는 것과 고정하는 것.** Morphology의 변화를 두 묶음으로 나눈다.
 - 외형 $\mathbf d(M)$ (A.6.1)
@@ -470,37 +472,81 @@ Study 2는 Study 1에서 수용하지 못한 module에 대해, 그 module을 수
 
 Actuation은 기준 그대로 고정한다($A=A_0^K$). Actuator housing, 출력축 위치, 방향이 모두 포함되며, CFL에서 PIP actuator의 출력축이 놓이는 $A'$도 고정된다. Structure는 외형에 맞춰 정해지고, pad의 장착 위치는 Study 1과 같은 장착 규칙으로 정한다(A.6.2).
 
-**변화량.** 각 묶음의 변화량은 가장 크게 바뀐 좌표의 변화를 기준 손가락 길이로 나눈 값이다.
+**변화량.** 각 묶음의 변화량은 가장 크게 바뀐 좌표의 변화를 그 구조의 기준 손가락 길이로 나눈 값이다.
 
 $$
-\varepsilon_d(M)=\frac{\big\|\mathbf d(M)-\mathbf d^0\big\|_\infty}{L_f^0},
+\varepsilon_d(M)=\frac{\big\|\mathbf d(M)-\mathbf d_0^K\big\|_\infty}{L_{f,0}^K},
 \qquad
-\varepsilon_\kappa(M)=\frac{\big\|\boldsymbol\kappa(M)-\boldsymbol\kappa_0^K\big\|_\infty}{L_f^0}
+\varepsilon_\kappa(M)=\frac{\big\|\boldsymbol\kappa(M)-\boldsymbol\kappa_0^K\big\|_\infty}{L_{f,0}^K}
 $$
 
 두 변화량은 따로 보고하며, 하나의 점수로 합치지 않는다.
 
-**단계적 탐색.** Module $c\notin\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$에 대해, 바꾸는 범위를 다음 순서로 넓힌다. 각 단계에서 morphology $M$은 module $c$를 장착하고 A.6.2의 수용 판정을 만족해야 한다.
+**한 module에서의 단계적 탐색.** Module $c=(\ell_1,h_1,\ell_2,h_2)$에 대해, 바꾸는 범위를 다음 순서로 넓힌다. 각 단계에서 morphology $M$은 module $c$를 장착하고 A.6.2의 수용 판정을 만족해야 한다.
+0. **Level 0: 아무것도 바꾸지 않는다.** $c\in\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$이면 $\varepsilon_d=\varepsilon_\kappa=0$이다.
 1. **Level 1: mechanism 내부만 바꾼다.** 외형은 기준 그대로 둔다.
 $$
 \min_{M}\;\varepsilon_\kappa(M)
 \quad\text{s.t.}\quad
-\mathbf d(M)=\mathbf d^0,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+\mathbf d(M)=\mathbf d_0^K,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
 $$
 2. **Level 2: 외형도 바꾼다.** Level 1에서 수용하는 설계가 없을 때만 진행한다. 외형 변화를 먼저 최소화하고, 그 값을 크게 넘지 않는 범위에서 mechanism 변화를 최소화한다.
 $$
-\varepsilon_d^\star=\min_{M}\;\varepsilon_d(M)
+\min_{M}\;\varepsilon_d(M)
 \quad\text{s.t.}\quad
 A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
 $$
 $$
 \min_{M}\;\varepsilon_\kappa(M)
 \quad\text{s.t.}\quad
-\varepsilon_d(M)\le\varepsilon_d^\star+\delta,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+\varepsilon_d(M)\le\min\varepsilon_d+\delta,\;\;A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
 $$
 여기서 $\delta$는 작은 허용 폭이다. 외형 변화를 먼저 최소화하므로, mechanism을 크게 바꿔 외형 변화를 감추는 설계는 고르지 않는다.
 
-**해석.** 같은 module에 대해 구조마다 필요한 변화량을 비교한다. Level 1에서 수용하는 구조는 외형을 그대로 둔 채 module을 받을 수 있다. 다만 pad의 길이가 기준 phalanx보다 길면, 구조와 무관하게 외형이 바뀌어야 한다. Structure의 지지 가정(A.3, $\ell_i\le L_i$)에 따라 그 phalanx가 적어도 pad 길이만큼 길어져야 하기 때문이다. 따라서 구조 사이의 차이는 이 최소 외형 변화를 넘는 부분에서 나타난다. 탐색에서 수용하는 설계를 찾지 못했다는 것은 주어진 탐색 범위 안에서 찾지 못했다는 뜻이며, 그런 설계가 존재하지 않는다는 증명은 아니다.
+**Landscape.** 위 탐색의 결과로, 구조 $K$가 module $c$를 수용하는 데 필요한 최소 외형 변화를 module 치수의 함수로 정의한다.
+
+$$
+\boxed{
+\varepsilon_{d,K}^\star(\ell_1,h_1,\ell_2,h_2;\,q_{\mathrm{req}})
+=
+\min_{M}\;\varepsilon_d(M)
+\quad\text{s.t.}\quad
+A=A_0^K,\;\;M\text{이 }c\text{를 수용함}
+}
+$$
+
+Level 0과 Level 1에서 수용하면 $\varepsilon_{d,K}^\star=0$이다. 수용하는 설계를 찾지 못한 점에서는 값을 정의하지 않는다. 같은 점에서 그때의 $\varepsilon_\kappa$와 수용 단계(Level 0, 1, 2, 못 찾음)를 함께 기록한다.
+
+**단면.** 4차원 전체를 훑지 않고 다음 2차원 단면에서 평가한다.
+- 대칭 단면: $\ell_1=\ell_2=\ell$, $h_1=h_2=h$.
+- Proximal 단면: $(\ell_1,h_1)$을 바꾸고 $(\ell_2,h_2)$는 기준 module로 고정한다.
+- Distal 단면: $(\ell_2,h_2)$를 바꾸고 $(\ell_1,h_1)$은 기준 module로 고정한다.
+
+요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$에서 평가한다. Study 1의 목록 $\mathcal C_{\mathrm{cat}}$에서 고른 대표 module들은 landscape 위의 표시점으로 남긴다. 단면 위에 있는 것은 그 단면에 표시하고, 어느 단면에도 없는 것은 표로 보고한다.
+
+**Mounting 하한과 초과분.** Pad의 길이가 기준 phalanx보다 길면, 구조와 무관하게 외형이 바뀌어야 한다. Structure의 지지 가정(A.3, $\ell_i\le L_i$)에 따라 그 phalanx가 적어도 pad 길이만큼 길어져야 하기 때문이다. 이 하한을 $\varepsilon_{\mathrm{floor},K}(\ell_1,\ell_2)$라 하고, 그 위의 초과분을 따로 본다.
+
+$$
+\varepsilon_{\mathrm{ex},K}^\star=\varepsilon_{d,K}^\star-\varepsilon_{\mathrm{floor},K}\;\ge 0
+$$
+
+하한은 지지 가정에서만 유도한 값이고 수용 가능한 설계의 최소값이 아니다. 따라서 초과분에는 그 구조의 다른 기하 제약과 탐색 오차가 함께 들어 있다.
+
+**구조 사이의 비교.** 기준의 외형이 구조마다 다르므로(A.6.1), 같은 점에서 두 구조의 $\varepsilon_d^\star$를 빼는 것은 같은 손가락 위의 차이가 아니다. 구조는 영역으로 비교한다. 정해 둔 문턱 $\tau$에 대해
+
+$$
+\mathcal R_K(\tau;q_{\mathrm{req}})=\left\{(\ell,h)\;\middle|\;\varepsilon_{d,K}^\star(\ell,h;q_{\mathrm{req}})\le\tau\right\}
+$$
+
+의 경계와, 수용하는 설계를 찾지 못한 영역의 경계를 같은 $(\ell,h)$ 영역 위에 겹쳐 본다. $\mathcal R_K(0)$은 외형을 바꾸지 않고 수용하는 영역이다. 초과분에 대해서도 같은 방식으로 영역을 정의한다.
+
+**탐색 규율.** Landscape는 격자점에서의 최적화 결과로 이루어진다.
+- 격자점마다 이웃 점의 해를 초기해로 쓰되, 치수가 커지는 방향과 작아지는 방향 양쪽에서 이어받아 더 나은 결과를 남긴다. 훑는 순서가 결과를 정하지 않게 하기 위해서이다.
+- 변화량이 급격히 바뀌거나 수용 단계가 바뀌는 곳만 격자를 더 촘촘히 한다.
+- 영역의 경계에 놓인 점은 더 큰 탐색 예산과 다른 seed로 다시 확인한 뒤에 경계로 보고한다.
+- 그림에서는 최적화한 점을 표시하고, 점 사이를 보간한 부분은 그 점들과 구분한다. 수용 여부가 바뀌는 불연속은 매끄럽게 만들지 않는다.
+
+**해석.** $\mathcal R_K(\tau)$가 넓을수록 그 구조는 더 다양한 module을 작은 외형 변화로 받는다. Module이 길어지거나 두꺼워질 때 변화량이 급격히 커지는 경계는 그 구조가 유리한 설계 영역의 한계를 준다. 탐색에서 수용하는 설계를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, 그런 설계가 존재하지 않는다는 증명은 아니다.
 
 ## A.7. 기호 정리
 
@@ -519,7 +565,7 @@ $$
 | $L_{vp}$ | Virtual pivot length: 기준 자세에서 두 phalanx 구조 사이의 간격 |
 | $L_f$ | 손가락 전체 길이 (기준 자세) |
 | $\rho_i=L_i/L_f$ | Phalanx 길이 비율 |
-| $M_0^K$ | Study에서 구조 $K$의 기준 morphology |
+| $M_0^K$, $\mathbf d_0^K$ | Study에서 구조 $K$의 기준 morphology(native 설계)와 그 외형 |
 
 **Evaluation.** 설계가 주어지면 계산되는 양.
 
@@ -541,6 +587,8 @@ $$
 | $\mathbf d(M)$ | 외형 descriptor $(L_f,L_1,L_2,x_{\mathrm{art}})$ |
 | $\boldsymbol\kappa(M)$ | Mechanism 내부 형상: 외형으로 정해지지 않는 mechanism 좌표 |
 | $\varepsilon_d$, $\varepsilon_\kappa$ | 외형 변화량, mechanism 내부 변화량 (Study 2) |
+| $\varepsilon_{d,K}^\star$, $\varepsilon_{\mathrm{floor},K}$, $\varepsilon_{\mathrm{ex},K}^\star$ | Module 치수의 함수로 본 최소 외형 변화, mounting 하한, 그 초과분 (Study 2) |
+| $\mathcal R_K(\tau)$ | $\varepsilon_{d,K}^\star\le\tau$인 module 치수의 영역 (Study 2) |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
 
@@ -551,5 +599,5 @@ $$
 | $[\alpha_{\min},\alpha_{\max}]$ | PIP actuator housing 방향 $\alpha_2$의 허용 범위 |
 | $q_{\mathrm{req}}$, $\mathcal Q_{\mathrm{req}}$ | 요구 distal flexion, 요구 운동 구간 |
 | $\mathcal Q_{\mathrm{eval}}$, $\bar C_{\mathrm{pad}}$ | Coverage 평가 자세 $\{90^\circ,\ (90^\circ+q_{\mathrm{req}})/2,\ q_{\mathrm{req}}\}$, 그 평균(prototype의 첫째 목적, study의 목적) |
-| $MA_{\min}$ | Mechanical advantage의 하한 (CFL 제약) |
+| $MA_{\min}$ | Mechanical advantage의 하한 (prototype의 CFL 제약; study에는 없음) |
 | $[\gamma_{\min},\gamma_{\max}]$ | Transmission angle의 허용 범위 (CFL 제약) |
