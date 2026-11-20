@@ -17,5 +17,5 @@ output: output/study/study1_fixed_morphology_native
 
 # Actuation is swept outside the fixed-tilt morphology search.
 servo_tilt_sweep:
-  angles_deg: [0, 15, 30, 45, 60, 75, 90]
+  angles_deg: [0, 15, 30, 45]          # the native designs' tilt sensitivity (they search 0-45)
   references: [cfl_native, 2r_dd_native, 2r_remote_native, rcj_native]

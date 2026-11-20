@@ -1,0 +1,8 @@
+# 2R-DD (servo at the joint A), its servo's tilt searched in 0-45 deg with the
+# rest (native, 2026-11-19).
+base: base.yaml
+mechanism: revolute
+goal:
+  hardware:
+    pip_servo:
+      tilt_angle_deg: [0, 45]

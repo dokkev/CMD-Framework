@@ -1,0 +1,11 @@
+# 2R-remote: the serial 2R driven through a belt from a servo on A'
+# (revolute_parallel, k = 1), its servo's tilt searched in 0-45 deg with the
+# rest (native, 2026-11-19). The belt and its 6 mm pulleys run in the outer
+# layer: no collision with the pads.
+base: base.yaml
+mechanism: revolute_parallel
+goal:
+  hardware:
+    pulley_radius_mm: 6
+    pip_servo:
+      tilt_angle_deg: [0, 45]

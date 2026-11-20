@@ -1,0 +1,9 @@
+# The studies' CFL (crossed four-bar linkage), its PIP servo's tilt searched in
+# 0-45 deg with the rest (native, 2026-11-19). A mechanism of the comparison
+# under the study's goal: not the CoDe prototype (scripts/optimize/prototype/).
+base: base.yaml
+mechanism: linkage
+goal:
+  hardware:
+    pip_servo:
+      tilt_angle_deg: [0, 45]

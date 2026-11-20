@@ -7,16 +7,18 @@
 # The portfolios come from
 #   python scripts/optimize/run.py scripts/study/<file>.yaml
 # which writes output/study/<mechanism>/<file>/portfolio_NNN. The study's one
-# objective is the pad coverage, so "balanced" is its best design.
+# objective is the pad coverage, so "balanced" is its best design. Each
+# architecture with a servo searches its tilt in 0-45 deg with the rest, so its
+# native design carries its own best tilt.
 native:
-  - {id: cfl_native, config: scripts/study/cfl_tilt15.yaml,
-     portfolio: output/study/linkage/cfl_tilt15/portfolio_001, role: balanced}
-  - {id: 2r_dd_native, config: scripts/study/2r_dd_tilt0.yaml,
-     portfolio: output/study/revolute/2r_dd_tilt0/portfolio_001, role: balanced}
-  - {id: 2r_remote_native, config: scripts/study/belt_2r_tilt15.yaml,
-     portfolio: output/study/revolute_parallel/belt_2r_tilt15/portfolio_001, role: balanced}
-  - {id: rcj_native, config: scripts/study/rcj_tilt0.yaml,
-     portfolio: output/study/rcj/rcj_tilt0/portfolio_001, role: balanced}
+  - {id: cfl_native, config: scripts/study/cfl.yaml,
+     portfolio: output/study/linkage/cfl/portfolio_001, role: balanced}
+  - {id: 2r_dd_native, config: scripts/study/2r_dd.yaml,
+     portfolio: output/study/revolute/2r_dd/portfolio_001, role: balanced}
+  - {id: 2r_remote_native, config: scripts/study/2r_remote.yaml,
+     portfolio: output/study/revolute_parallel/2r_remote/portfolio_001, role: balanced}
+  - {id: rcj_native, config: scripts/study/rcj.yaml,
+     portfolio: output/study/rcj/rcj/portfolio_001, role: balanced}
   # Idealized: no joint or PIP servo body; upper bounds, reported apart.
   - {id: cfl_ideal_native, config: scripts/study/cfl_ideal.yaml,
      portfolio: output/study/linkage_idealized/cfl_ideal/portfolio_001, role: balanced, upper_bound: true}

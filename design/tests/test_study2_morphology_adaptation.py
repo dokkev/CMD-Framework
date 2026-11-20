@@ -75,7 +75,7 @@ def test_active_sweep_changes_only_tilt_and_keeps_it_fixed_in_each_search(study)
     nominal = shared.load_references(tuple(values["kinds"]), ROOT, values["references"])
     expanded = shared.sweep_references(nominal, values["servo_tilt_sweep"])
     by_id = {r.reference_id: r for r in nominal}
-    assert len(expanded) == len({r.reference_id for r in expanded}) == 30
+    assert len(expanded) == len({r.reference_id for r in expanded}) == 18  # 4 swept x 4 tilts + 2 ideal
     shared.check_comparable(expanded)
     for ref in expanded:
         if ref.servo_tilt_deg is None:
@@ -232,7 +232,7 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     values.update(output=str(tmp_path / "out"), workers=1, required_flexion_deg=[120])
     values["optimizer"].update(population=12, generations=3, seeds=[0, 1])
     config.write_text(yaml.safe_dump(values))
-    reference_id = "rcj_tilt0_matched__tilt90"
+    reference_id = "rcj_tilt0_matched__tilt45"
     rows = []
     for _ in range(2):
         out = run.run(config, ROOT, only_targets=["long"], only_references=[reference_id])
@@ -244,7 +244,7 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     assert {"level2_external_status", "level2_mechanism_status"} <= set(rows[0][0])
     # Each search's run reads back as its base mechanism's, the adaptation beside it.
     assert [row["seed"] for row in rows[0]] == ["0", "1"]
-    assert all(row["reference_id"] == reference_id and row["servo_tilt_deg"] == "90.0" for row in rows[0])
+    assert all(row["reference_id"] == reference_id and row["servo_tilt_deg"] == "45.0" for row in rows[0])
     with (tmp_path / "out" / "summary_best.csv").open() as stream:
         best = list(csv.DictReader(stream))
     assert len(best) == 1 and best[0]["seeds_run"] == "2"
@@ -253,7 +253,7 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     assert saved
     # The sweep rotates the 0-degree base reference; seats are subsequently recomputed per module.
     expected_reference = list(matched("rcj_tilt0")[2])
-    expected_reference[mechanism("rcj").variable_names.index("servo_tilt_deg")] = 90.0
+    expected_reference[mechanism("rcj").variable_names.index("servo_tilt_deg")] = 45.0
     for directory in saved:
         loaded = load_run(directory)
         adaptation_metadata = loaded.metadata["adaptation"]
