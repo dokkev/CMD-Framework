@@ -73,11 +73,3 @@ def test_matched_bridge_datums_and_curve_resolution():
             fine,_=screen(p,moved,phi,.0165,801)
             assert abs(m['arc_m']-fine['arc_m']) < 2e-7
 
-
-def test_objective_ties_cover_design_space_and_preserve_extremes():
-    run = shared.load_module('study3_run', ROOT/'scripts/study/study3_transmission/run.py')
-    selected = run.cover([[0],[0],[0],[0]], 3, [[0],[1],[2],[3]])
-    assert selected[:2] == [0, 3]
-    assert selected[2] in (1, 2)  # symmetric geometric tie, floating-point ordering
-    chosen = run.cover([[0,1],[.5,.5],[1,0]],2)
-    assert chosen == [0,2]

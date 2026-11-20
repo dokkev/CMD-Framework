@@ -111,11 +111,37 @@ def partial(a, b, controls):
     return float(ea @ eb / np.sqrt((ea @ ea) * (eb @ eb)))
 
 
+def cover(scores, count, designs=None):
+    """Farthest-point deterministic cover, original normalized objective space.
+
+    Start at minimum first objective; include extremes through farthest-point
+    choice. CSV order breaks ties. No random sampler or replication inference.
+    """
+    if not len(scores):
+        return []
+    scores = np.asarray(scores)
+    span = np.ptp(scores, axis=0)
+    z = (scores - scores.min(axis=0)) / np.where(span > 0, span, 1.)
+    design = np.asarray(scores if designs is None else designs, dtype=float)
+    span_x = np.ptp(design, axis=0)
+    design = (design - design.min(axis=0)) / np.where(span_x > 0, span_x, 1.)
+    selected = [int(np.argmin(z[:, 0]))]
+    design_distance = np.linalg.norm(design - design[selected[0]], axis=1)
+    distance = np.linalg.norm(z - z[selected[0]], axis=1)
+    for _ in range(min(count, len(scores)) - 1):
+        distance[selected] = -1
+        tied = np.flatnonzero(distance >= distance.max() - 1e-12)
+        i = int(tied[np.argmax(design_distance[tied])])
+        selected.append(i)
+        distance = np.minimum(distance, np.linalg.norm(z - z[i], axis=1))
+        design_distance = np.minimum(design_distance, np.linalg.norm(design - design[i], axis=1))
+    return selected
+
+
 def main():
     out = common.output("e10_design_drivers")
     designs, sources = load_archive()
-    study3 = common.shared.load_module("study3_run", common.ROOT / "scripts/study/study3_transmission/run.py")
-    picks = study3.cover(designs, COUNT, designs)
+    picks = cover(designs, COUNT, designs)
     jobs = [(sources[i], designs[i]) for i in picks]
     with ProcessPoolExecutor(8, initializer=_init) as pool:
         rows = list(pool.map(_job, jobs))

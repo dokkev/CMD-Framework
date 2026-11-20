@@ -6,7 +6,7 @@ synthesis are in `report/exploratory/`.
 
 All the scripts reuse the Study 1/2 infrastructure (`common.py` →
 `../shared.py`, Study 1's `assembly`, the existing scenes and evaluators,
-and the Study 3 transmission adapter). Each writes
+and the transmission adapter in core.optimization.analysis). Each writes
 `output/study/exploratory/<name>/`, containing a manifest with its source
 record, its CSVs and, when the tree is dirty, a source snapshot.
 
