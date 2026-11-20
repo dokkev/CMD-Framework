@@ -396,7 +396,7 @@ $$
 \mathcal K=\{K_{\mathrm{2R\text{-}DD}},\;K_{\mathrm{2R\text{-}remote}},\;K_{\mathrm{CFL}},\;K_{\mathrm{RCJ}}\}
 $$
 
-$K_{\mathrm{2R\text{-}DD}}$는 PIP actuator가 PIP joint에 직접 붙은 serial revolute 구조이다. $K_{\mathrm{2R\text{-}remote}}$는 같은 revolute joint를 떨어진 PIP actuator가 belt로 구동하는 구조로, 이때 $\Gamma$가 비어 있지 않다. $K_{\mathrm{RCJ}}$에서 joint actuator를 없앤 이상화 구조($\mathcal G_2=\varnothing$)는 물리적으로 만들 수 있는 구조가 아니므로, 상한으로만 따로 보고한다.
+$K_{\mathrm{2R\text{-}DD}}$는 PIP actuator가 PIP joint에 직접 붙은 serial revolute 구조이다. $K_{\mathrm{2R\text{-}remote}}$는 같은 revolute joint를 떨어진 PIP actuator가 belt로 구동하는 구조로, 이때 $\Gamma$가 비어 있지 않다. $K_{\mathrm{RCJ}}$에서 joint actuator를 없앤 이상화 구조($\mathcal G_2=\varnothing$)는 물리적으로 만들 수 있는 구조가 아니므로, 상한으로만 따로 보고한다. $K_{\mathrm{CFL}}$에서 PIP actuator의 housing을 없앤 이상화 구조($\mathcal G_2=\varnothing$, 링크와 $A'$의 pivot은 남김)도 같은 이유로 상한으로만 보고한다. 전달 제약($\gamma$, $MA_{\mathrm{wc}}$)은 linkage의 성질이므로 그대로 둔다.
 
 **외형 descriptor.** 손가락의 외형을 다음 네 양으로 나타낸다.
 

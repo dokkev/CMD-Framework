@@ -725,3 +725,23 @@ def test_pads_may_be_held_to_extend_past_their_pivots():
         f = decode(x, config.link_length_resolution_mm)
         assert f.proximal_end.x_mm >= f.joint.a.x_mm - 1e-9 and f.distal_start.x_mm <= f.joint.b.x_mm + 1e-9
     assert decoded > 0
+
+
+def test_the_idealized_cfl_has_no_pip_servo_body():
+    from core.morphology.mechanism.linkage.packaging import layout
+    from core.optimization.linkage.search import least_ap_x
+
+    ideal_mechanism = mechanism("linkage_idealized")
+    ideal = load_yaml(ideal_mechanism, CONFIG, PINNED)[0]
+    real = load()
+    assert not ideal.packaging.pip_servo_body and real.packaging.pip_servo_body
+    built = layout(ideal.packaging)
+    keys = {pair.key for pair in (*built.pairs, *built.kept)}
+    assert not any("pip_servo" in key or "pip_shaft" in key for key in keys)
+    assert ("ap_pin", "proximal_pad") in keys or any("ap_pin" in key for key in keys)  # A''s pin housing stays
+    assert least_ap_x(ideal, 10.0, 15.0) == -math.inf and least_ap_x(real, 10.0, 15.0) > -math.inf
+    e = ideal_mechanism.evaluate(X, ideal)
+    for name in ("static_mcp_servo_mm", "static_pip_servo_pad_mm", "static_pivot_pin_mm"):
+        assert e.constraints[name] <= 0.0
+    # Its motion and coverage are the linkage's: no servo pair in the sweep.
+    assert e.c_pad_mean >= MECHANISM.evaluate(X, real).c_pad_mean - 1e-9

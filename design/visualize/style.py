@@ -14,22 +14,25 @@ OUTPUT = REPOSITORY_ROOT / "output"
 PAPER = OUTPUT / "paper"
 COMPARISON = OUTPUT / "comparison"
 
-MECHANISMS = ("revolute", "revolute_parallel", "revolute_idealized", "rcj", "rcj_idealized", "linkage")
+MECHANISMS = ("revolute", "revolute_parallel", "revolute_idealized", "rcj", "rcj_idealized", "linkage",
+              "linkage_idealized")
 """In the order the figures show them (the ablation): the 2R with its servo
 on the joint, on ``A'`` (the actuator moved), without one (the fixed pivot
 alone), then the two whose centre of rotation moves (the RCJ with and without its servo)."""
 COLORS = {"revolute_idealized": "#8a8984", "revolute": "#eb6834", "revolute_parallel": "#8a5cd1",
-          "rcj": "#1f9e74", "rcj_idealized": "#7fbfa9", "linkage": "#2a78d6"}
+          "rcj": "#1f9e74", "rcj_idealized": "#7fbfa9", "linkage": "#2a78d6",
+          "linkage_idealized": "#8fb8ea"}
 MARKERS = {"revolute_idealized": "D", "revolute": "s", "revolute_parallel": "v", "rcj": "^", "rcj_idealized": "<",
-           "linkage": "o"}
+           "linkage": "o", "linkage_idealized": "o"}
 DASHES = {"revolute_idealized": (0, (3, 2)), "revolute": "-", "revolute_parallel": (0, (6, 2)), "rcj": "-",
-          "rcj_idealized": (0, (3, 2)), "linkage": "-"}
+          "rcj_idealized": (0, (3, 2)), "linkage": "-", "linkage_idealized": (0, (3, 2))}
 LABELS = {"revolute_idealized": "2R, ideal (no joint servo)", "revolute": "2R-DD (servo at joint)",
           "revolute_parallel": "2R, servo on A' (belt)", "rcj": "RCJ (rolling contact)",
           "rcj_idealized": "RCJ, ideal (no joint servo)",
-          "linkage": "CoDe (crossed four-bar)"}
+          "linkage": "CoDe (crossed four-bar)", "linkage_idealized": "CoDe, ideal (no PIP servo)"}
 SHORT_LABELS = {"revolute_idealized": "2R ideal", "revolute": "2R-DD", "revolute_parallel": "2R belt",
-                "rcj": "RCJ", "rcj_idealized": "RCJ ideal", "linkage": "CoDe"}
+                "rcj": "RCJ", "rcj_idealized": "RCJ ideal", "linkage": "CoDe",
+                "linkage_idealized": "CoDe ideal"}
 NAMES = {"linkage": "CoDe linkage", "revolute": "2R-DD"}
 """The two-mechanism comparisons' names."""
 

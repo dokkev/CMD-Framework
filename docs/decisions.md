@@ -6,6 +6,7 @@
 ## 결정됨
 
 ### Prototype 2목적 (2026-11-19)
+- 2026-11-19: Study에 이상화 CFL(`linkage_idealized`, `cfl-idealized-pf1`, `scripts/study/code_ideal.yaml`, reference `code_ideal_matched`, upper bound) 추가. PIP servo 몸체와 그 축 주변 keep-out을 빼고(충돌 쌍, 정적 검사 3개, 탐색의 A′ servo floor, overhang), A′ pin housing과 전달 제약(γ, MA)은 유지. 비교 규칙에서는 servo 유무 플래그 5개를 actuation으로 보고 제외. 기준 형상에서는 Study 1 결과가 CoDe와 같음(q_req 150°, module 71개 중 feasible 36개, C̄_pad 중앙값 0.386).
 - 2026-11-19: v2의 k_max = 2.5(MA_wc ≥ 0.4). quick sweep(k_max 3, 2.75, 2.5, 2.25, 2.0)에서 |AB| ≤ 26~28 mm의 최고 C̄_pad가 2.5 아래로 급히 떨어짐(|AB| ≤ 26: 0.674, 0.667, 0.644, 0.585, 0.449). compact한 four-bar를 우선해 2.5로 정함.
 - 2026-11-19: Prototype v2(`config_v2.yaml`): CAD bound 해제, 목적 (C̄_pad 최대, \|AB\| 최소), MA_wc ≥ 1/3 (k_max = 3). 링크–pad 가림을 완전 금지하면 해가 없을 것으로 보고, 짧은 four-bar로 가림과 B의 손끝 쏠림을 함께 줄이려는 변형. 목적 `ab_mm`(편 자세 \|AB\|, 최소화)을 추가.
 - 2026-11-19: CFL의 phalanx 구조 끝(r₁,end, r₂,start)을 pad 안쪽 끝과 자기 pivot housing 가운데 관절 쪽 점으로 정의(SSoT A.5). 이전에는 pad 끝이라 pad가 pivot 앞에서 끝나면 L_vp > |AB|가 되어 L_f(q)가 줄고 C_pad가 부풀었음(v1 quick 최적 0.674 → 0.606). 또 `goal.pads.extend_past_pivots`(prototype true): A″ₓ ≥ Aₓ, B″ₓ ≤ Bₓ. pad가 pivot housing 밑으로 지나가므로 장착 깊이는 사실상 housing 반지름 이상.

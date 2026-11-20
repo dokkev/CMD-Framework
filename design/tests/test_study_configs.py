@@ -27,13 +27,13 @@ def load(path: Path):
 
 def test_the_study_compares_the_code_the_2r_dd_and_the_rcj():
     assert ({mechanism(read_config_file(path)["mechanism"]).name for path in FILES}
-            == {"linkage", "revolute", "revolute_parallel", "rcj", "rcj_idealized"})
+            == {"linkage", "linkage_idealized", "revolute", "revolute_parallel", "rcj", "rcj_idealized"})
 
 
 @pytest.mark.parametrize("path", FILES, ids=[path.stem for path in FILES])
 def test_each_file_loads_on_the_one_goal(path):
     found, config = load(path)
-    goal = config if found.name == "linkage" else config.goal
+    goal = config if found.name.startswith("linkage") else config.goal
     assert goal.extended_length_bounds_mm == (80.0, 90.0)
     assert goal.required_rom_rad == pytest.approx(math.radians(120.0))
     assert goal.warm_start == ()

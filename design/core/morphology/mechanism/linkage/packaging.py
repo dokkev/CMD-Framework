@@ -112,6 +112,10 @@ class LinkagePackaging(Packaging):
     """``True``: the ``B'`` pin envelope may pass through the PIP servo body
     (the driver link sits in another Y layer). ``False``: it keeps the body
     clearance from the body over the motion, which ends the safe range."""
+    pip_servo_body: bool = True
+    """``False``: no PIP servo body (the idealized CFL, ``linkage_idealized``):
+    the linkage driven at ``A'`` from elsewhere, nothing of the servo checked
+    (its body, the clearance about its shaft); ``A'``'s pin housing stays."""
     pin_a_b_check: bool = False
     """``True``: ``A``'s and ``B``'s pin housings, on the two phalanges, must
     not overlap over the motion. ``False``: a pin's housing may touch the
@@ -251,6 +255,8 @@ def layout(packaging: LinkagePackaging) -> Layout:
         unchecked.add(("bp_pin", "pip_servo"))
     if packaging.pin_a_b_check:
         unchecked.discard(("a_pin", "b_pin"))
+    servo_parts = () if packaging.pip_servo_body else ("pip_servo", "pip_shaft")
+    unchecked |= {tuple(sorted((servo, part.name))) for servo in servo_parts for part in parts if part.name != servo}
     keep_outs = [KeepOut("a_pin", "bp_pin", touch=True), KeepOut("bp_pin", "b_pin", touch=True)]
     if not packaging.allow_collision_pip_servo_to_joint_a:
         keep_outs.append(KeepOut("a_pin", "pip_shaft"))
@@ -258,6 +264,7 @@ def layout(packaging: LinkagePackaging) -> Layout:
         keep_outs.append(KeepOut("a_pin", "pip_servo"))
     if packaging.pip_servo_pad_check:
         keep_outs.append(KeepOut("pip_servo", "proximal_pad"))
+    keep_outs = [keep for keep in keep_outs if not {keep.first, keep.second} & set(servo_parts)]
     if packaging.pads_off_pins:
         keep_outs += [KeepOut("proximal_pad", "a_pin"), KeepOut("proximal_pad", "ap_pin"),
                       KeepOut("distal_pad", "b_pin"), KeepOut("distal_pad", "bp_pin")]

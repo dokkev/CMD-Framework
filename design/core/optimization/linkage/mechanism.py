@@ -242,8 +242,26 @@ class LinkageMechanism(Mechanism):
 
 
 
+class IdealizedLinkageMechanism(LinkageMechanism):
+    name = "linkage_idealized"
+    formulation = "cfl-idealized-pf1"
+    """The CFL without its PIP servo body (an upper bound, problem formulation
+    A.6.1, as the idealized 2R and RCJ): the linkage driven at ``A'`` from
+    elsewhere, so nothing of the servo is checked; the transmission (gamma,
+    MA_wc) stays the linkage's own."""
+
+    def config_from_mapping(self, values: Mapping[str, Any]) -> LinkageConfig:
+        config = super().config_from_mapping(values)
+        packaging = dataclasses.replace(config.packaging, pip_servo_body=False, a_pin_servo_check=False,
+                                        pip_servo_pad_check=False, allow_collision_pip_servo_to_joint_a=True,
+                                        allow_collision_pip_servo_to_joint_bp=True)
+        return dataclasses.replace(config, packaging=packaging, mcp_gap_max_mm=None)
+
+
 MECHANISM = LinkageMechanism()
+IDEALIZED = IdealizedLinkageMechanism()
 
 
-__all__ = ["BOUND_TOLERANCE", "LINK_COLUMNS", "MECHANISM", "OBJECTIVES", "LinkageMechanism",
+__all__ = ["BOUND_TOLERANCE", "IDEALIZED", "LINK_COLUMNS", "MECHANISM", "OBJECTIVES", "IdealizedLinkageMechanism",
+           "LinkageMechanism",
            "bound_hits", "bound_hits_of", "link_values"]

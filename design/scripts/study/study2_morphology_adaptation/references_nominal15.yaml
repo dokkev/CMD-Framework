@@ -36,6 +36,7 @@ matched:
   # No roller wall, bearing or cable retention is modelled: an upper bound,
   # reported apart from the rest.
   - {id: rcj_ideal_matched, config: scripts/study/rcj_ideal.yaml, upper_bound: true}
+  - {id: code_ideal_matched, config: scripts/study/code_ideal.yaml, upper_bound: true}
 
 
 # Native archives remain historical and are not re-labelled as nominal-15 designs.

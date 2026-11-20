@@ -67,7 +67,7 @@ def test_active_sweep_changes_only_tilt_and_keeps_it_fixed_in_each_search(study)
     nominal = shared.load_references(tuple(values["kinds"]), ROOT, values["references"])
     expanded = shared.sweep_references(nominal, values["servo_tilt_sweep"])
     by_id = {r.reference_id: r for r in nominal}
-    assert len(expanded) == len({r.reference_id for r in expanded}) == 29
+    assert len(expanded) == len({r.reference_id for r in expanded}) == 30
     shared.check_comparable(expanded)
     for ref in expanded:
         if ref.servo_tilt_deg is None:

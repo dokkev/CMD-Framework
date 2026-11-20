@@ -100,7 +100,7 @@
 
 옛 출력 이름(`pad_coverage`, `torque_ratio_max`, `curl_deg`, `phi_max_deg`, `safe_reach_deg`, `eps_E`, `eps_Q`)은 새 run에서 쓰지 않는다. 옛 run은 legacy다. `run.json`은 여전히 읽히며, 옛 목적함수 목록은 `[c_pad_mean]`으로 바뀌고 설계는 새 정의로 다시 평가된다. 그림이 필요하면 새 정의로 다시 실행한다. `scripts/study/exploratory/`는 옛 출력을 읽는 기록용 스크립트라 옛 이름을 그대로 둔다.
 
-Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `two-r-dd-pf1`, `two-r-idealized-pf1`, `two-r-remote-pf1`, `rcj-pf1`, `rcj-idealized-pf1`이다. 서로 다른 formulation의 run은 비교하지 않는다.
+Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `cfl-idealized-pf1`(`linkage_idealized`: PIP servo 몸체 없음, `LinkagePackaging.pip_servo_body`), `two-r-dd-pf1`, `two-r-idealized-pf1`, `two-r-remote-pf1`, `rcj-pf1`, `rcj-idealized-pf1`이다. 서로 다른 formulation의 run은 비교하지 않는다.
 
 ## 8. SSoT와의 차이 이행 기록
 

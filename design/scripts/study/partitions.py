@@ -98,7 +98,7 @@ class LinkagePartition(_Partition):
     is searched by its ``x`` on the line from ``A`` through the ICR, which
     holds the ICR exactly. ``A``: the servo's shaft ``A'`` and its tilt."""
 
-    mechanisms = ("linkage",)
+    mechanisms = ("linkage", "linkage_idealized")
     coordinates = ("a_x_mm", "a_z_mm", "b_z_mm", "bc_length_mm", "bp_x_mm")
     actuation = ("ap_x_mm", "ap_z_mm", "servo_tilt_deg")
     depths = MOUNTS

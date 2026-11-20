@@ -65,7 +65,9 @@ def overhang_mm(finger: Finger, packaging: LinkagePackaging) -> tuple[float, flo
     when it stops short."""
 
     radius = packaging.pivot_radius_mm
-    front = max(finger.joint.a.x_mm + radius("a"), float(pip_footprint(packaging, finger).outline[:, 0].max()))
+    front = finger.joint.a.x_mm + radius("a")
+    if packaging.pip_servo_body:
+        front = max(front, float(pip_footprint(packaging, finger).outline[:, 0].max()))
     back = min(finger.joint.b.x_mm - radius("b"), finger.joint.bp.x_mm - radius("bp"))
     return finger.proximal_end.x_mm - front, back - finger.distal_start.x_mm
 

@@ -135,6 +135,8 @@ def least_ap_x(config: LinkageConfig, ap_z: float, tilt_deg: float) -> float:
     margin for the table's sampling (the constraint itself stays checked).
     An ``A'_z`` off the search range takes the range's end."""
 
+    if not config.packaging.pip_servo_body:  # no servo to keep off the MCP servo
+        return -math.inf
     z_low, z_high = config.bounds["ap_z_mm"]
     z, floor = _floor_table(config.packaging, round(tilt_deg, 6), tuple(config.mcp_servo_angles_rad),
                             z_low, z_high)

@@ -288,6 +288,7 @@ class Mechanism(ABC):
 MECHANISMS = {
     "linkage": "core.optimization.linkage.mechanism",
     "linkage_v3": "core.optimization.linkage.mechanism",  # runs recorded under that name (2026-10-23 to 26)
+    "linkage_idealized": "core.optimization.linkage.mechanism:IDEALIZED",
     "rcj": "core.optimization.rcj.mechanism",
     "rcj_idealized": "core.optimization.rcj.mechanism:IDEALIZED",
     "revolute": "core.optimization.revolute.mechanism",

@@ -7,7 +7,7 @@ kinematics, solids, their gaps along the motion):
 """
 
 
-VARIANTS = {"revolute_idealized": "revolute", "rcj_idealized": "rcj"}
+VARIANTS = {"revolute_idealized": "revolute", "rcj_idealized": "rcj", "linkage_idealized": "linkage"}
 """Mechanisms that are another's with a part left out (its servo on the
 joint): the same solids, evaluator and mounting rules, by its name."""
 

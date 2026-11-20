@@ -229,6 +229,12 @@ ACTUATION_FIELDS = ("pip_servo_tilt_rad", "pulley_radius_mm")
 the servo's tilt and the belt's pulleys."""
 
 
+PIP_SERVO_FIELDS = ("pip_servo_body", "a_pin_servo_check", "pip_servo_pad_check",
+                    "allow_collision_pip_servo_to_joint_a", "allow_collision_pip_servo_to_joint_bp")
+"""The linkage packaging's fields that only say whether the PIP servo's body is
+there and checked (``linkage_idealized`` turns them off): actuation, not rules."""
+
+
 def comparison_rules(config) -> dict[str, Any]:
     """What every reference compared must share: its whole goal (the required
     flexion, the finger's length range, the mounting policy and range, the pins,
@@ -240,6 +246,11 @@ def comparison_rules(config) -> dict[str, Any]:
     goal = goal_of(config)
     rules = {field.name: getattr(goal, field.name) for field in dataclasses.fields(goal)
              if field.name not in ACTUATION_FIELDS}
+    # The PIP servo's presence (the idealized CFL) is actuation too.
+    packaging = rules["packaging"]
+    if any(field.name == "pip_servo_body" for field in dataclasses.fields(packaging)):
+        rules["packaging"] = {field.name: getattr(packaging, field.name) for field in dataclasses.fields(packaging)
+                              if field.name not in PIP_SERVO_FIELDS}
     rules["bounds"] = {name: tuple(value) for name, value in goal.bounds.items() if name != "servo_tilt_deg"}
     return {name: (dict(value) if hasattr(value, "items") else value) for name, value in rules.items()}
 

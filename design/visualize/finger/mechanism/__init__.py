@@ -12,7 +12,7 @@ from visualize.finger.mechanism.rcj import RollerView
 from visualize.finger.mechanism.revolute import PinView
 from visualize.finger.mechanism.revolute_parallel import BeltPinView
 
-JOINTS = {"linkage": FourBarView, "revolute": PinView, "revolute_idealized": PinView,
+JOINTS = {"linkage": FourBarView, "linkage_idealized": FourBarView, "revolute": PinView, "revolute_idealized": PinView,
           "revolute_parallel": BeltPinView, "rcj": RollerView, "rcj_idealized": RollerView}
 """The joint view of each study mechanism (``core.optimization.mechanism`` names)."""
 
