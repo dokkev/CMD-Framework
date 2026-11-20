@@ -197,7 +197,7 @@ A successful contact-centric research platform should:
 3. **Preserve functional articulation.** Maintain the required range of motion and accessible contact surfaces across supported interface configurations.
 4. **Enable controlled and repeatable experiments.** Allow different interfaces to be evaluated on the same physical hand with consistent actuation, sensing and experimental procedures.
 
-These criteria define the platform's research utility. The first three are assessed computationally (Studies 1–2). The fourth must be demonstrated on the physical hardware.
+These criteria define the platform's research utility. The first three are assessed computationally (Section 6; `problem_formulation.md` A.6). The fourth must be demonstrated on the physical hardware.
 
 Mechanism compactness, transmission characteristics and contact-interface capacity are important evaluation metrics, but they are means of assessing these criteria rather than independent project objectives.
 
@@ -205,25 +205,22 @@ Mechanism compactness, transmission characteristics and contact-interface capaci
 
 ## 6. Evaluation Strategy
 
-The project's experiments should provide evidence for the central research objective. Each study answers part of a supporting question in Section 4; its formulation is in `problem_formulation.md` (A.6) and its configuration in its own folder under `scripts/study/`.
+The project's experiments should provide evidence for the central research objective. This section states what must be shown; how each experiment is defined, searched and measured is in `problem_formulation.md` (A.6) alone.
 
-- **Study 1: Fixed-Morphology Contact Accommodation** (question 1). Which contact interfaces can a frozen reference hand carry, with its ROM and usable contact coverage?
-- **Study 2: Morphology Adaptation Landscape** (question 2). How much must the external morphology change to carry a contact interface, as a function of the interface's dimensions?
+**What the computational studies must show** (supporting questions 1 and 2):
 
-  For each architecture $K$ and required flexion $q_{\mathrm{req}}$, the study maps the least external change
+1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact, and the difference grows with the required flexion.
+2. **A fixed finger can carry different interfaces.** Without any change to the finger, an architecture accepts a range of interface dimensions and keeps its required flexion; the range, and why it ends, differ by architecture.
+3. **Changing the interface costs little morphology.** When the finger is redesigned for a larger or different interface, how much of it must change, and where (its size, its proportions, its articulation, or only the inside of its mechanism), differs by architecture.
+4. **One finger serves a family of interfaces.** A finger designed for one interface, carrying the others unchanged, keeps most of the coverage that a finger redesigned for each would give. This is the claim the project makes for CoDe; it is measured, for every architecture, against the redesigned optimum.
 
-  $$\varepsilon_{d,K}^*(\ell_p, h_p, \ell_d, h_d;\, q_{\mathrm{req}})$$
+**Conditions that make the comparison fair:**
 
-  over a grid of contact-module lengths $\ell$ and thicknesses $h$, instead of at a few chosen targets. Mechanism changes and external changes are recorded separately.
+- Every architecture is compared at its own best design under the common goal, never built to another architecture's morphology.
+- The compared architectures are the CFL (CoDe's mechanism), 2R-DD, 2R-remote and RCJ. Idealized variants without the joint actuator are declared upper bounds and reported apart.
+- A result is a statement within the 2D side model and the stated coverage definition. "Not found" is a statement about the search, not about existence.
 
-  - **Reference designs.** Each architecture starts from its own native design for each $q_{\mathrm{req}}$ (its own search under the common study goal at that $q_{\mathrm{req}}$, with one finger length for all), evaluated at that $q_{\mathrm{req}}$ alone, never from a morphology matched to CoDe's. The compared architectures are CoDe, 2R-DD, 2R-remote and RCJ, with the idealized CFL and RCJ as declared upper bounds.
-  - **Sections of the 4D space.** First the symmetric section ($\ell_p = \ell_d = \ell$, $h_p = h_d = h$). Then asymmetric sections that vary one module with the other held: proximal only, and distal only.
-  - **Two landscapes per architecture.** The total change $\varepsilon_d^*$, and the excess above the mounting floor, $\varepsilon_d^* - \varepsilon_{\mathrm{floor}}$. The floor is the external change the module's length alone forces on any architecture. It is a lower bound derived from mounting, not a feasible optimum, so the excess also carries the other geometric constraints and the search error.
-  - **Comparison across architectures.** The references differ, so a pointwise difference of $\varepsilon_d$ between two architectures is not a difference on one finger. Architectures are compared by their regions: the boundary of $\varepsilon_d^* \le \tau$ for declared thresholds $\tau$ (including the frozen-feasible region, $\varepsilon_d^* = 0$) and the boundary of the region where no design is found, overlaid on one $(\ell, h)$ domain. Where an architecture finds no design, no value is reported.
-  - **Discrete targets as markers.** The eight targets of the earlier Study 2 stay as marked points of the landscape (those on the symmetric section are drawn on it; the asymmetric ones on their own sections or in a table), which ties the landscape to the earlier results.
-  - **Search discipline.** A coarse grid first; each point is warm-started from its neighbours in both sweep directions and the better result kept, so the sweep order does not bias the map; the grid is refined only where the change rises sharply or feasibility switches. Every point near a boundary is re-run at a larger budget and with other seeds before it is drawn as a boundary: "not found" is a statement about the search budget, not about existence. Figures mark the optimized points; anything interpolated between them is drawn apart from them. Feasibility boundaries are kept as discontinuities, not smoothed.
-
-  A compact-accommodation extension asks instead for the smallest finger that carries each interface, and the spans and articulation shifts that this costs.
+**What must be shown on hardware:** that interfaces are in fact exchanged on one physical hand, with the same actuation and procedure (criterion 4, Section 5.7). The computational studies cannot show this.
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 

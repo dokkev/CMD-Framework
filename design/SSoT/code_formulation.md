@@ -54,10 +54,12 @@
 | `optimization/linkage/record.py` | `run.json` 기록과 복원. 옛 formulation의 필드는 버린다 | — |
 | `optimization/mechanism.py` | `Mechanism` 플러그인 인터페이스, `evaluation_report`(모든 구조 공용 출력 열) | §7 |
 | `optimization/mounting.py` | `shallowest_supported` 장착 규칙, `depth_violation_mm` | A.6.2 장착 규칙 |
-| `optimization/analysis/adaptation.py` | Study 2의 단계적 탐색, $\varepsilon_d$, $\varepsilon_\kappa$ | A.6.3 |
+| `optimization/analysis/adaptation.py` | 외형/내부 좌표 분할(partition), $\varepsilon_d$, $\varepsilon_\kappa$. 단계적 최소 변화 탐색은 2026-11-20 정의에서 빠짐 | A.6.3 |
 | `scripts/study/study1_fixed_morphology/run.py` | Study 1 수용 판정 | A.6.2 |
-| `scripts/study/study2_morphology_adaptation/landscape.py` | Study 2 landscape: 단면 격자, 양방향 warm start, 경계점 재확인 | A.6.3 Landscape, 탐색 규율 |
-| `scripts/study/study2_morphology_adaptation/figure_landscape.py` | $\varepsilon_d^\star$, 초과분 heatmap, $\mathcal R_K(\tau)$ 경계 | A.6.3 구조 사이의 비교 |
+| `optimization/analysis/reoptimize.py` | 한 interface의 재최적화: pad 고정 config, 최대 coverage, $\delta_C$ 안에서 기준 외형에 가장 가까운 설계 | A.6.3 |
+| `scripts/study/study2_morphology_adaptation/reoptimize.py` | Study 2 driver (`--study 2a`: 손가락 길이 자유, `2b`: 고정): 단면 sweep, 교차 점검으로 최적 보정, 2b의 유지율 행렬 $\rho$, $\rho^{\mathrm{one}}$ | A.6.3, A.6.4 |
+| `scripts/study/study2_morphology_adaptation/landscape.py` | (이전 정의) 최소 변화 landscape. 쓰지 않음 | — |
+| `scripts/study/study2_morphology_adaptation/figure_landscape.py` | (이전 정의) $\varepsilon_d^\star$ heatmap. 교체 예정 | — |
 
 ## 5. 제약과 목적함수
 
