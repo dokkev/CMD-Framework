@@ -75,7 +75,7 @@ goal:
   # 2Rs' MA is 1, the symmetric RCJ's 1/2).
   transmission:
     angle_deg: [30, 150]          # transmission angle gamma at B'
-    ma_min: 0.2                   # MA_wc >= ma_min (null: none)
+    ma_min: null                  # MA_wc >= ma_min (null: none; the study compares MA, does not require it)
 
   # The actuators (each mechanism file sets its servo's tilt).
   hardware:
