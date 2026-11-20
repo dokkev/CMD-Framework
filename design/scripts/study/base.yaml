@@ -65,7 +65,8 @@ goal:
   # The finger's size: |OC| extended; no anatomical proportions (the segments
   # and the four-bar's span left to the physical constraints).
   link:
-    finger_length_mm: [80, 90]
+    finger_length_mm: [89.95, 90.05]   # 90 for every architecture (Study 1 compares at one size); L_f is
+                                       # derived, so an exact [90, 90] is missed by rounding
     proximal_length_ratio: [null, null]
     distal_length_ratio: [null, null]
     joint_span_ratio: [null, null]

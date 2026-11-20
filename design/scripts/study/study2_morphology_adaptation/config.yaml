@@ -23,8 +23,5 @@ optimizer:
   seeds: [0, 1, 2]
 workers: 8
 output: output/study/study2_morphology_adaptation_native
-
-# Actuation is swept outside the fixed-tilt morphology search.
-servo_tilt_sweep:
-  angles_deg: [0, 15, 30, 45]          # the native designs' tilt sensitivity (they search 0-45)
-  references: [cfl_native, 2r_dd_native, 2r_remote_native, rcj_native]
+# No tilt sweep: the discrete targets are the landscape's markers table
+# (landscape.yaml); the tilt sensitivity is Study 1's.

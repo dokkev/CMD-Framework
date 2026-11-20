@@ -111,6 +111,19 @@ class Reference:
     """The idealized RCJ: no roller wall, bearing or cable retention modelled; reported apart."""
     base_reference_id: str = ""
     servo_tilt_deg: float | None = None
+    design_flexion_deg: float | None = None
+    """The required flexion the reference was designed for (a native one: its
+    search's ``q_req``); evaluated at it alone. ``None``: at every one asked."""
+
+
+def flexions_for(reference: Reference, flexions) -> list[float]:
+    """The required flexions ``reference`` is evaluated at: its own design's
+    alone (a native reference, problem formulation A.6.1), else ``flexions``."""
+
+    flexions = [float(v) for v in flexions]
+    if reference.design_flexion_deg is None:
+        return flexions
+    return [v for v in flexions if math.isclose(v, reference.design_flexion_deg)]
 
 
 def load_config(path: str, root: Path = REPOSITORY_ROOT, tilt_deg: float | None = None):
@@ -177,11 +190,15 @@ def references(values: dict[str, Any], kinds, baseline: Modules, root: Path = RE
     if "native" in kinds:
         for spec in values.get("native") or ():
             found, config = load_config(spec["config"], root, spec.get("tilt_deg"))
+            flexion = spec.get("required_flexion_deg")
+            if flexion is not None:  # designed for it: its goal asks it
+                config = with_required_flexion(config, float(flexion))
             name, x, source = _native(spec, root)
             if name != found.name:
                 raise ValueError(f"reference {spec['id']}: a {name} design under a {found.name} config")
             built.append(Reference(spec["id"], "native", name, x, config, spec["config"], source,
-                                   bool(spec.get("upper_bound", False))))
+                                   bool(spec.get("upper_bound", False)),
+                                   design_flexion_deg=None if flexion is None else float(flexion)))
     return built
 
 
@@ -211,6 +228,8 @@ def sweep_references(found: list[Reference], sweep=None) -> list[Reference]:
         if ref.reference_id not in selected:
             expanded.append(ref)
             continue
+        if sweep.get("include_reference"):  # the design at its own tilt too
+            expanded.append(ref)
         names = mechanism(ref.mechanism).variable_names
         slot = names.index("servo_tilt_deg")
         for tilt in angles:
@@ -259,9 +278,14 @@ def comparison_rules(config) -> dict[str, Any]:
 
 
 def check_comparable(found: list[Reference]) -> dict[str, Any]:
-    """The rules the references share; they must all share them, or nothing is compared."""
+    """The rules the references share; they must all share them, or nothing is
+    compared. References designed for different required flexions are compared
+    only among their own (they share every rule but it)."""
 
     rules = {r.reference_id: comparison_rules(r.config) for r in found}
+    if any(r.design_flexion_deg is not None for r in found):
+        for rule in rules.values():
+            rule.pop("required_rom_rad", None)
     first = next(iter(rules.values()), {})
     differing = {rid: sorted(k for k, v in rule.items() if first.get(k) != v) for rid, rule in rules.items()}
     differing = {rid: d for rid, d in differing.items() if d}
@@ -359,5 +383,5 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 __all__ = ["CATALOG", "REFERENCES", "ModulePair", "Reference", "catalog", "check_comparable", "comparison_rules",
-           "formulations", "git_commit", "span_floor", "load_config", "load_module", "load_references", "module_catalog",
+           "flexions_for", "formulations", "git_commit", "span_floor", "load_config", "load_module", "load_references", "module_catalog",
            "partitions", "references", "with_required_flexion", "write_csv"]

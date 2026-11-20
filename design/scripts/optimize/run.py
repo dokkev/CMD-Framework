@@ -4,6 +4,7 @@
     python scripts/optimize/run.py                                     # scripts/optimize/prototype/config.yaml
     python scripts/optimize/run.py <config> --append   # into a folder that has runs already
     python scripts/optimize/run.py scripts/study/<file>.yaml   # the paper's mechanism comparison
+    python scripts/optimize/run.py scripts/study/<file>.yaml --set goal.motion.required_flexion_deg=150 --tag q150
 
 The config file is the only input. Its top-level ``mechanism:`` entry names
 the mechanism (absent, its folder's name does: ``scripts/study/<file>`` and
@@ -21,6 +22,11 @@ to ``output/<mechanism>/<config name>/run_NNN``
 (``run.json``, ``pareto.csv``). The runs are then verified on the fine grid
 and merged into ``portfolio_NNN`` (``seeds.csv``, the representative seeds
 first, and ``portfolio.json``). Every CPU evaluates.
+
+``--set key.subkey=value`` (repeatable) changes one entry of the file for
+this run, and ``--tag name`` sends the run to ``<config name>_<name>`` instead
+(a condition of one file without another file, e.g. the studies' required
+flexion); the portfolio records both.
 
 A folder that already holds runs or portfolios is not run into (no earlier
 result is mixed with, or mistaken for, a new one) unless ``--append`` is
@@ -56,11 +62,26 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     append = "--append" in argv
     argv = [arg for arg in argv if arg != "--append"]
+    overrides, tag, rest = [], None, []
+    while argv:
+        arg = argv.pop(0)
+        if arg in ("--set", "--tag"):
+            if not argv:
+                print(__doc__.strip())
+                return 2
+            value = argv.pop(0)
+            if arg == "--set":
+                overrides.append(value)
+            else:
+                tag = value
+        else:
+            rest.append(arg)
+    argv = rest
     if len(argv) > 1 or (argv and argv[0].startswith("-")):
         print(__doc__.strip())
         return 2
     path = Path(argv[0]) if argv else SCRIPTS / "prototype" / "config.yaml"
-    values = read_config_file(path)
+    values = read_config_file(path, tuple(overrides))
     found = mechanism(values.pop("mechanism", None) or path.resolve().parent.name)
     output_root = values.pop("output", None)
     preset = resolve_preset(values)
@@ -74,8 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     seeds = tuple(getattr(config, "seeds", ()) or (settings.seed,))
     # The population takes at most half its size of warm-start designs.
     initial = warm_designs(found, getattr(config, "warm_start", ()) or ())[: settings.population_size // 2]
-    root = (REPOSITORY_ROOT / str(output_root) / found.name / path.stem if output_root is not None
-            else OUTPUT_ROOT / found.name / path.stem / (preset or ""))
+    name = f"{path.stem}_{tag}" if tag else path.stem
+    root = (REPOSITORY_ROOT / str(output_root) / found.name / name if output_root is not None
+            else OUTPUT_ROOT / found.name / name / (preset or ""))
     earlier = sorted(p.name for pattern in ("run_*", "portfolio_*") for p in root.glob(pattern)) if root.exists() else []
     if earlier and not append:
         print(f"{root} already holds {', '.join(earlier[:4])}{', ...' if len(earlier) > 4 else ''}: not run "
@@ -96,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     write_seeds(selection, output / "seeds.csv")
     (output / "portfolio.json").write_text(json.dumps({
         "config": str(path),
+        "overrides": overrides,
+        "tag": tag,
         "runs": [directory.name for directory in directories],
         "optimizers": [run.settings.to_json() for run in runs],
         "verification_step_deg": math.degrees(step_rad),

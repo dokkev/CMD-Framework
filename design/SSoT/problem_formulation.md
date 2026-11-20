@@ -406,16 +406,16 @@ $$
 
 여기서 $x_{\mathrm{art}}=\mathbf e_x^{\mathsf T}\big(\mathbf r_{\mathrm{ICR}}(\mathbf 0)-\mathbf r_O\big)$는 articulation 위치로, 기준 자세에서 distal phalanx의 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$를 MCP 축에서 $\mathbf e_x$ 방향으로 잰 위치이다. Revolute joint에서는 joint 위치이고, CFL과 RCJ에서는 회전 중심이 움직이므로 기준 자세에서의 값을 쓴다.
 
-**기준 morphology.** 각 구조 $K\in\mathcal K$에 대해 기준 morphology $M_0^K=(K,C_0,A_0^K,S_0^K)$를 하나씩 둔다. 기준은 그 구조 자신의 native 설계이다. 즉 모든 구조에 같은 study goal(요구 flexion, $L_f$ 범위, pad 요구, actuator, 충돌 규칙)을 주고, 구조마다 따로 $\bar C_{\mathrm{pad}}$를 최대화해 얻은 설계이다.
+**기준 morphology.** 각 구조 $K\in\mathcal K$와 요구 flexion $q_{\mathrm{req}}$마다 기준 morphology $M_0^K(q_{\mathrm{req}})=(K,C_0,A_0^K,S_0^K)$를 하나씩 둔다. 기준은 그 구조 자신의 native 설계이다. 즉 모든 구조에 같은 study goal(그 $q_{\mathrm{req}}$, $L_f=90$ mm, pad 요구, actuator, 충돌 규칙)을 주고, 구조마다 따로 $\bar C_{\mathrm{pad}}$를 최대화해 얻은 설계이다.
 
 $$
-M_0^K=\arg\max_{M\in\mathcal M_K}\;\bar C_{\mathrm{pad}}(M)
-\quad\text{s.t. study goal},
+M_0^K(q_{\mathrm{req}})=\arg\max_{M\in\mathcal M_K}\;\bar C_{\mathrm{pad}}(M)
+\quad\text{s.t. study goal}(q_{\mathrm{req}}),
 \qquad
-\mathbf d_0^K=\mathbf d\big(M_0^K\big)
+\mathbf d_0^K=\mathbf d\big(M_0^K(q_{\mathrm{req}})\big)
 $$
 
-기준의 외형 $\mathbf d_0^K$는 구조마다 다를 수 있다. 한 구조(예: CFL)의 외형에 다른 구조를 맞추면 그 구조에 유리한 형상에서 비교하게 되므로, 외형을 서로 맞추지 않는다. 대신 goal을 같게 두고, 각 구조가 자기에게 가장 좋은 형상에서 출발하게 한다. PIP actuator의 housing 방향 $\alpha_2$도 이 탐색에서 구조마다 정해진다.
+각 기준은 자기 $q_{\mathrm{req}}$에서만 평가한다. 한 $q_{\mathrm{req}}$에 맞춘 설계를 다른 $q_{\mathrm{req}}$에서 평가하면, module을 받는 능력과 운동 범위의 부족이 섞이기 때문이다. 손가락 길이는 모든 구조에서 $L_f=90$ mm로 같다(Study 1은 이 크기에서 비교한다). 기준의 외형 $\mathbf d_0^K$에서 구조마다 다를 수 있는 것은 phalanx 길이와 articulation 위치이다. 한 구조(예: CFL)의 외형에 다른 구조를 맞추면 그 구조에 유리한 형상에서 비교하게 되므로, 외형을 서로 맞추지 않는다. 대신 goal을 같게 두고, 각 구조가 자기에게 가장 좋은 형상에서 출발하게 한다. PIP actuator의 housing 방향 $\alpha_2$도 이 탐색에서 구조마다 정해진다.
 
 **평가 기준.** Study에서도 A.4–A.5의 정의를 그대로 쓴다. 유효 자세 $\mathcal Q_{\mathrm{valid}}$, 최대 안전 flexion $q_{\max}$, coverage $\bar C_{\mathrm{pad}}$가 그 예이다. 다만 다음이 다르다.
 - Transmission angle 조건은 linkage가 있는 CFL에만 적용한다. 다른 구조에서는 이 조건이 항상 만족된다고 본다.
@@ -458,7 +458,7 @@ M^K(c)\text{가 }q_{\mathrm{req}}\text{에서 module }c\text{를 수용함}
 }
 $$
 
-요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$에서 평가한다. 수용된 module에 대해서는 coverage $\bar C_{\mathrm{pad}}\big(M^K(c)\big)$와 $q_{\max}\big(M^K(c)\big)$를 함께 보고한다. 수용되지 않은 module은 손가락을 다시 설계하지 않고, 어느 조건에서 실패했는지만 기록한다.
+요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$이고, 각 $q_{\mathrm{req}}$에서 그 $q_{\mathrm{req}}$의 기준 $M_0^K(q_{\mathrm{req}})$를 평가한다. 수용된 module에 대해서는 coverage $\bar C_{\mathrm{pad}}\big(M^K(c)\big)$와 $q_{\max}\big(M^K(c)\big)$를 함께 보고한다. 수용되지 않은 module은 손가락을 다시 설계하지 않고, 어느 조건에서 실패했는지만 기록한다.
 
 **해석.** $\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$가 클수록, 그 구조는 손가락을 바꾸지 않고도 더 다양한 contact interface를 수용한다. 각 구조는 같은 goal 아래의 자기 native 설계에서 평가하므로, 이 차이는 한 구조에 맞춘 외형에서 오는 것이 아니다. 다만 기준의 외형이 구조마다 다르므로, 기준의 외형 $\mathbf d_0^K$를 함께 보고한다. 이 결과는 2차원 측면 모델에서 기하학적으로 공간이 있다는 뜻이며, 실제로 제작하거나 교체할 수 있다는 뜻은 아니다.
 
@@ -522,7 +522,7 @@ Level 0과 Level 1에서 수용하면 $\varepsilon_{d,K}^\star=0$이다. 수용�
 - Proximal 단면: $(\ell_1,h_1)$을 바꾸고 $(\ell_2,h_2)$는 기준 module로 고정한다.
 - Distal 단면: $(\ell_2,h_2)$를 바꾸고 $(\ell_1,h_1)$은 기준 module로 고정한다.
 
-요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$에서 평가한다. Study 1의 목록 $\mathcal C_{\mathrm{cat}}$에서 고른 대표 module들은 landscape 위의 표시점으로 남긴다. 단면 위에 있는 것은 그 단면에 표시하고, 어느 단면에도 없는 것은 표로 보고한다.
+요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$이고, 각각 그 $q_{\mathrm{req}}$의 기준에서 출발한다. Study 1의 목록 $\mathcal C_{\mathrm{cat}}$에서 고른 대표 module들은 landscape 위의 표시점으로 남긴다. 단면 위에 있는 것은 그 단면에 표시하고, 어느 단면에도 없는 것은 표로 보고한다.
 
 **Mounting 하한과 초과분.** Pad의 길이가 기준 phalanx보다 길면, 구조와 무관하게 외형이 바뀌어야 한다. Structure의 지지 가정(A.3, $\ell_i\le L_i$)에 따라 그 phalanx가 적어도 pad 길이만큼 길어져야 하기 때문이다. 이 하한을 $\varepsilon_{\mathrm{floor},K}(\ell_1,\ell_2)$라 하고, 그 위의 초과분을 따로 본다.
 

@@ -153,7 +153,8 @@ def run(config_path: Path = DEFAULT_CONFIG, root: Path = REPOSITORY_ROOT, output
     rules = shared.check_comparable(found)
     pairs = shared.module_catalog(read_config_file(root / config["modules"]))
     flexions = [float(v) for v in config["required_flexion_deg"]]
-    jobs = [(reference.reference_id, pair, flexions) for reference in found for pair in pairs]
+    jobs = [(reference.reference_id, pair, shared.flexions_for(reference, flexions))
+            for reference in found for pair in pairs]
     workers = int(config.get("workers", 1)) if workers is None else workers
     if workers > 1:
         with ProcessPoolExecutor(workers, initializer=_load, initargs=(kinds, root, references_path, sweep, overrides)) as pool:

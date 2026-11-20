@@ -1,26 +1,56 @@
 # Studies 1-2's reference hands, native (2026-11-19): each architecture's own
-# design, searched under its study config (scripts/study/<file>.yaml: one goal,
-# one budget, every mechanism) and taken from its portfolio by role. No
-# architecture is built to another's morphology (the matched references,
+# design for each required flexion, searched under its study config
+# (scripts/study/<file>.yaml: one goal, one budget, every mechanism; L_f 90)
+# with q_req set, and taken from its portfolio by role. A reference is
+# evaluated at its own q_req alone (problem formulation A.6.1). No architecture
+# is built to another's morphology (the matched references,
 # references_nominal15.yaml, take the CoDe prototype's; kept for the record).
 #
 # The portfolios come from
-#   python scripts/optimize/run.py scripts/study/<file>.yaml
-# which writes output/study/<mechanism>/<file>/portfolio_NNN. The study's one
-# objective is the pad coverage, so "balanced" is its best design. Each
+#   python scripts/optimize/run.py scripts/study/<file>.yaml \
+#       --set goal.motion.required_flexion_deg=<q> --tag q<q>
+# which writes output/study/<mechanism>/<file>_q<q>/portfolio_NNN. The study's
+# one objective is the pad coverage, so "balanced" is its best design. Each
 # architecture with a servo searches its tilt in 0-45 deg with the rest, so its
-# native design carries its own best tilt.
+# native design carries its own best tilt. The idealized ones (no joint or PIP
+# servo body) are upper bounds, reported apart.
 native:
-  - {id: cfl_native, config: scripts/study/cfl.yaml,
-     portfolio: output/study/linkage/cfl/portfolio_001, role: balanced}
-  - {id: 2r_dd_native, config: scripts/study/2r_dd.yaml,
-     portfolio: output/study/revolute/2r_dd/portfolio_001, role: balanced}
-  - {id: 2r_remote_native, config: scripts/study/2r_remote.yaml,
-     portfolio: output/study/revolute_parallel/2r_remote/portfolio_001, role: balanced}
-  - {id: rcj_native, config: scripts/study/rcj.yaml,
-     portfolio: output/study/rcj/rcj/portfolio_001, role: balanced}
-  # Idealized: no joint or PIP servo body; upper bounds, reported apart.
-  - {id: cfl_ideal_native, config: scripts/study/cfl_ideal.yaml,
-     portfolio: output/study/linkage_idealized/cfl_ideal/portfolio_001, role: balanced, upper_bound: true}
-  - {id: rcj_ideal_native, config: scripts/study/rcj_ideal.yaml,
-     portfolio: output/study/rcj_idealized/rcj_ideal/portfolio_001, role: balanced, upper_bound: true}
+  # q_req 90
+  - {id: cfl_native_q90, config: scripts/study/cfl.yaml, required_flexion_deg: 90,
+     portfolio: output/study/linkage/cfl_q90/portfolio_001, role: balanced}
+  - {id: 2r_dd_native_q90, config: scripts/study/2r_dd.yaml, required_flexion_deg: 90,
+     portfolio: output/study/revolute/2r_dd_q90/portfolio_001, role: balanced}
+  - {id: 2r_remote_native_q90, config: scripts/study/2r_remote.yaml, required_flexion_deg: 90,
+     portfolio: output/study/revolute_parallel/2r_remote_q90/portfolio_001, role: balanced}
+  - {id: rcj_native_q90, config: scripts/study/rcj.yaml, required_flexion_deg: 90,
+     portfolio: output/study/rcj/rcj_q90/portfolio_001, role: balanced}
+  - {id: cfl_ideal_native_q90, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 90,
+     portfolio: output/study/linkage_idealized/cfl_ideal_q90/portfolio_001, role: balanced, upper_bound: true}
+  - {id: rcj_ideal_native_q90, config: scripts/study/rcj_ideal.yaml, required_flexion_deg: 90,
+     portfolio: output/study/rcj_idealized/rcj_ideal_q90/portfolio_001, role: balanced, upper_bound: true}
+  # q_req 120
+  - {id: cfl_native_q120, config: scripts/study/cfl.yaml, required_flexion_deg: 120,
+     portfolio: output/study/linkage/cfl_q120/portfolio_001, role: balanced}
+  - {id: 2r_dd_native_q120, config: scripts/study/2r_dd.yaml, required_flexion_deg: 120,
+     portfolio: output/study/revolute/2r_dd_q120/portfolio_001, role: balanced}
+  - {id: 2r_remote_native_q120, config: scripts/study/2r_remote.yaml, required_flexion_deg: 120,
+     portfolio: output/study/revolute_parallel/2r_remote_q120/portfolio_001, role: balanced}
+  - {id: rcj_native_q120, config: scripts/study/rcj.yaml, required_flexion_deg: 120,
+     portfolio: output/study/rcj/rcj_q120/portfolio_001, role: balanced}
+  - {id: cfl_ideal_native_q120, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 120,
+     portfolio: output/study/linkage_idealized/cfl_ideal_q120/portfolio_001, role: balanced, upper_bound: true}
+  - {id: rcj_ideal_native_q120, config: scripts/study/rcj_ideal.yaml, required_flexion_deg: 120,
+     portfolio: output/study/rcj_idealized/rcj_ideal_q120/portfolio_001, role: balanced, upper_bound: true}
+  # q_req 150
+  - {id: cfl_native_q150, config: scripts/study/cfl.yaml, required_flexion_deg: 150,
+     portfolio: output/study/linkage/cfl_q150/portfolio_001, role: balanced}
+  - {id: 2r_dd_native_q150, config: scripts/study/2r_dd.yaml, required_flexion_deg: 150,
+     portfolio: output/study/revolute/2r_dd_q150/portfolio_001, role: balanced}
+  - {id: 2r_remote_native_q150, config: scripts/study/2r_remote.yaml, required_flexion_deg: 150,
+     portfolio: output/study/revolute_parallel/2r_remote_q150/portfolio_001, role: balanced}
+  - {id: rcj_native_q150, config: scripts/study/rcj.yaml, required_flexion_deg: 150,
+     portfolio: output/study/rcj/rcj_q150/portfolio_001, role: balanced}
+  - {id: cfl_ideal_native_q150, config: scripts/study/cfl_ideal.yaml, required_flexion_deg: 150,
+     portfolio: output/study/linkage_idealized/cfl_ideal_q150/portfolio_001, role: balanced, upper_bound: true}
+  - {id: rcj_ideal_native_q150, config: scripts/study/rcj_ideal.yaml, required_flexion_deg: 150,
+     portfolio: output/study/rcj_idealized/rcj_ideal_q150/portfolio_001, role: balanced, upper_bound: true}

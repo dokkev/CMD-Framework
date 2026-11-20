@@ -34,7 +34,7 @@ def test_the_study_compares_the_code_the_2r_dd_and_the_rcj():
 def test_each_file_loads_on_the_one_goal(path):
     found, config = load(path)
     goal = config if found.name.startswith("linkage") else config.goal
-    assert goal.extended_length_bounds_mm == (80.0, 90.0)
+    assert goal.extended_length_bounds_mm == (89.95, 90.05)  # 90 for every architecture
     assert goal.required_rom_rad == pytest.approx(math.radians(120.0))
     assert goal.warm_start == ()
     # Each pad's depth set by the study's policy, the two independent; Study profile defaults occlusion to False.
@@ -62,8 +62,11 @@ def test_the_studies_run_native_references_of_every_architecture():
         assert values["kinds"] == ["native"] and values["references"].endswith("references_native.yaml")
     native = yaml.safe_load((STUDY / "study2_morphology_adaptation" / "references_native.yaml").read_text())["native"]
     # Each a study config of its own (the CFL's is not the prototype's) and a portfolio under output/study.
-    assert {spec["id"] for spec in native} == {"cfl_native", "2r_dd_native", "2r_remote_native", "rcj_native",
-                                               "cfl_ideal_native", "rcj_ideal_native"}
+    # Each architecture's own design for each required flexion, evaluated at it alone.
+    assert {spec["id"] for spec in native} == {f"{name}_native_q{q}" for q in (90, 120, 150) for name in
+                                               ("cfl", "2r_dd", "2r_remote", "rcj", "cfl_ideal", "rcj_ideal")}
+    assert all(spec["id"].endswith(f"_q{spec['required_flexion_deg']}") for spec in native)
+    assert all(spec["portfolio"].split("/")[-2].endswith(f"_q{spec['required_flexion_deg']}") for spec in native)
     for spec in native:
         assert spec["config"].startswith("scripts/study/") and spec["portfolio"].startswith("output/study/")
         assert (root.parent / spec["config"]).exists()

@@ -15,7 +15,12 @@ required_flexion_deg: [90, 120, 150]
 workers: 8
 output: output/study/study1_fixed_morphology_native
 
-# Actuation is swept outside the fixed-tilt morphology search.
+# The tilt sensitivity: each native design with its servo held at other tilts,
+# the rest of it unchanged (no longer that tilt's native design), beside the
+# design at its own tilt (include_reference).
 servo_tilt_sweep:
-  angles_deg: [0, 15, 30, 45]          # the native designs' tilt sensitivity (they search 0-45)
-  references: [cfl_native, 2r_dd_native, 2r_remote_native, rcj_native]
+  angles_deg: [0, 15, 30, 45]
+  include_reference: true
+  references: [cfl_native_q90, 2r_dd_native_q90, 2r_remote_native_q90, rcj_native_q90,
+               cfl_native_q120, 2r_dd_native_q120, 2r_remote_native_q120, rcj_native_q120,
+               cfl_native_q150, 2r_dd_native_q150, 2r_remote_native_q150, rcj_native_q150]

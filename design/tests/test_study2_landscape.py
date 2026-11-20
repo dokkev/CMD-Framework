@@ -205,3 +205,41 @@ def test_level_0_accepts_exactly_what_study_1_accepts(reference):
                 disagree.append((pair.module_id, flexion, row["feasible"], row.get("failure")))
     assert not disagree, disagree
     assert accepted and rejected, "some modules accepted, some not: the comparison is not vacuous"
+
+
+def _matched(reference_id):
+    return next(r for r in MATCHED_REFERENCES if r.reference_id == reference_id)
+
+
+def test_a_native_reference_is_evaluated_at_its_own_required_flexion_alone():
+    import dataclasses
+
+    reference = _matched("code_matched")
+    assert shared.flexions_for(reference, [90, 120, 150]) == [90.0, 120.0, 150.0]
+    native = dataclasses.replace(reference, design_flexion_deg=150.0)
+    assert shared.flexions_for(native, [90, 120, 150]) == [150.0]
+    assert shared.flexions_for(native, [90, 120]) == []
+
+
+def test_references_designed_for_other_flexions_share_every_other_rule():
+    import dataclasses
+
+    a, b = _matched("code_matched"), _matched("2r_dd_tilt0_matched")
+    a = dataclasses.replace(a, config=shared.with_required_flexion(a.config, 90), design_flexion_deg=90.0)
+    b = dataclasses.replace(b, config=shared.with_required_flexion(b.config, 150), design_flexion_deg=150.0)
+    rules = shared.check_comparable([a, b])
+    assert "required_rom_rad" not in rules
+    with pytest.raises(ValueError):  # without design flexions, a different q_req is a different rule
+        shared.check_comparable([dataclasses.replace(a, design_flexion_deg=None),
+                                 dataclasses.replace(b, design_flexion_deg=None)])
+
+
+def test_a_tilt_sweep_may_keep_the_design_at_its_own_tilt():
+    reference = _matched("rcj_tilt0_matched")
+    sweep = {"angles_deg": [15, 30], "references": ["rcj_tilt0_matched"]}
+    assert [r.reference_id for r in shared.sweep_references([reference], sweep)] == [
+        "rcj_tilt0_matched__tilt15", "rcj_tilt0_matched__tilt30"]
+    kept = shared.sweep_references([reference], {**sweep, "include_reference": True})
+    assert [r.reference_id for r in kept] == ["rcj_tilt0_matched", "rcj_tilt0_matched__tilt15",
+                                               "rcj_tilt0_matched__tilt30"]
+    assert kept[0] is reference

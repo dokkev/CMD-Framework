@@ -197,7 +197,8 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, only_targets=None, only
     # Each required flexion (problem formulation A.6.3: as Study 1's); absent, the references' own.
     flexions = [float(value) for value in config.get("required_flexion_deg") or [None]] \
         if config.get("required_flexion_deg") else [None]
-    jobs = [(target, reference, flexion) for target in targets for reference in built for flexion in flexions]
+    jobs = [(target, reference, flexion) for target in targets for reference in built
+            for flexion in (flexions if flexions == [None] else shared.flexions_for(reference, flexions))]
     for target, reference, flexion in jobs:
             found = mechanism(reference.mechanism)
             part = partitions.partition(reference.mechanism)

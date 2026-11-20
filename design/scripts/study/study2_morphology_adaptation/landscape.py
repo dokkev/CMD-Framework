@@ -362,7 +362,7 @@ def run(config_path: Path, root: Path = REPOSITORY_ROOT, resume: bool = False, o
     for reference in built:
         part = study.partitions.partition(reference.mechanism)
         delta = config_resolution(reference.config) / part.external(reference.x, reference.config)["finger_length_mm"]
-        for flexion in flexions:
+        for flexion in shared.flexions_for(reference, flexions):
             for section in sections:
                 points = grid(section, lengths, thicknesses, baseline)
                 found = sweep(landscape, reference, flexion, points, shape, config, delta)

@@ -75,12 +75,12 @@ MATCHED_SWEEP = ["code_matched", "2r_dd_tilt0_matched", "belt_2r_matched", "rcj_
 CONFIGS = tuple(CONFIG_FILES)
 
 
-@pytest.mark.parametrize("study", ("study1_fixed_morphology", "study2_morphology_adaptation"))
+@pytest.mark.parametrize("study", ("study1_fixed_morphology",))  # Study 2's tilt sensitivity is Study 1's
 def test_active_sweep_changes_only_tilt_and_keeps_it_fixed_in_each_search(study):
     shared = run.shared
     values = run.read_config_file(ROOT / "scripts/study" / study / "config.yaml")
     values.update(MATCHED)
-    values["servo_tilt_sweep"]["references"] = MATCHED_SWEEP
+    values["servo_tilt_sweep"].update(references=MATCHED_SWEEP, include_reference=False)
     nominal = shared.load_references(tuple(values["kinds"]), ROOT, values["references"])
     expanded = shared.sweep_references(nominal, values["servo_tilt_sweep"])
     by_id = {r.reference_id: r for r in nominal}
@@ -237,7 +237,7 @@ def test_the_same_reference_and_target_give_the_same_result(tmp_path):
     config = tmp_path / "config.yaml"
     values = run.read_config_file(STUDY / "config.yaml")
     values.update(MATCHED)
-    values["servo_tilt_sweep"]["references"] = MATCHED_SWEEP
+    values["servo_tilt_sweep"] = {"angles_deg": [0, 15, 30, 45], "references": MATCHED_SWEEP}
     values.update(output=str(tmp_path / "out"), workers=1, required_flexion_deg=[120])
     values["optimizer"].update(population=12, generations=3, seeds=[0, 1])
     config.write_text(yaml.safe_dump(values))
@@ -294,7 +294,8 @@ def test_level_2_widens_every_bound_the_finger_length_set_and_no_other(name):
     for key in moved:
         (low, high), (new_low, new_high) = config.bounds[key], widened.bounds[key]
         assert new_low <= low and new_high >= high  # only ever wider, by the finger's 20 mm
-        assert max(low - new_low, new_high - high) == pytest.approx(20.0)
+        finger = goal_of(config).extended_length_bounds_mm
+        assert max(low - new_low, new_high - high) == pytest.approx(max(finger[0] - 70.0, 110.0 - finger[1]))
     assert {"a_x_mm"} <= moved
     # Everything else is the goal's own, unchanged: the hardware, the pads' starts, the mounting range.
     keep = ("roller_radius_mm", "servo_tilt_deg", "proximal_drop_mm", "distal_drop_mm", "proximal_mount_offset_mm",
@@ -303,7 +304,7 @@ def test_level_2_widens_every_bound_the_finger_length_set_and_no_other(name):
     for key in config.bounds:
         assert widened.bounds[key][0] <= config.bounds[key][0] or key in keep
     old_goal, new_goal = goal_of(config), goal_of(widened)
-    assert dataclasses.replace(new_goal, bounds=old_goal.bounds, extended_length_bounds_mm=(80.0, 90.0)) == old_goal
+    assert dataclasses.replace(new_goal, bounds=old_goal.bounds, extended_length_bounds_mm=old_goal.extended_length_bounds_mm) == old_goal
     if name == "code_tilt10":
         # CoDe's B_x was held to the old finger's length: a longer finger on a short BC now builds.
         _, part, x, carried = matched(name)
