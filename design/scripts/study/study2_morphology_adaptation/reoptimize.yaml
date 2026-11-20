@@ -1,0 +1,71 @@
+# Study 2: the morphology re-optimized for each contact interface (problem
+# formulation A.6.3). Paths from the repository root.
+#
+#   python scripts/study/study2_morphology_adaptation/reoptimize.py [this file] [--resume]
+references: scripts/study/study2_morphology_adaptation/references_native.yaml
+required_flexion_deg: [90, 120, 150]
+
+# Study 2a (A.6.3): the morphology re-optimized for each interface, the finger's
+# length free (Delta_f > 0): how much, and where, the finger must change.
+# Study 2b (A.6.4): the same with the finger's length held (90 mm), and the
+# cross-evaluation: how much one finger keeps across the interfaces.
+study: 2b
+studies:
+  2a:
+    finger_length_mm: [60, 120]
+    cross_evaluation: false
+    output: output/study/study2a_reoptimize
+  2b:
+    finger_length_mm: null        # each reference's own length
+    cross_evaluation: true
+    output: output/study/study2b_cross_evaluation
+
+# Among the designs within coverage_delta of the best coverage found, the one
+# closest to the reference is reported: closest in its motion (kinematic_cost:
+# the fingertip's largest departure from the reference's path over [0, q_req],
+# per finger length; A.6.3), or in its external morphology (external_cost).
+coverage_delta: 0.005
+closest_by: kinematic_cost
+
+# Sections of the symmetric interface (both pads the same module): the grid of
+# both dimensions (swept in a snake), and finer 1D sections. --sections picks.
+sections:
+  grid:
+    length_mm: [15, 20, 25, 30, 35, 40, 45]
+    thickness_mm: [3, 5, 7, 9]
+  length:                      # thickness held, length swept
+    thickness_mm: 5
+    length_mm: [15, 17.5, 20, 22.5, 25, 27.5, 30, 32.5, 35, 37.5, 40, 42.5, 45]
+  thickness:                   # length held, thickness swept
+    length_mm: 25                # every architecture's native finger carries 25 mm pads (the RCJ's not 30)
+    thickness_mm: [3, 4, 5, 6, 7, 8, 9, 10]
+
+# The interface family each section's cross-evaluation (A.6.4) asks one finger to
+# carry: the best single finger's worst retention over it is rho_one.
+family:
+  grid:
+    length_mm: [20, 35]
+    thickness_mm: [3, 9]
+  length:
+    length_mm: [20, 35]
+  thickness:
+    thickness_mm: [3, 10]
+
+# Each point: searched for its best coverage in the preset's sweeps (up from the
+# smallest interface, down from the largest), each warm-started from the
+# reference and the sweep's previous point; then once for the closest
+# near-optimal design, warm-started from every design found at the point.
+#   quick   one sweep, a short search: every architecture in about an hour
+#   full    both sweeps (the sweep order cannot bias the result)
+preset: full
+presets:
+  quick:
+    directions: [up]
+    search: {algorithm: ga, population: 200, generations: 100, seeds: [0]}
+    closest: {algorithm: ga, population: 50, generations: 50, seeds: [0]}
+  full:
+    directions: [up, down]
+    search: {algorithm: ga, population: 200, generations: 300, seeds: [0]}
+    closest: {algorithm: ga, population: 200, generations: 300, seeds: [0]}   # as the coverage search: the CFL has many coordinates
+
+workers: 8
