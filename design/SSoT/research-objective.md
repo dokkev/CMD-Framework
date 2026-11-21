@@ -228,6 +228,16 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 
 The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental-idea/study3_interface_platform.md` and is not evidence for C4.
 
+**Evidence for "why the relative contact trajectory"** (the five steps in `north-star.md`; status 2026-11-21):
+
+| Step | Evidence | Status |
+|---|---|---|
+| 1. The object meets the contact faces | Definition (Section 2) | Argued |
+| 2. Only the trajectory cannot be undone by control | Transmission: flexion-space commands and stiffness scheduling hold flexion within 0.07 deg on the simulated hand (`docs/decisions.md`). Trajectory: problem_formulation proposition 4; re-establishing a two-pad cylinder grasp moves the contact up to 5-9 mm along the distal pad (`report/study3/regrasp_geometry.md`). MCP-level offset: compensability not yet computed | Partly shown; the P/D compensability computation (residual contact error after the best re-command, free and fixed object) is next |
+| 3. Its size matters | Quasi-static series-compliance estimate at 120 deg, 3 to 7 mm, k_pad 2 N/mm: force error up to 0.6 N (trajectory kept) against 5.7 N (coverage only), grasp forces 1-5 N | Estimate only; to be measured (quasi-static simulation, then a second engine) |
+| 4. Not kept unless targeted | Study 1's coverage-only designs change it by 3.9-5.8 mm (1.28-3.91 mm at 120 deg, 7 mm, depending on the search) | Shown (2D) |
+| 5. Kept at little cost | Study 2: 10-51% of the fixed-axis bound, coverage within 0.2 points; C1 | Shown (2D) |
+
 **Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3 has no spacer path.
 
 **Open decisions.**
