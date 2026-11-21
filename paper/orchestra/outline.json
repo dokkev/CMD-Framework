@@ -1,0 +1,333 @@
+{
+  "plotting_plan": [
+    {
+      "figure_id": "fig_teaser_same_hand_different_contact_designs",
+      "title": "Teaser: same hand, different contact; the four architectures at q_req = 150 deg",
+      "plot_type": "diagram",
+      "data_source": "both",
+      "objective": "Full-width teaser at the top of page 1 (figure*, about 7.16 in x 1.4 in). Left inset (about 25% width): concept sketch of R = (H, C) — one underlying hand H (fixed structure, articulation, actuation) carrying two contact interfaces of different thickness h, with the contact-face path c(q) of the distal face seen from the proximal face drawn identical for both (contact-centric kinematics kept), versus a redesign that changes the path (unintended embodiment variation). Right part (about 75% width): compact redraw of fig_designs_q150.png — side views of the best Study 1 designs of 2R-DD, 2R-remote, RCJ and CFL at q_req = 150 deg and h = 5 mm, each shown extended and flexed, pads shaded, joint gap G and finite pole P(q) marked. Caption must state these are best designs within the 2D model, not hardware, and give each design's C-bar_pad (5 mm, 150 deg: CFL 0.739, 2R-remote 0.593, 2R-DD 0.593, RCJ 0.560) from experimental_log.md. No prototype specifications.",
+      "aspect_ratio": "4:1"
+    },
+    {
+      "figure_id": "fig_finite_pole_clearance_geometry",
+      "title": "Finite pole, pad retreat and the symmetric clearance law",
+      "plot_type": "diagram",
+      "data_source": "idea.md",
+      "objective": "Wide schematic (figure*, about 0.9 textwidth x 1.6 in), redrawn compact version of study0_pole_sketch.png. Three panels sharing the proximal-phalanx frame (x along the link line, z dorsal): (a) fixed axis with 5 mm pads, (b) fixed axis with 9 mm pads — the pole stays on the link line so the faces sit tau = t - z above it and the joint-side corners collide unless the gap grows as 2[d+h-z]_+ tan(q/2); (c) a lowered (descending) pole that reaches toward the contact face, so tau shrinks and the same pads fit with a small gap. Annotate P(q), tau_i, G, the mirror line with normal (cos q/2, -sin q/2) from the Prop. 2 proof, and the critical flexion q*. Supports Lemma, Props. 2-4 and the Corollary.",
+      "aspect_ratio": "4:1"
+    },
+    {
+      "figure_id": "fig_study1_coverage_vs_thickness",
+      "title": "Study 1: best coverage per architecture versus pad thickness",
+      "plot_type": "plot",
+      "data_source": "experimental_log.md",
+      "objective": "Line chart with markers, three side-by-side panels (q_req = 90, 120, 150 deg), x = pad thickness h in {3,5,7,9} mm, y = best C-bar_pad from the Study 1 table. Solid lines for the physical architectures CFL, 2R-remote, 2R-DD, RCJ; thin dashed lines for the declared upper bounds CFL ideal and RCJ ideal (labelled 'no joint-actuator body'). Mark 'none found' cells as open markers on the x axis with a note that this is about the search, and mark dagger cells (2R-remote 150 deg 7/9 mm: feasible but pads cannot meet a cylinder) distinctly. Annotate the 120 deg crossover (~5.3 mm, confirmed at 6 mm: CFL 0.740 vs 2R-remote 0.729) and the 3->9 mm loss (CFL 0.085/0.086/0.096 vs 2R-remote 0.107/0.182/0.740). Size: figure* about 7.16 in x 1.8 in. Color-blind safe palette, PNG only.",
+      "aspect_ratio": "4:1"
+    },
+    {
+      "figure_id": "fig_study2_contact_path_change_vs_bound",
+      "title": "Study 2: contact-path change under redesign versus the fixed-axis bound",
+      "plot_type": "plot",
+      "data_source": "experimental_log.md",
+      "objective": "Three panels (q_req = 90, 120, 150 deg), figure* about 7.16 in x 1.8 in. Grouped line/marker chart: x = target thickness (5, 7, 9 mm, redesigned from each architecture's 3 mm design), y = D_c*L_f in mm at the coverage end of the front, for CFL, 2R-remote, 2R-DD, RCJ, with the fixed-axis bound 2 sin(q_req/2)(h - h_0) drawn as a black dashed line (2.83/5.66/8.49, 3.46/6.93/10.39, 3.86/7.73/11.59 mm). Show that 2R-remote lies exactly on the bound at 90/120 deg, 2R-DD and RCJ fall below it, CFL lowest (0.35-4.31 mm, 10-51% of the bound). Omit degenerate 2R-remote 150 deg 7/9 mm points from the line (mark them with a dagger beyond the axis) and 'none' cells. Ideal variants are not plotted here (they go in the text). Optional inset label: C-bar_pad kept within 0.2 pp of Study 1 for CFL. Replaces the interim study2_redesign figure; PNG only.",
+      "aspect_ratio": "4:1"
+    }
+  ],
+  "intro_related_work_plan": {
+    "adaptation_note": "Literature review already done; no web search queries. Keys below are exact keys from citation_map.json, selected for direct relevance to the central problem (contact interfaces confounded with hand redesign) and novelty (contact-centric kinematics via the finite pole). Total distinct cited works across the paper: 20.",
+    "introduction_strategy": {
+      "hook_hypothesis": "Contact interfaces — thick compliant skins, camera-based tactile modules with optics, sensorized surfaces — shape what a robot hand can grasp and sense, and accessible hands are increasingly used as experimental platforms; yet interfaces are usually fitted into an existing finger as secondary components.",
+      "hook_candidate_keys": [
+        "piazza2019century",
+        "shaw2023leap",
+        "christoph2025orca",
+        "yuan2017gelsight",
+        "lambeta2020digit",
+        "shimoga1996soft"
+      ],
+      "problem_gap_hypothesis": "Useful interfaces are physically large and compete with actuators, joint housings and transmissions for volume along the proximal phalanx and around the joint, so carrying a different interface typically requires redesigning phalanx length, joint location or linkage. In a comparison of two interfaces this redesign is an unintended embodiment variation that confounds the intended interface effect: with identical rigid-body kinematics a thicker pad moves the contact face away from the point the phalanx turns about and changes the contact-point Jacobian. Scope strictly to the 2D side model of a 2-DoF finger with equal-thickness rigid pads, L_f = 90 mm, h in {3,5,7,9} mm, q_req in {90,120,150} deg, and four architectures (2R-DD, 2R-remote, RCJ, CFL); no claim about manipulation performance or learning.",
+      "gap_candidate_keys": [
+        "zhao2023svelte",
+        "bhirangi2022allthefeels",
+        "lu2019softfingertips"
+      ],
+      "selected_keys": [
+        "piazza2019century",
+        "shaw2023leap",
+        "christoph2025orca",
+        "yuan2017gelsight",
+        "lambeta2020digit",
+        "zhao2023svelte",
+        "bhirangi2022allthefeels",
+        "shimoga1996soft",
+        "lu2019softfingertips"
+      ]
+    },
+    "related_work_strategy": {
+      "overview": "Three short clusters (~360 words total), each ending with the bridge to contact-centric kinematics. Relevance, not comprehensiveness (RSS Stage 1).",
+      "subsections": [
+        {
+          "subsection_title": "Contact interfaces and their integration cost",
+          "methodology_cluster": "Vision-based tactile fingers, large-area tactile skins, soft fingertips",
+          "sota_investigation_mission": "Use the selected keys to show that useful interfaces are voluminous (optics, elastomer depth) and that sensorized fingers are typically designed around one specific sensor (whole finger built for the sensor) rather than allowing exchange; soft-fingertip work shows that interface compliance/thickness changes contact behaviour and hand design implications.",
+          "limitation_hypothesis": "Each interface is integrated by a bespoke finger; comparing interfaces then compares different fingers, so interface effects are confounded with morphology and articulation changes.",
+          "candidate_citation_keys": [
+            "yuan2017gelsight",
+            "lambeta2020digit",
+            "zhao2023svelte",
+            "bhirangi2022allthefeels",
+            "shimoga1996soft",
+            "lu2019softfingertips"
+          ],
+          "bridge_to_our_method": "CoDe fixes the underlying hand H and varies only C; the redesign target is the contact-centric kinematics, so interface comparisons keep the contact-face motion."
+        },
+        {
+          "subsection_title": "Finger joints: fixed axis, rolling contact and crossed four-bar",
+          "methodology_cluster": "Revolute (fixed-axis), rolling contact joints, polycentric crossed four-bar joints in robot fingers and hands",
+          "sota_investigation_mission": "Position the compared architectures: open, accessible servo hands with fixed-axis joints; rolling contact joints for compactness; crossed four-bar joints in anthropomorphic fingers; linkage-driven integrated hands.",
+          "limitation_hypothesis": "These joints are chosen for compactness, anthropomorphism or force transmission; none is analysed for what the joint takes from the contact pads or for whether contact-face motion survives an interface change.",
+          "candidate_citation_keys": [
+            "shaw2023leap",
+            "kim2016rolling",
+            "toshimitsu2023faive",
+            "bai2016crossfourbar",
+            "bai2018monolithic",
+            "kim2021ilda"
+          ],
+          "bridge_to_our_method": "The finite pole of the phalanx displacement, computed from the fingertip path alone, compares all joint types on one footing and gives exact clearance, coverage and contact-path laws; no joint is assumed superior."
+        },
+        {
+          "subsection_title": "Morphology and contact-aware co-design",
+          "methodology_cluster": "Computational co-design of robot/hand morphology with contact",
+          "sota_investigation_mission": "Briefly note contact-aware differentiable design and cross-embodiment co-design for dexterous hands as optimizing morphology for task performance.",
+          "limitation_hypothesis": "Co-design optimizes the hand for a task or embodiment and lets morphology change freely; it does not hold morphology fixed to isolate an interface effect.",
+          "candidate_citation_keys": [
+            "xu2021contactaware",
+            "fay2026dextra"
+          ],
+          "bridge_to_our_method": "We invert the goal: keep contact-centric kinematics fixed as the interface varies, so that changes in measurements can be attributed to the interface (reduced, not eliminated, confounding)."
+        }
+      ]
+    }
+  },
+  "section_plan": [
+    {
+      "section_title": "Title and Abstract (sections/00_abstract.tex)",
+      "subsections": [
+        {
+          "subsection_title": "Abstract Content (~180 words)",
+          "content_bullets": [
+            "Global sizing: {\"page_budget\": \"5 content pages + 1 page references; no appendix\", \"word_budget\": {\"abstract\": 180, \"introduction\": 570, \"related_work\": 360, \"problem_statement_hypotheses\": 550, \"joint_pad_geometry\": 680, \"validation_setup_checks\": 230, \"study1_H1\": 380, \"study2_H2\": 380, \"stage2_H3\": 300, \"discussion\": 130, \"conclusion\": 120, \"total\": 3880, \"total_excluding_abstract\": 3700}, \"floats\": \"4 wide figures (~1.4 + 1.6 + 1.8 + 1.8 in) + 1 column table (~2 in)\"}",
+            "Title: keep 'CoDe Hand: Same Hand, Different Contact' (from template pdftitle) with a subtitle such as 'Contact-Centric Kinematics for Comparable Contact-Interface Studies'; no author metadata.",
+            "Problem (2 sentences): comparing contact interfaces on a robot finger usually requires redesigning the finger, which confounds interface effects with embodiment changes (idea.md §2.3).",
+            "Concept: contact-centric kinematics — the motion of one contact face seen from the other — as the invariant to keep; analyse every finger joint through the finite pole of the distal-phalanx displacement (idea.md §3, §6).",
+            "Results (computational, 2D model, L_f = 90 mm): fixed-axis gap grows 2.00/3.46/7.46 mm per mm thickness at 90/120/150 deg; architecture bounds coverage (at 150 deg 2R-remote loses 0.740 of C-bar_pad from 3 to 9 mm vs 0.096 for CFL) but 2R-remote leads at 90 deg; under redesign for thicker pads CFL keeps the contact path within 0.35-4.31 mm (10-51% of the fixed-axis bound) with coverage kept, partial at 9 mm.",
+            "Stage 2: state H3 hardware interface exchange on the CoDe prototype as planned, not done; contribution framed as validity of contact-interface measurements, not universal superiority."
+          ],
+          "citation_hints": []
+        }
+      ]
+    },
+    {
+      "section_title": "I. Introduction (sections/01_introduction.tex)",
+      "subsections": [
+        {
+          "subsection_title": "Introduction Content (~570 words, no subsections)",
+          "content_bullets": [
+            "P1 hook (~120 w): contact interfaces (compliant skins, vision-based tactile fingers, sensorized surfaces) govern contact; hands are used as experimental platforms; interfaces are fitted into existing fingers.",
+            "P2 problem (~150 w): three linked problems from idea.md §2 — limited space near the joint and proximal phalanx, high redesign cost, and the research consequence: intended variation (stiffness, friction, contact geometry, tactile signals, interface-dependent force transmission) vs unintended embodiment variation (finger length, joint location, linkage, actuation). Give the contact-Jacobian example from idea.md §3. State explicitly that contact matters is expected; the contribution is measurement validity.",
+            "P3 central question and approach (~130 w): 'how can a hand be designed so that contact interfaces can be varied while its morphology changes as little as possible?' with Q1 (how architecture constrains interface space) and Q2 (how much morphology must change). CoDe: remote actuation, crossed four-bar PIP, independent replaceable proximal/distal pad modules — means, not ends; CoDe is not intended to make every interface better but easier to study. Refer to fig_teaser_same_hand_different_contact_designs.",
+            "P4 contributions (~150 w, itemized, evidence-scoped): (1) formulation of contact-centric kinematics R = (H, C) and pad coverage C-bar_pad with fair cross-architecture comparison; (2) finite-pole analysis giving exact clearance (Prop. 1), symmetric clearance law (Prop. 2), coverage law (Prop. 3), contact-path law and fixed-axis redesign bound (Prop. 4, Corollary); (3) computational validation of H1-H2 across four architectures, 4 thicknesses, 3 flexion requirements, including negative results; (4) a fully specified Stage-2 hardware protocol (H3).",
+            "P5 scope (~50 w): 2D side model, 2-DoF finger, equal-thickness rigid pads; preserving contact-centric kinematics does not preserve contact mechanics (that is what is studied); matched morphology reduces, not eliminates, confounding. No learning results."
+          ],
+          "citation_hints": [
+            "piazza2019century",
+            "shaw2023leap",
+            "christoph2025orca",
+            "yuan2017gelsight",
+            "lambeta2020digit",
+            "zhao2023svelte",
+            "bhirangi2022allthefeels",
+            "shimoga1996soft",
+            "lu2019softfingertips"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "II. Related Work (sections/02_related_works.tex)",
+      "subsections": [
+        {
+          "subsection_title": "Related Work Content (~360 words; three paragraphs with bold run-in heads, no \\subsection to save space)",
+          "content_bullets": [
+            "Contact interfaces and their integration (~140 w): vision-based tactile sensors need optical depth; tactile fingers are built around one sensor; large-area skins and soft fingertips change contact behaviour and hand design. Limitation: bespoke integration confounds comparisons. Bridge: fix H, vary C, keep contact-face motion.",
+            "Finger joints (~140 w): fixed-axis servo hands, rolling contact joints, crossed four-bar joints, linkage-driven hands. Limitation: chosen for compactness/anthropomorphism, not analysed for pad space or contact-face motion under interface change. Bridge: finite-pole analysis applies to every architecture from the fingertip path alone; no mechanism assumed superior.",
+            "Co-design (~80 w): contact-aware and cross-embodiment co-design optimize morphology for tasks; we hold the contact-centric kinematics fixed instead, to make interface effects measurable."
+          ],
+          "citation_hints": [
+            "yuan2017gelsight",
+            "lambeta2020digit",
+            "zhao2023svelte",
+            "bhirangi2022allthefeels",
+            "shimoga1996soft",
+            "lu2019softfingertips",
+            "shaw2023leap",
+            "kim2016rolling",
+            "toshimitsu2023faive",
+            "bai2016crossfourbar",
+            "bai2018monolithic",
+            "kim2021ilda",
+            "xu2021contactaware",
+            "fay2026dextra"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "III. Problem Statement and Hypotheses (sections/03_design.tex, first \\section)",
+      "subsections": [
+        {
+          "subsection_title": "III-A Contact-centric hand model and coverage (~330 words)",
+          "content_bullets": [
+            "Define R = (H, C), H = (E, Q, A) fixed, C_i = (l_i, h_i, p_i) variable; morphology M = (K, C, A, S); interface dimensions given first as requirements (idea.md §3, §5).",
+            "Define contact-centric kinematics: path c(q) of a distal-face point seen from the proximal face; it has priority over the skeleton's kinematics when an interface is thicker than designed.",
+            "2D model: lengths at q = 0 with collinear axes, L_f = L_1 + L_vp + L_2; posed contour L_f(q) = L_1 + ||r_2,start(q) - r_1,end|| + L_2.",
+            "Feasibility: static assembly and collision-free motion over [0, q_req] (touching allowed; other-layer links/belts not checked against pads); CFL transmission angle in [30, 150] deg.",
+            "Equation: C_pad(q) = 2|T_1 ∩ T_2| / L_f(q) via the inscribed cylinder at distance t from the face intersection X; C-bar_pad = mean over Q_eval = {90 deg, (90 deg + q_req)/2, q_req}. Explain why numerator and denominator share the pose, and which pad portions do not count.",
+            "Contact-path change D_c(M, M_0) = max_{q<=q_req} ||c(M,q) - c(M_0,q)|| / L_f and skeleton change D_s (fingertip), from idea.md §7."
+          ],
+          "citation_hints": [
+            "murray1994mathematical"
+          ]
+        },
+        {
+          "subsection_title": "III-B Architectures and hypotheses (~220 words)",
+          "content_bullets": [
+            "Four architectures, each at its own best design under one goal (L_f = 90 mm, same actuators, pad requirements, collision rules, never fitted to another's morphology): 2R-DD (revolute PIP, actuator at joint), 2R-remote (same joint, belt from actuator on proximal phalanx at fixed pose 10 mm proximal/15 mm dorsal, tilt 15 deg), RCJ (two equal rollers), CFL (crossed four-bar, pivots A, A' proximal and B, B' distal, driven at A'). CFL ideal / RCJ ideal = declared upper bounds without joint-actuator body, reported apart. MA reported, not constrained (2R = 1, RCJ = 1/2); occlusion not counted.",
+            "H1: architecture bounds usable contact surface; spread grows with thickness and q_req. Insight if false: interface volume is limited by packaging, not the joint.",
+            "H2: only a joint that moves its pole can be redesigned for a thicker interface while keeping contact-centric kinematics and coverage. Insight if false: no redesign removes the confound; build for the thickest interface in advance or report D_c as a covariate.",
+            "H3 (Stage 2, hardware): interfaces can be exchanged on one physical CoDe hand with the same actuation and procedure, keeping the predicted motion; specified in Sec. V. Insight if false: integration cost and what had to change are the result.",
+            "Rename idea.md's 'H1-empirical' prediction as P1 (with P2-P4) to avoid clashing with hypothesis H1."
+          ],
+          "citation_hints": [
+            "kim2016rolling",
+            "bai2016crossfourbar"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "IV. Geometry of the Joint-Pad Conflict (sections/03_design.tex, second \\section)",
+      "subsections": [
+        {
+          "subsection_title": "IV-A Finite pole and exact clearance (~300 words)",
+          "content_bullets": [
+            "Frame fixed to proximal phalanx: x along link line, z dorsal; pad i at mount depth d_i, face depth t_i = d_i + h_i; joint gap G = x_2s - x_1e and identity (l_1 + l_2)/L_f = 1 - (x_0 + G)/L_f.",
+            "Lemma (finite pole): for q in (0, 2pi) the displacement y -> R_q y + b is a rotation by q about P(q) = (I - R_q)^{-1} b = 1/2 (b - cot(q/2) J b), with b = r_C(q) - R_q r_C(0) from the fingertip path alone, so it applies to every architecture. Note: finite pole differs from the instantaneous center except for a fixed axis. Define z(q) and tau_i = t_i - z(q).",
+            "Prop. 1: two rectangular pads are disjoint iff projections separate on one of {e_x, e_z, R_q e_x, R_q e_z}; design condition min_{0<q<=q_req} m(q) >= 0.",
+            "Refer to fig_finite_pole_clearance_geometry."
+          ],
+          "citation_hints": [
+            "bottema1979theoretical",
+            "murray1994mathematical",
+            "gottschalk1996obbtree"
+          ]
+        },
+        {
+          "subsection_title": "IV-B Clearance, coverage and contact-path laws (~380 words)",
+          "content_bullets": [
+            "Prop. 2 (symmetric clearance law) under S1 (equal face depths) and S2 (joint-side corners equidistant from the pole in x): disjoint over (0, q_req] iff G >= G_sym = max_q 2[d + h - z(q)]_+ tan(q/2). Proof sketch in 3 sentences (mirror image about the line with normal (cos q/2, -sin q/2); convex set and its mirror disjoint iff in one half-plane; joint-side corner crosses first). Critical flexion q*; G_sym convex in h with slope 2 tan(q*/2). Fixed axis: z = 0, q* = q_req, gap grows 2.00/3.46/7.46 mm per mm at 90/120/150 deg. RCJ: z = r tan(q/4); CFL: z(q), P_x(q) set by linkage.",
+            "Prop. 3 (coverage) under S1, S2, equal pads: C_pad(q) = (L_f - x_0 - G) / (L_f - G(1 - cos(q/2)) + 2 z(q) sin(q/2)). Interpretation: a large fixed-axis gap shortens when flexed, a palmar pole lengthens the contour; lowering a constant-depth pole raises C_pad until z = t (G = 0): the best joint turns about a point on the contact face.",
+            "Prop. 4 (contact-centric kinematics): c(q) = p + R_q(c_0 - p); for two fingers with pole difference Delta p, ||Delta c(q)|| = 2 sin(q/2) ||Delta p(q)||. Contact faces move alike iff the pole keeps its place relative to the face, so keeping contact-centric kinematics and keeping the pads are one condition.",
+            "Corollary (fixed-axis bound): redesign moving faces Delta h - Delta d from the axis gives max_q ||Delta c|| >= 2 sin(q_req/2)|Delta h - Delta d| wherever the new axis is; same for RCJ with fixed roller radius.",
+            "Testable predictions P1 (pad-pad contact active at coverage optimum), P2 (C-bar_pad reproduced from pole path + pads), P3 (fixed axes lose pad length as tan(q_req/2); a descending pole need not), P4 (only a joint that moves its pole can beat the bound) — map P1/P3 to H1 and P4 to H2."
+          ],
+          "citation_hints": [
+            "bottema1979theoretical",
+            "toshimitsu2023faive"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "V. Preliminary Validation and Stage-2 Plan (sections/04_experiments.tex)",
+      "subsections": [
+        {
+          "subsection_title": "V-A Setup and checks of the analysis (~230 words)",
+          "content_bullets": [
+            "Setup from experimental_log.md Common setup: MCP fixed at q1 = 0, q2 in [0, q_req]; L_f = 90 mm; h in {3,5,7,9} mm, q_req in {90,120,150} deg; collision checked on 1 deg grid and re-verified at 0.05 deg, tolerance gap >= -1e-6 mm; GA and NSGA-II, seeds 0-2, stop after 150 generations without improvement; CFL re-searched from neighbouring thicknesses and Study 2 designs; cell = best of all runs. Candidate designs are design alternatives, not replicates.",
+            "Analysis checks on 51 Study 1 designs: Prop. 3 reproduces evaluator C-bar_pad within 1e-13 (P2); Prop. 1 vs evaluator polygons within 1e-9 on 400 random configurations; predicted first contact for a fixed finger with another thickness within the 1 deg grid on 99 cases (-0.25 to +2.1 deg); CFL pole recomputed independently within 0.13 mm.",
+            "P1: 47/51 optima have exact pad clearance within 0.1 mm (exceptions listed briefly: RCJ 120/9 1.68 mm, RCJ ideal 120/5 0.29, RCJ ideal 90/7 0.24, CFL 150/5 0.25); feasible-space sample CFL 120 deg 7 mm: 25/80,000 feasible (0.03%), pad-pad collision = 62% of first collisions.",
+            "G - G_sym as estimate: fixed axis -3.4 to +0.2 mm (large only at 150 deg, pads not symmetric), CFL -1.6 to +0.2, RCJ ideal 0 to +0.7. Pole behaviour (P3): fixed axis q* = q_req so 2R-remote 5 mm gap 10.0 -> 17.4 -> 33.9 mm; CFL pole descends, q* = 87-105 deg, gap 15.5 -> 13.8 -> 11.3 mm."
+          ],
+          "citation_hints": [
+            "deb2002nsga2",
+            "gottschalk1996obbtree"
+          ]
+        },
+        {
+          "subsection_title": "V-B H1: architecture bounds the contact surface (Study 1, ~380 words)",
+          "content_bullets": [
+            "Present fig_study1_coverage_vs_thickness; numbers from the Study 1 table only.",
+            "Spread grows with h and q_req: loss 3 -> 9 mm CFL 0.085/0.086/0.096 vs 2R-remote 0.107/0.182/0.740 at 90/120/150 deg; at 5 mm going 90 -> 150 deg costs CFL 0.039 vs 2R-remote 0.216.",
+            "Negative results planned in: 2R-remote leads at 90 deg at every thickness (4.1/3.1/2.3/1.9 pp) and at 120 deg below ~5.3 mm (crossover confirmed at 6 mm: 0.740 vs 0.729); CFL higher at 150 deg everywhere. Explain with Prop. 3: palmar CFL pole lengthens contour (+2z sin(q/2)) while a large fixed-axis gap shortens when flexed (5 mm 120 deg: CFL pad length 66.7 vs 63.1 mm yet coverage lower at the time 0.748 vs 0.758).",
+            "RCJ lowest as hardware but RCJ ideal high -> its loss is packaging (roller + servo), not kinematics: this partially supports the H1-false branch for RCJ (packaging-limited). 2R-DD 150 deg 7/9 mm and RCJ 150 deg 9 mm 'none found' = statement about the search; 2R-remote 150 deg 7/9 mm feasible but pads cannot meet a cylinder.",
+            "Unchanged fingers accept no thicker pad: with +2 mm pads CFL contacts at 65 deg vs 2R-remote 92 deg -> redesign is unavoidable, motivating H2.",
+            "Search difficulty: 2R and RCJ runs reach identical values; CFL runs spread 1.3-3.4 pp and continuation raised cells by up to 2.1 pp; not proof of global optimum. Ideal variants reported as upper bounds only."
+          ],
+          "citation_hints": [
+            "deb2002nsga2"
+          ]
+        },
+        {
+          "subsection_title": "V-C H2: redesign with contact-centric kinematics as target (Study 2, ~380 words)",
+          "content_bullets": [
+            "Protocol: reference M_0 = each architecture's 3 mm Study 1 design; for 5/7/9 mm minimize D_c and maximize C-bar_pad with NSGA-II (population 200, 200 generations, seeds 0-1, no coverage floor); report coverage-end point of the front. Compare to fixed-axis bound 2 sin(q_req/2)(h - h_0).",
+            "Include a compact column table (~10 rows: bound, CFL, 2R-remote, 2R-DD, RCJ at q_req 90/120/150 deg for 3->9 mm, or 3->5/3->9 at 120 deg plus 3->9 at all q_req), cells D_c*L_f (mm)/C-bar_pad, plus fig_study2_contact_path_change_vs_bound.",
+            "Findings: CFL smallest contact-path change among physical architectures at every q_req and h, 0.35-4.31 mm = 10-51% of the bound (120 deg 10-22%, 150 deg 20-31%, 90 deg 32-51%), coverage within 0.2 pp of final Study 1 best; 2R-remote equals the bound exactly at 90/120 deg (bound is tight, P4); 2R-DD and RCJ fall below the bound (joint x moves, mount depth reduced, RCJ pole rolls) but stay above CFL. Skeleton changes instead (CFL 120 deg 3->5: contact 0.84 vs fingertip 3.54 mm): the mechanism absorbs the interface.",
+            "Negative/partial results: change grows with thickness; CFL at 9 mm 2.3-4.3 mm = partial, not full preservation (2-10x below fixed axis); CFL ideal 90 deg 7 mm coverage-end point jumps to 5.70 mm while other front points <= 0.65 mm; 2R-remote 150 deg 7/9 mm degenerate. Verdict on H2 phrased as supported within the model, with D_c recommended as a reported covariate when preservation is partial."
+          ],
+          "citation_hints": [
+            "deb2002nsga2"
+          ]
+        },
+        {
+          "subsection_title": "V-D H3: Stage-2 hardware interface exchange (~300 words)",
+          "content_bullets": [
+            "State clearly: no hardware results exist yet; no prototype specifications are stated.",
+            "Platform: one physical CoDe hand (CFL PIP, remote actuation, independent replaceable proximal/distal pad modules); 2-3 representative physical interfaces spanning the thickness range, same actuation and procedure.",
+            "Measures: (i) exchange cost — parts touched, time, whether the articulation is disassembled; (ii) reached flexion vs model; (iii) contact-face motion tracked on the pads vs model D_c; (iv) a common grasp protocol run on every interface, interpreting differences as interface effects only with D_c reported.",
+            "Interfaces thicker than the design depth use a redesigned linkage (Study 2), reported separately from the interface itself.",
+            "Pre-stated outcome reading: success = exchange without touching the articulation and motion within the model; if false, integration cost and what had to change are the result (planar feasibility is not buildability)."
+          ],
+          "citation_hints": [
+            "yuan2017gelsight",
+            "shimoga1996soft"
+          ]
+        },
+        {
+          "subsection_title": "V-E Discussion and limitations (~130 words)",
+          "content_bullets": [
+            "Insights regardless of outcome: the pole explains what a joint takes from the pads and whether contact-face motion can be kept; fixed-axis fingers cannot beat the redesign bound, so interface studies on them should report D_c or build for the thickest interface.",
+            "Limits: 2D model, equal-thickness rigid pads, fixed L_f, stated coverage definition; occlusion and MA floor not imposed (MA reported); matched morphology reduces but does not prove causal isolation; no universal superiority of CFL (2R-remote better at 90 deg)."
+          ],
+          "citation_hints": []
+        }
+      ]
+    },
+    {
+      "section_title": "VI. Conclusion (sections/05_conclusion.tex)",
+      "subsections": [
+        {
+          "subsection_title": "Conclusion Content (~120 words)",
+          "content_bullets": [
+            "Restate: contact-centric kinematics as the invariant for valid interface comparisons; finite-pole laws for clearance, coverage and contact path.",
+            "Supported findings within the model: H1 (architecture bounds coverage, spread grows with h and q_req, with 2R-remote leading at 90 deg); H2 (pole-moving CFL keeps the contact path at 10-51% of the fixed-axis bound with coverage kept; partial at 9 mm).",
+            "Remaining validation: H3 hardware exchange in Stage 2. Do not present planned experiments as results."
+          ],
+          "citation_hints": []
+        }
+      ]
+    }
+  ]
+}

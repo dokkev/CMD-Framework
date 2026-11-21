@@ -1,0 +1,457 @@
+[
+ {
+  "key": "yuan2017gelsight",
+  "title": "{GelSight}: High-Resolution Robot Tactile Sensors for Estimating Geometry and Force",
+  "author": "Yuan, Wenzhen and Dong, Siyuan and Adelson, Edward H.",
+  "year": "2017",
+  "venue": "Sensors"
+ },
+ {
+  "key": "donlon2018gelslim",
+  "title": "{GelSlim}: A High-Resolution, Compact, Robust, and Calibrated Tactile-sensing Finger",
+  "author": "Donlon, Elliott and Dong, Siyuan and Liu, Melody and Li, Jianhua and Adelson, Edward and Rodriguez, Alberto",
+  "year": "2018",
+  "venue": "IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)"
+ },
+ {
+  "key": "lambeta2020digit",
+  "title": "{DIGIT}: A Novel Design for a Low-Cost Compact High-Resolution Tactile Sensor With Application to In-Hand Manipulation",
+  "author": "Lambeta, Mike and Chou, Po-Wei and Tian, Stephen and Yang, Brian and Maloon, Benjamin and Most, Victoria Rose and Stroud, Dave and Santos, Raymond and Byagowi, Ahmad and Kammerer, Gregg and Jayaraman, Dinesh and Calandra, Roberto",
+  "year": "2020",
+  "venue": "IEEE Robotics and Automation Letters"
+ },
+ {
+  "key": "wang2021gelsightwedge",
+  "title": "{GelSight Wedge}: Measuring High-Resolution {3D} Contact Geometry with a Compact Robot Finger",
+  "author": "Wang, Shaoxiong and She, Yu and Romero, Branden and Adelson, Edward",
+  "year": "2021",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "sun2022insight",
+  "title": "A Soft Thumb-Sized Vision-Based Sensor with Accurate All-Round Force Perception",
+  "author": "Sun, Huanbo and Kuchenbecker, Katherine J. and Martius, Georg",
+  "year": "2022",
+  "venue": "Nature Machine Intelligence"
+ },
+ {
+  "key": "do2022densetact",
+  "title": "{DenseTact}: Optical Tactile Sensor for Dense Shape Reconstruction",
+  "author": "Do, Won Kyung and Kennedy, Monroe",
+  "year": "2022",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "andrussow2023minsight",
+  "title": "{Minsight}: A Fingertip-Sized Vision-Based Tactile Sensor for Robotic Manipulation",
+  "author": "Andrussow, Iris and Sun, Huanbo and Kuchenbecker, Katherine J. and Martius, Georg",
+  "year": "2023",
+  "venue": "Advanced Intelligent Systems"
+ },
+ {
+  "key": "zhao2023svelte",
+  "title": "{GelSight Svelte}: A Human Finger-shaped Single-camera Tactile Robot Finger with Large Sensing Coverage and Proprioceptive Sensing",
+  "author": "Zhao, Jialiang and Adelson, Edward H.",
+  "year": "2023",
+  "venue": "IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)"
+ },
+ {
+  "key": "azulay2024allsight",
+  "title": "{AllSight}: A Low-Cost and High-Resolution Round Tactile Sensor With Zero-Shot Learning Capability",
+  "author": "Azulay, Osher and Curtis, Nimrod and Sokolovsky, Rotem and Levitski, Guy and Slomovik, Daniel and Lilling, Guy and Sintov, Avishai",
+  "year": "2024",
+  "venue": "IEEE Robotics and Automation Letters"
+ },
+ {
+  "key": "lin2024ninedtact",
+  "title": "{9DTact}: A Compact Vision-Based Tactile Sensor for Accurate {3D} Shape Reconstruction and Generalizable {6D} Force Estimation",
+  "author": "Lin, Changyi and Zhang, Han and Xu, Jikai and Wu, Lei and Xu, Huazhe",
+  "year": "2024",
+  "venue": "IEEE Robotics and Automation Letters"
+ },
+ {
+  "key": "lambeta2024digit360",
+  "title": "Digitizing Touch with an Artificial Multimodal Fingertip",
+  "author": "Lambeta, Mike and others",
+  "year": "2024",
+  "venue": ""
+ },
+ {
+  "key": "bhirangi2021reskin",
+  "title": "{ReSkin}: Versatile, Replaceable, Lasting Tactile Skins",
+  "author": "Bhirangi, Raunaq and Hellebrekers, Tess and Majidi, Carmel and Gupta, Abhinav",
+  "year": "2021",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "salisbury1982articulated",
+  "title": "Articulated Hands: Force Control and Kinematic Issues",
+  "author": "Salisbury, J. Kenneth and Craig, John J.",
+  "year": "1982",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "piazza2019century",
+  "title": "A Century of Robotic Hands",
+  "author": "Piazza, Cristina and Grioli, Giorgio and Catalano, Manuel G. and Bicchi, Antonio",
+  "year": "2019",
+  "venue": "Annual Review of Control, Robotics, and Autonomous Systems"
+ },
+ {
+  "key": "openai2020dexterous",
+  "title": "Learning Dexterous In-Hand Manipulation",
+  "author": "{OpenAI} and Andrychowicz, Marcin and others",
+  "year": "2020",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "wuthrich2020trifinger",
+  "title": "{TriFinger}: An Open-Source Robot for Learning Dexterity",
+  "author": "W{\\\"u}thrich, Manuel and others",
+  "year": "2020",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "kim2021ilda",
+  "title": "Integrated Linkage-Driven Dexterous Anthropomorphic Robotic Hand",
+  "author": "Kim, Uikyum and others",
+  "year": "2021",
+  "venue": "Nature Communications"
+ },
+ {
+  "key": "qi2022hora",
+  "title": "In-Hand Object Rotation via Rapid Motor Adaptation",
+  "author": "Qi, Haozhi and Kumar, Ashish and Calandra, Roberto and Ma, Yi and Malik, Jitendra",
+  "year": "2022",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "bhirangi2022allthefeels",
+  "title": "All the Feels: A Dexterous Hand with Large-Area Tactile Sensing",
+  "author": "Bhirangi, Raunaq and others",
+  "year": "2022",
+  "venue": ""
+ },
+ {
+  "key": "shaw2023leap",
+  "title": "{LEAP Hand}: Low-Cost, Efficient, and Anthropomorphic Hand for Robot Learning",
+  "author": "Shaw, Kenneth and Agarwal, Ananye and Pathak, Deepak",
+  "year": "2023",
+  "venue": "Robotics: Science and Systems (RSS)"
+ },
+ {
+  "key": "qi2023rotateit",
+  "title": "General In-Hand Object Rotation with Vision and Touch",
+  "author": "Qi, Haozhi and Yi, Brent and Suresh, Sudharshan and Lambeta, Mike and Ma, Yi and Calandra, Roberto and Malik, Jitendra",
+  "year": "2023",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "christoph2025orca",
+  "title": "{ORCA}: An Open-Source, Reliable, Cost-Effective, Anthropomorphic Robotic Hand for Uninterrupted Dexterous Task Learning",
+  "author": "Christoph, Clemens C. and Eberlein, Maximilian and Katsimalis, Filippos and Roberti, Arturo and Sympetheros, Aristotelis and Vogt, Michel R. and Liconti, Davide and Yang, Chenyu and Cangan, Barnabas Gavin and Hinchet, Ronan J. and Katzschmann, Robert K.",
+  "year": "2025",
+  "venue": ""
+ },
+ {
+  "key": "cutkosky1987skin",
+  "title": "Skin Materials for Robotic Fingers",
+  "author": "Cutkosky, Mark R. and Jourdain, John M. and Wright, Paul K.",
+  "year": "1987",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "shimoga1996soft",
+  "title": "Soft Robotic Fingertips. {Part I}: A Comparison of Construction Materials; {Part II}: Modeling and Impedance Regulation",
+  "author": "Shimoga, Karun B. and Goldenberg, Andrew A.",
+  "year": "",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "xydas1999soft",
+  "title": "Modeling of Contact Mechanics and Friction Limit Surfaces for Soft Fingers in Robotics, with Experimental Results",
+  "author": "Xydas, Nicholas and Kao, Imin",
+  "year": "1999",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "inoue2006elastic",
+  "title": "Elastic Model of Deformable Fingertip for Soft-Fingered Manipulation",
+  "author": "Inoue, Takahiro and Hirai, Shinichi",
+  "year": "",
+  "venue": "IEEE Transactions on Robotics"
+ },
+ {
+  "key": "ciocarlie2007soft",
+  "title": "Soft Finger Model with Adaptive Contact Geometry for Grasping and Manipulation Tasks",
+  "author": "Ciocarlie, Matei and Lackner, Claire and Allen, Peter",
+  "year": "2007",
+  "venue": "Second Joint EuroHaptics Conference and Symposium on Haptic Interfaces for Virtual Environment and Teleoperator Systems (World Haptics)"
+ },
+ {
+  "key": "kao2016contact",
+  "title": "Contact Modeling and Manipulation",
+  "author": "Kao, Imin and Lynch, Kevin M. and Burdick, Joel W.",
+  "year": "2016",
+  "venue": "Springer Handbook of Robotics"
+ },
+ {
+  "key": "lu2019softfingertips",
+  "title": "On Soft Fingertips for In-Hand Manipulation: Modeling and Implications for Robot Hand Design",
+  "author": "Lu, Qiujie and Rojas, Nicolas",
+  "year": "2019",
+  "venue": "IEEE Robotics and Automation Letters"
+ },
+ {
+  "key": "bhatt2021surprisingly",
+  "title": "Surprisingly Robust In-Hand Manipulation: An Empirical Study",
+  "author": "Bhatt, Aditya and Sieler, Adrian and Puhlmann, Steffen and Brock, Oliver",
+  "year": "2021",
+  "venue": "Robotics: Science and Systems (RSS)"
+ },
+ {
+  "key": "birglen2004kinetostatic",
+  "title": "Kinetostatic Analysis of Underactuated Fingers",
+  "author": "Birglen, Lionel and Gosselin, Cl{\\'e}ment M.",
+  "year": "",
+  "venue": "IEEE Transactions on Robotics and Automation"
+ },
+ {
+  "key": "cannon2005core",
+  "title": "Compliant Rolling-Contact Element Mechanisms",
+  "author": "Cannon, Jesse R. and Lusk, Craig P. and Howell, Larry L.",
+  "year": "2005",
+  "venue": "ASME International Design Engineering Technical Conferences (IDETC), Mechanisms and Robotics Conference"
+ },
+ {
+  "key": "dollar2010sdm",
+  "title": "The Highly Adaptive {SDM} Hand: Design and Performance Evaluation",
+  "author": "Dollar, Aaron M. and Howe, Robert D.",
+  "year": "",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "deimel2016rbo2",
+  "title": "A Novel Type of Compliant and Underactuated Robotic Hand for Dexterous Grasping",
+  "author": "Deimel, Raphael and Brock, Oliver",
+  "year": "",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
+  "key": "xu2016biomimetic",
+  "title": "Design of a Highly Biomimetic Anthropomorphic Robotic Hand towards Artificial Limb Regeneration",
+  "author": "Xu, Zhe and Todorov, Emanuel",
+  "year": "2016",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "kim2016rolling",
+  "title": "Force Characteristics of Rolling Contact Joint for Compact Structure",
+  "author": "Kim, Sang-hun and In, HyunKi and Song, Jeong-Ryul and Cho, Kyu-Jin",
+  "year": "2016",
+  "venue": "IEEE International Conference on Biomedical Robotics and Biomechatronics (BioRob)"
+ },
+ {
+  "key": "bai2016crossfourbar",
+  "title": "A Two-Fingered Anthropomorphic Robotic Hand with Contact-Aided Cross Four-Bar Mechanisms as Finger Joints",
+  "author": "Bai, Guochao and Wang, Jieyu and Kong, Xianwen",
+  "year": "2016",
+  "venue": "Biomimetic and Biohybrid Systems (Living Machines 2016)"
+ },
+ {
+  "key": "bai2018monolithic",
+  "title": "Self-Adaptive Monolithic Anthropomorphic Finger with Teeth-Guided Compliant Cross-Four-Bar Joints for Underactuated Hands",
+  "author": "Bai, Guochao and Rojas, Nicolas",
+  "year": "2018",
+  "venue": "IEEE-RAS International Conference on Humanoid Robots (Humanoids)"
+ },
+ {
+  "key": "phoengsongkhro2023knee",
+  "title": "Development of Four-Bar Polycentric Knee Joint with Stance-Phase Knee Flexion",
+  "author": "Phoengsongkhro, Santiphap and Tangpornprasert, Pairat and Yotnuengnit, Pattarapol and Samala, Manunchaya and Virulsri, Chanyaphan",
+  "year": "2023",
+  "venue": "Scientific Reports"
+ },
+ {
+  "key": "toshimitsu2023faive",
+  "title": "Getting the Ball Rolling: Learning a Dexterous Policy for a Biomimetic Tendon-Driven Hand with Rolling Contact Joints",
+  "author": "Toshimitsu, Yasunori and others",
+  "year": "2023",
+  "venue": "IEEE-RAS International Conference on Humanoid Robots (Humanoids)"
+ },
+ {
+  "key": "ha2024rolling",
+  "title": "Incorporating General Contact Surfaces in the Kinematics of Tendon-Driven Rolling-Contact Joint Mechanisms",
+  "author": "Ha, Junhyoung and Kim, Chaewon and Kim, Chunwoo",
+  "year": "2024",
+  "venue": ""
+ },
+ {
+  "key": "ciocarlie2010datadriven",
+  "title": "Data-Driven Optimization for Underactuated Robotic Hands",
+  "author": "Ciocarlie, Matei and Allen, Peter",
+  "year": "2010",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "luck2019coadaptation",
+  "title": "Data-Efficient Co-Adaptation of Morphology and Behaviour with Deep Reinforcement Learning",
+  "author": "Luck, Kevin Sebastian and Ben Amor, Heni and Calandra, Roberto",
+  "year": "2019",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "pathak2019selfassembling",
+  "title": "Learning to Control Self-Assembling Morphologies: A Study of Generalization via Modularity",
+  "author": "Pathak, Deepak and Lu, Christopher and Darrell, Trevor and Isola, Phillip and Efros, Alexei A.",
+  "year": "2019",
+  "venue": "Advances in Neural Information Processing Systems (NeurIPS)"
+ },
+ {
+  "key": "ha2020fit2form",
+  "title": "{Fit2Form}: {3D} Generative Model for Robot Gripper Form Design",
+  "author": "Ha, Huy and Agrawal, Shubham and Song, Shuran",
+  "year": "2020",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "chen2020hwasp",
+  "title": "Hardware as Policy: Mechanical and Computational Co-Optimization using Deep Reinforcement Learning",
+  "author": "Chen, Tianjian and He, Zhanpeng and Ciocarlie, Matei",
+  "year": "2020",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "xu2021contactaware",
+  "title": "An End-to-End Differentiable Framework for Contact-Aware Robot Design",
+  "author": "Xu, Jie and Chen, Tao and Zlokapa, Lara and Foshey, Michael and Matusik, Wojciech and Sueda, Shinjiro and Agrawal, Pulkit",
+  "year": "2021",
+  "venue": "Robotics: Science and Systems (RSS)"
+ },
+ {
+  "key": "xu2024dgdm",
+  "title": "Dynamics-Guided Diffusion Model for Sensor-less Robot Manipulator Design",
+  "author": "Xu, Xiaomeng and Ha, Huy and Song, Shuran",
+  "year": "2024",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "ye2025power",
+  "title": "From Power to Precision: Learning Fine-grained Dexterity for Multi-fingered Robotic Hands",
+  "author": "Ye, Jianglong and others",
+  "year": "2025",
+  "venue": ""
+ },
+ {
+  "key": "fay2026dextra",
+  "title": "Cross-Embodied Co-Design for Dexterous Hands",
+  "author": "Fay, Kehlani and Djapri, Darin Anthony and Zorin, Anya and Clinton, James and El Lahib, Ali and Su, Hao and Tolley, Michael T. and Yi, Sha and Wang, Xiaolong",
+  "year": "2026",
+  "venue": "International Conference on Learning Representations (ICLR)"
+ },
+ {
+  "key": "huang2020onepolicy",
+  "title": "One Policy to Control Them All: Shared Modular Policies for Agent-Agnostic Control",
+  "author": "Huang, Wenlong and Mordatch, Igor and Pathak, Deepak",
+  "year": "2020",
+  "venue": "International Conference on Machine Learning (ICML)"
+ },
+ {
+  "key": "gupta2022metamorph",
+  "title": "{MetaMorph}: Learning Universal Controllers with Transformers",
+  "author": "Gupta, Agrim and Fan, Linxi and Ganguli, Surya and Fei-Fei, Li",
+  "year": "2022",
+  "venue": "International Conference on Learning Representations (ICLR)"
+ },
+ {
+  "key": "wang2022tacto",
+  "title": "{TACTO}: A Fast, Flexible, and Open-Source Simulator for High-Resolution Vision-Based Tactile Sensors",
+  "author": "Wang, Shaoxiong and Lambeta, Mike and Chou, Po-Wei and Calandra, Roberto",
+  "year": "2022",
+  "venue": "IEEE Robotics and Automation Letters"
+ },
+ {
+  "key": "oxe2024",
+  "title": "Open {X-Embodiment}: Robotic Learning Datasets and {RT-X} Models",
+  "author": "{Open X-Embodiment Collaboration}",
+  "year": "2024",
+  "venue": "IEEE International Conference on Robotics and Automation (ICRA)"
+ },
+ {
+  "key": "patel2024getzero",
+  "title": "{GET-Zero}: Graph Embodiment Transformer for Zero-shot Embodiment Generalization",
+  "author": "Patel, Austin and Song, Shuran",
+  "year": "2024",
+  "venue": ""
+ },
+ {
+  "key": "zhao2024t3",
+  "title": "Transferable Tactile Transformers for Representation Learning Across Diverse Sensors and Tasks",
+  "author": "Zhao, Jialiang and Ma, Yuxiang and Wang, Lirui and Adelson, Edward H.",
+  "year": "2024",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "higuera2024sparsh",
+  "title": "{Sparsh}: Self-supervised Touch Representations for Vision-based Tactile Sensing",
+  "author": "Higuera, Carolina and others",
+  "year": "2024",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "yuan2025crossdex",
+  "title": "Cross-Embodiment Dexterous Grasping with Reinforcement Learning",
+  "author": "Yuan, Haoqi and Zhou, Bohan and Fu, Yuhui and Lu, Zongqing",
+  "year": "2025",
+  "venue": "International Conference on Learning Representations (ICLR)"
+ },
+ {
+  "key": "ai2025embodimentscaling",
+  "title": "Towards Embodiment Scaling Laws in Robot Locomotion",
+  "author": "Ai, Bo and Dai, Liu and Bohlinger, Nico and others",
+  "year": "2025",
+  "venue": "Conference on Robot Learning (CoRL)"
+ },
+ {
+  "key": "bottema1979theoretical",
+  "title": "Theoretical Kinematics",
+  "author": "Bottema, Oene and Roth, Bernard",
+  "year": "1979",
+  "venue": "North-Holland"
+ },
+ {
+  "key": "mccarthy1990introduction",
+  "title": "An Introduction to Theoretical Kinematics",
+  "author": "McCarthy, J. Michael",
+  "year": "",
+  "venue": "MIT Press"
+ },
+ {
+  "key": "mccarthy2011geometric",
+  "title": "Geometric Design of Linkages",
+  "author": "McCarthy, J. Michael and Soh, Gim Song",
+  "year": "2011",
+  "venue": "Springer"
+ },
+ {
+  "key": "murray1994mathematical",
+  "title": "A Mathematical Introduction to Robotic Manipulation",
+  "author": "Murray, Richard M. and Li, Zexiang and Sastry, S. Shankar",
+  "year": "",
+  "venue": "CRC Press"
+ },
+ {
+  "key": "gottschalk1996obbtree",
+  "title": "{OBBTree}: A Hierarchical Structure for Rapid Interference Detection",
+  "author": "Gottschalk, S. and Lin, M. C. and Manocha, D.",
+  "year": "1996",
+  "venue": "Proceedings of the 23rd Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH)"
+ },
+ {
+  "key": "deb2002nsga2",
+  "title": "A Fast and Elitist Multiobjective Genetic Algorithm: {NSGA-II}",
+  "author": "Deb, Kalyanmoy and Pratap, Amrit and Agarwal, Sameer and Meyarivan, T.",
+  "year": "2002",
+  "venue": "IEEE Transactions on Evolutionary Computation"
+ }
+]

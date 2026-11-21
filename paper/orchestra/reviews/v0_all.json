@@ -1,0 +1,171 @@
+{
+ "scores_mean": {
+  "Originality": 3.0,
+  "Quality": 2.0,
+  "Clarity": 2.0,
+  "Significance": 2.33,
+  "Soundness": 2.0,
+  "Presentation": 2.0,
+  "Contribution": 2.67,
+  "Overall": 5.0,
+  "Confidence": 4.0
+ },
+ "decisions": [
+  "Reject",
+  "Reject",
+  "Reject"
+ ],
+ "reviews": [
+  {
+   "Summary": "The paper addresses confounding in contact-interface studies on robot fingers: fitting a thicker pad or a tactile module usually forces a finger redesign, which mixes interface effects with morphology changes. It proposes the contact-centric kinematics c(q) (motion of a distal-face point seen from the proximal face) as the invariant to preserve. Using the finite pole of the distal-phalanx displacement, it derives laws for exact pad clearance (four-axis separating test), a symmetric clearance gap G_sym = max 2(d+h-z)tan(q/2), pad coverage, the contact-path change |\u0394c| = 2 sin(q/2)|\u0394p|, and a lower bound on the contact-path change of any fixed-axis redesign. In a planar 90 mm two-phalanx model it compares four PIP architectures (2R-DD, belt-driven 2R-remote, rolling contact joint, crossed four-bar CFL), each optimized for a cylinder-based coverage objective C\u0304_pad over pad thicknesses 3\u20139 mm and required flexions 90\u2013150\u00b0. Study 1 (H1) finds that architecture bounds coverage, with CFL degrading least at high flexion and 2R-remote leading at 90\u00b0. Study 2 (H2) redesigns each 3 mm finger for thicker pads and finds that CFL changes the contact path by 0.35\u20134.31 mm without losing coverage. A Stage-2 hardware interface-exchange protocol (H3) is specified.",
+   "Strengths": [
+    "Clear and important problem framing: separating interface effects from embodiment changes is a real methodological issue for tactile and compliant-fingertip research.",
+    "The finite-pole analysis is architecture-agnostic and gives compact, interpretable closed-form laws (Eqs. 2-5). Fig. 2 conveys the joint-pad conflict intuitively, and the fixed-axis tan(q/2) scaling is a useful design rule.",
+    "The analysis is verified against the numerical evaluator (coverage within 1e-13 on 51 designs, separating-axis test within 1e-9, first-contact predictions within the 1\u00b0 grid), so the laws are not just heuristic.",
+    "Results are reported honestly, including cases where the proposed CFL loses (2R-remote leads at 90\u00b0, crossover at ~6 mm at 120\u00b0) and where preservation is only partial at 9 mm.",
+    "Each hypothesis states what would be learned if it is false, which suits the Stage-1 requirement to extract insight from negative results.",
+    "The comparison is fair in intent: each architecture is optimized at its own best design under a common goal, and idealized variants are reported separately as upper bounds."
+   ],
+   "Weaknesses": [
+    "The bound used in Table I and Fig. 4 (2 sin(q_req/2)\u00b7\u0394h) is not the bound proven in Corollary 1, which depends on |\u0394h \u2212 \u0394d|. 2R-DD and RCJ fall below the plotted line, and the text attributes this to shrinking mount depth and a rolling pole. RCJ falling below the line also appears to contradict the corollary's claim for fixed-radius rolling joints. The headline 'CFL achieves 10\u201351% of a provable bound' is therefore not a like-for-like comparison: each design should be compared with its own 2 sin(q_req/2)|\u0394h \u2212 \u0394d|, or mount depth should be fixed.",
+    "Choosing c(q) as the invariant is asserted rather than justified. The motivating confound includes the contact Jacobian and force transmission, but c(q) tracks only one face point relative to the other face. It does not constrain mechanical advantage, actuator-side Jacobian or fingertip workspace. MA is said to be reported, but no values appear. A redesign with small Dc but changed MA would still confound force-dependent interface comparisons.",
+    "H2 has no pre-specified tolerance for what counts as 'keeping' the contact-centric kinematics. A Dc of 0.35\u20134.31 mm is labelled 'partial' after the fact. Without a threshold tied to contact-patch size, pad compliance or downstream grasp sensitivity, H2 is hard to falsify.",
+    "The paper never shows that the confound matters. No experiment, even in simulation, compares interface rankings or effect sizes on freely redesigned fingers against Dc-matched fingers. All evidence concerns geometric proxies such as coverage and path distance.",
+    "The optimization results are best-found, with CFL run-to-run spread of 1.3\u20133.4 points, which is comparable to several reported margins (1.9\u20134.1 points at 90\u00b0, the 120\u00b0 crossover). Study 2 uses only two seeds. The abstract's '2R-remote loses 0.740 of its coverage' rests on degenerate 7/9 mm designs (C\u0304_pad = 0.21 and 0) and may reflect search failure rather than an architectural limit.",
+    "Possible fairness bias toward CFL: the 2R-remote actuator pose is fixed while CFL pivots are free, and links and belts on other lateral layers are not checked against pads. Occlusion is not counted either.",
+    "Scope is narrow relative to the framing: a planar single finger with the MCP fixed, equal-thickness rigid pads and fixed L_f. The title's 'CoDe Hand' suggests a hand that does not yet exist.",
+    "Several presentation problems: undefined or late-defined symbols (L_vp, r_{2,s}, r_{1,e}, x0), a duplicated 'clearance, clearance', a garbled MA value ('21 for RCJ'), and an inconsistent architecture color mapping between Fig. 1 and Figs. 3-4. In Fig. 4(c) the off-scale 2R-remote points use the 2R-DD triangle marker.",
+    "The Stage-2 protocol lacks quantitative success criteria (trial counts, objects, tracking accuracy sufficient to resolve ~1 mm Dc, a decision rule for 'motion stays as predicted')."
+   ],
+   "Originality": 3,
+   "Quality": 2,
+   "Clarity": 2,
+   "Significance": 3,
+   "Questions": [
+    "Corollary 1 is stated in terms of |\u0394h \u2212 \u0394d|, yet Table I uses \u0394h. What are \u0394d and the resulting per-design bound for each redesign, CFL included? Does CFL also reduce mount depth?",
+    "How can RCJ fall below the fixed-axis bound if Corollary 1 'holds for a rolling joint of fixed roller radius'? Is the roller radius allowed to change in Study 2?",
+    "What are the mechanical advantages (or PIP torque-to-fingertip-force maps) of the Study 1 and Study 2 designs, especially the CFL redesigns relative to their 3 mm references?",
+    "Why is a single distal-face point below the fingertip the right representative of the contact-centric kinematics? How does Dc change if the whole distal face, or the contact point at a given object size, is used?",
+    "What Dc tolerance would you consider sufficient for a valid interface comparison, and how would you justify it (for example, relative to the GelSight/DIGIT patch size or the pad deformation under grasp loads)?",
+    "Proposition 4 assumes the same c0 relative to the proximal face for both fingers. How is c0 defined when the face itself moves outward with a thicker pad?",
+    "Are the 2R-remote degenerate designs at 150\u00b0/7\u20139 mm truly infeasible, or did the search fail? Would an exhaustive or gradient-based local search on the 2R parameter space confirm this?",
+    "Would the H1 conclusions change if the 2R-remote actuator pose were optimized as freely as the CFL pivots, and if belts and links were checked against pads?",
+    "Can you add a small simulated grasp study showing that the measured difference between two interfaces changes depending on whether the fingers are Dc-matched?"
+   ],
+   "Limitations": [
+    "Planar, single-finger model with the MCP fixed; out-of-plane packaging, the thumb and multi-finger interaction are not addressed.",
+    "Rigid, equal-thickness pads; real compliant or tactile interfaces deform, which changes the effective face location and contact mechanics.",
+    "The coverage objective (cylinder inscribed in the V, averaged over three poses) is one particular proxy for graspability and ignores occlusion and force.",
+    "Mechanical advantage is unconstrained, so matched contact kinematics may still leave force-transmission confounds.",
+    "Results are best-found optima from stochastic search with few seeds.",
+    "No hardware evidence yet; buildability and the exchange cost of the CFL linkage are untested.",
+    "No negative societal impacts beyond those of general robotics research are apparent."
+   ],
+   "Ethical Concerns": false,
+   "Soundness": 2,
+   "Presentation": 2,
+   "Contribution": 3,
+   "Overall": 5,
+   "Confidence": 4,
+   "Decision": "Reject"
+  },
+  {
+   "Summary": "The paper addresses confounding in robot-hand contact-interface studies: fitting a thicker pad or tactile module usually forces a finger redesign, so measured interface effects mix with changes in finger length, joint location and articulation. It proposes holding fixed the 'contact-centric kinematics' (the path of a distal-face point seen from the proximal face) and analyses any planar finger joint through the finite pole of the distal-phalanx displacement. From this it derives an exact clearance test, a symmetric clearance law (fixed-axis gap growing as 2 tan(q/2) per mm of thickness), a coverage law, a contact-path law |\u0394c| = 2 sin(q/2)|\u0394p|, and a lower bound on the contact-path change of any fixed-axis redesign. Planar optimisation studies over four PIP architectures (2R-DD, belt-driven 2R-remote, rolling contact joint, crossed four-bar CFL), four pad thicknesses and three flexion requirements test H1 (architecture bounds pad coverage, more so with thickness and flexion) and H2 (only a pole-moving joint can be redesigned for thicker pads while keeping contact kinematics and coverage). CFL loses little coverage at 150\u00b0 and, when redesigned, changes the contact path by 10\u201351% of the fixed-axis bound. A revolute finger leads at 90\u00b0. A Stage-2 hardware interface-exchange protocol (H3) is outlined.",
+   "Strengths": [
+    "Identifies a real and under-discussed methodological problem: interface comparisons on robot fingers are confounded by the embodiment changes needed to carry each interface. The paper also states clearly that kinematic invariance does not imply invariant contact mechanics.",
+    "The finite-pole formulation puts revolute, rolling-contact and four-bar joints on one footing and yields compact, checkable laws. The fixed-axis slopes (2.00/3.46/7.46) and Eq. (4) are correct, and the fixed-axis bound is shown to be tight (2R-remote meets it exactly).",
+    "Hypotheses have explicit tests and explicit 'if false' interpretations, fitting the Stage-1 requirement that insights survive negative results.",
+    "Losses are reported honestly: the revolute finger leads at 90\u00b0, preservation is only partial at 9 mm, 'none found' is a statement about the search, and values are best found rather than proven optima.",
+    "Good numerical verification of the analysis against the evaluator (pole-based coverage within 1e-13, four-axis test within 1e-9, first-contact prediction within the grid).",
+    "Clear figures: Fig. 2 makes the pole-depth argument intuitive, and Fig. 4(d) shows where along the flexion the contact paths diverge."
+   ],
+   "Weaknesses": [
+    "The H2 claim that only a pole-moving joint can keep the contact-centric kinematics is undercut by Eq. (5) itself: the bound scales with |\u0394h \u2212 \u0394d|, so recessing the thicker pad (\u0394d = \u0394h) removes it for a fixed axis. The paper attributes 2R-DD and RCJ falling below the bound to shrinking mount depth, yet never states the structural limit on \u0394d. Table I and Fig. 4 plot the bound with \u0394d = 0, which overstates CFL's relative advantage.",
+    "Keeping the contact-face path does not remove the actuation confound the paper itself lists. CFL achieves preservation by changing its link geometry, which changes the transmission/mechanical-advantage profile, and MA under redesign is not reported. No tolerance is given for how large a Dc (0.35\u20134.3 mm) is acceptable for an interface study, so 'partial preservation' cannot be interpreted.",
+    "Key quantitative comparisons are within search variance. CFL runs spread by 1.3\u20133.4 points across 3 seeds, and continuation raised cells by up to 2.1 points, while the 2R-remote 90\u00b0 leads are 1.9\u20134.1 points and the 120\u00b0 crossover rests on a 1.1-point difference. CFL received extra search effort (re-seeding from neighbours and from Study 2), and the 2R-remote actuator pose is fixed rather than optimised, which biases best-found comparisons.",
+    "Study 2 reports the coverage end of the Pareto front rather than the minimum-Dc end or Dc at a coverage floor. This is not the cleanest test of H2 and is unstable (CFL-ideal 90\u00b0/7 mm jumps to 5.70 mm against \u22640.65 mm for other front points).",
+    "The coverage objective (inscribed cylinder, three poses that collapse to one at qreq = 90\u00b0, no occlusion, other-layer links and belts unchecked) is ad hoc, and H1 essentially ranks joints on this metric. Its connection to the comparability thesis is indirect.",
+    "The H3 Stage-2 protocol lacks pre-specified success criteria: no numeric tolerances on reached flexion or measured vs. predicted Dc, no tracking method or accuracy, no trial counts or statistical model for the grasp protocol, no concrete interfaces, and no specification of how Dc enters the analysis as a covariate.",
+    "Theoretical novelty is modest: Lemma 1 is the classical finite-displacement pole and Prop. 1 is the separating axis theorem. Props. 2\u20133 rely on restrictive symmetry assumptions (S1, S2) whose applicability to the optima is not quantified, and the sign convention in Lemma 1 (\u00bd(b + cot(q/2)Jb) for J = +90\u00b0) and the derivation of Prop. 3 need clarification.",
+    "Related work omits directly relevant literature: modular or interchangeable fingertips, prior single-hand comparisons of fingertips and tactile sensors, and polycentric joint design by instant-centre placement (e.g. four-bar prosthetic knees and fingers), which is the closest prior art to placing the pole.",
+    "Presentation issues: overloaded notation (C, A, the unused H = (E,Q,A)), a duplicated 'clearance' in the contributions, Fig. 1 showing (\u21131+\u21132)/Lf while the caption gives C\u0304pad, and nonzero q = 0 distances in Fig. 4(d) left unexplained relative to Prop. 4."
+   ],
+   "Originality": 3,
+   "Quality": 2,
+   "Clarity": 2,
+   "Significance": 2,
+   "Questions": [
+    "What is the minimum achievable mount depth d (structural wall, link, bearing or servo body) for each architecture? With the actual \u0394d available, what does the fixed-axis bound become, and does CFL still beat it?",
+    "How do the mechanical-advantage or transmission profiles of the redesigned CFL fingers compare with the 3 mm reference? If they differ, how will a Stage-2 grasp comparison separate the interface effect from the transmission change?",
+    "What Dc (in mm or as a fraction of Lf) do you consider negligible for an interface study, and on what basis (e.g. a sensitivity of grasp outcome or contact Jacobian to Dc)?",
+    "Why report the coverage end of the Study 2 front rather than the minimum-Dc design, or the Dc at a fixed coverage floor (e.g. within 1 point of Study 1)? What are the minimum-Dc values per architecture?",
+    "Given the CFL seed spread of 1.3\u20133.4 points, how robust are the 90\u00b0 leads and the 6 mm crossover at 120\u00b0? Would equalising search effort across architectures (e.g. the same continuation for 2R and RCJ) and optimising the 2R-remote actuator pose change any rankings?",
+    "How many Study 1 optima satisfy S1 and S2? How large is the error of Eq. (3) for those that do not?",
+    "In Fig. 4(d), RCJ and 2R-DD differ by 9.3 and 5.3 mm already at q = 0. Does this mean c0 (pad placement) changed? Should Dc then separate the placement change from the path change?",
+    "What are the concrete Stage-2 interfaces, thicknesses, tracking method and accuracy, numbers of trials, and the statistical model in which Dc enters as a covariate?",
+    "Please state the sign convention for J in Lemma 1 and give the derivation of the denominator of Eq. (3)."
+   ],
+   "Limitations": [
+    "All evidence is from a planar, rigid-pad, equal-thickness, two-DoF model with MCP fixed. Out-of-plane packaging, lateral layers, pad compliance and occlusion are excluded, and no hardware exists.",
+    "Holding contact-face kinematics fixed does not hold contact mechanics or force transmission fixed, so residual confounds through MA and actuation remain.",
+    "Results are best found by stochastic search with few seeds and are not proven optima. Some cells are infeasible or degenerate.",
+    "The coverage objective is a specific cylinder-grasp proxy. Conclusions may not transfer to other grasp types or tactile tasks.",
+    "No negative societal impacts are apparent."
+   ],
+   "Ethical Concerns": false,
+   "Soundness": 2,
+   "Presentation": 2,
+   "Contribution": 2,
+   "Overall": 5,
+   "Confidence": 4,
+   "Decision": "Reject"
+  },
+  {
+   "Summary": "The paper proposes contact-centric kinematics (the path of a distal contact-face point relative to the proximal face) as the invariant to hold fixed when comparing contact interfaces on robot fingers, to avoid confounding interface effects with finger redesign. Using the finite pole of the distal-phalanx displacement, it derives a symmetric clearance law, a coverage law, a contact-path law, and a lower bound on contact-path change for any fixed-axis redesign. A planar computational study of a 90 mm two-phalanx finger compares four PIP architectures (revolute direct-drive, belt-driven revolute, rolling contact joint, crossed four-bar CFL) over pad thickness 3-9 mm and required flexion 90-150 deg. It finds that architecture bounds pad coverage, with CFL leading at high flexion and revolute at 90 deg (H1). When redesigned for thicker pads, CFL changes the contact path by 10-51% of the fixed-axis bound without losing coverage, though not fully at 9 mm (H2). A hardware interface-exchange protocol (H3) is planned for Stage 2.",
+   "Strengths": [
+    "Clear and relevant problem: interface comparisons confounded by finger redesign is a real methodological issue for tactile and compliant-fingertip research.",
+    "The finite-pole lens is elegant and practical: the tan(q/2) charge for a fixed axis, the mirror-line clearance argument, and the 2 sin(q/2)|\u0394p| contact-path law give designers interpretable, checkable rules.",
+    "The analytic laws are cross-validated against the numerical evaluator (coverage to 1e-13, the separating-axis test to 1e-9, predicted first contact within the 1 deg grid).",
+    "Honest reporting of cases the proposed design loses (2R-remote leads at 90 deg; RCJ ideal is competitive, so RCJ's loss is attributed to packaging), and an explicit negative-result interpretation for every hypothesis, as the Stage-1 format asks.",
+    "Each architecture is compared at its own optimum under a common goal, not fitted to another's morphology."
+   ],
+   "Weaknesses": [
+    "The central claim (confound removal) is not operationalized. There is no tolerance for when Dc is small enough, and no link from Dc to grasp or tactile outcomes, so 'partially supports H2' (CFL still moves the contact path by 2.3-4.3 mm at 9 mm) cannot be judged.",
+    "The framing is inconsistent: the hand H is declared fixed, yet Study 2 and H3 redesign the linkage. Mechanical advantage and force transmission, which also shape the contact-point Jacobian the introduction cites as a confound, are unconstrained and unreported in Study 2, so path preservation may trade for a transmission confound.",
+    "Corollary 1 depends on the mount-depth reduction \u0394d. With \u0394d = \u0394h the fixed-axis bound vanishes, so the H2 comparison depends on how d is constrained in Study 2, which is not stated; 2R-DD and RCJ beat the bound partly by shrinking mount depth.",
+    "The results are fragile to optimizer quality: CFL run spread (1.3-3.4 points) and continuation gains (up to 2.1 points) are comparable to the inter-architecture margins (1.9-4.1 points at 90 deg, crossover near 5.3-6 mm). CFL received extra warm-starts the others did not; several cells are 'none found' or degenerate; and the hand-fixed 2R-remote actuator pose may bias the high-flexion comparison.",
+    "The theory is narrower than claimed: Lemma 1 is classical, Props 2-3 need symmetry assumptions S1/S2 and equal pads that the optimized designs need not satisfy, and Corollary 1 has no proof sketch.",
+    "H1 lacks a quantitative falsification criterion, and its own negative branch (RCJ loss is packaging) partially occurs.",
+    "The H3 protocol, which is closest to the paper's title claim, is underspecified for Stage 1: no chosen interfaces, success thresholds, face-tracking accuracy relative to mm-scale Dc, trial counts or grasp protocol.",
+    "Presentation: Fig. 1 shows (\u21131+\u21132)/Lf percentages while the caption and objective use C\u0304pad; Fig. 4(c) uses triangle markers for 2R-remote; there are typos ('clearance, clearance'); the notation is dense. Related work misses polycentric/centrode joint design and modular or swappable fingertip hands."
+   ],
+   "Originality": 3,
+   "Quality": 2,
+   "Clarity": 2,
+   "Significance": 2,
+   "Questions": [
+    "How is the pad mount depth d constrained in Study 2? If the structure under a fixed-axis pad can be thinned, what stops \u0394d = \u0394h from making the bound zero?",
+    "What Dc (in mm, or relative to contact-patch size) would you consider 'preserved', and how will you justify that threshold before Stage 2?",
+    "How do mechanical advantage and transmission angle of the Study 2 CFL redesigns compare with the 3 mm reference? Does force transmission at the contact change?",
+    "Given that the linkage is redesigned for thicker interfaces, what exactly in H is held fixed, and how does this square with R = (H, C)?",
+    "Did 2R and RCJ receive the same warm-starts and restarts as CFL? How sensitive is the 90/120 deg crossover to search budget and to the fixed 2R-remote actuator pose?",
+    "Do the Study 1 optima satisfy S1/S2? If not, how far is Eq. (3) from the evaluator for them, beyond the P2 check?",
+    "In Stage 2, how will contact-face motion be tracked, at what accuracy, and over how many trials?"
+   ],
+   "Limitations": [
+    "Planar model with equal-thickness rigid pads; out-of-plane collisions (links and belts on other layers) are ignored.",
+    "Results are best-found optima from a genetic search, not proven optima; several cells are infeasible or degenerate.",
+    "Mechanical advantage, occlusion and compliance are not constrained; contact mechanics are explicitly outside the invariant.",
+    "No hardware validation yet; buildability of the CFL designs and module exchange are unverified.",
+    "No negative societal impacts identified."
+   ],
+   "Ethical Concerns": false,
+   "Soundness": 2,
+   "Presentation": 2,
+   "Contribution": 3,
+   "Overall": 5,
+   "Confidence": 4,
+   "Decision": "Reject"
+  }
+ ]
+}

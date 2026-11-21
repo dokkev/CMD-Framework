@@ -1,0 +1,68 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{times}
+\usepackage[numbers]{natbib}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage[bookmarks=true]{hyperref}
+
+\newcommand{\ourhand}{CoDe Hand}
+\title{Hand Design}
+\author{Author Names Omitted for Anonymous Review}
+\hypersetup{pdfauthor={},pdftitle={CoDe Hand: Same Hand, Different Contact}}
+
+% RSS 2027 Stage 1: at most 5 pages of content + 1 page of references.
+% Section files follow the PLATO-RAL project structure.
+\begin{document}
+\maketitle
+% ---- sections/00_abstract.tex ----
+\begin{abstract}
+% TODO: Motivation, integration problem, design, and principal evidence.
+% Write this last; do not state planned experiments as completed results.
+The abstract goes here.
+\end{abstract}
+
+% ---- sections/01_introduction.tex ----
+\section{Introduction}
+\label{sec:introduction}
+% Motivation: an accessible robot-learning platform for different contact interfaces.
+% Problem: module integration can require hand redesign.
+% Research question, scope, and evidence-supported contributions.
+
+% ---- sections/02_related_works.tex ----
+\section{Related Work}
+\label{sec:related_work}
+% Accessible dexterous hands for robot learning.
+% Contact interfaces, tactile sensors, and their integration requirements.
+% Cite only literature directly tied to the central problem and novelty.
+
+% ---- sections/03_design.tex ----
+\section{Design}
+\label{sec:design}
+% Design requirements and supported module envelope.
+% Servo-based finger architecture and crossed four-bar mechanism.
+% Proximal/distal modules, mounting, replacement, and model updates.
+% Add dimensions and hardware specifications only when verified.
+
+% ---- sections/04_experiments.tex ----
+\section{Experiment}
+\label{sec:experiment}
+% Hypotheses, baselines, methods, and metrics.
+% Module accommodation and usable motion versus a fair serial-2R baseline.
+% Supported-module exchange versus first-time module integration cost.
+% Learning-policy execution with functioning contact/sensing modules.
+% Distinguish CAD, simulation, and physical evidence; report negative results.
+
+% ---- sections/05_conclusion.tex ----
+\section{Conclusion}
+\label{sec:conclusion}
+% Supported findings, limitations, and remaining validation.
+
+
+\maketitle
+
+
+\bibliographystyle{plainnat}
+% Enable after adding the first verified citation to the manuscript.
+% \bibliography{references}
+\end{document}

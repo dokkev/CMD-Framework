@@ -1,0 +1,39 @@
+{
+  "addressed_weaknesses": [
+    "Bound vs Corollary 1 mismatch (R1 W1, R2 W1, R3 W3): Study 2 now states the mounting rule (shallowest depth clear of joint hardware, no spacers) and reports per-architecture mount depth from the log: CFL and 2R-remote keep Delta d = 0, so the plotted 2 sin(q_req/2) Delta h line is Eq. (5) itself for them; 2R-DD (proximal face ~constant depth under the actuator, Delta d ~ Delta h) and RCJ (pads remounted) fall below it as Eq. (5) with |Delta h - Delta d| predicts. The RCJ 'pole rolls' explanation was removed. Captions of Table I and Fig. 4 say 'at Delta d = 0, like-for-like for CFL and 2R-remote'.",
+    "Recessing escape (R2 W1, R3 Q1): H2 restated as 'without reserving depth in advance'; Corollary followed by a note that recessing by Delta h removes the bound but needs depth reserved in advance; Study 2 names building-for-the-thickest-interface with spacers as the H2-false alternative, not studied.",
+    "Transmission confound / MA unreported (R1 W2, R2 W2, R3 W2): CFL MA_wc of the coverage-end redesigns (0.42-0.56 vs 0.44-0.58 for 3 mm references, -7% to +16%) added to Table I and text, stated as a recorded embodiment change; 2R = 1, RCJ = 1/2 by construction. H3 analyses grasps with D_c and MA_wc as covariates; conclusion asks studies to report the transmission change.",
+    "R = (H, C) inconsistency and notation overload (R2, R3): dropped H = (E,Q,A); model now says what an interface study holds fixed (finger length, actuators, structure rules, c(q)) and that internal mechanism dimensions may change, with skeleton motion and MA recorded.",
+    "No D_c tolerance (all reviewers): stated explicitly in H2 that no absolute tolerance is set because it depends on interface and task, with the fixed-axis bound as reference scale; H3 decision rule uses agreement within the repeatability of the same measurement on the reference interface (no invented numbers).",
+    "Search-effort fairness and margins within run spread (R1 W5, R2 W3, R3 W4): Setup now explains why CFL got extra search (2R/RCJ runs agree cell by cell, CFL spread 1.3-3.4 pp) and that extra effort can only raise CFL; 120 deg crossover stated as approximate, within CFL run spread.",
+    "Fixed 2R-remote actuator pose (R1, R2, R3): justified in the architecture paragraph (objective independent of the pose: MA = 1, occlusion not counted).",
+    "Abstract relied on degenerate 2R-remote 150 deg designs (R1 W5): abstract now uses 120 deg losses (2R-remote 0.182 vs CFL 0.086); Study 1 text says the 150 deg 7/9 mm 2R-remote designs are feasible but cannot hold a cylinder.",
+    "Coverage-end choice in Study 2 (R2 W4): justified (trades no coverage, tests both parts of H2) and CFL least-change values added to Table I.",
+    "Theory novelty and rigor (R2 W7, R3 W5): Lemma 1 called classical and contribution (2) reframed as an application; Lemma 1 sign corrected to 1/2(b + cot(q/2) J b) with J = R_{pi/2}; derivation of Eq. (3) and proof sketch of Corollary 1 added; S1/S2 applicability quantified (G - G_sym ranges) and Eqs. (2)-(3) declared estimates with Prop. 1 judging designs.",
+    "H1 falsifiability (R3 W6): H1 test made explicit (losses 3->9 mm and 90->150 deg must differ between architectures; idealized variants closing the gap = false branch); RCJ result stated as the H1-false branch holding for RCJ.",
+    "Related work gaps (R2 W8, R3): added replaceable tactile skins (ReSkin) and polycentric four-bar knees placing the instantaneous centre.",
+    "Presentation (all): fixed 'clearance, clearance', MA '1/2' typo, defined L_vp, r_{1,e}, r_{2,s}, x_0 before use; Fig. 1 caption distinguishes pad length percentages from C-bar_pad and notes title colours apply only to that figure; Fig. 4 caption explains top triangles in (c) and the non-zero q = 0 distances in (d); title kept, intro says the paper analyses one planar finger of the planned hand."
+  ],
+  "integrated_answers": [
+    "Delta d per architecture and per-design bound (R1 Q1, R2 Q1, R3 Q1): Study 2 'Mount depth' paragraph (CFL face depth = 3 mm pivot housing + h, Delta d = 0; 2R-DD proximal face 13.1-13.5 mm at 90 deg; RCJ face depths change by less than Delta h).",
+    "RCJ below the bound despite Corollary (R1 Q2): explained by remounted pads (Delta d > 0), consistent with |Delta h - Delta d|; proof sketch states roller pole depth is fixed by r.",
+    "MA of CFL redesigns vs references (R1 Q3, R2 Q2, R3 Q3): MA_wc column in Table I and range in text.",
+    "How c0 is defined when the face moves (R1 Q6): at q = 0 the faces are collinear so c0 is a position along the face, independent of thickness; D_c includes changes of that position.",
+    "Non-zero q = 0 distances in Fig. 4(d) (R2 Q7): Fig. 4 caption and D_c definition state that 2R-DD/RCJ contact points moved along the face at extension.",
+    "Minimum-D_c designs (R2 Q4): CFL least-change D_c L_f 0.26-3.26 mm in Table I; 2R-remote front collapses to the bound.",
+    "S1/S2 satisfaction and Eq. (3) error (R2 Q6, R3 Q6): G - G_sym ranges (CFL -1.6..+0.2 mm, fixed axes -3.4..+0.2 mm) in Setup; P2 check uses pole path and pads.",
+    "Sign convention of J and derivation of Eq. (3) denominator (R2 Q9): in Lemma 1 and the Derivation paragraph.",
+    "Warm-starts for 2R/RCJ and robustness of rankings (R2 Q5, R3 Q5): Setup and Study 1 text (2R/RCJ runs agree; extra effort can only raise CFL; crossover approximate).",
+    "D_c tolerance (R1 Q5, R2 Q3, R3 Q2): answered in H2 (no absolute tolerance; bound as reference scale) and H3 decision rule.",
+    "Ignored as requests for new experiments/data not in the log: simulated grasp study on D_c-matched vs free fingers, exhaustive/gradient search of 2R-remote at 150 deg, optimized 2R-remote actuator pose and belt/link collision checks, whole-face or object-size D_c variants, MA for all Study 1 designs, Stage-2 trial counts/tracking accuracy/concrete interfaces."
+  ],
+  "actions_taken": [
+    "Rewrote abstract headline numbers (120 deg losses, unchanged mount depth, MA range).",
+    "Condensed Introduction; fixed contributions list; reframed finite pole as classical with novelty in application; folded Scope into contributions paragraph.",
+    "Revised Related Work: added bhirangi2021reskin and phoengsongkhro2023knee (both in citation_map.json), trimmed elsewhere.",
+    "Rewrote Sec. III model paragraph (notation, mounting rule, what is held fixed), architecture paragraph (2R-remote pose rationale, MA definition) and H1/H2 tests.",
+    "Sec. IV: corrected Lemma 1 sign, added Eq. (3) derivation, c0 remark, Corollary proof sketch and recess note, refined P4.",
+    "Sec. V: tightened Setup with search-effort and S1/S2 checks; revised Study 1; expanded Table I (CFL least-change and MA_wc columns); added 'Mount depth' and restructured 'Results' paragraphs in Study 2; tightened H3 with decision rule and covariates; moved Limitations into the Conclusion.",
+    "Shortened captions of Figs. 1-4 and Table I; compiled to 6 pages (content pages 1-5, References start and end on page 6), no overfull boxes, no unresolved references."
+  ]
+}
