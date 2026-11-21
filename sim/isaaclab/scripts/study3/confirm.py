@@ -164,8 +164,62 @@ def three_a_main() -> dict:
     }
 
 
+def sign_flip_random(values: list[float], n: int = 100_000, seed: int = 0) -> float:
+    """Two-sided sign-flip p-value from ``n`` random sign patterns (fixed generator), counting the observed one."""
+    v = np.asarray(values, dtype=float)
+    rng = np.random.default_rng(seed)
+    signs = rng.choice((-1.0, 1.0), size=(n, len(v)))
+    null = np.abs((signs * v).mean(axis=1))
+    return float((1 + np.sum(null >= abs(v.mean()) - 1e-12)) / (n + 1))
+
+
+MODELS = {"S1_pyramidal": "eval_cm_pyramidal", "S2_impratio1": "eval_cm_impratio1"}
+
+
+def three_b_main() -> dict:
+    """3B: change of each 3A-main policy's interface effect between contact models (docs/decisions.md)."""
+    main_root = common.SIM_ROOT / "logs" / "study3_main"
+    def effects(root: Path) -> dict[tuple[str, int], float]:
+        if not root.exists():
+            return {}
+        cells = analyze.cell_rows(analyze.evaluations(root))
+        out = {}
+        for tv in ("flat", "crowned"):
+            on_c = by_seed(cells, tv, "crowned", "newton_mjwarp", "goals_reached_mean")
+            on_f = by_seed(cells, tv, "flat", "newton_mjwarp", "goals_reached_mean")
+            out.update({(tv, s): on_c[s] - on_f[s] for s in set(on_c) & set(on_f)})
+        return out
+
+    base = effects(main_root / "eval")
+    if not base:
+        return {"status": "not run"}
+    reference = float(np.mean(list(base.values())))
+    result = {"interface_effect_S0": {**summary(base.values()), "by_policy_group": {
+        tv: summary(v for (g, _), v in base.items() if g == tv) for tv in ("flat", "crowned")}}}
+    raw = {}
+    for name, folder in MODELS.items():
+        eff = effects(main_root / folder)
+        keys = sorted(set(eff) & set(base))
+        if not keys:
+            result[name] = {"status": "not run"}
+            continue
+        d = [eff[k] - base[k] for k in keys]
+        raw[name] = sign_flip_random(d)
+        ci = bootstrap(lambda x: x.mean(), d)
+        band = 0.2 * abs(reference)
+        verdict = ("robust" if -band <= ci[0] and ci[1] <= band
+                   else "model-dependent" if ci[0] > 0 or ci[1] < 0 else "inconclusive")
+        result[name] = {"delta_model": summary(d), "ci95": ci, "band": band, "verdict": verdict, "p": raw[name],
+                        "interface_effect": summary(eff[k] for k in keys),
+                        "by_policy_group": {tv: summary(eff[k] - base[k] for k in keys if k[0] == tv)
+                                            for tv in ("flat", "crowned")}}
+    for name, p in holm(raw).items():
+        result[name]["p_holm"] = p
+    return result
+
+
 def main() -> int:
-    result = {"3A": three_a(), "3B_ema": three_b(), "3A_main": three_a_main()}
+    result = {"3A": three_a(), "3B_ema": three_b(), "3A_main": three_a_main(), "3B_main": three_b_main()}
     path = common.REPO_ROOT / "report" / "study3" / "tables" / "confirmatory.json"
     path.write_text(json.dumps(result, indent=2, default=str) + "\n")
     print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "table"} for k, v in result.items()}, indent=1, default=str))
