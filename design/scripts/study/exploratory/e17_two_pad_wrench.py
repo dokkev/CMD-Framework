@@ -23,7 +23,8 @@ cylinder is squeezed out of the wedge (reported as not held).
 Effect of the interface change mu_lo -> mu_hi: D(H, d) = F_max(H, mu_hi, d) - F_max(H, mu_lo, d); separability error
 E(H, d) = |D(H, d) - D(H0, d)| / |D(H0, d)|. Everything is linear in N_d, so the ratios do not depend on it. Also
 counts grasps where the holding itself flips (held on H0, not on the redesign, at one mu).
-Reads saved designs only; writes nothing.
+Reads saved designs only; writes the grasps only with --export (x_c: the cylinder centre along H0's proximal
+face from the MCP axis, mm).
 """
 
 from __future__ import annotations
@@ -85,7 +86,7 @@ def grasps(flexion: float, to: float, radii: list[float]) -> list[dict]:
     out = []
     for rho in radii:
         for q0 in np.arange(20.0, flexion + 0.1, 5.0):
-            entry = {"rho_mm": rho, "q0_deg": float(q0), "O": float(q0)}
+            entry = {"rho_mm": rho, "q0_deg": float(q0), "O": float(q0), "x_c_mm": None}
             for h, (cx, (prox, l2)) in curves.items():
                 got = e16.regrasp(q, c0, cx, math.radians(q0), rho)
                 if got is None:
@@ -97,6 +98,7 @@ def grasps(flexion: float, to: float, radii: list[float]) -> list[dict]:
                     entry = None
                     break
                 entry[h] = float(q0 + dq)
+                entry["x_c_mm"] = float(x_c)
                 entry[f"ds_{h}"] = ds
             if entry is not None:
                 out.append(entry)
@@ -109,9 +111,16 @@ def main(argv=None) -> int:
     parser.add_argument("--to", type=float, default=7.0)
     parser.add_argument("--mu", type=float, nargs=2, default=(0.8, 1.2))
     parser.add_argument("--radii", type=float, nargs="+", default=(15.0, 20.0))
+    parser.add_argument("--export", type=Path, default=None, help="write the grasps (placements for the sim) as JSON")
     args = parser.parse_args(argv)
     lo, hi = args.mu
     found = grasps(args.flexion, args.to, list(args.radii))
+    if args.export is not None:
+        import json
+
+        args.export.parent.mkdir(parents=True, exist_ok=True)
+        args.export.write_text(json.dumps({"flexion_deg": args.flexion, "to_mm": args.to, "grasps": found}, indent=1))
+        print(f"wrote {args.export}")
     print(f"CFL, q_req {args.flexion:g} deg, 3 -> {args.to:g} mm; mu {lo:g} -> {hi:g}; {len(found)} two-pad grasps "
           f"(radii {', '.join(f'{r:g}' for r in args.radii)} mm, q0 every 5 deg)")
     dq = {h: np.array([g[h] - g["O"] for g in found]) for h in ("R", "U")}
