@@ -1,4 +1,5 @@
-"""The pole law (problem formulation A.6.3): the joint gap two pads need, from where the phalanx turns about."""
+"""Study 0's checks (problem formulation A.6.0): the pole from a fingertip path, the symmetric law, the long-pad
+stand-in and the exact clearance of a design's own pads."""
 
 from __future__ import annotations
 
@@ -66,9 +67,9 @@ def test_the_gap_about_a_fixed_axis_is_2_t_tan_half_q():
     for t, h, required in ((5.0, 5.0, 90.0), (5.0, 5.0, 120.0), (8.0, 3.0, 120.0), (3.0, 3.0, 150.0)):
         expected = 2 * t * math.tan(math.radians(required) / 2)
         shape = pad(50.0 - expected / 2, 50.0 + expected / 2, t, h)
-        closed, at = law.corner_gap(shape, path, Q, math.radians(required))
+        closed, at = law.symmetric_gap(shape, path, Q, math.radians(required))
         assert closed == pytest.approx(expected, abs=1e-6) and at == pytest.approx(required, abs=0.05)
-        assert law.least_gap(shape, path, Q, math.radians(required)) == pytest.approx(expected, abs=0.02)
+        assert law.least_gap_long_pads(shape, path, Q, math.radians(required)) == pytest.approx(expected, abs=0.02)
 
 
 def test_the_gap_about_rollers_takes_the_poles_depth_off_the_faces():
@@ -76,8 +77,8 @@ def test_the_gap_about_rollers_takes_the_poles_depth_off_the_faces():
     path = law.poles(rolling_tips(a, r), Q)
     expected = 2 * (t * math.tan(required / 2) - r * (1 / math.cos(required / 2) - 1))  # about the pole
     shape = pad(a + r - expected / 2, a + r + expected / 2, t, 5.0)
-    assert law.corner_gap(shape, path, Q, required)[0] == pytest.approx(expected, abs=1e-6)
-    assert law.least_gap(shape, path, Q, required) == pytest.approx(expected, abs=0.02)
+    assert law.symmetric_gap(shape, path, Q, required)[0] == pytest.approx(expected, abs=1e-6)
+    assert law.least_gap_long_pads(shape, path, Q, required) == pytest.approx(expected, abs=0.02)
 
 
 def test_the_pads_first_meet_where_the_law_says():
@@ -90,10 +91,24 @@ def test_the_pads_first_meet_where_the_law_says():
     # A pole below the faces: what is above the pole parts, the pads never meet.
     low = np.tile((50.0, -9.0), (len(Q), 1))
     assert math.isnan(law.first_contact_deg(proximal, distal, low, Q))
-    assert law.corner_gap(pad(42.0, 58.0, t, h), low, Q, math.radians(120.0))[0] == 0.0
+    assert law.symmetric_gap(pad(42.0, 58.0, t, h), low, Q, math.radians(120.0))[0] == 0.0
 
 
-def test_overlap_is_the_depth_two_rectangles_share():
-    first, second = law.rectangle(0, 10, 0, -5), law.rectangle(8, 20, 0, -5)
-    assert law.overlap(first, second) == pytest.approx(2.0)
-    assert law.overlap(first, law.rectangle(13, 20, 0, -5)) == pytest.approx(-3.0)
+def test_a_designs_own_pads_are_judged_by_their_exact_clearance():
+    # Pads set at the law's gap about a fixed axis: no room and no overlap, at the required flexion.
+    path = law.poles(revolute_tips(50.0), Q)
+    t, h, required = 5.0, 5.0, math.radians(120.0)
+    s = t * math.tan(required / 2)
+    proximal, distal = law.rectangle(9.5, 50.0 - s, -t + h, -t), law.rectangle(50.0 + s, 90.0, -t + h, -t)
+    room, at = law.least_clearance(proximal, distal, path, Q, required)
+    assert room == pytest.approx(0.0, abs=1e-6) and at == pytest.approx(120.0, abs=0.05)
+    # 1 mm more on each side leaves room; 1 mm less overlaps before the required flexion.
+    wide = law.least_clearance(law.rectangle(9.5, 49.0 - s, -t + h, -t), law.rectangle(51.0 + s, 90.0, -t + h, -t),
+                               path, Q, required)[0]
+    tight = law.least_clearance(law.rectangle(9.5, 51.0 - s, -t + h, -t), law.rectangle(49.0 + s, 90.0, -t + h, -t),
+                                path, Q, required)[0]
+    assert wide > 0.0 > tight
+
+
+def test_a_rectangle_is_its_centre_and_half_lengths():
+    assert law.rectangle(10.0, 30.0, -3.0, -8.0) == ((20.0, -5.5), (10.0, 2.5))

@@ -47,6 +47,8 @@ for path in (REPOSITORY_ROOT, REPOSITORY_ROOT / "scripts" / "study", Path(__file
         sys.path.insert(0, str(path))
 
 import one_finger as study2  # noqa: E402
+from core.geometry.pole import pole as finite_pole  # noqa: E402
+from core.geometry.pole import rectangular_clearance, symmetric_gap_law, turned  # noqa: E402
 from core.optimization.analysis.contact_kinematics import tip_path  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 from visualize.style import COLORS, GRID, INK, MARKERS, use  # noqa: E402
@@ -61,60 +63,59 @@ STEP_DEG = 0.05
 # The motion and its pole ----------------------------------------------------------
 
 def poles(tips: np.ndarray, q_rad: np.ndarray) -> np.ndarray:
-    """The pole ``P(q)`` of each pose against the extended one: the distal
-    phalanx turns by ``-q`` (flexion is clockwise, toward the palm), so
-    ``tip(q) - P = R(-q) (tip(0) - P)``. ``q = 0`` has none (NaN)."""
+    """The pole ``P(q)`` of each pose against the extended one, from the
+    fingertip's path alone (``core.geometry.pole``). ``q = 0`` has none (NaN)."""
 
-    found = np.full((len(q_rad), 2), np.nan)
-    for k, q in enumerate(q_rad):
-        if q <= 1e-9:
-            continue
-        c, s = math.cos(-q), math.sin(-q)
-        rotation = np.array([[c, -s], [s, c]])
-        found[k] = np.linalg.solve(np.eye(2) - rotation, tips[k] - rotation @ tips[0])
-    return found
+    return np.array([finite_pole(q, tip, tips[0]) for q, tip in zip(q_rad, tips)])
 
 
 # The pads as rectangles -----------------------------------------------------------
 
-def rectangle(x0: float, x1: float, top: float, bottom: float) -> np.ndarray:
-    return np.array([(x0, bottom), (x1, bottom), (x1, top), (x0, top)], dtype=float)
+def rectangle(x0: float, x1: float, top: float, bottom: float) -> tuple[tuple[float, float], tuple[float, float]]:
+    """A pad as its centre and half lengths ``((x, z), (a_x, a_z))``."""
+
+    return (0.5 * (x0 + x1), 0.5 * (top + bottom)), (0.5 * (x1 - x0), 0.5 * (top - bottom))
 
 
-def overlap(first: np.ndarray, second: np.ndarray) -> float:
-    """How deep two convex polygons overlap (separating axes; <= 0: apart by that much)."""
+def clearance(proximal, distal, about, q: float) -> float:
+    """The exact separation of the two pads at one pose (``rectangular_clearance``)."""
 
-    best = -math.inf
-    for polygon in (first, second):
-        edges = np.roll(polygon, -1, axis=0) - polygon
-        for ex, ey in edges:
-            length = math.hypot(ex, ey)
-            if length <= 0.0:
-                continue
-            normal = np.array((ey, -ex)) / length
-            a, b = first @ normal, second @ normal
-            best = max(best, max(b.min() - a.max(), a.min() - b.max()))
-    return -best
+    return rectangular_clearance(proximal[0], proximal[1], distal[0], distal[1], about, q)
 
 
-def turned(polygon: np.ndarray, pole: np.ndarray, q: float) -> np.ndarray:
-    c, s = math.cos(-q), math.sin(-q)
-    return (polygon - pole) @ np.array([[c, -s], [s, c]]).T + pole
+def first_contact_deg(proximal, distal, pole_path: np.ndarray, q_rad: np.ndarray) -> float:
+    """The first flexion at which the pads overlap with positive area (NaN: none on the path)."""
 
-
-def first_contact_deg(proximal: np.ndarray, distal: np.ndarray, pole_path: np.ndarray, q_rad: np.ndarray) -> float:
-    """The first flexion at which the pads overlap (NaN: none on the path)."""
-
-    for q, pole in zip(q_rad[1:], pole_path[1:]):
-        if overlap(proximal, turned(distal, pole, q)) > 1e-9:
+    for q, about in zip(q_rad[1:], pole_path[1:]):
+        if clearance(proximal, distal, about, q) < -1e-9:
             return math.degrees(q)
     return math.nan
 
 
-def least_gap(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_rad: float) -> float:
-    """The least gap between the pads with no contact up to the required
-    flexion, the pads' depths and the pole's path kept: both pads moved off
-    the joint by the same length (bisection)."""
+def least_clearance(proximal, distal, pole_path: np.ndarray, q_rad: np.ndarray, required_rad: float) -> tuple[float, float]:
+    """The least exact separation of the two pads over ``(0, q_req]`` and the
+    flexion (deg) it occurs at: 0 for a design the pads stop, positive for one
+    with room, negative for one whose pads overlap."""
+
+    best, at = math.inf, math.nan
+    for q, about in zip(q_rad[1:], pole_path[1:]):
+        if q > required_rad + 1e-9:
+            break
+        value = clearance(proximal, distal, about, q)
+        if value < best:
+            best, at = value, math.degrees(q)
+    return best, at
+
+
+def least_gap_long_pads(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_rad: float) -> float:
+    """The least gap of two LONG pads with no overlap up to the required
+    flexion, the faces' depths and the pole's path kept: both pads moved off
+    the joint by the same length about the design's gap centre (bisection).
+
+    The pads here run 200 mm away from the joint, not the design's own
+    lengths: the value is the gap of that stand-in, the one the symmetric law
+    speaks of. A design's own (finite) pads are judged by
+    :func:`least_clearance`."""
 
     use_q = q_rad <= required_rad + 1e-9
     centre = 0.5 * (pad["proximal_end"] + pad["distal_start"])
@@ -133,20 +134,13 @@ def least_gap(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_rad:
     return high
 
 
-def corner_gap(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_rad: float) -> tuple[float, float]:
-    """The closed form: ``G = max_q (tau1(q) + tau2(q)) tan(q/2)`` with
-    ``tau_i = t_i - z(q)`` the face's depth below the pole (0 where the pole is
-    below the face), and the flexion that sets it."""
+def symmetric_gap(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_rad: float) -> tuple[float, float]:
+    """The symmetric clearance law for the mean of the two faces' depths, and
+    its critical flexion (deg). An estimate wherever the design is not
+    symmetric about its pole (unequal depths, a pole whose ``x`` moves)."""
 
-    best, at = 0.0, 0.0
-    for q, pole in zip(q_rad[1:], pole_path[1:]):
-        if q > required_rad + 1e-9:
-            break
-        depth = -pole[1]
-        value = (max(pad["t1"] - depth, 0.0) + max(pad["t2"] - depth, 0.0)) * math.tan(q / 2)
-        if value > best:
-            best, at = value, math.degrees(q)
-    return best, at
+    gap, at = symmetric_gap_law(0.5 * (pad["t1"] + pad["t2"]), -pole_path[:, 1], q_rad, required_rad)
+    return gap, math.degrees(at)
 
 
 def coverage_law(pad: dict, start: float, length: float, pole_path: np.ndarray, q_rad: np.ndarray,
@@ -216,15 +210,22 @@ def analyse(entry: dict) -> tuple[dict, list[dict]]:
     distal = rectangle(pad["distal_start"], length, pad["distal_top"], -pad["t2"])
     required = math.radians(flexion)
     contact = first_contact_deg(proximal, distal, path, q)
-    closed, at = corner_gap(pad, path, q, required)
+    closed, at = symmetric_gap(pad, path, q, required)
+    room, room_at = least_clearance(proximal, distal, path, q, required)
+    span = path[1:int(round(flexion / STEP_DEG)) + 1, 0]
     index = min(int(round(flexion / STEP_DEG)), len(q) - 1)
     row = {"architecture": entry["architecture"], "mechanism": reference.mechanism, "required_flexion_deg": flexion,
            "thickness_mm": h, "c_pad_mean": float(report["c_pad_mean"]),
            "pad_coverage": (float(report["proximal_support_length_mm"])
                             + float(report["distal_support_length_mm"])) / length,
            "c_pad_law": coverage_law(pad, start, length, path, q, required),
-           "gap_mm": pad["distal_start"] - pad["proximal_end"], "gap_law_exact_mm": least_gap(pad, path, q, required),
-           "gap_law_corner_mm": closed, "critical_flexion_deg": at,
+           "gap_mm": pad["distal_start"] - pad["proximal_end"],
+           "clearance_min_mm": room, "clearance_min_at_deg": room_at,
+           "gap_long_pads_mm": least_gap_long_pads(pad, path, q, required),
+           "gap_symmetric_law_mm": closed, "critical_flexion_deg": at,
+           "pole_x_range_mm": float(np.nanmax(span) - np.nanmin(span)) if len(span) else math.nan,
+           "pole_x_off_centre_mm": float(np.nanmax(np.abs(span - 0.5 * (pad["proximal_end"] + pad["distal_start"]))))
+           if len(span) else math.nan,
            "face_depth_proximal_mm": pad["t1"], "face_depth_distal_mm": pad["t2"],
            "mount_depth_proximal_mm": pad["t1"] - h, "mount_depth_distal_mm": pad["t2"] - h,
            "pole_x_at_req_mm": float(path[index, 0]), "pole_depth_at_req_mm": float(-path[index, 1]),
@@ -345,8 +346,8 @@ def figure(rows: list[dict], samples: list[dict], tag: str) -> Path:
     axis = axes[1]
     for row in rows:
         mech = row["mechanism"]
-        binding = row["stop_reason"] == "collision" or float(row["pad_clearance_mm"] or 1.0) < 0.1
-        axis.plot(row["gap_law_exact_mm"], row["gap_mm"], MARKERS.get(mech, "o"), color=COLORS[mech], ms=4,
+        binding = abs(row["clearance_min_mm"]) < 0.1
+        axis.plot(row["gap_long_pads_mm"], row["gap_mm"], MARKERS.get(mech, "o"), color=COLORS[mech], ms=4,
                   mfc=COLORS[mech] if binding else "white")
     limit = max([r["gap_mm"] for r in rows] + [1.0]) * 1.08
     axis.plot([0, limit], [0, limit], color=INK, lw=0.6)

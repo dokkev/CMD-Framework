@@ -2,6 +2,8 @@
 
 작성: 2026-11-20. 정의는 `design/SSoT/problem_formulation.md` A.6.0(Study 0), A.6.2(Study 1), A.6.3(Study 2). 상태: Study 1의 72개 조건 중 지금까지 끝난 32개 설계로 확인함(q_req 120°는 CFL과 2R-DD가 3/5/7/9 mm, 나머지는 3/5/7 mm; q_req 90°, 150°는 5 mm만). 숫자는 `design/scripts/study/study2_morphology_adaptation/pole_law.py`가 만든 `design/output/study/study2_pole_law/`의 `designs.csv`, `fixed_finger.csv`, `changes.csv`에서 옴. 4.2의 표는 처음 24개 설계의 값이다.
 
+> **2026-11-21:** 이 문서는 2026-11-20의 작업 기록이다. 수학과 증명의 기준은 `report/study0/derivation.md`이며, 그 문서에서 아래의 일부 진술을 고쳤다: 간격의 식은 두 pad가 pole에 대해 고르게 놓일 때만 정확하고(대칭 clearance 법칙), 설계의 판정은 임의의 pole과 유한한 pad에 대한 정확한 clearance로 한다. 아래에서 "식(정확)"이라 부른 값은 긴 pad를 고르게 놓은 배치의 최소 간격이다. "pole보다 아래만 다가온다"는 순간 속도에 대한 진술은 pole이 움직이는 CFL에서는 성립하지 않아 뺐다.
+
 ## 1. 질문
 
 기존 손가락에 새 contact interface(더 두꺼운 pad)를 넣으려고 손가락을 다시 최적화하면, 손가락은 얼마나 바뀌는가. 그리고 그 양은 왜 구조마다 다른가.
