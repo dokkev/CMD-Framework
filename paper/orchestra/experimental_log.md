@@ -1,7 +1,7 @@
 # experimental_log.md — Studies 0–2
 
 > PROVISIONAL, do not use in the paper: the fixed-finger first-contact angles (CFL 65° vs 2R-remote 92°) and the adjacent-thickness contact/skeleton changes (0.84 / 3.54 mm, CFL 3→5 mm at 120°) come from a 2026-11-20 partial run and are not re-checked against the final designs. The qualitative statements (no unchanged finger accepts a thicker pad; CFL touches earliest; the skeleton changes instead of the contact path) may be used without those numbers.
- (Study 3: only the geometric precondition check at the end of this file may be used; no learning results)
+ (Study 3: nothing from it may be used in the paper — its design is in the playground; see idea.md H3)
 
 # Experimental log (Studies 0–2)
 
@@ -183,28 +183,13 @@ Readings:
   coverage (120°, 3 mm on the 9 mm design: CFL −8.6 points, 2R-remote −18.2) and fix the thickest interface in advance.
 - Transmission: CFL redesigns keep MA_wc between 0.42 and 0.56 against 0.44–0.58 for their 3 mm references
   (−7 % to +16 %); 2R ≡ 1, RCJ ≡ 1/2 by construction. The redesign changes the actuator-side transmission
-  modestly; it is part of the recorded embodiment change, not held fixed.
+  modestly; it is part of the recorded embodiment change, compensated by control (SSoT decision 2026-11-21: flexion
+  commands through θ(q) with K_θ = K_q/(dθ/dq)² hold flexion within 0.07° in simulation, torque limits off).
+- Coverage alone does not keep the trajectory: Study 1's two independent 7 mm CFL designs at 120° change it by
+  1.28 and 3.91 mm (Study 2 redesign: 0.86 mm).
 - Least-change end of each CFL front: D_c·L_f = 0.33/0.67/2.97 mm (90°), 0.26/0.84/1.43 mm (120°),
   0.67/1.66/3.26 mm (150°) for 5/7/9 mm. 2R-remote's front collapses to the bound (least = most-coverage end).
 - Search effort note: CFL received more search (continuation) than 2R/RCJ because its independent runs disagree;
   2R/RCJ runs agree cell by cell. Extra effort can only raise CFL; 2R-remote still leads at 90°. The 120° crossover
   (between 5 and 7 mm, 6 mm: 0.740 vs 0.729) is within the CFL run spread and is stated as approximate.
 - 2R-remote actuator pose fixed because its objective is independent of it (MA ≡ 1, occlusion not counted).
-
-## Study 3 precondition, geometric (`report/study3/regrasp_geometry.md`, 120° section; condition set 2026-11-21)
-
-No training. CFL, q_req 120°, pad 3 → 7 mm. H₀ = Study 1 3 mm design; H_R = Study 2 coverage-end redesign
-(D_c·L_f 0.86 mm, C̄ 0.725); H_U = Study 1 first independent coverage-only 7 mm design (3.91 mm, 0.711; the
-other Study 1 design has 1.28 mm — the choice is recorded). Cylinders held by H₀'s two pads stay fixed; the same
-flexion is commanded to H_R and H_U (valid grasps 43 / 41).
-
-| | H_R | H_U |
-|---|---|---|
-| distal-face normal offset, max / median | 0.33 / 0.12 mm | 3.10 / 2.01 mm |
-| force error at k_pad 2 N/mm (pad in series with servo loop, quasi-static, object fixed), median / max | 0.23 / 0.62 N | 3.54 / 5.66 N |
-| flexion error if commanded as servo angles | 21.0° | 22.0° |
-| max relative change of dθ/dq vs H₀ | 20 % | 21 % |
-| MA_wc (H₀ 0.583) | 0.520 | 0.479 |
-
-The offset difference holds over the whole flexion range (at 90°, 3 → 5 mm it was confined to q ≥ 70°). With
-rigid pads both hands load the servo heavily, so the comparison needs compliant pads.

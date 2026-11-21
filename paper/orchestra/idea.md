@@ -1,12 +1,21 @@
 # idea.md — CoDe Hand: designing a finger around its contact interfaces
 
-Sources (synced with the SSoT on 2026-11-21, commit 3545117): `design/SSoT/north-star.md` (problem,
+Sources (synced with the SSoT on 2026-11-21, commit 6be3d93): `design/SSoT/north-star.md` (problem,
 contributions C1–C5), `design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status),
-`design/SSoT/problem_formulation.md` A.3–A.6, `report/study0/derivation.md`, `report/study3/regrasp_geometry.md`.
-Study 3 enters as hypothesis H3: its protocol and geometric precondition check only; no learning results exist.
+`design/SSoT/problem_formulation.md` A.3–A.6, `report/study0/derivation.md`.
+Study 3 enters only as hypothesis H3, stated as an open measurement problem (research-objective §8.1). Its design,
+the frozen-policy protocol and the regrasp-geometry numbers are in the playground (`docs/experimental/`) and must
+NOT be used in the paper.
+
+Why the relative contact trajectory (north-star): (1) the object meets the contact faces, not the skeleton;
+(2) a redesign does not keep it unless it is the target (Study 1's two independent 7 mm CFL designs at 120°:
+1.28 and 3.91 mm vs 0.86 mm for the Study 2 redesign); (3) it can be kept at little cost (C1, C3).
+Transmission (decided): compensated by control and recorded — flexion commands through each hand's θ(q) table with
+gains K_θ = K_q/(dθ/dq)² hold flexion within 0.07° in simulation (MuJoCo-Warp, torque limits off); on hardware,
+whether torque limits allow it where MA_wc falls (up to −18 %) is open.
 
 Contributions (north-star): C1 a bound (Study 0); C2 a finger (Study 1); C3 redesign that keeps contact
-(Study 2); C4 why it matters (Study 3, H3); C5 a platform (hardware, H4).
+(Study 2); C4 why it matters (open; Study 3, H3); C5 a platform (hardware, H4).
 
 ## 1. North star and the message
 
@@ -143,16 +152,14 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - H2: Only a joint that moves its pole can be redesigned for a thicker interface while keeping the
   relative contact trajectory and the coverage. (Study 2 vs. Corollary.) If false: every interface
   comparison must report D_c as a covariate.
-- H3 (C4, Study 3, research-objective §8; Stage 2, simulation): keeping the relative contact trajectory
-  changes what an interface experiment measures. Interface change: flat pad 3 → 7 mm, same geometry and
-  material, so the interface's own effect is zero by construction. Hands, all CFL at q_req = 120°: H₀
-  (Study 1, 3 mm); H_R (Study 2 redesign with the trajectory as target, D_c·L_f 0.86 mm, C̄ 0.725); H_U
-  (Study 1 coverage-only 7 mm design, 3.91 mm, 0.711). Policies trained on (H₀, 3 mm) run without retraining;
-  ΔJ_R, ΔJ_U paired over ≥ 10 policy seeds. Actions/observations in flexion via each hand's θ(q) table (sent
-  as servo angles both hands would be ~21° off); per-flexion stiffness matched; transmission changes alike
-  (MA_wc 0.520, 0.479 vs H₀ 0.583; dθ/dq ±20 %). Pads k_pad = 2 N/mm (1, 5 sensitivity). Prediction
-  |ΔJ_U| > |ΔJ_R|; refutation: equal within a precision fixed with the test and α before evaluation.
-  Claims limited to frozen-policy measurements; a null result is reported as such.
+- H3 (C4, open; research-objective §8.1): keeping the relative contact trajectory keeps an interface measurement
+  from depending on how the hand was adapted. Interface variable c from c₀ to c₁ on hand H, task measure M,
+  effect Δ(H) = M(H,c₁) − M(H,c₀); decoupled when E(H) = |Δ(H) − Δ(H₀)| is small against Δ(H₀). A test must:
+  (i) remove by control what control can undo (transmission) and declare what is not kept (MCP level);
+  (ii) same task and controller on every hand, commands and stiffness in flexion, state whether command or
+  contact force is held fixed; (iii) no re-training/re-tuning per hand (a policy moved between hands measures
+  transfer); (iv) report E(H) vs Δ(H₀) with the raw between-hand difference at one interface value as control;
+  (v) an interface change with a clearly non-zero effect on H₀. Design not settled; no result claimed.
 - H4 (C5, Stage 2, hardware, criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
   CoDe hand with the same actuation and procedure, keeping the predicted motion. Planned measures: what an
   exchange touches (parts, time, whether the articulation is disassembled); reached flexion vs. model;
@@ -169,5 +176,6 @@ partial at 9 mm; CFL search hard). Candidate designs are design alternatives, no
 is about the search. Planar feasibility is not buildability. Matched morphology reduces confounding; it
 does not establish perfect causal isolation. Never claim universal superiority of CFL. Results are within
 the 2D model, equal-thickness rigid pads, fixed L_f and the stated coverage definition. Occlusion and an MA
-floor were not imposed. No learning results exist; H3 is a pre-registered protocol with a geometric
-precondition check, not a result. Do not claim that keeping the trajectory preserves policy performance.
+floor were not imposed. No learning results exist; H3 is an open problem, not a result. Do not claim that keeping the trajectory preserves policy performance.
+Limitation (north-star Not claimed): the MCP level is not kept — a revolute MCP is a fixed axis, so the proximal
+face's path relative to the palm changes with pad thickness on every redesign (C1 applies there).
