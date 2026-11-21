@@ -159,7 +159,7 @@ The learning-based experiment (Study 3) is set out in Section 8.
 - Planar feasibility is not buildability.
 - Quantitative figures must read saved results, with source commit or patch, configs, input artifacts and sampling provenance. Missing models or artifacts block their branch of work; do not invent measurements.
 - The next useful research decision is one that improves controlled interface variation or exposes its limits, whether or not it favors CoDe.
-- Fix the primary metric, the test and the interpretation criteria before the data that decide them exist, and record them (`docs/decisions.md`). Never change a criterion after seeing its outcome; a failed validity condition is reported as such.
+- Fix the primary metric, the test and the interpretation criteria before the data that decide them exist, and record them in the experiment's note in `docs/experimental/` before the run. Never change a criterion after seeing its outcome; a failed validity condition is reported as such. A measurement detail changed after a validation run (e.g. a gate on the reference hand) is recorded with its reason and the data it was based on, and only before the data that decide the comparison exist.
 - Use enough independent replicates (policy seeds) for the planned test to be able to reject (an exact sign-flip test over 5 seeds cannot reach p < 0.05).
 - Verify what a metric measures before interpreting it (e.g. that a goal count counts rotation and not overlapping success regions).
 
@@ -167,15 +167,29 @@ The learning-based experiment (Study 3) is set out in Section 8.
 
 ## 8. Study 3: Does Keeping the Relative Contact Trajectory Change What an Interface Experiment Measures?
 
+### 8.1 The problem: decoupling the contact interface from the morphology in manipulation evaluation
+
+A manipulation evaluation measures a hand and its interface together. To compare interfaces, the hand must be adapted to each one (P1, P2), so the measured difference mixes the interface's effect (intended variation, Section 2) with the adaptation's (unintended variation). The problem Study 3 addresses is to obtain a measurement of an interface's effect on manipulation that does not depend on how the hand was adapted to carry it.
+
+Stated as a measurement: an interface variable c (friction, surface profile, compliance, ...) is changed between two values on a hand H, and a task measure M gives the effect Δ(H) = M(H, c₁) − M(H, c₀). The effect is decoupled from the morphology when Δ(H) is the same on the reference hand H₀ and on the hands adapted from it for a different interface, so that the embodiment-dependent error E(H) = |Δ(H) − Δ(H₀)| is small against Δ(H₀).
+
+What Study 3 must resolve:
+
+1. **Which parts of an adaptation remain.** An adaptation changes the transmission (servo angle to flexion), the skeleton's motion, the relative contact trajectory, and the proximal contact face's place at the MCP. The error that matters is what is left after control has undone what it can; the transmission is undone by control (Section 9, decided), the MCP level is a declared limitation (Section 8.2).
+2. **A protocol in which the interface is the variable.** The same task and the same controller on every hand, with commands in flexion and stiffness matched in flexion. What is held fixed between hands (the command or the contact force) is stated, because an interface's effect can be measured differently under each.
+3. **No adaptation in the evaluator.** A controller that is re-trained or re-tuned per hand absorbs the morphology into itself, and a policy trained on one hand and tested on another measures transfer, not the interface. The evaluator is fixed across hands.
+4. **A measure and a control.** E(H) is reported against Δ(H₀), together with the raw difference between hands at one interface value (what an identical surface profile shows: the artefact the adaptation alone produces).
+5. **A real effect to measure.** The interface change must have an effect on H₀ that is clearly non-zero in the task; a decoupling result on an effect near zero is not informative.
+
 Study 3 answers one question, for contribution C4 (`north-star.md`):
 
 > **When the same interface change is measured, does the measurement differ between a hand redesigned to keep the relative contact trajectory and one redesigned without that target?**
 
 The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, accessibility) is archived in `docs/experimental/study3_interface_platform.md`.
 
-The design (hands, interface change, measurement, preconditions, chosen condition) is not settled; it is worked out in `docs/experimental/study3_design.md`.
+The design (hands, interface change, task, measurement, chosen condition) is not settled; it is worked out in `docs/experimental/study3_design.md` and `docs/experimental/separability.md`.
 
-### 8.1 Claim boundaries
+### 8.2 Claim boundaries
 
 - Do not claim that keeping the relative contact trajectory preserves a policy's performance in general, or that CoDe is needed for every interface experiment.
 - **The MCP level is not kept (limitation).** The relative contact trajectory is finger-internal: the distal contact face seen from the proximal one. The proximal contact face is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that face away from the axis, so its path in the palm frame changes on every redesign by the change in pad thickness. Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): C1 applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work.
@@ -199,11 +213,14 @@ The design (hands, interface change, measurement, preconditions, chosen conditio
 
 The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C4.
 
-**Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3 has no spacer path.
+**Decided.**
+
+- No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3 has no spacer path.
+- The transmission is compensated by control and recorded, not added to the redesign target (2026-11-21). Measured on the Study 3 hands (CFL, 120°, 3 → 7 mm; `design/scripts/study/exploratory/e15_transmission_change.py`): dθ/dq differs from H₀'s by up to 20% (H_R) and 21% (H_U), MA_wc by −11% and −18% (Study 2 overall: −7% to +16%). Commands in flexion mapped through each hand's θ(q) table (matching the design kinematics to 0.0003°), with the servo gains scheduled as K_θ = K_q/(dθ/dq)², hold the commanded flexion within 0.07° in simulation (MuJoCo-Warp, servo torque limits off).
 
 **Open decisions.**
 
-1. **Transmission under redesign** (servo angle to flexion, mechanical advantage: MA_wc changed by −7% to +16% in Study 2): how much it changes, whether it is argued as compensable and recorded (Section 5.6), or added to the redesign target. Not yet measured per design.
+1. **Transmission on hardware.** Whether the servos' torque limits allow the compensation where MA_wc falls (up to −18% on the Study 3 hands); simulation runs without torque limits.
 2. **Hardware scope** for the final paper (C5).
 3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
 4. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).
