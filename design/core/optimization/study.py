@@ -164,11 +164,17 @@ class _CountingRunner:
     worker holds its own problem, so only design vectors and results cross
     processes), counting the evaluations that meet every constraint and
     archiving the feasible ones no other feasible one dominates: designs a
-    later generation loses stay in the run's front."""
+    later generation loses stay in the run's front.
+
+    A design vector met again in the run (GA offspring often repeat their
+    parents on the step grid) is not evaluated again: its first result is
+    reused, so the run is the same, only faster. It still counts as an
+    evaluation."""
 
     def __init__(self, pool=None, workers: int = 1) -> None:
         self.pool, self.workers = pool, workers
         self.evaluated = self.feasible = 0
+        self.cache: dict[bytes, dict] = {}
         self.archive_x: list[np.ndarray] = []
         self.archive_f: list[np.ndarray] = []
         self.history_generation: list[int] = []
@@ -176,11 +182,18 @@ class _CountingRunner:
         self.generation_evaluations: list[int] = []
 
     def __call__(self, f, X):
+        keys = [np.asarray(x, dtype=float).tobytes() for x in X]
+        fresh = {}
+        for key, x in zip(keys, X):
+            if key not in self.cache and key not in fresh:
+                fresh[key] = x
         if self.pool is None:
-            outputs = [f(x) for x in X]
+            computed = [f(x) for x in fresh.values()]
         else:
-            outputs = self.pool.map(_evaluate_in_worker, list(X),
-                                    chunksize=max(1, len(X) // (4 * self.workers)))
+            computed = self.pool.map(_evaluate_in_worker, list(fresh.values()),
+                                     chunksize=max(1, len(fresh) // (4 * self.workers)))
+        self.cache.update(zip(fresh, computed))
+        outputs = [_copied(self.cache[key]) for key in keys]
         self.evaluated += len(outputs)
         generation = len(self.generation_evaluations)
         self.generation_evaluations.append(len(outputs))
@@ -199,6 +212,13 @@ class _CountingRunner:
         keep = non_dominated(np.asarray(self.archive_f))
         self.archive_x = [self.archive_x[i] for i in keep]
         self.archive_f = [self.archive_f[i] for i in keep]
+
+
+def _copied(out: dict) -> dict:
+    """A cached result for one more design of the population (pymoo may write into it)."""
+
+    return {name: np.array(value, copy=True) if isinstance(value, np.ndarray) else value
+            for name, value in out.items()}
 
 
 def run_study(

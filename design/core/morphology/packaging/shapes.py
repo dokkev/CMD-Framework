@@ -6,6 +6,7 @@ Gaps are in mm, 0 where two solids touch or overlap unless signed
 
 from __future__ import annotations
 
+import functools
 import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -16,6 +17,13 @@ from core.morphology.packaging import _kernels
 
 if TYPE_CHECKING:
     from core.morphology.packaging.hardware import ContactPad
+
+_APART_MM = 1e-6
+"""A gap above this: the convex polygons are apart, their separation positive."""
+
+# A D-shaped servo's cap: the unit half circle from +side round the front to -side.
+_CAP_ARC = np.array([(math.cos(t), math.sin(t)) for t in (math.pi / 2 - math.pi * k / 24 for k in range(25))])
+
 
 def as_points(array) -> np.ndarray:
     return np.ascontiguousarray(np.asarray(array, dtype=float).reshape(-1, 2))
@@ -91,8 +99,19 @@ def signed_gaps(gap: np.ndarray, first: np.ndarray, second: np.ndarray) -> np.nd
     """A gap that is 0 for touching and overlapping alike, made negative by the
     overlap's depth (:func:`separation`) where the convex polygons overlap."""
 
-    depth = separation(first, second)
-    return np.where(depth < 0.0, depth, gap)
+    gap = np.asarray(gap, dtype=float)
+    touching = np.flatnonzero(gap <= _APART_MM)
+    if touching.size == gap.size:
+        depth = separation(first, second)
+        return np.where(depth < 0.0, depth, gap)
+    # Polygons clearly apart have a separating edge (their separation is
+    # positive): only the touching samples can turn negative.
+    result = gap.copy()
+    if touching.size:
+        first, second = np.asarray(first), np.asarray(second)
+        depth = separation(first[touching], second[touching])
+        result[touching] = np.where(depth < 0.0, depth, gap[touching])
+    return result
 
 
 def segment_polygon_gaps(polygons: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
@@ -151,18 +170,10 @@ class ServoFootprint:
 
     @property
     def outline(self) -> np.ndarray:
-        """The closed outline in the plane, ``(n, 2)``: D-shaped, or a box."""
+        """The closed outline in the plane, ``(n, 2)``: D-shaped, or a box
+        (read-only, computed once per distinct footprint)."""
 
-        r = self.radius_mm
-        if self.cap > 0.0:
-            cap = [(self.cap * math.cos(t), self.cap * math.sin(t))
-                   for t in (math.pi / 2 - math.pi * k / 24 for k in range(25))]
-            local = np.array(cap + [(-self.rear_extent_mm, -r), (-self.rear_extent_mm, r)])
-        else:
-            local = np.array([(self.front_mm, r), (self.front_mm, -r), (-self.rear_extent_mm, -r),
-                              (-self.rear_extent_mm, r)])
-        forward, side = self._axes()
-        return np.array(self.pivot) + local[:, :1] * forward + local[:, 1:] * side
+        return _footprint_outline(self)
 
     @property
     def lowest_z_mm(self) -> float:
@@ -212,6 +223,21 @@ class ServoFootprint:
 
         forward = -np.array(self.rear)
         return forward, np.array((-forward[1], forward[0]))
+
+
+@functools.lru_cache(maxsize=4096)
+def _footprint_outline(footprint: ServoFootprint) -> np.ndarray:
+    r = footprint.radius_mm
+    if footprint.cap > 0.0:
+        local = np.vstack((footprint.cap * _CAP_ARC,
+                           ((-footprint.rear_extent_mm, -r), (-footprint.rear_extent_mm, r))))
+    else:
+        local = np.array([(footprint.front_mm, r), (footprint.front_mm, -r), (-footprint.rear_extent_mm, -r),
+                          (-footprint.rear_extent_mm, r)])
+    forward, side = footprint._axes()
+    outline = np.array(footprint.pivot) + local[:, :1] * forward + local[:, 1:] * side
+    outline.setflags(write=False)
+    return outline
 
 
 def polygon_to_footprint(polygons: np.ndarray, footprint: "ServoFootprint") -> np.ndarray:
