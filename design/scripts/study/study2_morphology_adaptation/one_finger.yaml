@@ -1,0 +1,18 @@
+# Study 1's conditions and where its designs are (problem formulation A.6.2),
+# read by pole_law.py (Study 0's check, Study 2) and one_finger.py (a fixed
+# finger with pads of other thicknesses). Paths from the repository root.
+required_flexion_deg: [90, 120, 150]
+thickness_mm: [3, 5, 7, 9]
+native_thickness_mm: 5        # the native designs' own (output/study/<mechanism>/<file>_q<q>, no _h)
+
+# The architectures: their study config and where its runs are.
+architectures:
+  cfl:        {config: scripts/study/cfl.yaml,        mechanism: linkage}
+  2r_dd:      {config: scripts/study/2r_dd.yaml,      mechanism: revolute}
+  2r_remote:  {config: scripts/study/2r_remote.yaml,  mechanism: revolute_parallel,
+               native_design: {servo_tilt_deg: 15, ap_from_a_x_mm: -10, ap_from_a_z_mm: 15}}
+  rcj:        {config: scripts/study/rcj.yaml,        mechanism: rcj}
+  cfl_ideal:  {config: scripts/study/cfl_ideal.yaml,  mechanism: linkage_idealized, upper_bound: true}
+  rcj_ideal:  {config: scripts/study/rcj_ideal.yaml,  mechanism: rcj_idealized,     upper_bound: true}
+
+output: output/study/study2_fixed_finger
