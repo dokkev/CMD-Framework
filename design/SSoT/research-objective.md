@@ -127,7 +127,7 @@ The project's experiments should provide evidence for the central research objec
 
 1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact. Which architecture keeps more depends on the required flexion and the interface's thickness; the study reports the ranking per condition rather than one trend.
 2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion.** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
-3. **A redesign can keep the relative contact trajectory far better than a fixed axis allows, with the contact surface kept too.** The relative contact trajectory is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface placed at that interface's best depth, a joint turning about a fixed axis changes the relative contact trajectory by at least a closed-form lower bound, whatever the redesign; the CFL moves the point it turns about and changes it by a fraction of that bound, at a pad coverage near the best for that interface, within a range the study measures. Designing once for the thickest interface and raising thinner ones on spacers keeps the trajectory on any architecture, at the coverage cost of the deep design; the comparison is therefore between the trade-offs of change in trajectory against coverage, not between keeping and losing it.
+3. **A redesign can keep the relative contact trajectory far better than a fixed axis allows, with the contact surface kept too.** The relative contact trajectory is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface placed at that interface's best depth, a joint turning about a fixed axis changes the relative contact trajectory by at least a closed-form lower bound, whatever the redesign; the CFL moves the point it turns about and changes it by a fraction of that bound, at a pad coverage near the best for that interface, within a range the study measures. Every interface is mounted at its own shallowest depth, without spacers. Raising a thinner interface on a spacer to the depth of the thickest one would keep the trajectory on any architecture, but it fills the space the interface needs (the problem CoDe addresses) with a passive block, costs every thinner interface the coverage of the deep design (at 120°: 8.6 points for the CFL, 18.2 for 2R-remote, 3 mm against a 9 mm design), and fixes the thickest interface in advance. It is therefore excluded by requirement, not compared.
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
@@ -309,11 +309,12 @@ The ultimate demonstration is that AI manipulation researchers can change contac
 
 Studies 3A (pilot done; main experiment running) and 3B (pre-registered) support C4 and the platform claim but are not contributions on their own (Section 8.4).
 
+**Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3C has no spacer path.
+
 **Open decisions.**
 
-1. **The spacer baseline.** A finger designed once for the thickest interface, with thinner ones raised on spacers, keeps the relative contact trajectory on any architecture. Whether C1–C3 are stated as the trade-off between trajectory change and coverage, with the spacer design at one end (Section 6, claim 3), and whether Study 3C includes a spacer path.
-2. **Transmission under redesign** (servo angle to flexion, mechanical advantage: MA_wc changed by −7% to +16% in Study 2): how much it changes, whether it is argued as compensable and recorded (Section 5.6), or added to the redesign target. Not yet measured per design.
-3. **Hardware scope** for the final paper (C5).
-4. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
-5. **Study 3D**: kept, or dropped from the RSS scope.
-6. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).
+1. **Transmission under redesign** (servo angle to flexion, mechanical advantage: MA_wc changed by −7% to +16% in Study 2): how much it changes, whether it is argued as compensable and recorded (Section 5.6), or added to the redesign target. Not yet measured per design.
+2. **Hardware scope** for the final paper (C5).
+3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
+4. **Study 3D**: kept, or dropped from the RSS scope.
+5. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).

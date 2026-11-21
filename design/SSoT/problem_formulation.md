@@ -577,7 +577,7 @@ $$
 - 2R-DD와 RCJ는 장착 깊이를 줄인 만큼만 하한보다 작다.
 - CFL은 하한보다 훨씬 작은 $D_c$로 다시 설계되며, 그때 coverage는 $\bar C^\star_K(h)$에 가깝다(relative contact trajectory를 지키는 것과 pad 길이를 지키는 것은 같은 조건이므로). 두께가 늘면서 이것이 어디까지 성립하는지가 결과이다.
 
-**해석.** $D_c^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 relative contact trajectory와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $D_s$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 relative contact trajectory가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $D_c^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. Contact face의 위치를 기준으로 두고 얇은 pad를 그만큼 깊이 달면 어느 구조에서나 relative contact trajectory가 유지되지만, 그 경우 손가락은 가장 두꺼운 interface에 맞춰 미리 설계해야 한다. 이 방식은 다루지 않는다.
+**해석.** $D_c^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 relative contact trajectory와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $D_s$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 relative contact trajectory가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $D_c^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 relative contact trajectory가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 relative contact trajectory의 변화를 최소화한다.
 
 ### A.6.4. Study에서 다루지 않는 것
 
