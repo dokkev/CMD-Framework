@@ -28,18 +28,46 @@ from .code_hand import make_code_hand_spec
 from .code_variants import _BUILDER_SOURCES, ASSET_DIR, SHARED, _goal_marker_cfg
 
 
-def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: PadProfile = FLAT) -> Path:
-    """The USD of ``description`` with ``profile`` convex-mesh pads (written if missing)."""
+def bind_pad_friction(usd_path: Path, friction: float) -> int:
+    """Give every pad collider (``*_pad``) of the stage a physics material with static and dynamic friction
+    ``friction``; returns the number of pads bound. MuJoCo-Warp takes the larger of two touching shapes'
+    coefficients and Newton's default is 1.0, so the pads' material sets the contact friction only against objects
+    whose own coefficient is lower."""
+    from pxr import Usd, UsdPhysics, UsdShade
+
+    stage = Usd.Stage.Open(str(usd_path))
+    material = UsdShade.Material.Define(stage, "/code_hand/pad_material")
+    api = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+    api.CreateStaticFrictionAttr(float(friction))
+    api.CreateDynamicFrictionAttr(float(friction))
+    api.CreateRestitutionAttr(0.0)
+    count = 0
+    for prim in stage.Traverse():
+        if prim.GetName().endswith("_pad") and prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(material, UsdShade.Tokens.weakerThanDescendants, "physics")
+            count += 1
+    stage.GetRootLayer().Save()
+    return count
+
+
+def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: PadProfile = FLAT,
+                      pad_friction: float | None = None) -> Path:
+    """The USD of ``description`` with ``profile`` convex-mesh pads (written if missing); ``pad_friction``: the pads'
+    friction coefficient (None: the backend default)."""
     digest = hashlib.sha256(Path(description).read_bytes())
     digest.update(repr(sorted(profile.__dict__.items())).encode())
+    digest.update(repr(pad_friction).encode())
     package = Path(__file__).resolve().parents[1]
     for name in _BUILDER_SOURCES:
         digest.update((package / name).read_bytes())
-    path = Path(out_dir) / f"{Path(description).stem}_{profile.name}_{digest.hexdigest()[:12]}.usda"
+    tag = "" if pad_friction is None else f"_mu{pad_friction:g}"
+    path = Path(out_dir) / f"{Path(description).stem}_{profile.name}{tag}_{digest.hexdigest()[:12]}.usda"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(f".{os.getpid()}.tmp.usda")
         write_usd(Description.load(description), tmp, loop="ball", colliders=True, pad_profile=profile)
+        if pad_friction is not None and bind_pad_friction(tmp, pad_friction) != 6:
+            raise RuntimeError(f"expected 6 pad colliders in {tmp}")
         os.replace(tmp, path)
     return path
 
@@ -81,17 +109,19 @@ def bar_cfg(size_m: tuple[float, float, float], mass_kg: float, pos_w: tuple[flo
 
 
 def register_description_hand(name: str, description: Path, object_cfg: RigidObjectCfg,
-                              servo_saturation: tuple[bool, bool] = (False, True), profile: PadProfile = FLAT) -> str:
+                              servo_saturation: tuple[bool, bool] = (False, True), profile: PadProfile = FLAT,
+                              pad_friction: float | None = None) -> str:
     """Register ``name`` (idempotent) from ``description`` with ``object_cfg``; the servo effort limit is off by
     default (simulation comparisons, ``code_isaaclab.actuators``)."""
     if name in HANDS:
         return name
     desc = Description.load(description)
     register_hand(make_code_hand_spec(
-        desc, description_asset(description, profile=profile), name=name, object_cfg=object_cfg,
+        desc, description_asset(description, profile=profile, pad_friction=pad_friction), name=name,
+        object_cfg=object_cfg,
         goal_marker_cfg=_goal_marker_cfg(), goal_marker_offset=(0.0, -0.12, 0.0), activate_contact_sensors=True,
         servo_saturation=servo_saturation, **SHARED))
     return name
 
 
-__all__ = ["bar_cfg", "cylinder_cfg", "description_asset", "register_description_hand"]
+__all__ = ["bar_cfg", "bind_pad_friction", "cylinder_cfg", "description_asset", "register_description_hand"]
