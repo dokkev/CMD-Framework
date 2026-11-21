@@ -88,8 +88,11 @@ def main(argv=None) -> int:
     else:
         checkpoint = args.run / args.checkpoint
     physics = next((t.split("=", 1)[1] for t in hydra_args if t.startswith("physics=")), "newton_mjwarp")
-    task = common.TASKS[args.test_variant]
+    protocol = training.get("protocol", "pilot")
+    task = common.PROTOCOLS[protocol][args.test_variant]
     env_cfg, agent_cfg = resolve_task_config(task, "rsl_rl_cfg_entry_point")
+    if protocol == "main":  # every policy and interface scored on the same goals, one for one
+        env_cfg.commands.object_pose.sequence_seed = args.eval_seed
     env_cfg.scene.num_envs = args.episodes
     env_cfg.seed = args.eval_seed
     agent_cfg.seed = args.eval_seed
@@ -240,6 +243,8 @@ def main(argv=None) -> int:
         "checkpoint_sha256": common.file_sha256(checkpoint),
         "test_variant": args.test_variant,
         "task": task,
+        "protocol": protocol,
+        "goal_sequence_seed": env_cfg.commands.object_pose.sequence_seed,
         "physics": physics,
         "solver": {"type": type(env_cfg.sim.physics.solver_cfg).__name__,
                    "num_substeps": getattr(env_cfg.sim.physics, "num_substeps", None),

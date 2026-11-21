@@ -16,6 +16,14 @@
 - primary: SolverGap(crowned, crowned) - SolverGap(flat, flat), SolverGap = success(MuJoCo-Warp) -
   success(VBD), first goal; exact permutation over seeds.
 
+3A main (seeds 0-9 per surface, ``-Main`` tasks, logs/study3_main/eval, eval seed 2000, fixed goal sequence),
+J = goals reached per episode; three primaries, Holm-corrected at alpha 0.05, two-sided:
+- P1: in-domain interface effect, mean J(crowned policies on crowned) - mean J(flat policies on flat); exact
+  permutation over seeds;
+- P2: frozen transfer flat -> crowned, J(flat policy, flat) - J(flat policy, crowned); exact sign flip;
+- P3: frozen transfer crowned -> flat, J(crowned policy, crowned) - J(crowned policy, flat); exact sign flip;
+each with a 95% percentile bootstrap interval over seeds (10,000 resamples, fixed generator).
+
 Writes report/study3/tables/confirmatory.json and prints it.
 """
 
@@ -113,8 +121,51 @@ def three_b() -> dict:
     return out
 
 
+def holm(pvalues: dict[str, float]) -> dict[str, float]:
+    """Holm-adjusted p-values (step-down, monotone, capped at 1)."""
+    order = sorted(pvalues, key=pvalues.get)
+    adjusted, running = {}, 0.0
+    for rank, key in enumerate(order):
+        running = max(running, min(1.0, (len(order) - rank) * pvalues[key]))
+        adjusted[key] = running
+    return adjusted
+
+
+def bootstrap(fn, *samples, n: int = 10_000, seed: int = 0) -> list[float]:
+    """95% percentile interval of ``fn`` over seed-level resamples of each sample independently."""
+    rng = np.random.default_rng(seed)
+    stats_ = [fn(*[np.asarray(x)[rng.integers(0, len(x), len(x))] for x in samples]) for _ in range(n)]
+    return [float(np.percentile(stats_, 2.5)), float(np.percentile(stats_, 97.5))]
+
+
+def three_a_main() -> dict:
+    root = common.SIM_ROOT / "logs" / "study3_main" / "eval"
+    if not root.exists():
+        return {"status": "not run"}
+    cells = [c for c in analyze.cell_rows(analyze.evaluations(root)) if c["physics"] == "newton_mjwarp"]
+    J = {(tv, xv): by_seed(cells, tv, xv, "newton_mjwarp", "goals_reached_mean")
+         for tv in ("flat", "crowned") for xv in ("flat", "crowned")}
+    ff, cc = J[("flat", "flat")], J[("crowned", "crowned")]
+    g_fc = [ff[s] - J[("flat", "crowned")][s] for s in sorted(set(ff) & set(J[("flat", "crowned")]))]
+    g_cf = [cc[s] - J[("crowned", "flat")][s] for s in sorted(set(cc) & set(J[("crowned", "flat")]))]
+    a, b = list(ff.values()), list(cc.values())
+    raw = {"P1": permutation(a, b), "P2": sign_flip(g_fc), "P3": sign_flip(g_cf)}
+    adj = holm(raw)
+    return {
+        "seeds": {k: sorted(v) for k, v in {"flat": ff, "crowned": cc}.items()},
+        "J": {f"{tv}_on_{xv}": summary(v.values()) for (tv, xv), v in J.items() if v},
+        "P1_in_domain_crowned_minus_flat": {"estimate": float(np.mean(b) - np.mean(a)), "ci95": bootstrap(
+            lambda x, y: y.mean() - x.mean(), a, b), "p": raw["P1"], "p_holm": adj["P1"]},
+        "P2_transfer_flat_to_crowned": {**summary(g_fc), "ci95": bootstrap(lambda x: x.mean(), g_fc),
+                                        "positive": int(sum(g > 0 for g in g_fc)), "p": raw["P2"], "p_holm": adj["P2"]},
+        "P3_transfer_crowned_to_flat": {**summary(g_cf), "ci95": bootstrap(lambda x: x.mean(), g_cf),
+                                        "positive": int(sum(g > 0 for g in g_cf)), "p": raw["P3"], "p_holm": adj["P3"]},
+        "validity": {"loop_valid_fraction_min": min(float(c["valid_fraction"]) for c in cells), "cells": len(cells)},
+    }
+
+
 def main() -> int:
-    result = {"3A": three_a(), "3B_ema": three_b()}
+    result = {"3A": three_a(), "3B_ema": three_b(), "3A_main": three_a_main()}
     path = common.REPO_ROOT / "report" / "study3" / "tables" / "confirmatory.json"
     path.write_text(json.dumps(result, indent=2, default=str) + "\n")
     print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "table"} for k, v in result.items()}, indent=1, default=str))

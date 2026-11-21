@@ -40,7 +40,14 @@ fingers abducted together turn the cube about the vertical by about 11 deg with 
 while flexion tips the cube over onto the palm (a 90 deg flip about the finger axes, with non-pad contact)."""
 GOAL_MAX_ANGLE = math.radians(30.0)
 GOAL_MIN_STEP = math.radians(20.0)
-"""Consecutive goals at least 20 deg apart: a new goal is never within the 0.2 rad (11.5 deg) success band."""
+"""Pilot: consecutive goals at least 20 deg apart. Below twice the 0.2 rad (11.5 deg) success threshold, so two
+consecutive goals' success regions overlap and a goal can be reached without turning the cube (measured:
+docs/decisions.md 2026-11-21, ``scripts/study3/goal_audit.py``). The main experiment uses ``MAIN_GOAL_MIN_STEP``."""
+MAIN_GOAL_MIN_STEP = math.radians(25.0)
+"""Main experiment: 25 deg > 2 x 11.46 deg, so every goal needs at least 2.1 deg of rotation (range unchanged)."""
+MAIN_ACTION_EMA_ALPHA = 0.1
+"""Main experiment: joint targets smoothed by an EMA of the actions (upstream 1.0, no smoothing). The pilot
+policies without it saturated their actions and mostly held the cube; with it they turned it continuously."""
 OBJECT_POSE_NOISE_M = 0.003
 HAND_JOINT_NOISE = 0.02
 """Fraction of the way from the default joint position toward a random limit (upstream: 0.2)."""
@@ -108,4 +115,31 @@ class CoDeCrownedReorientEnvCfg(CoDeReorientEnvCfg):
     hand = "code_crowned"
 
 
-__all__ = ["CoDeCrownedReorientEnvCfg", "CoDeFlatReorientEnvCfg", "CoDeReorientEnvCfg"]
+@configclass
+class CoDeReorientMainEnvCfg(CoDeReorientEnvCfg):
+    """Study 3A main experiment: the pilot task with non-overlapping goals and smoothed actions, nothing else."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.commands.object_pose.min_step = MAIN_GOAL_MIN_STEP
+        self.actions.joint_pos.alpha = MAIN_ACTION_EMA_ALPHA
+
+
+@configclass
+class CoDeFlatReorientMainEnvCfg(CoDeReorientMainEnvCfg):
+    hand = "code_flat"
+
+
+@configclass
+class CoDeCrownedReorientMainEnvCfg(CoDeReorientMainEnvCfg):
+    hand = "code_crowned"
+
+
+__all__ = [
+    "CoDeCrownedReorientEnvCfg",
+    "CoDeCrownedReorientMainEnvCfg",
+    "CoDeFlatReorientEnvCfg",
+    "CoDeFlatReorientMainEnvCfg",
+    "CoDeReorientEnvCfg",
+    "CoDeReorientMainEnvCfg",
+]

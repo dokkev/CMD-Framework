@@ -22,9 +22,14 @@ gym.register(
     },
 )
 
-# The CoDe hand, one task per contact interface (Study 3 pilot; code_env_cfg.py). Same MDP, robot and PPO
-# settings; only the pads' contact surface differs.
-for _variant, _cfg in (("CoDeFlat", "CoDeFlatReorientEnvCfg"), ("CoDeCrowned", "CoDeCrownedReorientEnvCfg")):
+# The CoDe hand, one task per contact interface (code_env_cfg.py). Same MDP, robot and PPO settings; only the
+# pads' contact surface differs. ``-Main``: Study 3A's main experiment (non-overlapping goals, smoothed actions).
+for _variant, _cfg in (
+    ("CoDeFlat", "CoDeFlatReorientEnvCfg"),
+    ("CoDeCrowned", "CoDeCrownedReorientEnvCfg"),
+    ("CoDeFlat-Main", "CoDeFlatReorientMainEnvCfg"),
+    ("CoDeCrowned-Main", "CoDeCrownedReorientMainEnvCfg"),
+):
     gym.register(
         id=f"CoDe-Reorient-Cube-{_variant}",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

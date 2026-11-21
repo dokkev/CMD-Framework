@@ -24,6 +24,10 @@ SIM_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = SIM_ROOT.parents[1]
 LOG_ROOT = SIM_ROOT / "logs" / "study3_pilot"
 TASKS = {"flat": "CoDe-Reorient-Cube-CoDeFlat", "crowned": "CoDe-Reorient-Cube-CoDeCrowned"}
+"""The pilot tasks (overlapping goals, unsmoothed actions)."""
+MAIN_TASKS = {v: f"{t}-Main" for v, t in TASKS.items()}
+"""Study 3A main experiment tasks (code_env_cfg.CoDeReorientMainEnvCfg)."""
+PROTOCOLS = {"pilot": TASKS, "main": MAIN_TASKS}
 PAD_BODIES = [f"{d}_{s}" for d in ("index", "middle", "ring") for s in ("proximal", "distal")]
 
 

@@ -27,7 +27,7 @@ SIM_ROOT = Path(__file__).resolve().parents[2]
 RUNS = SIM_ROOT / "logs" / "rsl_rl" / "study3_code_reorient"
 PILOT = SIM_ROOT / "logs" / "study3_pilot"
 LEDGER = PILOT / "wandb_synced.json"
-EVAL_ROOTS = {"3A": PILOT / "eval", "3B_ema": PILOT / "eval_ema"}
+EVAL_ROOTS = {"3A": PILOT / "eval", "3B_ema": PILOT / "eval_ema", "3A_main": SIM_ROOT / "logs" / "study3_main" / "eval"}
 CONFIG_KEYS = ("task", "variant", "seed", "physics", "servo_mode", "iterations", "overrides", "num_envs",
                "steps_per_env", "transitions", "git_commit", "git_dirty", "versions", "final_checkpoint_sha256",
                "wall_s", "solver_overflow_messages", "status")
@@ -73,7 +73,8 @@ def main(argv=None) -> int:
         run_dir, manifest = manifest_path.parent, json.loads(manifest_path.read_text())
         if "smoke" in run_dir.name or manifest.get("status") != "passed" or run_dir.name in done:
             continue
-        group = "3B_ema" if manifest.get("overrides") else "3A"
+        group = ("3A_main" if manifest.get("protocol") == "main"
+                 else "3B_ema" if manifest.get("overrides") else "3A")
         if args.group and group != args.group:
             continue
         evals = evaluations(EVAL_ROOTS[group], run_dir)

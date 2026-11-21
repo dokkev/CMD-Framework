@@ -32,6 +32,7 @@ STEPS_PER_ENV = 24  # AllegroHandManagerPPORunnerCfg.num_steps_per_env
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variant", choices=tuple(common.TASKS), required=True)
+    parser.add_argument("--protocol", choices=tuple(common.PROTOCOLS), default="pilot")
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--iterations", type=int, required=True)
     parser.add_argument("--num_envs", type=int, default=128)
@@ -40,7 +41,7 @@ def main(argv=None) -> int:
     parser.add_argument("--override", action="append", default=[],
                         help="Hydra override of the task, e.g. env.actions.joint_pos.alpha=0.1 (repeatable; recorded)")
     args = parser.parse_args(argv)
-    task = common.TASKS[args.variant]
+    task = common.PROTOCOLS[args.protocol][args.variant]
     run_name = f"{args.variant}_s{args.seed}" + (f"_{args.label}" if args.label else "")
     stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = common.SIM_ROOT / "logs" / "rsl_rl" / EXPERIMENT / f"{stamp}_{run_name}"
@@ -61,6 +62,7 @@ def main(argv=None) -> int:
     record = common.manifest(
         task=task,
         variant=args.variant,
+        protocol=args.protocol,
         seed=args.seed,
         physics=args.physics,
         servo_mode=os.environ.get("CODE_STUDY3_SERVO", "implicit"),
