@@ -1,7 +1,12 @@
 # idea.md — CoDe Hand: designing a finger around its contact interfaces
 
-Sources: `design/SSoT/research-objective.md` (north star), `design/SSoT/problem_formulation.md` A.3–A.6,
-`report/study0/derivation.md`. Learning studies (Study 3) are out of scope for this paper.
+Sources (synced with the SSoT on 2026-11-21, commit 3545117): `design/SSoT/north-star.md` (problem,
+contributions C1–C5), `design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status),
+`design/SSoT/problem_formulation.md` A.3–A.6, `report/study0/derivation.md`, `report/study3/regrasp_geometry.md`.
+Study 3 enters as hypothesis H3: its protocol and geometric precondition check only; no learning results exist.
+
+Contributions (north-star): C1 a bound (Study 0); C2 a finger (Study 1); C3 redesign that keeps contact
+(Study 2); C4 why it matters (Study 3, H3); C5 a platform (hardware, H4).
 
 ## 1. North star and the message
 
@@ -34,19 +39,22 @@ Central question: how can a hand be designed so that contact interfaces can be v
 systematically while its underlying morphology changes as little as possible?
 Supporting questions answered in this paper: (Q1) how does hand architecture constrain the space and
 geometry available to interfaces? (Q2) how much must the morphology change to accommodate a different
-interface?
+interface, and how much does its relative contact trajectory change? (Q3) does keeping that trajectory
+change what an interface experiment measures?
 
-## 3. Key concept: contact-centric kinematics
+## 3. Key concept: the relative contact trajectory
 
 Robot configuration R = (H, C): underlying hand H = (E, Q, A) (structure, articulation geometry,
 actuation) fixed; contact interface C variable. The kinematic target of a contact-centric hand is the
-**contact-centric kinematics: the motion of one contact face seen from the other over the flexion**. What a
-policy and an object meet is the contact face, not the skeleton. When an interface is thicker than the
-finger was designed for, the contact-centric kinematics has priority over the skeleton's: the mechanism's
+**relative contact trajectory: the path of the distal contact face seen from the proximal contact face, as a
+function of flexion q (not of time)**. It excludes the transmission from servo angle to flexion, which is
+recorded separately. (This term replaced "contact-centric kinematics" on 2026-11-21; do not use the old
+term.) What a policy and an object meet is the contact face, not the skeleton. When an interface is thicker
+than the finger was designed for, the relative contact trajectory has priority over the skeleton's: the mechanism's
 internal dimensions may change to keep the contact faces moving as before. With identical rigid-body
 kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so
 changes the contact-point Jacobian — an effect of the hand's geometry, not of the interface under study,
-and exactly what a redesign should remove. Preserving contact-centric kinematics does NOT mean preserving
+and exactly what a redesign should remove. Preserving the relative contact trajectory does NOT mean preserving
 contact mechanics (compliance, friction, sensing change with the interface — that is what is studied).
 
 ## 4. The CoDe approach (engineering means, not ends)
@@ -102,10 +110,10 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
   C_pad(q) = (L_f − x_0 − G) / (L_f − G(1 − cos(q/2)) + 2 z(q) sin(q/2)). Large fixed-axis gap shortens when
   flexed; palmar pole lengthens the contour. Lowering a constant-depth pole raises C_pad until z = t (G = 0):
   the best joint turns about a point on the contact face.
-- **Prop. 4 (contact-centric kinematics).** p(q) = pole relative to the proximal face; a distal-face point
+- **Prop. 4 (trajectory law).** p(q) = pole relative to the proximal face; a distal-face point
   moves as c(q) = p + R_q(c_0 − p). Two fingers whose poles differ by Δp: ‖Δc(q)‖ = 2 sin(q/2) ‖Δp(q)‖.
   Contact faces move alike iff the pole keeps its place relative to the face; then the same pad fits in the
-  same place → keeping contact-centric kinematics and keeping the pads are one condition.
+  same place → keeping the relative contact trajectory and keeping the pads are one condition.
 - **Corollary (fixed-axis bound).** Redesigning a fixed-axis finger so the faces move Δh − Δd away from the
   axis: max_q ‖Δc‖ ≥ 2 sin(q_req/2)|Δh − Δd| wherever the new axis is (equality if it does not move along the
   face). Same for rolling joint with fixed roller radius.
@@ -118,7 +126,12 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - **Study 1** (claims 1–2 of research-objective §6): for each architecture, h ∈ {3,5,7,9} mm, q_req ∈
   {90,120,150}°, maximize C̄_pad (pad lengths and positions are design variables). GA + NSGA-II, 3 seeds,
   CFL re-searched from neighbouring thicknesses and Study 2 designs; best of runs.
-- **Study 2** (claim 3): reference M_0 = each architecture's 3 mm Study 1 design. Contact-path change
+- **No spacers (decided 2026-11-21, excluded by requirement).** Every interface sits at its own shallowest
+  depth. Raising a thinner pad on a spacer to the thickest pad's depth keeps D_c = 0 on any architecture, but
+  fills the space the interface needs with a passive block, leaves every thinner interface the coverage of
+  the deep design (120°, 3 mm on the 9 mm design: 8.6 points lost for CFL, 18.2 for 2R-remote), and fixes the
+  thickest interface in advance. It is not a compared alternative.
+- **Study 2** (claim 3): reference M_0 = each architecture's 3 mm Study 1 design. Trajectory change
   D_c(M, M_0) = max_{q≤q_req} ‖c(M,q) − c(M_0,q)‖ / L_f (c = path of the distal-face point below the fingertip
   seen from the proximal face); skeleton change D_s = same for fingertip. For 5/7/9 mm minimize D_c and maximize
   C̄_pad (NSGA-II, 2 seeds, no coverage floor); compare with fixed-axis bound 2 sin(q_req/2)(h − h_0).
@@ -128,9 +141,19 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - H1: Architecture bounds the usable contact surface; the spread grows with thickness and required flexion.
   (Study 1.) If false: interface volume is limited by packaging, not the joint.
 - H2: Only a joint that moves its pole can be redesigned for a thicker interface while keeping the
-  contact-centric kinematics and the coverage. (Study 2 vs. Corollary.) If false: no redesign removes the
-  confound; studies must build for the thickest interface in advance or report D_c as a covariate.
-- H3 (Stage 2, hardware, criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
+  relative contact trajectory and the coverage. (Study 2 vs. Corollary.) If false: every interface
+  comparison must report D_c as a covariate.
+- H3 (C4, Study 3, research-objective §8; Stage 2, simulation): keeping the relative contact trajectory
+  changes what an interface experiment measures. Interface change: flat pad 3 → 7 mm, same geometry and
+  material, so the interface's own effect is zero by construction. Hands, all CFL at q_req = 120°: H₀
+  (Study 1, 3 mm); H_R (Study 2 redesign with the trajectory as target, D_c·L_f 0.86 mm, C̄ 0.725); H_U
+  (Study 1 coverage-only 7 mm design, 3.91 mm, 0.711). Policies trained on (H₀, 3 mm) run without retraining;
+  ΔJ_R, ΔJ_U paired over ≥ 10 policy seeds. Actions/observations in flexion via each hand's θ(q) table (sent
+  as servo angles both hands would be ~21° off); per-flexion stiffness matched; transmission changes alike
+  (MA_wc 0.520, 0.479 vs H₀ 0.583; dθ/dq ±20 %). Pads k_pad = 2 N/mm (1, 5 sensitivity). Prediction
+  |ΔJ_U| > |ΔJ_R|; refutation: equal within a precision fixed with the test and α before evaluation.
+  Claims limited to frozen-policy measurements; a null result is reported as such.
+- H4 (C5, Stage 2, hardware, criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
   CoDe hand with the same actuation and procedure, keeping the predicted motion. Planned measures: what an
   exchange touches (parts, time, whether the articulation is disassembled); reached flexion vs. model;
   contact-face motion tracked on the pads vs. model D_c; a common grasp protocol run on every interface;
@@ -146,4 +169,5 @@ partial at 9 mm; CFL search hard). Candidate designs are design alternatives, no
 is about the search. Planar feasibility is not buildability. Matched morphology reduces confounding; it
 does not establish perfect causal isolation. Never claim universal superiority of CFL. Results are within
 the 2D model, equal-thickness rigid pads, fixed L_f and the stated coverage definition. Occlusion and an MA
-floor were not imposed. No learning results in this paper.
+floor were not imposed. No learning results exist; H3 is a pre-registered protocol with a geometric
+precondition check, not a result. Do not claim that keeping the trajectory preserves policy performance.
