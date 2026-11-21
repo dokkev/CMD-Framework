@@ -7,7 +7,7 @@ goal and claim discipline are in [design/SSoT/research-objective.md](design/SSoT
 
 ```text
 cmd_framework/
-├── docs/              formulation, decision log, legacy archive (docs/README.md)
+├── docs/              decision log (decisions.md), playground (experimental/), legacy archive
 ├── report/            study reports and paper figures (report/figures/)
 ├── design/            CMD-Framework: mechanism geometry, kinematics, optimization, studies
 │   ├── SSoT/          source of truth: research objective (research-objective.md), problem formulation (problem_formulation.md)

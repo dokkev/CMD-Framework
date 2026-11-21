@@ -171,7 +171,7 @@ Study 3 answers one question, for contribution C4 (`north-star.md`):
 
 > **When the same interface change is measured, does the measurement differ between a hand redesigned to keep the relative contact trajectory and one redesigned without that target?**
 
-The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, accessibility) is archived in `docs/experimental-idea/study3_interface_platform.md`.
+The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, accessibility) is archived in `docs/experimental/study3_interface_platform.md`.
 
 ### 8.1 Design
 
@@ -226,7 +226,7 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 | C4 | Study 3 (Section 8) | Open: designed (Section 8); hands not yet built |
 | C5 | Hardware | Open: extent undecided |
 
-The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental-idea/study3_interface_platform.md` and is not evidence for C4.
+The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C4.
 
 **Evidence for "why the relative contact trajectory"** (the five steps in `north-star.md`; status 2026-11-21):
 
