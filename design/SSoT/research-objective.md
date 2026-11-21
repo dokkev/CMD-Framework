@@ -131,7 +131,7 @@ The project's experiments should provide evidence for the central research objec
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
-4. **Keeping the relative contact trajectory keeps an interface measurement interpretable** (hypothesis, Study 3C). If an interface experiment is run on a hand adapted to the interface in two ways, one that keeps the relative contact trajectory (claim 3) and one that does not, the measured effect of the interface differs between them. Support: the effect measured on the unadapted path departs from the redesigned path's, and the departure grows with the change in contact-face motion. Refutation: the two paths measure the same effect within the stated precision, in which case keeping the relative contact trajectory is not what an interface experiment needs, and that is reported.
+4. **Keeping the relative contact trajectory keeps an interface measurement interpretable** (hypothesis, Study 3; Section 8). The same interface change, measured on a hand redesigned to keep the relative contact trajectory and on one redesigned without that target, gives different measurements, and the first is the closer to the interface's true effect.
 
 A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the phalanx turns about, and how deep the pads sit, set what the joint takes from the pads); the optimization studies check its predictions.
 
@@ -145,7 +145,7 @@ A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 
-Learning-based interface experiments (Studies 3A–3D) are set out in Section 8.
+The learning-based experiment (Study 3) is set out in Section 8.
 
 ---
 
@@ -165,131 +165,45 @@ Learning-based interface experiments (Studies 3A–3D) are set out in Section 8.
 
 ---
 
-## 8. Learning-Based Manipulation Research
+## 8. Study 3: Does Keeping the Relative Contact Trajectory Change What an Interface Experiment Measures?
 
-This section sets out the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–2, and Section 7 applies to it in full.
+Study 3 answers one question, for contribution C4 (`north-star.md`):
 
-### 8.1 Objective
+> **When the same interface change is measured, does the measurement differ between a hand redesigned to keep the relative contact trajectory and one redesigned without that target?**
 
-**Demonstrate that CoDe Hand enables scalable and controlled contact-interface research for learning-based dexterous manipulation, with minimal changes to the underlying robotic embodiment and learning infrastructure.**
+The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, accessibility) is archived in `docs/experimental-idea/study3_interface_platform.md`.
 
-The goal is not to demonstrate that CoDe achieves universally higher manipulation performance than conventional hands. It is to establish why a contact-centric hand architecture is valuable to AI manipulation researchers.
+### 8.1 Design
 
-**Central question:**
+- **Interface change.** A thin rigid flat pad (C₀) to a thicker rigid flat pad (C₁) of the same geometry and material. On the contact face nothing changes, so the interface's own effect on the task is zero by construction (Section 2); any measured change is embodiment.
+- **Hands**, all of one architecture (the CFL), so that the only difference between the two redesigns is the redesign target:
+  - **H₀:** the finger designed for C₀ (Study 1).
+  - **H_R:** H₀ redesigned for C₁ with the relative contact trajectory as the target (Study 2, small D_c).
+  - **H_U:** the finger designed for C₁ for coverage alone (Study 1, larger D_c), at comparable coverage.
+- **Measurement.** Policies trained on (H₀, C₀) are run, without retraining, on (H_R, C₁) and (H_U, C₁). With J the task's pre-registered metric,
+  ΔJ_R = J(π, H_R, C₁) − J(π, H₀, C₀),  ΔJ_U = J(π, H_U, C₁) − J(π, H₀, C₀),
+  paired over policy seeds.
+- **Prediction.** ΔJ_R is near zero and ΔJ_U is not; |ΔJ_U| − |ΔJ_R| > 0.
+- **Refutation.** ΔJ_R and ΔJ_U are equal within the stated precision. Then keeping the relative contact trajectory is not what such an experiment needs, and that is reported.
+- **Statistics** (fixed before running, Section 7): at least 10 policy seeds; the primary test, its α and the precision that counts as "equal" are recorded in `docs/decisions.md` before the hands are evaluated.
 
-> What contact-interface experiments become practical with CoDe Hand that would otherwise require substantial changes to the robot embodiment, compromise functional articulation, or introduce additional experimental confounding?
+### 8.2 Preconditions (checked before any training)
 
-The learning framework should produce evidence addressing this question, rather than simply maximizing task success.
+1. **The task exercises the difference.** D_c is the largest change over [0, q_req]. The flexions the task's policies actually use must include those where H_R's and H_U's trajectories part (Study 2's per-flexion profile); otherwise an equal measurement says nothing about the trajectory.
+2. **The comparison is clean.** H_R and H_U differ in D_c by a clear margin and in coverage by little. Other changes between them (transmission from servo angle to flexion, finger outline, pad mass) are recorded. Actions are defined in flexion so that a transmission change does not enter the comparison.
+3. **The hands are valid in simulation** (closed loops, contact, object equilibrium), as in the archived Gate 0.
 
-**Scope of the current paper (2026-11-21).** Design studies (Studies 0–2) and simulation (Studies 3A–3C) with rigid contact interfaces. Compliant and tactile interfaces, which motivate CoDe (north-star.md), are not simulated; the learning results are statements about rigid interfaces of different geometry and thickness. The extent of hardware validation (Section 8.4, Hardware) is an open decision.
+### 8.3 Open choices
 
-### 8.2 Contact as an Independent Variable
+- The condition: q_req and the thickness change. The largest R–U contrast in Study 2 is at q_req = 90°, 3 → 5 mm (D_c 1.2 mm against 5.8 mm, coverage 0.776 against 0.757); at 120° it is small (7 mm: 0.86 against 1.28 mm).
+- The task, if the cube rotation about the vertical axis does not use the flexion range where the trajectories part.
 
-A robot configuration is R = (H, C), with H = (E, Q, A) as defined in Section 5.6. The primary research configuration holds H fixed while varying C.
+### 8.4 Claim boundaries
 
-Contact-interface variation may intentionally change contact geometry, dimensions, friction, compliance, sensing, contact locations and the contact-point Jacobians that follow from them. The objective is not to make contact mechanics invariant. It is to distinguish these intended contact-interface effects from unintended changes to the underlying embodiment, including a changed relative contact trajectory (Section 2).
-
-Where practical, preserve the observation space, action space, controller, task definition, reward and learning algorithm across interface configurations. Changes that cannot be preserved must be reported explicitly.
-
-### 8.3 Research Questions
-
-**RQ1 — Manipulation-usable contact design space.** Which contact interfaces can each hand architecture support while preserving the articulation, contact accessibility and physical capabilities required for manipulation? Compare CoDe with reasonable conventional baselines, including fixed and morphology-adapted 2R-DD configurations. A geometrically attachable interface is not necessarily usable for manipulation.
-
-**RQ2 — Embodiment and learning-infrastructure reusability.** How much additional engineering effort is required to introduce and evaluate a new contact interface? Evaluate:
-
-- Changes to structural morphology and articulation.
-- Changes to actuator and transmission configuration.
-- Changes to simulation assets and robot descriptions.
-- Changes to control, observations, actions and learning infrastructure.
-- Additional interface-specific integration requirements.
-
-Separate the cost of supporting a new interface from the cost of swapping an already-supported interface. Measured in Study 3A (what had to change to add each interface) and Study 3C (what a thicker interface costs on each adaptation path).
-
-**RQ3 — Contact morphology and policy behavior.** With the underlying hand fixed, how does changing the contact interface influence:
-
-- Manipulation task performance.
-- Policy robustness and generalization.
-- Zero-shot policy transfer across interfaces.
-- Learning dynamics and adaptation requirements.
-
-These experiments demonstrate the research questions enabled by CoDe, rather than assuming that CoDe or a particular interface must outperform alternatives.
-
-**RQ4 — Cross-simulator and physical relevance.** To what extent do interface-dependent manipulation observations remain consistent across simulation engines and representative physical experiments? Cross-simulator agreement provides evidence about simulator dependence, not proof of physical accuracy. Current state: an independent engine (Newton VBD) and a distributed contact model (Newton hydroelastic) both failed validation on this hand (2026-11-21), so the present evidence is limited to contact-model sensitivity within one engine (Study 3B); agreement across engines remains open.
-
-### 8.4 Evaluation Strategy
-
-The learning-based studies are numbered 3A–3D, the same names in this file, in `sim/` and in `report/study3/`. (Earlier drafts used letters A–D; they are retired. A study once called 3C, optimizing an interface for a frozen policy, was discarded on 2026-11-21; Section 8.6.)
-
-Throughout, J(π, H, C, S) is the task's pre-registered performance metric (for the cube-rotation task, goals reached per episode on a fixed goal sequence) of policy π on hand H with interface C under contact model S; arguments that do not vary are dropped.
-
-**Roles and order.** Study 3C is the learning-based evidence specific to CoDe: it links the design studies' relative contact trajectory (claims 3 and 4) to interface experiments. Study 3A changes only an interface that any hand could exchange (a profile inside the same pad envelope), so it demonstrates the experimental platform and pipeline, not the need for CoDe (Section 8.6). Study 3B checks that 3A's and 3C's interface effects are not artifacts of one contact model. Order: 3A, then 3C, then 3B on the policies of both, then 3D.
-
-**Study 3A — Contact-interface A/B test and transfer matrix** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol, in two complementary ways:
-
-- **Independent training:** train a policy per interface with a common algorithm and comparable training budgets.
-- **Frozen policy:** run each policy on the other interfaces without retraining. This gives a policy-by-contact matrix M_ij = J(π_i, H, C_j), the performance of the policy trained on interface i when run on interface j. High transfer performance is not assumed or required.
-
-Measure performance differences, sensitivity, adaptation, generalization and contact behaviour (where on the interface contact occurs), and record what had to change to add each interface (RQ2).
-
-*Target evidence:* that controlled contact-interface experiments run on one embodiment and one learning pipeline, and show contact-dependent policy behaviour. Not, by itself, evidence that CoDe is needed.
-
-**Study 3B — Contact-model sensitivity** (RQ4). Evaluate the policies of 3A (and 3C) under alternative contact models. The quantity of interest is the interface effect, not the absolute performance under each model: for a frozen policy π and contact models S, Δ_C^S(π) = J(π, C₁, S) − J(π, C₀, S), and Δ_model(π) = Δ_C^S′(π) − Δ_C^S(π). A contact model inside the same dynamics engine measures contact-model sensitivity, not generalization to an independent engine. Each model passes its own validation first (collider representation, contact force direction and magnitude, object equilibrium, closed-loop constraints), and its parameters are fixed in common for every interface, never tuned to one. The models compared are MuJoCo-Warp point contact with the training settings (elliptic friction cone, impratio 10), with a pyramidal friction cone, and with impratio 1; hydroelastic contact and Newton VBD failed validation on this hand and are reported as such.
-
-*Target evidence:* whether a measured interface effect survives a change of the simulated contact model.
-
-**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the relative contact trajectory (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
-
-ΔJ_R = J(H_R,1, C₁) − J(H_R,0, C₀),  ΔJ_U = J(H_U,1, C₁) − J(H_U,0, C₀),
-
-and Δ_interaction = ΔJ_R − ΔJ_U is how much the measured interface effect depends on the adaptation path. It is a candidate measure of embodiment confounding, not a pure kinematic one: the two paths may also differ in contact-point Jacobians, transmission and actuator loading, contact accessibility and the strategies the policies learn. The claim is limited to: *morphology adaptation can alter the measured effect of a contact-interface change, introducing embodiment-dependent confounding.* The kinematic share is then analysed through D_c and the measured contact motion. No direction is assumed, and a null Δ_interaction is reported as such.
-
-*Target evidence:* whether, and by how much, a measured interface effect depends on how the hand was adapted to the interface.
-
-**Study 3D — Architecture-dependent manipulation accessibility** (RQ1, RQ2; planned). Compare which contact interfaces support a predefined manipulation task under:
-
-1. Conventional 2R-DD with fixed morphology.
-2. Conventional 2R-DD with reasonable morphology adaptation.
-3. CoDe with fixed morphology.
-
-Evaluate both mechanical feasibility and downstream task execution. Use matched interface requirements, comparable actuator capabilities, declared size constraints and equivalent task objectives. Distinguish mechanical infeasibility from policy training failure. Mechanical feasibility comes from Studies 1–2.
-
-*Target evidence:* whether CoDe expands the manipulation-usable interface design space while reducing the need for morphology adaptation.
-
-**Hardware.** Select about 2–3 representative physical contact interfaces for hardware validation. Physical experiments should demonstrate interface interchangeability, retained functional articulation, repeatable manipulation evaluation and the limits of simulation predictions.
-
-### 8.5 Success Criteria
-
-The learning-based effort succeeds when it establishes a chain of evidence:
-
-**Contact accommodation → Embodiment consistency → Learning-infrastructure reusability → Controlled manipulation research**
-
-Specifically:
-
-1. Demonstrate the range of contact interfaces that can be used for manipulation under stated architectural constraints.
-2. Quantify the embodiment modifications and integration effort required by different architectures.
-3. Demonstrate that multiple contact interfaces can be evaluated under a common CoDe embodiment and learning pipeline.
-4. Show meaningful contact-dependent manipulation or policy behavior without assuming a favorable performance direction.
-5. Validate representative observations across simulators and on physical hardware, reporting discrepancies and limitations.
-
-### 8.6 Claim Boundaries
-
-In addition to Section 7:
-
-- Do not optimize benchmarks merely to demonstrate CoDe superiority.
-- Do not optimize the contact interface to raise a given policy's performance and present it as evidence for CoDe: the platform's purpose is controlled measurement, not a better interface.
-- Do not treat a contact-parameter sweep alone as evidence that CoDe is necessary.
-- Do not claim that policy performance differences between different hand architectures are caused solely by their contact interfaces.
-- Do not assume interface replacement preserves policy performance or eliminates the need for retraining.
-- Do not claim that simulated contact response accurately represents physical compliant contact without validation.
-- Do not confuse mechanical accommodation, manipulation feasibility and successful policy learning.
-- Do not treat design candidates or training environments as independent statistical replicates.
-- Report negative results, failed integrations, simulator disagreement and architecture trade-offs.
-
-### 8.7 Intended Research Message
-
-**CoDe Hand is not intended to make every contact interface better. It is intended to make contact interfaces easier to study.**
-
-The ultimate demonstration is that AI manipulation researchers can change contact morphology, retain a consistent underlying embodiment and learning infrastructure, and systematically investigate the resulting manipulation behavior without repeatedly redesigning the robot.
+- The claim is about frozen-policy measurements of an interface change. Whether independently trained policies show the same is not answered.
+- Do not claim that keeping the relative contact trajectory preserves a policy's performance in general, or that CoDe is needed for every interface experiment.
+- Rigid interfaces in simulation only; compliant and tactile interfaces are not simulated.
+- Report a null result as such.
 
 ---
 
@@ -304,17 +218,16 @@ The ultimate demonstration is that AI manipulation researchers can change contac
 | C1 | Study 0 (P4) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
 | C2 | Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such |
 | C3 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's trajectory change is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best |
-| C4 | Study 3C | Open: not yet designed in detail |
+| C4 | Study 3 (Section 8) | Open: designed (Section 8); hands not yet built |
 | C5 | Hardware | Open: extent undecided |
 
-Studies 3A (pilot done; main experiment running) and 3B (pre-registered) support C4 and the platform claim but are not contributions on their own (Section 8.4).
+The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental-idea/study3_interface_platform.md` and is not evidence for C4.
 
-**Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3C has no spacer path.
+**Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3 has no spacer path.
 
 **Open decisions.**
 
 1. **Transmission under redesign** (servo angle to flexion, mechanical advantage: MA_wc changed by −7% to +16% in Study 2): how much it changes, whether it is argued as compensable and recorded (Section 5.6), or added to the redesign target. Not yet measured per design.
 2. **Hardware scope** for the final paper (C5).
 3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
-4. **Study 3D**: kept, or dropped from the RSS scope.
-5. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).
+4. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).

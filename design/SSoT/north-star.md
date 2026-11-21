@@ -36,7 +36,7 @@ A contribution is a claim to be tested, not a result to be secured.
 - **C1 — A bound.** A fixed-axis joint cannot keep the relative contact trajectory when an interface changes depth; the change has a closed-form lower bound.
 - **C2 — A finger.** A remote-actuated polycentric finger (the CFL) that keeps more contact surface than a servo-at-joint finger as interfaces thicken and the required flexion deepens.
 - **C3 — Redesign that keeps contact.** Re-optimized for a new interface, the CFL keeps its relative contact trajectory far closer than the fixed-axis bound allows, at near-best contact surface.
-- **C4 — Why it matters.** A change in the relative contact trajectory alters what a learning-based interface experiment measures.
+- **C4 — Why it matters.** The same interface change, measured with a learned policy on a hand redesigned to keep the relative contact trajectory and on one redesigned without that target, gives different measurements.
 - **C5 — A platform.** Interfaces are exchanged on one physical hand.
 
 ## Not claimed

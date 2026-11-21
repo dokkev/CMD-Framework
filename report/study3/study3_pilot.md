@@ -1,5 +1,7 @@
 # Study 3 pilot: 접촉면 형상, RL, solver 간 전이
 
+> 2026-11-21: 이 pilot이 속한 Study 3 계획(interface A/B, contact model, 접근성)은 `docs/experimental-idea/study3_interface_platform.md`로 보관되었다. 지금의 Study 3는 한 질문만 다룬다(`design/SSoT/research-objective.md` 8절). 아래 결과는 바꾸지 않는다.
+
 작성: 2026-11-21. 상태: pilot 완료. Study 3A는 형상마다 seed 5개로 결과를 냄. Study 3B는 solver 검증에서 막혀 해석하지 않음(seed 0–1로 실행). 시뮬레이션만의 예비 결과이며, 손의 질량·관성·관절 한계·servo armature는 placeholder다.
 
 원칙: **로봇은 고정하고 접촉면만 바꾼다.**
