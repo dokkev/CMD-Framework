@@ -57,7 +57,10 @@
 | `optimization/analysis/adaptation.py` | 외형/내부 좌표 분할(partition), $\varepsilon_d$, $\varepsilon_\kappa$. 단계적 최소 변화 탐색은 2026-11-20 정의에서 빠짐 | A.6.3 |
 | `scripts/study/study1_fixed_morphology/run.py` | (이전 Study 1) native 손가락의 module 수용 판정. 보조 자료 | A.6.2 장착 규칙 |
 | `scripts/study/study1_thickness_coverage/run_all.sh`, `figure.py` | Study 1: 두께 × 요구 flexion마다 native 탐색(`scripts/optimize/run.py`), 결과 표와 그림 | A.6.2 |
-| `scripts/study/study2_morphology_adaptation/pole_law.py` | Study 0의 식(pole, 관절 간격, coverage)과 Study 1 설계와의 대조, Study 2의 접촉면에서 본 운동의 변화(`changes`) | A.6.0, A.6.3 |
+| `core/geometry/pole.py` | Finite pole(`pole`), 임의의 pole에서 두 직사각형의 정확한 clearance(`rectangular_clearance`, 명제 1), 대칭 clearance 법칙(`symmetric_gap_law`, 명제 2) | A.6.0 |
+| `scripts/study/study2_morphology_adaptation/pole_law.py` | Study 0과 Study 1 설계의 대조: 설계의 pad의 정확한 clearance(`least_clearance`), 대칭 법칙의 추정(`symmetric_gap`), 긴 pad의 고른 배치의 최소 간격(`least_gap_long_pads`), coverage(`coverage_law`), 고정한 손가락의 첫 접촉 | A.6.0, A.6.2 |
+| `optimization/analysis/contact_kinematics.py` | 접촉면에서 본 운동(`contact_path`), 그 변화 $D_c$(`path_change`), 두 목적($D_c$, $\bar C_{\mathrm{pad}}$)의 다시 설계 탐색(`ContactMechanism`, `redesign`) | A.6.3 |
+| `scripts/study/study2_morphology_adaptation/redesign.py`, `figure_redesign.py` | Study 2 driver(기준 손가락, 두께별 front, 요약)와 그림 | A.6.3 |
 | `optimization/analysis/one_finger.py`, `scripts/study/study2_morphology_adaptation/one_finger.py` | 고정한 손가락에 다른 두께의 pad를 다는 것(`fitted`, `mount`)과 Study 1 설계를 읽는 것(`study1_designs`). 손가락 하나 탐색(`one_finger`)은 2026-11-20 정의에서 빠짐 | A.6.0의 대조 |
 | `scripts/study/study2_morphology_adaptation/landscape.py` | (이전 정의) 최소 변화 landscape. 쓰지 않음 | — |
 | `scripts/study/study2_morphology_adaptation/figure_landscape.py` | (이전 정의) $\varepsilon_d^\star$ heatmap. 교체 예정 | — |
