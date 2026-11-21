@@ -37,7 +37,7 @@ def curve(run_dir: Path) -> np.ndarray:
 
 def main() -> int:
     runs = sorted((common.SIM_ROOT / "logs" / "rsl_rl" / "study3_code_reorient").glob("*_s100_budget"))
-    out = {"rule": __doc__.split("\n\n")[1].replace("\n", " "), "runs": {}}
+    out = {"rule": __doc__.split("\n\n")[2].replace("\n", " "), "runs": {}}
     reached, converged, total = [], [], None
     for run in runs:
         v = curve(run)

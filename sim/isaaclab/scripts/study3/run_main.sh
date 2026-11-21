@@ -10,11 +10,13 @@ FIRST=${2:-0}
 LAST=${3:-9}
 LOG=logs/study3_main
 mkdir -p $LOG
-for s in $(seq $FIRST $LAST); do
+for s in $(seq $FIRST $LAST); do  # the two surfaces of a seed train side by side
   for v in flat crowned; do
-    uv run --extra rsl-rl python scripts/study3/train.py --protocol main --variant $v --seed $s --iterations $ITER --label main \
-      2>&1 | grep '^{' | cut -c1-160 >> $LOG/train.log || echo "{\"failed\": \"${v}_s${s}\"}" >> $LOG/train.log
+    ( uv run --extra rsl-rl python scripts/study3/train.py --protocol main --variant $v --seed $s --iterations $ITER --label main \
+      2>&1 | grep '^{' | cut -c1-160 >> $LOG/train.log || echo "{\"failed\": \"${v}_s${s}\"}" >> $LOG/train.log ) &
+    sleep 5
   done
+  wait
 done
 for s in $(seq $FIRST $LAST); do
   for run in logs/rsl_rl/study3_code_reorient/*_{flat,crowned}_s${s}_main; do

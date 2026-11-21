@@ -1,0 +1,27 @@
+{
+ "rule": "For each ``*_s100_budget`` run: the 100-iteration moving mean of ``consecutive_success``; the plateau, the mean of its last 300 iterations; the first iteration where the moving mean reaches 95% of the plateau. The budget is the larger of the two surfaces' iterations rounded up to a multiple of 500. A run whose last 500 iterations still rise by more than 5% of their mean per 100 iterations is reported as not converged, and the budget is then the pilot's 3000 iterations. Writes report/study3/tables/budget.json. ",
+ "runs": {
+  "flat": {
+   "run": "2026-11-21_11-11-38_flat_s100_budget",
+   "iterations": 3000,
+   "plateau": 45.667003911336266,
+   "reach_95": 2554,
+   "tail_slope_per_100": 0.5856428604333781,
+   "tail_mean": 45.070064136505124,
+   "converged": true,
+   "at_488": 28.805174541473388
+  },
+  "crowned": {
+   "run": "2026-11-21_11-11-43_crowned_s100_budget",
+   "iterations": 3000,
+   "plateau": 36.30236238479614,
+   "reach_95": 2591,
+   "tail_slope_per_100": 0.566700446943999,
+   "tail_mean": 35.853890209198,
+   "converged": true,
+   "at_488": 8.995118341445922
+  }
+ },
+ "budget": 3000,
+ "all_converged": true
+}
