@@ -183,7 +183,7 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 - **Measurement.** Policies trained on (H₀, C₀) are run, without retraining, on (H_R, C₁) and (H_U, C₁). With J the task's pre-registered metric,
   ΔJ_R = J(π, H_R, C₁) − J(π, H₀, C₀),  ΔJ_U = J(π, H_U, C₁) − J(π, H₀, C₀),
   paired over policy seeds.
-- **Prediction.** ΔJ_R is near zero and ΔJ_U is not; |ΔJ_U| − |ΔJ_R| > 0.
+- **Prediction.** |ΔJ_U| > |ΔJ_R|. Neither is expected to be exactly zero: a thicker pad moves every contact face away from the MCP axis and the palm by the same amount on both hands, which the comparison cancels.
 - **Refutation.** ΔJ_R and ΔJ_U are equal within the stated precision. Then keeping the relative contact trajectory is not what such an experiment needs, and that is reported.
 - **Statistics** (fixed before running, Section 7): at least 10 policy seeds; the primary test, its α and the precision that counts as "equal" are recorded in `docs/decisions.md` before the hands are evaluated.
 
@@ -193,10 +193,13 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 2. **The comparison is clean.** H_R and H_U differ in D_c by a clear margin and in coverage by little. Other changes between them (transmission from servo angle to flexion, finger outline, pad mass) are recorded. Actions are defined in flexion so that a transmission change does not enter the comparison.
 3. **The hands are valid in simulation** (closed loops, contact, object equilibrium), as in the archived Gate 0.
 
-### 8.3 Open choices
+### 8.3 Choices (2026-11-21)
 
-- The condition: q_req and the thickness change. The largest R–U contrast in Study 2 is at q_req = 90°, 3 → 5 mm (D_c 1.2 mm against 5.8 mm, coverage 0.776 against 0.757); at 120° it is small (7 mm: 0.86 against 1.28 mm).
-- The task, if the cube rotation about the vertical axis does not use the flexion range where the trajectories part.
+- **Condition:** CFL, q_req = 90°, 3 → 5 mm: the largest contrast in D_c (H_R 1.22 mm, H_U 5.84 mm) at similar coverage (0.776, 0.757) and the smallest transmission change (servo angle within 2–3°).
+- **H_U is one fixed design:** Study 1's first independent coverage-only design for 5 mm (its D_c depends on the search; at 120°, 7 mm the two Study 1 designs differ, 1.28 against 3.91 mm).
+- **Actions and observations in flexion q**, mapped to each hand's servo angle by its θ(q) table. Sent as servo angles, the 3 mm finger's commands bend H_R and H_U off by about the same amount (4.2° and 4.6°), which would hide the trajectory difference (`docs/decisions.md`, transmission entry).
+- **Stiffness matched in flexion:** per-flexion PD gains so that the effective joint stiffness is equal across hands; the transmission ratio dθ/dq differs by up to 8% (H_R) and 23% (H_U) and MA_wc by −8% and +23%. Residual torque-limit differences are recorded.
+- **Task:** two-pad grasps in deep flexion. Precondition 1 checked geometrically (`report/study3/regrasp_geometry.md`): commanded in flexion, the same cylinder grasp is off by at most 1.16 mm on H_R and 4.13 mm on H_U at the distal face, and the difference lies at flexions of 70° and above; at 40–60° H_U is as close as H_R. A task that does not use deep two-pad flexion would not show it.
 
 ### 8.4 Claim boundaries
 
