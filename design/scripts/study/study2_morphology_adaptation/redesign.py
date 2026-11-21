@@ -13,7 +13,8 @@ goal for that thickness). No coverage floor is set: the front says what
 coverage is kept at each change.
 
 Writes ``fronts.csv`` (every seed's front; reused by ``--resume``),
-``front.csv`` (the seeds merged) and ``summary.csv`` per architecture, flexion
+``front.csv`` (the seeds merged), ``profiles.csv`` (how far the most-coverage
+redesign's contact path is from the reference's at each flexion) and ``summary.csv`` per architecture, flexion
 and thickness: the least change found and its coverage, the coverage of Study
 1's own design for that thickness and its change, and what a joint turning
 about a fixed axis must show, ``2 sin(q_req/2) dh`` (A.6.0, P4).
@@ -35,6 +36,7 @@ for path in (REPOSITORY_ROOT, REPOSITORY_ROOT / "scripts" / "study", Path(__file
         sys.path.insert(0, str(path))
 
 import one_finger as study1  # noqa: E402
+import numpy as np  # noqa: E402
 import shared  # noqa: E402
 from core.optimization.analysis.contact_kinematics import front, path_change, paths, redesign  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
@@ -72,7 +74,7 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
     done = {(r["architecture"], float(r["required_flexion_deg"]), float(r["to_mm"]), int(r["seed"])) for r in kept}
     thin = float(settings["reference_thickness_mm"])
     search = settings["search"]
-    merged, summary, skipped = [], [], []
+    merged, summary, profiles, skipped = [], [], [], []
     for name, spec in config["architectures"].items():
         if only_architectures and name not in only_architectures:
             continue
@@ -124,9 +126,17 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
                     least, most = best[0], best[-1]
                     row |= {"least_change": float(least["contact_change"]), "c_pad_at_least_change": float(least["c_pad_mean"]),
                             "most_c_pad": float(most["c_pad_mean"]), "change_at_most_c_pad": float(most["contact_change"])}
+                    # Where over the flexion the two contact paths part: the most-coverage redesign's.
+                    x = tuple(float(v) for v in str(most["x"]).split(";"))
+                    own_paths = paths(base, x, goal.config)
+                    if own_paths is not None:
+                        apart = np.linalg.norm(own_paths["contact"] - reference["contact"], axis=1)
+                        profiles += [{**head, "q_deg": math.degrees(q), "contact_apart_mm": float(d)}
+                                     for q, d in zip(reference["q"], apart)]
                 summary.append(row)
                 shared.write_csv(out / "front.csv", merged)
                 shared.write_csv(out / "summary.csv", summary)
+                shared.write_csv(out / "profiles.csv", profiles)
     (out / "manifest.json").write_text(json.dumps({
         "config": str(path), "formulation": "problem_formulation.md A.6.3 (2026-11-20: contact-centric redesign)",
         "redesign": settings, "skipped": skipped, **shared.git_commit(out)}, indent=2))
