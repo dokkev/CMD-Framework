@@ -56,3 +56,17 @@ def test_flexion_maps_reads_a_description():
             "four_bar": {"index": {**_table(SMOOTH), "a_deg": [], "b_deg": []}}}
     maps = flexion_maps(desc)
     assert set(maps) == {"index"} and maps["index"].zero == pytest.approx(math.radians(5.0))
+
+
+def test_torch_tables_agree_with_the_numpy_map():
+    torch = pytest.importorskip("torch")
+    from code_isaaclab.flexion_control import FlexionTables
+
+    table = _table(SMOOTH)
+    m = FlexionServoMap.from_table("index", table)
+    t = FlexionTables({"index": table}, dtype=torch.float64)
+    q = np.radians(np.linspace(-5.0, 115.0, 101))
+    qt = torch.tensor(q, dtype=torch.float64)
+    assert np.allclose(t.servo("index_pip_servo", qt).numpy(), m.servo(q), atol=1e-12)
+    assert np.allclose(t.flexion("index_pip_servo", t.servo("index_pip_servo", qt)).numpy(), q, atol=1e-9)
+    assert np.allclose(t.ratio("index_pip_servo", qt).numpy(), m.ratio(q), atol=1e-12)
