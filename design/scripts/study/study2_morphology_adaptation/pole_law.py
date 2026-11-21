@@ -144,31 +144,83 @@ def symmetric_gap(pad: dict, pole_path: np.ndarray, q_rad: np.ndarray, required_
 
 
 def coverage_law(pad: dict, start: float, length: float, pole_path: np.ndarray, q_rad: np.ndarray,
-                 required_rad: float) -> float:
+                 required_rad: float, ends: tuple[float, float] | None = None, tip0=None, axis=None) -> float:
     """The cylinder-based pad coverage (A.5.1) from the pads and the pole's path
     alone: at each evaluation pose the two face lines meet at ``X``; the pads
     share the distances from ``X`` both cover; the posed length is the two
-    phalanges' and the straight gap between their ends (on the link lines)."""
+    phalanges' and the straight gap between their ends (on the link lines).
+
+    ``ends``: where the two phalanges' structures end along the link line in
+    the extended pose (``r_1,end`` and ``r_2,start``, A.3). Default: the pads'
+    joint-side ends. A CFL's structures also hold their pivots' housings and
+    end at whichever is nearer the joint (:func:`structure_ends`).
+
+    ``tip0``, ``axis``: the fingertip and the distal link line's direction in
+    the extended pose, where they are not ``(L, 0)`` and ``+x``: a CFL whose
+    link lengths are rounded to the prototyping resolution closes with its
+    distal line a fraction of a millimetre off the proximal one
+    (:func:`distal_line`)."""
 
     values = []
     for pose in (math.pi / 2, (math.pi / 2 + required_rad) / 2, required_rad):
         index = int(np.argmin(np.abs(q_rad - pose)))
         pole, q = pole_path[index], q_rad[index]
         outer1, inner1 = np.array((start, -pad["t1"])), np.array((pad["proximal_end"], -pad["t1"]))
-        inner2, outer2 = turned(np.array([(pad["distal_start"], -pad["t2"]), (length, -pad["t2"])]), pole, q)
+        tip = np.array((length, 0.0)) if tip0 is None else np.asarray(tip0, dtype=float)
+        along = np.array((1.0, 0.0)) if axis is None else np.asarray(axis, dtype=float)
+        palmar = np.array((along[1], -along[0]))  # the distal line's palmar normal
+        outer2_0 = tip + pad["t2"] * palmar
+        inner2_0 = outer2_0 - (length - pad["distal_start"]) * along
+        inner2, outer2 = turned(np.array([inner2_0, outer2_0]), pole, q)
         d1, d2 = outer1 - inner1, outer2 - inner2
-        along = np.linalg.solve(np.column_stack((d1, -d2)), inner2 - inner1)
-        x = inner1 + along[0] * d1  # where the face lines meet
+        met = np.linalg.solve(np.column_stack((d1, -d2)), inner2 - inner1)
+        x = inner1 + met[0] * d1  # where the face lines meet
         spans = []
         for inner, outer in ((inner1, outer1), (inner2, outer2)):
             unit = (outer - inner) / np.linalg.norm(outer - inner)
             spans.append((max(float((inner - x) @ unit), 0.0), float((outer - x) @ unit)))
         common = max(min(spans[0][1], spans[1][1]) - max(spans[0][0], spans[1][0]), 0.0)
-        end1 = np.array((pad["proximal_end"], 0.0))
-        end2 = turned(np.array([(pad["distal_start"], 0.0)]), pole, q)[0]
-        posed = pad["proximal_end"] + float(np.linalg.norm(end2 - end1)) + (length - pad["distal_start"])
+        first, second = (pad["proximal_end"], pad["distal_start"]) if ends is None else ends
+        end1 = np.array((first, 0.0))
+        end2 = turned(np.array([tip - (length - second) * along]), pole, q)[0]
+        posed = first + float(np.linalg.norm(end2 - end1)) + (length - second)
         values.append(2.0 * common / posed)
     return float(np.mean(values))
+
+
+def distal_line(reference, tips: np.ndarray):
+    """The fingertip and the distal link line's direction in the extended pose
+    (a CFL: from its pivot ``B``, where the four-bar closes it, to the tip;
+    the others: along ``+x``)."""
+
+    from core.morphology.mechanism import base_mechanism
+
+    if base_mechanism(reference.mechanism) != "linkage":
+        return None, None
+    from core.morphology.mechanism.linkage.design import decode
+
+    # B as the four-bar closes it in the extended pose (its link lengths are on the prototyping grid).
+    sweep = decode(reference.x, reference.config.link_length_resolution_mm).sweep_pip(np.array((0.0,)))
+    line = np.asarray(sweep.tip[0], dtype=float) - np.asarray(sweep.b[0], dtype=float)
+    return np.asarray(sweep.tip[0], dtype=float), line / np.linalg.norm(line)
+
+
+def structure_ends(reference, pad: dict) -> tuple[float, float]:
+    """``r_1,end`` and ``r_2,start`` along the link line in the extended pose, as
+    the study's evaluator takes them: the pads' joint-side ends, and for a CFL
+    its own pivots' housings where they reach nearer the joint (``A`` on the
+    proximal phalanx, ``B`` on the distal one; problem formulation A.3)."""
+
+    from core.morphology.mechanism import base_mechanism
+    from core.optimization.analysis.tradeoff import goal_of
+
+    first, second = pad["proximal_end"], pad["distal_start"]
+    if base_mechanism(reference.mechanism) != "linkage":
+        return first, second
+    names = mechanism(reference.mechanism).variable_names
+    x = dict(zip(names, reference.x))
+    radius = goal_of(reference.config).packaging.pivot_radius_mm
+    return max(first, x["a_x_mm"] + radius("a")), min(second, x["b_x_mm"] - radius("b"))
 
 
 # Every Study 1 design ---------------------------------------------------------------
@@ -218,7 +270,13 @@ def analyse(entry: dict) -> tuple[dict, list[dict]]:
            "thickness_mm": h, "c_pad_mean": float(report["c_pad_mean"]),
            "pad_coverage": (float(report["proximal_support_length_mm"])
                             + float(report["distal_support_length_mm"])) / length,
-           "c_pad_law": coverage_law(pad, start, length, path, q, required),
+           "c_pad_law": coverage_law(pad, start, length, path, q, required, structure_ends(reference, pad),
+                                     *distal_line(reference, tips)),
+           "c_pad_law_structure_ends": coverage_law(pad, start, length, path, q, required,
+                                                    structure_ends(reference, pad)),
+           "distal_line_offset_mm": 0.0 if distal_line(reference, tips)[0] is None
+           else float(-distal_line(reference, tips)[0][1]),
+           "c_pad_law_pad_ends": coverage_law(pad, start, length, path, q, required),
            "gap_mm": pad["distal_start"] - pad["proximal_end"],
            "clearance_min_mm": room, "clearance_min_at_deg": room_at,
            "gap_long_pads_mm": least_gap_long_pads(pad, path, q, required),

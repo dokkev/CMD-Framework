@@ -112,3 +112,48 @@ def test_a_designs_own_pads_are_judged_by_their_exact_clearance():
 
 def test_a_rectangle_is_its_centre_and_half_lengths():
     assert law.rectangle(10.0, 30.0, -3.0, -8.0) == ((20.0, -5.5), (10.0, 2.5))
+
+
+def test_first_contact_on_a_moving_pole_agrees_with_the_shared_polygon_evaluator():
+    # Pads of unequal thickness and depth, placed unevenly, about a pole that moves along and across the
+    # link as the finger bends: the first overlap by the four-axis clearance is the shared kernel's.
+    from core.geometry.pole import turned
+    from core.morphology.packaging import shapes
+
+    q = np.radians(np.arange(0.0, 150.0 + 1e-9, 0.25))
+    path = np.stack((52.0 - 6.0 * q / q[-1], 5.0 - 11.0 * q / q[-1]), axis=1)  # x 52 -> 46, z +5 -> -6
+    proximal = law.rectangle(9.5, 47.0, -4.0, -9.0)   # 5 mm thick, face 9 mm deep
+    distal = law.rectangle(50.0, 90.0, -3.0, -6.0)    # 3 mm thick, face 6 mm deep
+    found = law.first_contact_deg(proximal, distal, path, q)
+
+    def corners(pad):
+        (x, z), (a, b) = pad
+        return np.array([(x - a, z - b), (x + a, z - b), (x + a, z + b), (x - a, z + b)])
+
+    expected = math.nan
+    for angle, about in zip(q[1:], path[1:]):
+        moved = turned(corners(distal), about, angle)
+        if float(shapes.separation(corners(proximal)[None], moved[None])[0]) < -1e-9:
+            expected = math.degrees(angle)
+            break
+    assert math.isfinite(expected) and found == pytest.approx(expected)
+    room, at = law.least_clearance(proximal, distal, path, q, math.radians(expected - 1.0))
+    assert room >= -1e-9 and at <= expected - 1.0  # clear up to just before it
+
+
+def test_the_coverage_from_the_pole_matches_the_closed_form_and_uses_the_structures_ends():
+    # Symmetric pads about a pole of fixed depth: proposition 3's closed form. Structures that end
+    # nearer the joint than the pads (a pivot housing) change the posed length, and so the coverage.
+    length, start, t, z, required = 90.0, 9.5, 9.0, 3.0, math.radians(120.0)
+    gap = 2 * (t - z) * math.tan(required / 2)
+    centre = start + (length - start) / 2
+    path = np.tile((centre, -z), (len(Q), 1)).astype(float)
+    shape = pad(centre - gap / 2, centre + gap / 2, t, 5.0)
+    closed = np.mean([(length - start - gap) / (length - gap * (1 - math.cos(a / 2)) + 2 * z * math.sin(a / 2))
+                      for a in (math.pi / 2, (math.pi / 2 + required) / 2, required)])
+    assert law.coverage_law(shape, start, length, path, Q, required) == pytest.approx(closed, abs=1e-9)
+    nearer = law.coverage_law(shape, start, length, path, Q, required, (centre - gap / 2 + 2.0, centre + gap / 2 - 2.0))
+    assert abs(nearer - closed) > 1e-3
+    # The distal line 0.2 mm lower in the extended pose (a four-bar closed on rounded link lengths) changes it.
+    lower = law.coverage_law(shape, start, length, path, Q, required, None, (length, -0.2), (1.0, 0.0))
+    assert lower != pytest.approx(closed, abs=1e-6)
