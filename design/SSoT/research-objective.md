@@ -12,6 +12,8 @@ CoDe is not primarily an attempt to build a hand with more degrees of freedom, h
 
 It is a hand architecture intended to make contact-interface design an independent and experimentally accessible research variable.
 
+The contribution is the validity of contact-interface measurements, not the discovery that contact matters. That a policy or a grasp depends on its contact interface is expected. What CoDe adds is that the dependence can be measured without the hand's kinematics changing with the interface, and the studies should show how large that confound would otherwise be.
+
 ---
 
 ## 2. The Core Research Problem
@@ -306,6 +308,10 @@ Evaluate both mechanical feasibility and downstream task execution. Use matched 
 
 *Target evidence:* whether CoDe expands the manipulation-usable interface design space while reducing the need for morphology adaptation.
 
+**Study A′ — Size of the embodiment confound** (RQ3, Section 2.3). Make the same interface change (a thin interface to a thick one) on two hands: one redesigned to keep the contact-centric kinematics (CoDe, Study 2's redesign), and one whose contact-centric kinematics changes with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). Measure the interface's effect on the same task and protocol in each. The difference between the two effects is the part of the measured "interface effect" that comes from the hand's kinematics, which is what an interface experiment on a conventional hand would misattribute. No direction is assumed: if the effect is as large on the redesigned hand, the contact-centric kinematics is not what the policy depends on, and that is reported.
+
+*Target evidence:* how much of a measured interface effect is embodiment confound, with and without CoDe.
+
 **Study B — Contact-interface A/B testing** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol. Use two complementary evaluations:
 
 - **Frozen policy:** change the contact interface without retraining.
@@ -342,6 +348,7 @@ Specifically:
 In addition to Section 7:
 
 - Do not optimize benchmarks merely to demonstrate CoDe superiority.
+- Do not optimize the contact interface to raise a given policy's performance and present it as evidence for CoDe: the platform's purpose is controlled measurement, not a better interface.
 - Do not treat a contact-parameter sweep alone as evidence that CoDe is necessary.
 - Do not claim that policy performance differences between different hand architectures are caused solely by their contact interfaces.
 - Do not assume interface replacement preserves policy performance or eliminates the need for retraining.
