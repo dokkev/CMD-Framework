@@ -15,6 +15,7 @@ runs are not all there yet is skipped (and said so).
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
@@ -40,16 +41,26 @@ def condition_folder(name: str, spec: dict[str, Any], flexion: float, thickness:
     return REPOSITORY_ROOT / "output" / "study" / spec["mechanism"] / tag
 
 
+def _has_design(portfolio: Path) -> bool:
+    """The portfolio holds a design (a run that found none writes its seeds without one)."""
+
+    seeds = portfolio / "seeds.csv"
+    if not seeds.exists():
+        return False
+    with seeds.open(encoding="utf-8", newline="") as stream:
+        return any("balanced" in row.get("seed_role", "") for row in csv.DictReader(stream))
+
+
 def study1_designs(name: str, spec: dict[str, Any], flexion: float, config: dict[str, Any]) -> dict[float, Any]:
     """Study 1's design of ``name`` for each thickness at ``flexion`` (a
     reference: its design vector and the config it was searched under); a
-    thickness whose run is not there is left out."""
+    thickness whose run is not there, or found no feasible design, is left out."""
 
     native = float(config["native_thickness_mm"])
     specs = []
     for thickness in (float(h) for h in config["thickness_mm"]):
         portfolios = sorted(condition_folder(name, spec, flexion, thickness, native).glob("portfolio_*"))
-        if not portfolios:
+        if not portfolios or not _has_design(portfolios[-1]):
             continue
         entry = {"id": f"{name}_q{flexion:g}_h{thickness:g}", "config": spec["config"],
                  "required_flexion_deg": flexion, "role": "balanced",
