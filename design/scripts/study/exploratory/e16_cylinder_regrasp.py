@@ -28,6 +28,14 @@ away from it), and dq, ds are reported where the re-grasp stays on the pads.
 Reports, for H_R and H_U against H0 (designs as in e15): the offsets n.dc and t.dc at equal flexion over
 the valid two-pad grasps, and dq and ds over cylinder radii and reference flexions. A self-check re-solves
 H0 against itself (dq = 0).
+
+Force estimate (quasi-static, object held fixed, rigid pads, the servo's position loop as the only
+compliance): a normal offset dn of the distal face at the contact must be taken up by the joint, which
+turns by dn / r, r the contact's lever (|d(n.(centre - c))/dq| at the grasp, the distance along the face
+to the instantaneous centre). With the XM335's position loop (duty 11.5 per rad of error, stall torque
+1.03 N m: K_theta = 11.9 N m/rad up to 5 deg of error, saturating at the stall torque), the flexion
+stiffness is K_q = K_theta (dtheta/dq)^2 and the contact force changes by dF = K_q dn / r^2, capped at
+1.03 (dtheta/dq) / r. Reported per grasp for H_R and H_U with each hand's own transmission.
 Reads saved designs only; writes nothing.
 """
 
@@ -85,6 +93,20 @@ def regrasp(q, c0, cx, q0: float, rho: float):
     return math.degrees(q_star - q[i]), float(s_x - s0), x_c, float(s0), float(s_x)
 
 
+K_THETA, TAU_MAX = 1.03 * 11.509510008905426, 1.03  # XM335 at 11.1 V (code_hand_sim export)
+
+
+def force_change(q, cx, ratio_q, ratio, q0: float, centre, rho: float, dn: float):
+    """dF (N) for a normal offset dn (mm) at the grasp of finger X at flexion q0."""
+    i = int(np.argmin(np.abs(q - q0)))
+    n, _ = frame(q)
+    residual = np.einsum("ij,ij->i", n, centre - cx) - rho
+    lever = abs(np.gradient(residual, q)[i])  # mm per rad
+    k = np.interp(q0, ratio_q, ratio)
+    torque = min(K_THETA * k * k * abs(dn) / lever, TAU_MAX * k)  # N m: dq = dn / lever (rad)
+    return torque / (lever * 1e-3), lever
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--flexion", type=float, default=90.0)
@@ -110,9 +132,12 @@ def main(argv=None) -> int:
     print(f"CFL, q_req {args.flexion:g} deg, 3 -> {args.to:g} mm. H0 pads: proximal {pad0[0][0]:.1f}..{pad0[0][1]:.1f} mm, "
           f"distal {pad0[1]:.1f} mm")
     hands = {"H0 (self-check)": (c0, pad0)}
+    ratios = {}
     for name, x in (("H_R", x_r), ("H_U", x_u)):
         cx = np.asarray(paths(base, x, goal.config, samples=SAMPLES)["contact"])
         hands[name] = (cx, pads(base, x, goal.config))
+        rq, _, rr = e15.transmission(x, goal.config, math.radians(args.flexion))
+        ratios[name] = (rq, rr)
     print(f"  {'rho':>4} {'q0':>4} | " + " | ".join(f"{name + ': n.dc  dq  ds':>28}" for name in hands))
     summary = {name: [] for name in hands}
     for rho in (10.0, 15.0, 20.0, 25.0, 30.0):
@@ -128,7 +153,9 @@ def main(argv=None) -> int:
                 dn = float(n[i] @ (cx[i] - c0[i]))
                 if not on:
                     cells.append(f"{'off pad':>28}"); valid = False; continue
-                summary[name].append((dn, dq, ds))
+                df, lever = (0.0, float("nan")) if name not in ratios else force_change(
+                    q, cx, *ratios[name], math.radians(q0), np.array([x_c, -rho]), rho, dn)
+                summary[name].append((dn, dq, ds, df, lever))
                 cells.append(f"{dn:+6.2f} mm {dq:+6.2f} deg {ds:+6.2f} mm")
             if valid or True:
                 print(f"  {rho:4.0f} {q0:4.0f} | " + " | ".join(cells))
@@ -138,7 +165,8 @@ def main(argv=None) -> int:
             a = np.array(vals)
             print(f"  {name}: {len(a)} grasps; |n.dc| max {np.abs(a[:, 0]).max():.2f} mm, median {np.median(np.abs(a[:, 0])):.2f}; "
                   f"|dq| max {np.abs(a[:, 1]).max():.2f} deg, median {np.median(np.abs(a[:, 1])):.2f}; "
-                  f"|ds| max {np.abs(a[:, 2]).max():.2f} mm")
+                  f"|ds| max {np.abs(a[:, 2]).max():.2f} mm; dF max {a[:, 3].max():.1f} N, median {np.median(a[:, 3]):.1f} N "
+                  f"(lever {np.nanmin(a[:, 4]):.0f}..{np.nanmax(a[:, 4]):.0f} mm)")
     return 0
 
 
