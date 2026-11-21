@@ -5,7 +5,7 @@
 
 ``study2_redesign_<tag>.png``, one row per required flexion:
 
-- left: how far the contact faces' motion moves when the finger is redesigned
+- left: how far the relative contact trajectory moves when the finger is redesigned
   from 3 mm pads for thicker ones, at the most pad coverage the redesign keeps
   (the front's coverage end), per architecture; the line is what a joint
   turning about a fixed axis must show, ``2 sin(q_req/2) dh``;
@@ -89,7 +89,7 @@ def figure(out: Path, tag: str) -> Path | None:
                    lw=1.1, ls=(0, (1, 2)), zorder=6)
         along.set_ylabel("contact paths apart (mm)", fontsize=7.5)
         along.set_xlim(0, q)
-        change.set_ylabel(f"$q_{{req}}$ {q:g}°\ncontact faces' motion moved (mm)", fontsize=7.5)
+        change.set_ylabel(f"$q_{{req}}$ {q:g}°\nrelative contact\ntrajectory moved (mm)", fontsize=7.5)
         kept.set_ylabel("pad coverage $\\bar C_{pad}$ kept (%)", fontsize=7.5)
         kept.set_ylim(40, 90)
         change.set_xlim(start - 0.3, thick[-1] + 2.6)
@@ -102,11 +102,11 @@ def figure(out: Path, tag: str) -> Path | None:
             if a == len(flexions) - 1:
                 axis.set_xlabel("flexion q (deg)" if axis is along else "pad thickness redesigned for (mm)", fontsize=7.5)
         if a == 0:
-            change.set_title("(a) the contact faces' motion, from the 3 mm finger", fontsize=8, loc="left")
+            change.set_title("(a) relative contact trajectory, from the 3 mm finger", fontsize=8, loc="left")
             kept.set_title("(b) the coverage that redesign keeps (hollow: Study 1's best)", fontsize=8, loc="left")
             kept.legend(fontsize=6.5, frameon=False, ncol=2, loc="lower left")
             along.set_title(f"(c) over the flexion, redesigned for {thick[-1]:g} mm", fontsize=8, loc="left")
-    fig.suptitle("Redesigned for thicker pads with the contact faces' motion as a target\n"
+    fig.suptitle("Redesigned for thicker pads with the relative contact trajectory as a target\n"
                  "*Upper bounds without the joint servo.", fontsize=8.5, color=INK, x=0.02, ha="left", y=1.0,
                  va="bottom")
     fig.tight_layout()

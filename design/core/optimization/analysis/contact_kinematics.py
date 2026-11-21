@@ -1,8 +1,9 @@
 """Study 2 (problem formulation A.6.3): a finger redesigned for a thicker
-interface with the contact-centric kinematics as its target.
+interface with the relative contact trajectory as its target.
 
-The contact-centric kinematics of a finger is the motion of its distal contact
-face seen from its proximal contact face. The faces turn against each other by
+The relative contact trajectory of a finger is the path of its distal contact
+face seen from its proximal contact face, as a function of the flexion (not of
+time; the transmission from servo to flexion is not part of it). The faces turn against each other by
 the flexion ``q`` whatever the design, so the path of one point of the distal
 face, taken in the proximal face's frame, is the whole of it
 (:func:`contact_path`). A redesign is searched in the mechanism's own search

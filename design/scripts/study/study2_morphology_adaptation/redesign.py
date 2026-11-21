@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Study 2: a finger redesigned for a thicker interface, its contact-centric kinematics kept (A.6.3).
+"""Study 2: a finger redesigned for a thicker interface, its relative contact trajectory kept (A.6.3).
 
     python scripts/study/study2_morphology_adaptation/redesign.py [one_finger.yaml] [--resume]
         [--architectures cfl,2r_remote] [--flexions 120] [--output dir]

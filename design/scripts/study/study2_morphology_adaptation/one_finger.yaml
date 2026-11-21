@@ -19,7 +19,7 @@ output: output/study/study2_fixed_finger
 
 # Study 2 (A.6.3): each architecture redesigned for a thicker interface, from
 # its Study 1 design for the thinnest one, for two objectives at once: the
-# least change of the contact-centric kinematics and the most pad coverage.
+# least change of the relative contact trajectory and the most pad coverage.
 redesign:
   reference_thickness_mm: 3
   search: {algorithm: nsga2, population: 200, generations: 200, seeds: [0, 1]}

@@ -170,13 +170,13 @@ CoDe aims to enable contact-interface variation while preserving the underlying 
 
 For controlled contact-interface experiments, the following should remain fixed whenever possible:
 
-- The contact-centric kinematics: the motion of one contact face seen from the other over the flexion. This is the kinematic target of a contact-centric hand; what a policy and an object meet is the contact face, not the skeleton.
+- The relative contact trajectory: the path of the distal contact face seen from the proximal one, as a function of flexion (its change is D_c, `problem_formulation.md` A.6.3). It excludes the transmission from servo angle to flexion, which is recorded separately. This is the kinematic target of a contact-centric hand; what a policy and an object meet is the contact face, not the skeleton.
 - Structural finger morphology and link geometry.
 - Articulation kinematics and joint configuration.
 - Actuator placement and transmission architecture.
 - Contact-module mounting references.
 
-When these cannot all be kept (an interface thicker than the finger was designed for asks for a redesign), the contact-centric kinematics has priority over the skeleton's: the mechanism's internal dimensions may change to keep the contact faces moving as before (`problem_formulation.md` A.6.0, A.6.3).
+When these cannot all be kept (an interface thicker than the finger was designed for asks for a redesign), the relative contact trajectory has priority over the skeleton's: the mechanism's internal dimensions may change to keep the contact faces moving as before (`problem_formulation.md` A.6.0, A.6.3).
 
 The following are intentionally variable:
 
@@ -185,7 +185,7 @@ The following are intentionally variable:
 - Tactile sensing configuration.
 - Contact location, distribution and surface response.
 
-Preserving the contact-centric kinematics does not imply preserving contact mechanics or actuator-side contact responses: compliance, friction, sensing and the contact's location on the face change with the interface, which is precisely what the platform is designed to investigate. What should not change with them is where the contact faces are and how they move. With identical rigid-body kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so changes the contact-point Jacobian; that change is an effect of the hand's geometry, not of the interface under study, and is what a redesign should remove.
+Preserving the relative contact trajectory does not imply preserving contact mechanics or actuator-side contact responses: compliance, friction, sensing and the contact's location on the face change with the interface, which is precisely what the platform is designed to investigate. What should not change with them is where the contact faces are and how they move. With identical rigid-body kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so changes the contact-point Jacobian; that change is an effect of the hand's geometry, not of the interface under study, and is what a redesign should remove.
 
 The objective is to isolate contact-interface variation from unnecessary changes to the underlying hand embodiment, not to make contact behavior invariant.
 
@@ -212,11 +212,11 @@ The project's experiments should provide evidence for the central research objec
 
 1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact, and the difference grows with the required flexion.
 2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion.** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
-3. **The contact faces' motion can be kept when the interface changes, with the contact surface kept too.** The motion of one contact face seen from the other is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface with that motion as its target, a joint turning about a fixed axis cannot keep it, whatever the redesign (a closed-form lower bound); the CFL moves the point it turns about and keeps it, at a pad coverage near the best for that interface, within a range the study measures. This is the claim the project makes for CoDe.
+3. **The relative contact trajectory can be kept when the interface changes, with the contact surface kept too.** The relative contact trajectory is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface with that motion as its target, a joint turning about a fixed axis cannot keep it, whatever the redesign (a closed-form lower bound); the CFL moves the point it turns about and keeps it, at a pad coverage near the best for that interface, within a range the study measures. This is the claim the project makes for CoDe.
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
-4. **Keeping the contact faces' motion keeps an interface measurement interpretable** (hypothesis, Study 3C). If an interface experiment is run on a hand adapted to the interface in two ways, one that keeps the contact-centric kinematics (claim 3) and one that does not, the measured effect of the interface differs between them. Support: the effect measured on the unadapted path departs from the redesigned path's, and the departure grows with the change in contact-face motion. Refutation: the two paths measure the same effect within the stated precision, in which case keeping the contact faces' motion is not what an interface experiment needs, and that is reported.
+4. **Keeping the relative contact trajectory keeps an interface measurement interpretable** (hypothesis, Study 3C). If an interface experiment is run on a hand adapted to the interface in two ways, one that keeps the relative contact trajectory (claim 3) and one that does not, the measured effect of the interface differs between them. Support: the effect measured on the unadapted path departs from the redesigned path's, and the departure grows with the change in contact-face motion. Refutation: the two paths measure the same effect within the stated precision, in which case keeping the relative contact trajectory is not what an interface experiment needs, and that is reported.
 
 A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the phalanx turns about, and how deep the pads sit, set what the joint takes from the pads); the optimization studies check its predictions.
 
@@ -307,7 +307,7 @@ The learning-based studies are numbered 3A–3D, the same names in this file, in
 
 Throughout, J(π, H, C, S) is the task's pre-registered performance metric (for the cube-rotation task, goals reached per episode on a fixed goal sequence) of policy π on hand H with interface C under contact model S; arguments that do not vary are dropped.
 
-**Roles and order.** Study 3C is the learning-based evidence specific to CoDe: it links the design studies' contact-centric kinematics (claims 3 and 4) to interface experiments. Study 3A changes only an interface that any hand could exchange (a profile inside the same pad envelope), so it demonstrates the experimental platform and pipeline, not the need for CoDe (Section 8.6). Study 3B checks that 3A's and 3C's interface effects are not artifacts of one contact model. Order: 3A, then 3C, then 3B on the policies of both, then 3D.
+**Roles and order.** Study 3C is the learning-based evidence specific to CoDe: it links the design studies' relative contact trajectory (claims 3 and 4) to interface experiments. Study 3A changes only an interface that any hand could exchange (a profile inside the same pad envelope), so it demonstrates the experimental platform and pipeline, not the need for CoDe (Section 8.6). Study 3B checks that 3A's and 3C's interface effects are not artifacts of one contact model. Order: 3A, then 3C, then 3B on the policies of both, then 3D.
 
 **Study 3A — Contact-interface A/B test and transfer matrix** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol, in two complementary ways:
 
@@ -322,7 +322,7 @@ Measure performance differences, sensitivity, adaptation, generalization and con
 
 *Target evidence:* whether a measured interface effect survives a change of the simulated contact model.
 
-**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2.3). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the contact-centric kinematics (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
+**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2.3). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the relative contact trajectory (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
 
 ΔJ_R = J(H_R,1, C₁) − J(H_R,0, C₀),  ΔJ_U = J(H_U,1, C₁) − J(H_U,0, C₀),
 

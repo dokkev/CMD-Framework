@@ -1,4 +1,4 @@
-"""Study 2: a redesign with the contact-centric kinematics as its target (problem formulation A.6.3)."""
+"""Study 2: a redesign with the relative contact trajectory as its target (problem formulation A.6.3)."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
-# Study 2: 더 두꺼운 접촉면으로 다시 설계할 때 접촉면의 운동을 지킬 수 있는가
+# Study 2: 더 두꺼운 접촉면으로 다시 설계할 때 relative contact trajectory를 지킬 수 있는가
 
-작성: 2026-11-21. 질문: 손가락을 더 두꺼운 contact interface에 맞춰 다시 설계해야 할 때, 접촉면에서 본 운동(contact-centric kinematics)을 얼마나 지킬 수 있는가. coverage도 함께 본다(SSoT A.6.3).
+작성: 2026-11-21. 질문: 손가락을 더 두꺼운 contact interface에 맞춰 다시 설계해야 할 때, relative contact trajectory를 얼마나 지킬 수 있는가. coverage도 함께 본다(SSoT A.6.3).
 
 ## 방법
 
@@ -8,7 +8,7 @@
 |---|---|
 | 기준 손가락 | 구조와 q_req마다 Study 1의 3 mm 설계. Study 1은 2026-11-21에 CFL 조건을 이웃 두께에서 다시 탐색했고, 기준은 조건마다 독립 run과 재탐색 중 최선이다 |
 | 탐색 | 5/7/9 mm마다 NSGA-II 200 × 200, seed 0–1 |
-| 목적 1 | 기준 대비 접촉면 운동의 변화 D_c(distal 접촉면 경로를 proximal 접촉면에서 봄)를 최소화 |
+| 목적 1 | 기준 대비 relative contact trajectory의 변화 D_c(distal 접촉면 경로를 proximal 접촉면에서 봄)를 최소화 |
 | 목적 2 | 그 두께의 Study 1 목표 아래에서 C̄_pad를 최대화 |
 | 하한 | 두지 않음 |
 | 비교 기준 | 고정축 관절이 보여야 하는 변화 2 sin(q_req/2)·Δh (Study 0의 P4) |
@@ -18,7 +18,7 @@
 
 ## 결과
 
-아래 표의 칸은 접촉면 운동의 변화 / 다시 설계한 손가락의 C̄_pad (괄호: 이 탐색 시점의 Study 1 최선)이다. Study 1은 이 결과를 받아 한 번 더 탐색했다. 최종 Study 1 값(`report/study1/study1_thickness_coverage.md`)과 아래 C̄_pad의 차이는 CFL에서 0.2 %p, CFL ideal에서 0.5 %p 이내다.
+아래 표의 칸은 relative contact trajectory의 변화 / 다시 설계한 손가락의 C̄_pad (괄호: 이 탐색 시점의 Study 1 최선)이다. Study 1은 이 결과를 받아 한 번 더 탐색했다. 최종 Study 1 값(`report/study1/study1_thickness_coverage.md`)과 아래 C̄_pad의 차이는 CFL에서 0.2 %p, CFL ideal에서 0.5 %p 이내다.
 
 | 구조 | q_req | 3→5 mm | 3→7 mm | 3→9 mm |
 |---|---|---|---|---|
@@ -50,7 +50,7 @@
 
 ## 읽는 법
 
-1. **CFL은 다시 설계해도 접촉면의 운동을 가장 적게 바꾼다.** 이것은 q_req 셋과 두께 셋 모두에서 실제 구조 넷 가운데 성립한다.
+1. **CFL은 다시 설계해도 relative contact trajectory를 가장 적게 바꾼다.** 이것은 q_req 셋과 두께 셋 모두에서 실제 구조 넷 가운데 성립한다.
    - 변화는 0.35–4.31 mm로, 고정축 기준의 10–51%다(q120에서 10–22%, q150에서 20–31%, q90에서 32–51%).
    - 이 차이는 coverage를 내주고 얻은 것이 아니다. 같은 설계의 C̄_pad가 최종 Study 1 최선과 0.2 %p 이내다.
 2. **2R-remote의 변화는 정확히 고정축 기준이다**(q90, q120). 관절이 pad 두께와 함께 움직일 수 없으므로 Study 0의 하한에 그대로 걸린다. q150의 7/9 mm에서는 기준보다 크다. 그 설계들은 접촉하지 못하는 퇴화한 설계다(C̄_pad 0.209, 0).
@@ -65,4 +65,4 @@
 - Study 1이 5 mm 재탐색 결과를 읽지 못한 폴더 이름 오류.
 - Study 1 탐색의 부족.
 
-둘을 고치고 Study 2의 설계에서 Study 1을 한 번 더 탐색했다. 이제 Study 1의 모든 CFL 칸이 이 front의 최선 이상이다(q90 5 mm 0.778). 위 결론, 곧 접촉면 운동의 변화와 그 coverage는 기준 손가락(3 mm)이 바뀌지 않았으므로 그대로다.
+둘을 고치고 Study 2의 설계에서 Study 1을 한 번 더 탐색했다. 이제 Study 1의 모든 CFL 칸이 이 front의 최선 이상이다(q90 5 mm 0.778). 위 결론, 곧 relative contact trajectory의 변화와 그 coverage는 기준 손가락(3 mm)이 바뀌지 않았으므로 그대로다.
