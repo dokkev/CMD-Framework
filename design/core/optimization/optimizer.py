@@ -14,6 +14,7 @@ To add one (e.g. an MO-CMA-ES): subclass :class:`Optimizer` and list it in
 from __future__ import annotations
 
 import importlib
+import math
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
@@ -109,11 +110,43 @@ def reference_directions(n_obj: int, population_size: int) -> np.ndarray:
     return get_reference_directions("das-dennis", n_obj, n_partitions=partitions)
 
 
+def stalled_termination(generations: int, patience: int):
+    """Stop at ``generations``, or sooner once the best feasible objective has
+    not improved for ``patience`` generations (single objective). A run that
+    has found no feasible design yet is never stopped for it. Up to the stop,
+    the run is the one ``generations`` alone would give."""
+
+    from pymoo.core.termination import Termination
+
+    class Stalled(Termination):
+        def __init__(self) -> None:
+            super().__init__()
+            self.best, self.since = math.inf, None
+
+        def _update(self, algorithm) -> float:
+            generation = int(algorithm.n_gen)
+            value = math.inf
+            optimum = algorithm.opt
+            if optimum is not None and len(optimum):
+                violation = np.asarray(optimum.get("CV"), dtype=float).reshape(-1)
+                objectives = np.atleast_2d(optimum.get("F"))
+                if violation.size and violation[0] <= 0.0:
+                    value = float(objectives[0, 0])
+            if value < self.best - 1e-12:
+                self.best, self.since = value, generation
+            waited = 0.0 if self.since is None else (generation - self.since) / patience
+            return max(generation / generations, waited)
+
+    return Stalled()
+
+
 class PymooOptimizer(Optimizer):
     """A pymoo multi-objective algorithm with grid-rounding SBX and PM.
 
-    ``options``: ``crossover_prob`` (0.9), ``crossover_eta`` (15) and
-    ``mutation_eta`` (20).
+    ``options``: ``crossover_prob`` (0.9), ``crossover_eta`` (15),
+    ``mutation_eta`` (20) and ``stall_generations`` (none: a single-objective
+    run stops once its best has not improved for that many generations,
+    :func:`stalled_termination`).
     """
 
     def __init__(self, name: str, algorithm: str, reference_directions: bool = False) -> None:
@@ -140,12 +173,17 @@ class PymooOptimizer(Optimizer):
         crossover = SBX(prob=options.pop("crossover_prob", 0.9), eta=options.pop("crossover_eta", 15),
                         vtype=float, repair=RoundingRepair())
         mutation = PM(eta=options.pop("mutation_eta", 20), vtype=float, repair=RoundingRepair())
+        patience = options.pop("stall_generations", None)
         if options:
             raise ValueError(f"unknown {self.name} options {sorted(options)}")
+        if patience is not None and (problem.n_obj != 1 or int(patience) < 1):
+            raise ValueError("stall_generations needs one objective and a positive count")
+        termination = (("n_gen", settings.generations) if patience is None
+                       else stalled_termination(settings.generations, int(patience)))
         result = minimize(
             problem,
             self._algorithm(settings, initial, problem.n_obj, crossover=crossover, mutation=mutation),
-            termination=("n_gen", settings.generations),
+            termination=termination,
             seed=settings.seed,
             verbose=False,
         )

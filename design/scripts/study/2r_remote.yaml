@@ -16,6 +16,13 @@ goal:
     pip_servo:
       tilt_angle_deg: [15, 15]
 solver:
+  # Every run of this architecture reaches its final value within 80
+  # generations (2026-11-20, six runs each at q_req 120, 7 mm): stop a run once
+  # its best has not improved for 150, instead of running out the 1000.
+  optimizer:
+    presets:
+      search:
+        options: {stall_generations: 150}
   search_bounds:
     ap_from_a_x_mm: [-10, -10]
     ap_from_a_z_mm: [15, 15]
