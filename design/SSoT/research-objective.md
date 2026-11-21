@@ -206,6 +206,7 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 
 - The claim is about frozen-policy measurements of an interface change. Whether independently trained policies show the same is not answered.
 - Do not claim that keeping the relative contact trajectory preserves a policy's performance in general, or that CoDe is needed for every interface experiment.
+- **The MCP level is not kept (limitation).** The relative contact trajectory is finger-internal: the distal contact face seen from the proximal one. The proximal contact face is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that face away from the axis, so its path in the palm frame changes on every redesign (by the pad change, 4 mm at 3 → 7 mm, on H_R and H_U alike). Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): C1 applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work; in Study 3 the offset is common to H_R and H_U and cancels in their comparison.
 - Rigid interfaces in simulation only; compliant and tactile interfaces are not simulated.
 - Report a null result as such.
 

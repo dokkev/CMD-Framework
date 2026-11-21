@@ -41,4 +41,4 @@ A contribution is a claim to be tested, not a result to be secured.
 
 ## Not claimed
 
-A hand that manipulates better than others; a best contact interface; that the CFL beats every remote-actuated design under every condition; that keeping the relative contact trajectory preserves a policy's performance; simulated compliant or tactile interfaces; physical accuracy of a contact model without validation.
+Keeping contact trajectories at the MCP (a revolute joint: the proximal pad's path relative to the palm still changes with the pad's thickness); A hand that manipulates better than others; a best contact interface; that the CFL beats every remote-actuated design under every condition; that keeping the relative contact trajectory preserves a policy's performance; simulated compliant or tactile interfaces; physical accuracy of a contact model without validation.
