@@ -61,6 +61,7 @@ def _parse(argv):
     parser.add_argument("--episodes", type=int, default=256)
     parser.add_argument("--eval_seed", type=int, default=1000)
     parser.add_argument("--out_root", type=Path, default=common.LOG_ROOT / "eval")
+    parser.add_argument("--trace_all", action="store_true", help="store every episode's cube yaw (not only 16)")
     add_launcher_args(parser)
     parser.set_defaults(device=None, visualizer=[])
     args, hydra_args = setup_preset_cli(parser, argv)
@@ -176,9 +177,10 @@ def main(argv=None) -> int:
             dropped |= ending & term.get_term("object_out_of_reach").bool()
             timed_out |= ending & term.get_term("time_out").bool()
             active &= ~done
-            rot = math_utils.axis_angle_from_quat(m["cube_quat"][:TRACE_ENVS])
-            yaw_trace.append(torch.where(active[:TRACE_ENVS], rot[:, 2], torch.full_like(rot[:, 2], float("nan"))).cpu())
-            goal_trace.append(command.goal_angle[:TRACE_ENVS].clone().cpu())
+            traced = n if args.trace_all else TRACE_ENVS
+            rot = math_utils.axis_angle_from_quat(m["cube_quat"][:traced])
+            yaw_trace.append(torch.where(active[:traced], rot[:, 2], torch.full_like(rot[:, 2], float("nan"))).cpu())
+            goal_trace.append(command.goal_angle[:traced].clone().cpu())
             if not bool(active.any()):
                 break
         elapsed = common.timer() - started
