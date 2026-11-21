@@ -55,9 +55,10 @@
 | `optimization/mechanism.py` | `Mechanism` 플러그인 인터페이스, `evaluation_report`(모든 구조 공용 출력 열) | §7 |
 | `optimization/mounting.py` | `shallowest_supported` 장착 규칙, `depth_violation_mm` | A.6.2 장착 규칙 |
 | `optimization/analysis/adaptation.py` | 외형/내부 좌표 분할(partition), $\varepsilon_d$, $\varepsilon_\kappa$. 단계적 최소 변화 탐색은 2026-11-20 정의에서 빠짐 | A.6.3 |
-| `scripts/study/study1_fixed_morphology/run.py` | Study 1 수용 판정 | A.6.2 |
-| `optimization/analysis/reoptimize.py` | 한 interface의 재최적화: pad 고정 config, 최대 coverage, $\delta_C$ 안에서 기준 외형에 가장 가까운 설계 | A.6.3 |
-| `scripts/study/study2_morphology_adaptation/reoptimize.py` | Study 2 driver (`--study 2a`: 손가락 길이 자유, `2b`: 고정): 단면 sweep, 교차 점검으로 최적 보정, 2b의 유지율 행렬 $\rho$, $\rho^{\mathrm{one}}$ | A.6.3, A.6.4 |
+| `scripts/study/study1_fixed_morphology/run.py` | (이전 Study 1) native 손가락의 module 수용 판정. 보조 자료 | A.6.2 장착 규칙 |
+| `scripts/study/study1_thickness_coverage/run_all.sh`, `figure.py` | Study 1: 두께 × 요구 flexion마다 native 탐색(`scripts/optimize/run.py`), 결과 표와 그림 | A.6.2 |
+| `scripts/study/study2_morphology_adaptation/pole_law.py` | Study 0의 식(pole, 관절 간격, coverage)과 Study 1 설계와의 대조, Study 2의 접촉면에서 본 운동의 변화(`changes`) | A.6.0, A.6.3 |
+| `optimization/analysis/one_finger.py`, `scripts/study/study2_morphology_adaptation/one_finger.py` | 고정한 손가락에 다른 두께의 pad를 다는 것(`fitted`, `mount`)과 Study 1 설계를 읽는 것(`study1_designs`). 손가락 하나 탐색(`one_finger`)은 2026-11-20 정의에서 빠짐 | A.6.0의 대조 |
 | `scripts/study/study2_morphology_adaptation/landscape.py` | (이전 정의) 최소 변화 landscape. 쓰지 않음 | — |
 | `scripts/study/study2_morphology_adaptation/figure_landscape.py` | (이전 정의) $\varepsilon_d^\star$ heatmap. 교체 예정 | — |
 

@@ -172,10 +172,13 @@ CoDe aims to enable contact-interface variation while preserving the underlying 
 
 For controlled contact-interface experiments, the following should remain fixed whenever possible:
 
+- The contact-centric kinematics: the motion of one contact face seen from the other over the flexion. This is the kinematic target of a contact-centric hand; what a policy and an object meet is the contact face, not the skeleton.
 - Structural finger morphology and link geometry.
 - Articulation kinematics and joint configuration.
 - Actuator placement and transmission architecture.
 - Contact-module mounting references.
+
+When these cannot all be kept (an interface thicker than the finger was designed for asks for a redesign), the contact-centric kinematics has priority over the skeleton's: the mechanism's internal dimensions may change to keep the contact faces moving as before (`problem_formulation.md` A.6.0, A.6.3).
 
 The following are intentionally variable:
 
@@ -184,7 +187,7 @@ The following are intentionally variable:
 - Tactile sensing configuration.
 - Contact location, distribution and surface response.
 
-Preserving the underlying embodiment does not imply preserving contact mechanics or actuator-side contact responses. For example, a contact-point Jacobian changes when the contact location or the interface thickness changes, even with identical rigid-body kinematics. These responses may change as a direct consequence of the contact interface, which is precisely what the platform is designed to investigate.
+Preserving the contact-centric kinematics does not imply preserving contact mechanics or actuator-side contact responses: compliance, friction, sensing and the contact's location on the face change with the interface, which is precisely what the platform is designed to investigate. What should not change with them is where the contact faces are and how they move. With identical rigid-body kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so changes the contact-point Jacobian; that change is an effect of the hand's geometry, not of the interface under study, and is what a redesign should remove.
 
 The objective is to isolate contact-interface variation from unnecessary changes to the underlying hand embodiment, not to make contact behavior invariant.
 
@@ -210,9 +213,10 @@ The project's experiments should provide evidence for the central research objec
 **What the computational studies must show** (supporting questions 1 and 2):
 
 1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact, and the difference grows with the required flexion.
-2. **A fixed finger can carry different interfaces.** Without any change to the finger, an architecture accepts a range of interface dimensions and keeps its required flexion; the range, and why it ends, differ by architecture.
-3. **Changing the interface costs little morphology.** When the finger is redesigned for a larger or different interface, how much of it must change, and where (its size, its proportions, its articulation, or only the inside of its mechanism), differs by architecture.
-4. **One finger serves a family of interfaces.** A finger designed for one interface, carrying the others unchanged, keeps most of the coverage that a finger redesigned for each would give. This is the claim the project makes for CoDe; it is measured, for every architecture, against the redesigned optimum.
+2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion.** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
+3. **Redesigning for a thicker interface changes the contact-centric kinematics by an amount the architecture sets.** The motion of one contact face seen from the other is what an interface experiment should hold; the skeleton's motion is a means to it. A joint turning about a fixed axis cannot keep it when the interface gets thicker, whatever the redesign (a closed-form lower bound); the CFL can move the point it turns about and keeps it within a range. This is the claim the project makes for CoDe.
+
+A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the phalanx turns about, and how deep the pads sit, set what the joint takes from the pads); the optimization studies check its predictions.
 
 **Conditions that make the comparison fair:**
 

@@ -6,7 +6,7 @@
 2. **요구사항 (A.2–A.3).** Contact interface의 치수와 손가락의 크기·비율을 하한과 상한으로 지정한다.
 3. **기하와 운동 (A.4).** Morphology는 joint 자세에 따라 형상을 만들고, 그 형상에 self-collision이 없는 자세의 집합이 유효한 운동 범위를 정한다.
 4. **최적화 (A.5).** 요구사항, 요구 운동, 전달 성능 조건을 만족하는 morphology 가운데 contact pad coverage가 가장 큰 것을 찾는다.
-5. **비교 연구 (A.6).** 여러 mechanism 구조를 같은 외형에 맞춘 뒤, contact interface만 바꿔 가며 각 구조가 얼마나 수용하는지(Study 1), interface에 맞춰 손가락을 다시 설계하면 morphology가 어떻게, 얼마나 달라지는지(Study 2a), 한 interface에 맞춘 손가락으로 다른 interface를 쓰면 coverage를 얼마나 잃는지(Study 2b) 평가한다.
+5. **비교 연구 (A.6).** 여러 mechanism 구조를 같은 외형에 맞춘 뒤, contact interface만 바꿔 가며 각 구조가 얼마나 수용하는지(Study 1), interface의 범위를 손가락 하나로 쓰면 주어진 pad를 얼마나 쓸 수 있는지, 더 쓰려면 손가락을 얼마나 다르게 만들어야 하는지(Study 2) 평가한다.
 
 Contact interface는 이 문제의 출발점이다. 그 치수는 요구사항으로 먼저 주어지고, mechanism, actuation, structure는 그것을 수용하도록 설계된다.
 
@@ -388,14 +388,69 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 
 ## A.6. Study 정식화
 
-이 절의 실험은 `research-objective.md` 6절이 보이라고 한 네 가지에 하나씩 대응한다.
+이 절은 해석 하나와 그것을 확인하는 최적화 실험 둘로 이루어진다. 해석(Study 0)이 관계식과 예측을 주고, Study 1과 Study 2가 최적화 결과로 그 예측을 확인한다. `research-objective.md` 6절이 보이라고 한 것과의 대응은 다음과 같다.
 
-| 보여야 할 것 (research-objective 6절) | 실험 | 절 |
+| 보여야 할 것 (research-objective 6절) | 근거 | 절 |
 |---|---|---|
-| 1. 구조가 contact interface를 제한한다 | 구조별 native 설계의 비교 | A.6.1 |
-| 2. 고정된 손가락이 여러 interface를 받는다 | Study 1 | A.6.2 |
-| 3. Interface를 바꿀 때 morphology가 얼마나, 어디가 바뀌는가 | Study 2a | A.6.3 |
-| 4. 손가락 하나로 interface family를 쓴다 | Study 2b | A.6.4 |
+| 관절이 contact interface에서 빼앗는 것을 정하는 관계 | Study 0 (해석) | A.6.0 |
+| 1. 구조가 contact interface를 제한한다 | 구조별 native 설계의 비교, Study 1 | A.6.1, A.6.2 |
+| 2. Interface의 두께와 요구 flexion에 따라 구조가 확보하는 접촉면이 다르다 | Study 1 | A.6.2 |
+| 3. 더 두꺼운 interface를 위해 다시 설계할 때 접촉면에서 본 운동이 바뀌는 정도가 구조마다 다르다 | Study 2 | A.6.3 |
+
+### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
+
+Study 0은 최적화 없이, 요구(pad 두께 $h$, 요구 flexion $q_{\mathrm{req}}$)와 morphology 사이의 관계를 기하로 유도한다. 유도 전체와 수치 대조는 `report/study2/pole_law.md`에 있다.
+
+**Pole.** 평면에서 방향이 바뀌는 강체 변위는 한 점을 중심으로 한 회전과 같다. Flexion $q$에서 distal phalanx의 자세는 기준 자세를 점 $\mathbf P(M,q)$를 중심으로 $q$만큼 돌린 것이며, 이 점을 pole이라 부른다. Pole이 link 선(기준 자세에서 관절 축들을 잇는 직선)에서 palmar 쪽으로 내려온 깊이를 $z(q)$라 쓴다(dorsal 쪽이면 음수).
+
+**접촉면의 깊이.** Pad $i$의 contact face가 link 선에서 palmar 쪽으로 떨어진 거리를 $t_i=d_i+h_i$라 쓴다. $d_i$는 장착 깊이(link 선에서 pad의 윗면까지)이다. Pole에서 본 contact face의 깊이는 $\tau_i(q)=t_i-z(q)$이다.
+
+**관절 간격.** 기준 자세에서 두 pad의 관절 쪽 끝 사이의 길이를 $G$라 한다. Proximal pad가 $x_0$에서 시작하고 distal pad가 손끝에서 끝나면
+
+$$
+\frac{\ell_1+\ell_2}{L_f}=1-\frac{x_0+G}{L_f}
+$$
+
+**명제 1 (간격).** Pole을 중심으로 palmar 쪽으로 돌 때 pole보다 dorsal 쪽의 점은 멀어지고 palmar 쪽의 점은 다가온다. 따라서 두 pad가 $[0,q_{\mathrm{req}}]$에서 만나지 않으려면, 관절 쪽 아래 모서리가 pole에서 $s_1,s_2$만큼 떨어져 있을 때 $\arctan(\tau_1/s_1)+\arctan(\tau_2/s_2)\le\pi-q$가 모든 $q$에서 성립해야 한다. 두 pad의 깊이가 같으면
+
+$$
+\boxed{
+G(h,q_{\mathrm{req}})=\max_{0<q\le q_{\mathrm{req}}}\;2\,\big[d+h-z(q)\big]_+\tan\frac{q}{2}
+}
+$$
+
+이다. 최댓값을 주는 flexion을 임계 flexion $q^\ast$라 한다. 두 pad가 pole에서 다른 거리에 있으면 모서리와 면이 닿으므로, 그 경우에는 두 직사각형의 겹침을 직접 계산한다.
+
+**명제 2 (coverage).** 두 pad가 대칭이면 A.5.1의 자세별 coverage는
+
+$$
+C_{\mathrm{pad}}(q)=\frac{L_f-x_0-G}{L_f-G\,(1-\cos\frac{q}{2})+2\,z(q)\sin\frac{q}{2}}
+$$
+
+이다. 분모의 둘째 항은 관절 간격이 굽히면 짧아지는 것이고, 셋째 항은 pole이 palmar 쪽에 있으면 두 phalanx 끝이 벌어지는 것이다.
+
+**명제 3 (접촉면에서 본 운동).** Contact face를 기준으로 본 pole의 위치를 $\mathbf p(q)$라 하면, contact face 위의 점은 $\mathbf c(q)=\mathbf p+R(q)(\mathbf c_0-\mathbf p)$로 움직인다. 두 손가락의 pole이 contact face에 대해 $\Delta\mathbf p(q)$만큼 다르면 접촉면에서 본 운동의 차이는
+
+$$
+\boxed{\;\|\Delta\mathbf c(q)\|=2\sin\frac{q}{2}\,\|\Delta\mathbf p(q)\|\;}
+$$
+
+이다. 접촉면에서 본 운동이 같을 필요충분조건은 pole이 contact face에 대해 같은 자리에 있는 것이다.
+
+**구조는 $z(q)$와 $d$로 들어간다.**
+
+| 구조 | $z(q)$ | $d$를 정하는 것 |
+|---|---|---|
+| 2R-DD, 2R-remote | $0$ (관절 축) | 2R-remote: 없음. 2R-DD: proximal pad가 관절 actuator 밑으로 들어가는 깊이 |
+| RCJ | $r\tan(q/4)$ ($r$: roller 반지름) | pad가 roller 밑으로 들어가는 깊이 |
+| CFL | Linkage 치수가 정함. 기준 자세 근처에서는 dorsal 쪽이고 굽힐수록 palmar 쪽으로 내려감 | Pivot housing |
+
+**예측.** 아래 예측을 Study 1과 Study 2가 확인한다.
+- P1. 모든 구조의 최적 설계에서 관절 간격은 명제 1의 값과 같다(pad끼리의 접촉이 coverage를 정한다).
+- P2. 최적 설계의 $\bar C_{\mathrm{pad}}$는 명제 2로 계산한 값과 같다.
+- P3. $z\equiv 0$인 구조는 $q^\ast=q_{\mathrm{req}}$이므로 $G=2(d+h)\tan(q_{\mathrm{req}}/2)$이다. 요구 flexion과 두께가 커지면 pad 길이가 이 식대로 줄어든다. Pole이 굽힐수록 내려가는 구조는 $q^\ast<q_{\mathrm{req}}$일 수 있고, 그때 $G$는 $q_{\mathrm{req}}$에 따라 커지지 않는다.
+- P4. 두께가 $\Delta h$ 늘 때 pole을 옮길 수 없는 구조(2R, roller 반지름이 고정된 RCJ)는 다시 설계해도 접촉면에서 본 운동이 $2\sin(q_{\mathrm{req}}/2)\,(\Delta h-\Delta d)$만큼 바뀐다($\Delta d$: 장착 깊이를 줄인 양). 이것은 어떤 설계로도 넘을 수 없는 하한이다. Pole을 $\Delta h$만큼 따라 내리는 구조는 접촉면에서 본 운동과 관절 간격을 함께 유지한다(명제 1과 3이 같은 $\tau(q)$로 정해지므로).
+- 이 모델에서 가장 좋은 관절은 contact face 위의 점을 중심으로 도는 관절이다($\tau=0$, $G=0$).
 
 ### A.6.1. 공통 설정
 
@@ -435,173 +490,76 @@ $$
 **평가 기준.** Study에서도 A.4–A.5의 정의를 그대로 쓴다. 유효 자세 $\mathcal Q_{\mathrm{valid}}$, 최대 안전 flexion $q_{\max}$, coverage $\bar C_{\mathrm{pad}}$가 그 예이다. 다만 다음이 다르다.
 - Transmission angle 조건은 linkage가 있는 CFL에만 적용한다. 다른 구조에서는 이 조건이 항상 만족된다고 본다.
 - Mechanical advantage에는 제약을 두지 않는다($MA_{\min}$ 없음). $MA_{\mathrm{wc}}$는 결과로 보고해 비교한다. CFL 외의 구조에서는 구조로 정해지는 상수이다. 2R-DD와 2R-remote는 $MA\equiv 1$, 대칭 RCJ는 $MA\equiv 1/2$이다.
-- Coverage를 계산할 때 transmission 요소(링크, belt)가 pad를 가리는 효과는 기본적으로 고려하지 않는다. 이 요소들은 pad와 다른 lateral layer에 놓이기 때문이다(A.4). 가림의 영향은 민감도 분석으로 따로 본다.
+- Coverage를 계산할 때 transmission 요소(링크, belt)가 pad를 가리는 효과는 기본적으로 고려하지 않는다. 이 요소들은 pad와 다른 lateral layer에 놓이기 때문이다(A.4). Study에서는 가림을 고려한 분석을 따로 하지 않는다.
 
-### A.6.2. Study 1: 고정 morphology의 contact 수용 능력
+### A.6.2. Study 1: pad 두께와 요구 flexion에 따른 최대 coverage
 
-Study 1은 손가락을 전혀 바꾸지 않은 상태에서 각 구조가 어떤 contact interface를 수용할 수 있는지 묻는다.
+Study 1의 질문은 하나이다. Contact interface의 두께와 요구 flexion이 주어졌을 때, 각 구조에서 최적화한 손가락은 contact coverage를 얼마나 확보하는가.
 
-**Contact module 목록.** 평가할 contact module의 치수 쌍을 목록 $\mathcal C_{\mathrm{cat}}$로 준다.
+**조건의 격자.** Pad 두께 $h$(두 pad 같은 두께)와 요구 flexion $q_{\mathrm{req}}$의 격자에서 평가한다. 값은 config에서 정하고 결과와 함께 보고한다(본 실험: $h\in\{3,5,7,9\}$ mm, $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$).
+
+**최적화.** 격자의 각 조건에서 구조 $K$의 morphology를 최적화한다. 목적함수는 원기둥 기준 pad coverage $\bar C_{\mathrm{pad}}$(A.5.1) 그대로이며 바꾸지 않는다.
 
 $$
-\mathcal C_{\mathrm{cat}}=\left\{(\ell_1,h_1,\ell_2,h_2)\right\}
+\boxed{
+\bar C^\star_K(h,q_{\mathrm{req}})=\max_{M\in\mathcal M_K}\;\bar C_{\mathrm{pad}}(M)
+\quad\text{s.t.}\quad
+\text{study goal}(q_{\mathrm{req}}),\;\;h_1=h_2=h
+}
 $$
 
-**장착 규칙.** 기준 morphology에서 mechanism, actuation, structure $(K,A_0^K,S_0^K)$는 그대로 두고 contact interface의 치수만 바꾼다. 장착 위치 $\mathbf p_i$는 탐색하지 않고 정해진 장착 규칙으로 결정한다. 각 pad는 바깥 끝(proximal pad는 MCP 쪽, distal pad는 손끝 쪽)에 맞춰 놓는다. 깊이는 자기 phalanx의 joint 하드웨어와 겹치지 않는 가장 얕은 위치로 하되, 그 phalanx 구조가 받칠 수 있는 범위 안이어야 한다. 이런 위치가 없으면 module을 장착할 수 없다. Spacer는 쓰지 않는다. 이렇게 얻은 morphology를 다음과 같이 쓴다.
+- 이것은 A.6.1의 native 설계 탐색을 두께마다 반복하는 것이다. 탐색 공간, 제약, 탐색 예산은 A.6.1과 같다. Pad의 길이와 위치는 설계 변수이고, 두께만 조건으로 준다.
+- $h=5$ mm의 결과는 A.6.1의 native 설계 $M_0^K(q_{\mathrm{req}})$ 자체이다.
+- 설계를 찾지 못한 조건은 값을 두지 않고 그 사실을 보고한다.
+
+**보고.** 구조마다 $q_{\mathrm{req}}$별 곡선 $h\mapsto\bar C^\star_K(h,q_{\mathrm{req}})$를 보고한다. 그림에서는 pad coverage $(\ell_1+\ell_2)/L_f$를 함께 보여, 손가락 길이 가운데 pad가 차지하는 비율로 읽을 수 있게 한다(목적함수는 $\bar C_{\mathrm{pad}}$). 각 최적 설계의 pad 길이, $q_{\max}$, $MA_{\mathrm{wc}}$, 외형 $\mathbf d$를 표로 남긴다.
+
+**Study 0의 확인.** 각 최적 설계에 대해 관절 간격과 $\bar C_{\mathrm{pad}}$를 Study 0의 명제 1, 2로 계산한 값과 비교하고(P1, P2), 두께와 요구 flexion에 따른 $G$의 변화가 P3을 따르는지 본다. 식에서 벗어난 설계는 탐색이 한계에 닿지 못한 것으로 보고 그 수를 보고한다.
+
+**해석.** 곡선이 높은 구조는 같은 크기의 손가락에서 더 많은 접촉면을 확보한다. 두께가 늘 때 곡선이 덜 떨어지는 구조는 두꺼운 interface를 쓰는 데 드는 비용이 작다. 요구 flexion이 클 때 곡선이 덜 떨어지는 구조는 깊이 굽혀도 접촉면을 유지한다. 각 점은 그 조건만을 위해 설계한 손가락이므로, 이 곡선은 구조가 그 조건에서 낼 수 있는 상한이다. 손가락 하나로 여러 두께를 쓰는 경우는 Study 2에서 본다. 이 결과는 2차원 측면 모델에서의 비교이다.
+
+**고정된 손가락에 module을 다는 규칙.** 손가락을 그대로 두고 contact interface만 바꿔 다는 평가(Study 2)는 다음 규칙을 쓴다. 기준 morphology에서 mechanism, actuation, structure $(K,A_0^K,S_0^K)$는 그대로 두고 contact interface의 치수만 바꾼다. 장착 위치 $\mathbf p_i$는 탐색하지 않고 정해진 장착 규칙으로 결정한다. 각 pad는 바깥 끝(proximal pad는 MCP 쪽, distal pad는 손끝 쪽)에 맞춰 놓는다. 깊이는 자기 phalanx의 joint 하드웨어와 겹치지 않는 가장 얕은 위치로 하되, 그 phalanx 구조가 받칠 수 있는 범위 안이어야 한다. 이런 위치가 없으면 module을 장착할 수 없다. Spacer는 쓰지 않는다. 이렇게 얻은 morphology를 다음과 같이 쓴다.
 
 $$
 M^K(c)=\big(K,\;C(c),\;A_0^K,\;S_0^K\big),
-\qquad c\in\mathcal C_{\mathrm{cat}}
-$$
-
-**수용 판정.** 요구 flexion $q_{\mathrm{req}}$에서 module $c$를 수용한다는 것은 다음 세 조건을 모두 만족한다는 뜻이다.
-1. 장착 규칙이 장착 위치를 준다.
-2. $M^K(c)$가 structure의 지지 가정(A.1)을 만족한다. 즉 각 pad가 고정된 phalanx 구조 위에 전체 길이로 놓인다.
-3. $M^K(c)$가 $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$을 만족하고, CFL이면 transmission angle 조건도 만족한다. 즉 $q_{\max}\big(M^K(c)\big)\ge q_{\mathrm{req}}$이다.
-
-구조 $K$가 수용하는 module의 집합을 다음과 같이 정의한다.
 
 $$
-\boxed{
-\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})
-=
-\left\{
-c\in\mathcal C_{\mathrm{cat}}
-\;\middle|\;
-M^K(c)\text{가 }q_{\mathrm{req}}\text{에서 module }c\text{를 수용함}
-\right\}
-}
-$$
 
-요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$이고, 각 $q_{\mathrm{req}}$에서 그 $q_{\mathrm{req}}$의 기준 $M_0^K(q_{\mathrm{req}})$를 평가한다. 수용된 module에 대해서는 coverage $\bar C_{\mathrm{pad}}\big(M^K(c)\big)$와 $q_{\max}\big(M^K(c)\big)$를 함께 보고한다. 수용되지 않은 module은 손가락을 다시 설계하지 않고, 어느 조건에서 실패했는지만 기록한다.
+2026-11-20까지 Study 1은 native 설계에 module 목록 $\mathcal C_{\mathrm{cat}}$을 이 규칙으로 달아 수용 여부를 세는 실험이었다(`report/study1/`). 그 결과는 보조 자료로 남긴다.
 
-**해석.** $\mathcal C_{\mathrm{feas}}(K;q_{\mathrm{req}})$가 클수록, 그 구조는 손가락을 바꾸지 않고도 더 다양한 contact interface를 수용한다. 각 구조는 같은 goal 아래의 자기 native 설계에서 평가하므로, 이 차이는 한 구조에 맞춘 외형에서 오는 것이 아니다. 다만 기준의 외형이 구조마다 다르므로, 기준의 외형 $\mathbf d_0^K$를 함께 보고한다. 이 결과는 2차원 측면 모델에서 기하학적으로 공간이 있다는 뜻이며, 실제로 제작하거나 교체할 수 있다는 뜻은 아니다.
+### A.6.3. Study 2: 다시 설계할 때 접촉면에서 본 운동의 변화
 
-### A.6.3. Study 2a: contact interface에 맞춘 morphology 재최적화
+Study 2의 질문은 하나이다. 더 두꺼운 contact interface를 쓰려고 손가락을 다시 최적화하면, 접촉면에서 본 운동(contact-centric kinematics)이 얼마나 바뀌는가. Contact interface를 독립 변수로 다루려면 접촉이 일어나는 면의 운동이 유지되어야 하고, 뼈대의 운동은 그 수단이다. Study 0의 P4가 이 질문의 답을 예측하고, Study 2는 Study 1의 설계로 그것을 확인한다. 새로운 탐색은 하지 않는다.
 
-Study 2는 두 부분으로 나뉜다. Study 2a(이 절)는 더 큰, 또는 다른 contact interface를 쓰려고 손가락을 다시 설계하면 morphology가 얼마나, 어디가 바뀌는지 묻는다(지지 질문 2). Study 2b(A.6.4)는 한 interface에 맞춘 손가락으로 다른 interface를 쓰면 coverage를 얼마나 잃는지 묻는다(지지 질문 1과 2). 두 부분은 같은 재최적화를 쓰고, 손가락 길이의 취급만 다르다.
+**비교하는 설계.** 구조 $K$와 요구 flexion $q_{\mathrm{req}}$마다, Study 1의 격자에서 이웃한 두께 $h_a<h_b$의 최적 설계 $M^\star_K(h_a)$와 $M^\star_K(h_b)$를 비교한다. 앞의 것이 기존 손가락이고 뒤의 것이 더 두꺼운 interface를 위해 다시 설계한 손가락이다. 장착은 Study 1과 같은 규칙이다(가장 얕은 깊이, spacer 없음). 얇은 쪽으로 바꾸는 경우는 다루지 않는다. 기존 손가락에 그대로 달 수 있어 다시 설계할 이유가 없기 때문이다.
 
-Study 2a는 contact interface가 주어졌을 때 그에 맞춰 손가락을 다시 설계하면 어떤 morphology가 되는지 묻는다. 또 interface의 치수가 조금씩 달라질 때 그 최적 morphology가 얼마나, 그리고 어느 부분이 움직이는지 묻는다. Study 1이 손가락을 전혀 바꾸지 않는 극단이라면, Study 2a는 손가락 전체를 interface에 다시 맞추는 반대쪽 극단이다. 몇 개의 module에서만 재지 않고, interface 치수를 연속적으로 바꾸어 가며 최적 morphology를 그 함수로 그린다.
-
-**재최적화.** Contact interface $c=(\ell_1,h_1,\ell_2,h_2)$에 대해, 구조 $K$의 morphology를 다시 최적화한다.
+**접촉면에서 본 운동의 변화.** Proximal contact face의 직선을 기준으로, distal contact face 위의 손끝 아래 점 $\mathbf c(M,q)$의 경로를 잰다. 두 face는 어느 설계에서나 $q$만큼 돌므로, 한 점의 경로가 face의 자세를 정한다.
 
 $$
 \boxed{
-M_K^\star(c;q_{\mathrm{req}})
-=
-\arg\max_{M\in\mathcal M_K}\;\bar C_{\mathrm{pad}}(M)
-\quad\text{s.t.}\quad
-\text{study goal}^{-}(q_{\mathrm{req}}),\;\;
-C(M)=c,\;\;
-\big|L_f(M)-L_{f,0}^K\big|\le\Delta_f
+D_c(M,M')=\frac{1}{L_f}\max_{q\in[0,\,q_{\mathrm{req}}]}\big\|\mathbf c(M,q)-\mathbf c(M',q)\big\|
 }
 $$
 
-- $\text{study goal}^{-}$는 A.6.1의 study goal에서 손가락 길이 조건($L_f=90$ mm)과 pad 길이 하한을 뺀 것이다. 손가락 길이는 아래 범위로, pad 치수는 $C(M)=c$로 대신 정한다.
-- 탐색 공간은 native 설계(A.6.1)와 같다. Mechanism 좌표, structure, PIP actuator의 방향 $\alpha_2$, pad의 길이 방향 장착 위치를 탐색한다. 장착 깊이는 native와 같이 장착 규칙(A.6.2)으로 정한다. 2R-remote의 actuator 자세는 A.6.1대로 고정한다.
-- Native 탐색과 다른 점은 두 가지이다. Pad 치수를 $c$로 고정하고, 손가락 길이를 기준 길이에서 $\pm\Delta_f$ 안에서 풀어 준다($\Delta_f>0$). 큰 interface를 쓰려면 손가락이 길어져야 할 수 있고, 그 변화도 이 질문의 답이기 때문이다. 손가락 길이를 고정하면 기준 크기에 들어가지 않는 interface는 "해 없음"이 되어, 얼마나 바뀌어야 하는지를 잴 수 없다.
-- $\bar C_{\mathrm{pad}}$는 같은 자세의 손가락 길이 $L_f(\mathbf q)$로 나눈 값이므로, 최적화는 pad를 받칠 수 있는 범위에서 짧은 손가락을 선호한다. 따라서 결과를 읽을 때 손가락 크기의 변화($\Delta L_f$)와 나머지 외형의 변화를 나누어 본다.
-- 수용 조건은 A.6.2와 같다. 각 pad는 자기 phalanx 구조 위에 전체 길이로 놓이고, $\mathcal F_{\mathrm{static}}$, $\mathcal F_{\mathrm{motion}}$을 만족하며, CFL이면 transmission angle 조건도 만족한다.
+뼈대의 운동 변화 $D_s$는 같은 식을 손끝 $\mathbf r_C$의 경로로 잰 것이며 함께 보고한다.
 
-**Morphology의 변화는 운동으로 잰다.** 같은 interface 변화를 받는 두 설계를 비교할 때 중요한 것은 손가락이 어떻게 움직이는가이다(`research-objective.md` 5.6: 고정해야 할 것은 articulation kinematics와 link geometry이다). 펼친 모습이 비슷해도 운동은 다를 수 있다. 예를 들어 CFL에서 pivot이 옮겨지면 펼친 외형은 거의 그대로여도 굽히는 동안 회전 중심의 경로가 달라진다. 또 mechanism의 좌표는 구조마다 개수와 의미가 달라 그대로 비교할 수 없다. 따라서 morphology의 변화를 손끝의 운동으로 잰다. 한 flexion에서 distal phalanx의 방향은 mechanism과 무관하게 같으므로, 손끝의 위치가 그 자세 전체를 정한다.
+**확인하는 것.**
+- 항등식: 잰 $D_c$가 명제 3의 $2\sin(q/2)\,\|\Delta\mathbf p(q)\|$와 같다.
+- 하한(P4): 2R-remote는 $D_c=2\sin(q_{\mathrm{req}}/2)\,\Delta h/L_f$이다. 2R-DD와 RCJ는 장착 깊이를 줄인 양 $\Delta d$만큼 작다.
+- 존재: CFL의 다시 설계한 손가락이 이 하한보다 작은 $D_c$를 내는지 본다. 논리는 비대칭이다. 2R에 대해서는 "어떤 다시 설계로도 하한보다 작게 할 수 없다"는 것을 식으로 보이고, CFL에 대해서는 "하한보다 작게 다시 설계한 예가 있다"는 것을 Study 1의 설계로 보인다. 따라서 CFL의 값은 최솟값이 아니라 상한이며, 더 가까운 설계를 찾는 탐색은 이 논리에 필요하지 않다.
+- 함께 유지되는 것(P4): $D_c$가 작은 쌍에서 관절 간격의 변화도 작은지 본다.
 
-$$
-\varepsilon_{\mathrm{kin}}(M)=\frac{1}{L_{f,0}^K}\max_{q\in[0,\,q_{\mathrm{req}}]}\big\|\mathbf r_C(M,(0,q))-\mathbf r_C(M_0^K,(0,q))\big\|
-$$
+**보고.** 구조, $q_{\mathrm{req}}$, 두께 쌍마다 $D_c$, 고정 축의 하한, $D_s$, 관절 간격의 변화, $q_{\mathrm{req}}$에서 pole 깊이의 변화.
 
-**거의 같은 최적해 가운데 고르기.** 최적값 근처가 평평하면 최적 morphology가 하나로 정해지지 않는다. 격자점마다 다른 해를 고르면 interface가 조금 바뀌어도 morphology가 튄다. 따라서 coverage가 최댓값에서 작은 허용 폭 $\delta_C$ 안에 드는 설계 가운데, 운동이 기준에 가장 가까운 것을 그 interface의 최적 morphology로 정한다.
+**해석.** $D_c$가 하한에 있는 구조는 interface가 두꺼워질 때 접촉면에서 본 운동이 반드시 바뀐다. 하한보다 작은 $D_c$로 다시 설계되는 구조는 mechanism 내부를 바꿔 접촉면에서 본 운동을 유지한다. 이때 뼈대의 운동 $D_s$는 바뀐다. CFL의 값은 coverage만을 목적으로 찾은 설계끼리의 비교이므로, 같은 coverage의 다른 설계로 넘어간 구간에서는 필요한 변화보다 크게 나올 수 있다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. Contact face의 위치를 기준으로 두고 얇은 pad를 그만큼 깊이 달면 어느 구조에서나 접촉면에서 본 운동이 유지되지만, 그 경우 손가락은 가장 두꺼운 interface에 맞춰 미리 설계해야 한다. 이 방식은 다루지 않는다.
 
-$$
-\hat M_K(c;q_{\mathrm{req}})
-=
-\arg\min_{M}\;\varepsilon_{\mathrm{kin}}(M)
-\quad\text{s.t.}\quad
-\bar C_{\mathrm{pad}}(M)\ge\bar C^\star_K(c)-\delta_C,\;\;
-\text{위 재최적화의 제약}
-$$
+### A.6.4. Study에서 다루지 않는 것
 
-여기서 $\bar C^\star_K(c)=\bar C_{\mathrm{pad}}\big(M_K^\star(c)\big)$이다. 선택 기준이 기준 설계 하나에만 의존하므로, 격자를 훑는 순서와 무관하게 정해진다. 이 선택은 "그 interface에서 최선에 가까운 coverage를 내면서, 손가락의 운동을 가장 적게 바꾸는 설계"를 뜻한다.
-
-**보고하는 값.** 각 interface $c$에서 다음을 기록한다.
-- 최적 coverage $\bar C^\star_K(c)$. 같은 interface와 같은 goal에서 각 구조가 낼 수 있는 최선이므로, 구조 사이에 직접 비교할 수 있다.
-- 최적 외형 $\mathbf d_K^\star(c)=\mathbf d(\hat M_K)$, mechanism 내부 형상 $\boldsymbol\kappa_K^\star(c)=\boldsymbol\kappa(\hat M_K)$, PIP actuator의 방향 $\alpha_2^\star(c)$. $\boldsymbol\kappa$는 mechanism $K$의 좌표 가운데 외형으로 정해지지 않는 나머지이다. CFL에서는 pivot $A$, $B$, $B'$의 위치이고, RCJ에서는 roller 반지름이다. 2R-DD와 2R-remote에서는 외형이 정해지면 mechanism도 정해지므로 $\boldsymbol\kappa$가 없다.
-- 운동의 변화 $\varepsilon_{\mathrm{kin}}$(위). Morphology 변화의 주 지표이다.
-- 기준 대비 외형과 내부 형상의 변화. 무엇이 바뀌어 운동이 바뀌었는지를 설명하는 보조 지표이다. 성분마다 부호를 남기고, 그 구조의 기준 손가락 길이로 나눈다. Phalanx 길이의 변화는 $x_{\mathrm{art}}$와 $L_f-x_{\mathrm{art}}$의 변화로 읽고, $L_1$, $L_2$의 변화는 pad가 놓인 범위의 변화로 읽는다(A.6.1).
-
-$$
-\Delta\mathbf d_K(c)=\frac{\mathbf d_K^\star(c)-\mathbf d_0^K}{L_{f,0}^K},
-\qquad
-\varepsilon_d=\big\|\Delta\mathbf d_K\big\|_\infty,
-\qquad
-\varepsilon_\kappa=\frac{\big\|\boldsymbol\kappa_K^\star(c)-\boldsymbol\kappa_0^K\big\|_\infty}{L_{f,0}^K}
-$$
-
-- Interface에 대한 민감도. Interface 치수가 조금 바뀔 때 최적 morphology가 움직이는 비율이다. 이웃 격자점 사이의 차분으로 구하며, 양쪽 이웃에서 모두 해를 찾은 점에서만 계산한다.
-
-$$
-\frac{\partial\mathbf d_K^\star}{\partial\ell},\quad
-\frac{\partial\mathbf d_K^\star}{\partial h},\quad
-\frac{\partial\boldsymbol\kappa_K^\star}{\partial\ell},\quad
-\frac{\partial\boldsymbol\kappa_K^\star}{\partial h}
-$$
-
-**단면.** 4차원 전체를 훑지 않고 대칭 단면 $\ell_1=\ell_2=\ell$, $h_1=h_2=h$ 위의 1차원 단면에서 평가한다.
-- 길이 단면: 두께 $h$를 고정하고 길이 $\ell$을 바꾼다.
-- 두께 단면: 길이 $\ell$을 고정하고 두께 $h$를 바꾼다.
-
-한 pad만 바꾸는 비대칭 단면은 이후에 같은 방식으로 더한다. 요구 flexion은 $q_{\mathrm{req}}\in\{90^\circ,120^\circ,150^\circ\}$이고, 각각 그 $q_{\mathrm{req}}$의 기준에서 출발한다. 단면의 고정값, 격자 간격, $\Delta_f$, $\delta_C$는 config에서 정한다.
-
-**탐색 규율.**
-- 격자점마다 양쪽 이웃 점의 해와 기준 설계를 초기해로 쓰고, 여러 seed로 탐색해 가장 좋은 결과를 남긴다.
-- 해를 찾지 못한 점에는 값을 두지 않는다. 이는 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, 그런 설계가 존재하지 않는다는 증명은 아니다.
-- 최적 morphology가 급격히 바뀌는 곳은 격자를 더 촘촘히 하고, 더 큰 예산과 다른 seed로 다시 확인한다.
-- 그림에서는 최적화한 점을 표시하고, 점 사이를 보간한 부분은 그 점들과 구분한다. 최적 morphology가 불연속적으로 바뀌는 곳은 매끄럽게 만들지 않는다.
-
-**해석.** 같은 interface 변화에 대해 $\bar C^\star$가 덜 떨어지는 구조는 그 interface 변화에 더 잘 맞춰질 수 있다. 같은 변화를 받으려고 외형 $\mathbf d^\star$가 덜 움직이는 구조는 interface가 바뀌어도 손가락의 겉모습을 더 많이 유지한다. 외형 대신 mechanism 내부 $\boldsymbol\kappa^\star$가 움직이는 구조는 interface 변화를 mechanism 안에서 흡수한다. 손가락을 다시 설계하지 않았을 때와의 비교는 Study 2b(A.6.4)에서 한다.
-
-### A.6.4. Study 2b: 교차 평가, 한 손가락으로 여러 interface 쓰기
-
-Study 2b는 Study 1과 Study 2a를 하나의 질문으로 묶는다. 어떤 interface에 맞춰 설계한 손가락에 다른 interface를 달면, 그 interface에 맞춰 다시 설계한 손가락에 비해 coverage를 얼마나 잃는가. 이것이 연구의 중심 주장을 재는 값이다. 손가락 하나로 여러 interface를 쓸 수 있는 구조에서는 이 손실이 작다.
-
-**손가락 길이.** Study 2b는 Study 2a의 재최적화를 손가락 길이를 기준에 고정하고($\Delta_f=0$, $L_f=90$ mm) 다시 한다. 손가락 길이를 풀면, 긴 pad에 맞춘 긴 손가락에 짧은 pad를 달 때와 짧은 pad에 맞춘 짧은 손가락에 긴 pad를 달 때 모두 크기 때문에 coverage를 잃는다. 이 손실은 모든 구조에 같이 생겨 구조 사이의 차이를 가린다. 또 실제로 interface를 바꿔 끼우는 손은 크기가 정해져 있다.
-
-**교차 평가.** 단면의 격자점 $c_a$마다 손가락 길이를 고정한 재최적화가 최적 morphology $\hat M_K(c_a)$를 준다. 이 손가락의 mechanism, actuation, structure를 그대로 두고, 같은 단면의 다른 interface $c_b$를 Study 1의 장착 규칙(A.6.2)으로 단다. 탐색은 하지 않는다.
-
-$$
-M_K(a\to b)=\big(K,\;C(c_b),\;A\big(\hat M_K(c_a)\big),\;S\big(\hat M_K(c_a)\big)\big)
-$$
-
-**유지율.** $c_a$에 맞춘 손가락이 $c_b$를 달고 내는 coverage를, $c_b$에 맞춰 다시 설계했을 때의 최적 coverage로 나눈다.
-
-$$
-\boxed{
-\rho_K(a\to b)=
-\begin{cases}
-\dfrac{\bar C_{\mathrm{pad}}\big(M_K(a\to b)\big)}{\bar C^\star_K(c_b)} & M_K(a\to b)\text{가 }q_{\mathrm{req}}\text{에서 }c_b\text{를 수용할 때 (A.6.2)}\\[10pt]
-0 & \text{수용하지 못할 때}
-\end{cases}
-}
-$$
-
-여기서 $\bar C^\star_K(c_b)$도 손가락 길이를 고정한 재최적화의 값이다. $\rho=1$이면 다시 설계할 필요가 없고, $\rho=0$이면 그 손가락으로는 그 interface를 쓸 수 없다. 손실(regret)은 $\bar C^\star_K(c_b)\,(1-\rho_K(a\to b))$이다. 수용하지 못한 경우는 그 이유(A.6.2의 어느 조건)를 함께 기록한다.
-
-**일관성.** $M_K(a\to b)$는 $c_b$의 재최적화가 탐색하는 설계 가운데 하나이므로 $\rho\le 1$이어야 한다. 교차 평가에서 $\bar C_{\mathrm{pad}}\big(M_K(a\to b)\big)>\bar C^\star_K(c_b)$가 나오면 재최적화가 최적에 못 미친 것이다. 이때는 그 설계를 초기해로 넣어 $c_b$의 재최적화를 다시 하고, $\bar C^\star_K(c_b)$를 고친 뒤 보고한다. 이 검사가 고친 횟수와 크기는 탐색 품질의 지표로 함께 보고한다. $a=b$에서는 재최적화와 장착 규칙의 pad 위치가 다를 수 있으므로 $\rho(a\to a)\le 1$이며, 이 값은 장착 규칙으로 잃는 양을 보여 준다.
-
-**요약 값.** Interface의 범위(family) $\mathcal C_{\mathrm{fam}}$을 미리 선언하고, 구조마다 다음을 보고한다.
-- 유지율 행렬 $\rho_K(a\to b)$ 전체.
-- 손가락 하나의 최악 유지율과 그 손가락. 범위 전체에서 가장 나쁜 경우가 가장 좋은 설계점을 고른다.
-
-$$
-\rho_K^{\mathrm{one}}=\max_{a}\;\min_{c_b\in\mathcal C_{\mathrm{fam}}}\rho_K(a\to b)
-$$
-
-- 기준 interface $c_{\mathrm{ref}}$에 맞춘 손가락 하나의 유지율 곡선 $\rho_K(c_{\mathrm{ref}}\to b)$. 모든 구조에 같은 $c_{\mathrm{ref}}$를 쓴다.
-
-**단면.** A.6.3과 같은 길이 단면과 두께 단면에서 평가한다. 두께 단면이 주 시나리오이다. 두께가 서로 다른 센서와 pad를 한 손가락에 바꿔 다는 것이 실제 교체 상황에 가장 가깝기 때문이다.
-
-Study 1(A.6.2)은 이 행렬에서 설계점을 native 기준으로 둔 한 행에 해당한다. Native 기준은 pad 길이를 탐색해 얻었으므로 구조마다 설계점이 다르다. 교차 평가는 모든 구조에 같은 설계점들을 쓴다.
-
-**해석.** $\rho_K^{\mathrm{one}}$이 높은 구조는 손가락 하나로 선언한 범위의 interface를 모두, 다시 설계한 것에 가까운 coverage로 쓴다. 행렬이 대각선 근처에서만 높은 구조는 interface마다 손가락을 다시 설계해야 한다. Study 2a의 $\Delta\mathbf d$와 민감도는 다시 설계할 때 손가락의 어느 부분이 얼마나 바뀌어야 하는지를 설명한다. 이 결과는 2차원 측면 모델과 이 문서의 coverage 정의 안에서의 비교이며, 실제 교체 가능성은 하드웨어에서 따로 보여야 한다.
+다음은 다루지 않으며, 필요해지면 따로 정의한다.
+- 손가락 하나에 여러 두께를 바꿔 다는 경우, 길이와 두께의 격자에서 pad 활용률로 수용 여부를 세는 정의, 선언한 범위(family)의 최악 활용률, tolerance 곡선: 2026-11-20까지의 Study 2 정의였으나 뺐다. Study 0의 관계에서, 손가락을 고정하면 어느 구조도 더 두꺼운 pad를 요구 flexion까지 쓰지 못한다.
+- 다시 설계할 때 필요한 최소 변화를 찾는 탐색, CFL이 pole을 내릴 수 있는 한계의 해석.
+- 손가락 길이를 푸는 실험, 두 pad의 두께가 다른 interface.
+- Transmission 요소의 가림과 mechanical advantage 하한. 가림은 study 전체에서 고려하지 않고(A.6.1), $MA_{\mathrm{wc}}$는 제약 없이 결과로만 보고한다.
 
 ## A.7. 기호 정리
 
@@ -641,14 +599,12 @@ Study 1(A.6.2)은 이 행렬에서 설계점을 native 기준으로 둔 한 행�
 | $x_{\mathrm{art}}$ | Articulation 위치: 기준 자세에서 순간 회전 중심 $\mathbf r_{\mathrm{ICR}}$의 $\mathbf e_x$ 방향 위치. 펼친 손가락에서 proximal phalanx의 길이(MCP 축부터 굽는 곳까지); distal phalanx는 $L_f-x_{\mathrm{art}}$ |
 | $\mathbf d(M)$ | 외형 descriptor $(L_f,L_1,L_2,x_{\mathrm{art}})$ |
 | $\boldsymbol\kappa(M)$ | Mechanism 내부 형상: 외형으로 정해지지 않는 mechanism 좌표 |
-| $M_K^\star(c)$, $\hat M_K(c)$ | Interface $c$에 맞춘 재최적화의 최적 morphology, 그 가운데 기준 외형에 가장 가까운 것 (Study 2a) |
-| $\bar C^\star_K(c)$ | Interface $c$에서의 최적 coverage (Study 2a) |
-| $\mathbf d_K^\star(c)$, $\boldsymbol\kappa_K^\star(c)$ | 최적 외형, 최적 mechanism 내부 형상 (Study 2a) |
-| $\varepsilon_{\mathrm{kin}}(M)$ | 운동의 변화: $[0,q_{\mathrm{req}}]$에서 손끝 위치가 기준과 가장 멀어지는 거리, $L_{f,0}^K$로 나눔. Study 2a에서 morphology 변화의 주 지표 |
-| $\Delta\mathbf d_K(c)$, $\varepsilon_d$, $\varepsilon_\kappa$ | 기준 대비 외형 변화(성분별, $L_{f,0}^K$로 정규화), 그 최댓값, mechanism 내부 변화량 (Study 2a) |
-| $\Delta_f$, $\delta_C$ | 재최적화에서 손가락 길이의 허용 범위(Study 2a: $>0$, Study 2b: $0$), 최적 coverage의 허용 폭 |
-| $M_K(a\to b)$, $\rho_K(a\to b)$ | $c_a$에 맞춘 손가락에 $c_b$를 단 morphology, 그 유지율: 다시 설계한 최적 coverage 대비 비율 (Study 2b, A.6.4) |
-| $\mathcal C_{\mathrm{fam}}$, $\rho_K^{\mathrm{one}}$ | 선언한 interface 범위, 손가락 하나로 그 범위에서 얻는 최악 유지율의 최댓값 (Study 2b, A.6.4) |
+| $\bar C^\star_K(h,q_{\mathrm{req}})$, $M^\star_K(h)$ | 두께 $h$와 요구 flexion마다 최적화한 손가락의 coverage와 그 설계 (Study 1) |
+| $\mathbf P(M,q)$, $z(q)$ | Pole: flexion $q$의 자세가 기준 자세를 그 점을 중심으로 돌린 것이 되는 점, 그 점이 link 선에서 palmar 쪽으로 내려온 깊이 (Study 0) |
+| $d_i$, $t_i$, $\tau_i(q)$ | 장착 깊이, contact face의 깊이 $d_i+h_i$, pole에서 본 contact face의 깊이 $t_i-z(q)$ |
+| $G$, $q^\ast$ | 관절 간격(기준 자세에서 두 pad의 관절 쪽 끝 사이 길이), 그것을 정하는 임계 flexion |
+| $\mathbf p(q)$, $\mathbf c(M,q)$ | Contact face를 기준으로 본 pole의 위치, proximal contact face를 기준으로 본 distal contact face 위의 점의 경로 |
+| $D_c(M,M')$, $D_s(M,M')$ | 두 손가락의 접촉면에서 본 운동의 차이, 뼈대(손끝) 운동의 차이. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
 
