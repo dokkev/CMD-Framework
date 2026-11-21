@@ -21,3 +21,17 @@ gym.register(
         "default_agent": "rsl_rl",
     },
 )
+
+# The CoDe hand, one task per contact interface (Study 3 pilot; code_env_cfg.py). Same MDP, robot and PPO
+# settings; only the pads' contact surface differs.
+for _variant, _cfg in (("CoDeFlat", "CoDeFlatReorientEnvCfg"), ("CoDeCrowned", "CoDeCrownedReorientEnvCfg")):
+    gym.register(
+        id=f"CoDe-Reorient-Cube-{_variant}",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.code_env_cfg:{_cfg}",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeReorientPPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )

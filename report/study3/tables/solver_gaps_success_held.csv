@@ -1,0 +1,9 @@
+train_variant,train_seed,test_variant,mjwarp,vbd,solver_gap
+crowned,0,crowned,0.48046875,0.0,0.48046875
+crowned,0,flat,0.53125,0.0,0.53125
+crowned,1,crowned,0.515625,0.0,0.515625
+crowned,1,flat,0.1171875,0.0,0.1171875
+flat,0,crowned,0.41796875,0.0,0.41796875
+flat,0,flat,0.59375,0.0,0.59375
+flat,1,crowned,0.30078125,0.16796875,0.1328125
+flat,1,flat,0.34375,0.16015625,0.18359375

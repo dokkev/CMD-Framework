@@ -1,0 +1,9 @@
+train_variant,train_seed,physics,in_domain,cross,transfer_gap
+crowned,0,newton_mjwarp,0.48046875,0.53125,-0.05078125
+crowned,0,newton_vbd,0.0,0.0,0.0
+crowned,1,newton_mjwarp,0.515625,0.1171875,0.3984375
+crowned,1,newton_vbd,0.0,0.0,0.0
+flat,0,newton_mjwarp,0.59375,0.41796875,0.17578125
+flat,0,newton_vbd,0.0,0.0,0.0
+flat,1,newton_mjwarp,0.34375,0.30078125,0.04296875
+flat,1,newton_vbd,0.16015625,0.16796875,-0.0078125

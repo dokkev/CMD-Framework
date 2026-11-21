@@ -19,6 +19,7 @@ from typing import Any, Literal
 
 import numpy as np
 
+from ..contact_interface import is_pad, pad_mesh
 from .description import Description, rod_inertia
 
 LoopKind = Literal["ball", "revolute"]
@@ -100,8 +101,13 @@ def write_usd(
     kd: float = 0.05,
     colliders: bool = False,
     passive_limit_margin_deg: float = 0.0,
+    pad_profile=None,
 ) -> Path:
     """Write the hand as a ``UsdPhysics`` stage (``ke``/``kd`` in N m/rad, authored in per-degree USD units).
+
+    ``pad_profile`` (a :class:`~code_isaaclab.contact_interface.PadProfile`) authors every pad (a box named
+    ``*_pad``) as a convex mesh of that contact-face profile instead of a box primitive, with the same mounting
+    face, length and width (convex-hull collision approximation). Other boxes stay boxes.
 
     ``passive_limit_margin_deg`` widens passive tree-joint limits so loop closure and passive joint stops do not
     become active simultaneously at the end of the PIP range (important on hard bilateral solvers such as Kamino).
@@ -148,6 +154,24 @@ def write_usd(
                 UsdPhysics.CollisionAPI.Apply(cap.GetPrim())
 
         for box in body.get("boxes", []):
+            if pad_profile is not None and is_pad(box):
+                points, counts, indices = pad_mesh(box["half_extents"], pad_profile)
+                mesh = UsdGeom.Mesh.Define(stage, f"/code_hand/{body['name']}/{box['name']}")
+                mesh.CreatePointsAttr([Gf.Vec3f(*p) for p in points])
+                mesh.CreateFaceVertexCountsAttr(counts)
+                mesh.CreateFaceVertexIndicesAttr(indices)
+                mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+                w, x, y, z = box["quat_wxyz"]
+                mesh.AddTranslateOp().Set(Gf.Vec3d(*(np.asarray(box["center"], dtype=float) - origin[body["name"]])))
+                mesh.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(w, x, y, z))
+                mesh.GetPrim().SetCustomDataByKey("code:pad_profile", pad_profile.name)
+                mesh.GetPrim().SetCustomDataByKey("code:crown_mm", float(pad_profile.crown_mm))
+                if colliders:
+                    UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+                    UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).CreateApproximationAttr(
+                        UsdPhysics.Tokens.convexHull
+                    )
+                continue
             cube = UsdGeom.Cube.Define(stage, f"/code_hand/{body['name']}/{box['name']}")
             cube.CreateSizeAttr(1.0)
             w, x, y, z = box["quat_wxyz"]

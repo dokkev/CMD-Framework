@@ -41,14 +41,34 @@ def condition_folder(name: str, spec: dict[str, Any], flexion: float, thickness:
     return REPOSITORY_ROOT / "output" / "study" / spec["mechanism"] / tag
 
 
-def _has_design(portfolio: Path) -> bool:
-    """The portfolio holds a design (a run that found none writes its seeds without one)."""
+CONTINUED = "_cont"
+"""Suffix of a condition's folder searched again from its neighbours' designs
+(``study1_thickness_coverage/run_continuation.sh``)."""
+
+
+def _coverage(portfolio: Path) -> float | None:
+    """The coverage of the portfolio's design (``None``: it holds none; a run
+    that found no feasible design writes its seeds without one)."""
 
     seeds = portfolio / "seeds.csv"
     if not seeds.exists():
-        return False
+        return None
     with seeds.open(encoding="utf-8", newline="") as stream:
-        return any("balanced" in row.get("seed_role", "") for row in csv.DictReader(stream))
+        values = [float(row["c_pad_mean"]) for row in csv.DictReader(stream)
+                  if "balanced" in row.get("seed_role", "") and row.get("c_pad_mean") not in (None, "")]
+    return max(values, default=None)
+
+
+def best_portfolio(folder: Path) -> Path | None:
+    """The condition's portfolio with the most coverage: the latest of its
+    independent runs or of its continuation (``None``: no design in either)."""
+
+    found = []
+    for candidate in (folder, folder.with_name(folder.name + CONTINUED)):
+        portfolios = sorted(candidate.glob("portfolio_*"))
+        if portfolios and (value := _coverage(portfolios[-1])) is not None:
+            found.append((value, portfolios[-1]))
+    return max(found, key=lambda item: item[0])[1] if found else None
 
 
 def study1_designs(name: str, spec: dict[str, Any], flexion: float, config: dict[str, Any]) -> dict[float, Any]:
@@ -59,15 +79,15 @@ def study1_designs(name: str, spec: dict[str, Any], flexion: float, config: dict
     native = float(config["native_thickness_mm"])
     specs = []
     for thickness in (float(h) for h in config["thickness_mm"]):
-        portfolios = sorted(condition_folder(name, spec, flexion, thickness, native).glob("portfolio_*"))
-        if not portfolios or not _has_design(portfolios[-1]):
+        portfolio = best_portfolio(condition_folder(name, spec, flexion, thickness, native))
+        if portfolio is None:
             continue
         entry = {"id": f"{name}_q{flexion:g}_h{thickness:g}", "config": spec["config"],
                  "required_flexion_deg": flexion, "role": "balanced",
-                 "portfolio": str(portfolios[-1].relative_to(REPOSITORY_ROOT)),
+                 "portfolio": str(portfolio.relative_to(REPOSITORY_ROOT)),
                  "upper_bound": bool(spec.get("upper_bound", False)),
                  "set": [f"goal.pads.proximal.height_mm={thickness:g}", f"goal.pads.distal.height_mm={thickness:g}"]}
-        if thickness == native and spec.get("native_design"):
+        if thickness == native and spec.get("native_design") and not portfolio.parent.name.endswith(CONTINUED):
             entry["design"] = spec["native_design"]
         specs.append((thickness, entry))
     found = shared.references({"native": [entry for _, entry in specs]}, ("native",),

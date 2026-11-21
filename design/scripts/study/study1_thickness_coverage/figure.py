@@ -43,10 +43,9 @@ ARCH = [("cfl", "linkage", "CFL"), ("2r_remote", "revolute_parallel", "2R-remote
 THICKNESS, FLEXION, NATIVE = (3, 5, 7, 9), (90, 120, 150), 5
 
 
-def best(file: str, mechanism: str, q: int, h: int) -> dict | None:
-    """The best design of one condition's latest portfolio (``None``: not run, or no design)."""
+def _folder_best(folder: Path) -> dict | None:
+    """The best design of a folder's latest portfolio, with its runs' spread."""
 
-    folder = OUTPUT / mechanism / (f"{file}_q{q}" if h == NATIVE else f"{file}_q{q}_h{h}")
     portfolios = sorted(folder.glob("portfolio_*/seeds.csv"))
     if not portfolios:
         return None
@@ -66,6 +65,22 @@ def best(file: str, mechanism: str, q: int, h: int) -> dict | None:
     return top
 
 
+def best(file: str, mechanism: str, q: int, h: int) -> dict | None:
+    """The best design of one condition: of its independent runs or, when it
+    was searched again from its neighbours' designs (``run_continuation.sh``,
+    ``<folder>_cont``), of those if better (``None``: not run, or no design).
+    ``independent``: the independent runs' own best."""
+
+    folder = OUTPUT / mechanism / (f"{file}_q{q}" if h == NATIVE else f"{file}_q{q}_h{h}")
+    own, continued = _folder_best(folder), _folder_best(folder.with_name(folder.name + "_cont"))
+    top = max((row for row in (own, continued) if row is not None), key=lambda r: float(r["c_pad_mean"]), default=None)
+    if top is None:
+        return None
+    top["source"] = "continuation" if top is continued and continued is not own else "independent"
+    top["independent"] = "" if own is None else float(own["c_pad_mean"])
+    return top
+
+
 def collect() -> list[dict]:
     found = []
     for file, mechanism, name in ARCH:
@@ -79,6 +94,7 @@ def collect() -> list[dict]:
                 found.append({"architecture": name, "mechanism": mechanism, "required_flexion_deg": q,
                               "thickness_mm": h, "c_pad_mean": float(row["c_pad_mean"]),
                               "c_pad_run_low": float(row["run_low"]), "runs": row["runs"],
+                              "source": row["source"], "c_pad_independent": row["independent"],
                               "stop_reason": row.get("stop_reason", ""), "collision_pair": row.get("collision_pair", ""),
                               "pad_coverage": pads / length,
                               "proximal_pad_mm": float(row["proximal_support_length_mm"]),
