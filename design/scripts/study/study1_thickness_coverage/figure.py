@@ -72,7 +72,7 @@ def best(file: str, mechanism: str, q: int, h: int) -> dict | None:
     ``independent``: the independent runs' own best."""
 
     folder = OUTPUT / mechanism / (f"{file}_q{q}" if h == NATIVE else f"{file}_q{q}_h{h}")
-    own, continued = _folder_best(folder), _folder_best(folder.with_name(folder.name + "_cont"))
+    own, continued = _folder_best(folder), _folder_best(OUTPUT / mechanism / f"{file}_q{q}_h{h}_cont")
     top = max((row for row in (own, continued) if row is not None), key=lambda r: float(r["c_pad_mean"]), default=None)
     if top is None:
         return None

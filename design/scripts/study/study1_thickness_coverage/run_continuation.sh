@@ -37,7 +37,7 @@ search() {  # file, flexion, thickness
   local f=$1 q=$2 h=$3 warm="" other seeds
   for other in $THICKNESSES; do
     [ "$other" = "$h" ] && continue
-    seeds=$(latest "$(folder "$f" "$q" "$other")_cont")           # the continuation's, when there is one
+    seeds=$(latest "output/study/$(awk '/^mechanism:/ {print $2}' "scripts/study/$f.yaml")/${f}_q${q}_h${other}_cont")  # the continuation's, when there is one
     [ -z "$seeds" ] && seeds=$(latest "$(folder "$f" "$q" "$other")")
     [ -n "$seeds" ] && warm="${warm:+$warm, }$seeds"
   done

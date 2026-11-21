@@ -59,12 +59,18 @@ def _coverage(portfolio: Path) -> float | None:
     return max(values, default=None)
 
 
-def best_portfolio(folder: Path) -> Path | None:
+def continued_folder(name: str, spec: dict[str, Any], flexion: float, thickness: float) -> Path:
+    """Where ``run_continuation.sh`` writes a condition (its tag always names the thickness, 5 mm included)."""
+
+    return REPOSITORY_ROOT / "output" / "study" / spec["mechanism"] / f"{name}_q{flexion:g}_h{thickness:g}{CONTINUED}"
+
+
+def best_portfolio(folder: Path, continued: Path | None = None) -> Path | None:
     """The condition's portfolio with the most coverage: the latest of its
     independent runs or of its continuation (``None``: no design in either)."""
 
     found = []
-    for candidate in (folder, folder.with_name(folder.name + CONTINUED)):
+    for candidate in (folder, continued if continued is not None else folder.with_name(folder.name + CONTINUED)):
         portfolios = sorted(candidate.glob("portfolio_*"))
         if portfolios and (value := _coverage(portfolios[-1])) is not None:
             found.append((value, portfolios[-1]))
@@ -79,7 +85,8 @@ def study1_designs(name: str, spec: dict[str, Any], flexion: float, config: dict
     native = float(config["native_thickness_mm"])
     specs = []
     for thickness in (float(h) for h in config["thickness_mm"]):
-        portfolio = best_portfolio(condition_folder(name, spec, flexion, thickness, native))
+        portfolio = best_portfolio(condition_folder(name, spec, flexion, thickness, native),
+                                   continued_folder(name, spec, flexion, thickness))
         if portfolio is None:
             continue
         entry = {"id": f"{name}_q{flexion:g}_h{thickness:g}", "config": spec["config"],
