@@ -1,6 +1,6 @@
 # Study 3 pilot: 접촉면 형상, RL, solver 간 전이
 
-작성: 2026-11-21. 상태: pilot 완료. Study 3A는 결과 있음, Study 3B는 solver 검증에서 막혀 해석하지 않음. 시뮬레이션만의 예비 결과이며, 손의 질량·관성·관절 한계·servo armature는 placeholder다.
+작성: 2026-11-21. 상태: pilot 완료. Study 3A는 형상마다 seed 5개로 결과를 냄. Study 3B는 solver 검증에서 막혀 해석하지 않음(seed 0–1로 실행). 시뮬레이션만의 예비 결과이며, 손의 질량·관성·관절 한계·servo armature는 placeholder다.
 
 원칙: **로봇은 고정하고 접촉면만 바꾼다.**
 
@@ -58,7 +58,7 @@ goal 축은 학습 전에 flat 형상으로만 한 scripted probe로 정했다. 
 | env | 128 |
 | iteration | 488 |
 | transition | 1,499,136 |
-| seed | 0, 1 |
+| seed | 0–4 (3B의 VBD 재생은 0–1) |
 | physics | MuJoCo-Warp(`newton_mjwarp`: implicitfast, elliptic cone, impratio 10, substep 2, dt 1/120 s, decimation 4) |
 
 **평가.** 각 checkpoint의 결정적(평균) action을 쓰고 정책은 고정한다. env 256개가 각자 첫 episode 하나를 둔다(eval seed 1000). 그래서 16칸 모두 cube 위치 noise, 관절 noise, 첫 goal이 같다. 초기 상태 hash가 16칸 전부 하나였다.
@@ -111,45 +111,51 @@ goal 축은 학습 전에 flat 형상으로만 한 scripted probe로 정했다. 
 | 학습 (MuJoCo-Warp, 128 env, 진단 없음) | 약 4,400 transition/s, run당 342–370 s |
 | 진단 포함 rollout (16 env) | MuJoCo-Warp 약 900 env-step/s, VBD 약 250 env-step/s |
 
-## 4. Study 3A 결과 (MuJoCo-Warp)
+## 4. Study 3A 결과 (MuJoCo-Warp, 형상마다 seed 5개)
 
 ![learning](figures/study3_learning_curves.png)
 
-**학습 곡선.** 두 seed가 형상마다 거의 겹친다.
+**학습 곡선.** flat의 다섯 seed는 비슷하게 오른다. crowned는 두 갈래다.
 
-- flat은 0.4M transition부터 빠르게 오르고, episode 길이가 165–181 step(최대 300)까지 늘어 cube를 오래 쥔다.
-- crowned는 1.0M 이후에야 오른다. 끝의 success_rate는 비슷하지만(0.35–0.38 대 flat 0.33–0.37) episode 길이는 41–42 step이다.
-- crowned 곡선은 1.5M에서도 가파르게 올라 수렴하지 않았다.
+- seed 0과 1은 1.0M 이후에야 오르고 episode가 짧다(41–42 step).
+- seed 2–4는 flat과 같거나 더 빨리 오른다.
 
-**고정 checkpoint 평가.** episode 256개씩이고, 성공률의 표준오차는 약 0.03이다. 표는 `tables/cells.csv`에 있다.
+seed 2개만 보았을 때의 "crowned가 늦게 배운다"는 이 갈래 하나였다.
 
-| 학습 | seed | 시험 | 첫 goal | held | 떨어뜨림 | goal 수 | episode 길이 | pad 접촉 수 | pad 외 힘 [N] |
-|---|---|---|---|---|---|---|---|---|---|
-| flat | 0 | flat | **0.605** | 0.594 | 0.18 | 0.98 | 261 | 2.1 | 0.0 |
-| flat | 0 | crowned | 0.438 | 0.418 | 0.20 | 0.52 | 248 | 2.2 | 0.3 |
-| flat | 1 | flat | **0.367** | 0.344 | 0.21 | 0.56 | 253 | 1.7 | 0.0 |
-| flat | 1 | crowned | 0.309 | 0.301 | 0.16 | 0.55 | 268 | 1.5 | 0.1 |
-| crowned | 0 | crowned | **0.590** | 0.480 | 0.65 | 3.24 | 153 | 3.1 | 17.5 |
-| crowned | 0 | flat | 0.605 | 0.531 | 0.65 | 3.70 | 157 | 3.2 | 19.3 |
-| crowned | 1 | crowned | **0.660** | 0.516 | 0.95 | 6.04 | 86 | 2.9 | 15.0 |
-| crowned | 1 | flat | 0.258 | 0.117 | 0.99 | 1.20 | 42 | 2.2 | 8.6 |
+**고정 checkpoint 평가.** 조건마다 episode 256개이고, 칸 하나의 성공률 표준오차는 약 0.03이다. 표는 `tables/cells.csv`에 있다.
+
+| 학습 → 시험 | seed 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| flat → flat: 첫 goal / held / 떨어뜨림 | 0.61 / 0.59 / 0.18 | 0.37 / 0.34 / 0.21 | 0.76 / 0.70 / 0.37 | 0.54 / 0.54 / 0.08 | 0.59 / 0.57 / 0.16 |
+| flat → crowned | 0.44 / 0.42 / 0.20 | 0.31 / 0.30 / 0.16 | 0.50 / 0.48 / 0.25 | 0.28 / 0.27 / 0.15 | 0.46 / 0.45 / 0.14 |
+| crowned → crowned | 0.59 / 0.48 / 0.65 | 0.66 / 0.52 / 0.95 | 0.22 / 0.21 / 0.16 | 0.85 / 0.24 / 0.71 | 0.33 / 0.32 / 0.08 |
+| crowned → flat | 0.61 / 0.53 / 0.65 | 0.26 / 0.12 / 0.99 | 0.24 / 0.20 / 0.21 | 0.79 / 0.13 / 0.83 | 0.39 / 0.38 / 0.20 |
+| pad 외 힘 [N], in-domain: flat / crowned | 0.0 / 17.5 | 0.0 / 15.0 | 0.1 / 0.3 | 0.5 / 0.0 | 0.0 / 0.0 |
 
 ![matrix](figures/study3a_transfer_matrix.png)
 
-**전이 격차** TransferGap(i→j) = Success(i, i) − Success(i, j):
+**seed를 단위로 한 검정.** `tables/seed_stats.csv`에 있다. in-domain 비교는 정확 permutation 검정(5 대 5, 배치 252가지)이고, 전이 격차는 정확 sign-flip 검정(32가지, 최소 p 0.0625)이다. 다중비교 보정은 하지 않았다.
 
-| 학습 | seed | 첫 goal 기준 | held 기준 |
-|---|---|---|---|
-| flat → crowned | 0 | +0.17 | +0.18 |
-| flat → crowned | 1 | +0.06 | +0.04 |
-| crowned → flat | 0 | −0.02 | −0.05 |
-| crowned → flat | 1 | +0.40 | +0.40 |
+| 비교 | flat | crowned | 차이 / 효과 크기 | p |
+|---|---|---|---|---|
+| in-domain 첫 goal 성공 | 0.573 ± 0.140 | 0.530 ± 0.256 | −0.04, g −0.19 | 0.75 |
+| in-domain held success | 0.548 ± 0.129 | 0.353 ± 0.138 | −0.20, g −1.32 | 0.048 |
+| in-domain 떨어뜨림 | 0.198 ± 0.105 | 0.509 ± 0.372 | +0.31, g 1.03 | 0.14 |
+| in-domain pad 외 힘 [N] | 0.13 ± 0.22 | 6.6 ± 8.9 | g 0.93 | 0.26 |
+| 전이 격차 flat → crowned, 첫 goal | +0.176 ± 0.086 (5/5 양수) | | | 0.0625 (paired t: 0.010) |
+| 전이 격차 flat → crowned, held | +0.166 ± 0.087 (5/5 양수) | | | 0.0625 |
+| 전이 격차 crowned → flat, 첫 goal | +0.075 ± 0.189 | | | 0.69 |
+| 전이 격차 crowned → flat, held | +0.080 ± 0.191 | | | 0.50 |
 
-**행동.** 대표 episode는 `figures/study3_trajectories_seed{0,1}.png`에 있다. 선 색은 시험 형상이다.
+seed 간 분산도 비교했다(Brown–Forsythe, 정확 permutation). crowned 학습이 더 흩어져 보이지만 유의하지 않다(떨어뜨림 p 0.12, 첫 goal p 0.23, pad 외 힘 p 0.13).
 
-- **flat 정책**: cube를 첫 goal 쪽으로 한 번 부드럽게 돌린 뒤 그대로 쥔다. 다음 goal은 거의 따라가지 않는다(goal 수 0.5–1.0).
-- **crowned 정책**: 빠르게 흔드는 동작으로 goal을 여러 개 쫓는다(3–6개). 그러다 cube를 떨어뜨린다.
-- **접촉 전략**: crowned 정책은 pad가 아닌 몸체로 cube에 15–19 N을 가한다. flat 정책은 0–0.3 N이다. crowned 정책은 flat 손에서도 같은 전략을 쓴다(8.6–19.3 N). 그래서 이 차이는 시험 형상의 기하가 아니라 학습 형상이 만든 정책의 전략이다.
+**행동.** 대표 episode는 `figures/study3_trajectories_seed{0..4}.png`에 있다.
+
+- flat 정책은 다섯 모두 cube를 쥐고 첫 goal 쪽으로 한 번 부드럽게 돌린다(떨어뜨림 0.08–0.37, pad 외 힘 0.5 N 이하).
+- crowned 정책은 갈린다.
+  - seed 0과 1은 pad 외 몸체로 cube를 누르며(15–17.5 N) 빠르게 흔들어 goal을 여럿 쫓다가 떨어뜨린다.
+  - seed 3은 pad만 쓰지만 첫 goal 뒤 대부분 떨어뜨린다(held 0.24, 떨어뜨림 0.71).
+  - seed 2와 4는 flat 정책처럼 쥐고 돈다.
 
 ![trajectories](figures/study3_trajectories_seed0.png)
 
@@ -185,7 +191,7 @@ loop 파손(수치 실패)과 강한 접촉 반발(접촉 모델 차이)이 섞�
 - **placeholder 동역학.** 질량, 관성, 직구동 관절 한계(AA ±30°, stop 없음), servo armature, pad 폭(19 mm), 손바닥(capsule)과 엄지(pad 없음)가 모두 placeholder다.
 - **implicit servo.** 큰 동작이 실제 모터보다 2–4배 빠르다. 정책 action이 거의 포화되어 있어(평균 |a| 1.4–2.2), 실제 servo의 속도 한계가 결과를 바꿀 수 있다.
 - **goal 분포.** 수직축 ±30°로, upstream의 SO(3)보다 훨씬 쉽다. 축은 flat 형상의 probe로만 정했다.
-- **학습 예산과 seed.** 1.5M transition에서 crowned는 수렴하지 않았다. seed 2개는 통계적 확인이 아니다. flat seed 0과 1의 in-domain 성공률도 0.24 차이 난다.
+- **학습 예산과 seed.** 1.5M transition에서 여러 run이 수렴하지 않았다(그림의 끝 기울기). seed는 형상마다 5개라 seed 간 차이(flat 첫 goal 0.37–0.76)가 크고, 검정력이 낮다. 지표를 미리 하나로 정하지 않아 다중비교 보정을 하지 않았다.
 - **성공 지표.** 첫 goal은 조건 간에 정확히 맞춰지지만, 그 뒤의 goal은 조건마다 다른 시점에 뽑혀 맞춰지지 않는다. crowned 정책은 첫 goal에는 닿고 곧 떨어뜨리므로, 첫 goal만 보면 조작 품질을 과대평가한다. 그래서 held success와 떨어뜨림을 함께 보고했다.
 - **pad 외 접촉의 출처.** 어느 몸체(엄지, link, 이웃 손가락)인지는 아직 분해하지 않았다. 지금은 합만 있다.
 - **VBD.** contact sensor 미지원, loop 파손, 강한 접촉 반발이 있다.
@@ -194,29 +200,32 @@ loop 파손(수치 실패)과 강한 접촉 반발(접촉 모델 차이)이 섞�
 
 ## 7. 데이터가 지지하는 것과 지지하지 않는 것
 
-**지지함 (시뮬레이션, seed 2개, 예비):**
+**지지함 (시뮬레이션, 형상마다 seed 5개, 1.5M transition, 예비):**
 
-1. 실제 CoDe 손(crossed four-bar 셋, loop 닫힘)이 접촉면만 다른 두 형상으로 같은 RL task를 학습할 수 있다. 1.5M transition에서 두 형상 모두 in-domain 첫 goal 성공 0.37–0.66을 보였다.
-2. 접촉면만 바꾸어도 학습된 행동이 크게 달라진다(H3A.1의 행동 부분). 두 seed 모두에서 일관됐다.
-   - flat은 cube를 쥐고 천천히 돌리는 전략이다(떨어뜨림 0.18–0.21, pad 외 힘 0–0.3 N).
-   - crowned는 빠르게 흔들며 pad 외 몸체를 쓰는 전략이다(떨어뜨림 0.65–0.95, pad 외 힘 15–17.5 N).
-   - 학습 곡선의 속도도 다르다(flat이 먼저 오름).
-3. 학습 전에도 같은 손가락 벌림이 crowned에서 cube를 5–13배 더 돌린다(두 solver에서 같은 방향).
+1. 실제 CoDe 손(crossed four-bar 셋, loop 닫힘)이 접촉면만 다른 두 형상으로 같은 RL task를 학습한다. in-domain 첫 goal 성공은 0.22–0.85다.
+2. **flat에서 학습한 정책은 crowned 손에서 성능을 잃는다.** 다섯 seed 모두 그렇다(첫 goal +0.18 ± 0.09, held +0.17 ± 0.09). 부호 검정 p 0.0625는 seed 5개로 얻을 수 있는 최소값이고, paired t 검정은 p 0.010이다. 떨어뜨림은 늘지 않는다(+0.02). 곧 cube는 계속 쥐지만 goal 방향으로 돌리지 못한다. 이것은 학습 전 측정과 맞는다. 같은 손가락 벌림이 crowned에서 cube를 5–13배 더 돌리므로, flat의 약한 결합에 맞춘 동작은 crowned에서 맞지 않는다. 다만 이 연결은 가설이고 따로 검증하지 않았다.
+3. **학습 전 수동 접촉 효과.** 같은 벌림 지령에서 crowned가 cube를 5–13배 더 돌린다. 두 solver에서 방향이 같다.
+
+**약하게 지지함:**
+
+4. crowned에서 학습한 정책은 첫 goal 뒤 cube를 덜 지킨다(held 0.35 대 0.55, g −1.32, p 0.048). 지표 8개 중 하나라 보정하면 남지 않는다.
 
 **지지하지 않음:**
 
-1. 어느 형상이 첫 goal 성공에 더 낫다는 것. in-domain 성공의 형상 차이(flat 0.37/0.61, crowned 0.59/0.66)는 seed 간 차이와 같은 크기다.
-2. 형상 간 전이 격차의 일반적 크기(H3A.2). 네 정책 중 둘은 격차가 작고(−0.02, +0.06), 둘은 크다(+0.17, +0.40). seed에 따라 다르다. flat 정책이 crowned 손에서도 떨어뜨림을 낮게 유지한다는 점만 두 seed에서 같았다(0.16–0.20).
-3. 형상에 따른 solver 강건성(3B). VBD가 이 정책들을 안정하게 평가하지 못한다.
+1. 형상이 첫 goal 성공을 바꾼다는 것(0.57 대 0.53, p 0.75).
+2. 형상이 학습 전략을 일관되게 바꾼다는 것. seed 2개에서는 그렇게 보였지만, 다섯 개에서는 crowned 정책 중 둘만 pad 외 접촉에 기댔다(p 0.26).
+3. crowned에서 학습한 정책이 flat 손에서 성능을 잃는다는 것(+0.08 ± 0.19, p 0.69). 전이 격차는 비대칭이다.
+4. 형상에 따른 solver 강건성(3B). VBD가 이 정책들을 안정하게 평가하지 못한다.
 
 ## 8. 다음 실험 추천
 
-더 큰 Study 3은 3A에 한해 정당화된다고 본다. 형상이 학습된 전략을 바꾼다는 신호가 seed 사이에서 일관됐다. 순서는 다음과 같다.
+더 큰 Study 3A는 정당화된다. 가장 확실한 신호는 flat → crowned 전이 손실(5/5 seed)이고, 그 다음은 held success의 차이다.
 
-1. **3A를 수렴까지.** 형상마다 seed 5개, 학습은 success가 평탄해질 때까지(5–10M 예상) 돌린다. 평가는 지금의 matched protocol 그대로, held success와 떨어뜨림을 주 지표에 넣는다.
-2. **pad 외 접촉을 몸체별로 기록한다.** 이미 있는 cube sensor의 filter 열을 몸체별로 저장하면 된다. crowned 전략이 어디에 기대는지(엄지, link, 이웃 손가락) 밝힌다.
-3. **3B는 solver 검증부터 다시.** 두 형상에 똑같이 action 변화율 제한(upstream의 EMA α < 1)을 두어 정책이 VBD가 통과한 느린 영역에 머물게 하고, 그 조건으로 다시 학습한다. 아니면 큰 step 지령에서 loop와 cube를 유지하는 VBD 설정 또는 다른 backend(Kamino, E5)를 먼저 찾는다. 그 전에는 cross-solver 점수를 내지 않는다.
-4. **placeholder 줄이기.** explicit servo로 학습할 수 있는 backend 조합, AA stop, 엄지 pad를 넣는다.
+1. **수렴까지, seed 10개.** 형상마다 seed 10개로 success가 평탄해질 때까지(5–10M 예상) 학습한다. 주 지표는 전이 격차와 held success로 미리 정한다. 그러면 보정 없는 다중비교 문제가 사라진다. 이번의 전이 격차 크기(0.18 ± 0.09)라면 seed 10개로 충분하다.
+2. **전이 비대칭의 원인을 직접 잰다.** 같은 정책 action을 두 손에 재생하고, 손가락 벌림당 cube 회전(학습 전 지표)을 policy rollout 안에서 잰다. "flat 정책은 crowned에서 결합이 강해 overshoot한다"는 가설을 이렇게 시험한다.
+3. **pad 외 접촉을 몸체별로 기록한다.** crowned seed 0과 1의 전략이 어디에 기대는지(엄지, link, 이웃 손가락) 밝힌다.
+4. **3B는 solver 검증부터 다시 한다.** 두 형상에 똑같이 action 변화율 제한(EMA α < 1)을 둔 task로 다시 학습한다. 아니면 큰 step 지령에서 loop와 cube를 유지하는 backend 설정(VBD 강화, Kamino)을 먼저 찾는다. 그 전에는 cross-solver 점수를 내지 않는다.
+5. **placeholder를 줄인다.** explicit servo, AA stop, 엄지 pad.
 
 ## 9. 재현
 
@@ -225,7 +234,7 @@ monorepo의 `sim/isaaclab/`에서 실행한다(design 단계는 conda `cmd` 환�
 ```bash
 bash scripts/study3/run_pilot.sh export     # design: python scripts/export/code_hand_sim.py --params core/morphology/code_hand/pivot8_balanced.yaml --out output/sim/study3/code_hand_pivot8.json
 bash scripts/study3/run_pilot.sh validate   # Gate 0: 2 형상 x 2 solver x {hold, zero, random, abduct}
-bash scripts/study3/run_pilot.sh train      # PPO: 2 형상 x seed {0,1}, 488 iteration x 24 x 128 env
+bash scripts/study3/run_pilot.sh train      # PPO: 2 형상 x seed {0,1}, 488 iteration x 24 x 128 env (seed 2-4: train.py --seed 2|3|4)
 bash scripts/study3/run_pilot.sh eval       # 16칸, episode 256개, eval seed 1000
 bash scripts/study3/run_pilot.sh analyze    # report/study3/figures, report/study3/tables
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run pytest -q tests   # 형상 불변성과 task 등록 테스트 포함 20개

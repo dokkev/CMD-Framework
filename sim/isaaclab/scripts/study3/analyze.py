@@ -99,11 +99,12 @@ def learning_figure(runs: list[dict]) -> Path:
     fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.3))
     for run in runs:
         data = curves(run)
-        dash = "-" if run["seed"] == min(r["seed"] for r in runs) else (0, (3, 2))
         for ax, (tag, _) in zip(axes, panels):
             x, y = data[tag][:, 0] / 1e6, data[tag][:, 1]
-            ax.plot(x, smooth(y), color=COLORS[run["variant"]], linewidth=1.4, linestyle=dash,
-                    label=f"{run['variant']}, seed {run['seed']}")
+            ax.plot(x, smooth(y), color=COLORS[run["variant"]], linewidth=1.0, alpha=0.75)
+    for variant in VARIANTS:
+        seeds = sorted(r["seed"] for r in runs if r["variant"] == variant)
+        axes[0].plot([], [], color=COLORS[variant], linewidth=1.4, label=f"{variant} ({len(seeds)} seeds)")
     for ax, (_, label) in zip(axes, panels):
         style(ax)
         ax.set_xlabel("environment transitions [M]", fontsize=7, color=INK)
@@ -219,10 +220,11 @@ def matrix_figure(cells: list[dict], physics: str, name: str, metric: str = "suc
             if not values:
                 continue
             mean = np.mean([v for _, v in values])
-            seeds = ", ".join(f"{100 * v:.0f}" for _, v in values)
+            parts = [f"{100 * v:.0f}" for _, v in values]
+            seeds = ", ".join(parts[:3]) + (",\n" + ", ".join(parts[3:]) if len(parts) > 3 else "")
             ax.text(j, i - 0.08, f"{100 * mean:.0f}%", ha="center", va="center", fontsize=10, fontweight="bold",
                     color="white" if mean > 0.35 else INK)
-            ax.text(j, i + 0.22, f"seeds: {seeds}", ha="center", va="center", fontsize=6.5,
+            ax.text(j, i + 0.25, f"seeds: {seeds}", ha="center", va="center", fontsize=6,
                     color="white" if mean > 0.35 else MUTED)
     ax.set_xticks([0, 1], [f"test: {v}" for v in VARIANTS], fontsize=7)
     ax.set_yticks([0, 1], [f"train: {v}" for v in VARIANTS], fontsize=7)
@@ -301,6 +303,64 @@ def prescribed_figure(runs: dict[tuple, dict]) -> Path | None:
     return save(fig, "study3b_prescribed_abduction.png")
 
 
+SEED_METRICS = ("success_first_goal", "success_held", "drop_rate", "goals_reached_mean", "length_mean",
+                "nonpad_force_n_mean", "pads_in_contact_mean", "action_abs_mean")
+
+
+def permutation_p(a: list[float], b: list[float]) -> float:
+    """Exact two-sided permutation p-value of the difference of means (seeds as the unit)."""
+    import itertools
+
+    pooled, n = list(a) + list(b), len(a)
+    observed = abs(np.mean(a) - np.mean(b))
+    count = total = 0
+    for chosen in itertools.combinations(range(len(pooled)), n):
+        rest = [pooled[i] for i in range(len(pooled)) if i not in chosen]
+        total += 1
+        count += abs(np.mean([pooled[i] for i in chosen]) - np.mean(rest)) >= observed - 1e-12
+    return count / total
+
+
+def seed_stats(cells: list[dict], physics: str = "newton_mjwarp") -> list[dict]:
+    """Per metric: in-domain flat-trained against crowned-trained policies, and the transfer gap of each
+    training variant, with seeds as the unit (mean, sd, exact permutation p, Hedges' g)."""
+    rows = []
+    def values(tv, xv, metric):
+        return [float(c[metric]) for c in cells if c["physics"] == physics and c["train_variant"] == tv
+                and c["test_variant"] == xv and c[metric] != ""]
+    for metric in SEED_METRICS:
+        flat, crowned = values("flat", "flat", metric), values("crowned", "crowned", metric)
+        if len(flat) < 2 or len(crowned) < 2:
+            continue
+        pooled = math.sqrt(((len(flat) - 1) * np.var(flat, ddof=1) + (len(crowned) - 1) * np.var(crowned, ddof=1))
+                           / (len(flat) + len(crowned) - 2))
+        g = (np.mean(crowned) - np.mean(flat)) / pooled if pooled > 0 else float("inf")
+        g *= 1 - 3 / (4 * (len(flat) + len(crowned)) - 9)
+        rows.append({"comparison": "in-domain crowned - flat", "metric": metric, "n_flat": len(flat),
+                     "n_crowned": len(crowned), "flat_mean": np.mean(flat), "flat_sd": np.std(flat, ddof=1),
+                     "crowned_mean": np.mean(crowned), "crowned_sd": np.std(crowned, ddof=1),
+                     "difference": np.mean(crowned) - np.mean(flat), "hedges_g": g,
+                     "permutation_p": permutation_p(flat, crowned)})
+    for tv, xv in (("flat", "crowned"), ("crowned", "flat")):
+        for metric in ("success_first_goal", "success_held", "drop_rate"):
+            index = {c["train_seed"]: float(c[metric]) for c in cells
+                     if c["physics"] == physics and c["train_variant"] == tv and c["test_variant"] == tv}
+            cross = {c["train_seed"]: float(c[metric]) for c in cells
+                     if c["physics"] == physics and c["train_variant"] == tv and c["test_variant"] == xv}
+            gaps = [index[k] - cross[k] for k in index if k in cross]
+            if len(gaps) < 2:
+                continue
+            # exact sign-flip test of a zero mean gap over seeds
+            import itertools
+            flips = [abs(np.mean([g * s for g, s in zip(gaps, signs)])) for signs in itertools.product((1, -1), repeat=len(gaps))]
+            p = np.mean([f >= abs(np.mean(gaps)) - 1e-12 for f in flips])
+            rows.append({"comparison": f"transfer gap {tv} -> {xv}", "metric": metric, "n_flat": len(gaps),
+                         "n_crowned": "", "flat_mean": np.mean(gaps), "flat_sd": np.std(gaps, ddof=1),
+                         "crowned_mean": "", "crowned_sd": "", "difference": np.mean(gaps), "hedges_g": "",
+                         "permutation_p": p})
+    return rows
+
+
 def write_csv(path: Path, rows: list[dict]) -> None:
     if not rows:
         return
@@ -336,6 +396,7 @@ def main(argv=None) -> int:
     if evals:
         cells = cell_rows(evals)
         write_csv(REPORT / "tables" / "cells.csv", cells)
+        write_csv(REPORT / "tables" / "seed_stats.csv", seed_stats(cells))
         for metric in ("success_first_goal", "success_held"):
             transfer, solver = gap_rows(cells, metric)
             write_csv(REPORT / "tables" / f"transfer_gaps_{metric}.csv", transfer)
