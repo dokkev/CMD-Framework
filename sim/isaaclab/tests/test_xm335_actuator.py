@@ -58,3 +58,18 @@ def test_gains_follow_the_servo_block():
     assert implicit.stiffness == pytest.approx(g["kp"]) and implicit.effort_limit_sim == pytest.approx(1.03)
     with pytest.raises(ValueError):
         xm335_gains({**SERVO, "model": "XL330"})
+
+
+def test_saturation_can_be_switched_off_in_implicit_mode():
+    import pytest
+
+    from code_isaaclab.actuators import UNLIMITED, xm335_actuator_cfg
+
+    servo = {"model": "XM335-T323-T", "stall_torque_nm": 1.03, "no_load_speed_rad_s": 5.55, "duty_per_rad": 11.5,
+             "armature_kg_m2": 0.0031}
+    limited = xm335_actuator_cfg(servo, ["j"], mode="implicit")
+    free = xm335_actuator_cfg(servo, ["j"], mode="implicit", saturate_effort=False)
+    assert limited.effort_limit_sim == pytest.approx(1.03) and free.effort_limit_sim == UNLIMITED
+    assert free.velocity_limit_sim == pytest.approx(5.55) and free.stiffness == limited.stiffness
+    with pytest.raises(ValueError):
+        xm335_actuator_cfg(servo, ["j"], mode="dc_motor", saturate_effort=False)

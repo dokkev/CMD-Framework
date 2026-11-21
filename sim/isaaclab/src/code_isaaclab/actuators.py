@@ -21,6 +21,11 @@ envelope; above it the envelope is the law. So:
   (stable at any armature), but the torque limit does not fall with speed, so large moves are too fast.
 
 Nothing here imports ``design/core``: the values come from the export (``code_hand.json`` ``servo``).
+
+``saturate_effort=False`` / ``saturate_velocity=False`` (implicit mode only) lift the effort or velocity limit to
+:data:`UNLIMITED`, for simulation studies that compare hands whose transmissions differ and must not differ in
+where they saturate (Study 3: the flexion torque limit tau_stall * dtheta/dq differs between redesigns, while
+their gains are matched in flexion). It is not a model of the servo.
 """
 
 from __future__ import annotations
@@ -30,6 +35,9 @@ from typing import Literal
 from isaaclab.actuators import ActuatorBaseCfg, DCMotorCfg, ImplicitActuatorCfg
 
 ServoMode = Literal["dc_motor", "implicit"]
+
+UNLIMITED = 1.0e6
+"""The effort [N m] or velocity [rad/s] limit used when saturation is switched off."""
 
 
 def xm335_gains(servo: dict) -> dict[str, float]:
@@ -49,12 +57,16 @@ def xm335_gains(servo: dict) -> dict[str, float]:
 
 
 def xm335_actuator_cfg(
-    servo: dict, joint_names: list[str], mode: ServoMode = "dc_motor", armature: float | None = None
+    servo: dict, joint_names: list[str], mode: ServoMode = "dc_motor", armature: float | None = None,
+    saturate_effort: bool = True, saturate_velocity: bool = True,
 ) -> ActuatorBaseCfg:
-    """The actuator config of a group of XM335-driven joints. ``armature`` overrides the export's placeholder."""
+    """The actuator config of a group of XM335-driven joints. ``armature`` overrides the export's placeholder;
+    ``saturate_effort`` / ``saturate_velocity`` (implicit mode) switch the limits off (see the module docstring)."""
     g = xm335_gains(servo)
     j = g["armature"] if armature is None else armature
     if mode == "dc_motor":
+        if not (saturate_effort and saturate_velocity):
+            raise ValueError("the DC-motor law is its saturation; switch limits off only in implicit mode")
         return DCMotorCfg(
             joint_names_expr=list(joint_names),
             stiffness=g["kp"],
@@ -69,8 +81,8 @@ def xm335_actuator_cfg(
             joint_names_expr=list(joint_names),
             stiffness=g["kp"],
             damping=g["kd"],
-            effort_limit_sim=g["stall"],
-            velocity_limit_sim=g["no_load"],
+            effort_limit_sim=g["stall"] if saturate_effort else UNLIMITED,
+            velocity_limit_sim=g["no_load"] if saturate_velocity else UNLIMITED,
             armature=j,
         )
     raise ValueError(f"unknown servo mode {mode!r}")

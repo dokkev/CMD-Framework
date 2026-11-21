@@ -35,6 +35,7 @@ def code_hand_articulation_cfg(
     servo_mode: ServoMode = "dc_motor",
     servo_actuator: ActuatorBaseCfg | None = None,
     servo_armature: float | None = None,
+    servo_saturation: tuple[bool, bool] = (True, True),
     passive_armature: float = PASSIVE_ARMATURE_DEFAULT,
     init_pos: tuple[float, float, float] = (0.0, 0.0, 0.3),
     init_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
@@ -47,7 +48,8 @@ def code_hand_articulation_cfg(
     servos_cfg = (
         servo_actuator
         if servo_actuator is not None
-        else xm335_actuator_cfg(desc.servo, actuated, mode=servo_mode, armature=servo_armature)
+        else xm335_actuator_cfg(desc.servo, actuated, mode=servo_mode, armature=servo_armature,
+                                saturate_effort=servo_saturation[0], saturate_velocity=servo_saturation[1])
     )
     actuators: dict[str, ActuatorBaseCfg] = {"servos": servos_cfg}
     if passive:
@@ -79,6 +81,7 @@ def make_code_hand_spec(
     name: str = "code_hand",
     servo_mode: ServoMode = "dc_motor",
     servo_armature: float | None = None,
+    servo_saturation: tuple[bool, bool] = (True, True),
     passive_armature: float = PASSIVE_ARMATURE_DEFAULT,
     init_pos: tuple[float, float, float] = (0.0, 0.0, 0.5),
     init_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
@@ -110,6 +113,7 @@ def make_code_hand_spec(
         usd_path,
         servo_mode=servo_mode,
         servo_armature=servo_armature,
+        servo_saturation=servo_saturation,
         passive_armature=passive_armature,
         init_pos=init_pos,
         init_rot=init_rot,
