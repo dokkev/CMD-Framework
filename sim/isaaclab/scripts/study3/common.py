@@ -143,7 +143,8 @@ def torch_of(value):
 class Probe:
     """Per-step physical diagnostics of a CoDe reorientation env (all environments)."""
 
-    def __init__(self, env, bodies: list[str]):
+    def __init__(self, env, bodies: list[str], description=None):
+        """``description``: the hand's export (path or :class:`Description`); default the pilot's (pivot8)."""
         import torch
 
         from code_isaaclab.assets.description import Description
@@ -154,7 +155,10 @@ class Probe:
         self.robot = self.env.scene["robot"]
         self.cube = self.env.scene["object"]
         self.command = self.env.command_manager.get_term("object_pose")
-        self.desc = Description.load(STUDY3_DESCRIPTION)
+        if description is None:
+            self.desc = Description.load(STUDY3_DESCRIPTION)
+        else:
+            self.desc = description if isinstance(description, Description) else Description.load(description)
         self.bodies = bodies
         self.actuated = self.robot.find_joints(self.env.cfg.actuated_joint_names, preserve_order=True)[0]
         self.tables = FourBarTables.from_description(self.desc, self.robot.joint_names, device=self.env.device)
