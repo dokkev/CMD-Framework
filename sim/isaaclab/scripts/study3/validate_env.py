@@ -46,6 +46,7 @@ def _parse(argv):
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--variant", choices=tuple(common.TASKS), required=True)
+    parser.add_argument("--protocol", choices=tuple(common.PROTOCOLS), default="pilot")
     parser.add_argument("--policy", choices=("hold", "zero", "random", "flex", "abduct"), default="hold")
     parser.add_argument("--num_envs", type=int, default=16)
     parser.add_argument("--steps", type=int, default=300)
@@ -75,7 +76,7 @@ def main(argv=None) -> int:
 
     import code_isaaclab.tasks  # noqa: F401
 
-    task = common.TASKS[args.variant]
+    task = common.PROTOCOLS[args.protocol][args.variant]
     physics = next((t.split("=", 1)[1] for t in hydra_args if t.startswith("physics=")), "newton_mjwarp")
     torch.manual_seed(args.seed)
     env_cfg, _ = resolve_task_config(task, "")
@@ -167,6 +168,7 @@ def main(argv=None) -> int:
     summary = {
         "run": run,
         "task": task,
+        "protocol": args.protocol,
         "variant": args.variant,
         "physics": physics,
         "solver": solver,

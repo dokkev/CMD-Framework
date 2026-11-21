@@ -117,7 +117,8 @@ class CoDeCrownedReorientEnvCfg(CoDeReorientEnvCfg):
 
 @configclass
 class CoDeReorientMainEnvCfg(CoDeReorientEnvCfg):
-    """Study 3A main experiment: the pilot task with non-overlapping goals and smoothed actions, nothing else."""
+    """Study 3A main experiment: the pilot task with non-overlapping goals, smoothed actions and the pad colliders
+    authored as meshes rather than convex-hull approximations of the same convex meshes; nothing else."""
 
     def __post_init__(self):
         super().__post_init__()
@@ -127,12 +128,12 @@ class CoDeReorientMainEnvCfg(CoDeReorientEnvCfg):
 
 @configclass
 class CoDeFlatReorientMainEnvCfg(CoDeReorientMainEnvCfg):
-    hand = "code_flat"
+    hand = "code_flat_main"  # pads authored as meshes (same geometry; hydroelastic-capable, Study 3B)
 
 
 @configclass
 class CoDeCrownedReorientMainEnvCfg(CoDeReorientMainEnvCfg):
-    hand = "code_crowned"
+    hand = "code_crowned_main"
 
 
 __all__ = [

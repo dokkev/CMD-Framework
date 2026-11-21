@@ -81,6 +81,7 @@ def manifest(**extra: Any) -> dict[str, Any]:
         "versions": versions(),
         "gpu": gpu(),
         "assets": {v: variant_manifest(v) for v in TASKS},
+        "assets_main": {v: variant_manifest(v, pad_collision="mesh") for v in TASKS},
         **extra,
     }
 

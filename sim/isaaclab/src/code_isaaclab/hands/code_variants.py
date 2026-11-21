@@ -82,13 +82,50 @@ def variant_asset(variant: str, description: Path = STUDY3_DESCRIPTION, out_dir:
     return path
 
 
-def variant_manifest(variant: str, description: Path = STUDY3_DESCRIPTION, out_dir: Path = ASSET_DIR) -> dict:
+PAD_COLLISION = ("convex_hull", "mesh")
+"""How the pad colliders are authored: ``convex_hull`` (the pilot: ``physics:approximation = convexHull``) or
+``mesh`` (Study 3A main: the same triangle mesh with no approximation). The pads are convex prisms, so the hull
+is the mesh itself and MuJoCo-Warp's point contact sees the same geometry either way; only ``mesh`` lets
+Newton's hydroelastic contact build an SDF of the pad (Study 3B), which it refuses on an approximated shape."""
+
+
+def mesh_collision_asset(variant: str, description: Path = STUDY3_DESCRIPTION, out_dir: Path = ASSET_DIR) -> Path:
+    """The ``variant`` asset with every pad collider's mesh approximation removed (written if missing).
+
+    Derived from the convex-hull asset by a stage edit, nothing else: its name carries a hash of that asset and of
+    this module, so it changes when either does and never overwrites an earlier one."""
+    from pxr import Usd, UsdPhysics
+
+    base = variant_asset(variant, description, out_dir)
+    digest = hashlib.sha256(base.read_bytes())
+    digest.update(Path(__file__).read_bytes())
+    path = Path(out_dir) / f"{base.stem}_meshcol_{digest.hexdigest()[:12]}.usda"
+    if not path.exists():
+        stage = Usd.Stage.Open(str(base))
+        edited = 0
+        for prim in stage.Traverse():
+            if prim.HasAPI(UsdPhysics.MeshCollisionAPI):
+                prim.RemoveProperty("physics:approximation")
+                prim.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+                edited += 1
+        if edited != 6:
+            raise RuntimeError(f"expected 6 pad colliders with a mesh approximation in {base}, found {edited}")
+        tmp = path.with_suffix(f".{os.getpid()}.tmp.usda")
+        stage.GetRootLayer().Export(str(tmp))
+        os.replace(tmp, path)
+    return path
+
+
+def variant_manifest(
+    variant: str, description: Path = STUDY3_DESCRIPTION, out_dir: Path = ASSET_DIR, pad_collision: str = "convex_hull"
+) -> dict:
     """What the variant's asset was made from, and the asset's own hash."""
-    path = variant_asset(variant, description, out_dir)
+    path = (mesh_collision_asset if pad_collision == "mesh" else variant_asset)(variant, description, out_dir)
     desc = Description.load(description)
     profile = VARIANTS[variant]
     return {
         "variant": variant,
+        "pad_collision": pad_collision,
         "profile": dict(profile.__dict__),
         "usd": str(path),
         "usd_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -148,11 +185,12 @@ SHARED = {
 def register_code_variants(
     description: Path = STUDY3_DESCRIPTION, out_dir: Path = ASSET_DIR, servo_mode: str | None = None
 ) -> list[str]:
-    """Register ``code_<variant>`` for every variant (idempotent); return their names."""
+    """Register ``code_<variant>`` (convex-hull pads, the pilot) and ``code_<variant>_main`` (mesh pads, Study 3A
+    main) for every variant (idempotent); return their names."""
     desc = Description.load(description)
     names = []
-    for variant in VARIANTS:
-        name = f"code_{variant}"
+    for variant, pad_collision in ((v, c) for v in VARIANTS for c in PAD_COLLISION):
+        name = f"code_{variant}" + ("_main" if pad_collision == "mesh" else "")
         names.append(name)
         if name in HANDS:
             continue
@@ -161,7 +199,7 @@ def register_code_variants(
             settings["servo_mode"] = servo_mode
         spec: HandSpec = make_code_hand_spec(
             desc,
-            variant_asset(variant, description, out_dir),
+            (mesh_collision_asset if pad_collision == "mesh" else variant_asset)(variant, description, out_dir),
             name=name,
             object_cfg=_cube_cfg(),
             goal_marker_cfg=_goal_marker_cfg(),
@@ -180,7 +218,9 @@ __all__ = [
     "CUBE_SIZE_M",
     "SHARED",
     "STUDY3_DESCRIPTION",
+    "PAD_COLLISION",
     "content_key",
+    "mesh_collision_asset",
     "register_code_variants",
     "variant_asset",
     "variant_manifest",
