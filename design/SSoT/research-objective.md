@@ -12,7 +12,7 @@ CoDe is not primarily an attempt to build a hand with more degrees of freedom, h
 
 It is a hand architecture intended to make contact-interface design an independent and experimentally accessible research variable.
 
-The contribution is the validity of contact-interface measurements, not the discovery that contact matters. That a policy or a grasp depends on its contact interface is expected. What CoDe adds is that the dependence can be measured without the hand's kinematics changing with the interface, and the studies should show how large that confound would otherwise be.
+The contribution is the validity of contact-interface measurements, not the discovery that contact matters. That a policy or a grasp depends on its contact interface is expected. **CoDe enables controlled measurements of contact-interface effects while minimizing confounding changes in the underlying robot morphology and articulation kinematics.** A change of interface itself changes contact points, normals and contact-point Jacobians; that is the intended effect under study, not a confound. What is minimized is the articulation's change made only to accommodate the interface, and the studies should show how large that confound would otherwise be.
 
 ---
 
@@ -230,7 +230,7 @@ A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 
-Learning-based interface experiments (Studies A–D) are set out in Section 8.
+Learning-based interface experiments (Studies 3A–3D) are set out in Section 8.
 
 ---
 
@@ -298,7 +298,30 @@ These experiments demonstrate the research questions enabled by CoDe, rather tha
 
 ### 8.4 Evaluation Strategy
 
-**Study A — Architecture-dependent manipulation accessibility** (RQ1, RQ2). Compare which contact interfaces support a predefined manipulation task under:
+The learning-based studies are numbered 3A–3D, the same names in this file, in `sim/` and in `report/study3/`. (Earlier drafts used letters A–D; they are retired. A study once called 3C, optimizing an interface for a frozen policy, was discarded on 2026-11-21; Section 8.6.)
+
+**Study 3A — Contact-interface A/B test and transfer matrix** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol, in two complementary ways:
+
+- **Independent training:** train a policy per interface with a common algorithm and comparable training budgets.
+- **Frozen policy:** run each policy on the other interfaces without retraining. This gives a policy-by-contact matrix M_ij = P(π_i, H, C_j), the performance of the policy trained on interface i when run on interface j. High transfer performance is not assumed or required.
+
+Measure performance differences, sensitivity, adaptation, generalization and contact behaviour (where on the interface contact occurs).
+
+*Target evidence:* controlled contact-interface experimentation, and contact-dependent policy behaviour, without redesigning the underlying hand.
+
+**Study 3B — Contact-model sensitivity** (RQ4). Evaluate the policies of 3A under a second contact model. The quantity of interest is the interface effect, not the absolute performance under each model: for a frozen policy π and contact models S, Δ_C^S(π) = J(π, C₁, S) − J(π, C₀, S), and Δ_model(π) = Δ_C^S′(π) − Δ_C^S(π). A contact model inside the same dynamics engine (e.g. point versus hydroelastic contact in MuJoCo-Warp) measures contact-model sensitivity, not generalization to an independent engine. Each model passes its own validation first (collider representation, contact force direction and magnitude, object equilibrium, closed-loop constraints), and its parameters are fixed in common for every interface, never tuned to one.
+
+*Target evidence:* whether a measured interface effect survives a change of the simulated contact model.
+
+**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2.3). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the contact-centric kinematics (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
+
+ΔJ_R = J(H_R,1, C₁) − J(H_R,0, C₀),  ΔJ_U = J(H_U,1, C₁) − J(H_U,0, C₀),
+
+and Δ_interaction = ΔJ_R − ΔJ_U is how much the measured interface effect depends on the adaptation path. It is a candidate measure of embodiment confounding, not a pure kinematic one: the two paths may also differ in contact-point Jacobians, transmission and actuator loading, contact accessibility and the strategies the policies learn. The claim is limited to: *morphology adaptation can alter the measured effect of a contact-interface change, introducing embodiment-dependent confounding.* The kinematic share is then analysed through D_c and the measured contact motion. No direction is assumed, and a null Δ_interaction is reported as such.
+
+*Target evidence:* whether, and by how much, a measured interface effect depends on how the hand was adapted to the interface.
+
+**Study 3D — Architecture-dependent manipulation accessibility** (RQ1, RQ2; planned). Compare which contact interfaces support a predefined manipulation task under:
 
 1. Conventional 2R-DD with fixed morphology.
 2. Conventional 2R-DD with reasonable morphology adaptation.
@@ -308,26 +331,7 @@ Evaluate both mechanical feasibility and downstream task execution. Use matched 
 
 *Target evidence:* whether CoDe expands the manipulation-usable interface design space while reducing the need for morphology adaptation.
 
-**Study A′ — Size of the embodiment confound** (RQ3, Section 2.3). Make the same interface change (a thin interface to a thick one) on two hands: one redesigned to keep the contact-centric kinematics (CoDe, Study 2's redesign), and one whose contact-centric kinematics changes with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). Measure the interface's effect on the same task and protocol in each. The difference between the two effects is the part of the measured "interface effect" that comes from the hand's kinematics, which is what an interface experiment on a conventional hand would misattribute. No direction is assumed: if the effect is as large on the redesigned hand, the contact-centric kinematics is not what the policy depends on, and that is reported.
-
-*Target evidence:* how much of a measured interface effect is embodiment confound, with and without CoDe.
-
-**Study B — Contact-interface A/B testing** (RQ3). Keep the CoDe embodiment fixed and evaluate multiple contact interfaces with a common manipulation protocol. Use two complementary evaluations:
-
-- **Frozen policy:** change the contact interface without retraining.
-- **Independent training:** train a policy per interface with a common algorithm and comparable training budgets.
-
-Measure performance differences, sensitivity, adaptation and generalization.
-
-*Target evidence:* controlled contact-interface experimentation without redesigning the underlying hand.
-
-**Study C — Cross-interface policy transfer** (RQ3). Train policies under selected contact interfaces and evaluate each across the other supported interfaces. This gives a policy-by-contact performance matrix M_ij = P(π_i, H, C_j), the performance of the policy trained on interface i when run on interface j. The matrix should reveal how contact morphology influences policy robustness and generalization. High transfer performance is not assumed or required.
-
-*Target evidence:* CoDe provides a reusable experimental embodiment for studying contact-dependent policy behavior.
-
-**Study D — Sim-to-sim and representative sim-to-real** (RQ4). Use Isaac Lab for scalable policy training and manipulation experiments. Evaluate selected policies and interfaces in an independent simulator or contact model to characterize contact-model sensitivity. Select about 2–3 representative physical contact interfaces for hardware validation. Physical experiments should demonstrate interface interchangeability, retained functional articulation, repeatable manipulation evaluation and the limits of simulation predictions.
-
-*Target evidence:* extensive simulation findings connected to a functioning physical research platform, without exhaustive real-world interface testing.
+**Hardware.** Select about 2–3 representative physical contact interfaces for hardware validation. Physical experiments should demonstrate interface interchangeability, retained functional articulation, repeatable manipulation evaluation and the limits of simulation predictions.
 
 ### 8.5 Success Criteria
 
