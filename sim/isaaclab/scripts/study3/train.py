@@ -37,6 +37,8 @@ def main(argv=None) -> int:
     parser.add_argument("--num_envs", type=int, default=128)
     parser.add_argument("--physics", default="newton_mjwarp")
     parser.add_argument("--label", default="", help="suffix of the run name (e.g. smoke)")
+    parser.add_argument("--override", action="append", default=[],
+                        help="Hydra override of the task, e.g. env.actions.joint_pos.alpha=0.1 (repeatable; recorded)")
     args = parser.parse_args(argv)
     task = common.TASKS[args.variant]
     run_name = f"{args.variant}_s{args.seed}" + (f"_{args.label}" if args.label else "")
@@ -46,7 +48,7 @@ def main(argv=None) -> int:
         "uv", "run", "--extra", "rsl-rl", "isaaclab", "train", "--rl_library", "rsl_rl",
         "--task", task, "--num_envs", str(args.num_envs), "--seed", str(args.seed),
         "--max_iterations", str(args.iterations), "--run_name", run_name, "--run_timestamp", stamp,
-        f"physics={args.physics}",
+        f"physics={args.physics}", *args.override,
     ]  # fmt: skip
     started = time.time()
     env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
@@ -63,6 +65,7 @@ def main(argv=None) -> int:
         physics=args.physics,
         servo_mode=os.environ.get("CODE_STUDY3_SERVO", "implicit"),
         iterations=args.iterations,
+        overrides=args.override,
         num_envs=args.num_envs,
         steps_per_env=STEPS_PER_ENV,
         transitions=args.iterations * STEPS_PER_ENV * args.num_envs,

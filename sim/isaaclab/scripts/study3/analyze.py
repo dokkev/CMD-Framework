@@ -62,7 +62,7 @@ def training_runs() -> list[dict]:
     runs = []
     for manifest in sorted((common.SIM_ROOT / "logs" / "rsl_rl" / "study3_code_reorient").glob("*/study3_manifest.json")):
         data = json.loads(manifest.read_text())
-        if "smoke" in Path(data["log_dir"]).name or data.get("status") != "passed":
+        if "smoke" in Path(data["log_dir"]).name or data.get("status") != "passed" or data.get("overrides"):
             continue
         data["dir"] = manifest.parent
         runs.append(data)
