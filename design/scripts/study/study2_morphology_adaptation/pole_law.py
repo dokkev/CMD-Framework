@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import importlib
 import math
 import sys
 from pathlib import Path
@@ -48,6 +47,7 @@ for path in (REPOSITORY_ROOT, REPOSITORY_ROOT / "scripts" / "study", Path(__file
         sys.path.insert(0, str(path))
 
 import one_finger as study2  # noqa: E402
+from core.optimization.analysis.contact_kinematics import tip_path  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 from visualize.style import COLORS, GRID, INK, MARKERS, use  # noqa: E402
 
@@ -59,21 +59,6 @@ STEP_DEG = 0.05
 
 
 # The motion and its pole ----------------------------------------------------------
-
-def tip_path(mechanism_name: str, x, config, q_rad: np.ndarray) -> np.ndarray:
-    """The fingertip ``C`` (``(n, 2)``, mm, proximal frame) at the distal flexions ``q_rad``."""
-
-    from core.morphology.mechanism import base_mechanism
-
-    base = base_mechanism(mechanism_name)
-    if base == "linkage":
-        from core.morphology.mechanism.linkage.design import decode
-
-        return np.asarray(decode(x, config.link_length_resolution_mm).sweep_pip(q_rad).tip, dtype=float)
-    module = importlib.import_module(f"core.optimization.{mechanism_name}.evaluate"
-                                     if mechanism_name == "revolute_parallel" else f"core.optimization.{base}.evaluate")
-    return np.asarray(module.geometry(x, config).tip(q_rad), dtype=float)
-
 
 def poles(tips: np.ndarray, q_rad: np.ndarray) -> np.ndarray:
     """The pole ``P(q)`` of each pose against the extended one: the distal
