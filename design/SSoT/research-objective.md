@@ -131,7 +131,7 @@ The project's experiments should provide evidence for the central research objec
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
-4. **Keeping the relative contact trajectory keeps an interface measurement interpretable** (hypothesis, Study 3; Section 8). The same interface change, measured on a hand redesigned to keep the relative contact trajectory and on one redesigned without that target, gives different measurements, and the first is the closer to the interface's true effect.
+4. **Open question (Study 3):** whether keeping the relative contact trajectory keeps an interface measurement from depending on how the hand was adapted to the interface. Not yet a claim.
 
 A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the phalanx turns about, and how deep the pads sit, set what the joint takes from the pads); the optimization studies check its predictions.
 
@@ -173,41 +173,12 @@ Study 3 answers one question, for contribution C4 (`north-star.md`):
 
 The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, accessibility) is archived in `docs/experimental/study3_interface_platform.md`.
 
-### 8.1 Design
+The design (hands, interface change, measurement, preconditions, chosen condition) is not settled; it is worked out in `docs/experimental/study3_design.md`.
 
-- **Interface change.** A thin rigid flat pad (C₀) to a thicker rigid flat pad (C₁) of the same geometry and material. On the contact face nothing changes, so the interface's own effect on the task is zero by construction (Section 2); any measured change is embodiment.
-- **Hands**, all of one architecture (the CFL), so that the only difference between the two redesigns is the redesign target:
-  - **H₀:** the finger designed for C₀ (Study 1).
-  - **H_R:** H₀ redesigned for C₁ with the relative contact trajectory as the target (Study 2, small D_c).
-  - **H_U:** the finger designed for C₁ for coverage alone (Study 1, larger D_c), at comparable coverage.
-- **Measurement.** Policies trained on (H₀, C₀) are run, without retraining, on (H_R, C₁) and (H_U, C₁). With J the task's pre-registered metric,
-  ΔJ_R = J(π, H_R, C₁) − J(π, H₀, C₀),  ΔJ_U = J(π, H_U, C₁) − J(π, H₀, C₀),
-  paired over policy seeds.
-- **Prediction.** |ΔJ_U| > |ΔJ_R|. Neither is expected to be exactly zero: a thicker pad moves every contact face away from the MCP axis and the palm by the same amount on both hands, which the comparison cancels.
-- **Refutation.** ΔJ_R and ΔJ_U are equal within the stated precision. Then keeping the relative contact trajectory is not what such an experiment needs, and that is reported.
-- **Statistics** (fixed before running, Section 7): at least 10 policy seeds; the primary test, its α and the precision that counts as "equal" are recorded in `docs/decisions.md` before the hands are evaluated.
+### 8.1 Claim boundaries
 
-### 8.2 Preconditions (checked before any training)
-
-1. **The task exercises the difference.** D_c is the largest change over [0, q_req]. The flexions the task's policies actually use must include those where H_R's and H_U's trajectories part (Study 2's per-flexion profile); otherwise an equal measurement says nothing about the trajectory.
-2. **The comparison is clean.** H_R and H_U differ in D_c by a clear margin and in coverage by little. Other changes between them (transmission from servo angle to flexion, finger outline, pad mass) are recorded. Actions are defined in flexion so that a transmission change does not enter the comparison.
-3. **The hands are valid in simulation** (closed loops, contact, object equilibrium), as in the archived Gate 0.
-
-### 8.3 Choices (2026-11-21)
-
-- **Condition:** CFL, q_req = 120°, 3 → 7 mm (changed from 90°, 3 → 5 mm on 2026-11-21). D_c is 0.86 mm on H_R and 3.91 mm on H_U at similar coverage (0.725, 0.711); at H0's two-pad cylinder grasps the distal face is off by at most 0.33 mm on H_R and 3.10 mm on H_U (medians 0.12 and 2.01 mm), over the whole flexion range rather than only in deep flexion; and the transmission changes alike on both (dθ/dq by about 20%, MA_wc 0.520 and 0.479 against H0's 0.583), so the comparison is cleaner than at 90° (there MA_wc moved −8% and +23%). 120° is also the simulated hand's PIP range.
-- **H_U is one fixed design:** Study 1's first independent coverage-only design for 7 mm at 120° (its D_c depends on the search: the Study 1 design Study 2 compared against has 1.28 mm, this one 3.91 mm; the choice is recorded, and a less favourable U would narrow the contrast).
-- **Actions and observations in flexion q**, mapped to each hand's servo angle by its θ(q) table. Sent as servo angles, the 3 mm finger's commands bend H_R and H_U off by about the same amount (21.0° and 22.0° at 120°, 7 mm), which would hide the trajectory difference (`docs/decisions.md`, transmission entry).
-- **Stiffness matched in flexion:** per-flexion PD gains so that the effective joint stiffness is equal across hands; the transmission ratio dθ/dq differs from H0's by up to 20% (H_R) and 21% (H_U) and MA_wc by −11% and −18%. Residual torque-limit differences are recorded.
-- **Interface: compliant pads**, normal contact stiffness k_pad = 2 N/mm as the reference (1 and 5 N/mm as a sensitivity check), the same on every hand and both thicknesses. With rigid pads an offset of a few tenths of a millimetre already loads the servo heavily (quasi-static estimate), so the comparison would be decided by the simulator's contact softness; with k_pad 2 N/mm the force error at H0's grasps stays at or below 0.6 N on H_R and reaches 5.7 N on H_U at 120°, 7 mm (`report/study3/regrasp_geometry.md`). The simulated stiffness is checked in Gate 0.
-- **Task:** two-pad grasps. Precondition 1 checked geometrically (`report/study3/regrasp_geometry.md`): at 120°, 7 mm the difference holds over the whole flexion range of the grasps (H_R at most 0.33 mm, H_U 3.10 mm). At 90°, 5 mm it was confined to flexions of 70° and above, one reason for the change of condition.
-
-### 8.4 Claim boundaries
-
-- The claim is about frozen-policy measurements of an interface change. Whether independently trained policies show the same is not answered.
 - Do not claim that keeping the relative contact trajectory preserves a policy's performance in general, or that CoDe is needed for every interface experiment.
-- **The MCP level is not kept (limitation).** The relative contact trajectory is finger-internal: the distal contact face seen from the proximal one. The proximal contact face is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that face away from the axis, so its path in the palm frame changes on every redesign (by the pad change, 4 mm at 3 → 7 mm, on H_R and H_U alike). Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): C1 applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work; in Study 3 the offset is common to H_R and H_U and cancels in their comparison.
-- Rigid interfaces in simulation only; compliant and tactile interfaces are not simulated.
+- **The MCP level is not kept (limitation).** The relative contact trajectory is finger-internal: the distal contact face seen from the proximal one. The proximal contact face is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that face away from the axis, so its path in the palm frame changes on every redesign by the change in pad thickness. Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): C1 applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work.
 - Report a null result as such.
 
 ---
@@ -223,20 +194,10 @@ The earlier, broader Study 3 (interface A/B tests, contact-model sensitivity, ac
 | C1 | Study 0 (P4) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
 | C2 | Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such |
 | C3 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's trajectory change is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best |
-| C4 | Study 3 (Section 8) | Open: designed (Section 8); hands not yet built |
+| C4 | Study 3 (Section 8) | Open (`docs/experimental/`) |
 | C5 | Hardware | Open: extent undecided |
 
 The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C4.
-
-**Evidence for "why the relative contact trajectory"** (the five steps in `north-star.md`; status 2026-11-21):
-
-| Step | Evidence | Status |
-|---|---|---|
-| 1. The object meets the contact faces | Definition (Section 2) | Argued |
-| 2. Only the trajectory cannot be undone by control | Transmission: flexion-space commands and stiffness scheduling hold flexion within 0.07 deg on the simulated hand (`docs/decisions.md`). Trajectory: problem_formulation proposition 4; re-establishing a two-pad cylinder grasp moves the contact up to 5-9 mm along the distal pad (`report/study3/regrasp_geometry.md`). MCP-level offset: compensability not yet computed | Partly shown; the P/D compensability computation (residual contact error after the best re-command, free and fixed object) is next |
-| 3. Its size matters | Quasi-static series-compliance estimate at 120 deg, 3 to 7 mm, k_pad 2 N/mm: force error up to 0.6 N (trajectory kept) against 5.7 N (coverage only), grasp forces 1-5 N | Estimate only; to be measured (quasi-static simulation, then a second engine) |
-| 4. Not kept unless targeted | Study 1's coverage-only designs change it by 3.9-5.8 mm (1.28-3.91 mm at 120 deg, 7 mm, depending on the search) | Shown (2D) |
-| 5. Kept at little cost | Study 2: 10-51% of the fixed-axis bound, coverage within 0.2 points; C1 | Shown (2D) |
 
 **Decided.** No spacers (2026-11-21): every interface sits at its own shallowest depth, and redesign minimizes the relative contact trajectory's change under that requirement (Section 6, claim 3). Study 3 has no spacer path.
 

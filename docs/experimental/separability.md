@@ -29,7 +29,7 @@ q90, 3 → 5 mm 조건(D_c 1.22 대 5.84 mm)도 `make_hands.py --flexion 90 --to
 
 | | R − O | U − O |
 |---|---|---|
-| 첫 접촉각 (flat) | 0.5° | 9.5° |
+| 첫 접촉각 (flat; identical surface-profile negative control) | 0.5° | 9.5° |
 | 110°에서의 distal 힘 (flat) | 1.1 N | 14.8 N |
 | 형상 효과 추정의 차이 (110°) | 0.033 N (O 효과의 14%) | 0.56 N (230%) |
 | 형상 효과 추정의 차이 (120°) | 0.105 N (10%) | 0.275 N (25%) |

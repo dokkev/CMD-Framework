@@ -60,3 +60,4 @@
   - 결과: 원시 측정은 U에서 크게 어긋났다(첫 접촉각 9.5°, distal 힘 15–19 N). R은 O를 따라갔다(0.5°, 1–3 N). 형상 효과의 추정도 R이 O에 더 가까웠다(O 효과의 10–14% 대 25–230%).
   - 한계: 이 task에서는 형상 효과 자체가 작다.
   - 다음: friction을 interface 변수로 두고 T_slip을 잰다(`docs/experimental/`).
+- **SSoT에는 확정된 것만.** 결정: 가설과 진행 중인 설계는 SSoT에서 `docs/experimental/`로 옮겼다(Study 3 세부 설계, '왜 RCT인가'의 미검증 단계, C4 문구, 근거 표 → `docs/experimental/study3_design.md`). SSoT에는 Study 3의 질문 한 문장, 확정된 주장 경계(MCP 한계 등), C4를 '열린 질문'으로만 남겼다.
