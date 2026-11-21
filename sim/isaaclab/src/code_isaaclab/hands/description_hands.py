@@ -21,35 +21,38 @@ from isaaclab.assets import RigidObjectCfg
 
 from code_isaaclab.assets.builders import write_usd
 from code_isaaclab.assets.description import Description
-from code_isaaclab.contact_interface import FLAT
+from code_isaaclab.contact_interface import FLAT, PadProfile
 
 from . import HANDS, register_hand
 from .code_hand import make_code_hand_spec
 from .code_variants import _BUILDER_SOURCES, ASSET_DIR, SHARED, _goal_marker_cfg
 
 
-def description_asset(description: Path, out_dir: Path = ASSET_DIR) -> Path:
-    """The USD of ``description`` with flat convex-mesh pads (written if missing)."""
+def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: PadProfile = FLAT) -> Path:
+    """The USD of ``description`` with ``profile`` convex-mesh pads (written if missing)."""
     digest = hashlib.sha256(Path(description).read_bytes())
+    digest.update(repr(sorted(profile.__dict__.items())).encode())
     package = Path(__file__).resolve().parents[1]
     for name in _BUILDER_SOURCES:
         digest.update((package / name).read_bytes())
-    path = Path(out_dir) / f"{Path(description).stem}_{digest.hexdigest()[:12]}.usda"
+    path = Path(out_dir) / f"{Path(description).stem}_{profile.name}_{digest.hexdigest()[:12]}.usda"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(f".{os.getpid()}.tmp.usda")
-        write_usd(Description.load(description), tmp, loop="ball", colliders=True, pad_profile=FLAT)
+        write_usd(Description.load(description), tmp, loop="ball", colliders=True, pad_profile=profile)
         os.replace(tmp, path)
     return path
 
 
-def cylinder_cfg(radius_m: float, length_m: float, mass_kg: float, pos_w: tuple[float, float, float]) -> RigidObjectCfg:
-    """A cylinder with its axis along the world ``y`` (across the fingers), at ``pos_w`` (env frame)."""
+def cylinder_cfg(radius_m: float, length_m: float, mass_kg: float, pos_w: tuple[float, float, float],
+                 kinematic: bool = False) -> RigidObjectCfg:
+    """A cylinder with its axis along the world ``y`` (across the fingers), at ``pos_w`` (env frame); ``kinematic``:
+    held in place (moved only by writing its pose)."""
     return RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/object",
         spawn=sim_utils.CylinderCfg(
             radius=radius_m, height=length_m, axis="Y",
-            rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(),
+            rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(kinematic_enabled=kinematic or None),
             mass_props=sim_utils.MassCfg(mass=mass_kg),
             collision_props=sim_utils.UsdPhysicsCollisionCfg(),
             activate_contact_sensors=True,
@@ -78,14 +81,14 @@ def bar_cfg(size_m: tuple[float, float, float], mass_kg: float, pos_w: tuple[flo
 
 
 def register_description_hand(name: str, description: Path, object_cfg: RigidObjectCfg,
-                              servo_saturation: tuple[bool, bool] = (False, True)) -> str:
+                              servo_saturation: tuple[bool, bool] = (False, True), profile: PadProfile = FLAT) -> str:
     """Register ``name`` (idempotent) from ``description`` with ``object_cfg``; the servo effort limit is off by
     default (simulation comparisons, ``code_isaaclab.actuators``)."""
     if name in HANDS:
         return name
     desc = Description.load(description)
     register_hand(make_code_hand_spec(
-        desc, description_asset(description), name=name, object_cfg=object_cfg,
+        desc, description_asset(description, profile=profile), name=name, object_cfg=object_cfg,
         goal_marker_cfg=_goal_marker_cfg(), goal_marker_offset=(0.0, -0.12, 0.0), activate_contact_sensors=True,
         servo_saturation=servo_saturation, **SHARED))
     return name
