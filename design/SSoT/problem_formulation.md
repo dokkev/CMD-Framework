@@ -6,7 +6,7 @@
 2. **요구사항 (A.2–A.3).** Contact interface의 치수와 손가락의 크기·비율을 하한과 상한으로 지정한다.
 3. **기하와 운동 (A.4).** Morphology는 joint 자세에 따라 형상을 만들고, 그 형상에 self-collision이 없는 자세의 집합이 유효한 운동 범위를 정한다.
 4. **최적화 (A.5).** 요구사항, 요구 운동, 전달 성능 조건을 만족하는 morphology 가운데 contact pad coverage가 가장 큰 것을 찾는다.
-5. **비교 연구 (A.6).** 여러 mechanism 구조를 같은 외형에 맞춘 뒤, contact interface만 바꿔 가며 각 구조가 얼마나 수용하는지(Study 1), interface의 범위를 손가락 하나로 쓰면 주어진 pad를 얼마나 쓸 수 있는지, 더 쓰려면 손가락을 얼마나 다르게 만들어야 하는지(Study 2) 평가한다.
+5. **비교 연구 (A.6).** 해석(Study 0)이 관절이 contact interface에서 빼앗는 것과 relative contact trajectory의 하한을 유도하고, 구조마다 자기 최적 설계로 두 가지를 확인한다. 두께와 요구 flexion에 따라 각 구조가 확보하는 coverage(Study 1), 더 두꺼운 interface에 맞춰 다시 설계할 때 relative contact trajectory를 얼마나 지키는가(Study 2). 구조끼리 외형을 맞추지 않는다.
 
 Contact interface는 이 문제의 출발점이다. 그 치수는 요구사항으로 먼저 주어지고, mechanism, actuation, structure는 그것을 수용하도록 설계된다.
 
@@ -526,7 +526,7 @@ $$
 
 **해석.** 곡선이 높은 구조는 같은 크기의 손가락에서 더 많은 접촉면을 확보한다. 두께가 늘 때 곡선이 덜 떨어지는 구조는 두꺼운 interface를 쓰는 데 드는 비용이 작다. 요구 flexion이 클 때 곡선이 덜 떨어지는 구조는 깊이 굽혀도 접촉면을 유지한다. 각 점은 그 조건만을 위해 설계한 손가락이므로, 이 곡선은 구조가 그 조건에서 낼 수 있는 상한이다. 손가락 하나로 여러 두께를 쓰는 경우는 Study 2에서 본다. 이 결과는 2차원 측면 모델에서의 비교이다.
 
-**고정된 손가락에 module을 다는 규칙.** 손가락을 그대로 두고 contact interface만 바꿔 다는 평가(Study 2)는 다음 규칙을 쓴다. 기준 morphology에서 mechanism, actuation, structure $(K,A_0^K,S_0^K)$는 그대로 두고 contact interface의 치수만 바꾼다. 장착 위치 $\mathbf p_i$는 탐색하지 않고 정해진 장착 규칙으로 결정한다. 각 pad는 바깥 끝(proximal pad는 MCP 쪽, distal pad는 손끝 쪽)에 맞춰 놓는다. 깊이는 자기 phalanx의 joint 하드웨어와 겹치지 않는 가장 얕은 위치로 하되, 그 phalanx 구조가 받칠 수 있는 범위 안이어야 한다. 이런 위치가 없으면 module을 장착할 수 없다. Spacer는 쓰지 않는다. 이렇게 얻은 morphology를 다음과 같이 쓴다.
+**고정된 손가락에 module을 다는 규칙.** 손가락을 그대로 두고 contact interface만 바꿔 다는 평가(2026-11-20까지의 Study 1·Study 2 정의, 지금은 보조 자료)는 다음 규칙을 쓴다. 기준 morphology에서 mechanism, actuation, structure $(K,A_0^K,S_0^K)$는 그대로 두고 contact interface의 치수만 바꾼다. 장착 위치 $\mathbf p_i$는 탐색하지 않고 정해진 장착 규칙으로 결정한다. 각 pad는 바깥 끝(proximal pad는 MCP 쪽, distal pad는 손끝 쪽)에 맞춰 놓는다. 깊이는 자기 phalanx의 joint 하드웨어와 겹치지 않는 가장 얕은 위치로 하되, 그 phalanx 구조가 받칠 수 있는 범위 안이어야 한다. 이런 위치가 없으면 module을 장착할 수 없다. Spacer는 쓰지 않는다. Study 1과 Study 2의 탐색에서 pad의 깊이도 같은 규칙(가장 얕은 깊이, spacer 없음)을 따른다. 이렇게 얻은 morphology를 다음과 같이 쓴다.
 
 $$
 M^K(c)=\big(K,\;C(c),\;A_0^K,\;S_0^K\big),

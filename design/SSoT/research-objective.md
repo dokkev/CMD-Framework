@@ -1,121 +1,36 @@
 # CoDe Hand — Research Objective
 
-Experiment design: the principles, what each study must show, and the discipline claims are held to. The publication goal (problem, approach, contributions and their status) is in [north-star.md](north-star.md), which takes precedence; the mathematics is in [problem_formulation.md](problem_formulation.md).
+Experiment design: the principles, what each study must show, the discipline claims are held to, and the paper plan with each contribution's status (Section 9). The problem, what CoDe solves and the contributions are in [north-star.md](north-star.md), which takes precedence; the mathematics is in [problem_formulation.md](problem_formulation.md).
 
 ## 1. Purpose
 
-**Design a robotic hand around its contact interfaces, rather than treating contact interfaces as secondary components constrained by an existing hand architecture.**
+CoDe is meant to be a research platform on which contact-interface experiments are possible and interpretable: researchers can study diverse contact morphologies if they wish, and can change only the contact interface while the underlying relative contact trajectory is kept. The problem it addresses, its approach and the contributions claimed are in [north-star.md](north-star.md); this file states how the studies test them.
 
-CoDe is a hand architecture intended to make contact-interface design an independent and experimentally accessible research variable. It is not primarily an attempt to build a hand with more degrees of freedom, higher grasping strength, or universally better manipulation performance.
-
-The contribution is the validity of contact-interface measurements, not the discovery that contact matters. That a policy or a grasp depends on its contact interface is expected. **CoDe enables controlled measurements of contact-interface effects while minimizing confounding changes in the underlying robot morphology and articulation kinematics.** A change of interface itself changes contact points, normals and contact-point Jacobians; that is the intended effect under study, not a confound. What is minimized is the articulation's change made only to accommodate the interface, and the studies should show how large that confound would otherwise be.
+It is not an attempt to build a hand with more degrees of freedom, higher grasping strength, or universally better manipulation performance.
 
 ---
 
-## 2. The Core Research Problem
+## 2. Intended and Unintended Variation
 
-Contact is fundamental to dexterous manipulation. However, the physical design of contact interfaces remains constrained by conventional robotic hand architectures.
+When a manipulation experiment compares two contact interfaces, the observed change has two kinds of source:
 
-There are three interconnected problems.
+- **Intended variation** comes from the contact interface itself: what happens on the contact face. Its geometry and profile, the contact's location, distribution and normals on the face, compliance, friction, tactile observations and interface-dependent force transmission. The contact-point Jacobian changes that follow from these (a contact elsewhere on the face, a different normal) are part of the effect under study.
+- **Unintended embodiment variation** comes from how the hand was adapted to the interface: changes in finger length, joint location, linkage geometry, actuation or transmission, and above all a displacement of the contact faces relative to the articulation. A thicker interface on an unchanged joint moves its contact face away from the point the phalanx turns about, which changes the relative contact trajectory and with it the contact-point Jacobian. That change comes from the hand's geometry, not from the interface, and is what a redesign should remove.
 
-### 2.1 Limited Space for Functional Contact Interfaces
-
-Contact interfaces are often treated as thin friction pads or passive compliant surfaces.
-
-In practice, useful contact interfaces can be substantially more complex and physically larger:
-
-- Thick compliant structures.
-- Integrated tactile sensor modules.
-- Sensorized contact surfaces with internal electronics and supporting structures.
-- Specialized geometries and materials designed for particular contact interactions.
-
-These interfaces require physical volume.
-
-However, conventional robotic fingers must also accommodate servo bodies, joint housings, transmission mechanisms, and structural components. These elements compete for the same limited space.
-
-Consequently, integrating functional contact interfaces, especially along proximal phalanges and around articulated joints, can be mechanically difficult.
-
-The problem is not simply attaching a sensor or a pad. It is providing sufficient usable space for the contact interface without compromising the hand's articulation and mechanical architecture.
-
-### 2.2 High Redesign Cost When Contact Interfaces Change
-
-Accommodating a different contact interface often requires changes to the underlying finger design.
-
-These changes may include:
-
-- Finger and phalanx dimensions.
-- Joint locations and spacing.
-- Actuator placement.
-- Linkage and transmission geometry.
-- Overall finger morphology.
-
-As a result, changing a contact interface can become a substantial mechanical redesign rather than a simple module replacement.
-
-This makes systematic exploration of contact-interface design expensive and time-consuming.
-
-### 2.3 Difficulty Isolating the Effects of Contact Morphology
-
-The most important research consequence is experimental confounding.
-
-Suppose a manipulation experiment compares two contact interfaces.
-
-If changing the interface also requires changing finger length, joint placement, linkage geometry, or actuator configuration, the resulting performance difference cannot be attributed solely to the contact interface.
-
-The observed change may originate from:
-
-- Contact-interface geometry or material.
-- Tactile sensing characteristics.
-- Changed finger kinematics.
-- Changed hand morphology.
-- Changed actuation or transmission behavior.
-
-This makes it difficult to systematically investigate how contact-interface design itself influences manipulation.
-
-The changes observed in such an experiment are of two kinds:
-
-- **Intended variation** is caused by the contact interface itself: contact stiffness, friction, contact geometry, tactile observations and interface-dependent force transmission.
-- **Unintended embodiment variation** is caused by redesigning the hand to accommodate the interface: finger length, joint location, linkage geometry, and actuation or transmission configuration.
-
-CoDe does not aim to remove the first. It aims to control the second, so that the first can be studied.
-
-**We need a hand architecture that reduces the coupling between contact-interface design and the underlying hand morphology.**
+The dividing line: a change on the contact face is the interface's; a change of where the contact face is, and how it moves, relative to the other contact face is the embodiment's. CoDe does not aim to remove the first. It aims to keep the second small, and to record what does change (Section 5.2), so that the first can be studied. The objective is to reduce embodiment confounding, not to claim perfect causal isolation.
 
 ---
 
-## 3. The CoDe Approach
+## 3. Problem and Approach
 
-CoDe introduces a contact-centric hand architecture in which contact interfaces are treated as first-class design components.
-
-The architecture should provide sufficient space and mechanical freedom to accommodate diverse contact interfaces without requiring substantial redesign of the underlying finger structure.
-
-The design philosophy is:
-
-**Keep the hand architecture consistent. Redesign the contact interface.**
-
-This does not mean that every interface must fit without any mechanical changes. Rather, the architecture should minimize the changes required to accommodate different interfaces and make those changes explicit and measurable.
-
-The current engineering direction explores:
-
-- Remote actuator placement to reduce competition between actuator bodies and contact interfaces.
-- Polycentric articulation to provide additional freedom in finger motion and mechanical packaging.
-- Linkage architectures that preserve useful ROM while accommodating functional contact structures.
-- Mechanically independent proximal and distal contact-interface modules.
-- Replaceable contact interfaces without requiring unnecessary disassembly of the underlying articulation mechanism.
-
-These are engineering means toward the research objective, not independent ends.
-
-No particular mechanism should be assumed superior without comparative evidence.
+See [north-star.md](north-star.md). Mechanisms are engineering means toward the research objective, not ends, and no mechanism is assumed superior without comparative evidence.
 
 ---
 
-## 4. The Central Research Question
+## 4. Supporting Questions
 
-**How can a robotic hand be designed to enable systematic variation and evaluation of contact interfaces while minimizing changes to its underlying morphology and reducing experimental confounding?**
-
-This leads to three supporting questions:
-
-1. How does hand architecture constrain the available space and geometry of functional contact interfaces?
-2. How much must the underlying hand morphology change to accommodate different contact interfaces?
+1. How does hand architecture constrain the available space and geometry of contact interfaces?
+2. How much must the underlying hand change to accommodate different contact interfaces, and how much does its relative contact trajectory change?
 3. How do changes in contact-interface design influence physical interaction, tactile observations, and ultimately manipulation behavior?
 
 The third question is the long-term research objective. The first two establish the hardware and experimental foundation required to investigate it.
@@ -185,7 +100,7 @@ The following are intentionally variable:
 - Tactile sensing configuration.
 - Contact location, distribution and surface response.
 
-Preserving the relative contact trajectory does not imply preserving contact mechanics or actuator-side contact responses: compliance, friction, sensing and the contact's location on the face change with the interface, which is precisely what the platform is designed to investigate. What should not change with them is where the contact faces are and how they move. With identical rigid-body kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so changes the contact-point Jacobian; that change is an effect of the hand's geometry, not of the interface under study, and is what a redesign should remove.
+Preserving the relative contact trajectory does not imply preserving contact mechanics or actuator-side contact responses: compliance, friction, sensing and the contact's location on the face change with the interface, which is precisely what the platform is designed to investigate. What should not change with them is where the contact faces are and how they move relative to each other (Section 2). Changes that a redesign does make (transmission from servo angle to flexion, mechanical advantage, the skeleton's motion) are recorded with the result.
 
 The objective is to isolate contact-interface variation from unnecessary changes to the underlying hand embodiment, not to make contact behavior invariant.
 
@@ -210,9 +125,9 @@ The project's experiments should provide evidence for the central research objec
 
 **What the computational studies must show** (supporting questions 1 and 2):
 
-1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact, and the difference grows with the required flexion.
+1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact. Which architecture keeps more depends on the required flexion and the interface's thickness; the study reports the ranking per condition rather than one trend.
 2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion.** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
-3. **The relative contact trajectory can be kept when the interface changes, with the contact surface kept too.** The relative contact trajectory is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface with that motion as its target, a joint turning about a fixed axis cannot keep it, whatever the redesign (a closed-form lower bound); the CFL moves the point it turns about and keeps it, at a pad coverage near the best for that interface, within a range the study measures. This is the claim the project makes for CoDe.
+3. **A redesign can keep the relative contact trajectory far better than a fixed axis allows, with the contact surface kept too.** The relative contact trajectory is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface placed at that interface's best depth, a joint turning about a fixed axis changes the relative contact trajectory by at least a closed-form lower bound, whatever the redesign; the CFL moves the point it turns about and changes it by a fraction of that bound, at a pad coverage near the best for that interface, within a range the study measures. Designing once for the thickest interface and raising thinner ones on spacers keeps the trajectory on any architecture, at the coverage cost of the deep design; the comparison is therefore between the trade-offs of change in trajectory against coverage, not between keeping and losing it.
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
@@ -252,7 +167,7 @@ Learning-based interface experiments (Studies 3A–3D) are set out in Section 8.
 
 ## 8. Learning-Based Manipulation Research
 
-This section is the north star for the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–2, and Section 7 applies to it in full.
+This section sets out the learning-based work under `sim/`. It extends question 3 (Section 4) and criterion 4 (Section 5.7) to learning-based dexterous manipulation. It does not replace Studies 1–2, and Section 7 applies to it in full.
 
 ### 8.1 Objective
 
@@ -266,13 +181,13 @@ The goal is not to demonstrate that CoDe achieves universally higher manipulatio
 
 The learning framework should produce evidence addressing this question, rather than simply maximizing task success.
 
-**Scope of the current paper (2026-11-21).** Design studies (Studies 0–2) and simulation (Studies 3A–3C) with rigid contact interfaces. Compliant and tactile interfaces, which motivate CoDe (Section 2.1), are not simulated; the learning results are statements about rigid interfaces of different geometry and thickness. The extent of hardware validation (Section 8.4, Hardware) is an open decision.
+**Scope of the current paper (2026-11-21).** Design studies (Studies 0–2) and simulation (Studies 3A–3C) with rigid contact interfaces. Compliant and tactile interfaces, which motivate CoDe (north-star.md), are not simulated; the learning results are statements about rigid interfaces of different geometry and thickness. The extent of hardware validation (Section 8.4, Hardware) is an open decision.
 
 ### 8.2 Contact as an Independent Variable
 
 A robot configuration is R = (H, C), with H = (E, Q, A) as defined in Section 5.6. The primary research configuration holds H fixed while varying C.
 
-Contact-interface variation may intentionally change contact geometry, dimensions, friction, compliance, sensing, contact locations and contact-point Jacobians. The objective is not to make contact mechanics invariant. It is to distinguish these intended contact-interface effects from unintended changes to the underlying embodiment (Section 2.3).
+Contact-interface variation may intentionally change contact geometry, dimensions, friction, compliance, sensing, contact locations and the contact-point Jacobians that follow from them. The objective is not to make contact mechanics invariant. It is to distinguish these intended contact-interface effects from unintended changes to the underlying embodiment, including a changed relative contact trajectory (Section 2).
 
 Where practical, preserve the observation space, action space, controller, task definition, reward and learning algorithm across interface configurations. Changes that cannot be preserved must be reported explicitly.
 
@@ -322,7 +237,7 @@ Measure performance differences, sensitivity, adaptation, generalization and con
 
 *Target evidence:* whether a measured interface effect survives a change of the simulated contact model.
 
-**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2.3). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the relative contact trajectory (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
+**Study 3C — Embodiment-dependent confounding of an interface effect** (RQ3, Section 2). Make the same interface change C₀ → C₁ (a thin interface to a thick one) along two morphology-adaptation paths: the redesigned path R keeps the relative contact trajectory (CoDe, Study 2's redesign); the unadapted path U lets it change with the interface (the same finger with thicker interfaces, then a fixed-axis architecture at its own best redesign). With the same task and protocol, each path measures
 
 ΔJ_R = J(H_R,1, C₁) − J(H_R,0, C₀),  ΔJ_U = J(H_U,1, C₁) − J(H_U,0, C₀),
 
@@ -375,3 +290,30 @@ In addition to Section 7:
 **CoDe Hand is not intended to make every contact interface better. It is intended to make contact interfaces easier to study.**
 
 The ultimate demonstration is that AI manipulation researchers can change contact morphology, retain a consistent underlying embodiment and learning infrastructure, and systematically investigate the resulting manipulation behavior without repeatedly redesigning the robot.
+
+---
+
+## 9. Paper Plan and Status
+
+**Venue.** RSS 2027 (Athens, July 6–11). Extended abstract due 2026-12-04, stage-1 decision 2027-02-05, final paper due 2027-04-16 (from the call for papers; re-check on roboticsconference.org before each deadline).
+
+**Evidence for each contribution** (contributions as stated in `north-star.md`; status 2026-11-21):
+
+| | Evidence | Status |
+|---|---|---|
+| C1 | Study 0 (P4) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
+| C2 | Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such |
+| C3 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's trajectory change is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best |
+| C4 | Study 3C | Open: not yet designed in detail |
+| C5 | Hardware | Open: extent undecided |
+
+Studies 3A (pilot done; main experiment running) and 3B (pre-registered) support C4 and the platform claim but are not contributions on their own (Section 8.4).
+
+**Open decisions.**
+
+1. **The spacer baseline.** A finger designed once for the thickest interface, with thinner ones raised on spacers, keeps the relative contact trajectory on any architecture. Whether C1–C3 are stated as the trade-off between trajectory change and coverage, with the spacer design at one end (Section 6, claim 3), and whether Study 3C includes a spacer path.
+2. **Transmission under redesign** (servo angle to flexion, mechanical advantage: MA_wc changed by −7% to +16% in Study 2): how much it changes, whether it is argued as compensable and recorded (Section 5.6), or added to the redesign target. Not yet measured per design.
+3. **Hardware scope** for the final paper (C5).
+4. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
+5. **Study 3D**: kept, or dropped from the RSS scope.
+6. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).

@@ -1,63 +1,44 @@
 # CoDe Hand — North Star
 
-The publication goal: what the paper claims, for whom, and what is still open. One page.
+What problem exists, what CoDe solves, and what the work claims. Concepts only: how the studies test the claims, their status and the venue plan are in `research-objective.md`.
 
 The SSoT has four files, each with one job. When they disagree, the higher one wins and the lower one is fixed.
 
 | File | Job |
 |---|---|
-| `north-star.md` (this file) | Publication goal: problem, approach, contributions and their status |
-| `research-objective.md` | Experiment design: principles, what each study must show, claim discipline |
+| `north-star.md` (this file) | The problem, what CoDe solves, the contributions claimed |
+| `research-objective.md` | Experiment design: principles, what each study must show, claim discipline, status and paper plan |
 | `problem_formulation.md` | Mathematics: definitions, variables and their names, each study's formulation |
 | `code_formulation.md` | Implementation: how the formulation is written as code |
 
-## Venue
+## In one sentence
 
-RSS 2027 (Athens, July 6–11). Extended abstract due 2026-12-04, stage-1 decision 2027-02-05, final paper due 2027-04-16 (dates from the call for papers; re-check on roboticsconference.org before each deadline).
+CoDe is a servo-driven hand on which contact interfaces of different size and shape can be exchanged while the relative contact trajectory (how one contact face moves as seen from the other) is kept, so that contact morphology can be studied as an independent variable in manipulation.
 
-## Terms
+## The problem
 
-**Relative contact trajectory:** the path of the distal contact face seen from the proximal contact face, as a function of flexion q (not of time). D_c is its largest change between two fingers over the required flexion, per finger length. It does not include the transmission from servo angle to flexion. (Replaced "contact-centric kinematics" on 2026-11-21, which promised the servo-to-contact map too.)
-
-## Problem
-
-Contact is central to dexterous manipulation, and the contact interface (its geometry, size, compliance and sensing) sets that contact. Research hands use servos for maintainability, and the servo bodies take up the space inside the finger.
+Contact is central to dexterous manipulation, and the contact interface (its geometry, size, compliance and sensing) sets that contact. Research hands are built around servos for maintainability, and servo bodies and joints occupy the space a contact interface would need.
 
 - **P1 — Space.** Servos and joints compete with the contact interface for the same space, so a large or thick interface costs either range of motion or contact surface.
-- **P2 — Redesign.** Redesigning the finger for a different interface changes its relative contact trajectory (the path of the distal contact face seen from the proximal one, as a function of flexion). For a joint turning about a fixed axis this cannot be avoided when the interface is moved to its own best depth: a thickness change Δh moves the relative contact trajectory by at least 2 sin(q/2)·Δh at flexion q.
-- **P3 — Measurement.** So when interfaces are compared in manipulation, the difference cannot be attributed to the interface alone: the hand's motion changed with it.
+- **P2 — Redesign.** Redesigning a finger for a different interface changes its relative contact trajectory. For a joint turning about a fixed axis this is unavoidable when the interface sits at its own best depth.
+- **P3 — Measurement.** So when interfaces are compared in manipulation, a difference cannot be attributed to the interface alone: the hand's motion changed with it.
 
-## Goal
+## What CoDe solves
 
-A servo-driven finger that, as the interface's size changes, keeps range of motion and contact surface together (P1) and changes its relative contact trajectory little when re-optimized (P2), so that the contact interface can be used as an independent variable in manipulation research (P3).
+- **Remote actuation:** the servo leaves the joint and drives it through a linkage, freeing the space under the joints for the interface. → P1
+- **Polycentric articulation (the CFL):** the point the distal phalanx turns about moves with flexion, so a thick interface can sit under the joint without giving up range of motion or contact surface. → P1, P2
+- **The relative contact trajectory as the redesign target:** when a new interface asks for a redesign, the finger is re-optimized to keep how its contact faces move, not how its skeleton moves. → P2, P3
 
-## Approach (CoDe)
+## Contributions
 
-- **Remote actuation:** the servo leaves the joint and drives it through a linkage. → P1
-- **Polycentric articulation (the CFL):** the point the distal phalanx turns about moves with flexion. → P1, P2
-- **The relative contact trajectory as the redesign target**, its change measured by D_c (`problem_formulation.md` A.6.3). → P2, P3
+A contribution is a claim to be tested, not a result to be secured.
 
-## Contributions and status
-
-A contribution is a claim to be tested, not a result to be secured (`research-objective.md`, Claim Discipline).
-
-| | Claim | Evidence | Status (2026-11-21) |
-|---|---|---|---|
-| C1 | A fixed-axis joint cannot keep the relative contact trajectory when an interface is moved to a different depth: the lower bound 2 sin(q/2)·Δh | Study 0 | Derived; 2R-remote's redesigns sit on the bound at 90° and 120° |
-| C2 | The CFL finger keeps more contact surface than a servo-at-joint finger (2R-DD) in all 12 conditions (4 thicknesses × 3 flexions, +2.4 to +14.6 points), and is the only physical architecture with a usable design in all 12 | Study 1 | Shown in the 2D side model. Against 2R-remote the ranking depends on flexion and thickness, and is reported as such |
-| C3 | Redesigned for a thicker interface, the CFL changes its relative contact trajectory least among the four physical architectures in all 9 conditions (10–51% of the fixed-axis bound), at near-best coverage | Study 2 | Shown in the 2D side model |
-| C4 | The change in the relative contact trajectory alters learning-based interface evaluations | Study 3C | **Open.** Not yet designed in detail |
-| C5 | Interfaces are exchanged on one physical hand | Hardware | **Open.** Extent undecided |
-
-Supporting, not contributions: Study 3A (one hand, one learning pipeline, interfaces compared; pilot done, main experiment running) and Study 3B (contact-model sensitivity; pre-registered).
+- **C1 — A bound.** A fixed-axis joint cannot keep the relative contact trajectory when an interface changes depth; the change has a closed-form lower bound.
+- **C2 — A finger.** A remote-actuated polycentric finger (the CFL) that keeps more contact surface than a servo-at-joint finger as interfaces thicken and the required flexion deepens.
+- **C3 — Redesign that keeps contact.** Re-optimized for a new interface, the CFL keeps its relative contact trajectory far closer than the fixed-axis bound allows, at near-best contact surface.
+- **C4 — Why it matters.** A change in the relative contact trajectory alters what a learning-based interface experiment measures.
+- **C5 — A platform.** Interfaces are exchanged on one physical hand.
 
 ## Not claimed
 
-A hand that manipulates better than others; a best contact interface; that the CFL beats every remote-actuated design everywhere; that keeping the relative contact trajectory preserves a policy's performance; simulated compliant or tactile interfaces; physical accuracy of a contact model without validation.
-
-## Open decisions
-
-1. **The spacer baseline.** A finger designed once for the thickest interface, with thinner ones raised on spacers, has D_c = 0 on any architecture. The honest comparison is then the trade-off between D_c and coverage, with the spacer design at one end. Whether C1–C3 are restated in that form is undecided.
-2. **How much the transmission changes under redesign** (servo angle to flexion, mechanical advantage), and whether the redesign target should include it. Not yet measured.
-3. **Hardware scope** for the final paper (C5).
-4. **"Interfaces concentrate on distal phalanges"** is not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
+A hand that manipulates better than others; a best contact interface; that the CFL beats every remote-actuated design under every condition; that keeping the relative contact trajectory preserves a policy's performance; simulated compliant or tactile interfaces; physical accuracy of a contact model without validation.
