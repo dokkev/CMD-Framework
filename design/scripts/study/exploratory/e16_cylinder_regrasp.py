@@ -96,6 +96,15 @@ def regrasp(q, c0, cx, q0: float, rho: float):
 K_THETA, TAU_MAX = 1.03 * 11.509510008905426, 1.03  # XM335 at 11.1 V (code_hand_sim export)
 
 
+def series_force(dn: float, lever_mm: float, k: float, k_pad: float | None) -> float:
+    """dF (N) for a normal offset dn (mm): the pad (k_pad, N/mm; None: rigid) in series with the joint seen at
+    the contact, k_joint = K_q / r^2 (K_q = K_theta k^2), capped where the joint torque reaches the stall
+    torque (the joint's share of the offset times k_joint, times r, over K_q, beyond 5 deg of servo error)."""
+    k_joint = K_THETA * k * k / (lever_mm * 1e-3) ** 2 * 1e-3  # N/mm
+    k_eff = k_joint if k_pad is None else 1.0 / (1.0 / k_pad + 1.0 / k_joint)
+    return min(k_eff * abs(dn), TAU_MAX * k / (lever_mm * 1e-3))
+
+
 def force_change(q, cx, ratio_q, ratio, q0: float, centre, rho: float, dn: float):
     """dF (N) for a normal offset dn (mm) at the grasp of finger X at flexion q0."""
     i = int(np.argmin(np.abs(q - q0)))
@@ -104,7 +113,7 @@ def force_change(q, cx, ratio_q, ratio, q0: float, centre, rho: float, dn: float
     lever = abs(np.gradient(residual, q)[i])  # mm per rad
     k = np.interp(q0, ratio_q, ratio)
     torque = min(K_THETA * k * k * abs(dn) / lever, TAU_MAX * k)  # N m: dq = dn / lever (rad)
-    return torque / (lever * 1e-3), lever
+    return torque / (lever * 1e-3), lever, k
 
 
 def main(argv=None) -> int:
@@ -153,9 +162,9 @@ def main(argv=None) -> int:
                 dn = float(n[i] @ (cx[i] - c0[i]))
                 if not on:
                     cells.append(f"{'off pad':>28}"); valid = False; continue
-                df, lever = (0.0, float("nan")) if name not in ratios else force_change(
+                df, lever, kk = (0.0, float("nan"), float("nan")) if name not in ratios else force_change(
                     q, cx, *ratios[name], math.radians(q0), np.array([x_c, -rho]), rho, dn)
-                summary[name].append((dn, dq, ds, df, lever))
+                summary[name].append((dn, dq, ds, df, lever, kk))
                 cells.append(f"{dn:+6.2f} mm {dq:+6.2f} deg {ds:+6.2f} mm")
             if valid or True:
                 print(f"  {rho:4.0f} {q0:4.0f} | " + " | ".join(cells))
@@ -167,6 +176,15 @@ def main(argv=None) -> int:
                   f"|dq| max {np.abs(a[:, 1]).max():.2f} deg, median {np.median(np.abs(a[:, 1])):.2f}; "
                   f"|ds| max {np.abs(a[:, 2]).max():.2f} mm; dF max {a[:, 3].max():.1f} N, median {np.median(a[:, 3]):.1f} N "
                   f"(lever {np.nanmin(a[:, 4]):.0f}..{np.nanmax(a[:, 4]):.0f} mm)")
+    print("Series compliance: dF (N) = k_eff |n.dc|, k_eff = (1/k_pad + 1/k_joint)^-1, k_joint = K_q / r^2 (median, max):")
+    for k_pad in (None, 5.0, 2.0, 1.0):
+        cells = []
+        for name in ("H_R", "H_U"):
+            a = np.array(summary[name])
+            f = np.array([series_force(dn, lever, kk, k_pad) for dn, _, _, _, lever, kk in a])
+            kj = np.array([K_THETA * kk * kk / (lever * 1e-3) ** 2 * 1e-3 for *_, lever, kk in a])
+            cells.append(f"{name} {np.median(f):5.2f} / {f.max():5.2f} (k_joint {kj.min():.0f}..{kj.max():.0f} N/mm)")
+        print(f"  k_pad {'rigid' if k_pad is None else f'{k_pad:g} N/mm':>8}: " + "; ".join(cells))
     return 0
 
 

@@ -62,3 +62,24 @@
   - **rigid:** δ_crit = F·r² / K_q. 예를 들어 F = 2 N, r = 15 mm, dθ/dq = 0.6(K_q ≈ 4.3 N·m/rad)이면 δ_crit ≈ 0.1 mm이다.
   - **compliant pad**(강성 k_pad): δ_crit ≈ F / k_pad. k_pad = 1–5 N/mm이면 F = 2 N에서 0.4–2 mm이다. 이 범위라면 H_R(≈ 1 mm)은 pad의 변형 안에 들어가고, H_U(최대 4 mm)는 들어가지 않는다.
 - **결론.** relative contact trajectory가 1 mm 대 4 mm로 다른 것이 의미가 있는지는 interface(또는 시뮬레이션 contact model)의 compliance가 정한다. rigid interface에서는 둘 다 허용치(≈ 0.1 mm)를 크게 넘는다. 실제 물체는 고정되어 있지 않고 밀려나므로 실제 힘은 이보다 작다. 이 추정은 크기를 가늠하는 용도이다.
+
+## pad compliance를 직렬로 넣으면
+
+접촉점의 법선 방향에서 pad(강성 k_pad)와 관절(k_joint = K_q / r²)은 직렬로 연결된다. 따라서 ΔF = k_eff·δₙ이고 k_eff = (1/k_pad + 1/k_joint)⁻¹이다. 관절 쪽 토크가 한계에 닿으면 포화한다. 이 grasp들에서 k_joint는 H_R 11–321 N/mm, H_U 5–167 N/mm이다.
+
+| k_pad | H_R: ΔF 중앙값 / 최댓값 | H_U: ΔF 중앙값 / 최댓값 |
+|---|---|---|
+| rigid | 47.6 / 156.5 N (포화) | 32.7 / 122.1 N (포화) |
+| 5 N/mm | 4.0 / 5.4 N | 5.9 / 19.0 N |
+| 2 N/mm | 1.7 / 2.3 N | 2.7 / 8.0 N |
+| 1 N/mm | 0.8 / 1.2 N | 1.4 / 4.1 N |
+
+**검증.**
+- rigid 행은 위의 준정적 추정과 같다.
+- k_pad = 1 N/mm에서는 ΔF ≈ δₙ × 1 N/mm이다. pad가 직렬 compliance를 거의 다 차지하기 때문이다.
+
+**결론.**
+- compliant pad(1–2 N/mm)에서 H_R의 힘 오차는 최대 1.2–2.3 N으로, 쥐는 힘(1–5 N)보다 작거나 비슷하다.
+- H_U의 최악은 4.1–8.0 N으로 그 범위를 넘는다. 최악의 경우를 비교하면 차이는 약 3.5배이다.
+- rigid pad에서는 두 손 모두 포화해서 구분되지 않는다.
+- 따라서 relative contact trajectory를 지키는 것이 의미를 갖는 것은 interface가 compliant할 때이다. 이는 CoDe의 동기인 두꺼운 compliant interface와 같은 조건이다.
