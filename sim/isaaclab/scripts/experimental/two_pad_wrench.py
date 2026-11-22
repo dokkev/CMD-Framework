@@ -109,6 +109,13 @@ def main(argv=None) -> int:
     parser.add_argument("--grasps", type=Path, default=GRASPS_JSON)
     parser.add_argument("--radius_mm", type=float, default=15.0)
     parser.add_argument("--impratio", type=float, default=None, help="MuJoCo friction-to-normal impedance ratio (default: the preset's 10)")
+    parser.add_argument("--render", type=Path, default=None,
+                        help="also render environment --render_env with Newton's GL viewer (headless) once the grasp has "
+                             "settled, as <dir>/<run>_env<k>.png")
+    parser.add_argument("--render_env", type=int, nargs="+", default=(0,))
+    parser.add_argument("--render_only", action="store_true", help="stop after rendering (no load ramp, no log)")
+    parser.add_argument("--camera", type=float, nargs=5, default=(0.068, -0.145, 0.018, -5.0, 90.0),
+                        help="camera offset from the environment origin + hand height (x, y, z [m]), pitch, yaw [deg]")
     parser.add_argument("--verbose", action="store_true", help="print the grasp every 10 steps before the load")
     parser.add_argument("--only", type=int, default=None, help="first N placements (a smoke test)")
     args, hydra_args = setup_preset_cli(parser, argv)
@@ -149,6 +156,8 @@ def main(argv=None) -> int:
 
 
 def finish(args, physics, results) -> int:
+    if not results:  # --render_only
+        return 0
     run = common.run_id(f"tp_{args.hand}_mu{args.mu:g}_{args.condition}_r{args.radius_mm:g}")
     out = common.write_json(OUT / f"{run}.json", {
         "hand": args.hand, "mu": args.mu, "condition": args.condition, "delta_deg": args.delta_deg,
@@ -168,6 +177,56 @@ def finish(args, physics, results) -> int:
                          for x in results if x['rho_mm'] == e['rho_mm'] and x['q0_deg'] == e['q0_deg']))
     print(out)
     return 0
+
+
+def render(args, u, origins, face_w) -> None:
+    """Newton's GL viewer, headless (EGL), on the current state; one PNG per requested environment."""
+    import os
+
+    import pyglet
+
+    if not os.environ.get("DISPLAY"):
+        pyglet.options["headless"] = True
+    import newton
+    import warp as wp
+    from PIL import Image
+
+    manager = u.sim.physics_manager
+    model = manager.get_model()
+    colors = model.shape_color.numpy()
+    for k, label in enumerate(model.shape_label):  # pads amber, the cylinder blue, the rest light grey
+        colors[k] = (0.93, 0.66, 0.22) if label.endswith("_pad") else (0.35, 0.55, 0.85) if "/Cyl/" in label \
+            else (0.78, 0.78, 0.80)
+    model.shape_color.assign(colors)
+    if model.shape_opacity is not None:  # hide the palm's placeholder capsule and the thumb
+        opacity = model.shape_opacity.numpy()
+        for k, label in enumerate(model.shape_label):
+            if "/Robot/palm" in label or "/Robot/thumb" in label:
+                opacity[k] = 0.0
+        model.shape_opacity.assign(opacity)
+    viewer = newton.viewer.ViewerGL(width=1600, height=1100, headless=True)
+    viewer.set_model(model)
+    viewer.renderer.draw_sky = False  # white background for figures
+    viewer.renderer.sky_upper = viewer.renderer.sky_lower = (1.0, 1.0, 1.0)
+    viewer.show_collision = True
+    viewer.show_ground = False
+    args.render.mkdir(parents=True, exist_ok=True)
+    stem = f"tp_{args.hand}_mu{args.mu:g}_{args.condition}_r{args.radius_mm:g}"
+    viewer.set_world_offsets((0.0, 0.0, 0.0))  # the bodies already carry their environment's origin
+    for k in args.render_env:
+        viewer.set_visible_worlds([k])
+        o = common.torch_of(origins)[k].tolist()
+        dx, dy, dz, pitch, yaw = args.camera
+        viewer.set_camera(pos=wp.vec3(o[0] + dx, o[1] + dy, face_w + dz), pitch=pitch, yaw=yaw)
+        for _ in range(2):  # the first frame after a camera move can be stale
+            viewer.begin_frame(0.0)
+            viewer.log_state(manager.get_state_0())
+            viewer.end_frame()
+        image = viewer.get_frame().numpy()
+        path = args.render / f"{stem}_env{k}.png"
+        Image.fromarray(image).save(path)
+        print(f"rendered {path}")
+    viewer.close()
 
 
 def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
@@ -392,6 +451,11 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         matched = torch.ones(n, dtype=torch.bool, device=dev) if goal is None else \
             ((st["mag"][:, 1::2].sum(dim=1) - goal).abs() <= GATE_MATCH * goal)
         passed = g_pre["pads"] & g_pre["still"] & g_pre["angle"] & matched
+
+        if args.render is not None:
+            render(args, u, origins, face_w)
+            if args.render_only:
+                return []
 
         # 4: load ramp
         c0 = st["centre"].clone()
