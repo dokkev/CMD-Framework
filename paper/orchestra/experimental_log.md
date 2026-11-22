@@ -313,3 +313,12 @@ with O at the same pad stiffness. Valid (mu_eff 1.30/2.00, Delta(O_h) 1.0-1.4 N)
 [0.33, 0.99], p 0.0003 (n 14); only Delta_contact's interval excludes zero. R vs U: 4.7 vs 54.9% (5 mm), 13.6 vs
 128.6% (7 mm), 50.0 vs 124.0% (9 mm), Wilcoxon p <= 1.1e-7. Also: grid analysis key fixed (x_c in the key):
 45-hand grid rho 0.86 [0.72, 0.94], Delta_skel 0.22 [-0.12, 0.51]; Delta_contact beats every candidate directly.
+
+## Study 3: ideal reused torque on the grid, 27 new hands (eighteenth experiment, pre-registered c51e92d; 2026-11-22)
+
+Condition C on the hand-independent grid for the 27 redesigns of the thirteenth experiment (`torque_grid_analysis.py`,
+`torque_grid.json`). All 27 hold; force ratio 0.63-1.23; E 9-53% (median 20%). Pre-registered: partial
+rho(E, Delta_contact | force deviation) 0.79 [0.54, 0.89] (holds); rho(E, Delta_contact) 0.69, p 4e-5 (holds).
+Candidates: Delta_contact 0.69 [0.42, 0.83], Delta_skel 0.71 [0.41, 0.87], coverage -0.16, transmission -0.50
+[-0.75, -0.09]. Post hoc: the force deviation follows Delta_skel (0.67), not Delta_contact (0.10); each predicts E
+with the other held fixed (0.78, 0.79). Paper: Table I's torque column; C2.3 scoped to the impedance setpoint.

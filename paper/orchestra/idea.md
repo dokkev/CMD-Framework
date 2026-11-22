@@ -14,15 +14,20 @@ problems, C contributions, H a study's hypotheses, R its safe claims (research-o
   must be thin or cost range of motion; each new interface is a redesign; interfaces and manipulation gather
   at the fingertip, and the two reinforce each other (an observation, not a claim).
 - P2 The redesign becomes a second variable: with one protocol reused across hands, a measured difference
-  mixes the interface with the hand's change; keeping the skeleton does not help (the object meets the
+  mixes the interface with the finger's kinematics; keeping the skeleton does not help (the object meets the
   contact surfaces).
 - C1 A finger with room for thick pads (remote actuation + CFL): more contact surface than a servo-at-joint
   finger at every thickness and q_req (Study 0 clearance/coverage laws, Study 1). Fails if 2R-DD matches it
   in any condition; 2R-remote matches at shallow flexion but pays in C2.
 - C2 A redesign that keeps the contact Jacobian, not the skeleton: (1) a fixed axis cannot (bound, sum rule;
-  Study 0), (2) the CFL can, within 10–51 % of the bound (Study 2), (3) it is what matters (Study 3,
-  simulation; fixed-axis family that keeps the skeleton errs 95–228 %). Fails if the CFL reaches the bound or
-  another quantity predicts the error in every setting.
+  Study 0), (2) the CFL can, within 10–51 % of the bound, at almost no cost in coverage (Study 2: what keeping
+  it costs), (3) keeping it lets the interface be studied independently of the finger (Study 3: what keeping
+  it buys; simulation; under the reused impedance setpoint a servo hand runs, the part of a measured effect the
+  redesign adds follows Δ_contact; the fixed-axis family that keeps the skeleton errs 95–228 %). Fails if the
+  CFL reaches the bound or, under those commands, another quantity predicts the added part as consistently.
+  Framing (2026-11-22): the paper's question is whether an interface can be studied independently of the
+  finger that carries it; Study 3's table is grouped by what a protocol reuses (setpoint: Δ_contact alone;
+  ideal torque: Δ_contact at fixed force and Δ_skel through the force; touch: Δ_skel).
 - Hardware (Stage 2) checks both: exchange cost (C1); tracked Δ_contact and R vs U on the bench (C2).
 - Paper order: Introduction (context, P1, P2, C1, C2; no pole) → Design (the pole answers both: room → C1,
   motion → C2) → C1 evidence (Study 1) → C2 evidence (Study 2, Study 3) → Conclusion (Stage 2, big-picture

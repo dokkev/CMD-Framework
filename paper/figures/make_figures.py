@@ -338,54 +338,37 @@ def fig_overview():
 
 
 def fig_study3():
+    """Study 3: the error against Delta_contact at a reused impedance setpoint, with the design tolerance."""
     import json
-    fig, axes = plt.subplots(1, 2, figsize=(3.45, 1.75), sharey=True, gridspec_kw=dict(wspace=0.08))
-    xs = r"$\Delta_{\mathrm{contact}}$ (mm)"
-    # (a) reused flexion command, three interface properties
-    ax = axes[0]
+    fig, ax = plt.subplots(figsize=(3.45, 1.45))
+    grid = json.loads((TWO_PAD / "dose_A-grid_expanded.json").read_text())
     fr = json.loads((TWO_PAD / "dose_A_all.json").read_text())
     comp = json.loads((TWO_PAD / "comp.json").read_text())
-    shape = json.loads((TWO_PAD / "shape.json").read_text())
-    thick = {h: int(r["thickness_mm"]) for h, r in fr["hands"].items()}
-    for hand, rec in fr["hands"].items():
-        c = THICK[thick[hand]]
-        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o", ms=3.5, color=c, mfc=c, mew=0.9, ls="none", zorder=3)
+    for rec in grid["hands"].values():
+        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o", ms=2.6, color="#9a9a9a", mfc="none", mew=0.6,
+                ls="none", zorder=2)
+    for rec in fr["hands"].values():
+        c = THICK[int(rec["thickness_mm"])]
+        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o", ms=3.4, color=c, mfc=c, mew=0.8, ls="none", zorder=3)
     for hand, rec in comp["hands"].items():
         c = THICK[7 if not hand.startswith("h3to") else int(hand[4])]
-        ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="s", ms=3.2, color=c, mfc="white", mew=0.9, ls="none", zorder=3)
-    for hand, rec in shape["hands"].items():
-        ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="^", ms=3.4, color=THICK[7], mfc="none", mew=0.8, ls="none",
-                zorder=2)
-    ax.text(0.03, 0.97, "circle: friction\nsquare: stiffness\ntriangle: shape", transform=ax.transAxes, fontsize=5.4,
-            va="top", linespacing=1.1)
-    ax.set_xlabel(xs)
-    ax.set_ylabel("error (%)")
-    ax.set_title("(a) three interface changes", fontsize=6.8, fontweight="bold", loc="left")
+        ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="s", ms=3.0, color=c, mfc="white", mew=0.8, ls="none",
+                zorder=3)
+    ax.axhline(20, color="#555555", lw=0.6, ls=(0, (3, 2)), zorder=1)
+    ax.text(5.45, 22, "20%", fontsize=5.6, ha="right", va="bottom", color="#555555")
+    for x, t in ((0.35, 5), (0.86, 7), (2.32, 9)):  # CFL redesigns of Study 2 (q_req 120 deg)
+        ax.axvline(x, color=THICK[t], lw=0.7, ls=":", zorder=1)
+        ax.text(x + 0.05, 205, f"CFL {t}", fontsize=5.4, color=THICK[t], va="top", rotation=90)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.2, label=f"3→{t} mm") for t, c in THICK.items()]
+    handles.append(plt.Line2D([], [], marker="o", ls="none", color="#9a9a9a", mfc="none", mew=0.6, ms=2.8, label="grid (7 mm)"))
+    ax.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.98), ncol=4, fontsize=5.6, frameon=False,
+              handletextpad=0.1, columnspacing=1.0, borderaxespad=0.0)
+    ax.set_xlabel(r"$\Delta_{\mathrm{contact}}$ (mm)")
+    ax.set_ylabel("error $E$ (%)")
     ax.set_xlim(0, 5.5)
     ax.set_ylim(-5, 210)
-    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
-    ax.legend(handles=handles, loc="lower right", fontsize=5.4, frameon=False, handletextpad=0.1, borderaxespad=0.1,
-              labelspacing=0.2)
-    # (b) friction effect under three protocols
-    ax = axes[1]
-    styles = (("A", "o", True, "reused command (filled)"), ("C", "D", False, "reused torque (open)"))
-    lines = []
-    for cond, mk, filled, lab in styles:
-        d = json.loads((TWO_PAD / f"dose_{cond}_all.json").read_text())
-        for hand, rec in d["hands"].items():
-            c = THICK[int(rec["thickness_mm"])]
-            ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker=mk, ms=3.4 if mk != "x" else 3.8, color=c,
-                    mfc=c if filled else "white", mew=0.9, ls="none", zorder=3)
-        t = d.get("tests", {})
-        lines.append(lab)
-    ax.text(0.03, 0.97, "filled: reused command\nopen: reused torque", transform=ax.transAxes, fontsize=5.4, va="top",
-            linespacing=1.1)
-    ax.set_xlabel(xs)
-    ax.set_title("(b) two protocols (friction)", fontsize=6.8, fontweight="bold", loc="left")
-    ax.set_xlim(0, 5.5)
     fig.savefig(DEST / "fig_study3.png")
     plt.close(fig)
-
 
 if __name__ == "__main__":
     fig_concept()
