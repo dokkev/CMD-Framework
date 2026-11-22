@@ -110,7 +110,7 @@ def bootstrap_ci(e, dc, ds, n: int = 10_000, seed: int = 0) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "E", "A-grid"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "E", "A-grid", "A-padk"))
     parser.add_argument("--mu", type=float, nargs=2, default=(1.3, 2.0))
     parser.add_argument("--radii", type=float, nargs="+", default=(15.0, 20.0))
     parser.add_argument("--extended", action="store_true", help="also the two hands added after the first results")

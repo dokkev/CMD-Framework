@@ -47,7 +47,7 @@ import torch
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import common  # noqa: E402
-from common import FINGER_Y_M, HAND_Z, HANDS, MCP_X_M, proximal_face_z  # noqa: E402
+from common import FINGER_Y_M, HAND_Z, HANDS, MCP_X_M, pad_thickness_m, proximal_face_z  # noqa: E402
 
 OUT = common.LOG_ROOT
 GRASPS_JSON = common.SIM_ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "two_pad_grasps.json"
@@ -120,6 +120,11 @@ def main(argv=None) -> int:
     parser.add_argument("--contact_ke", type=float, default=None,
                         help="robustness: every shape's contact stiffness [N/m] (preset 2.5e3); damping scales with its root")
     parser.add_argument("--substeps", type=int, default=None, help="robustness: physics substeps (preset 2)")
+    parser.add_argument("--pad_modulus", type=float, default=None,
+                        help="hydroelastic pads [Pa]: each pad's stiffness is modulus / its thickness (elastic "
+                             "foundation); needs physics=newton_mjwarp_hydro")
+    parser.add_argument("--hydro_buffer", type=float, default=0.1,
+                        help="hydroelastic buffer fraction of the worst case (Newton warns on overflow)")
     parser.add_argument("--impratio", type=float, default=None, help="MuJoCo friction-to-normal impedance ratio (default: the preset's 10)")
     parser.add_argument("--render", type=Path, default=None,
                         help="also render environment --render_env with Newton's GL viewer (headless) once the grasp has "
@@ -156,6 +161,11 @@ def main(argv=None) -> int:
         HANDS[args.hand] = HANDS["O"].with_name(f"cfl_q120_{stem}.json")
     desc = json.loads(HANDS[args.hand].read_text())
     face = proximal_face_z(desc)
+    args.pad_hydroelastic = None
+    if args.pad_modulus is not None:
+        if physics != "newton_mjwarp_hydro":
+            raise SystemExit("--pad_modulus needs physics=newton_mjwarp_hydro")
+        args.pad_hydroelastic = args.pad_modulus / pad_thickness_m(desc)
     face_w = HAND_Z - face  # world height of this hand's proximal contact face (palm up: the object sits above it)
     placements = [g for g in json.loads(args.grasps.read_text())["grasps"] if g["rho_mm"] == args.radius_mm]
     placements = placements[: args.only]
@@ -183,6 +193,7 @@ def finish(args, physics, results) -> int:
         "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
         "impratio": args.impratio, "contact_ke": args.contact_ke, "substeps": args.substeps,
+        "pad_modulus_pa": args.pad_modulus, "hydro_buffer": args.hydro_buffer, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
         "profile": args.profile, "tag": args.tag,
         "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
@@ -251,18 +262,36 @@ def render(args, u, origins, face_w) -> None:
     viewer.close()
 
 
+def hydroelastic_cylinder(usd: Path, stiffness: float = 1.0e10) -> None:
+    """Author the cylinder's collider as a hydroelastic shape (rigid: Newton's default stiffness, 1e10 N/m^3)."""
+    from pxr import Sdf, Usd
+
+    stage = Usd.Stage.Open(str(usd))
+    prim = stage.GetPrimAtPath("/Planar/roller/shape")
+    prim.AddAppliedSchema("NewtonSDFCollisionAPI")
+    prim.CreateAttribute("newton:hydroelasticEnabled", Sdf.ValueTypeNames.Bool).Set(True)
+    prim.CreateAttribute("newton:hydroelasticStiffness", Sdf.ValueTypeNames.Float).Set(float(stiffness))
+    prim.CreateAttribute("newton:sdfMaxResolution", Sdf.ValueTypeNames.Int).Set(64)
+    stage.GetRootLayer().Save()
+
+
 def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
              ArticulationCfg, ContactSensorCfg, sim_utils, configclass, write_planar_cylinder_usd, FlexionEMAActionCfg,
              get_hand, ASSET_DIR, cylinder_cfg, register_description_hand, CoDeReorientMainEnvCfg) -> list[dict]:
     rho = rho_mm * 1e-3
-    usd = ASSET_DIR / f"planar_cylinder_r{rho_mm:g}.usda"
+    hydro = args.pad_hydroelastic is not None
+    usd = ASSET_DIR / f"planar_cylinder_r{rho_mm:g}{'_hydro' if hydro else ''}.usda"
     if not usd.exists():
         write_planar_cylinder_usd(usd, rho, LENGTH_M, MASS_KG)
+        if hydro:
+            hydroelastic_cylinder(usd)
     from code_isaaclab.contact_interface import VARIANTS
 
-    name = register_description_hand(f"tp_{args.hand}_mu{args.mu:g}_{args.profile}", HANDS[args.hand],
+    kh = "" if args.pad_hydroelastic is None else f"_kh{args.pad_hydroelastic:.3g}"
+    name = register_description_hand(f"tp_{args.hand}_mu{args.mu:g}_{args.profile}{kh}", HANDS[args.hand],
                                      cylinder_cfg(0.01, 0.02, 0.01, (0.3, 0.3, 0.1), kinematic=True),
-                                     profile=VARIANTS[args.profile], pad_friction=args.mu)
+                                     profile=VARIANTS[args.profile], pad_friction=args.mu,
+                                     pad_hydroelastic=args.pad_hydroelastic)
 
     @configclass
     class Cfg(CoDeReorientMainEnvCfg):
@@ -279,6 +308,9 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         shape.ke = args.contact_ke
     if args.substeps is not None:
         env_cfg.sim.physics.num_substeps = args.substeps
+    if hydro:  # hydroelastic between the pads and the cylinder only; every other pair keeps point contact
+        env_cfg.sim.physics.default_shape_cfg.is_hydroelastic = False
+        env_cfg.sim.physics.collision_cfg.sdf_hydroelastic_config.buffer_fraction = args.hydro_buffer
     env_cfg.scene.num_envs = len(envs)
     env_cfg.events.reset_object = None
     env_cfg.events.reset_hand.params["joint_position_noise"] = 0.0

@@ -40,6 +40,12 @@ def proximal_face_z(desc: dict) -> float:
     return float(box["center"][2]) - float(box["half_extents"][1])
 
 
+def pad_thickness_m(desc: dict) -> float:
+    """Thickness of the middle finger's proximal pad in the hand description [m] (every pad of a hand is equal)."""
+    box = next(b for body in desc["bodies"] for b in (body.get("boxes") or []) if b["name"] == "middle_proximal_pad")
+    return 2.0 * float(box["half_extents"][1])
+
+
 def run_id(prefix: str) -> str:
     """A unique, sortable identifier (results are never overwritten)."""
     return f"{prefix}_{_dt.datetime.now().strftime('%Y%m%d-%H%M%S')}_{os.getpid()}"
