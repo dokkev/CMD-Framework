@@ -64,21 +64,32 @@ GATE_N, GATE_SPEED_MM_S, GATE_SPIN_RAD_S, GATE_ANGLE_DEG, GATE_MATCH = 0.2, 2.0,
 TOUCH_N, TOUCH_STEP_DEG, TOUCH_START_DEG, TOUCH_MAX_STEPS = 0.05, 0.1, 15.0, 400  # condition E
 
 
-def o_targets(mu: float, radius: float) -> dict:
-    runs = sorted(glob.glob(str(OUT / f"tp_O_mu{mu:g}_A_r{radius:g}_*.json")))
+def place_key(rho: float, q0: float, x_c: float, direction: str) -> tuple:
+    """One placement and direction; grids put several places at one q0, so x_c is part of the key."""
+    return (float(rho), float(q0), round(float(x_c), 3), direction)
+
+
+def reference_condition(tag: str | None) -> str:
+    """O's condition-A run that conditions B and C read: ``A`` or, for tagged placements (e.g. the grid), ``A-<tag>``."""
+    return "A" if not tag else f"A-{tag}"
+
+
+def o_targets(mu: float, radius: float, tag: str | None = None) -> dict:
+    runs = sorted(glob.glob(str(OUT / f"tp_O_mu{mu:g}_{reference_condition(tag)}_r{radius:g}_*.json")))
     if not runs:
         raise FileNotFoundError(f"condition B needs O's condition A run at mu {mu:g}")
     d = json.loads(Path(runs[-1]).read_text())
-    return {(e["rho_mm"], e["q0_deg"], e["direction"]): e["pre"]["n_distal_total"] for e in d["envs"]}
+    return {place_key(e["rho_mm"], e["q0_deg"], e["x_c_mm"], e["direction"]): e["pre"]["n_distal_total"]
+            for e in d["envs"]}
 
 
-def o_torques(mu: float, radius: float) -> dict:
+def o_torques(mu: float, radius: float, tag: str | None = None) -> dict:
     """Condition C: O's flexion torque per finger at its condition-A grasp [N m], (index, middle, ring) per
     (radius, q0, direction). Exact for the scheduled servo PD at rest: tau_theta = K_q / r(q*)^2 (theta(q_cmd) -
     theta(q*)), tau_q = tau_theta r(q*), with O's transmission theta(q) and r = dtheta/dq at q*."""
     from code_isaaclab.joint_map import flexion_maps
 
-    runs = sorted(glob.glob(str(OUT / f"tp_O_mu{mu:g}_A_r{radius:g}_*.json")))
+    runs = sorted(glob.glob(str(OUT / f"tp_O_mu{mu:g}_{reference_condition(tag)}_r{radius:g}_*.json")))
     runs = [r for r in runs if json.loads(Path(r).read_text()).get("impratio") == 1000.0]
     if not runs:
         raise FileNotFoundError(f"condition C needs O's condition A run at mu {mu:g}, radius {radius:g} mm")
@@ -92,7 +103,8 @@ def o_torques(mu: float, radius: float) -> dict:
             m, q = maps[f], math.radians(q_deg)
             r = float(m.ratio(q))
             taus.append(K_Q * float(m.servo(qc) - m.servo(q)) / r)
-        out[(e["rho_mm"], e["q0_deg"], e["direction"])] = {"tau": taus, "q": list(e["pre"]["q_finger_deg"])}
+        out[place_key(e["rho_mm"], e["q0_deg"], e["x_c_mm"], e["direction"])] = {"tau": taus,
+                                                                                "q": list(e["pre"]["q_finger_deg"])}
     return out
 
 
@@ -176,8 +188,8 @@ def main(argv=None) -> int:
     placements = [g for g in json.loads(args.grasps.read_text())["grasps"] if g["rho_mm"] == args.radius_mm]
     placements = placements[: args.only]
     envs = [(g, name) for g in placements for name in DIRECTIONS]
-    targets = o_targets(args.mu, args.radius_mm) if args.condition == "B" else None
-    torques = o_torques(args.mu, args.radius_mm) if args.condition in ("C", "D") else None
+    targets = o_targets(args.mu, args.radius_mm, args.tag) if args.condition == "B" else None
+    torques = o_torques(args.mu, args.radius_mm, args.tag) if args.condition in ("C", "D") else None
     results = run_pass(args, physics, face_w, args.radius_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
                        ArticulationCfg, ContactSensorCfg, sim_utils, configclass, write_planar_cylinder_usd,
                        FlexionEMAActionCfg, get_hand, ASSET_DIR, cylinder_cfg, register_description_hand,
@@ -429,10 +441,10 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         q_cmd = torch.tensor([g["q0_deg"] + args.delta_deg for g, _ in envs], device=dev)
         tau_scale = [0.0]
         tau_q = None if torques is None else torch.tensor(
-            [[torques[(g["rho_mm"], g["q0_deg"], d)]["tau"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
+            [[torques[place_key(g["rho_mm"], g["q0_deg"], g["x_c_mm"], d)]["tau"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
             device=dev)
         q_ref = None if args.condition != "D" else torch.tensor(  # condition D: O's grasp flexion per finger [deg]
-            [[torques[(g["rho_mm"], g["q0_deg"], d)]["q"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
+            [[torques[place_key(g["rho_mm"], g["q0_deg"], g["x_c_mm"], d)]["q"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
             device=dev)
 
         def servo_torque_share() -> torch.Tensor:  # static servo torque over the XM335 stall torque, per finger
@@ -547,7 +559,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
 
         st_rel, speed_rel, spin_rel = settle(90)  # 2: Gate 0 at release
         if targets is not None:  # 3: match O's distal force
-            goal = torch.tensor([targets[(g["rho_mm"], g["q0_deg"], d)] for g, d in envs], device=dev)
+            goal = torch.tensor([targets[place_key(g["rho_mm"], g["q0_deg"], g["x_c_mm"], d)] for g, d in envs], device=dev)
             settle(120, feedback=goal)
             st, speed, spin = settle(30)
         else:
