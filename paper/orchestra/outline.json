@@ -16,7 +16,9 @@
       "IV Room for Thick Pads (C1): setup, Study 1",
       "V Keeping the Contact Jacobian (C2): A Study 2, B Study 3",
       "VI Conclusion and Next Stage: Stage 2 for C1 and C2, big-picture limitations"
-    ]
+    ],
+    "title": "CoDe Hand: Room for Contact Interfaces and Redesigns That Keep the Contact Jacobian (replaces 'Same Hand, Different Contact')",
+    "hypotheses": "Each study opens with its hypothesis and failure condition (H1 Study 1, H2 Study 2, H3 Study 3; research-objective §6); results stay within the safe claims R."
   },
   "plotting_plan": [
     {
