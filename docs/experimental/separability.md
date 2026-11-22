@@ -462,3 +462,55 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 - 한계: crowned pad에서는 손 대부분이 placement의 일부에서만 Gate 0을 통과한다(쌍 1–14개). Δ_contact가 큰 손일수록 유효 쌍이 적다. 이 6개 손에서는 Δ_skel이 Δ_contact와 반대로 움직이므로(ρ(E, Δ_skel) = −0.89), 이 실험만으로는 둘을 가를 수 없다. 둘을 가르는 근거는 여전히 마찰 실험(15개 손, Δ_skel이 주어졌을 때 partial 0.88)이다.
 
 **정식화 추가 (SSoT A.6.3, 2026-11-22).** Δ_contact와 Δ_skel은 같은 pole의 변화를 접촉면과 링크 선에서 본 것이다(‖Δx‖ = 2 sin(q/2)‖Δp‖, Δp_face = Δp_link − Δd e_z). R에서 0.01 mm 안으로 맞는다(R: Δp_link ≈ (0, −4.0…−4.3), Δp_face ≈ (0, −0.0…−0.3) mm; U는 pole을 뼈대 근처에 두어 접촉면에서 3–4 mm 어긋난다).
+
+## 9차 (계획): 접촉 기준 닫기, 조건 E, 사전 기록 (2026-11-22, 데이터 전)
+
+v3 리뷰 세 명 모두 "같은 굽힘 명령을 재사용하면 face 위치 차이가 그대로 over-closure와 수직력 차이가 되므로 Δ_contact가 오차를 예측하는 것은 설계에 들어 있다"고 지적했다. 이 경로를 없앤 프로토콜에서도 Δ_contact가 오차를 예측하는지 본다.
+
+- 조건 E: 원통은 기존과 같은 자리(O가 q0에서 두 pad로 닿는 자리, 각 손의 proximal face 위)에 놓는다. 각 손가락은 q0 − 15°에서 0.1°/step으로 천천히 굽히다가 자기 distal pad의 수직력이 0.05 N을 넘는 순간의 굽힘 q_touch를 기록하고, q_touch + 5°까지 닫는다. 그 뒤는 조건 A와 같다(release, Gate 0, 하중 ramp). 공유하는 굽힘 명령이 없으므로 over-closure는 모든 손에서 5°이다.
+- 손: O와 재설계 18개(조건 A와 같은 집합), μ 1.3/2.0, ρ 15/20 mm, impratio 1000.
+- 측정: E_E(H) = |Δ(H) − Δ(O)| / |Δ(O)|, 조건 A와 같은 정의. O도 조건 E로 실행한다.
+- 판정(사전): (1) 원통을 잡는 손에서 ρ(E_E, Δ_contact) > 0, 정확 단측 순열 p < 0.05. (2) Δ_contact가 주어졌을 때 Δ_skel의 partial 상관과, Δ_skel이 주어졌을 때 Δ_contact의 partial 상관. (3) 수직력 비 N_d/N_d(O)의 범위.
+- 해석(사전): (1)이 성립하면 오차는 over-closure만이 아니라 물체를 만나는 접촉 기하(닿는 굽힘, 법선, 접촉점)를 통해서도 들어온다. (1)이 성립하지 않고 모든 손의 E_E가 작으면, 조건 A의 오차는 over-closure 경로로 들어온 것이고, 주장은 "공유 명령을 재사용할 때"로 좁힌다. 둘 다 보고한다.
+
+## 10차 (계획): pad compliance interface, 사전 기록 (2026-11-22, 확장 데이터 전)
+
+v3 리뷰는 "rigid contact이고 interface 속성이 마찰 하나뿐"이라고 지적했다. 세 번째 interface 속성으로 pad의 compliance를 쓴다. MuJoCo-Warp의 접촉 강성(ke, kd ∝ √ke)을 pad compliance를 하나로 묶은 값으로 본다: 기준 2.5e3 N/m(딱딱한 pad)에서 1e3 N/m(부드러운 pad)로.
+
+- 효과: Δ_comp(H) = F_limit(H, ke 1e3) − F_limit(H, ke 2.5e3), μ 1.3, 조건 A, ρ 15/20 mm. E_comp = |Δ_comp(H) − Δ_comp(O)| / |Δ_comp(O)|.
+- Gate(O): robustness 실행(ρ 15)에서 이미 본 값이다. O의 효과 중앙값은 +x−z −1.47 N, −z −1.00 N, −x −1.07 N으로, 세 방향에서 3 step(0.2 N) 이상이다. 따라서 통과한다. 이 값을 본 뒤 정한 기록임을 밝힌다. +x는 collapse/loss 사건이 섞여 크기가 다르다.
+- 손: O와 재설계 18개, ke 1e3, μ 1.3, ρ 15/20. 기준 ke 2.5e3은 기존 조건 A 실행을 쓴다.
+- 판정: ρ(E_comp, Δ_contact) > 0, 정확 단측 순열 p < 0.05. 그리고 partial 상관(Δ_skel을 고정했을 때, Δ_contact를 고정했을 때)과 hand bootstrap 95% 구간.
+
+### 10차 결과: pad compliance (2026-11-22; `robust_analysis.py comp`, `logs/.../comp.json`)
+
+| 손 | 두께 | Δ_contact | Δ_skel | 쌍 | E_comp |
+|---|---|---|---|---|---|
+| h3to5_hr | 5 | 0.35 | 3.55 | 52 | 3% |
+| h3to5_hu | 5 | 1.58 | 2.02 | 48 | 75% |
+| h3to5_d3_minDs | 5 | 3.09 | 0.38 | 48 | 154% |
+| R | 7 | 0.86 | 7.67 | 48 | 25% |
+| d1p5_maxDs | 7 | 1.46 | 9.67 | 39 | 30% |
+| d1p5_minDs | 7 | 1.60 | 5.37 | 48 | 67% |
+| d2p25_minDs | 7 | 2.33 | 4.62 | 48 | 104% |
+| d3_maxDs | 7 | 3.04 | 11.55 | 14 | 48% |
+| d3_minDs | 7 | 3.09 | 3.83 | 48 | 126% |
+| U | 7 | 3.91 | 3.38 | 48 | 173% |
+| h3to9_hr | 9 | 2.32 | 9.37 | 48 | 61% |
+| h3to9_d3p5_maxDs | 9 | 3.52 | 12.72 | 20 | 33% |
+| h3to9_hu | 9 | 3.89 | 7.17 | 48 | 150% |
+| h3to9_d5_minDs | 9 | 5.08 | 5.32 | 48 | 197% |
+
+- 원통을 잡지 못한 손: d2p25_maxDs, d4p5, d5p5, h3to5_d3(유효 쌍 없음).
+- 사전 판정: ρ(E_comp, Δ_contact) = +0.80 (손 bootstrap 95% [0.33, 0.99]), 단측 순열 p = 0.0004, n 14. **충족**. Δ_skel이 주어졌을 때 partial 상관 +0.91 [0.68, 0.99].
+- Δ_contact가 주어졌을 때 Δ_skel의 partial 상관은 −0.79 [−0.95, −0.37]이다. 같은 Δ_contact에서 maxDs 설계가 minDs 설계보다 덜 어긋난다. 마찰에서도 같은 방향이다(상대 오차 −0.63 [−0.87, −0.21], 대칭 log 오차 −0.18). north-star에 따라 이것을 "skeleton을 많이 바꾸면 좋다"로 주장하지 않는다. 말할 수 있는 것은 "skeleton 변화가 오차를 더하지 않는다"까지다. 가능한 원인: Δ_contact는 q_req까지의 최댓값이고 grasp는 85–115°에서 일어난다. 따라서 grasp 자세에서의 face offset이 maxDs 설계에서 더 작을 수 있다. 확인하지 않았다.
+- 한계: 접촉 강성으로 pad compliance를 하나로 묶은 모형이다. 변형하는 pad가 아니다.
+
+### 9차 결과: 접촉 기준 닫기, 조건 E (2026-11-22; `dose_analysis.py --condition E --set all`, `logs/.../dose_E_all.json`)
+
+- 18개 손 모두 원통을 잡는다(조건 A에서는 15개). 오차 E_E는 5.6–61%이고 중앙값은 약 20%다. 조건 A는 3–124%에 잡지 못한 손이 3개였다. 수직력 비 N_d/N_d(O)는 0.55–0.94다(A에서 U는 3.3배).
+- 사전 판정 (1): ρ(E_E, Δ_contact) = +0.44, 단측 p = 0.034 (n 18). 형식상 충족하지만 약하다. 손 bootstrap 95% 구간은 [−0.09, 0.82]로 0을 포함한다.
+- (2): Δ_skel이 주어졌을 때 Δ_contact의 partial 상관 +0.57 [0.06, 0.86]. Δ_contact가 주어졌을 때 Δ_skel의 partial 상관 **+0.90 [0.69, 0.97]**. ρ(E_E, Δ_skel) = +0.88이다. skeleton을 크게 바꾼 설계가 가장 크게 어긋난다: d4p5 61%, d5p5 61%, h3to9_d3p5_maxDs 42%, d3_maxDs 35%, d1p5_maxDs 29%. R은 6/23/22%(5/7/9 mm), U는 9/20/20%다.
+- (3): 수직력 비 0.55–0.94.
+- 해석(사전 기록의 두 번째 갈래에 가깝다): 조건 A의 큰 오차와 그 Δ_contact 순서는 공유 명령이 만드는 over-closure를 통해 들어온다. 접촉이 명령의 어디에서 시작되는지를 Δ_contact가 정한다. 각 손이 자기 접촉에서 닫으면 그 경로가 사라지고, 남는 작은 오차는 Δ_skel을 따른다(같은 5°가 다른 지렛대와 전달을 거쳐 힘이 되는 것으로 추정되며, 확인하지 않았다). 따라서 지켜야 할 기하는 실험이 무엇을 재사용하느냐에 달려 있다. 관절 명령을 재사용하면 contact-surface motion이고, 접촉 기준 닫기에서는 skeleton도 영향을 준다. 토크 재사용(C)에서도 Δ_skel의 partial 상관이 +0.65 [0.10, 0.90]으로 양수다.
+- 주장 범위: C4는 north-star대로 "같은 joint-position 명령을 재사용할 때"로 한정한다(north-star Not claimed: "that it matters equally under every control protocol").

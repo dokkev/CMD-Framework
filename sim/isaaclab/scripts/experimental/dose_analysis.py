@@ -71,9 +71,35 @@ def spearman(x, y) -> float:
     return float(np.corrcoef(ranks(np.asarray(x, float)), ranks(np.asarray(y, float)))[0, 1])
 
 
+def partial_spearman(y, x, z) -> float:
+    """Rank correlation of y and x with z partialled out (Pearson on the residuals of the ranks)."""
+    ry, rx, rz = (ranks(np.asarray(v, float)) for v in (y, x, z))
+    A = np.c_[rz, np.ones(len(rz))]
+    res = lambda v: v - A @ np.linalg.lstsq(A, v, rcond=None)[0]  # noqa: E731
+    a, b = res(ry), res(rx)
+    den = np.sqrt((a @ a) * (b @ b))
+    return float(a @ b / den) if den > 0 else float("nan")
+
+
+def bootstrap_ci(e, dc, ds, n: int = 10_000, seed: int = 0) -> dict:
+    """95% percentile intervals over hands resampled with replacement (hand medians fixed)."""
+    rng = np.random.default_rng(seed)
+    e, dc, ds = (np.asarray(v, float) for v in (e, dc, ds))
+    stats = {"rho_E_Dc": [], "rho_E_Ds": [], "partial_E_Dc_given_Ds": [], "partial_E_Ds_given_Dc": []}
+    for _ in range(n):
+        k = rng.integers(0, len(e), len(e))
+        if len(set(k)) < 4:
+            continue
+        stats["rho_E_Dc"].append(spearman(dc[k], e[k]))
+        stats["rho_E_Ds"].append(spearman(ds[k], e[k]))
+        stats["partial_E_Dc_given_Ds"].append(partial_spearman(e[k], dc[k], ds[k]))
+        stats["partial_E_Ds_given_Dc"].append(partial_spearman(e[k], ds[k], dc[k]))
+    return {k: [float(np.nanpercentile(v, 2.5)), float(np.nanpercentile(v, 97.5))] for k, v in stats.items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--condition", default="A", choices=("A", "B", "C"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "E"))
     parser.add_argument("--mu", type=float, nargs=2, default=(1.3, 2.0))
     parser.add_argument("--radii", type=float, nargs="+", default=(15.0, 20.0))
     parser.add_argument("--extended", action="store_true", help="also the two hands added after the first results")
@@ -158,6 +184,13 @@ def main() -> int:
                 m = dh == t
                 if m.sum() >= 3:
                     print(f"  {t + 3:g} mm: n {m.sum()}, rho(E, D_c) = {spearman(dc[m], e[m]):+.3f}")
+        pc, pd = partial_spearman(e, dc, ds), partial_spearman(e, ds, dc)
+        ci = bootstrap_ci(e, dc, ds)
+        out["tests"] |= {"partial_E_Dc_given_Ds": pc, "partial_E_Ds_given_Dc": pd, "bootstrap_ci95": ci}
+        print(f"partial rank correlation: E-D_c | D_s {pc:+.3f} [{ci['partial_E_Dc_given_Ds'][0]:+.2f}, "
+              f"{ci['partial_E_Dc_given_Ds'][1]:+.2f}]; E-D_s | D_c {pd:+.3f} [{ci['partial_E_Ds_given_Dc'][0]:+.2f}, "
+              f"{ci['partial_E_Ds_given_Dc'][1]:+.2f}]; rho(E, D_c) 95% CI [{ci['rho_E_Dc'][0]:+.2f}, "
+              f"{ci['rho_E_Dc'][1]:+.2f}] (hands resampled)")
         ok = ~np.isnan(lg)
         if ok.sum() >= 4:
             out["tests"] |= {"rho_Elog_Dc": spearman(dc[ok], lg[ok]), "rho_Elog_Ds": spearman(ds[ok], lg[ok])}

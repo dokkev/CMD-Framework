@@ -61,6 +61,7 @@ SLIP_MM_S = (5.0, 10.0, 20.0)
 PRIMARY = 1
 LOSS_N, COLLAPSE_MM, ROLL_MM = 0.2, 5.0, 1.0
 GATE_N, GATE_SPEED_MM_S, GATE_SPIN_RAD_S, GATE_ANGLE_DEG, GATE_MATCH = 0.2, 2.0, 0.1, 2.0, 0.05
+TOUCH_N, TOUCH_STEP_DEG, TOUCH_START_DEG, TOUCH_MAX_STEPS = 0.05, 0.1, 15.0, 400  # condition E
 
 
 def o_targets(mu: float, radius: float) -> dict:
@@ -103,7 +104,9 @@ def main(argv=None) -> int:
                         help="O, R, U, the suffix of another 3 -> 7 mm hand (cfl_q120_h3to7_<suffix>.json, e.g. d2p25_s0), "
                              "or h3to<t>_<suffix> for another thickness (e.g. h3to5_hr)")
     parser.add_argument("--mu", type=float, required=True)
-    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "D"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "D", "E"),
+                        help="E: touch-referenced closure; each finger creeps until its own distal pad touches the "
+                             "cylinder, then closes --delta_deg further (no shared flexion command)")
     parser.add_argument("--stiffness_scale", type=float, default=1.0,
                         help="condition D: flexion stiffness as a multiple of K0 = 5 N m/rad (damping scales with its root)")
     parser.add_argument("--delta_deg", type=float, default=5.0)
@@ -415,10 +418,35 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
                     f"q* {math.degrees(float(s_['q_star'][e].mean())):6.2f} Np {float(s_['mag'][e, 0::2].sum()):6.2f} "
                     f"Nd {float(s_['mag'][e, 1::2].sum()):6.2f} c ({float(c_[e, 0]):6.2f},{float(c_[e, 1]):6.2f}) "
                     f"slip {1e3 * float(s_['slip'][e].max()):6.2f}" for e in range(0, n, len(DIRECTIONS))))
-        for i in range(40):  # 1: close on the held cylinder
-            load(0.0)
-            step(command(q_cmd * (i + 1) / 40))
-            report("close")
+        q_touch = None
+        if args.condition == "E":  # 1E: creep each finger until its own distal pad touches, then delta further
+            fi = [FINGERS.index(f) for f in pip_fingers]
+            q_open = (q_cmd - args.delta_deg - TOUCH_START_DEG).clamp_min(0.0)[:, None].expand(-1, len(pip)).clone()
+            for i in range(40):
+                load(0.0)
+                step(command(q_open * (i + 1) / 40))
+            q_c = q_open.clone()
+            q_touch = torch.full_like(q_c, float("nan"))
+            for _ in range(TOUCH_MAX_STEPS):
+                load(0.0)
+                step(command(q_c))
+                s_ = state()
+                nd = s_["mag"][:, 1::2][:, fi]  # distal normal force per commanded finger
+                new = torch.isnan(q_touch) & (nd > TOUCH_N)
+                q_touch = torch.where(new, torch.rad2deg(s_["q_star"]), q_touch)
+                q_c = torch.where(torch.isnan(q_touch), (q_c + TOUCH_STEP_DEG).clamp_max(120.0), q_c)
+                if not bool(torch.isnan(q_touch).any()):
+                    break
+            q_cmd = torch.where(torch.isnan(q_touch), q_c, q_touch + args.delta_deg).clamp_max(120.0)
+            for i in range(20):
+                load(0.0)
+                step(command(q_c + (q_cmd - q_c) * (i + 1) / 20))
+                report("close")
+        else:
+            for i in range(40):  # 1: close on the held cylinder
+                load(0.0)
+                step(command(q_cmd * (i + 1) / 40))
+                report("close")
         for _ in range(30):
             load(0.0)
             step(command(q_cmd))
@@ -565,6 +593,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             out.append({
                 "rho_mm": g["rho_mm"], "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": dname,
                 "q_star_predicted_deg": g.get(args.hand), "q_cmd_deg": float(q_cmd[e].float().mean()),
+                "q_touch_deg": None if q_touch is None else q_touch[e].tolist(),
                 "target_n_distal": None if goal is None else float(goal[e]),
                 "target_tau_q_nm": None if tau_q is None else tau_q[e].tolist(),
                 "q_ref_deg": None if q_ref is None else q_ref[e].tolist(),

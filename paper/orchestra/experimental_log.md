@@ -254,3 +254,17 @@ does not separate the two by itself.
 
 Figures: `fig_overview.png` (Fig. 1: O/U/R grasp drawings + E vs D_c), `fig_study3.png` (A vs C, impedance),
 renders `report/study3/figures/study3_two_pad_grasp_render.png`.
+
+Pad compliance (contact stiffness 2.5e3 → 1e3 N/m, μ 1.3, condition A, ρ 15/20): over 14 holding hands
+ρ(E_comp, Δ_contact) = 0.80 (hand bootstrap 95% [0.33, 0.99]), one-sided p = 0.0004; partial given Δ_skel 0.91
+[0.68, 0.99]. R 25 %, U 173 % at 7 mm; 3/25/61 % for R at 5/7/9 mm.
+
+Touch-referenced closure (condition E: each finger creeps until its own distal pad touches, then 5° further;
+friction μ 1.3 → 2.0): all 18 hands hold; E 6–61 % (median about 20 %); ρ(E, Δ_contact) = 0.44 (p 0.034),
+ρ(E, Δ_skel) = 0.88, partial of Δ_skel given Δ_contact 0.90. The reused-command error enters through the
+over-closure that Δ_contact sets; the geometry to keep depends on what the experiment reuses.
+
+Statistics added: friction (A) ρ 0.83, hand bootstrap 95% [0.41, 1.00]; partial E–Δ_contact | Δ_skel 0.88
+[0.64, 1.00]. Study 1: CFL > 2R-DD in all 10 conditions without the CFL refinement (+0.5 to +14.3); with pad
+length over fixed L_f, CFL > 2R-remote in every condition beyond 3 mm. Study 2: within 2 coverage points of the
+front's end, 2R-DD and RCJ stay above the CFL's Δ_contact in every cell where they have a design.

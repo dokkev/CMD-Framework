@@ -178,6 +178,55 @@ def shape() -> int:
     return 0
 
 
+def comp_effect(hand: str) -> dict:
+    """Pad compliance: F_limit(ke 1e3) - F_limit(ke 2.5e3, the condition-A baseline), mu 1.3, radii 15 and 20."""
+    out = {}
+    for r in (15.0, 20.0):
+        stiff, soft = da.latest(hand, 1.3, "A", r), latest_tagged(hand, 1.3, "A-ke1e3", r)
+        if stiff is None or soft is None:
+            continue
+        a, b = by_key(stiff), by_key(soft)
+        for k in a:
+            e1, e2 = a[k], b.get(k)
+            if e2 is None or not (e1["gate0"]["pass"] and e2["gate0"]["pass"]):
+                continue
+            if e1["limit"]["f_limit_n"] is None or e2["limit"]["f_limit_n"] is None:
+                continue
+            out[(r,) + k] = e2["limit"]["f_limit_n"] - e1["limit"]["f_limit_n"]
+    return out
+
+
+def comp() -> int:
+    eo = comp_effect("O")
+    hands = {**da.HANDS, **da.EXTENSION, **da.THICK}
+    rows = []
+    for h, (dc, ds, cp) in hands.items():
+        eh = comp_effect(h)
+        e = [abs(eh[k] - eo[k]) / abs(eo[k]) for k in eo if k in eh and abs(eo[k]) > 1e-9]
+        if not e:
+            print(f"{h:20s} no valid pairs")
+            continue
+        rows.append((h, dc, ds, float(np.median(e)), len(e)))
+        print(f"{h:20s} h {da.thickness(h):g} D_c {dc:4.2f} D_s {ds:5.2f} | pairs {len(e):3d} E_comp {100 * np.median(e):6.1f}%")
+    out = {"hands": {h: {"D_c_mm": dc, "D_s_mm": ds, "E_median": e, "pairs": n} for h, dc, ds, e, n in rows}}
+    if len(rows) >= 4:
+        dc, ds, e = (np.array([r[i] for r in rows]) for i in (1, 2, 3))
+        rho = da.spearman(dc, e)
+        rng = np.random.default_rng(0)
+        perms = [da.spearman(dc, rng.permutation(e)) for _ in range(100_000)]
+        p = float(np.mean([v >= rho - 1e-12 for v in perms]))
+        pc, pd = da.partial_spearman(e, dc, ds), da.partial_spearman(e, ds, dc)
+        ci = da.bootstrap_ci(e, dc, ds)
+        out |= {"n_hands": len(rows), "rho_E_Dc": rho, "p_one_sided": p, "rho_E_Ds": da.spearman(ds, e),
+                "partial_E_Dc_given_Ds": pc, "partial_E_Ds_given_Dc": pd, "bootstrap_ci95": ci}
+        print(f"rho(E_comp, D_c) = {rho:+.3f} [{ci['rho_E_Dc'][0]:+.2f}, {ci['rho_E_Dc'][1]:+.2f}], one-sided p = {p:.4f} "
+              f"(n {len(rows)}); rho(E, D_s) = {out['rho_E_Ds']:+.3f}; partial E-D_c | D_s {pc:+.3f} "
+              f"[{ci['partial_E_Dc_given_Ds'][0]:+.2f}, {ci['partial_E_Dc_given_Ds'][1]:+.2f}], E-D_s | D_c {pd:+.3f} "
+              f"[{ci['partial_E_Ds_given_Dc'][0]:+.2f}, {ci['partial_E_Ds_given_Dc'][1]:+.2f}]")
+    (da.ROOT / "comp.json").write_text(json.dumps(out, indent=1))
+    return 0
+
+
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "robust"
-    raise SystemExit({"robust": robust, "shape-gate": shape_gate, "shape": shape}[mode]())
+    raise SystemExit({"robust": robust, "shape-gate": shape_gate, "shape": shape, "comp": comp}[mode]())

@@ -303,43 +303,54 @@ def fig_overview():
 
 def fig_study3():
     import json
-    fig, axes = plt.subplots(2, 1, figsize=(3.45, 2.95), gridspec_kw=dict(hspace=0.66))
+    fig, axes = plt.subplots(2, 1, figsize=(3.45, 3.05), gridspec_kw=dict(hspace=0.70))
+    xs = r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)"
+    # (a) reused flexion command, three interface properties
     ax = axes[0]
-    for cond, filled, lab in (("A", True, "position reuse"), ("C", False, "torque reuse")):
+    fr = json.loads((TWO_PAD / "dose_A_all.json").read_text())
+    comp = json.loads((TWO_PAD / "comp.json").read_text())
+    shape = json.loads((TWO_PAD / "shape.json").read_text())
+    thick = {h: int(r["thickness_mm"]) for h, r in fr["hands"].items()}
+    for hand, rec in fr["hands"].items():
+        c = THICK[thick[hand]]
+        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o", ms=3.5, color=c, mfc=c, mew=0.9, ls="none", zorder=3)
+    for hand, rec in comp["hands"].items():
+        c = THICK[7 if not hand.startswith("h3to") else int(hand[4])]
+        ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="s", ms=3.2, color=c, mfc="white", mew=0.9, ls="none", zorder=3)
+    for hand, rec in shape["hands"].items():
+        ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="^", ms=3.4, color=THICK[7], mfc="none", mew=0.8, ls="none",
+                zorder=2)
+    ax.text(0.03, 0.97, rf"friction (●) $\rho={fr['tests']['rho_E_Dc']:.2f}$, $n={fr['tests']['n_hands']}$" + "\n"
+            rf"compliance (square) $\rho={comp['rho_E_Dc']:.2f}$, $n={comp['n_hands']}$" + "\n"
+            rf"shape (triangle) $\rho={shape['rho_E_Dc']:.2f}$, $n={len(shape['hands'])}$",
+            transform=ax.transAxes, fontsize=5.9, va="top", linespacing=1.15)
+    ax.set_xlabel(xs)
+    ax.set_ylabel("error in measured effect (%)")
+    ax.set_title("(a) reused flexion command: three interface changes", fontsize=7.4, fontweight="bold", loc="left")
+    ax.set_xlim(0, 5.5)
+    ax.set_ylim(-5, 205)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
+    ax.legend(handles=handles, loc="center right", bbox_to_anchor=(1.0, 0.40), fontsize=6.0, frameon=False,
+              handletextpad=0.2, borderaxespad=0.1)
+    # (b) friction effect under three protocols
+    ax = axes[1]
+    styles = (("A", "o", True, "reused command (●)"), ("C", "D", False, "reused torque (diamond)"),
+              ("E", "x", False, "closed from touch (×)"))
+    lines = []
+    for cond, mk, filled, lab in styles:
         d = json.loads((TWO_PAD / f"dose_{cond}_all.json").read_text())
         for hand, rec in d["hands"].items():
-            t = int(rec["thickness_mm"])
-            ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o" if filled else "D", ms=3.6 if filled else 3.2,
-                    color=THICK[t], mfc=THICK[t] if filled else "white", mew=0.9, ls="none", zorder=3)
-        tests = d["tests"]
-        y = 0.97 if cond == "A" else 0.83
-        ax.text(0.03, y, rf"{lab}: $\rho={tests['rho_E_Dc']:.2f}$ ($n={tests['n_hands']}$)", transform=ax.transAxes,
-                fontsize=6.3, va="top")
-    ax.set_xlabel(r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)")
-    ax.set_ylabel("error in measured effect (%)")
-    ax.set_title("(a) position (filled) vs torque (open) reuse", fontsize=7.6, fontweight="bold", loc="left")
-    ax.set_xlim(0, 5.5)
-    ax.set_ylim(-5, 170)
-    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
-    ax.legend(handles=handles, loc="center right", bbox_to_anchor=(1.0, 0.45), fontsize=6.0, frameon=False, handletextpad=0.2, borderaxespad=0.1)
-    ax = axes[1]
-    imp = json.loads((TWO_PAD / "impedance.json").read_text())
-    for hand, color, lab in (("R", BLUE, "R (contact kept)"), ("U", ORANGE, "U (coverage only)")):
-        rows_ = sorted((float(k), v) for k, v in imp["hands"][hand].items())
-        k = np.array([r[0] for r in rows_])
-        med = np.array([100 * r[1]["E_rel_median"] for r in rows_])
-        lo = np.array([100 * r[1]["E_rel_q25"] for r in rows_])
-        hi = np.array([100 * r[1]["E_rel_q75"] for r in rows_])
-        ax.fill_between(k, lo, hi, color=color, alpha=0.15, lw=0)
-        ax.plot(k, med, "-o", color=color, lw=1.6, ms=3.6, mec="white", mew=0.6, label=lab)
-    ax.set_xscale("log")
-    ax.axvline(1.0, color=INK2, lw=0.5, ls=(0, (1, 1.2)))
-    ax.text(1.08, 165, "position\nreuse ($K_0$)", fontsize=6.2, color=INK2, va="top")
-    ax.set_xlabel(r"flexion stiffness $K_q/K_0$ (same on every hand)")
+            c = THICK[int(rec["thickness_mm"])]
+            ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker=mk, ms=3.4 if mk != "x" else 3.8, color=c,
+                    mfc=c if filled else "white", mew=0.9, ls="none", zorder=3)
+        t = d.get("tests", {})
+        lines.append(rf"{lab}: $\rho={t.get('rho_E_Dc', float('nan')):.2f}$, $n={t.get('n_hands', 0)}$")
+    ax.text(0.03, 0.97, "\n".join(lines), transform=ax.transAxes, fontsize=5.9, va="top", linespacing=1.15)
+    ax.set_xlabel(xs)
     ax.set_ylabel("error (%)")
-    ax.set_title("(b) flexion impedance, torque to position", fontsize=7.6, fontweight="bold", loc="left")
-    ax.set_ylim(-5, 170)
-    ax.legend(loc="center right", fontsize=6.0, frameon=False)
+    ax.set_title("(b) friction effect under three protocols", fontsize=7.4, fontweight="bold", loc="left")
+    ax.set_xlim(0, 5.5)
+    ax.set_ylim(-5, 175)
     fig.savefig(DEST / "fig_study3.png")
     plt.close(fig)
 
