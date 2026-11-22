@@ -10,7 +10,8 @@
 | v5 | 31fc051 | 5, 5, 5 | — | prediction-first framing; r3 down on the bound vs 2R-DD (case 3b, reverted direction) |
 | v6 | c570180 | 5, 5, 6 | — | candidate-invariant table, retargeting argument, general fixed-axis statement (case 3a) |
 | v7 | ef15bfe | 5, 5, 6 | — | reused-torque column; r3 Accept, r1/r2 unchanged |
-| v8 | cfca3fe | 5, 5, (pending) | — | falsification lines, scope, fit |
+| v8 | cfca3fe | 5, 5, 6 | — | falsification lines, scope, fit |
+| v9 | 40bee48 | 5, 5, (pending) | — | hand-independent placement grid (all 18 hold, rho 0.69) |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -64,3 +65,10 @@ objection: under a face-referenced placement and rigid-contact pads, C4 is close
 Delta_skel, thickness three levels), and force or torque protocols already cut most of the error. Text changes no
 longer move these two scores; what could: a task not referenced to O's contact (e.g. in-hand rolling or a pick from a
 fixed pose), deformable pads, or a quantified benefit beyond the best interface-independent protocol.
+
+After v9 (r1, r2 = 5): the 'built in by O's placement' objection left r2's top three; remaining: Study 3 only CFL
+hands, comparative statistics (difference-of-correlation intervals include zero vs Delta_skel in every setting at
+n 14-18; wording narrowed to 'the only candidate whose interval excludes zero'), no noise floor, rigid-pad contact
+model, force/torque protocols with F/T sensing. Bootstrapped rho differences and a five-candidate rank regression
+were computed (stiffness: skeleton coefficient -0.74 exceeds contact 0.56 in magnitude), so no 'largest
+coefficient' claim is made.
