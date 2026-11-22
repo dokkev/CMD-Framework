@@ -149,7 +149,9 @@ def main(argv=None) -> int:
     from code_isaaclab.tasks.reorient.code_env_cfg import CoDeReorientMainEnvCfg
 
     physics = next((t.split("=", 1)[1] for t in hydra_args if t.startswith("physics=")), "newton_mjwarp")
-    if args.hand not in HANDS:  # "<suffix>" for a 3 -> 7 mm hand, "h3to<t>_<suffix>" for another thickness
+    if args.hand.startswith("fa_"):  # fixed-axis contrast family (fixed_axis_hands.py): fa_h3, fa_h5, fa_h7, fa_h9
+        HANDS[args.hand] = HANDS["O"].with_name(f"fa_q120_{args.hand[3:]}.json")
+    elif args.hand not in HANDS:  # "<suffix>" for a 3 -> 7 mm hand, "h3to<t>_<suffix>" for another thickness
         stem = args.hand if args.hand.startswith("h3to") else f"h3to7_{args.hand}"
         HANDS[args.hand] = HANDS["O"].with_name(f"cfl_q120_{stem}.json")
     desc = json.loads(HANDS[args.hand].read_text())
@@ -328,10 +330,17 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         pip = [k for k, nm in enumerate(names) if nm.endswith("_pip_servo") and not nm.startswith("thumb")]
         pip_fingers = [names[k].split("_")[0] for k in pip]
         servo_ids = [robot.find_joints(names[k])[0][0] for k in pip]
-        cols = {f: (bodies.index(f"{f}_proximal"), bodies.index(f"{f}_distal")) for f in FINGERS}
+        # The fixed-axis contrast hands carry the distal phalanx's geometry on the servo link (fixed_axis_hands.py).
+        # The sensor's filter columns follow the simulator's body order, which for that hand puts the servo link in
+        # the column the four-bar description lists as the driver link (checked: the contact point lies on the
+        # distal face; separability.md, 14th experiment).
+        fa = args.hand.startswith("fa_")
+        dist = "servo_link" if fa else "distal"
+        cols = {f: (bodies.index(f"{f}_proximal"), bodies.index(f"{f}_{'driver_link' if fa else 'distal'}"))
+                for f in FINGERS}
         pad_cols = [c for f in FINGERS for c in cols[f]]
         other_cols = [k for k in range(len(bodies)) if k not in pad_cols]
-        pad_body_ids = [robot.find_bodies(f"{f}_{s}")[0][0] for f in FINGERS for s in ("proximal", "distal")]
+        pad_body_ids = [robot.find_bodies(f"{f}_{s}")[0][0] for f in FINGERS for s in ("proximal", dist)]
         d_face = torch.tensor([DIRECTIONS[d] for _, d in envs], device=dev)
         d_world = torch.stack((d_face[:, 0], -d_face[:, 1]), dim=1)  # world x, z of the load (face z is world -z)
 

@@ -559,3 +559,22 @@ v9 리뷰는 손 14–18개로는 상관 차이를 검정할 수 없다고 지�
 - 경로(사후 분석): Δ_skel은 격자 배치를 잃는 비율과 ρ = +0.86, 원위 접촉력 비 N_d/N_d(O)와 −0.83이다. skeleton이 크게 바뀐 손(maxDs)은 손끝이 격자에서 멀어져 배치의 36–57%에서 Gate 0을 통과하지 못하고, 남은 배치에서도 원위 pad가 O의 0.4–0.7배로 누른다. 반면 Δ_contact는 N_d 비와 상관이 없다(−0.05). Δ_contact가 큰 minDs 손은 1.3–1.5배로 누른다(over-closure).
 - 배치의 80% 이상을 유지하는 26개 손만 보면 ρ(E, Δ_contact) = +0.48 [0.10, 0.78], ρ(E, Δ_skel) = −0.04 [−0.45, 0.35]다. 임계값을 15–40%로 바꿔도 Δ_contact는 0.40–0.48(구간이 0을 넘음), Δ_skel은 −0.04–+0.15로 유지된다. 이 부분집합에서는 차이 구간이 모두 0을 포함한다(n 26).
 - 결론: Δ_contact는 다섯 측정 설정 모두에서 구간이 0을 넘는 유일한 후보다. 손과 무관한 고정 배치에서는 skeleton 변화도 별도 경로(배치를 잃음)로 오차를 키운다. 배치를 유지하는 손에서는 Δ_contact만 예측한다.
+
+## 14차 (계획): fixed-axis 대조 손, 사전 기록 (2026-11-22, 데이터 전)
+
+v10 리뷰 세 건 모두 Study 3이 CFL 손만 쓴다고 지적했다. skeleton을 정확히 유지하는(Δ_skel = 0) fixed-axis 손 계열을 만든다(`fixed_axis_hands.py`). 각 PIP는 O의 joint gap 중앙, 링크선 위의 고정 축 하나이고 θ = q로 직접 구동한다. pad 두께는 3/5/7/9 mm이고 mount depth 3 mm는 그대로다. 각 pad의 관절 쪽 끝은 clearance law의 gap(z = 0, q_req 120°)으로 정한다: 20.8/27.7/34.6/41.6 mm. 이 손들의 Δ_contact는 √3·Δh = 0/3.46/6.93/10.39 mm(bound와 같음)이고, Δ_skel = 0이다. 배치는 3 mm fixed-axis 손이 q0에서 두 pad로 닿는 위치다(x_c = x_a − (t + ρ) tan(q0/2), `fa_grasps.json`). 조건 A(재사용 flexion 명령), μ 1.3 → 2.0, ρ 15/20, impratio 1000, tag `fa`.
+- 구현 메모: four-bar의 tree를 유지한다(센서 열 순서가 tree를 따른다). servo link가 축에서 회전하며 원위 phalanx의 링크·질량·pad를 싣는다. 원위 pad의 센서 열은 description이 driver link로 적은 열이다. 접촉점이 원위 면 위, 축에서 예상 거리(19.8 mm)에 있음을 smoke run에서 확인했다. 3 mm 손은 48개 env 중 32개가 Gate 0을 통과했고, proximal pad와 원위 pad의 힘이 같았다(대칭).
+- 판정: (i) Δ_skel = 0인데도 오차가 Δ_contact 순서(5 < 7 < 9 mm)로 커지면 skeleton 유지가 측정을 지키지 못한다는 직접 증거다. (ii) 같은 두께에서 fixed-axis 손의 오차가 CFL R보다 크면, C3에서 줄인 Δ_contact가 측정에서도 의미가 있다.
+
+### 14차 결과: fixed-axis 대조 손 (2026-11-22; `fa_analysis.py`, `logs/.../fa.json`)
+
+- 3 mm 기준 손의 Gate 0 통과: ρ15 32–36/48, ρ20 24/48. 재설계 손도 비슷하다(실패 36–38%).
+- 오차 E (3 mm fixed-axis 손 대비, 유효 쌍 54–56개): 5 mm 95% (IQR 68–118%), 7 mm 179% (137–216%), 9 mm 228% (199–312%). Δ_skel = 0이고 Δ_contact = 3.46/6.93/10.39 mm다. 원위 pad 힘은 기준의 2.2/3.2/4.2배다. **판정 (i) 충족**: skeleton을 정확히 유지해도 오차는 Δ_contact 순서로 커진다.
+- 같은 두께의 CFL R은 3/21/41%, U는 52–124%다. **판정 (ii) 충족.** 기준 손이 다르므로(CFL O 대 fixed-axis O) 직접적인 쌍 비교는 아니다.
+- 기전: 더 깊은 면이 같은 명령에서 원통에 일찍 닿아 over-closure가 커진다. CFL U와 같은 경로이고, 크기는 Δ_contact에 비례한다.
+
+### e19: Study 2 Δ_contact의 시작 오프셋 분리 (2026-11-22; `design/scripts/study/exploratory/e19_aligned_contact_change.py`)
+
+- v10 리뷰(r1, r3)는 2R-DD와 RCJ의 Δ_contact 대부분이 q = 0 오프셋이라고 지적했다. coverage 끝 재설계에서 Δ_contact를 오프셋 |Δc(0)|과 운동 변화 max_q |Δc(q) − R_q Δc(0)|로 나눴다.
+- 2R-DD q120: 오프셋 2.0/4.4/5.3 mm, 운동 1.39/3.02/3.67 mm. CFL q120 운동은 0.33/0.88/2.18 mm다. 2R-remote는 오프셋 0이고, 운동이 bound와 같다.
+- 오프셋을 빼면 CFL은 9개 셀 중 7개에서 여전히 가장 작다. 예외 두 셀은 2R-DD 90°/9 mm(3.81 대 4.21)와 RCJ 150°/5 mm(0.70 대 0.87)이다. 이 두 셀에서 coverage는 CFL보다 2.4점, 17.8점 낮다.

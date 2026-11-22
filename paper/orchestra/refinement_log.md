@@ -11,7 +11,8 @@
 | v6 | c570180 | 5, 5, 6 | — | candidate-invariant table, retargeting argument, general fixed-axis statement (case 3a) |
 | v7 | ef15bfe | 5, 5, 6 | — | reused-torque column; r3 Accept, r1/r2 unchanged |
 | v8 | cfca3fe | 5, 5, 6 | — | falsification lines, scope, fit |
-| v9 | 40bee48 | 5, 5, (pending) | — | hand-independent placement grid (all 18 hold, rho 0.69) |
+| v9 | 40bee48 | 5, 5, 5 | — | hand-independent placement grid (all 18 hold, rho 0.69) |
+| v10 | e1b5910 | 5, 5, 5 | — | grid on 45 redesigns (rho 0.60; skeleton also matters there via lost placements), lug sentence |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -72,3 +73,11 @@ n 14-18; wording narrowed to 'the only candidate whose interval excludes zero'),
 model, force/torque protocols with F/T sensing. Bootstrapped rho differences and a five-candidate rank regression
 were computed (stiffness: skeleton coefficient -0.74 exceeds contact 0.56 in magnitude), so no 'largest
 coefficient' claim is made.
+
+v10 pattern (all three at 5): Study 3 uses only CFL hands; the reused-command protocol works through over-closure
+and is dismissed alternatives without care; O treated as ground truth; Delta_contact includes the start offset for
+2R-DD/RCJ; C2's failure line contradicted by Fig. 3; Prop. 2 explanation reads as contradictory; missing polycentric
+knee and Burmester literature. v11 answers: a fixed-axis family with the skeleton kept exactly (Delta_skel = 0) errs
+95/179/228%; offset-free motion change (CFL least in 7 of 9 cells); C2 restated to coverage level in every condition;
+Prop. 2 explained by equal growth of numerator and denominator; one shared contact model makes O's effect the
+reference; protocol framed as command or torque reuse (current-controlled servos) with sensing protocols reported.

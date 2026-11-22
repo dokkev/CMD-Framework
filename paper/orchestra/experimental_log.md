@@ -282,3 +282,10 @@ Difference ρ(Δ_contact) − |ρ(other)|: excludes zero for coverage [0.16, 0.6
 Δ_skel [−0.12, 0.42] or transmission [−0.02, 0.55]. Route of the skeleton effect: Δ_skel vs share of placements lost
 ρ 0.86, vs distal force ratio −0.83 (Δ_contact vs force ratio −0.05). Hands keeping ≥ 80% of placements (n 26):
 Δ_contact 0.48 [0.10, 0.78], Δ_skel −0.04 [−0.45, 0.35]; stable for thresholds 15–40%.
+
+Fixed-axis contrast family (one revolute PIP at the centre of O's joint gap, driven directly; links and axis kept
+for 5/7/9 mm pads, Δ_skel = 0; pads end at the clearance gap 27.7/34.6/41.6 mm; Δ_contact = √3 Δh = 3.46/6.93/10.39
+mm; placements where its 3 mm finger touches at q0; reused command, μ 1.3 → 2.0): E = 95% (IQR 68–118), 179%
+(137–216), 228% (199–312); distal pad force 2.2/3.2/4.2× the 3 mm finger's; 54–56 valid pairs each.
+Study 2 start offset (e19): removing |Δc(0)|, CFL's motion change is least in 7 of 9 cells; exceptions 2R-DD 90°/9 mm
+(3.81 vs 4.21 mm) and RCJ 150°/5 mm (0.70 vs 0.87 mm), at 2.4 and 17.8 points less coverage.
