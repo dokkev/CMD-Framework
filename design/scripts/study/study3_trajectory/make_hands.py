@@ -76,6 +76,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--flexion", type=float, default=90.0)
     parser.add_argument("--to", type=float, default=5.0)
+    parser.add_argument("--designs", type=Path, default=None,
+                        help="also every feasible 'target' row of an e18 designs.csv, as hands d<target>_s<seed>")
     args = parser.parse_args(argv)
     config = read_config_file(ROOT / "scripts" / "study" / "study2_morphology_adaptation" / "one_finger.yaml")
     spec = config["architectures"]["cfl"]
@@ -92,8 +94,19 @@ def main(argv=None) -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     tag = f"q{args.flexion:g}_h3to{args.to:g}"
     ok = True
-    for name, x, cfg, h in (("h0", h0.x, h0.config, 3.0), ("hr", x_r, goal.config, args.to), ("hu", x_u, goal.config, args.to)):
-        finger_params, pads = hand_parameters(x, cfg, h)
+    hands = [("h0", h0.x, h0.config, 3.0), ("hr", x_r, goal.config, args.to), ("hu", x_u, goal.config, args.to)]
+    if args.designs is not None:
+        with args.designs.open(encoding="utf-8", newline="") as stream:
+            for r in csv.DictReader(stream):
+                if r["label"].startswith("target") and r["feasible"] == "True":
+                    tag_ = "_".join(r["label"].split()[1:]).replace(".", "p").replace("-", "")
+                    hands.append((f"d{tag_}_s{r['seed']}", tuple(float(v) for v in r["x"].split(";")), goal.config, args.to))
+    for name, x, cfg, h in hands:
+        try:
+            finger_params, pads = hand_parameters(x, cfg, h)
+        except ValueError as error:
+            print(f"{name}: skipped ({error})")
+            continue
         tip_err, contact_err = check(base, x, cfg, finger_params, pads, math.radians(args.flexion))
         print(f"{name}: tip {tip_err:.2e} mm, relative contact trajectory {contact_err:.2e} mm from the study's")
         if max(tip_err, contact_err) > 1e-6:

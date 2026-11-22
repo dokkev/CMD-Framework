@@ -71,7 +71,8 @@ def main(argv=None) -> int:
     from isaaclab_tasks.utils import setup_preset_cli
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--hand", required=True, choices=tuple(HANDS))
+    parser.add_argument("--hand", required=True,
+                        help="O, R, U, or the suffix of another Study 3 hand (cfl_q120_h3to7_<suffix>.json, e.g. d2p25_s0)")
     parser.add_argument("--mu", type=float, required=True)
     parser.add_argument("--condition", default="A", choices=("A", "B"))
     parser.add_argument("--delta_deg", type=float, default=5.0)
@@ -101,6 +102,8 @@ def main(argv=None) -> int:
     from code_isaaclab.tasks.reorient.code_env_cfg import CoDeReorientMainEnvCfg
 
     physics = next((t.split("=", 1)[1] for t in hydra_args if t.startswith("physics=")), "newton_mjwarp")
+    if args.hand not in HANDS:
+        HANDS[args.hand] = HANDS["O"].with_name(f"cfl_q120_h3to7_{args.hand}.json")
     desc = json.loads(HANDS[args.hand].read_text())
     face = proximal_face_z(desc)
     face_w = HAND_Z - face  # world height of this hand's proximal contact face (palm up: the object sits above it)
@@ -394,7 +397,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
             first = min(hit, key=hit.get) if hit else None
             out.append({
                 "rho_mm": g["rho_mm"], "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": dname,
-                "q_star_predicted_deg": g[args.hand], "q_cmd_deg": float(q_cmd[e]),
+                "q_star_predicted_deg": g.get(args.hand), "q_cmd_deg": float(q_cmd[e]),
                 "target_n_distal": None if goal is None else float(goal[e]),
                 "release": {"q_star_deg": np.degrees(st_rel["q_star"][e].cpu().numpy()).tolist(),
                             "n_proximal_total": float(st_rel["mag"][e, 0::2].sum()),
