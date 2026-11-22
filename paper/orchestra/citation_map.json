@@ -460,5 +460,12 @@
   "author": "Deb, Kalyanmoy and Pratap, Amrit and Agarwal, Sameer and Meyarivan, T.",
   "year": "2002",
   "venue": "IEEE Transactions on Evolutionary Computation"
+ },
+ {
+  "key": "bhirangi2024anyskin",
+  "title": "AnySkin: Plug-and-play Skin Sensing for Robotic Touch",
+  "author": "Bhirangi, Raunaq and Pattabiraman, Venkatesh and Erciyes, Enes and Cao, Yifeng and Hellebrekers, Tess and Pinto, Lerrel",
+  "year": "2024",
+  "venue": "arXiv:2409.08276"
  }
 ]

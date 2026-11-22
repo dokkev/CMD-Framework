@@ -19,6 +19,7 @@
 | v14 | d7691f1 | — (failed), 6, 6 | — | short contributions, Study 1 as ablation + MA, Study 3 two routes (post hoc mediation), magnitudes, Stage 2 test; r1 stopped by an API safeguard error |
 | v15 | f7b5853 | 6, 6, 6 | — | gap-law explanation fixed, CFL floor, direct comparisons (7 of 12), gap law max error; r1 re-run on Opus |
 | v16 | 16c483e | 6, 6, 6 | — | soft-pad counterfactual (17th), grid key fix (rho 0.86), Holm 25; r1/r3 Opus (r1 after a safeguard retry), r2 Fable 5.2 after two safeguard errors |
+| v17 | d722efa | 6, 6, 6 | — | Study 4 (reversed conclusion, post hoc), Fig. 1(d), ideal torque wording, Stage 2 trend test; all three reviews on Fable 5.2 after Opus safeguard errors on every first try and retry |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -136,3 +137,9 @@ partial (the eighteenth experiment, pre-registered c51e92d, replicates it on 27 
 left out of the correlations without a reason; the CFL's MA 0.41-0.58 halves the PIP torque; no seed spread in
 Study 1. r3: Delta_contact also counts the distal face sliding along itself; the offset normal to the face is the
 quantity that sets over-closure and is missing as a candidate. r2: Stage 2 tests an ordering, not the relation.
+
+v17: 6, 6, 6 (all on Fable 5.2: Opus stopped every reviewer twice with a safeguard error). Study 4's reversed
+conclusion was read as the headline but flagged as post hoc with a counterfactual that favours R; R's 9 mm result
+(-15% against -51%) was missing. Repeated: the reused-command result is a preload effect (force matching leaves
+3-7%); transmission idealised; MA and backlash; design space unspecified; H2 nearly unfalsifiable. Pending answers:
+the eighteenth (equal torque, 27 new hands) and nineteenth (Study 4 confirmation) experiments.
