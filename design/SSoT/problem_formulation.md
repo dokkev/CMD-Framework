@@ -569,7 +569,7 @@ $$
 \Delta\mathbf p_{\mathrm{face}}=\Delta\mathbf p_{\mathrm{link}}-\Delta d\,\mathbf e_z
 $$
 
-이다. $\Delta\mathbf p_{\mathrm{face}}$는 proximal contact face에서, $\Delta\mathbf p_{\mathrm{link}}$는 proximal 링크 선(뼈대)에서 본 pole의 변화이고, $\Delta d$는 face 깊이의 변화(가장 얕은 장착에서 $\Delta h$)이다. 등식은 $q=0$의 위치가 같을 때 성립하고, 그 차이($\lVert\Delta\mathbf c(0)\rVert$, $\lVert\Delta\mathbf r_C(0)\rVert$)만큼 어긋난다. 따라서 $\Delta_{\mathrm{contact}}$를 지킨다는 것은 pole을 contact face에 대해 지키는 것이고, $\Delta_{\mathrm{skel}}$을 지킨다는 것은 pole을 뼈대에 대해 지키는 것이다. pad가 $\Delta d$만큼 깊어지면 둘을 함께 지킬 수 없다. 고정 축은 pole이 뼈대에 붙어 있어 $\Delta\mathbf p_{\mathrm{link}}$를 0 가까이 둘 수밖에 없으므로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert\ge\Delta d$이고, 이것이 따름정리(P4)의 하한이다.
+이다. $\Delta\mathbf p_{\mathrm{face}}$는 proximal contact face에서, $\Delta\mathbf p_{\mathrm{link}}$는 proximal 링크 선(뼈대)에서 본 pole의 변화이고, $\Delta d$는 face 깊이의 변화(가장 얕은 장착에서 $\Delta h$)이다. 등식은 $q=0$의 위치가 같을 때 성립하고, 그 차이($\lVert\Delta\mathbf c(0)\rVert$, $\lVert\Delta\mathbf r_C(0)\rVert$)만큼 어긋난다. 따라서 $\Delta_{\mathrm{contact}}$를 지킨다는 것은 pole을 contact face에 대해 지키는 것이고, $\Delta_{\mathrm{skel}}$을 지킨다는 것은 pole을 뼈대에 대해 지키는 것이다. pad가 $\Delta d$만큼 깊어지면 둘을 함께 지킬 수 없다. 고정 축은 pole이 뼈대에 붙어 있어 $\Delta\mathbf p_{\mathrm{link}}$를 0 가까이 둘 수밖에 없으므로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert\ge\Delta d$이고, 이것이 따름정리(P4)의 하한이다. 어느 구조든 삼각부등식으로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert+\lVert\Delta\mathbf p_{\mathrm{link}}\rVert\ge|\Delta d|$이므로, $q=0$의 위치가 같을 때 $\Delta_{\mathrm{contact}}+\Delta_{\mathrm{skel}}\ge2\sin(q_{\mathrm{req}}/2)\,|\Delta d|$이다(합 하한). 같은 두께에서 두 변화는 서로 맞바뀌므로, 둘 중 무엇이 측정 오차를 예측하는지는 한쪽을 고정한 partial 상관으로만 가를 수 있다.
 
 **다시 설계.** 두께 $h$에서 두 목적을 함께 최적화한다.
 
