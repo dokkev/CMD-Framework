@@ -123,7 +123,12 @@ def main(argv=None) -> int:
     parser.add_argument("--pad_modulus", type=float, default=None,
                         help="hydroelastic pads [Pa]: each pad's stiffness is modulus / its thickness (elastic "
                              "foundation); needs physics=newton_mjwarp_hydro")
-    parser.add_argument("--hydro_buffer", type=float, default=0.1,
+    parser.add_argument("--pad_reference_mm", type=float, default=None,
+                        help="hydroelastic pads: the thickness that sets each pad's stiffness (modulus / it) for every "
+                             "hand, as if each hand carried the reference's pads on a spacer (None: its own thickness)")
+    parser.add_argument("--gate_angle_deg", type=float, default=GATE_ANGLE_DEG,
+                        help="Gate 0: largest difference between the two contact normals' angle and the flexion [deg]")
+    parser.add_argument("--hydro_buffer", type=float, default=1.0,
                         help="hydroelastic buffer fraction of the worst case (Newton warns on overflow)")
     parser.add_argument("--impratio", type=float, default=None, help="MuJoCo friction-to-normal impedance ratio (default: the preset's 10)")
     parser.add_argument("--render", type=Path, default=None,
@@ -165,7 +170,8 @@ def main(argv=None) -> int:
     if args.pad_modulus is not None:
         if physics != "newton_mjwarp_hydro":
             raise SystemExit("--pad_modulus needs physics=newton_mjwarp_hydro")
-        args.pad_hydroelastic = args.pad_modulus / pad_thickness_m(desc)
+        thickness = pad_thickness_m(desc) if args.pad_reference_mm is None else args.pad_reference_mm * 1e-3
+        args.pad_hydroelastic = args.pad_modulus / thickness
     face_w = HAND_Z - face  # world height of this hand's proximal contact face (palm up: the object sits above it)
     placements = [g for g in json.loads(args.grasps.read_text())["grasps"] if g["rho_mm"] == args.radius_mm]
     placements = placements[: args.only]
@@ -193,11 +199,11 @@ def finish(args, physics, results) -> int:
         "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
         "impratio": args.impratio, "contact_ke": args.contact_ke, "substeps": args.substeps,
-        "pad_modulus_pa": args.pad_modulus, "hydro_buffer": args.hydro_buffer, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
+        "pad_modulus_pa": args.pad_modulus, "pad_reference_mm": args.pad_reference_mm, "hydro_buffer": args.hydro_buffer, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
         "profile": args.profile, "tag": args.tag,
         "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
-                 "angle_deg": GATE_ANGLE_DEG, "match": GATE_MATCH},
+                 "angle_deg": args.gate_angle_deg, "match": GATE_MATCH},
         "envs": results, "manifest": common.manifest(command=sys.argv)})
     ok = [e for e in results if e["gate0"]["pass"]]
     print(f"Gate 0 passed {len(ok)}/{len(results)}")
@@ -556,7 +562,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             cosang = (unit[:, 0::2] * unit[:, 1::2]).sum(-1).clamp(-1, 1)  # per finger: proximal . distal
             ang = torch.rad2deg(torch.acos(cosang))
             qf = torch.rad2deg(torch.stack([s["q_star"][:, pip_fingers.index(f)] for f in FINGERS], dim=1))
-            angle_ok = ((ang - qf).abs() <= GATE_ANGLE_DEG).all(dim=1) & pads_ok
+            angle_ok = ((ang - qf).abs() <= args.gate_angle_deg).all(dim=1) & pads_ok
             return {"pads": pads_ok, "still": still, "angle": angle_ok, "normal_angle_deg": ang, "q_finger_deg": qf}
 
         g_rel = gate(st_rel, speed_rel, spin_rel)

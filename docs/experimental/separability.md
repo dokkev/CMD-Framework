@@ -596,3 +596,14 @@ v13–v15 리뷰 세 건 모두 "모든 두께의 pad가 한 접촉 모델을 �
 - **판정 (2) 불충족:** R과 U의 E (같은 pad, O 대비) 5 mm 26% 대 22% (쌍 54, Wilcoxon R<U p 0.53), 7 mm 53% 대 39% (50, p 0.75), 9 mm 32% 대 33% (56, p 0.32).
 - 탐색적 해석: 부호가 있는 효과 차이 Δ(H) − Δ(O)의 중앙값은 R −0.5, −1.0, −0.5 N, U +0.3, +0.7, +0.3 N이다(5, 7, 9 mm). 더 부드러운 pad에서 R은 O보다 덜 누르고(N_d/N_d(O) 0.43, 7 mm) 마찰 효과가 작아진다. U는 over-closure가 그 감소를 상쇄해 O에 가까워진다. 같은 pad를 단 R과 U의 효과 차이는 −0.8, −1.7, −0.8 N으로 남는다(조건 A, 한 접촉 모델: −1.0, −3.0, −1.3 N). pad mechanics가 두께와 함께 바뀌면 O의 효과는 더 이상 기준이 아니고, O 대비 오차 E는 interface 자체의 효과와 재설계의 효과를 섞는다. 이 실험은 그 둘을 가를 수 없다.
 - 사전 기록의 두 번째 갈래: C2.3의 범위를 "모든 두께의 pad가 한 접촉 모델을 쓸 때"로 좁힌다. 두께와 함께 pad mechanics가 바뀌는 경우의 검정에는 같은 pad를 쓰는 기준(예: O의 3 mm pad를 spacer로 올려 단 R과 U)이 필요하다.
+
+## 16차 (계획): hydroelastic compliant pad, 같은 pad 기준, 사전 기록 (2026-11-22, 데이터 전)
+
+C2.3(north star: 명령을 재사용하면 측정 오차는 contact Jacobian의 변화를 따른다)이 point contact 하나에 묶인 결과인지 본다. 15차는 pad mechanics를 두께와 함께 바꿔 O의 효과가 기준이 되지 못했다. 이번에는 모든 손이 같은 pad mechanics를 갖게 해 O를 기준으로 유지하고, 접촉 모델만 분포 압력의 compliant contact로 바꾼다.
+
+- 접촉 모델: `physics=newton_mjwarp_hydro`. pad와 원기둥 사이만 hydroelastic(SDF 압력장), 그 밖의 쌍은 point contact. pad 탄성률 E = 1 MPa(실리콘 pad 수준), 모든 손의 pad 강성 kh = E / 3 mm = 3.33e8 N/m³(`--pad_modulus 1e6 --pad_reference_mm 3`). 각 손이 O의 3 mm pad를 spacer로 올려 단 것과 같은 pad mechanics다. 원기둥 kh 1e10, buffer fraction 1.0.
+- 손: O와 재설계 18개(조건 A와 같은 집합). 조건 A(재사용 flexion 명령), μ 1.3/2.0, ρ 15/20 mm, impratio 1000, tag `hydro`.
+- Gate 0: 법선 각도 허용치를 4°로 둔다(`--gate_angle_deg 4`). hydroelastic 접촉의 법선은 압력으로 가중한 평균이라, O만 본 smoke run(q0 105°)에서 한 손가락이 3.1° 벗어났다. 재설계 손의 데이터 전에 정한다. 다른 Gate 0 기준은 그대로다.
+- 측정: E(H) = |Δ(H) − Δ(O)| / |Δ(O)|, 조건 A와 같은 정의. pad mechanics가 모든 손에서 같으므로 O의 효과가 기준이다.
+- 판정(사전): (1) 원통을 잡는 손에서 ρ(E, Δ_contact) > 0, 정확 단측 순열 p < 0.05. (2) 같은 두께의 R과 U에서 E_R < E_U, 배치·방향 쌍의 단측 Wilcoxon p < 0.05 (5, 7, 9 mm 각각). (3) 다섯 후보의 ρ와 손 bootstrap 구간.
+- 해석(사전): (1)과 (2)가 성립하면 C2.3은 분포 압력의 compliant pad에서도 성립한다(R3의 범위를 접촉 모델 둘로 넓힌다). 성립하지 않으면 그대로 보고하고, R3는 point contact에 남긴다.
