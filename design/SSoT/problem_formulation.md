@@ -388,13 +388,14 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 
 ## A.6. Study 정식화
 
-이 절은 해석 하나와 그것을 확인하는 최적화 실험 둘로 이루어진다. 해석(Study 0)이 관계식과 예측을 주고, Study 1과 Study 2가 최적화 결과로 그 예측을 확인한다. 각 Study의 가설(H)과 안전한 주장(R)은 `research-objective.md` 6절에 있고, 대응은 다음과 같다. Study 3(시뮬레이션 측정)은 research-objective 8절이 정의한다.
+이 절은 해석 하나, 그것을 확인하는 최적화 실험 둘, 그리고 시뮬레이션 측정 하나로 이루어진다. 해석(Study 0)이 관계식과 예측을 주고, Study 1과 Study 2가 최적화 결과로 그 예측을 확인한다. 각 Study의 가설(H)과 안전한 주장(R)은 `research-objective.md` 6절에 있고, 대응은 다음과 같다. Study 3(시뮬레이션 측정)은 A.6.4가 정의하고, 그 결과와 범위는 research-objective 8절에 있다.
 
 | 기여 | 가설과 주장 (research-objective 6절) | Study | 절 |
 |---|---|---|---|
 | C1, C2.1 | R0.1, R0.2 (유도); H0.1–H0.4 (예측) | Study 0 (해석) | A.6.0 |
 | C1 | H1, R1: 두께와 요구 flexion마다 구조가 확보하는 coverage | Study 1 | A.6.1, A.6.2 |
 | C2.2 | H2, R2: 두꺼운 interface에서도 접촉점 경로(proximal phalanx 좌표계)를 지키도록 다시 설계할 수 있는가 | Study 2 | A.6.3 |
+| C2.3 | H3, R3: 명령이나 토크를 재사용할 때 interface 측정의 오차가 어느 설계 변화를 따르는가 | Study 3 (시뮬레이션) | A.6.4 |
 
 ### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
 
@@ -612,7 +613,62 @@ $$
 
 **해석.** $\Delta_{\mathrm{contact}}^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 접촉점 경로와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $\Delta_{\mathrm{skel}}$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 접촉점 경로가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $\Delta_{\mathrm{contact}}^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 접촉점 경로가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 접촉점 경로의 변화를 최소화한다.
 
-### A.6.4. Study에서 다루지 않는 것
+### A.6.4. Study 3: 재설계한 손에서도 interface 효과가 같게 측정되는가 (시뮬레이션)
+
+Study 3의 질문은 하나이다(H3, research-objective §6, §8). 기준 손가락을 더 두꺼운 pad에 맞춰 다시 설계한 손들에서 같은 interface 변화를 재면, 측정의 오차는 어느 설계 변화를 따르는가. 사전 기록과 그 수정은 `docs/experimental/separability.md`(3–14차)에 있다.
+
+**손.** CoDe hand 모델(MCP 고정, $q_{\mathrm{req}}=120^\circ$)의 세 손가락이 같은 설계를 쓰고 같은 원기둥을 잡는다.
+- 기준 $O$: Study 1의 3 mm 설계 $M_0$.
+- 재설계 집합 $\mathcal H$: 5, 7, 9 mm마다 Study 2의 coverage 끝 설계 $R$, coverage만 최대화한 Study 1 설계 $U$, 그리고 $\Delta_{\mathrm{contact}}$의 목표값 $t$에서 $|\Delta_{\mathrm{contact}}-t|\le0.1$ mm이고 $\bar C_{\mathrm{pad}}$가 최대이거나 $\Delta_{\mathrm{skel}}$이 최소 또는 최대인 설계. 기본 집합은 18개이고, 격자 조건에서는 7 mm 설계 27개를 더해 45개이다. 고를 때는 설계 지표만 본다. 집합 안에서 $|\rho(\Delta_{\mathrm{contact}},\Delta_{\mathrm{skel}})|$과 $|\rho(\Delta_{\mathrm{contact}},\bar C_{\mathrm{pad}})|$이 작아야 하고, 두 pad의 장착 깊이가 같아야 한다.
+- Fixed-axis 대조 계열: $O$의 관절 간격 중앙, 링크 선 위에 고정 축 하나를 둔다. 링크와 축은 3, 5, 7, 9 mm에서 그대로이고, 각 pad의 관절 쪽 끝은 $z\equiv0$의 $G_{\mathrm{sym}}$(A.6.0)에 둔다. 그래서 $\Delta_{\mathrm{skel}}=0$이고 $\Delta_{\mathrm{contact}}=2\sin60^\circ\,\Delta h=\sqrt3\,\Delta h$(따름정리의 등호)이다. 기준은 이 계열의 3 mm 손이다.
+- 바꾸지 않은 손가락에 두꺼운 pad만 단 손(naive swap)은 두 pad가 굽힘 47°에서 부딪혀 요구 flexion에 이르지 못한다. 그래서 비교하지 않는다.
+
+**물체와 배치.** 반지름 $\rho\in\{15,20\}$ mm의 원기둥이다. 시상면 안에서 자유롭고($x$, $z$ 미끄럼과 회전), 중력은 끈다. 중심을 $\mathcal F_p$의 $x_c$에 두며, 각 손의 proximal pad 위에 놓는다.
+- 기준 배치: $O$가 굽힘 $q_0$에서 두 pad로 닿는 $x_c$이다($q_0=20^\circ$–$120^\circ$, $5^\circ$ 간격).
+- 손과 무관한 격자: $x_c\in\{21,24,27,30\}$ mm($\rho=15$) 또는 $\{14,18,22,26\}$ mm($\rho=20$)이고, $q_0\in\{85^\circ,\dots,115^\circ\}$이다.
+- Fixed-axis 계열: 3 mm 손이 $q_0$에서 두 pad로 닿는 $x_c=x_a-(t+\rho)\tan(q_0/2)$이다($x_a$: 축의 위치).
+
+**절차.** 원기둥을 고정한 채 PIP를 닫는다. 고정을 풀어 안정화한 뒤, 하중을 방향 $d\in\{+x,\;+x-z,\;-z,\;-x\}$($\mathcal F_p$)로 2 N/s씩 키운다. 다음 사건 가운데 처음 일어나는 것의 하중이 한계 하중 $F_{\lim}(H,c,d,s)$이다($s$: 배치).
+- 어느 pad 접촉에서든 접선 미끄럼 속도가 10 mm/s를 넘는다.
+- proximal pad나 distal pad의 수직력이 0.2 N 아래로 떨어진다.
+- 물체가 하중 전 자세에서 5 mm를 넘게 움직인다.
+
+**Gate 0.** 하중을 걸기 전에 다음을 모두 만족해야 한다.
+- 모든 손가락에서 두 pad의 수직력이 각각 0.2 N 이상이다.
+- 물체 속도가 2 mm/s 미만이고, 각속도가 0.1 rad/s 미만이다.
+- 두 접촉 법선 사이 각이 측정 굽힘과 $2^\circ$ 안에서 같다.
+
+통과하지 못한 환경은 grasp 실패로 세고 비교에서 뺀다. 접촉 solver는 MuJoCo-Warp이고 impratio는 1000이다(사전 기록 수정 1).
+
+**구동.** 굽힘 명령 $q$는 각 손 자신의 $\theta(q)$ 표로 servo 각으로 바꾼다. 강성은 굽힘 공간에서 $K_0=5$ N·m/rad로 맞춘다($K_\theta=K_0/(d\theta/dq)^2$). 전달의 차이는 이렇게 제어로 보상한다(A.6.3). 손 사이에 같게 두는 것은 프로토콜마다 다르다.
+- A (주 조건): 같은 굽힘 명령 $q_{\mathrm{cmd}}=q_0+5^\circ$를 쓴다.
+- C: $O$가 A의 평형에서 낸 손가락별 굽힘 토크 $\tau_q$를 쓴다. 위치 제어로 닫은 뒤 강성을 0으로 내리면서 $\tau_q$를 건다.
+- B: distal pad의 총 수직력을 $O$의 A 값에 맞춘다. 시뮬레이터의 접촉력을 쓰므로 보상의 상한이다.
+- D: 굽힘 공간 임피던스 $\tau_q=\tau_O+K(q^\ast_O-q)$를 쓴다. $\tau_O$와 $q^\ast_O$는 $O$의 A 평형값이고, $K/K_0\in\{0.1,0.3,1,3,10\}$이다. $K\to0$이면 C와 같고 $K=K_0$이면 A와 같다.
+- E: 공유 명령이 없다. 각 손가락이 $q_0-15^\circ$부터 천천히 굽혀, 자기 distal pad의 수직력이 0.05 N을 넘는 $q_{\mathrm{touch}}$에서 $q_{\mathrm{touch}}+5^\circ$까지 닫는다.
+
+**효과와 오차.** Interface 값 $c_0\to c_1$의 효과를 $\Delta(H,d,s)=F_{\lim}(H,c_1,d,s)-F_{\lim}(H,c_0,d,s)$로 둔다. 변화는 세 가지이다.
+- pad 마찰 $\mu$: 1.3 → 2.0 (주)
+- 접촉 강성: 2.5 → 1.0 kN/m ($\mu$ 1.3)
+- pad 모양: flat → 2 mm crowned ($\mu$ 1.3)
+
+$$
+E(H)=\operatorname*{median}_{(s,d)\in\mathcal V(H)}\frac{\big|\Delta(H,d,s)-\Delta(O,d,s)\big|}{\big|\Delta(O,d,s)\big|}
+$$
+
+$\mathcal V(H)$는 $O$와 $H$가 두 interface 값 모두에서 Gate 0을 통과한 배치와 방향의 쌍이다. 모든 두께의 pad가 한 접촉 모델을 쓰므로, $O$처럼 원기둥을 잡는 손은 $O$의 효과를 보인다. 따라서 $E$는 다시 설계가 더한 오차이다. 대칭 지표 $|\ln(\Delta(H)/\Delta(O))|$도 함께 보고한다.
+
+**후보와 통계.** 설계자가 지킬 수 있는 후보 다섯은 $\Delta_{\mathrm{contact}}$, $\Delta_{\mathrm{skel}}$(A.6.3), $\bar C_{\mathrm{pad}}$, pad 두께의 변화 $h-3$ mm, 전달의 변화 $\max_{q\le120^\circ}|r_H(q)/r_O(q)-1|$($r=d\theta/dq$)이다. 원기둥을 잡는 재설계 손들에서 다음을 계산한다.
+- 각 후보와 $E$의 Spearman $\rho$와 정확(또는 고정 seed 무작위) 단측 순열 검정.
+- 손을 다시 뽑는 bootstrap(10 000회)의 95% 구간.
+- $\Delta_{\mathrm{skel}}$을 고정한 $\Delta_{\mathrm{contact}}$의 partial 상관과 그 반대. 순위의 잔차에 대한 Pearson 상관으로 구한다.
+- $\rho(E,\Delta_{\mathrm{contact}})-|\rho(E,X)|$의 손 bootstrap 구간. 모든 후보를 같은 표본으로 다시 뽑는다.
+
+검정 20개(후보 5 × 설정 4)는 Holm으로 보정한다. 한 p값이 $0.05/20=0.0025$보다 작으면 다른 p값과 관계없이 Holm(과 Bonferroni)을 통과한다. 판정 기준은 H3(research-objective §6)이다.
+
+**해석과 범위.** 같은 두께에서 $\Delta_{\mathrm{contact}}$와 $\Delta_{\mathrm{skel}}$은 합 하한(A.6.3) 때문에 서로 맞바뀐다. 그래서 둘 중 무엇이 오차를 예측하는지는 partial 상관과, $\Delta_{\mathrm{skel}}=0$인 fixed-axis 계열로 가른다. 결과는 시뮬레이션(강체 손, MuJoCo-Warp 접촉), CFL 한 구조와 fixed-axis 대조 계열, $q_{\mathrm{req}}=120^\circ$ 하나, 두 pad grasp 하나, interface 성질 셋 안에서의 진술이다(research-objective §8.3).
+
+### A.6.5. Study에서 다루지 않는 것
 
 다음은 다루지 않으며, 필요해지면 따로 정의한다.
 - 손가락 하나에 여러 두께를 바꿔 다는 경우, 길이와 두께의 격자에서 pad 활용률로 수용 여부를 세는 정의, 선언한 범위(family)의 최악 활용률, tolerance 곡선: 2026-11-20까지의 Study 2 정의였으나 뺐다. Study 0의 관계에서, 손가락을 고정하면 어느 구조도 더 두꺼운 pad를 요구 flexion까지 쓰지 못한다.

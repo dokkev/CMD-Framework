@@ -54,16 +54,28 @@
 | `optimization/linkage/record.py` | `run.json` 기록과 복원. 옛 formulation의 필드는 버린다 | — |
 | `optimization/mechanism.py` | `Mechanism` 플러그인 인터페이스, `evaluation_report`(모든 구조 공용 출력 열) | §7 |
 | `optimization/mounting.py` | `shallowest_supported` 장착 규칙, `depth_violation_mm` | A.6.2 장착 규칙 |
-| `optimization/analysis/adaptation.py` | 외형/내부 좌표 분할(partition), $\varepsilon_d$, $\varepsilon_\kappa$. 단계적 최소 변화 탐색은 2026-11-20 정의에서 빠짐 | A.6.3 |
-| `scripts/study/study1_fixed_morphology/run.py` | (이전 Study 1) native 손가락의 module 수용 판정. 보조 자료 | A.6.2 장착 규칙 |
 | `scripts/study/study1_thickness_coverage/run_all.sh`, `figure.py` | Study 1: 두께 × 요구 flexion마다 native 탐색(`scripts/optimize/run.py`), 결과 표와 그림 | A.6.2 |
 | `core/geometry/pole.py` | Finite pole(`pole`), 임의의 pole에서 두 직사각형의 정확한 clearance(`rectangular_clearance`, 명제 1), 대칭 clearance 법칙(`symmetric_gap_law`, 명제 2) | A.6.0 |
 | `scripts/study/study2_morphology_adaptation/pole_law.py` | Study 0과 Study 1 설계의 대조: 설계의 pad의 정확한 clearance(`least_clearance`), 대칭 법칙의 추정(`symmetric_gap`), 긴 pad의 고른 배치의 최소 간격(`least_gap_long_pads`), coverage(`coverage_law`), 고정한 손가락의 첫 접촉 | A.6.0, A.6.2 |
 | `optimization/analysis/contact_kinematics.py` | proximal phalanx 좌표계에서 본 distal 접촉점의 경로(`contact_path`), 그 변화 $\Delta_{\mathrm{contact}}/L_f$(`path_change`, 열 이름 `contact_change`; 손끝 경로는 `skeleton_change` $=\Delta_{\mathrm{skel}}/L_f$), 두 목적($\Delta_{\mathrm{contact}}$, $\bar C_{\mathrm{pad}}$)의 다시 설계 탐색(`ContactMechanism`, `redesign`) | A.6.3 |
 | `scripts/study/study2_morphology_adaptation/redesign.py`, `figure_redesign.py` | Study 2 driver(기준 손가락, 두께별 front, 요약)와 그림 | A.6.3 |
-| `optimization/analysis/one_finger.py`, `scripts/study/study2_morphology_adaptation/one_finger.py` | 고정한 손가락에 다른 두께의 pad를 다는 것(`fitted`, `mount`)과 Study 1 설계를 읽는 것(`study1_designs`). 손가락 하나 탐색(`one_finger`)은 2026-11-20 정의에서 빠짐 | A.6.0의 대조 |
-| `scripts/study/study2_morphology_adaptation/landscape.py` | (이전 정의) 최소 변화 landscape. 쓰지 않음 | — |
-| `scripts/study/study2_morphology_adaptation/figure_landscape.py` | (이전 정의) $\varepsilon_d^\star$ heatmap. 교체 예정 | — |
+| `optimization/analysis/one_finger.py`, `scripts/study/study2_morphology_adaptation/one_finger.py` | 고정한 손가락에 다른 두께의 pad를 다는 것(`fitted`, `mount`)과 Study 1 설계를 읽는 것(`study1_designs`) | A.6.0의 대조 |
+
+**Study 3 (시뮬레이션, A.6.4).** 설계 쪽 경로는 `design/` 아래이고, 시뮬레이션 쪽 경로는 `sim/isaaclab/` 아래이다.
+
+| 모듈 | 내용 | SSoT |
+|---|---|---|
+| `scripts/study/exploratory/e18_rct_dose.py` | $\Delta_{\mathrm{contact}}$ 목표값마다 CFL 재설계(coverage 최대, $\Delta_{\mathrm{skel}}$ 최소·최대)를 찾아 `designs.csv`에 쓴다 | A.6.4 손 |
+| `scripts/study/study3_trajectory/make_hands.py` | 설계를 CoDe hand 파라미터(`output/sim/study3/hands/`)로 내보낸다. 설계의 기구학과 $10^{-6}$ mm 안에서 같을 때만 쓴다 | A.6.4 손 |
+| `scripts/study/study3_trajectory/check_flexion_map.py` | 시뮬레이터의 굽힘→servo 맵을 설계 기구학과 대조한다 | A.6.4 구동 |
+| `scripts/study/exploratory/e17_two_pad_wrench.py` (`--export`) | 기준 배치(`output/sim/study3/two_pad_grasps.json`): $O$가 $q_0$에서 두 pad로 닿는 원기둥 자리 | A.6.4 배치 |
+| `src/code_isaaclab/joint_map.py`, `flexion_control.py` | 각 손의 $\theta(q)$ 표, 굽힘 공간 강성 $K_\theta=K_0/(d\theta/dq)^2$ | A.6.4 구동 |
+| `scripts/experimental/fixed_axis_hands.py` | Fixed-axis 대조 계열(`fa_q120_h{3,5,7,9}.json`)과 그 배치(`fa_grasps.json`) | A.6.4 손, 배치 |
+| `scripts/experimental/two_pad_wrench.py` | 한 실행: 배치, 닫기, 놓기, Gate 0, 하중 증가, $F_{\lim}$와 사건 종류. `--condition A/B/C/D/E` | A.6.4 절차, 프로토콜 |
+| `scripts/experimental/dose_analysis.py` | 손별 $E(H)$와 유효 쌍, Spearman, 단측 순열 검정, 손 bootstrap, partial 상관 | A.6.4 오차, 통계 |
+| `scripts/experimental/invariants.py` | 후보 다섯의 $\rho$와 구간, $\rho(E,\Delta_{\mathrm{contact}})-|\rho(E,X)|$의 구간(`invariants.json`) | A.6.4 후보 |
+| `scripts/experimental/robust_analysis.py`, `impedance_analysis.py`, `fa_analysis.py` | 강건성, 접촉 강성과 pad 모양(`comp.json`, `shape.json`), 프로토콜 D, fixed-axis 계열의 $E$ | A.6.4 |
+| `scripts/experimental/figure_dose.py`, `figure_grasp_render.py` | Study 3 그림 | — |
 
 ## 5. 제약과 목적함수
 
@@ -124,6 +136,7 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `cfl-idealized-pf1
 | D8 | `linkage/config.py` 862줄, 값의 모양으로 의미가 바뀜 | `config.py`(데이터), `goal.py`(YAML), `record.py`(`run.json`)로 나눴다. 의미가 바뀌는 설정은 일부 남았다(§10) |
 | D9 | longitudinal 길이나 $\lvert OC\rvert$ | coverage의 $L_f(\mathbf q)$는 유클리드. 크기 범위의 $L_f$는 $\lvert OC\rvert$(기준 자세에서 같다) |
 | D10 | 옛 SSoT 모듈이 테스트에서만 쓰임 | 지웠다 |
+| D11 | 2026-11-20까지의 Study 1(module 수용, `study1_fixed_morphology/run.py`)과 Study 2(최소 변화 landscape, `landscape.py`, `figure_landscape.py`, `analysis/adaptation.py`의 $\varepsilon_d$, `one_finger` 탐색) | 모듈 대응표에서 뺐다(2026-11-22). 코드는 옛 run과 보조 자료를 읽는 데만 남는다 |
 
 ## 9. 검증
 
@@ -139,5 +152,7 @@ Formulation 이름(`run.json`의 `formulation`)은 `cfl-pf1`, `cfl-idealized-pf1
 - 2R 계열의 충돌 엔진을 Assembly로 옮기지 않는다. 2R 계열의 쌍 목록은 구조당 40줄 정도로 짧고, Assembly로 옮기면 구조마다 Part·Layout·Poses를 새로 만들어야 해서 코드가 늘어난다. 대신 중복된 MCP servo 쌍 처리를 `revolute.solids.with_mcp_pairs`로 모았다.
 
 **남은 항목.**
+- **Study 3 코드의 위치.** Study 3은 SSoT의 주장(C2.3)이지만, 실행과 분석 코드는 `sim/isaaclab/scripts/experimental/`에 있고 docstring도 "playground, not the SSoT"라고 적는다. 정식 위치로 옮길지 정해야 한다.
+- **격자 배치의 생성.** `design/output/sim/study3/grid_grasps.json`(A.6.4의 손과 무관한 격자)을 만든 스크립트가 저장소에 없다. 격자 값은 A.6.4에 적혀 있으므로, 이 파일을 다시 만드는 스크립트가 필요하다.
 - **설정 스키마.** 2R 계열이 `LinkageConfig`를 공용 goal로 감싼다. pad 길이 `length_mm`와 장착 깊이 `mount_offset_mm`는 아직 "숫자면 고정"을 받는다
 - **Layer 규칙의 표현.** CFL은 Assembly의 layer로, 2R 계열은 쌍 목록에서 빼는 방식으로 같은 규칙을 표현한다
