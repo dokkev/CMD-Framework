@@ -13,6 +13,7 @@
 | v8 | cfca3fe | 5, 5, 6 | — | falsification lines, scope, fit |
 | v9 | 40bee48 | 5, 5, 5 | — | hand-independent placement grid (all 18 hold, rho 0.69) |
 | v10 | e1b5910 | 5, 5, 5 | — | grid on 45 redesigns (rho 0.60; skeleton also matters there via lost placements), lug sentence |
+| v11 | 7b198b9 | 5, 6, 5 | — | fixed-axis family with the skeleton kept exactly (95/179/228%), offset-free Study 2, C2 restated |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -81,3 +82,11 @@ knee and Burmester literature. v11 answers: a fixed-axis family with the skeleto
 95/179/228%; offset-free motion change (CFL least in 7 of 9 cells); C2 restated to coverage level in every condition;
 Prop. 2 explained by equal growth of numerator and denominator; one shared contact model makes O's effect the
 reference; protocol framed as command or torque reuse (current-controlled servos) with sensing protocols reported.
+
+v11 pattern: r2 moves to 6 (borderline accept). Remaining: the Stage 2 plan is two sentences (all three); C2 against
+2R-DD only, with a metric switch for 2R-remote; spacers dismissed; abstract mixes n = 6 shape into the rho range and
+says 'least of four' (7 of 9 cells offset-free); no multiplicity correction; grid subset looks post hoc; title and
+'contact Jacobian' wording. v12 answers: a Stage 2 protocol with counts, the R-vs-U hardware test (same pads) and its
+failure line; 2R-remote's coverage lead stated with its cost in C3, the L_f metric switch removed; spacers framed as
+the fix when every interface is known in advance; abstract states 6 to 45 redesigns and 'nearly every condition';
+Holm over 20 tests; 'post hoc' label; Fig. 1 legend fixed.

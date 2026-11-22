@@ -295,8 +295,11 @@ def fig_overview():
     ax.set_title("(d) same command, 15 redesigns", fontsize=7.6, fontweight="bold", loc="left")
     ax.set_xlim(0, 5.5)
     ax.set_ylim(-5, 175)
-    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
-    ax.legend(handles=handles, loc="lower right", fontsize=6.2, frameon=False, handletextpad=0.2, borderaxespad=0.1)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc="white", mew=0.9, ms=3.4, label=f"3→{t} mm")
+               for t, c in THICK.items()]
+    handles.append(plt.Line2D([], [], marker="s", ls="none", color="0.45", ms=3.6, label="R, U"))
+    ax.legend(handles=handles, loc="center left", bbox_to_anchor=(0.0, 0.55), fontsize=6.2, frameon=False,
+              handletextpad=0.2, borderaxespad=0.1)
     fig.savefig(DEST / "fig_overview.png")
     plt.close(fig)
 
