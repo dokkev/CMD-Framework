@@ -55,6 +55,7 @@ S2 = math.sqrt(0.5)
 DIRECTIONS = {"+x": (1.0, 0.0), "+x-z": (S2, -S2), "-z": (0.0, -1.0), "-x": (-1.0, 0.0)}  # proximal-face frame
 LENGTH_M, MASS_KG = 0.07, 0.05
 K_Q, D_Q = 5.0, 0.08
+STALL_NM = 1.03  # XM335 stall torque at 11.1 V (the simulation runs without torque limits)
 FINGERS = ("index", "middle", "ring")
 SLIP_MM_S = (5.0, 10.0, 20.0)
 PRIMARY = 1
@@ -90,7 +91,7 @@ def o_torques(mu: float, radius: float) -> dict:
             m, q = maps[f], math.radians(q_deg)
             r = float(m.ratio(q))
             taus.append(K_Q * float(m.servo(qc) - m.servo(q)) / r)
-        out[(e["rho_mm"], e["q0_deg"], e["direction"])] = taus
+        out[(e["rho_mm"], e["q0_deg"], e["direction"])] = {"tau": taus, "q": list(e["pre"]["q_finger_deg"])}
     return out
 
 
@@ -102,7 +103,9 @@ def main(argv=None) -> int:
                         help="O, R, U, the suffix of another 3 -> 7 mm hand (cfl_q120_h3to7_<suffix>.json, e.g. d2p25_s0), "
                              "or h3to<t>_<suffix> for another thickness (e.g. h3to5_hr)")
     parser.add_argument("--mu", type=float, required=True)
-    parser.add_argument("--condition", default="A", choices=("A", "B", "C"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C", "D"))
+    parser.add_argument("--stiffness_scale", type=float, default=1.0,
+                        help="condition D: flexion stiffness as a multiple of K0 = 5 N m/rad (damping scales with its root)")
     parser.add_argument("--delta_deg", type=float, default=5.0)
     parser.add_argument("--rate", type=float, default=2.0, help="load ramp [N/s]")
     parser.add_argument("--max_force", type=float, default=80.0)
@@ -147,7 +150,7 @@ def main(argv=None) -> int:
     placements = placements[: args.only]
     envs = [(g, name) for g in placements for name in DIRECTIONS]
     targets = o_targets(args.mu, args.radius_mm) if args.condition == "B" else None
-    torques = o_torques(args.mu, args.radius_mm) if args.condition == "C" else None
+    torques = o_torques(args.mu, args.radius_mm) if args.condition in ("C", "D") else None
     results = run_pass(args, physics, face_w, args.radius_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
                        ArticulationCfg, ContactSensorCfg, sim_utils, configclass, write_planar_cylinder_usd,
                        FlexionEMAActionCfg, get_hand, ASSET_DIR, cylinder_cfg, register_description_hand,
@@ -158,9 +161,11 @@ def main(argv=None) -> int:
 def finish(args, physics, results) -> int:
     if not results:  # --render_only
         return 0
-    run = common.run_id(f"tp_{args.hand}_mu{args.mu:g}_{args.condition}_r{args.radius_mm:g}")
+    cond = args.condition if args.condition != "D" else f"D{args.stiffness_scale:g}"
+    run = common.run_id(f"tp_{args.hand}_mu{args.mu:g}_{cond}_r{args.radius_mm:g}")
     out = common.write_json(OUT / f"{run}.json", {
-        "hand": args.hand, "mu": args.mu, "condition": args.condition, "delta_deg": args.delta_deg,
+        "hand": args.hand, "mu": args.mu, "condition": cond, "stiffness_scale": args.stiffness_scale,
+        "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
         "impratio": args.impratio, "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
@@ -307,10 +312,10 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         d_face = torch.tensor([DIRECTIONS[d] for _, d in envs], device=dev)
         d_world = torch.stack((d_face[:, 0], -d_face[:, 1]), dim=1)  # world x, z of the load (face z is world -z)
 
-        def command(q_deg: torch.Tensor) -> torch.Tensor:
+        def command(q_deg: torch.Tensor) -> torch.Tensor:  # (n,) the same for every finger, or (n, fingers)
             cmd = torch.zeros(n, len(names), device=dev)
-            for k in pip:
-                cmd[:, k] = torch.deg2rad(q_deg)
+            for i, k in enumerate(pip):
+                cmd[:, k] = torch.deg2rad(q_deg if q_deg.dim() == 1 else q_deg[:, i])
             return 2.0 * (cmd - lo) / (hi - lo) - 1.0
 
         def load(f: float | torch.Tensor):
@@ -354,8 +359,21 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         q_cmd = torch.tensor([g["q0_deg"] + args.delta_deg for g, _ in envs], device=dev)
         tau_scale = [0.0]
         tau_q = None if torques is None else torch.tensor(
-            [[torques[(g["rho_mm"], g["q0_deg"], d)][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
+            [[torques[(g["rho_mm"], g["q0_deg"], d)]["tau"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
             device=dev)
+        q_ref = None if args.condition != "D" else torch.tensor(  # condition D: O's grasp flexion per finger [deg]
+            [[torques[(g["rho_mm"], g["q0_deg"], d)]["q"][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
+            device=dev)
+
+        def servo_torque_share() -> torch.Tensor:  # static servo torque over the XM335 stall torque, per finger
+            theta = common.torch_of(robot.data.joint_pos)[:, servo_ids]
+            q_now = torch.stack([term._tables.flexion(names[k], theta[:, i]) for i, k in enumerate(pip)], dim=1)
+            r = torch.stack([term._tables.ratio(names[k], q_now[:, i]) for i, k in enumerate(pip)], dim=1)
+            target = torch.deg2rad(q_cmd if q_cmd.dim() == 2 else q_cmd[:, None].expand_as(q_now))
+            tau = float(term.cfg.flexion_stiffness or 0.0) * (target - q_now)
+            if tau_q is not None:
+                tau = tau + tau_scale[0] * tau_q
+            return (tau / r).abs() / STALL_NM
 
         def step(action):  # condition C: the PIP servos also get O's flexion torque through this hand's own ratio
             if tau_q is not None and tau_scale[0] > 0.0:
@@ -385,11 +403,17 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             load(0.0)
             step(command(q_cmd))
             report("hold")
-        if tau_q is not None:  # condition C: position control hands over to O's torque, the cylinder still held
+        if tau_q is not None:  # C: hand over to O's torque; D: to O's impedance; the cylinder still held
+            k1 = 0.0 if args.condition == "C" else K_Q * args.stiffness_scale
+            d1 = D_Q if args.condition == "C" else D_Q * math.sqrt(args.stiffness_scale)
+            q_start = q_cmd[:, None].expand(-1, len(pip)).clone()
             for i in range(30):
                 s_ = (i + 1) / 30
-                term.cfg.flexion_stiffness = K_Q * (1.0 - s_)
+                term.cfg.flexion_stiffness = K_Q + (k1 - K_Q) * s_
+                term.cfg.flexion_damping = D_Q + (d1 - D_Q) * s_
                 tau_scale[0] = s_
+                if q_ref is not None:
+                    q_cmd = q_start + (q_ref - q_start) * s_
                 load(0.0)
                 step(command(q_cmd))
                 report("switch")
@@ -458,6 +482,8 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
                 return []
 
         # 4: load ramp
+        share_pre = servo_torque_share()
+        share_max = share_pre.max(dim=1).values.clone()
         c0 = st["centre"].clone()
         inf = torch.full((n,), float("nan"), device=dev)
         f_slip = [inf.clone() for _ in SLIP_MM_S]
@@ -472,6 +498,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             load(f)
             step(command(q_cmd))
             s = state()
+            share_max = torch.maximum(share_max, servo_torque_share().max(dim=1).values)
             disp = 1e3 * (s["centre"] - c0)[:, [0, 2]].norm(dim=-1)
             vmax, pad = s["slip"].max(dim=1)
             vmax_mm = 1e3 * vmax
@@ -517,9 +544,11 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             first = min(hit, key=hit.get) if hit else None
             out.append({
                 "rho_mm": g["rho_mm"], "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": dname,
-                "q_star_predicted_deg": g.get(args.hand), "q_cmd_deg": float(q_cmd[e]),
+                "q_star_predicted_deg": g.get(args.hand), "q_cmd_deg": float(q_cmd[e].float().mean()),
                 "target_n_distal": None if goal is None else float(goal[e]),
                 "target_tau_q_nm": None if tau_q is None else tau_q[e].tolist(),
+                "q_ref_deg": None if q_ref is None else q_ref[e].tolist(),
+                "servo_torque_share_pre": share_pre[e].tolist(), "servo_torque_share_max": float(share_max[e]),
                 "release": {"q_star_deg": np.degrees(st_rel["q_star"][e].cpu().numpy()).tolist(),
                             "n_proximal_total": float(st_rel["mag"][e, 0::2].sum()),
                             "n_distal_total": float(st_rel["mag"][e, 1::2].sum()),
