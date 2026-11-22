@@ -554,18 +554,18 @@ $$
 **그 변화.**
 
 $$
-D_c(M,M_0)=\frac{1}{L_f}\max_{q\in[0,\,q_{\mathrm{req}}]}\big\|\mathbf c(M,q)-\mathbf c(M_0,q)\big\|
+\Delta_{\mathrm{contact}}(M,M_0)=\max_{q\in[0,\,q_{\mathrm{req}}]}\big\|\mathbf c(M,q)-\mathbf c(M_0,q)\big\|
 $$
 
-$\mathbf c(M,q)-\mathbf c(M_0,q)=[\mathbf c(M,0)-\mathbf c(M_0,0)]+\int_0^q\big(\mathbf c'(M,s)-\mathbf c'(M_0,s)\big)\,ds$이다. 그래서 $q=0$의 자세가 같으면, $D_c=0$과 $[0,q_{\mathrm{req}}]$에서 $\mathbf J$가 같다는 것은 동치이다. 일반적으로 $D_c\le\big(\|\Delta\mathbf c(0)\|+\int_0^{q_{\mathrm{req}}}\|\Delta\mathbf J\|\,dq\big)/L_f$이다. 원점을 proximal contact face 위에 두므로 pad 깊이의 차이 자체는 $D_c$에 들어가지 않는다.
+$\mathbf c(M,q)-\mathbf c(M_0,q)=[\mathbf c(M,0)-\mathbf c(M_0,0)]+\int_0^q\big(\mathbf c'(M,s)-\mathbf c'(M_0,s)\big)\,ds$이다. 그래서 $q=0$의 자세가 같으면, $\Delta_{\mathrm{contact}}=0$과 $[0,q_{\mathrm{req}}]$에서 $\mathbf J$가 같다는 것은 동치이다. 일반적으로 $\Delta_{\mathrm{contact}}\le\|\Delta\mathbf c(0)\|+\int_0^{q_{\mathrm{req}}}\|\Delta\mathbf J\|\,dq$이다. 원점을 proximal contact face 위에 두므로 pad 깊이의 차이 자체는 $\Delta_{\mathrm{contact}}$에 들어가지 않는다. 단위는 mm이며, 코드는 $L_f$로 나눈 값을 `contact_change`로 기록한다.
 
-뼈대의 운동 변화 $D_s$는 같은 식을 $\mathcal F_p$에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며 함께 보고한다.
+뼈대의 운동 변화 $\Delta_{\mathrm{skel}}$은 같은 식을 $\mathcal F_p$에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며(코드의 `skeleton_change`는 $L_f$로 나눈 값) 함께 보고한다.
 
 **다시 설계.** 두께 $h$에서 두 목적을 함께 최적화한다.
 
 $$
 \boxed{
-\min_{M\in\mathcal M_K}\ \Big(D_c(M,M_0),\ -\bar C_{\mathrm{pad}}(M)\Big)
+\min_{M\in\mathcal M_K}\ \Big(\Delta_{\mathrm{contact}}(M,M_0),\ -\bar C_{\mathrm{pad}}(M)\Big)
 \quad\text{s.t.}\quad
 \text{study goal}(q_{\mathrm{req}}),\;\;h_1=h_2=h
 }
@@ -576,20 +576,20 @@ $$
 - Study 1의 설계 $M^\star_K(h)$는 이 탐색의 초기해이므로 front의 coverage 쪽 끝은 $\bar C^\star_K(h)$보다 낮지 않다. 더 높게 나오면 Study 1의 탐색이 최적에 못 미친 것이므로 그 값을 함께 보고한다.
 
 **보고.** 구조, $q_{\mathrm{req}}$, 두께마다
-- front $\{(D_c,\bar C_{\mathrm{pad}})\}$;
-- 변화가 가장 작은 설계의 $D_c^{\min}$과 그 coverage, coverage가 가장 높은 설계의 coverage와 그 $D_c$;
-- 고정 축의 하한 $2\sin(q_{\mathrm{req}}/2)\,(h-h_0)/L_f$ (A.6.0 P4);
-- Study 1의 설계 $M^\star_K(h)$의 $D_c$(접촉점 경로를 목표로 주지 않았을 때의 값);
-- 뼈대의 변화 $D_s$, pad 길이, $q_{\max}$, $MA_{\mathrm{wc}}$.
+- front $\{(\Delta_{\mathrm{contact}},\bar C_{\mathrm{pad}})\}$;
+- 변화가 가장 작은 설계의 $\Delta_{\mathrm{contact}}^{\min}$과 그 coverage, coverage가 가장 높은 설계의 coverage와 그 $\Delta_{\mathrm{contact}}$;
+- 고정 축의 하한 $2\sin(q_{\mathrm{req}}/2)\,(h-h_0)$ (A.6.0 P4);
+- Study 1의 설계 $M^\star_K(h)$의 $\Delta_{\mathrm{contact}}$(접촉점 경로를 목표로 주지 않았을 때의 값);
+- 뼈대의 변화 $\Delta_{\mathrm{skel}}$, pad 길이, $q_{\max}$, $MA_{\mathrm{wc}}$.
 
 결과는 seed를 바꿔 반복해 front를 합친다.
 
 **확인하는 것 (P4).**
-- 고정 축(2R-remote)은 어떤 다시 설계로도 $D_c$가 하한보다 작아지지 않는다. Front는 그 하한의 한 점으로 모인다.
+- 고정 축(2R-remote)은 어떤 다시 설계로도 $\Delta_{\mathrm{contact}}$가 하한보다 작아지지 않는다. Front는 그 하한의 한 점으로 모인다.
 - 2R-DD와 RCJ는 장착 깊이를 줄인 만큼만 하한보다 작다.
-- CFL은 하한보다 훨씬 작은 $D_c$로 다시 설계되며, 그때 coverage는 $\bar C^\star_K(h)$에 가깝다(접촉점 경로를 지키는 것과 pad 길이를 지키는 것은 같은 조건이므로). 두께가 늘면서 이것이 어디까지 성립하는지가 결과이다.
+- CFL은 하한보다 훨씬 작은 $\Delta_{\mathrm{contact}}$로 다시 설계되며, 그때 coverage는 $\bar C^\star_K(h)$에 가깝다(접촉점 경로를 지키는 것과 pad 길이를 지키는 것은 같은 조건이므로). 두께가 늘면서 이것이 어디까지 성립하는지가 결과이다.
 
-**해석.** $D_c^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 접촉점 경로와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $D_s$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 접촉점 경로가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $D_c^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 접촉점 경로가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 접촉점 경로의 변화를 최소화한다.
+**해석.** $\Delta_{\mathrm{contact}}^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 접촉점 경로와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $\Delta_{\mathrm{skel}}$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 접촉점 경로가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $\Delta_{\mathrm{contact}}^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 접촉점 경로가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 접촉점 경로의 변화를 최소화한다.
 
 ### A.6.4. Study에서 다루지 않는 것
 
@@ -643,9 +643,9 @@ $$
 | $G$, $G_{\mathrm{sym}}$, $q^\ast$ | 관절 간격(기준 자세에서 두 pad의 관절 쪽 끝 사이 길이), 대칭 clearance 법칙이 주는 값, 그것을 정하는 임계 flexion |
 | $m(q)$ | 자세 $q$에서 두 pad의 정확한 clearance: 분리축에서의 틈의 최댓값(0: 맞닿음, 음수: 겹침) (Study 0, 명제 1) |
 | $\mathbf p(q)$, $\mathbf c(M,q)$ | Contact face를 기준으로 본 pole의 위치, proximal contact face를 기준으로 본 distal contact face 위의 점의 경로 |
-| $D_c(M,M')$, $D_s(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
+| $\Delta_{\mathrm{contact}}(M,M')$, $\Delta_{\mathrm{skel}}(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이 [mm]. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
 | $\mathcal F_p$, $\mathbf c(M,q)$, $\mathbf J(M,q)$ | Proximal phalanx 좌표계(MCP에서 함께 돎, 원점은 proximal contact face 위), 그 좌표계에서 본 distal 접촉점의 경로, 그 경로와 distal face 자세의 $q$에 대한 자코비안 $[\mathbf c';1]$ (손가락 contact Jacobian의 PIP 열; Study 2) |
-| $M_0$, $h_0$, $D_c^{\min}$ | Study 2의 기준 손가락(가장 얇은 두께 $h_0$의 Study 1 설계)과, 더 두꺼운 두께에서 다시 설계해 찾은 가장 작은 $D_c$ |
+| $M_0$, $h_0$, $\Delta_{\mathrm{contact}}^{\min}$ | Study 2의 기준 손가락(가장 얇은 두께 $h_0$의 Study 1 설계)과, 더 두꺼운 두께에서 다시 설계해 찾은 가장 작은 $\Delta_{\mathrm{contact}}$ |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
 

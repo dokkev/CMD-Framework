@@ -85,7 +85,7 @@ CoDe aims to enable contact-interface variation while preserving the underlying 
 
 For controlled contact-interface experiments, the following should remain fixed whenever possible:
 
-- How the contact surfaces move relative to each other: in the proximal-phalanx frame, the path of the point under the fingertip on the distal contact surface over flexion and its derivative, the PIP column of the finger's contact Jacobian (its change is D_c, `problem_formulation.md` A.6.3). It excludes the transmission from servo angle to flexion, which is recorded separately. This is the kinematic target of a contact-centric hand; what a policy and an object meet is the contact surface, not the skeleton.
+- How the contact surfaces move relative to each other: in the proximal-phalanx frame, the path of the point under the fingertip on the distal contact surface over flexion and its derivative, the PIP column of the finger's contact Jacobian (its change is Δ_contact in mm, `problem_formulation.md` A.6.3). It excludes the transmission from servo angle to flexion, which is recorded separately. This is the kinematic target of a contact-centric hand; what a policy and an object meet is the contact surface, not the skeleton.
 - Structural finger morphology and link geometry.
 - Articulation kinematics and joint configuration.
 - Actuator placement and transmission architecture.
@@ -183,14 +183,14 @@ What Study 3 must resolve:
 
 Study 3 answers one question, for contribution C4 (`north-star.md`):
 
-> **When the same interface change is measured on hands adapted from H₀ for a thicker interface, does the error E(H) follow the change in contact-surface motion D_c, or the skeleton's change D_s?**
+> **When the same interface change is measured on hands adapted from H₀ for a thicker interface, does the error E(H) follow the change in contact-surface motion Δ_contact, or the skeleton's change Δ_skel?**
 
 ### 8.2 Design and result (simulation)
 
 - **Task and measure.** A cylinder free in the sagittal plane, held by the proximal and distal pads of the CoDe hand model's fingers (MCP held), is loaded in four directions until the grasp gives way; the interface change is the pads' friction (μ 1.3 → 2.0), and Δ(H) is the change in that load. Placements, gates, thresholds and amendments are pre-registered in `docs/experimental/separability.md` (experiments 3–8).
-- **Hands.** CFL, q_req 120°. H₀ is the 3 mm design; for 3 → 5, 7 and 9 mm, the Study 2 redesign, Study 1's independent design and redesigns chosen on design metrics alone so that D_c, D_s and coverage vary apart (18 hands). The unchanged finger with thicker pads (the naive swap) is mechanically infeasible at every thickness (its pads collide at 47° of flexion).
+- **Hands.** CFL, q_req 120°. H₀ is the 3 mm design; for 3 → 5, 7 and 9 mm, the Study 2 redesign, Study 1's independent design and redesigns chosen on design metrics alone so that Δ_contact, Δ_skel and coverage vary apart (18 hands). The unchanged finger with thicker pads (the naive swap) is mechanically infeasible at every thickness (its pads collide at 47° of flexion).
 - **Protocols.** Reused flexion command at the same flexion stiffness (A); the same flexion torque (C); a flexion-space impedance between the two (D); the distal contact force matched to H₀'s with the simulator's contact force (B, an upper bound on compensation).
-- **Result.** Under A, over the 15 hands that hold the cylinder, E follows D_c (Spearman ρ = 0.83, one-sided p = 0.0001; positive at each thickness) and the skeleton's change does not predict it; the Study 2 redesign has the smallest error at each thickness (3, 21, 41% at 5, 7, 9 mm) and the coverage-only design 52–124%. Hands with D_c ≥ 2.9 mm cannot hold the cylinder under the same command. The error enters through the contact force: under C it is 3–40% (still ordered by D_c, ρ = 0.75), under B 3–7%; under D the redesign stays at 14–26% at every stiffness while the coverage-only design rises from 44 to 131% up to the nominal stiffness and levels off, where the contact's own compliance takes the interference.
+- **Result.** Under A, over the 15 hands that hold the cylinder, E follows Δ_contact (Spearman ρ = 0.83, one-sided p = 0.0001; positive at each thickness) and the skeleton's change does not predict it; the Study 2 redesign has the smallest error at each thickness (3, 21, 41% at 5, 7, 9 mm) and the coverage-only design 52–124%. Three redesigns whose distal face retreats 1.5–2.6 mm from the placed cylinder cannot hold it under the same command. The error enters through the contact force: under C it is 3–40% (still ordered by Δ_contact, ρ = 0.75), under B 3–7%; under D the redesign stays at 14–26% at every stiffness while the coverage-only design rises from 44 to 131% up to the nominal stiffness and levels off, where the contact's own compliance takes the interference.
 
 ### 8.3 Claim boundaries
 
@@ -212,7 +212,7 @@ Study 3 answers one question, for contribution C4 (`north-star.md`):
 | C1 | Study 0 (P4) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
 | C2 | Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such |
 | C3 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's change in contact-surface motion is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best |
-| C4 | Study 3 (Section 8) | Shown in simulation (Section 8.2): with reused position commands E follows D_c (ρ = 0.83, p = 0.0001, 15 hands, 3 → 5/7/9 mm), not D_s; smaller under torque reuse (ρ = 0.75) and force matching (3–7%). Scope in Section 8.3 |
+| C4 | Study 3 (Section 8) | Shown in simulation (Section 8.2): with reused position commands E follows Δ_contact (ρ = 0.83, p = 0.0002, partial 0.88 given Δ_skel; 15 hands, 3 → 5/7/9 mm), not Δ_skel; smaller under torque reuse (ρ = 0.75) and force matching (3–7%). Scope in Section 8.3 |
 | C5 | Hardware | Open: extent undecided |
 
 The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C4.
