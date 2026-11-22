@@ -1,14 +1,16 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Study 3 measurement (problem_formulation A.6.4): the fifteenth experiment's second test (separability.md).
+"""Study 3 measurement (problem_formulation A.6.4): the R-versus-U test of the fifteenth and sixteenth experiments.
 
-    python3 scripts/study3_measurement/padk_analysis.py
+    python3 scripts/study3_measurement/padk_analysis.py [--condition A-padk|A-hydro]
 
-Pad contact stiffness falling with thickness (condition ``A-padk``). For R and U at each thickness (the same pads),
+A-padk: pad contact stiffness falling with thickness (fifteenth). A-hydro: hydroelastic pads with the reference's pad
+mechanics on every hand (sixteenth). For R and U at each thickness (the same pads),
 the error E against O per placement and direction over the pairs where O, R and U all hold; the pre-registered
 one-sided paired Wilcoxon test of E_R < E_U; and, as an exploratory reading, the signed effect differences
-Delta(H) - Delta(O), whose common pad offset cancels in R - U. Writes ``logs/experimental/two_pad/padk.json``.
+Delta(H) - Delta(O), whose common pad offset cancels in R - U. Writes
+``logs/experimental/two_pad/pairs_<condition>.json`` (``padk.json`` for A-padk, as first written).
 """
 
 from __future__ import annotations
@@ -44,7 +46,11 @@ def effects(hand: str, cond: str, lo: float = 1.3, hi: float = 2.0) -> dict:
 
 
 def main() -> int:
-    cond = "A-padk"
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--condition", default="A-padk", choices=("A-padk", "A-hydro", "A"))
+    cond = parser.parse_args().condition
     o = effects("O", cond)
     result = {"condition": cond}
     for t, (hr, hu) in PAIRS.items():
@@ -63,7 +69,8 @@ def main() -> int:
             "R_minus_U_median_n": float(np.median(s_r - s_u)),
         }
         print(t, json.dumps(result[f"{t}mm"]))
-    (da.ROOT / "padk.json").write_text(json.dumps(result, indent=1))
+    name = "padk.json" if cond == "A-padk" else f"pairs_{cond}.json"
+    (da.ROOT / name).write_text(json.dumps(result, indent=1))
     return 0
 
 
