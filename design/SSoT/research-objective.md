@@ -29,9 +29,9 @@ See [north-star.md](north-star.md). Mechanisms are engineering means toward the 
 
 ## 4. Supporting Questions
 
-1. How does hand architecture constrain the available space and geometry of contact interfaces?
-2. How much must the underlying hand change to accommodate different contact interfaces, and how much does its contact-surface motion change?
-3. How do changes in contact-interface design influence physical interaction, tactile observations, and ultimately manipulation behavior?
+1. How does hand architecture constrain the available space and geometry of contact interfaces? (C1)
+2. How much must the underlying hand change to accommodate different contact interfaces, and how much does its contact-surface motion change? (C2.1, C2.2)
+3. How do changes in contact-interface design influence physical interaction, tactile observations, and ultimately manipulation behavior? (C2.3 answers the part this paper can: what a redesign does to a measured interface effect.)
 
 The third question is the long-term research objective. The first two establish the hardware and experimental foundation required to investigate it.
 
@@ -125,13 +125,13 @@ The project's experiments should provide evidence for the central research objec
 
 **What the computational studies must show** (supporting questions 1 and 2):
 
-1. **Architecture limits the contact interface.** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact. Which architecture keeps more depends on the required flexion and the interface's thickness; the study reports the ranking per condition rather than one trend.
-2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion.** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
-3. **A redesign can keep the contact-surface motion far better than a fixed axis allows, with the contact surface kept too.** The contact-surface motion is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface placed at that interface's best depth, a joint turning about a fixed axis changes the contact-surface motion by at least a closed-form lower bound, whatever the redesign; the CFL moves the point it turns about and changes it by a fraction of that bound, at a pad coverage near the best for that interface, within a range the study measures. Every interface is mounted at its own shallowest depth, without spacers. Raising a thinner interface on a spacer to the depth of the thickest one would keep the contact-surface motion on any architecture, but it fills the space the interface needs (the problem CoDe addresses) with a passive block, costs every thinner interface the coverage of the deep design (at 120°: 8.6 points for the CFL, 18.2 for 2R-remote, 3 mm against a 9 mm design), and fixes the thickest interface in advance. It is therefore excluded by requirement, not compared.
+1. **Architecture limits the contact interface (C1).** Under one set of requirements (the same finger size, actuators, required flexion and collision rules), each architecture's best design leaves a different share of the finger usable for contact. Which architecture keeps more depends on the required flexion and the interface's thickness; the study reports the ranking per condition rather than one trend.
+2. **The contact surface an architecture keeps depends on the interface's thickness and the required flexion (C1).** With the finger optimized for each pad thickness and each required flexion, the best pad coverage differs by architecture, and so does how fast it falls as the pads get thicker or the flexion deeper.
+3. **A redesign can keep the contact-surface motion far better than a fixed axis allows, with the contact surface kept too (C2.1, C2.2).** The contact-surface motion is what an interface experiment should hold; the skeleton's motion is a means to it. When a finger is redesigned for a thicker interface placed at that interface's best depth, a joint turning about a fixed axis changes the contact-surface motion by at least a closed-form lower bound, whatever the redesign; the CFL moves the point it turns about and changes it by a fraction of that bound, at a pad coverage near the best for that interface, within a range the study measures. Every interface is mounted at its own shallowest depth, without spacers. Raising a thinner interface on a spacer to the depth of the thickest one would keep the contact-surface motion on any architecture, but it fills the space the interface needs (the problem CoDe addresses) with a passive block, costs every thinner interface the coverage of the deep design (at 120°: 8.6 points for the CFL, 18.2 for 2R-remote, 3 mm against a 9 mm design), and fixes the thickest interface in advance. It is therefore excluded by requirement, not compared.
 
 **What the learning-based studies must test** (supporting question 3; Section 8):
 
-4. **Study 3:** with reused joint-position commands, the error in a measured interface effect follows the change in contact-surface motion and not the skeleton's change; how strongly depends on the actuation protocol (Section 8).
+4. **Study 3 (C2.3):** with reused joint commands or torques, the error in a measured interface effect follows the change in contact-surface motion and not the skeleton's change; how strongly depends on the actuation protocol (Section 8).
 
 A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the phalanx turns about, and how deep the pads sit, set what the joint takes from the pads); the optimization studies check its predictions.
 
@@ -141,7 +141,7 @@ A geometric account (Study 0) gives the relation behind claims 1 to 3 (where the
 - The compared architectures are the CFL (CoDe's mechanism), 2R-DD, 2R-remote and RCJ. Idealized variants without the joint actuator are declared upper bounds and reported apart.
 - A result is a statement within the 2D side model and the stated coverage definition. "Not found" is a statement about the search, not about existence.
 
-**What must be shown on hardware:** that interfaces are in fact exchanged on one physical hand, with the same actuation and procedure (criterion 4, Section 5.7). The computational studies cannot show this.
+**What must be shown on hardware** (Section 8.4): that interfaces are in fact exchanged on one physical hand, with the same actuation and procedure (C1; criterion 4, Section 5.7), and that the redesign that keeps the contact Jacobian keeps it and errs less on the bench (C2). The computational studies cannot show this.
 
 Interface-effect experiments (question 3) should use matched or explicitly controlled morphologies.
 
@@ -181,7 +181,7 @@ What Study 3 must resolve:
 4. **A measure and a control.** E(H) is reported against Δ(H₀), together with the raw difference between hands at one interface value (what an identical surface profile shows: the artefact the adaptation alone produces).
 5. **A real effect to measure.** The interface change must have an effect on H₀ that is clearly non-zero in the task; a decoupling result on an effect near zero is not informative.
 
-Study 3 answers one question, for contribution C4 (`north-star.md`):
+Study 3 answers one question, for contribution C2.3 (`north-star.md`):
 
 > **When the same interface change is measured on hands adapted from H₀ for a thicker interface, does the error E(H) follow the change in contact-surface motion Δ_contact, or the skeleton's change Δ_skel?**
 
@@ -195,19 +195,19 @@ Study 3 answers one question, for contribution C4 (`north-star.md`):
 
 ### 8.3 Claim boundaries
 
-- The result holds in simulation (Isaac Lab 3 with Newton and MuJoCo-Warp, rigid contact), for one mechanism (the CFL), one required flexion, one task (a two-pad grasp of a free cylinder) and three interface properties (friction; compliance, as contact stiffness; shape). Its size depends on the protocol (largest with reused position commands) and, above the nominal stiffness, on contact stiffness. Under touch-referenced closure (E) the residual error follows the skeleton's change instead, so the claim is limited to reused joint commands.
+- The result holds in simulation (Isaac Lab 3 with Newton and MuJoCo-Warp, rigid contact), for one mechanism (the CFL, with one fixed-axis contrast family), one required flexion, one task (a two-pad grasp of a free cylinder) and three interface properties (friction; compliance, as contact stiffness; shape). Its size depends on the protocol (largest with reused position commands) and, above the nominal stiffness, on contact stiffness. Under touch-referenced closure (E) the residual error follows the skeleton's change instead, so the claim is limited to reused joint commands or torques.
 - Do not claim that keeping the contact-surface motion preserves a policy's performance in general, that CoDe is needed for every interface experiment, or that more skeleton change is better.
-- **The MCP level is not kept (limitation).** What is kept is finger-internal: the PIP column of the contact Jacobian in the proximal-phalanx frame. The proximal contact surface is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that surface away from the axis, so the MCP column changes on every redesign by the change in pad thickness. Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): C1 applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work.
+- **The MCP level is not kept (limitation).** What is kept is finger-internal: the PIP column of the contact Jacobian in the proximal-phalanx frame. The proximal contact surface is carried by the MCP, a revolute joint with its hardware on the axis; a thicker pad at the shallowest mount moves that surface away from the axis, so the MCP column changes on every redesign by the change in pad thickness. Keeping it would need either a spacer (excluded) or the axis inside the pad (not buildable): the fixed-axis bound (C2.1) applies at the MCP as at any fixed axis. A polycentric MCP would lift this and is left as future work.
 - Report null results as such; the post-hoc amendments of the experiment (contact-solver setting, hand reselection, two added hands, a symmetric error metric) are reported as exploratory.
 
 ### 8.4 Stage 2 plan (hardware; planned 2026-11-22, not yet run)
 
-Hardware is not available for the extended abstract. The physical stage tests C5 and checks C3 and C4 on one finger.
+Hardware is not available for the extended abstract. The physical stage tests the exchange (C1) and checks C2.2 and C2.3 on one finger.
 
 - **Hands.** One CoDe finger with fixed servos, palm and phalanx bodies. Three configurations of the CFL are built: H₀ (3 mm pads), H_R (Study 2 redesign for 7 mm) and H_U (coverage-only 7 mm). Changing configuration swaps the pad modules and the CFL links only.
-- **C5, exchange.** Record the parts swapped, the time taken and whether any recalibration is needed beyond loading the hand's θ(q) table.
-- **C3, contact-surface motion.** Track markers on both contact faces with a camera over a slow flexion sweep. Compute c(q) in the proximal-phalanx frame and Δ_contact of H_R and H_U against H₀. Compare it with the model's value and with the fixed-axis bound; the manufacturing tolerance is stated from repeat sweeps.
-- **C4, measurement.** Physical version of the Study 3 task: a cylinder on a planar slide, the finger closed by the reused flexion command, a pull in the four directions with a force gauge until slip. The interface change is the pad friction: bare silicone against a textured cover. Use 5 placements × 4 directions × 5 repeats per configuration and friction level, and compute E for H_R and H_U.
+- **C1, exchange.** Record the parts swapped, the time taken and whether any recalibration is needed beyond loading the hand's θ(q) table.
+- **C2.2, contact-surface motion.** Track markers on both contact faces with a camera over a slow flexion sweep. Compute c(q) in the proximal-phalanx frame and Δ_contact of H_R and H_U against H₀. Compare it with the model's value and with the fixed-axis bound; the manufacturing tolerance is stated from repeat sweeps.
+- **C2.3, measurement.** Physical version of the Study 3 task: a cylinder on a planar slide, the finger closed by the reused flexion command, a pull in the four directions with a force gauge until slip. The interface change is the pad friction: bare silicone against a textured cover. Use 5 placements × 4 directions × 5 repeats per configuration and friction level, and compute E for H_R and H_U.
 - **Negative results.** These are planned outcomes, not failures to hide:
   - Tracked Δ_contact above the bound: manufacturing tolerance dominates, and the redesign target needs a tolerance model.
   - H_R errs no less than H_U on hardware: pad compliance or friction variation outweighs the geometry. The claim is then limited to simulation, and the size of the physical effects is reported.
@@ -223,13 +223,13 @@ Hardware is not available for the extended abstract. The physical stage tests C5
 
 | | Evidence | Status |
 |---|---|---|
-| C1 | Study 0 (P4) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
-| C2 | Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such |
-| C3 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's change in contact-surface motion is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best |
-| C4 | Study 3 (Section 8) | Shown in simulation (Section 8.2): with reused position commands E follows Δ_contact (ρ = 0.83, p = 0.0002, partial 0.88 given Δ_skel; 15 hands, 3 → 5/7/9 mm), not Δ_skel; smaller under torque reuse (ρ = 0.75) and force matching (3–7%). Scope in Section 8.3 |
-| C5 | Hardware | Planned for Stage 2 (Section 8.4); hardware not available for the extended abstract |
+| C1 | Study 0 (clearance and coverage laws, P1–P3) and Study 1 | Shown in the 2D side model: against 2R-DD, the CFL is higher in all 10 conditions where both have a design (+2.4 to +14.6 points; 2R-DD has none at 150° for 7 and 9 mm). Against 2R-remote the ranking depends on flexion and thickness (2R-remote higher at 90°; crossover near 5–6 mm at 120°; CFL higher at 150°) and is reported as such; 2R-remote pays in C2.2 |
+| C2.1 | Study 0 (P4, sum rule) | Derived. Study 2's 2R-remote redesigns sit on the bound at 90° and 120° (above it at 150° only for degenerate designs that no longer make contact) |
+| C2.2 | Study 2 | Shown in the 2D side model: at the most-coverage end of each front, the CFL's change in contact-surface motion is the smallest of the four physical architectures in all 9 conditions, 10–51% of the fixed-axis bound, with coverage within 0.2 points of Study 1's best; without the start offset, the smallest in 7 of 9 (exploratory e19) |
+| C2.3 | Study 3 (Section 8) | Shown in simulation (Section 8.2): with reused flexion commands E follows Δ_contact (ρ = 0.83, p = 0.0002, partial 0.88 given Δ_skel; 15 hands, 3 → 5/7/9 mm), not Δ_skel; the same under torque reuse (ρ = 0.75), for pad compliance and shape, and on a hand-independent grid (45 hands); a fixed-axis finger that keeps its skeleton errs 95–228%. Scope in Section 8.3 |
+| Hardware | Stage 2 (Section 8.4) | Planned for both contributions; hardware not available for the extended abstract |
 
-The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C4.
+The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in `docs/experimental/study3_interface_platform.md` and is not evidence for C2.3.
 
 **Decided.**
 
@@ -239,6 +239,6 @@ The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in 
 **Open decisions.**
 
 1. **Transmission on hardware.** Whether the servos' torque limits allow the compensation where MA_wc falls (up to −18% on the Study 3 hands); simulation runs without torque limits.
-2. **Hardware scope** for the final paper (C5).
-3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist); until a survey of hands supports it, the motivation rests on P1.
-4. **C2's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).
+2. **Hardware scope** for the final paper (Section 8.4).
+3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist). P1 states it as an observation that motivates the work, not as a claim; a survey of hands and tactile-manipulation papers would support it.
+4. **C1's wording** ("the only physical architecture with a usable design in every condition" needs a threshold for "usable"; on hold).

@@ -4,20 +4,31 @@ Sources (synced 2026-11-22 with the SSoT after the Study 3 update): `design/SSoT
 `design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status), `design/SSoT/problem_formulation.md`
 A.3–A.6, `report/study0/derivation.md`, and for Study 3 `docs/experimental/separability.md` (experiments 3–8,
 pre-registered gates and amendments) with the logs in `sim/isaaclab/logs/experimental/two_pad/`.
-Study 3 is now a simulation result (H3), with its scope stated: reused joint-position (impedance) commands,
+Study 3 is now a simulation result (C2.3), with its scope stated: reused joint-position (impedance) commands,
 CFL, q_req 120°, 3→5/7/9 mm, a free cylinder held by two pads, rigid contact (MuJoCo-Warp).
 
-Why keep how the contact surfaces move (north-star): (1) the object meets the contact faces, not the skeleton;
-(2) a redesign does not keep it unless it is the target (Study 1's two independent 7 mm CFL designs at 120°:
-1.28 and 3.91 mm vs 0.86 mm for the Study 2 redesign); (3) it can be kept at little cost (C1, C3);
-(4) shown in simulation (Study 3): with reused position commands, the error in a measured interface effect
-follows its change and not the skeleton's.
+Story and contributions (north-star, rewritten 2026-11-22; the north star fixes the paper's story):
+- P1 No room beyond the fingertip: research hands are mostly chains of servos at the joints (easy to build,
+  model, simulate; tendon/linkage hands free the joints but pay in modelling). A proximal pad beside a servo
+  must be thin or cost range of motion; each new interface is a redesign; interfaces and manipulation gather
+  at the fingertip, and the two reinforce each other (an observation, not a claim).
+- P2 The redesign becomes a second variable: with one protocol reused across hands, a measured difference
+  mixes the interface with the hand's change; keeping the skeleton does not help (the object meets the
+  contact surfaces).
+- C1 A finger with room for thick pads (remote actuation + CFL): more contact surface than a servo-at-joint
+  finger at every thickness and q_req (Study 0 clearance/coverage laws, Study 1). Fails if 2R-DD matches it
+  in any condition; 2R-remote matches at shallow flexion but pays in C2.
+- C2 A redesign that keeps the contact Jacobian, not the skeleton: (1) a fixed axis cannot (bound, sum rule;
+  Study 0), (2) the CFL can, within 10–51 % of the bound (Study 2), (3) it is what matters (Study 3,
+  simulation; fixed-axis family that keeps the skeleton errs 95–228 %). Fails if the CFL reaches the bound or
+  another quantity predicts the error in every setting.
+- Hardware (Stage 2) checks both: exchange cost (C1); tracked Δ_contact and R vs U on the bench (C2).
+- Paper order: Introduction (context, P1, P2, C1, C2; no pole) → Design (the pole answers both: room → C1,
+  motion → C2) → C1 evidence (Study 1) → C2 evidence (Study 2, Study 3) → Conclusion (Stage 2, big-picture
+  limitations).
 Transmission (decided): compensated by control and recorded — flexion commands through each hand's θ(q) table with
 gains K_θ = K_q/(dθ/dq)² hold flexion within 0.07° in simulation (MuJoCo-Warp, torque limits off); on hardware,
 whether torque limits allow it where MA_wc falls (up to −18 %) is open.
-
-Contributions (north-star): C1 a bound (Study 0); C2 a finger (Study 1); C3 redesign that keeps contact
-(Study 2); C4 why it matters (Study 3, H3; simulation); C5 a platform (hardware, H4).
 
 ## 1. North star and the message
 
@@ -154,12 +165,8 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 
 ## 8. Hypotheses for the paper (RSS Stage 1: hypotheses + methods complete, experiments may be preliminary)
 
-- H1: Architecture bounds the usable contact surface; the spread grows with thickness and required flexion.
-  (Study 1.) If false: interface volume is limited by packaging, not the joint.
-- H2: Only a joint that moves its pole can be redesigned for a thicker interface while keeping the
-  contact-surface motion and the coverage. (Study 2 vs. Corollary.) If false: every interface
-  comparison must report D_c as a covariate.
-- H3 (C4, Study 3, simulation): with reused position commands, the error in a measured interface effect follows
+Superseded framing (H1–H4) maps to the two contributions: H1 → C1; H2 → C2.1–C2.2; H3 → C2.3; H4 → Stage 2 of both.
+- C2.3 (Study 3, simulation): with reused position commands, the error in a measured interface effect follows
   the change in contact-surface motion, not the skeleton's change. Effect Δ(H) = F(H, c₁) − F(H, c₀) of an
   interface change (pad friction μ 1.3 → 2.0) on the load F a free cylinder held by two pads takes before the
   grasp gives way (4 load directions); error E(H) = |Δ(H) − Δ(O)| / |Δ(O)| against the reference hand O (3 mm),
@@ -167,7 +174,7 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
   contact force, an upper bound on compensation), joint-torque reuse (C), flexion-space impedance sweep (D).
   The test meets (i)–(v): transmission compensated, MCP declared; one evaluator, no re-tuning; raw between-hand
   differences reported; the friction effect on O is 1.2–2.7 N. Numbers in experimental_log.md (Study 3).
-- H4 (C5, Stage 2, hardware, criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
+- Stage 2 (hardware, for C1 and C2; criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
   CoDe hand with the same actuation and procedure, keeping the predicted motion. Planned measures: what an
   exchange touches (parts, time, whether the articulation is disassembled); reached flexion vs. model;
   contact-face motion tracked on the pads vs. model D_c; a common grasp protocol run on every interface;
@@ -185,4 +192,4 @@ does not establish perfect causal isolation. Never claim universal superiority o
 the 2D model, equal-thickness rigid pads, fixed L_f and the stated coverage definition. Occlusion and an MA
 floor were not imposed. No learning results exist. H3 is a simulation result with a scope: reused joint-position (impedance) commands; with reused joint torque the error shrinks 4–5× (still ordered by D_c); with oracle force feedback it is 3–7 %. Do not claim that keeping the contact surfaces' motion preserves policy performance, that it matters under every control protocol, or that more skeleton change is better (only that skeleton change does not predict the error). Rigid contact; the plateau of the impedance sweep is set by contact stiffness. Exploratory vs confirmatory: report the post-hoc amendments (impratio 1000, hand reselection, two added hands, symmetric metric) as such.
 Limitation (north-star Not claimed): the MCP level is not kept — a revolute MCP is a fixed axis, so the proximal
-face's path relative to the palm changes with pad thickness on every redesign (C1 applies there).
+face's path relative to the palm changes with pad thickness on every redesign (the fixed-axis bound, C2.1, applies there).

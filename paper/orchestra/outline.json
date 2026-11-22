@@ -1,4 +1,23 @@
 {
+  "story_update_2026_11_22": {
+    "note": "The story and contributions follow design/SSoT/north-star.md (rewritten 2026-11-22). Where the plans below say H1-H4, C1-C5 or 'stage2_H3', read them through this mapping: H1 -> C1; H2 -> C2.1-C2.2; H3 -> C2.3; H4 -> Stage 2 of both.",
+    "problems": [
+      "P1 No room beyond the fingertip on serial-servo hands (observation, not a claim)",
+      "P2 The redesign becomes a second variable"
+    ],
+    "contributions": [
+      "C1 A finger with room for thick pads (remote actuation + CFL), evidence Study 1",
+      "C2 A redesign that keeps the contact Jacobian: C2.1 fixed-axis bound, C2.2 Study 2, C2.3 Study 3"
+    ],
+    "section_order": [
+      "I Introduction: context, P1, P2, C1, C2 (no pole)",
+      "II Related Work",
+      "III The Pole: Room for the Pads and Their Motion (finger model + finite pole; B room -> C1; C motion -> C2)",
+      "IV Room for Thick Pads (C1): setup, Study 1",
+      "V Keeping the Contact Jacobian (C2): A Study 2, B Study 3",
+      "VI Conclusion and Next Stage: Stage 2 for C1 and C2, big-picture limitations"
+    ]
+  },
   "plotting_plan": [
     {
       "figure_id": "fig_teaser_same_hand_different_contact_designs",

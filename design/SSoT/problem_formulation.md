@@ -665,7 +665,7 @@ $$
 | $G$, $G_{\mathrm{sym}}$, $q^\ast$ | 관절 간격(기준 자세에서 두 pad의 관절 쪽 끝 사이 길이), 대칭 clearance 법칙이 주는 값, 그것을 정하는 임계 flexion |
 | $m(q)$ | 자세 $q$에서 두 pad의 정확한 clearance: 분리축에서의 틈의 최댓값(0: 맞닿음, 음수: 겹침) (Study 0, 명제 1) |
 | $\mathbf p(q)$, $\mathbf c(M,q)$ | Contact face를 기준으로 본 pole의 위치, proximal contact face를 기준으로 본 distal contact face 위의 점의 경로 |
-| $\Delta_{\mathrm{contact}}(M,M')$, $\Delta_{\mathrm{skel}}(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이 [mm]. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
+| $\Delta_{\mathrm{contact}}(M,M')$, $\Delta_{\mathrm{skel}}(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이: $[0,q_{\mathrm{req}}]$에서의 최대 거리 [mm] (코드의 `contact_change`, `skeleton_change`는 $L_f$로 나눈 값; Study 2) |
 | $\mathcal F_p$, $\mathbf c(M,q)$, $\mathbf J(M,q)$ | Proximal phalanx 좌표계(MCP에서 함께 돎, 원점은 proximal contact face 위), 그 좌표계에서 본 distal 접촉점의 경로, 그 경로와 distal face 자세의 $q$에 대한 자코비안 $[\mathbf c';1]$ (손가락 contact Jacobian의 PIP 열; distal face의 어느 점에서나 pole 경로가 정함; Study 2) |
 | $M_0$, $h_0$, $\Delta_{\mathrm{contact}}^{\min}$ | Study 2의 기준 손가락(가장 얇은 두께 $h_0$의 Study 1 설계)과, 더 두꺼운 두께에서 다시 설계해 찾은 가장 작은 $\Delta_{\mathrm{contact}}$ |
 
