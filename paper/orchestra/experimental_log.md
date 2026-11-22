@@ -305,3 +305,11 @@ ke = 2.5e3 x 3/h N/m, condition A, O and 18 redesigns, 76 runs. Both pre-registe
 R<U p 0.53/0.75/0.32. Signed Delta(H)-Delta(O): R -0.5/-1.0/-0.5 N, U +0.3/+0.7/+0.3 N; the softer pad lowers R's
 force (0.43x O at 7 mm) and U's over-closure offsets it. The R-U gap remains (-0.8/-1.7/-0.8 N). With pad mechanics
 changing with thickness, O's effect is no longer a reference; C2.3 is scoped to one contact model for every pad.
+
+## Study 3: counterfactual reference for softer pads (seventeenth experiment, pre-registered 2d449e9; 2026-11-22)
+
+O re-run with the contact stiffness of a 5, 7 or 9 mm pad (12 runs); the fifteenth experiment's redesigns compared
+with O at the same pad stiffness. Valid (mu_eff 1.30/2.00, Delta(O_h) 1.0-1.4 N). rho(E', Delta_contact) 0.81
+[0.33, 0.99], p 0.0003 (n 14); only Delta_contact's interval excludes zero. R vs U: 4.7 vs 54.9% (5 mm), 13.6 vs
+128.6% (7 mm), 50.0 vs 124.0% (9 mm), Wilcoxon p <= 1.1e-7. Also: grid analysis key fixed (x_c in the key):
+45-hand grid rho 0.86 [0.72, 0.94], Delta_skel 0.22 [-0.12, 0.51]; Delta_contact beats every candidate directly.
