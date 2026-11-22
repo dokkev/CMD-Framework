@@ -388,7 +388,7 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 
 ## A.6. Study 정식화
 
-이 절은 해석 하나, 그것을 확인하는 최적화 실험 둘, 그리고 시뮬레이션 측정 하나로 이루어진다. 해석(Study 0)이 관계식과 예측을 주고, Study 1과 Study 2가 최적화 결과로 그 예측을 확인한다. 각 Study의 가설(H)과 안전한 주장(R)은 `research-objective.md` 6절에 있고, 대응은 다음과 같다. Study 3(시뮬레이션 측정)은 A.6.4가 정의하고, 그 결과와 범위는 research-objective 8절에 있다.
+이 절은 해석 하나, 그것을 확인하는 최적화 실험 둘, 그리고 시뮬레이션 측정 둘로 이루어진다. 해석(Study 0)이 관계식과 예측을 주고, Study 1과 Study 2가 최적화 결과로 그 예측을 확인한다. 각 Study의 가설(H)과 안전한 주장(R)은 `research-objective.md` 6절에 있고, 대응은 다음과 같다. Study 3(시뮬레이션 측정)은 A.6.4가 정의하고, 그 결과와 범위는 research-objective 8절에 있다.
 
 | 기여 | 가설과 주장 (research-objective 6절) | Study | 절 |
 |---|---|---|---|
@@ -396,6 +396,7 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 | C1 | H1, R1: 두께와 요구 flexion마다 구조가 확보하는 coverage | Study 1 | A.6.1, A.6.2 |
 | C2.2 | H2, R2: 두꺼운 interface에서도 접촉점 경로(proximal phalanx 좌표계)를 지키도록 다시 설계할 수 있는가 | Study 2 | A.6.3 |
 | C2.3 | H3, R3: 명령이나 토크를 재사용할 때 interface 측정의 오차가 어느 설계 변화를 따르는가 | Study 3 (시뮬레이션) | A.6.4 |
+| C2.3 | H4, R4: 재설계가 interface 연구의 결론(버티는 하중의 변화)을 바꾸는가 | Study 4 (시뮬레이션) | A.6.5 |
 
 ### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
 
@@ -668,7 +669,27 @@ $\mathcal V(H)$는 $O$와 $H$가 두 interface 값 모두에서 Gate 0을 통과
 
 **해석과 범위.** 같은 두께에서 $\Delta_{\mathrm{contact}}$와 $\Delta_{\mathrm{skel}}$은 합 하한(A.6.3) 때문에 서로 맞바뀐다. 그래서 둘 중 무엇이 오차를 예측하는지는 partial 상관과, $\Delta_{\mathrm{skel}}=0$인 fixed-axis 계열로 가른다. 결과는 시뮬레이션(강체 손, MuJoCo-Warp 접촉), CFL 한 구조와 fixed-axis 대조 계열, $q_{\mathrm{req}}=120^\circ$ 하나, 두 pad grasp 하나, interface 성질 셋 안에서의 진술이다(research-objective §8.3).
 
-### A.6.5. Study에서 다루지 않는 것
+### A.6.5. Study 4: 재설계가 interface 연구의 결론을 바꾸는가 (시뮬레이션)
+
+Study 3이 측정 오차를 무엇이 예측하는지 묻는다면, Study 4는 그 오차가 연구의 결론을 바꾸는지 묻는다(H4, research-objective §6). 장치와 절차는 A.6.4(조건 A)와 같다.
+
+**Interface 변화.** O의 3 mm pad를 두께 $h$의 pad로 바꾼다. 두꺼운 pad는 더 부드럽다: 접촉 강성 $k(h)=2.5\ \mathrm{kN/m}\times3\ \mathrm{mm}/h$ (직렬 스프링).
+
+**진짜 변화와 잰 변화.** 버티는 하중 $F(H,c,s,d)$(A.6.4의 $F_{\lim}$, μ 1.3과 2.0)에 대해
+$$
+\delta_{\mathrm{true}}=F(O,k(h))-F(O,k(3)),\qquad \delta_{\mathrm{meas}}(H)=F(H,k(h))-F(O,k(3))
+$$
+이다. $O$에 부드러운 pad만 단 것이 재설계 없는 반사실 기준이다(실물에서는 두꺼운 pad가 O에 들어가지 않는다). $H$는 그 pad를 달려고 다시 설계한 손이다.
+
+**지표.** 손마다 배치·방향·μ의 쌍에서
+- 뒤집힌 결론의 비율: $\operatorname{sign}\delta_{\mathrm{meas}}\ne\operatorname{sign}\delta_{\mathrm{true}}$인 쌍의 비율.
+- 상대 오차: $\operatorname{median}|\delta_{\mathrm{meas}}-\delta_{\mathrm{true}}| / |\operatorname{median}\delta_{\mathrm{true}}|$.
+
+두 지표와 $\Delta_{\mathrm{contact}}$의 Spearman $\rho$를 단측 순열 검정과 손 bootstrap 구간으로 본다.
+
+**배치.** 예비 결과는 15·17차의 run(기준 배치, 5·7·9 mm)을 사후에 읽은 것이다. 확인 실험(19차)은 손과 무관한 격자 배치에서 13차의 7 mm 재설계 27개로 한다.
+
+### A.6.6. Study에서 다루지 않는 것
 
 다음은 다루지 않으며, 필요해지면 따로 정의한다.
 - 손가락 하나에 여러 두께를 바꿔 다는 경우, 길이와 두께의 격자에서 pad 활용률로 수용 여부를 세는 정의, 선언한 범위(family)의 최악 활용률, tolerance 곡선: 2026-11-20까지의 Study 2 정의였으나 뺐다. Study 0의 관계에서, 손가락을 고정하면 어느 구조도 더 두꺼운 pad를 요구 flexion까지 쓰지 못한다.
