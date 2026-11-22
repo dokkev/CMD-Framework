@@ -14,6 +14,7 @@
 | v9 | 40bee48 | 5, 5, 5 | — | hand-independent placement grid (all 18 hold, rho 0.69) |
 | v10 | e1b5910 | 5, 5, 5 | — | grid on 45 redesigns (rho 0.60; skeleton also matters there via lost placements), lug sentence |
 | v11 | 7b198b9 | 5, 6, 5 | — | fixed-axis family with the skeleton kept exactly (95/179/228%), offset-free Study 2, C2 restated |
+| v12 | 00b632e | 6, 6, 6 | — | Stage 2 protocol, spacers and 2R-remote treated fairly, Holm, post hoc label, Fig. 1 legend |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -90,3 +91,9 @@ says 'least of four' (7 of 9 cells offset-free); no multiplicity correction; gri
 failure line; 2R-remote's coverage lead stated with its cost in C3, the L_f metric switch removed; spacers framed as
 the fix when every interface is known in advance; abstract states 6 to 45 redesigns and 'nearly every condition';
 Holm over 20 tests; 'post hoc' label; Fig. 1 legend fixed.
+
+v12: all three at 6 (borderline accept); goal reached. r1 and r3 caught that 'R errs least at each thickness' was
+false at 9 mm (a maxDs redesign at Delta_contact 3.5 mm errs 39.7% against R's 40.7%); corrected in the paper and the
+SSoT after the round. Remaining critiques (not addressed): C4 partly built in by the frame of the placement; why a
+redesign rather than a contact-sensing protocol; title length; 'contact Jacobian' wording; C-bar_pad as a grasp
+measure; Montana / Kerr-Roth and function-generation synthesis not cited.
