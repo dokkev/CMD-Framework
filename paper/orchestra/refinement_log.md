@@ -6,6 +6,7 @@
 | v1 | bfb28fc | 5, 5, 5 | 3.0/2.0/2.0/2.0/2.0/2.0/2.67 | accepted: Overall same, rounded sub-axes equal (PaperOrchestra case 3a) |
 | v2 | d869061 | 5, 5, 5 | 3.0/2.33/2.0/2.33/2.0/2.0/2.33 | accepted: Study 3 results added (SSoT C4); Overall same, Quality and Significance up, Contribution down by one rater (case 3a) |
 | v3 | 932ee03 | 5, 5, 6 | 3.0/2.33/2.0/2.0/2.67/2.0/2.33 | accepted: full rewrite along north-star in the style of Vaswani et al. (2017), shape interface added; Overall and Soundness up (case 1) |
+| v4 | a865d79 | 5, 5, 6 | 3.0/2.33/2.0/2.0/2.33/2.33/2.67 | kept: touch-referenced closure, pad stiffness, bootstrap CIs, Study 1/2 checks, Stage-2 plan; Overall unchanged; reviewers turned the touch-referenced result against C4 (case 3a) |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -40,3 +41,12 @@ Open, not fixable by presentation:
 2. Statistics: 15 curated hands, partial correlation without CI; robustness over placements of one hand pair.
 3. Study 1 margins vs seed spread; Study 2 reports only the coverage end of fronts.
 4. Stage-2 (C5) plan thin; SSoT lists the hardware scope as undecided.
+
+After v4 (2026-11-22). All three: Study 3 seen as built in under a reused stiff command; r1/r2/r3 used the
+touch-referenced result (residual follows Delta_skel) against C4. Response in v5 (31fc051): the over-closure mechanism
+is stated first as the prediction of Sec. III and then tested; command reuse justified (touch or force closure uses
+signals the interface changes); the skeleton-keeping redesign (Delta_skel 0.4 mm, E 103 %) answers 'keep the skeleton';
+touch-referenced and force-matched closure reported as medians only; pseudo-replicated Wilcoxon p dropped; failed hands
+ranked worst (rho 0.81); Delta_skel frame (link line) defined; C1 scoped to hardware-limited mount depth; Lemma typo,
+3.3x vs 3.9x fixed. Detailed caveats moved out of the body (user, 2026-11-22: big-picture limitations in the
+conclusion only).
