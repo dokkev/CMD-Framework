@@ -297,3 +297,11 @@ E-Delta_contact given the force deviation 0.55 [-0.02, 0.93]; partial E-force gi
 Reused torque (C, 16 hands): forces 0.84-1.45x O's; partial E-Delta_contact given force 0.80 [0.37, 0.95]; partial
 E-force given Delta_contact 0.66 [0.30, 0.90]. Candidate intercorrelations over 45 hands: Delta_contact with the
 others |rho| <= 0.40; the largest pair is coverage-thickness (-0.67). CFL Study 1 optima: MA_wc 0.41-0.58.
+
+## Study 3: pad stiffness falling with thickness (fifteenth experiment, pre-registered ed8d53a; 2026-11-22)
+
+ke = 2.5e3 x 3/h N/m, condition A, O and 18 redesigns, 76 runs. Both pre-registered tests fail: rho(E, Delta_contact)
+0.18, p 0.27 (n 14; rho(E, Delta_skel) 0.54); R vs U (same pads) E 26/53/32% vs 22/39/33% at 5/7/9 mm, Wilcoxon
+R<U p 0.53/0.75/0.32. Signed Delta(H)-Delta(O): R -0.5/-1.0/-0.5 N, U +0.3/+0.7/+0.3 N; the softer pad lowers R's
+force (0.43x O at 7 mm) and U's over-closure offsets it. The R-U gap remains (-0.8/-1.7/-0.8 N). With pad mechanics
+changing with thickness, O's effect is no longer a reference; C2.3 is scoped to one contact model for every pad.
