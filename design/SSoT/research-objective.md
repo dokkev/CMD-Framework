@@ -137,7 +137,7 @@ Mechanism compactness, transmission characteristics and contact-interface capaci
 - **R0.2 (motion; → C2.1).** Derived: the contact-motion law ‖Δc‖ = 2 sin(q/2)‖Δp‖, the sum rule Δ_contact + Δ_skel ≥ 2 sin(q_req/2)|Δt|, and the fixed-axis bound, which also holds for a rolling joint of fixed roller radius.
 - **H0.1 (empirical).** At a coverage optimum, pad–pad contact is often the active constraint. *R:* the minimum clearance is within 0.1 mm on 47 of 51 Study 1 designs; the four exceptions are listed in `report/study0/derivation.md`.
 - **H0.2.** Coverage computed from the pole path and the pads equals the evaluator's. *R:* all 51 designs agree within 10⁻¹³.
-- **H0.3.** Fixed-axis designs with evenly placed pads follow G = 2(d+h) tan(q_req/2). *R:* G − G_sym is −3.4 to +0.2 mm on fixed axes (the outliers are 150° designs whose pads are not evenly placed); the law is an estimate, and clearance is judged by the exact separating-axis test.
+- **H0.3.** Fixed-axis designs with evenly placed pads follow G = 2(d+h) tan(q_req/2). *R:* G − G_sym is −3.4 to +0.2 mm on fixed axes (the outliers are 150° designs whose pads are not evenly placed) and −1.6 to +0.2 mm on the CFL, with a median |G − G_sym| of 0.05 mm over the 9 CFL designs (`output/study/study2_pole_law/designs.csv`); the law is an estimate, and clearance is judged by the exact separating-axis test.
 - **H0.4.** No fixed-axis redesign beats the bound. *R:* Study 2's 2R-remote redesigns sit on it at 90° and 120° (3.46, 6.93 and 10.39 mm at 120°).
 
 **Study 1: best coverage per architecture, pad thickness and required flexion** (A.6.2; → C1).
