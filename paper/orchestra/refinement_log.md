@@ -17,6 +17,8 @@
 | v12 | 00b632e | 6, 6, 6 | — | Stage 2 protocol, spacers and 2R-remote treated fairly, Holm, post hoc label, Fig. 1 legend |
 | v13 | 8f3ecd0 | 6, 5, 6 | — | new north star (C1 room, C2 contact Jacobian), H1-H3 per study, Study 3 setup per A.6.4, new title, CAD Fig. 1; reviewers read the PDF |
 | v14 | d7691f1 | — (failed), 6, 6 | — | short contributions, Study 1 as ablation + MA, Study 3 two routes (post hoc mediation), magnitudes, Stage 2 test; r1 stopped by an API safeguard error |
+| v15 | f7b5853 | 6, 6, 6 | — | gap-law explanation fixed, CFL floor, direct comparisons (7 of 12), gap law max error; r1 re-run on Opus |
+| v16 | 16c483e | 6, 6, 6 | — | soft-pad counterfactual (17th), grid key fix (rho 0.86), Holm 25; r1/r3 Opus (r1 after a safeguard retry), r2 Fable 5.2 after two safeguard errors |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -120,3 +122,17 @@ non-zero floor from the pivots; H1 baseline. v15 answers: the gap-law explanatio
 the floor (lowering the pole path by Delta_h would move the pivots into the pad), direct comparisons (Delta_contact
 ranks first in every setting; beats coverage, thickness or transmission in 7 of 12 bootstrap intervals; Delta_skel
 separated by the fixed-axis family), the gap law's maximum error (1.6 mm), all 45 grid hands hold.
+
+v15: 6, 6, 6 (r1 re-run on Opus after the v14 safeguard error). Plateau. All three: Study 3 is close to built in
+because every pad thickness shares one contact model (real thick pads are softer) and the main protocol is a reused
+position command; designed hand set, n 14-16; C1 against 2R-DD only; "contact Jacobian" overreach. r3: S2 does not
+hold for the CFL (gap law off by up to 1.6 mm), H2 compared only with the fixed-axis bound, correlations possibly
+driven by the fixed-axis family (they are not: it is evaluated apart). Next: the fifteenth experiment (pre-registered,
+ed8d53a), pad stiffness falling with thickness (ke = 2.5e3 x 3/h), condition A on O and the 18 redesigns.
+
+v16: 6, 6, 6. The soft-pad and grid results were read as strengths, but the plateau holds. All three: under a
+reused command H3 is nearly implied (force mediation 0.94); the real evidence is the torque protocol plus a post hoc
+partial (the eighteenth experiment, pre-registered c51e92d, replicates it on 27 new hands); the fixed-axis family is
+left out of the correlations without a reason; the CFL's MA 0.41-0.58 halves the PIP torque; no seed spread in
+Study 1. r3: Delta_contact also counts the distal face sliding along itself; the offset normal to the face is the
+quantity that sets over-closure and is missing as a candidate. r2: Stage 2 tests an ordering, not the relation.
