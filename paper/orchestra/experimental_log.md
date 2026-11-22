@@ -274,3 +274,11 @@ q0 85–115°, friction μ 1.3 → 2.0, reused command): all 18 hands hold; ρ(E
 partial given Δ_skel 0.68 [0.21, 0.92]; Δ_skel +0.18, coverage −0.10, thickness +0.13, transmission −0.37 (intervals
 contain zero). Reused torque: Δ_contact 0.75 [0.38, 0.93], others contain zero; R about half of U's error at each
 thickness (5/17/12 % vs 9/28/23 %).
+
+Grid, expanded to 45 hands (27 more 3 → 7 mm redesigns, Δ_contact 1.0–4.1 mm × skeleton kept/minimized/maximized):
+all hold; ρ(E, Δ_contact) = 0.60 [0.36, 0.76], permutation p < 1e-5; partial given Δ_skel 0.58 [0.31, 0.78].
+Δ_skel +0.46 [0.17, 0.69], coverage −0.13, thickness +0.10, transmission −0.34 [−0.61, −0.01] (−0.19 given Δ_skel).
+Difference ρ(Δ_contact) − |ρ(other)|: excludes zero for coverage [0.16, 0.65] and thickness [0.15, 0.67]; not for
+Δ_skel [−0.12, 0.42] or transmission [−0.02, 0.55]. Route of the skeleton effect: Δ_skel vs share of placements lost
+ρ 0.86, vs distal force ratio −0.83 (Δ_contact vs force ratio −0.05). Hands keeping ≥ 80% of placements (n 26):
+Δ_contact 0.48 [0.10, 0.78], Δ_skel −0.04 [−0.45, 0.35]; stable for thresholds 15–40%.

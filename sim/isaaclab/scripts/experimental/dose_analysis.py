@@ -36,6 +36,16 @@ EXTENSION = {"d1p5_maxDs_s0": (1.46, 9.67, 0.707), "d3_maxDs_s0": (3.04, 11.55, 
 THICK = {"h3to5_hr": (0.35, 3.55, 0.753), "h3to5_hu": (1.58, 2.02, 0.748), "h3to5_d3_s0": (2.92, 6.38, 0.750),
          "h3to5_d3_minDs_s0": (3.09, 0.38, 0.728), "h3to9_hr": (2.32, 9.37, 0.695), "h3to9_hu": (3.89, 7.17, 0.688),
          "h3to9_d3p5_maxDs_s0": (3.52, 12.72, 0.672), "h3to9_d5_minDs_s0": (5.08, 5.32, 0.673)}
+# thirteenth experiment: 27 more 3 -> 7 mm redesigns (e18 seed 1), run on the hand-independent grid
+EXPAND = {"d1_s1": (0.96, 7.26, 0.725), "d1_minDs_s1": (1.07, 6.47, 0.712), "d1_maxDs_s1": (0.97, 8.72, 0.710),
+          "d1p25_s1": (1.16, 8.08, 0.724), "d1p25_minDs_s1": (1.30, 5.79, 0.719), "d1p25_maxDs_s1": (1.23, 8.82, 0.706),
+          "d1p75_s1": (1.66, 8.59, 0.724), "d1p75_minDs_s1": (1.84, 5.09, 0.713), "d1p75_maxDs_s1": (1.78, 9.93, 0.700),
+          "d2_s1": (1.93, 8.86, 0.725), "d2_minDs_s1": (2.09, 4.85, 0.718), "d2_maxDs_s1": (2.04, 10.45, 0.704),
+          "d2p5_s1": (2.41, 9.33, 0.723), "d2p5_minDs_s1": (2.59, 4.34, 0.706), "d2p5_maxDs_s1": (2.59, 9.45, 0.711),
+          "d2p75_s1": (2.65, 9.57, 0.721), "d2p75_minDs_s1": (2.82, 4.11, 0.706), "d2p75_maxDs_s1": (2.78, 10.10, 0.714),
+          "d3p25_s1": (3.15, 10.08, 0.721), "d3p25_minDs_s1": (3.32, 3.61, 0.702), "d3p25_maxDs_s1": (3.31, 11.75, 0.701),
+          "d3p5_s1": (3.40, 10.33, 0.720), "d3p5_minDs_s1": (3.58, 3.35, 0.711), "d3p5_maxDs_s1": (3.54, 12.27, 0.702),
+          "d4_s1": (3.90, 10.83, 0.718), "d4_minDs_s1": (4.07, 2.91, 0.706), "d4_maxDs_s1": (3.99, 12.78, 0.702)}
 BALANCED_7 = ("R", "U", "d3_minDs_s0", "d5p5_s0")
 
 
@@ -103,13 +113,15 @@ def main() -> int:
     parser.add_argument("--mu", type=float, nargs=2, default=(1.3, 2.0))
     parser.add_argument("--radii", type=float, nargs="+", default=(15.0, 20.0))
     parser.add_argument("--extended", action="store_true", help="also the two hands added after the first results")
-    parser.add_argument("--set", default=None, choices=("all", "balanced"),
+    parser.add_argument("--set", default=None, choices=("all", "balanced", "expanded"),
                         help="all: every hand at 5, 7 and 9 mm; balanced: four per thickness")
     args = parser.parse_args()
     lo, hi = args.mu
     hands = {**HANDS, **EXTENSION} if args.extended else HANDS
     if args.set == "all":
         hands = {**HANDS, **EXTENSION, **THICK}
+    elif args.set == "expanded":
+        hands = {**HANDS, **EXTENSION, **THICK, **EXPAND}
     elif args.set == "balanced":
         hands = {**{k: HANDS[k] for k in BALANCED_7}, **THICK}
     out = {"condition": args.condition, "mu": [lo, hi], "extended": args.extended, "hands": {}}
