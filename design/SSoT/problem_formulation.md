@@ -561,6 +561,16 @@ $\mathbf c(M,q)-\mathbf c(M_0,q)=[\mathbf c(M,0)-\mathbf c(M_0,0)]+\int_0^q\big(
 
 뼈대의 운동 변화 $\Delta_{\mathrm{skel}}$은 같은 식을 $\mathcal F_p$에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며(코드의 `skeleton_change`는 $L_f$로 나눈 값) 함께 보고한다.
 
+**두 변화는 같은 pole의 변화를 서로 다른 기준에서 본 것이다.** 접촉점과 손끝은 모두 distal phalanx 위의 점이므로 같은 상대 운동($\mathbf J$의 pole)을 따른다. $q=0$에서의 변위를 회전 $R_q$와 유한 pole $\mathbf p(q)$로 쓰면(Study 0, 명제 4), $q=0$에서 같은 자리에 있던 점은 두 손가락에서 $\lVert\Delta\mathbf x(q)\rVert=2\sin\tfrac q2\,\lVert\Delta\mathbf p(q)\rVert$만큼 벌어지며, 이 값은 점에 따르지 않는다. 그래서
+
+$$
+\lVert\Delta\mathbf c(q)\rVert=2\sin\tfrac q2\,\big\lVert\Delta\mathbf p_{\mathrm{face}}(q)\big\rVert,\qquad
+\lVert\Delta\mathbf r_C(q)\rVert=2\sin\tfrac q2\,\big\lVert\Delta\mathbf p_{\mathrm{link}}(q)\big\rVert,\qquad
+\Delta\mathbf p_{\mathrm{face}}=\Delta\mathbf p_{\mathrm{link}}-\Delta d\,\mathbf e_z
+$$
+
+이다. $\Delta\mathbf p_{\mathrm{face}}$는 proximal contact face에서, $\Delta\mathbf p_{\mathrm{link}}$는 proximal 링크 선(뼈대)에서 본 pole의 변화이고, $\Delta d$는 face 깊이의 변화(가장 얕은 장착에서 $\Delta h$)이다. 등식은 $q=0$의 위치가 같을 때 성립하고, 그 차이($\lVert\Delta\mathbf c(0)\rVert$, $\lVert\Delta\mathbf r_C(0)\rVert$)만큼 어긋난다. 따라서 $\Delta_{\mathrm{contact}}$를 지킨다는 것은 pole을 contact face에 대해 지키는 것이고, $\Delta_{\mathrm{skel}}$을 지킨다는 것은 pole을 뼈대에 대해 지키는 것이다. pad가 $\Delta d$만큼 깊어지면 둘을 함께 지킬 수 없다. 고정 축은 pole이 뼈대에 붙어 있어 $\Delta\mathbf p_{\mathrm{link}}$를 0 가까이 둘 수밖에 없으므로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert\ge\Delta d$이고, 이것이 따름정리(P4)의 하한이다.
+
 **다시 설계.** 두께 $h$에서 두 목적을 함께 최적화한다.
 
 $$
