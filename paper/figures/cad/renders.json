@@ -1,0 +1,27 @@
+{
+ "document": "70331145392063eb01686da5",
+ "workspace": "5e0189f99c1cf0c993f8846a",
+ "microversion": "49301fdbf513fd4330b1979e",
+ "renders": {
+  "code_hand_iso": {
+   "element": "67c456d3940fbb4fa89384f6",
+   "view": "isometric",
+   "crop": [
+    240,
+    0,
+    2160,
+    1800
+   ]
+  },
+  "finger_side": {
+   "element": "0076b737ce3429d392cd82e5",
+   "view": "front",
+   "crop": [
+    0,
+    580,
+    2400,
+    1220
+   ]
+  }
+ }
+}

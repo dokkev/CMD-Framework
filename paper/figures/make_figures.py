@@ -259,24 +259,46 @@ def draw_finger(ax, stem, hand, rho, ref_centre=None):
     return centre, st
 
 
+CAD = Path(__file__).resolve().parent / "cad"
+
+
 def fig_overview():
+    """Fig. 1: the CoDe hand (CAD, C1) and why a redesign keeps the contact Jacobian (simulation, C2)."""
     import json
-    fig = plt.figure(figsize=(W, 1.85))
-    outer = fig.add_gridspec(1, 2, width_ratios=[3.0, 1.25], wspace=0.16)
-    left = outer[0].subgridspec(1, 3, wspace=0.0)
-    axes = [fig.add_subplot(left[0, i]) for i in range(3)]
+    fig = plt.figure(figsize=(W, 1.95))
+    outer = fig.add_gridspec(1, 3, width_ratios=[1.3, 1.8, 1.3], wspace=0.24)
+    ax = fig.add_subplot(outer[0])
+    img = plt.imread(CAD / "code_hand_iso.png")
+    ax.imshow(img)
+    ax.axis("off")
+    cad_ax = ax
+    callouts = [  # (label, point in the render [px], text position [axes fraction])
+        ("PIP servo,\noff the joint", (900, 1040), (-0.02, 0.38)),
+        ("crossed four-bar\nPIP joint", (880, 1420), (-0.02, 0.10)),
+        ("proximal pad", (690, 1330), (-0.02, 0.24)),
+        ("distal pad", (1210, 1620), (0.80, -0.02)),
+    ]
+    for label, xy, txt in callouts:
+        ax.annotate(label, xy=xy, xycoords="data", xytext=txt, textcoords="axes fraction", fontsize=6.2,
+                    color=INK, ha="right" if txt[0] < 0.5 else "left", va="center", linespacing=1.0,
+                    arrowprops=dict(arrowstyle="-", color=INK2, lw=0.5, shrinkA=1, shrinkB=0))
+    mid = outer[1].subgridspec(1, 2, wspace=0.0)
+    axes = [fig.add_subplot(mid[0, i]) for i in range(2)]
     rho = 15.0
-    o_centre, o_st = draw_finger(axes[0], "h0", "O", rho)
-    _, u_st = draw_finger(axes[1], "hu", "U", rho, ref_centre=o_centre)
-    _, r_st = draw_finger(axes[2], "hr", "R", rho, ref_centre=o_centre)
-    titles = [("(a) O: 3 mm pads", "reference"),
-              ("(b) U: 7 mm pads", "skeleton change 3.4 mm\ncontact change 3.9 mm"),
-              ("(c) R: 7 mm pads", "skeleton change 7.7 mm\ncontact change 0.9 mm")]
-    for ax, (t, sub), st in zip(axes, titles, (o_st, u_st, r_st)):
-        ax.text(0.02, 1.0, t, transform=ax.transAxes, fontsize=7.6, fontweight="bold", va="bottom")
-        ax.text(0.02, -0.01, f"{sub}\ndistal force {st['n_distal_total']:.1f} N", transform=ax.transAxes,
-                fontsize=6.4, color=INK2, va="top", linespacing=1.2)
-    ax = fig.add_subplot(outer[1])
+    probe = fig.add_axes([0, 0, 0.01, 0.01])
+    o_centre, o_st = draw_finger(probe, "h0", "O", rho)
+    probe.remove()
+    _, u_st = draw_finger(axes[0], "hu", "U", rho, ref_centre=o_centre)
+    _, r_st = draw_finger(axes[1], "hr", "R", rho, ref_centre=o_centre)
+    titles = [("(b) U: coverage only", "skeleton change 3.4 mm\ncontact change 3.9 mm"),
+              ("(c) R: contact kept", "skeleton change 7.7 mm\ncontact change 0.9 mm")]
+    panel_titles = []
+    for ax_, (t, sub), st in zip(axes, titles, (u_st, r_st)):
+        panel_titles.append((ax_, t))
+        ratio = st["n_distal_total"] / o_st["n_distal_total"]
+        ax_.text(0.02, -0.01, f"{sub}\ndistal force {ratio:.1f}$\\times$ $O$'s", transform=ax_.transAxes, fontsize=6.4,
+                 color=INK2, va="top", linespacing=1.2)
+    ax = fig.add_subplot(outer[2])
     d = json.loads((TWO_PAD / "dose_A_all.json").read_text())
     for hand, rec in d["hands"].items():
         t = int(rec["thickness_mm"])
@@ -292,7 +314,7 @@ def fig_overview():
             rf"vs skeleton change: $\rho={tests['rho_E_Ds']:.2f}$", transform=ax.transAxes, fontsize=6.4, va="top")
     ax.set_xlabel(r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)")
     ax.set_ylabel("measurement error (%)", labelpad=1)
-    ax.set_title("(d) same command, 15 redesigns", fontsize=7.6, fontweight="bold", loc="left")
+    panel_titles.append((ax, "(d) same command, 15 redesigns"))
     ax.set_xlim(0, 5.5)
     ax.set_ylim(-5, 175)
     handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc="white", mew=0.9, ms=3.4, label=f"3→{t} mm")
@@ -300,6 +322,12 @@ def fig_overview():
     handles.append(plt.Line2D([], [], marker="s", ls="none", color="0.45", ms=3.6, label="R, U"))
     ax.legend(handles=handles, loc="center left", bbox_to_anchor=(0.0, 0.55), fontsize=6.2, frameon=False,
               handletextpad=0.2, borderaxespad=0.1)
+    fig.canvas.draw()
+    top = cad_ax.get_position().y1 + 0.02
+    from matplotlib.transforms import blended_transform_factory
+    for ax_, t in [(cad_ax, "(a) CoDe hand: room for thick pads"), *panel_titles]:
+        ax_.text(0.0, top, t, transform=blended_transform_factory(ax_.transAxes, fig.transFigure), fontsize=7.6,
+                 fontweight="bold", va="bottom")
     fig.savefig(DEST / "fig_overview.png")
     plt.close(fig)
 
