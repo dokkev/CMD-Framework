@@ -37,7 +37,7 @@ def main() -> int:
             if any(v is None for v in runs.values()):
                 print(f"{hand} r{r:g}: runs missing")
                 continue
-            key = lambda e: (e["q0_deg"], e["direction"])  # noqa: E731
+            key = da.env_key
             by = {hm: {key(e): e for e in d["envs"]} for hm, d in runs.items()}
             for m in (1.3, 2.0):
                 envs += len(by[(hand, m)])

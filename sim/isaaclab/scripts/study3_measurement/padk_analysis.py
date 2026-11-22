@@ -34,7 +34,7 @@ def effects(hand: str, cond: str, lo: float = 1.3, hi: float = 2.0) -> dict:
         runs = {m: da.latest(hand, m, cond, r) for m in (lo, hi)}
         if any(v is None for v in runs.values()):
             continue
-        by = {m: {(e["q0_deg"], e["direction"]): e for e in d["envs"]} for m, d in runs.items()}
+        by = {m: {da.env_key(e): e for e in d["envs"]} for m, d in runs.items()}
         for k, e_lo in by[lo].items():
             e_hi = by[hi].get(k)
             if e_hi is None or not (e_lo["gate0"]["pass"] and e_hi["gate0"]["pass"]):

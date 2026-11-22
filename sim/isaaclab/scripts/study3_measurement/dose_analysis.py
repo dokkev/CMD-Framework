@@ -50,6 +50,12 @@ EXPAND = {"d1_s1": (0.96, 7.26, 0.725), "d1_minDs_s1": (1.07, 6.47, 0.712), "d1_
 BALANCED_7 = ("R", "U", "d3_minDs_s0", "d5p5_s0")
 
 
+def env_key(e: dict) -> tuple:
+    """One placement and load direction. Hand-independent grids put several placements at one q0, so the place along
+    the face (x_c) is part of the key."""
+    return (e["q0_deg"], round(float(e["x_c_mm"]), 3), e["direction"])
+
+
 def thickness(hand: str) -> float:
     return float(hand[4]) if hand.startswith("h3to") else 7.0
 
@@ -135,7 +141,7 @@ def main() -> int:
             if any(v is None for v in runs.values()):
                 complete = False
                 continue
-            key = lambda e: (e["q0_deg"], e["direction"])  # noqa: E731
+            key = env_key
             by = {hm: {key(e): e for e in d["envs"]} for hm, d in runs.items()}
             for m in (lo, hi):
                 envs += len(by[(hand, m)])
@@ -152,7 +158,7 @@ def main() -> int:
                 if d_o > 0 and d_h > 0:
                     logr.append(abs(np.log(d_h / d_o)))
                 absolute.append(abs(d_h - d_o))
-                per_dir[k[1]].append(abs(d_h - d_o) / abs(d_o))
+                per_dir[k[2]].append(abs(d_h - d_o) / abs(d_o))
                 force.append(es[(hand, lo)]["pre"]["n_distal_total"] / max(es[("O", lo)]["pre"]["n_distal_total"], 1e-9))
         if not rel:
             print(f"{hand}: no valid pairs{'' if complete else ' (runs missing)'}")

@@ -48,7 +48,7 @@ def run_for(setting: str, hand: str, mu: float, radius: float = 15.0) -> dict | 
 
 
 def by_key(d: dict) -> dict:
-    return {(e["q0_deg"], e["direction"]): e for e in d["envs"]}
+    return {da.env_key(e): e for e in d["envs"]}
 
 
 def errors(get, hand: str) -> tuple[dict, list[float]]:
@@ -133,7 +133,7 @@ def shape_gate() -> int:
     eff = shape_effect("O")
     passed = 0
     for d in DIRECTIONS:
-        v = [x for k, x in eff.items() if k[2] == d]
+        v = [x for k, x in eff.items() if k[-1] == d]
         med = float(np.median(v)) if v else float("nan")
         ok = abs(med) >= 3 * STEP_N - 1e-9
         passed += ok

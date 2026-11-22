@@ -36,7 +36,7 @@ def pairs(hand: str, cond: str, radii=(15.0, 20.0)) -> dict:
         runs = {(h, m): da.latest(h, m, cond, r) for h in ("O", hand) for m in (1.3, 2.0)}
         if any(v is None for v in runs.values()):
             continue
-        by = {k: {(e["q0_deg"], e["direction"]): e for e in d["envs"]} for k, d in runs.items()}
+        by = {k: {da.env_key(e): e for e in d["envs"]} for k, d in runs.items()}
         for key in by[("O", 1.3)]:
             es = {k: by[k].get(key) for k in by}
             if any(e is None or not e["gate0"]["pass"] or e["limit"]["f_limit_n"] is None for e in es.values()):
