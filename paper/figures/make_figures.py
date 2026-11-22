@@ -201,6 +201,7 @@ TWO_PAD = ROOT / "sim" / "isaaclab" / "logs" / "experimental" / "two_pad"
 HANDS3 = ROOT / "design" / "output" / "sim" / "study3" / "hands"
 GREY, ORANGE, BLUE = "#8a8984", ARCH["2R-remote"][1], ARCH["CFL"][1]
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # one hue, light to dark: pad thickness
+FORCE_INK, FORCE_MM_PER_N = "#b8322a", 2.0  # contact-force arrows in Fig. 1: mm of arrow per newton
 
 
 def two_pad_state(hand, mu=1.3, cond="A", rho=15.0, q0=105.0):
@@ -252,6 +253,14 @@ def draw_finger(ax, stem, hand, rho, ref_centre=None):
     if ref_centre is not None:
         ax.add_patch(Circle(ref_centre, rho, fill=False, ec=GREY, lw=0.7, ls=(0, (2.5, 1.5)), zorder=2))
     ax.add_patch(Circle(centre, rho, fc="#e8eef6", ec="#4a6f99", lw=0.8, zorder=2))
+    for pad in st["pads"]:  # the middle finger's contact forces on the cylinder, to scale
+        if pad["pad"] not in ("middle_proximal", "middle_distal"):
+            continue
+        at = (np.asarray(pad["point_face_mm"]) + np.array([0.0, -d])) * F
+        force = np.asarray(pad["normal_face"]) * F * FORCE_MM_PER_N
+        ax.annotate("", xy=at + force, xytext=at, zorder=6,
+                    arrowprops=dict(arrowstyle="-|>", color=FORCE_INK, lw=1.3, mutation_scale=7, shrinkA=0,
+                                    shrinkB=0))
     ax.set_aspect("equal")
     ax.set_xlim(-4, 64)
     ax.set_ylim(-14, 52)
