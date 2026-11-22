@@ -444,6 +444,21 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 **형상 Gate (O, flat 대 crowned, μ 1.3, ρ 15/20; `robust_analysis.py shape-gate`)**
 - 방향별 O의 효과 중앙값: +x −0.83 N, +x−z −0.60 N, −z −0.33 N, −x −0.47 N(외력 5–12.5 step). 네 방향 모두 3 step 이상이라 **통과**. crowned는 한계 하중을 낮춘다.
 - 주의: 두 형상 모두에서 Gate 0을 통과한 쌍이 방향마다 4–5개로 적다.
-- 사전 기록대로 손 6개(R, U, d1p5_minDs, d1p5_maxDs, d2p25_minDs, d3_minDs)로 확장해 실행 중이다.
+- 사전 기록대로 손 6개(R, U, d1p5_minDs, d1p5_maxDs, d2p25_minDs, d3_minDs)로 확장했다(아래).
+
+**형상 interface 결과 (손 6개, 조건 A, μ 1.3, ρ 15/20; `robust_analysis.py shape`, `logs/.../shape.json`)**
+
+| 손 | Δ_contact (mm) | Δ_skel (mm) | 유효 쌍 | E_shape (중앙값) |
+|---|---|---|---|---|
+| R | 0.86 | 7.67 | 13 | 27% |
+| d1p5_maxDs | 1.46 | 9.67 | 13 | 46% |
+| d1p5_minDs | 1.60 | 5.37 | 14 | 95% |
+| d2p25_minDs | 2.33 | 4.62 | 1 | 50% |
+| d3_minDs | 3.09 | 3.83 | 5 | 120% |
+| U | 3.91 | 3.38 | 5 | 157% |
+
+- 사전 판정 1: ρ(E_shape, Δ_contact) = +0.94, 정확 단측 순열 p = 0.008 (n 6). **충족**. 마찰 interface에서 본 순서가 두 번째 interface 속성(pad 형상)에서도 반복된다.
+- 사전 판정 2: R 대 U 쌍별 비교는 공통 유효 쌍이 1개뿐이라 검정할 수 없다(1/1에서 R < U).
+- 한계: crowned pad에서는 손 대부분이 placement의 일부에서만 Gate 0을 통과한다(쌍 1–14개). Δ_contact가 큰 손일수록 유효 쌍이 적다. 이 6개 손에서는 Δ_skel이 Δ_contact와 반대로 움직이므로(ρ(E, Δ_skel) = −0.89), 이 실험만으로는 둘을 가를 수 없다. 둘을 가르는 근거는 여전히 마찰 실험(15개 손, Δ_skel이 주어졌을 때 partial 0.88)이다.
 
 **정식화 추가 (SSoT A.6.3, 2026-11-22).** Δ_contact와 Δ_skel은 같은 pole의 변화를 접촉면과 링크 선에서 본 것이다(‖Δx‖ = 2 sin(q/2)‖Δp‖, Δp_face = Δp_link − Δd e_z). R에서 0.01 mm 안으로 맞는다(R: Δp_link ≈ (0, −4.0…−4.3), Δp_face ≈ (0, −0.0…−0.3) mm; U는 pole을 뼈대 근처에 두어 접촉면에서 3–4 mm 어긋난다).

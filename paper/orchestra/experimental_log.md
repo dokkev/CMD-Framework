@@ -241,7 +241,16 @@ Condition D (flexion impedance τ = τ_O + K_q(q*_O − q), K_q/K0 ∈ {0.1, 0.3
 0.1° at 10 K0 while its distal force saturates near 17.5 N (contact compliance takes the interference). Servo
 torque median 0.08–0.33 of the XM335 stall torque; above stall for U in 4 % (3 K0) and 11 % (10 K0) of runs.
 
-Robustness and the shape interface: see the next section (filled when the runs finish).
+Robustness (condition A, O/R/U, ρ 15 mm, μ 1.3 → 2.0; R vs U pair by pair, one-sided Wilcoxon): baseline E_R 26 %,
+E_U 170 %, 24/24, p 6e-8; contact stiffness ke 1e3: 24/168 %, 21/24, p 3e-4; ke 1e4: 32/127 %, 20/22, p 2e-4; solver
+impratio 300: 28/132 %, 24/24; impratio 3000: 25/184 %, 24/24; substeps 4: 29/177 %, 24/24. Conclusion kept in all.
+
+Shape interface (flat → 2 mm crowned pads, μ 1.3, condition A, ρ 15/20 mm). Gate on O passed in 4 of 4 directions
+(O's effect −0.33 to −0.83 N; 4–5 valid pairs per direction). Six redesigns, E_shape (median, valid pairs): R 27 %
+(13), d1p5_maxDs 46 % (13), d1p5_minDs 95 % (14), d2p25_minDs 50 % (1), d3_minDs 120 % (5), U 157 % (5).
+ρ(E_shape, Δ_contact) = 0.94, exact one-sided p = 0.008 (pre-registered criterion met). R vs U: one common valid pair,
+not testable. In this set Δ_skel moves opposite to Δ_contact (ρ(E, Δ_skel) = −0.89), so it repeats the ordering but
+does not separate the two by itself.
 
 Figures: `fig_overview.png` (Fig. 1: O/U/R grasp drawings + E vs D_c), `fig_study3.png` (A vs C, impedance),
 renders `report/study3/figures/study3_two_pad_grasp_render.png`.
