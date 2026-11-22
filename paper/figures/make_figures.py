@@ -303,7 +303,7 @@ def fig_overview():
 
 def fig_study3():
     import json
-    fig, axes = plt.subplots(2, 1, figsize=(3.45, 3.2), gridspec_kw=dict(hspace=0.62))
+    fig, axes = plt.subplots(2, 1, figsize=(3.45, 2.95), gridspec_kw=dict(hspace=0.66))
     ax = axes[0]
     for cond, filled, lab in (("A", True, "position reuse"), ("C", False, "torque reuse")):
         d = json.loads((TWO_PAD / f"dose_{cond}_all.json").read_text())
