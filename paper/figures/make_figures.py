@@ -112,7 +112,7 @@ def fig_study2():
         ax.set_ylim(0, ymax); ax.set_xlim(2.7, 9.3); ax.set_xticks([3, 5, 7, 9])
         ax.set_title(rf"$q_{{\mathrm{{req}}}}={int(q)}^\circ$", pad=3)
         ax.set_xlabel("redesigned for $h$ (mm)")
-    axes[0].set_ylabel("trajectory change $D_cL_f$ (mm)")
+    axes[0].set_ylabel(r"$\Delta_{\mathrm{contact}}$ (mm)")
     # (d) over the flexion, q_req 120, 3 -> 9 mm
     ax = axes[3]
     for k in ARCH:
@@ -125,7 +125,7 @@ def fig_study2():
     qq = np.linspace(0, 120, 100)
     ax.plot(qq, 2 * np.sin(np.radians(qq) / 2) * 6, color=INK, ls=(0, (1, 1.2)), lw=1.1)
     ax.set_xlim(0, 124); ax.set_xticks([0, 30, 60, 90, 120]); ax.set_ylim(0, 11)
-    ax.set_xlabel(r"flexion $q$ ($^\circ$)"); ax.set_ylabel("trajectories apart (mm)")
+    ax.set_xlabel(r"flexion $q$ ($^\circ$)"); ax.set_ylabel(r"$\|\Delta\mathbf{c}(q)\|$ (mm)")
     ax.set_title(r"$q_{\mathrm{req}}=120^\circ$, $3\to9$ mm", pad=3)
     for a, lab in zip(axes, "abcd"):
         a.text(-0.02, 1.07, f"({lab})", transform=a.transAxes, fontsize=8, fontweight="bold", ha="right")
@@ -290,7 +290,7 @@ def fig_overview():
     tests = d["tests"]
     ax.text(0.04, 0.97, rf"$\rho={tests['rho_E_Dc']:.2f}$, $p={tests['p_one_sided']:.4f}$" + "\n" +
             rf"vs skeleton change: $\rho={tests['rho_E_Ds']:.2f}$", transform=ax.transAxes, fontsize=6.4, va="top")
-    ax.set_xlabel("contact-surface motion change (mm)")
+    ax.set_xlabel(r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)")
     ax.set_ylabel("measurement error (%)", labelpad=1)
     ax.set_title("(d) same command, 15 redesigns", fontsize=7.6, fontweight="bold", loc="left")
     ax.set_xlim(0, 5.5)
@@ -315,7 +315,7 @@ def fig_study3():
         y = 0.97 if cond == "A" else 0.83
         ax.text(0.03, y, rf"{lab}: $\rho={tests['rho_E_Dc']:.2f}$ ($n={tests['n_hands']}$)", transform=ax.transAxes,
                 fontsize=6.3, va="top")
-    ax.set_xlabel("contact-surface motion change (mm)")
+    ax.set_xlabel(r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)")
     ax.set_ylabel("error in measured effect (%)")
     ax.set_title("(a) position (filled) vs torque (open) reuse", fontsize=7.6, fontweight="bold", loc="left")
     ax.set_xlim(0, 5.5)

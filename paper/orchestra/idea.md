@@ -66,7 +66,8 @@ c over [0, q_req] (≈ the integral of the Jacobian change, since the q = 0 pose
 (lever includes the pad depth) is NOT kept — the stated limitation. The transmission (servo angle → flexion) is
 excluded, recorded and compensated by control. Keeping the contact Jacobian does NOT keep the contact mechanics
 (compliance, friction, sensing change with the interface — that is what is studied). Do not write "relative
-contact trajectory" or "RCT" in the paper; "contact-surface motion" for the quantity, "skeleton motion" for D_s.
+contact trajectory" or "RCT" in the paper; "contact-surface motion" for the quantity, "skeleton motion" for the
+fingertip path. Symbols (SSoT 2026-11-22): Δ_contact (was D_c) and Δ_skel (was D_s), both in mm.
 
 ## 4. The CoDe approach (engineering means, not ends)
 
