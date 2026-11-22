@@ -65,7 +65,9 @@ def main() -> int:
     out = {"features": feats}
     fr = json.loads((da.ROOT / "dose_A_all.json").read_text())["hands"]
     cm = json.loads((da.ROOT / "comp.json").read_text())["hands"]
-    for name, recs, key in (("friction", fr, "E_rel_median"), ("stiffness", cm, "E_median")):
+    tq = json.loads((da.ROOT / "dose_C_all.json").read_text())["hands"]
+    for name, recs, key in (("friction", fr, "E_rel_median"), ("stiffness", cm, "E_median"),
+                            ("friction_torque", tq, "E_rel_median")):
         hs = [h for h in recs if h in feats]
         e = np.array([recs[h][key] for h in hs])
         res = {}
