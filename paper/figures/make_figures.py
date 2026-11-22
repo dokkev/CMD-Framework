@@ -299,29 +299,25 @@ def fig_overview():
         ax_.text(0.02, -0.01, f"{sub}\ndistal force {ratio:.1f}$\\times$ $O$'s", transform=ax_.transAxes, fontsize=6.4,
                  color=INK2, va="top", linespacing=1.2)
     ax = fig.add_subplot(outer[2])
-    d = json.loads((TWO_PAD / "dose_A_all.json").read_text())
-    for hand, rec in d["hands"].items():
-        t = int(rec["thickness_mm"])
-        named = hand in ("R", "U") or hand.endswith(("_hr", "_hu"))
-        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="s" if named else "o", ms=4.0 if named else 3.4,
-                color=THICK[t], mfc=THICK[t] if named else "white", mew=0.9, ls="none", zorder=3)
-    for hand in ("R", "U"):
-        rec = d["hands"][hand]
-        ax.annotate(hand, (rec["D_c_mm"], 100 * rec["E_rel_median"]), xytext=(4, -2), textcoords="offset points",
-                    fontsize=7, fontweight="bold", color=THICK[7])
-    tests = d["tests"]
-    ax.text(0.04, 0.97, rf"$\rho={tests['rho_E_Dc']:.2f}$, $p={tests['p_one_sided']:.4f}$" + "\n" +
-            rf"vs skeleton change: $\rho={tests['rho_E_Ds']:.2f}$", transform=ax.transAxes, fontsize=6.4, va="top")
-    ax.set_xlabel(r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)")
-    ax.set_ylabel("measurement error (%)", labelpad=1)
-    panel_titles.append((ax, "(d) same command, 15 redesigns"))
-    ax.set_xlim(0, 5.5)
-    ax.set_ylim(-5, 175)
-    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc="white", mew=0.9, ms=3.4, label=f"3→{t} mm")
-               for t, c in THICK.items()]
-    handles.append(plt.Line2D([], [], marker="s", ls="none", color="0.45", ms=3.6, label="R, U"))
-    ax.legend(handles=handles, loc="center left", bbox_to_anchor=(0.0, 0.55), fontsize=6.2, frameon=False,
-              handletextpad=0.2, borderaxespad=0.1)
+    d = json.loads((TWO_PAD / "conclusion_study3.json").read_text())["hands"]
+    pairs = {5: ("h3to5_hr", "h3to5_hu"), 7: ("R", "U"), 9: ("h3to9_hr", "h3to9_hu")}
+    xs = np.arange(3)
+    width = 0.26
+    true = [d[r]["true_change_pct"] for r, _ in pairs.values()]
+    meas_r = [d[r]["measured_change_pct"] for r, _ in pairs.values()]
+    meas_u = [d[u]["measured_change_pct"] for _, u in pairs.values()]
+    for off, vals, color, label in ((-width, true, GREY, "true"), (0.0, meas_r, BLUE, "on R"),
+                                    (width, meas_u, ORANGE, "on U")):
+        ax.bar(xs + off, vals, width * 0.92, color=color, label=label, zorder=3)
+    ax.axhline(0.0, color=INK2, lw=0.6, zorder=2)
+    ax.set_xticks(xs, [f"{t} mm" for t in pairs])
+    ax.set_ylabel("change in holding load (%)", labelpad=1)
+    ax.set_ylim(-80, 85)
+    ax.tick_params(axis="x", length=0)
+    ax.legend(loc="upper left", ncol=3, fontsize=6.0, frameon=False, handlelength=1.0, columnspacing=0.8,
+              borderaxespad=0.1)
+    ax.text(xs[1] + width, meas_u[1] + 3, "reversed", fontsize=6.0, color=ORANGE, ha="center", va="bottom")
+    panel_titles.append((ax, "(d) a softer, thicker pad"))
     fig.canvas.draw()
     top = cad_ax.get_position().y1 + 0.02
     from matplotlib.transforms import blended_transform_factory
