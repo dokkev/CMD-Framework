@@ -1,9 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: the fixed-axis contrast family in Study 3 (separability.md, 14th experiment).
+"""Study 3 measurement (problem_formulation A.6.4): the fixed-axis contrast family in Study 3 (separability.md, 14th
+experiment).
 
-    python3 scripts/experimental/fa_analysis.py
+    python3 scripts/study3_measurement/fa_analysis.py
 
 The error of each fixed-axis redesign (5, 7, 9 mm pads, the 3 mm finger's skeleton kept exactly) against the 3 mm
 fixed-axis finger, under the reused flexion command (runs tagged ``fa``), computed as in ``dose_analysis.py``: the

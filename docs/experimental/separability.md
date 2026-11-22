@@ -133,7 +133,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 3차 Stage B 결과 (2026-11-21)
 
-- 실행: μ 1.3/2.0, ρ 15/20 mm, impratio 1000. 세 손 × 조건 A·B. 결과는 `sim/isaaclab/logs/experimental/two_pad/`(`summary_A.json`, `summary_B.json`), 분석은 `scripts/experimental/two_pad_analysis.py`.
+- 실행: μ 1.3/2.0, ρ 15/20 mm, impratio 1000. 세 손 × 조건 A·B. 결과는 `sim/isaaclab/logs/experimental/two_pad/`(`summary_A.json`, `summary_B.json`), 분석은 `scripts/study3_measurement/two_pad_analysis.py`.
 - 공통 유효 조건: 조건 A에서 48쌍(배치 12개), 조건 B에서 44쌍(배치 11개). Gate 0 실패는 손·μ마다 132개 중 75–88개이고 세 손에서 비슷하다. 대부분 q0 ≤ 80°에서 해제할 때 빠져나간 경우다. 조건 B에서 힘 맞춤 실패는 O 3–4개, R 8개, U 0개다.
 - 검증: 법선 사이 각 = q*(최대 오차 0.25°). 모든 손에서 N_p/N_d = 1.00. 조건 B의 distal 힘은 목표의 ±0.5% 안에 맞았다.
 - 분해능: 외력 한 step이 0.067 N이다(Δμ(O)의 2.5–5.6%).
@@ -220,7 +220,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 4차 결과 (2026-11-21)
 
-- 실행: 새 손 6개 × μ 1.3/2.0 × ρ 15/20 mm, 조건 A(24개)와 조건 B(d2.25 쌍, 8개). O, R, U는 3차 실행을 재사용. 분석은 `sim/isaaclab/scripts/experimental/dose_analysis.py`, 결과는 `logs/experimental/two_pad/dose_A.json`, `dose_B.json`.
+- 실행: 새 손 6개 × μ 1.3/2.0 × ρ 15/20 mm, 조건 A(24개)와 조건 B(d2.25 쌍, 8개). O, R, U는 3차 실행을 재사용. 분석은 `sim/isaaclab/scripts/study3_measurement/dose_analysis.py`, 결과는 `logs/experimental/two_pad/dose_A.json`, `dose_B.json`.
 - naive swap: 기계적 불가능(pad가 47°에서 충돌). 측정하지 않음.
 
 **조건 A (같은 지령, 주 판정)**
@@ -362,7 +362,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 6차 결과: 세 두께, 조건 A와 C (2026-11-21)
 
-- 그림: `report/study3/figures/study3_dose_response.png` (`sim/isaaclab/scripts/experimental/figure_dose.py`). 결과는 `logs/experimental/two_pad/dose_{A,C}_{all,balanced}.json`.
+- 그림: `report/study3/figures/study3_dose_response.png` (`sim/isaaclab/scripts/study3_measurement/figure_dose.py`). 결과는 `logs/experimental/two_pad/dose_{A,C}_{all,balanced}.json`.
 - 5 mm와 9 mm의 R, U, Ē (조건 A): R5 3.4%(D_c 0.35), U5 52%(1.58), R9 41%(2.32), U9 106%(3.89). 9 mm의 d5-minDs(5.08)는 157%. 5 mm의 d3(D_c 2.92, D_s 6.38)는 조건 A에서 grasp 실패, 조건 C에서는 25%.
 
 **조건 A (위치 명령 재사용, 주 판정)**
@@ -393,7 +393,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 7차 결과: 조건 D, 임피던스 sweep pilot (O, R, U, 7 mm, 2026-11-21)
 
-- 그림: `report/study3/figures/study3_impedance_sweep.png`. 분석은 `sim/isaaclab/scripts/experimental/impedance_analysis.py`, 결과는 `logs/experimental/two_pad/impedance.json`.
+- 그림: `report/study3/figures/study3_impedance_sweep.png`. 분석은 `sim/isaaclab/scripts/study3_measurement/impedance_analysis.py`, 결과는 `logs/experimental/two_pad/impedance.json`.
 - 검증(사전 기록): K₀의 D가 조건 A를 재현했다(distal 힘 1.6% 이내, 한계 하중 외력 한 step 이내).
 
 | K/K₀ | E_R | E_U | 대칭 배율 R / U | R < U (쌍), p | 격차 E_U − E_R |

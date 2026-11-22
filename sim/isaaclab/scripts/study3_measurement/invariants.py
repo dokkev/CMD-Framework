@@ -1,9 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: which candidate design invariant predicts the interface-measurement error (Study 3)?
+"""Study 3 measurement (problem_formulation A.6.4): which candidate design invariant predicts the interface-measurement
+error (Study 3)?
 
-    uv run python scripts/experimental/invariants.py
+    uv run python scripts/study3_measurement/invariants.py
 
 For every redesign: the change in contact-surface motion (Delta_contact), the skeleton's change (Delta_skel), the
 coverage, the pad-thickness change and the transmission change (max over q in [0, 120] deg of |r_H(q)/r_O(q) - 1|,

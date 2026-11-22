@@ -1,9 +1,9 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Figure (playground experiment): Newton renders of the two-pad grasp on O, R and U, side by side.
+"""Study 3 figure: Newton renders of the two-pad grasp on O, R and U, side by side.
 
-    python3 scripts/experimental/figure_grasp_render.py [--rho 15] [--q0 105] [--condition A] [--mu 1.3]
+    python3 scripts/study3_measurement/figure_grasp_render.py [--rho 15] [--q0 105] [--condition A] [--mu 1.3]
 
 Reads the renders ``two_pad_wrench.py --render logs/experimental/two_pad/render --render_only`` wrote (one
 placement: the cylinder where O's pads touch it at q0, all hands under the same command) and annotates each with the

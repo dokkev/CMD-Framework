@@ -1,9 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: fixed-axis contrast hands for Study 3 (separability.md, 14th experiment).
+"""Study 3 measurement (problem_formulation A.6.4): fixed-axis contrast hands for Study 3 (separability.md, 14th
+experiment).
 
-    python3 scripts/experimental/fixed_axis_hands.py
+    python3 scripts/study3_measurement/fixed_axis_hands.py
 
 Builds ``code_hand_sim/1`` descriptions of a fixed-axis finger family from the 3 mm CFL reference O: each finger's PIP
 is one revolute joint on the link line at the centre of O's joint gap (x_a), driven directly (theta = q). The family

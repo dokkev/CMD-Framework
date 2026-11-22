@@ -1,9 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: the pre-registered impedance-sweep measures (``docs/experimental/separability.md``, seventh experiment).
+"""Study 3 measurement (problem_formulation A.6.4): the pre-registered impedance-sweep measures
+(``docs/experimental/separability.md``, seventh experiment).
 
-    python3 scripts/experimental/impedance_analysis.py [--hands R U] [--scales 0.1 0.3 1 3 10]
+    python3 scripts/study3_measurement/impedance_analysis.py [--hands R U] [--scales 0.1 0.3 1 3 10]
 
 For each flexion stiffness K_q = s K0 (condition ``D<s>`` runs of ``two_pad_wrench.py``, latest per hand, mu, radius,
 impratio 1000) and hand H: over the placement-direction pairs where O and H pass Gate 0 at both mu (O at the same

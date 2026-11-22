@@ -1,12 +1,12 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: the pre-registered robustness and shape-interface measures (``docs/experimental/separability.md``,
-eighth experiment).
+"""Study 3 measurement (problem_formulation A.6.4): the pre-registered robustness and shape-interface measures
+(``docs/experimental/separability.md``, eighth experiment).
 
-    python3 scripts/experimental/robust_analysis.py robust      # condition A under each robustness setting
-    python3 scripts/experimental/robust_analysis.py shape-gate  # O: crowned minus flat, per direction
-    python3 scripts/experimental/robust_analysis.py shape       # every hand: error in the shape effect
+    python3 scripts/study3_measurement/robust_analysis.py robust      # condition A under each robustness setting
+    python3 scripts/study3_measurement/robust_analysis.py shape-gate  # O: crowned minus flat, per direction
+    python3 scripts/study3_measurement/robust_analysis.py shape       # every hand: error in the shape effect
 
 robust: for the baseline (impratio 1000, ke 2.5e3, 2 substeps; the main condition-A runs) and each tagged setting,
 R and U against O at radius 15 mm: median E_R and E_U, R < U pair count, one-sided Wilcoxon p, and the median

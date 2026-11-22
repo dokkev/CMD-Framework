@@ -189,6 +189,24 @@ SDF/hydroelastic state cannot be kept. Assets built for this project (the CoDe h
 exports) should author their colliders hydro-ready: `NewtonSDFCollisionCfg(hydroelastic_enabled=True, ...)`
 with no convex-hull approximation. The preset then applies unchanged.
 
+## Study 3 measurement (2026-11-22)
+
+`scripts/study3_measurement/` holds the simulation measurement behind contribution C2.3. It is defined in
+`design/SSoT/problem_formulation.md` A.6.4, and its code map is in `design/SSoT/code_formulation.md`. A cylinder is
+held by both pads of each CFL redesign, loaded until the grasp gives way, and the change of that limit load under an
+interface change is compared with the reference hand O.
+
+```bash
+uv run python scripts/study3_measurement/two_pad_wrench.py --hand O --mu 1.3 --condition A --radius_mm 15
+python3 scripts/study3_measurement/dose_analysis.py --condition A --set all
+uv run python scripts/study3_measurement/invariants.py
+```
+
+Every run and analysis is written to `logs/experimental/two_pad/`, where the first runs were written. Analyses pick
+the latest run per hand, mu, condition and radius, so a smoke run written there takes part in them.
+`scripts/study3/` is the archived learning programme and is not evidence for C2.3. `scripts/experimental/` keeps the
+first two separability experiments.
+
 ## Generated template notes
 
 An installable downstream Isaac Lab task package with a standard uv `src` layout.

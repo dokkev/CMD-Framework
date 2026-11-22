@@ -1,9 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: the pre-registered dose-response measures (``docs/experimental/separability.md``, fourth experiment).
+"""Study 3 measurement (problem_formulation A.6.4): the pre-registered dose-response measures
+(``docs/experimental/separability.md``, fourth experiment).
 
-    python3 scripts/experimental/dose_analysis.py [--condition A] [--mu 1.3 2.0]
+    python3 scripts/study3_measurement/dose_analysis.py [--condition A] [--mu 1.3 2.0]
 
 For each redesigned hand H (latest ``two_pad_wrench.py`` run per hand, mu, condition, radius, impratio 1000), over the
 placement-direction pairs where O and H both pass Gate 0 at both mu: the interface effect D(H, d) = F_limit(mu_hi) -

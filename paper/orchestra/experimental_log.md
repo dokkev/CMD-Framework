@@ -198,7 +198,7 @@ Readings:
 
 Source: `docs/experimental/separability.md` (experiments 3–8, pre-registration and amendments),
 logs `sim/isaaclab/logs/experimental/two_pad/` (dose_{A,B,C}_*.json, impedance.json), scripts
-`sim/isaaclab/scripts/experimental/two_pad_wrench.py`, `dose_analysis.py`, `impedance_analysis.py`.
+`sim/isaaclab/scripts/study3_measurement/two_pad_wrench.py`, `dose_analysis.py`, `impedance_analysis.py`.
 
 Setup. Isaac Lab 3 + Newton 1.6.1 / MuJoCo-Warp (implicitfast, elliptic cone, impratio 1000, 2 substeps,
 dt 1/120 s, contact stiffness ke 2.5e3 N/m per shape). Three fingers of the CoDe hand model, each a CFL design;

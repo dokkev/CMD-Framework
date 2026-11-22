@@ -1,10 +1,10 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental: the pre-registered measures from ``two_pad_wrench.py`` runs (latest run per hand, mu, condition,
-radius). See ``docs/experimental/separability.md`` (third experiment, Stage B).
+"""Study 3 measurement (problem_formulation A.6.4): the pre-registered measures from ``two_pad_wrench.py`` runs (latest
+run per hand, mu, condition, radius). See ``docs/experimental/separability.md`` (third experiment, Stage B).
 
-    python3 scripts/experimental/two_pad_analysis.py --mu 1.3 2.0 [--condition B] [--validate]
+    python3 scripts/study3_measurement/two_pad_analysis.py --mu 1.3 2.0 [--condition B] [--validate]
 
 --validate: the friction check on O alone (condition A): placements passing Gate 0 at mu_lo (needs >= 8) and the
 ratio of the slipping pad's |f_t|/|f_n| at slip, hi over lo (needs 1.3-1.7).

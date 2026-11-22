@@ -1,10 +1,11 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Experimental (playground, not the SSoT): a cylinder held by both pads, free in the plane, loaded until the grasp
-gives way; is a pad-friction effect on that load measured alike after each redesign, with the distal force matched?
+"""Study 3 measurement (problem_formulation A.6.4): a cylinder held by both pads, free in the plane, loaded until the
+grasp gives way; is a pad-friction effect on that load measured alike after each redesign, with the distal force
+matched?
 
-    uv run python scripts/experimental/two_pad_wrench.py --hand O|R|U --mu MU --condition A|B [--radius_mm 15|20]
+    uv run python scripts/study3_measurement/two_pad_wrench.py --hand O|R|U --mu MU --condition A|B [--radius_mm 15|20]
 
 Pre-registered in ``docs/experimental/separability.md`` (third experiment, Stage B). Hands O, R, U (CFL, 120 deg,
 3 -> 7 mm, flat pads with friction ``mu``; the cylinder's own coefficient is 0.01). Placements from e17
@@ -44,12 +45,11 @@ import numpy as np
 import torch
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "study3"))
 sys.path.insert(0, str(HERE))
 import common  # noqa: E402
-from separability_quasistatic import FINGER_Y_M, HAND_Z, HANDS, MCP_X_M, proximal_face_z  # noqa: E402
+from common import FINGER_Y_M, HAND_Z, HANDS, MCP_X_M, proximal_face_z  # noqa: E402
 
-OUT = common.SIM_ROOT / "logs" / "experimental" / "two_pad"
+OUT = common.LOG_ROOT
 GRASPS_JSON = common.SIM_ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "two_pad_grasps.json"
 S2 = math.sqrt(0.5)
 DIRECTIONS = {"+x": (1.0, 0.0), "+x-z": (S2, -S2), "-z": (0.0, -1.0), "-x": (-1.0, 0.0)}  # proximal-face frame
