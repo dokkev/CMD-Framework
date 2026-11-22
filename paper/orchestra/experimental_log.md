@@ -268,3 +268,9 @@ Statistics added: friction (A) ρ 0.83, hand bootstrap 95% [0.41, 1.00]; partial
 [0.64, 1.00]. Study 1: CFL > 2R-DD in all 10 conditions without the CFL refinement (+0.5 to +14.3); with pad
 length over fixed L_f, CFL > 2R-remote in every condition beyond 3 mm. Study 2: within 2 coverage points of the
 front's end, 2R-DD and RCJ stay above the CFL's Δ_contact in every cell where they have a design.
+
+Hand-independent placement grid (cylinder on each hand's proximal pad at x_c in a fixed grid, commands q0 + 5° with
+q0 85–115°, friction μ 1.3 → 2.0, reused command): all 18 hands hold; ρ(E, Δ_contact) = 0.69 [0.24, 0.92], p 0.001;
+partial given Δ_skel 0.68 [0.21, 0.92]; Δ_skel +0.18, coverage −0.10, thickness +0.13, transmission −0.37 (intervals
+contain zero). Reused torque: Δ_contact 0.75 [0.38, 0.93], others contain zero; R about half of U's error at each
+thickness (5/17/12 % vs 9/28/23 %).
