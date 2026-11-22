@@ -535,19 +535,31 @@ $$
 
 2026-11-20까지 Study 1은 native 설계에 module 목록 $\mathcal C_{\mathrm{cat}}$을 이 규칙으로 달아 수용 여부를 세는 실험이었다(`report/study1/`). 그 결과는 보조 자료로 남긴다.
 
-### A.6.3. Study 2: interface가 바뀌어도 relative contact trajectory를 지킬 수 있는가
+### A.6.3. Study 2: interface가 바뀌어도 proximal phalanx에서 본 distal 접촉점의 경로를 지킬 수 있는가
 
-Study 1은 접촉면을 얼마나 확보하는가를 묻고, Study 2는 그 접촉면이 서로에 대해 어떻게 움직이는지, 곧 relative contact trajectory를 묻는다. 더 두꺼운 contact interface를 쓰려고 손가락을 다시 설계할 때, relative contact trajectory를 기존 손가락과 같게 유지할 수 있는가, 그리고 그때 coverage는 얼마나 남는가. Contact interface를 독립 변수로 다루려면 접촉이 일어나는 면의 운동이 유지되어야 하고, 뼈대의 운동은 그 수단이다. 이 실험에서는 relative contact trajectory가 처음으로 설계의 목표가 된다. Study 0의 P4가 결과를 예측한다.
+Study 1은 접촉면을 얼마나 확보하는가를 묻고, Study 2는 그 접촉면이 서로에 대해 어떻게 움직이는지를 묻는다. 더 두꺼운 contact interface를 쓰려고 손가락을 다시 설계할 때, proximal phalanx에서 본 distal 접촉점의 경로(아래의 $\mathbf c(M,q)$, 줄여서 접촉점 경로)를 기존 손가락과 같게 유지할 수 있는가, 그리고 그때 coverage는 얼마나 남는가. Contact interface를 독립 변수로 다루려면 접촉이 일어나는 면의 운동이 유지되어야 하고, 뼈대의 운동은 그 수단이다. 이 실험에서는 접촉점 경로가 처음으로 설계의 목표가 된다. Study 0의 P4가 결과를 예측한다.
 
 **기준 손가락과 새 interface.** 구조 $K$와 요구 flexion $q_{\mathrm{req}}$마다, Study 1에서 가장 얇은 두께 $h_0$에 최적화한 설계 $M_0=M^\star_K(h_0)$를 기준 손가락으로 둔다(본 실험 $h_0=3$ mm). 새 interface는 Study 1의 격자에서 더 두꺼운 두께 $h>h_0$이다. 얇은 쪽으로 바꾸는 경우는 다루지 않는다. 기존 손가락에 그대로 달 수 있어 다시 설계할 이유가 없기 때문이다.
 
-**Relative contact trajectory와 그 변화.** Proximal contact face의 직선을 기준으로 잰, distal contact face 위의 손끝 아래 점 $\mathbf c(M,q)$의 경로를 relative contact trajectory라 한다. 두 face는 어느 설계에서나 $q$만큼 돌므로, 한 점의 경로가 face의 자세를 정한다. 이 경로는 flexion $q$로 매개화되며 시간의 함수가 아니다. Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록한다.
+**기준 좌표계.** Proximal phalanx에 붙어 MCP에서 함께 도는 좌표계 $\mathcal F_p$를 쓴다. 원점은 MCP 축에서 proximal contact face에 내린 수선의 발, $x$축은 face를 따라 손끝 쪽, $z$축은 face의 법선이다. Proximal contact face는 이 좌표계에서 고정된 직선 $z=0$이다.
+
+**접촉점 경로와 그 자코비안.** Distal contact face 위의 손끝 아래 점을 $\mathcal F_p$에서 본 위치를 $\mathbf c(M,q)$라 한다. 이 경로는 flexion $q$로 매개화되며 시간의 함수가 아니다. 그 자코비안은 다음과 같다.
+
+$$
+\mathbf J(M,q)=\frac{d}{dq}\begin{bmatrix}\mathbf c(M,q)\\ \varphi(M,q)\end{bmatrix}=\begin{bmatrix}\mathbf c'(M,q)\\ 1\end{bmatrix}
+$$
+
+두 face는 어느 설계에서나 $q$만큼 돌므로($\varphi=q$, 명제 4) 한 점의 경로가 distal face의 자세를 정하고, 설계는 $\mathbf c'(M,q)$로만 다르다. $\mathbf c'$는 distal face가 proximal face에 대해 도는 순간 회전 중심(pole)의 위치와 같은 정보다. $\mathbf J$는 손바닥 좌표계에서 본 손가락 contact Jacobian의 PIP 열이다. MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.2). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다.
+
+**그 변화.**
 
 $$
 D_c(M,M_0)=\frac{1}{L_f}\max_{q\in[0,\,q_{\mathrm{req}}]}\big\|\mathbf c(M,q)-\mathbf c(M_0,q)\big\|
 $$
 
-뼈대의 운동 변화 $D_s$는 같은 식을 손끝 $\mathbf r_C$의 경로로 잰 것이며 함께 보고한다.
+$\mathbf c(M,q)-\mathbf c(M_0,q)=[\mathbf c(M,0)-\mathbf c(M_0,0)]+\int_0^q\big(\mathbf c'(M,s)-\mathbf c'(M_0,s)\big)\,ds$이다. 그래서 $q=0$의 자세가 같으면, $D_c=0$과 $[0,q_{\mathrm{req}}]$에서 $\mathbf J$가 같다는 것은 동치이다. 일반적으로 $D_c\le\big(\|\Delta\mathbf c(0)\|+\int_0^{q_{\mathrm{req}}}\|\Delta\mathbf J\|\,dq\big)/L_f$이다. 원점을 proximal contact face 위에 두므로 pad 깊이의 차이 자체는 $D_c$에 들어가지 않는다.
+
+뼈대의 운동 변화 $D_s$는 같은 식을 $\mathcal F_p$에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며 함께 보고한다.
 
 **다시 설계.** 두께 $h$에서 두 목적을 함께 최적화한다.
 
@@ -560,14 +572,14 @@ $$
 $$
 
 - 탐색 공간, 제약, 장착 규칙은 Study 1과 같다(가장 얕은 깊이, spacer 없음). 목적함수의 coverage도 Study 1의 원기둥 기준 $\bar C_{\mathrm{pad}}$ 그대로이다.
-- Coverage의 하한은 두지 않는다. 결과는 front이며, relative contact trajectory를 얼마나 지키면 coverage가 얼마나 남는지를 그대로 보인다.
+- Coverage의 하한은 두지 않는다. 결과는 front이며, 접촉점 경로를 얼마나 지키면 coverage가 얼마나 남는지를 그대로 보인다.
 - Study 1의 설계 $M^\star_K(h)$는 이 탐색의 초기해이므로 front의 coverage 쪽 끝은 $\bar C^\star_K(h)$보다 낮지 않다. 더 높게 나오면 Study 1의 탐색이 최적에 못 미친 것이므로 그 값을 함께 보고한다.
 
 **보고.** 구조, $q_{\mathrm{req}}$, 두께마다
 - front $\{(D_c,\bar C_{\mathrm{pad}})\}$;
 - 변화가 가장 작은 설계의 $D_c^{\min}$과 그 coverage, coverage가 가장 높은 설계의 coverage와 그 $D_c$;
 - 고정 축의 하한 $2\sin(q_{\mathrm{req}}/2)\,(h-h_0)/L_f$ (A.6.0 P4);
-- Study 1의 설계 $M^\star_K(h)$의 $D_c$(relative contact trajectory를 목표로 주지 않았을 때의 값);
+- Study 1의 설계 $M^\star_K(h)$의 $D_c$(접촉점 경로를 목표로 주지 않았을 때의 값);
 - 뼈대의 변화 $D_s$, pad 길이, $q_{\max}$, $MA_{\mathrm{wc}}$.
 
 결과는 seed를 바꿔 반복해 front를 합친다.
@@ -575,9 +587,9 @@ $$
 **확인하는 것 (P4).**
 - 고정 축(2R-remote)은 어떤 다시 설계로도 $D_c$가 하한보다 작아지지 않는다. Front는 그 하한의 한 점으로 모인다.
 - 2R-DD와 RCJ는 장착 깊이를 줄인 만큼만 하한보다 작다.
-- CFL은 하한보다 훨씬 작은 $D_c$로 다시 설계되며, 그때 coverage는 $\bar C^\star_K(h)$에 가깝다(relative contact trajectory를 지키는 것과 pad 길이를 지키는 것은 같은 조건이므로). 두께가 늘면서 이것이 어디까지 성립하는지가 결과이다.
+- CFL은 하한보다 훨씬 작은 $D_c$로 다시 설계되며, 그때 coverage는 $\bar C^\star_K(h)$에 가깝다(접촉점 경로를 지키는 것과 pad 길이를 지키는 것은 같은 조건이므로). 두께가 늘면서 이것이 어디까지 성립하는지가 결과이다.
 
-**해석.** $D_c^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 relative contact trajectory와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $D_s$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 relative contact trajectory가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $D_c^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 relative contact trajectory가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 relative contact trajectory의 변화를 최소화한다.
+**해석.** $D_c^{\min}$이 작고 그때의 coverage가 높은 구조는, interface가 두꺼워져도 접촉점 경로와 접촉면의 양을 함께 지키도록 다시 설계할 수 있다. 이때 바뀌는 것은 mechanism 내부와 뼈대의 운동 $D_s$이다. Front가 하한의 한 점에 모이는 구조는 interface가 두꺼워지면 접촉점 경로가 반드시 바뀐다. 해를 찾지 못했다는 것은 주어진 탐색 범위와 예산 안에서 찾지 못했다는 뜻이며, $D_c^{\min}$은 찾은 값이지 증명된 최솟값이 아니다. 이 결과는 2차원 측면 모델, 두 pad의 두께가 같은 경우, 장착 규칙(spacer 없음) 안에서의 비교이다. 얇은 pad를 spacer로 가장 두꺼운 pad의 깊이까지 올려 달면 어느 구조에서나 접촉점 경로가 유지된다. 그러나 이것은 interface가 쓸 공간을 기능 없는 받침으로 채우고, 얇은 interface마다 깊은 설계의 coverage만 남기며(120°에서 3 mm를 9 mm 설계에 달면 CFL 8.6 %p, 2R-remote 18.2 %p 손실), 쓸 수 있는 가장 두꺼운 interface를 미리 정해야 한다. 그래서 spacer는 비교 대상이 아니라 요구조건으로 배제한다. 모든 interface는 자기 두께의 가장 얕은 깊이에 달고, 그 조건 아래에서 접촉점 경로의 변화를 최소화한다.
 
 ### A.6.4. Study에서 다루지 않는 것
 
@@ -631,7 +643,8 @@ $$
 | $G$, $G_{\mathrm{sym}}$, $q^\ast$ | 관절 간격(기준 자세에서 두 pad의 관절 쪽 끝 사이 길이), 대칭 clearance 법칙이 주는 값, 그것을 정하는 임계 flexion |
 | $m(q)$ | 자세 $q$에서 두 pad의 정확한 clearance: 분리축에서의 틈의 최댓값(0: 맞닿음, 음수: 겹침) (Study 0, 명제 1) |
 | $\mathbf p(q)$, $\mathbf c(M,q)$ | Contact face를 기준으로 본 pole의 위치, proximal contact face를 기준으로 본 distal contact face 위의 점의 경로 |
-| $D_c(M,M')$, $D_s(M,M')$ | 두 손가락의 relative contact trajectory의 차이, 뼈대(손끝) 운동의 차이. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
+| $D_c(M,M')$, $D_s(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
+| $\mathcal F_p$, $\mathbf c(M,q)$, $\mathbf J(M,q)$ | Proximal phalanx 좌표계(MCP에서 함께 돎, 원점은 proximal contact face 위), 그 좌표계에서 본 distal 접촉점의 경로, 그 경로와 distal face 자세의 $q$에 대한 자코비안 $[\mathbf c';1]$ (손가락 contact Jacobian의 PIP 열; Study 2) |
 | $M_0$, $h_0$, $D_c^{\min}$ | Study 2의 기준 손가락(가장 얇은 두께 $h_0$의 Study 1 설계)과, 더 두꺼운 두께에서 다시 설계해 찾은 가장 작은 $D_c$ |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
