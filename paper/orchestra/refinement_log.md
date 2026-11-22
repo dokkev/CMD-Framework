@@ -16,6 +16,7 @@
 | v11 | 7b198b9 | 5, 6, 5 | — | fixed-axis family with the skeleton kept exactly (95/179/228%), offset-free Study 2, C2 restated |
 | v12 | 00b632e | 6, 6, 6 | — | Stage 2 protocol, spacers and 2R-remote treated fairly, Holm, post hoc label, Fig. 1 legend |
 | v13 | 8f3ecd0 | 6, 5, 6 | — | new north star (C1 room, C2 contact Jacobian), H1-H3 per study, Study 3 setup per A.6.4, new title, CAD Fig. 1; reviewers read the PDF |
+| v14 | d7691f1 | — (failed), 6, 6 | — | short contributions, Study 1 as ablation + MA, Study 3 two routes (post hoc mediation), magnitudes, Stage 2 test; r1 stopped by an API safeguard error |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -110,3 +111,12 @@ fixed (partial 0.80 [0.37, 0.95]); under the command, Delta_contact sets the for
 polycentric joint keeps it at deep flexion), MA_wc 0.41-0.58. H3 restores "fails if Delta_contact misses in any
 setting". Robustness with magnitudes (stiffness sweep R 14-26%, U 44-131%), load-step resolution, Stage 2 effect
 size and test, C1 hardware failure line. Contributions shortened; scope sentences moved to the design section.
+
+v14 (r1 stopped by an API safeguard error, not a score): r2 6 (up from 5), r3 6. r2: the reused-command result is
+close to built in (force); H3 is comparative but candidates are tested only against zero; Stage 2's R vs U cannot
+single out Delta_contact; one contact model for all pads. r3: Study 1's Eq. (3) explanation had the wrong sign (the
+cause is the fixed-axis gap, 2 tan(q/2) per mm); "the CFL can keep it" overclaims (10-51% of the bound), with a
+non-zero floor from the pivots; H1 baseline. v15 answers: the gap-law explanation, "cuts its change to a fraction",
+the floor (lowering the pole path by Delta_h would move the pivots into the pad), direct comparisons (Delta_contact
+ranks first in every setting; beats coverage, thickness or transmission in 7 of 12 bootstrap intervals; Delta_skel
+separated by the fixed-axis family), the gap law's maximum error (1.6 mm), all 45 grid hands hold.

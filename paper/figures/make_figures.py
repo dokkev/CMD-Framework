@@ -265,7 +265,7 @@ CAD = Path(__file__).resolve().parent / "cad"
 def fig_overview():
     """Fig. 1: the CoDe hand (CAD, C1) and why a redesign keeps the contact Jacobian (simulation, C2)."""
     import json
-    fig = plt.figure(figsize=(W, 1.95))
+    fig = plt.figure(figsize=(W, 1.78))
     outer = fig.add_gridspec(1, 3, width_ratios=[1.3, 1.8, 1.3], wspace=0.24)
     ax = fig.add_subplot(outer[0])
     img = plt.imread(CAD / "code_hand_iso.png")
