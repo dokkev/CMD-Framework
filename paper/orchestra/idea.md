@@ -7,7 +7,8 @@ pre-registered gates and amendments) with the logs in `sim/isaaclab/logs/experim
 Study 3 is now a simulation result (C2.3), with its scope stated: reused joint-position (impedance) commands,
 CFL, q_req 120°, 3→5/7/9 mm, a free cylinder held by two pads, rigid contact (MuJoCo-Warp).
 
-Story and contributions (north-star, rewritten 2026-11-22; the north star fixes the paper's story):
+Story and contributions (north-star, rewritten 2026-11-22; the north star fixes the paper's story). Naming: P
+problems, C contributions, H a study's hypotheses, R its safe claims (research-objective §6).
 - P1 No room beyond the fingertip: research hands are mostly chains of servos at the joints (easy to build,
   model, simulate; tendon/linkage hands free the joints but pay in modelling). A proximal pad beside a servo
   must be thin or cost range of motion; each new interface is a redesign; interfaces and manipulation gather
@@ -144,8 +145,8 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - **Corollary (fixed-axis bound).** Redesigning a fixed-axis finger so the faces move Δh − Δd away from the
   axis: max_q ‖Δc‖ ≥ 2 sin(q_req/2)|Δh − Δd| wherever the new axis is (equality if it does not move along the
   face). Same for rolling joint with fixed roller radius.
-- Predictions: (H1-empirical) at a coverage optimum pad–pad contact is often active; (P2) C̄_pad reproduced
-  from pole path + pads; (P3) fixed axes lose pad length as tan(q_req/2), a descending pole need not; (P4)
+- Predictions: (H0.1, empirical) at a coverage optimum pad–pad contact is often active; (H0.2) C̄_pad reproduced
+  from pole path + pads; (H0.3) fixed axes lose pad length as tan(q_req/2), a descending pole need not; (H0.4)
   under redesign only a joint that moves its pole can beat the bound.
 
 ## 7. Studies 1–2 (computational validation)
@@ -165,7 +166,9 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 
 ## 8. Hypotheses for the paper (RSS Stage 1: hypotheses + methods complete, experiments may be preliminary)
 
-Superseded framing (H1–H4) maps to the two contributions: H1 → C1; H2 → C2.1–C2.2; H3 → C2.3; H4 → Stage 2 of both.
+Naming (SSoT 2026-11-22): P problems and C contributions (north star); per study, H hypotheses and R safe claims
+(research-objective §6). Study 0: R0.1 room laws, R0.2 motion laws, H0.1–H0.4 predictions. H1/R1 (Study 1) → C1;
+H2/R2 (Study 2) → C2.2; H3/R3 (Study 3) → C2.3. The v2-era H1–H4 framing is superseded.
 - C2.3 (Study 3, simulation): with reused position commands, the error in a measured interface effect follows
   the change in contact-surface motion, not the skeleton's change. Effect Δ(H) = F(H, c₁) − F(H, c₀) of an
   interface change (pad friction μ 1.3 → 2.0) on the load F a free cylinder held by two pads takes before the

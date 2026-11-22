@@ -8,7 +8,7 @@ On servo-driven research hands a contact interface beyond the fingertip either d
 
 ## The problem
 
-Contact is central to dexterous manipulation, and the contact interface sets that contact. Research hands are mostly chains of servos at the joints, because such hands are easy to build, model and simulate.
+Contact is central to dexterous manipulation, and the contact interface sets that contact. Many research hands are chains of servos at the joints, because such hands are easy to build, model and simulate.
 
 - **P1 — No room beyond the fingertip.** Servos and joints occupy the space a contact interface needs. A proximal pad must be thin or cost range of motion, and every new interface is a redesign. Interfaces, and the manipulation studied with them, gather at the fingertip; the lack of room and the fingertip focus reinforce each other (an observation that motivates the work, not a claim).
 - **P2 — The redesign becomes a second variable.** A finger redesigned for an interface changes with it, so a measured difference mixes the interface with the hand's change. Keeping the skeleton does not help: the object meets the contact surfaces, not the skeleton.
@@ -23,13 +23,13 @@ Contact is central to dexterous manipulation, and the contact interface sets tha
 
 Two contributions, one per problem. Each is a claim to be tested, with a stated way to fail, and each is checked on hardware in the next stage.
 
-- **C1 — A finger with room for thick pads.** A remote-actuated CFL finger meets its required flexion and keeps more contact surface than a servo-at-joint finger as pads thicken and flexion deepens. *Fails if* the servo-at-joint finger matches it in any condition.
+- **C1 — A finger with room for thick pads.** A remote-actuated CFL finger meets its required flexion and keeps more contact surface than a servo-at-joint finger at every pad thickness and required flexion. *Fails if* the servo-at-joint finger matches it in any condition.
 - **C2 — A redesign that keeps the contact Jacobian.**
   1. A fixed axis cannot keep it when an interface changes depth, and the change has a lower bound.
   2. The CFL can keep it, well inside that bound, at near-best contact surface.
   3. It is what matters: when commands are reused across redesigns, the error in a measured interface effect follows its change, not the skeleton's.
 
-  *Fails if* the CFL reaches the bound, or if another design quantity predicts the error as well.
+  *Fails if* the CFL reaches the bound, or if another design quantity predicts the error as consistently.
 
 ## How the paper tells it
 
