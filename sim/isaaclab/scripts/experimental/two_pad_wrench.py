@@ -13,7 +13,10 @@ above each hand's own proximal face; one environment per placement and load dire
 
 1. The cylinder is held by stiff drives on its planar joints (x, z slides and y spin) while the PIP closes to
    q0 + ``--delta_deg``; the drives are then released over 30 steps and the grasp settles (Gate 0, release).
-2. Condition B: the PIP command is adjusted by force feedback until the distal pads' total normal force equals O's
+2. Condition C (joint-torque reuse): after closing in position control on the held cylinder, the PIP hands over
+   (30 steps, stiffness to 0) to a feedforward torque, O's flexion torque per finger at its condition-A grasp
+   through this hand's own dtheta/dq; then the cylinder is released.
+   Condition B: the PIP command is adjusted by force feedback until the distal pads' total normal force equals O's
    (condition A, same mu and placement, latest run).
 3. A force on the cylinder's centre rises at ``--rate`` N/s along d (proximal-face frame, object on z < 0):
    +x (to the tip), +x-z, -z (off the face), -x (to the MCP). F_limit is the load at the first of: slip (a pad
@@ -67,14 +70,39 @@ def o_targets(mu: float, radius: float) -> dict:
     return {(e["rho_mm"], e["q0_deg"], e["direction"]): e["pre"]["n_distal_total"] for e in d["envs"]}
 
 
+def o_torques(mu: float, radius: float) -> dict:
+    """Condition C: O's flexion torque per finger at its condition-A grasp [N m], (index, middle, ring) per
+    (radius, q0, direction). Exact for the scheduled servo PD at rest: tau_theta = K_q / r(q*)^2 (theta(q_cmd) -
+    theta(q*)), tau_q = tau_theta r(q*), with O's transmission theta(q) and r = dtheta/dq at q*."""
+    from code_isaaclab.joint_map import flexion_maps
+
+    runs = sorted(glob.glob(str(OUT / f"tp_O_mu{mu:g}_A_r{radius:g}_*.json")))
+    runs = [r for r in runs if json.loads(Path(r).read_text()).get("impratio") == 1000.0]
+    if not runs:
+        raise FileNotFoundError(f"condition C needs O's condition A run at mu {mu:g}, radius {radius:g} mm")
+    d = json.loads(Path(runs[-1]).read_text())
+    maps = flexion_maps(json.loads(HANDS["O"].read_text()))
+    out = {}
+    for e in d["envs"]:
+        qc = math.radians(e["q_cmd_deg"])
+        taus = []
+        for f, q_deg in zip(FINGERS, e["pre"]["q_finger_deg"]):
+            m, q = maps[f], math.radians(q_deg)
+            r = float(m.ratio(q))
+            taus.append(K_Q * float(m.servo(qc) - m.servo(q)) / r)
+        out[(e["rho_mm"], e["q0_deg"], e["direction"])] = taus
+    return out
+
+
 def main(argv=None) -> int:
     from isaaclab_tasks.utils import setup_preset_cli
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hand", required=True,
-                        help="O, R, U, or the suffix of another Study 3 hand (cfl_q120_h3to7_<suffix>.json, e.g. d2p25_s0)")
+                        help="O, R, U, the suffix of another 3 -> 7 mm hand (cfl_q120_h3to7_<suffix>.json, e.g. d2p25_s0), "
+                             "or h3to<t>_<suffix> for another thickness (e.g. h3to5_hr)")
     parser.add_argument("--mu", type=float, required=True)
-    parser.add_argument("--condition", default="A", choices=("A", "B"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C"))
     parser.add_argument("--delta_deg", type=float, default=5.0)
     parser.add_argument("--rate", type=float, default=2.0, help="load ramp [N/s]")
     parser.add_argument("--max_force", type=float, default=80.0)
@@ -102,8 +130,9 @@ def main(argv=None) -> int:
     from code_isaaclab.tasks.reorient.code_env_cfg import CoDeReorientMainEnvCfg
 
     physics = next((t.split("=", 1)[1] for t in hydra_args if t.startswith("physics=")), "newton_mjwarp")
-    if args.hand not in HANDS:
-        HANDS[args.hand] = HANDS["O"].with_name(f"cfl_q120_h3to7_{args.hand}.json")
+    if args.hand not in HANDS:  # "<suffix>" for a 3 -> 7 mm hand, "h3to<t>_<suffix>" for another thickness
+        stem = args.hand if args.hand.startswith("h3to") else f"h3to7_{args.hand}"
+        HANDS[args.hand] = HANDS["O"].with_name(f"cfl_q120_{stem}.json")
     desc = json.loads(HANDS[args.hand].read_text())
     face = proximal_face_z(desc)
     face_w = HAND_Z - face  # world height of this hand's proximal contact face (palm up: the object sits above it)
@@ -111,7 +140,8 @@ def main(argv=None) -> int:
     placements = placements[: args.only]
     envs = [(g, name) for g in placements for name in DIRECTIONS]
     targets = o_targets(args.mu, args.radius_mm) if args.condition == "B" else None
-    results = run_pass(args, physics, face_w, args.radius_mm, envs, targets, ImplicitActuatorCfg, launch_simulation,
+    torques = o_torques(args.mu, args.radius_mm) if args.condition == "C" else None
+    results = run_pass(args, physics, face_w, args.radius_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
                        ArticulationCfg, ContactSensorCfg, sim_utils, configclass, write_planar_cylinder_usd,
                        FlexionEMAActionCfg, get_hand, ASSET_DIR, cylinder_cfg, register_description_hand,
                        CoDeReorientMainEnvCfg)
@@ -140,7 +170,7 @@ def finish(args, physics, results) -> int:
     return 0
 
 
-def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, launch_simulation,
+def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActuatorCfg, launch_simulation,
              ArticulationCfg, ContactSensorCfg, sim_utils, configclass, write_planar_cylinder_usd, FlexionEMAActionCfg,
              get_hand, ASSET_DIR, cylinder_cfg, register_description_hand, CoDeReorientMainEnvCfg) -> list[dict]:
     rho = rho_mm * 1e-3
@@ -263,6 +293,20 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
                     "other_n": total[:, other_cols].norm(dim=-1).sum(dim=1)}
 
         q_cmd = torch.tensor([g["q0_deg"] + args.delta_deg for g, _ in envs], device=dev)
+        tau_scale = [0.0]
+        tau_q = None if torques is None else torch.tensor(
+            [[torques[(g["rho_mm"], g["q0_deg"], d)][FINGERS.index(f)] for f in pip_fingers] for g, d in envs],
+            device=dev)
+
+        def step(action):  # condition C: the PIP servos also get O's flexion torque through this hand's own ratio
+            if tau_q is not None and tau_scale[0] > 0.0:
+                theta = common.torch_of(robot.data.joint_pos)[:, servo_ids]
+                r = torch.stack([term._tables.ratio(names[k], term._tables.flexion(names[k], theta[:, i]))
+                                 for i, k in enumerate(pip)], dim=1)
+                robot.set_joint_effort_target_index(target=(tau_scale[0] * tau_q / r).contiguous(),
+                                                    joint_ids=servo_ids)
+            env.step(action)
+
         tick = [0]
 
         def report(phase: str):
@@ -276,12 +320,24 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
                     f"slip {1e3 * float(s_['slip'][e].max()):6.2f}" for e in range(0, n, len(DIRECTIONS))))
         for i in range(40):  # 1: close on the held cylinder
             load(0.0)
-            env.step(command(q_cmd * (i + 1) / 40))
+            step(command(q_cmd * (i + 1) / 40))
             report("close")
         for _ in range(30):
             load(0.0)
-            env.step(command(q_cmd))
+            step(command(q_cmd))
             report("hold")
+        if tau_q is not None:  # condition C: position control hands over to O's torque, the cylinder still held
+            for i in range(30):
+                s_ = (i + 1) / 30
+                term.cfg.flexion_stiffness = K_Q * (1.0 - s_)
+                tau_scale[0] = s_
+                load(0.0)
+                step(command(q_cmd))
+                report("switch")
+            for _ in range(30):
+                load(0.0)
+                step(command(q_cmd))
+                report("torque")
         for i in range(30):  # release the drives
             s = 1.0 - (i + 1) / 30
             cyl.write_joint_stiffness_to_sim_index(stiffness=torch.full((n, 2), 1.0e5 * s, device=dev),
@@ -291,7 +347,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
             cyl.write_joint_stiffness_to_sim_index(stiffness=torch.full((n, 1), 10.0 * s, device=dev), joint_ids=[js])
             cyl.write_joint_damping_to_sim_index(damping=torch.full((n, 1), 0.1 * s + 1e-4, device=dev), joint_ids=[js])
             load(0.0)
-            env.step(command(q_cmd))
+            step(command(q_cmd))
             report("release")
 
         def settle(steps: int, feedback: torch.Tensor | None = None) -> tuple[dict, torch.Tensor, torch.Tensor]:
@@ -300,7 +356,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
             spin = torch.zeros(n, device=dev)
             for k in range(steps):
                 load(0.0)
-                env.step(command(q_cmd))
+                step(command(q_cmd))
                 report("settle")
                 st = state()
                 if feedback is not None:
@@ -350,7 +406,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
         for i in range(steps):
             f = args.rate * dt * (i + 1)
             load(f)
-            env.step(command(q_cmd))
+            step(command(q_cmd))
             s = state()
             disp = 1e3 * (s["centre"] - c0)[:, [0, 2]].norm(dim=-1)
             vmax, pad = s["slip"].max(dim=1)
@@ -399,6 +455,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, ImplicitActuatorCfg, 
                 "rho_mm": g["rho_mm"], "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": dname,
                 "q_star_predicted_deg": g.get(args.hand), "q_cmd_deg": float(q_cmd[e]),
                 "target_n_distal": None if goal is None else float(goal[e]),
+                "target_tau_q_nm": None if tau_q is None else tau_q[e].tolist(),
                 "release": {"q_star_deg": np.degrees(st_rel["q_star"][e].cpu().numpy()).tolist(),
                             "n_proximal_total": float(st_rel["mag"][e, 0::2].sum()),
                             "n_distal_total": float(st_rel["mag"][e, 1::2].sum()),

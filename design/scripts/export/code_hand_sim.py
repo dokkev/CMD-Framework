@@ -9,7 +9,7 @@ The description is what ``sim/`` builds its robot assets from, so ``sim/`` never
   centre of mass, and a capsule (start, end, radius) for drawing and contact. Orientation is the hand frame's.
   With pads in the parameters, a finger's ``proximal`` and ``distal`` bodies also carry their pad as a box
   (``boxes``: centre, orientation as a ``wxyz`` quaternion in the hand frame, half extents), and their capsule
-  radius is the pads' mounting offset, so the link structure stays above the pad's mounting face.
+  radius is that pad's mounting offset, so the link structure stays above the pad's mounting face.
 - ``collision``: ``filtered_pairs`` of bodies that must not collide with each other: every pair within one digit
   (the four-bar's links overlap at their pins by construction) except a finger's proximal and distal segments,
   whose pads must keep clear of each other, and the palm with every body (its capsule is a placeholder).
@@ -118,7 +118,7 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
     joints, loops, tables = [], [], {}
     servo_zero = pip_servo_deg(f, 0.0)
     pads = parameters.pads
-    link_radius = 6.0 if pads is None else pads.mount_offset_mm
+    link_radius = (6.0, 6.0) if pads is None else pads.mount_offsets_mm  # proximal, distal
     digit_bodies = {}
     for d in FINGERS:
         aa, fe, a, ap, b, bp = (frames.axes[f"{d}/{k}"] for k in ("aa", "fe", "A", "Ap", "B", "Bp"))
@@ -127,10 +127,10 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         tables[d] = table
         bodies += [
             _body(f"{d}_mcp", aa[0], 0.008, (aa[0] + fe[0]) / 2, aa[0], fe[0], 6.0, servos=1),
-            _body(f"{d}_proximal", fe[0], 0.012, (fe[0] + ap[0]) / 2, fe[0], a[0], link_radius, servos=1),
+            _body(f"{d}_proximal", fe[0], 0.012, (fe[0] + ap[0]) / 2, fe[0], a[0], link_radius[0], servos=1),
             _body(f"{d}_servo_link", ap[0], 0.003, (ap[0] + b[0]) / 2, ap[0], b[0], 2.5),
             _body(f"{d}_driver_link", a[0], 0.003, (a[0] + bp[0]) / 2, a[0], bp[0], 2.5),
-            _body(f"{d}_distal", b[0], 0.010, (b[0] + c) / 2, bp[0], c, link_radius),
+            _body(f"{d}_distal", b[0], 0.010, (b[0] + c) / 2, bp[0], c, link_radius[1]),
         ]
         digit_bodies[d] = [body["name"] for body in bodies[-5:]]
         if pads is not None:

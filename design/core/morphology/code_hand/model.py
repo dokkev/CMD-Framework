@@ -203,13 +203,13 @@ class CoDeHand:
         axes.update({f"{digit}/{n}": (plane(getattr(pins, n.lower())), fe_dir) for n in ("A", "Ap", "B", "Bp")})
         pads = {}
         if (pad := self.parameters.pads) is not None:
-            depth = pad.mount_offset_mm + pad.thickness_mm / 2.0
+            depth_p, depth_d = (m + pad.thickness_mm / 2.0 for m in pad.mount_offsets_mm)
             half = lambda length: np.array([length / 2.0, pad.thickness_mm / 2.0, pad.width_mm / 2.0])
             mid = (pad.proximal_start_mm + pad.proximal_end_mm) / 2.0
-            pads[f"{digit}/proximal_pad"] = PadBox(proximal @ trans(mid, depth, 0.0),
+            pads[f"{digit}/proximal_pad"] = PadBox(proximal @ trans(mid, depth_p, 0.0),
                                                   half(pad.proximal_end_mm - pad.proximal_start_mm))
             # The distal frame turns with the distal segment: rz(pip) in the proximal X-Y plane.
-            mid = _rot2(-q.pip_deg) @ np.array([(pad.distal_start_mm + pad.distal_end_mm) / 2.0, -depth])
+            mid = _rot2(-q.pip_deg) @ np.array([(pad.distal_start_mm + pad.distal_end_mm) / 2.0, -depth_d])
             centre = pins.b + mid
             pads[f"{digit}/distal_pad"] = PadBox(proximal @ trans(centre[0], -centre[1], 0.0) @ rz(q.pip_deg),
                                                 half(pad.distal_end_mm - pad.distal_start_mm))

@@ -47,8 +47,6 @@ def hand_parameters(x, config, thickness_mm: float) -> dict:
     a, ap, b, bp = joint.a, joint.ap, joint.b, joint.bp
     tilt = math.degrees(finger.pip_servo.tilt_rad) if hasattr(finger, "pip_servo") else float(x[7])
     mounts = (float(x[12]), float(x[13])) if len(x) > 13 else (3.0, 3.0)
-    if abs(mounts[0] - mounts[1]) > 1e-9:
-        raise ValueError(f"the hand model takes one mount offset; the design has {mounts}")
     params = {
         "a_x_mm": a.x_mm, "a_z_mm": a.z_mm, "ap_x_mm": ap.x_mm, "ap_z_mm": ap.z_mm,
         "apb_mm": math.hypot(b.x_mm - ap.x_mm, b.z_mm - ap.z_mm), "abp_mm": math.hypot(bp.x_mm - a.x_mm, bp.z_mm - a.z_mm),
@@ -58,6 +56,8 @@ def hand_parameters(x, config, thickness_mm: float) -> dict:
     pads = {"proximal_start_mm": finger.proximal.start_mm, "proximal_end_mm": finger.proximal.end_mm,
             "distal_start_mm": finger.distal.start_mm, "distal_end_mm": finger.distal.end_mm,
             "mount_offset_mm": mounts[0], "thickness_mm": thickness_mm, "width_mm": PAD_WIDTH_MM}
+    if abs(mounts[0] - mounts[1]) > 1e-9:  # the proximal pad under a low PIP servo sits deeper
+        pads["distal_mount_offset_mm"] = mounts[1]
     return {k: float(v) for k, v in params.items()}, {k: float(v) for k, v in pads.items()}
 
 
@@ -66,8 +66,9 @@ def check(base, x, config, finger_params: dict, pads: dict, q_req: float) -> tup
     study = paths(base, x, config)
     q = np.asarray(study["q"])
     tips = np.array([four_bar(finger, math.degrees(v)).c for v in q])
-    depth = pads["mount_offset_mm"] + pads["thickness_mm"]
-    contact = contact_path(tips, q, depth, depth)
+    depth_p = pads["mount_offset_mm"] + pads["thickness_mm"]
+    depth_d = pads.get("distal_mount_offset_mm", pads["mount_offset_mm"]) + pads["thickness_mm"]
+    contact = contact_path(tips, q, depth_p, depth_d)
     return (float(np.max(np.linalg.norm(tips - np.asarray(study["tip"]), axis=1))),
             float(np.max(np.linalg.norm(contact - np.asarray(study["contact"]), axis=1))))
 

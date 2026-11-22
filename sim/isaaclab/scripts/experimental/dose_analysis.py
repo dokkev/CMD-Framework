@@ -30,6 +30,8 @@ DIRECTIONS = ("+x", "+x-z", "-z", "-x")
 HANDS = {"R": (0.86, 7.67, 0.725), "d1p5_minDs_s0": (1.60, 5.37, 0.706), "d2p25_minDs_s0": (2.33, 4.62, 0.700),
          "d2p25_maxDs_s0": (2.30, 9.17, 0.712), "d3_minDs_s0": (3.09, 3.83, 0.713), "U": (3.91, 3.38, 0.711),
          "d4p5_s0": (4.41, 11.33, 0.716), "d5p5_s0": (5.40, 12.17, 0.703)}
+# added after the first results once the hand model took two mount depths (separability.md, fourth experiment, extension)
+EXTENSION = {"d1p5_maxDs_s0": (1.46, 9.67, 0.707), "d3_maxDs_s0": (3.04, 11.55, 0.700)}
 
 
 def latest(hand: str, mu: float, cond: str, radius: float) -> dict | None:
@@ -57,14 +59,16 @@ def spearman(x, y) -> float:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--condition", default="A", choices=("A", "B"))
+    parser.add_argument("--condition", default="A", choices=("A", "B", "C"))
     parser.add_argument("--mu", type=float, nargs=2, default=(1.3, 2.0))
     parser.add_argument("--radii", type=float, nargs="+", default=(15.0, 20.0))
+    parser.add_argument("--extended", action="store_true", help="also the two hands added after the first results")
     args = parser.parse_args()
     lo, hi = args.mu
-    out = {"condition": args.condition, "mu": [lo, hi], "hands": {}}
+    hands = {**HANDS, **EXTENSION} if args.extended else HANDS
+    out = {"condition": args.condition, "mu": [lo, hi], "extended": args.extended, "hands": {}}
     rows = []
-    for hand, (dc, ds, cp) in HANDS.items():
+    for hand, (dc, ds, cp) in hands.items():
         rel, absolute, per_dir, force, fails, envs = [], [], {d: [] for d in DIRECTIONS}, [], 0, 0
         complete = True
         for r in args.radii:
@@ -116,7 +120,7 @@ def main() -> int:
         print(f"\nSpearman rho(E, D_c) = {rho:+.3f}, exact one-sided permutation p = {p:.4f} (n {len(rows)}); "
               f"rho(E, D_s) = {out['tests']['rho_E_Ds']:+.3f}; rho(E, C_pad) = {out['tests']['rho_E_Cpad']:+.3f}; "
               f"standardized fit E ~ {coef[0]:+.2f} D_c {coef[1]:+.2f} D_s")
-    path = ROOT / f"dose_{args.condition}.json"
+    path = ROOT / f"dose_{args.condition}{'_extended' if args.extended else ''}.json"
     path.write_text(json.dumps(out, indent=1))
     print(path)
     return 0

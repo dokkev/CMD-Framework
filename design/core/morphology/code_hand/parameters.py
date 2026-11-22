@@ -169,8 +169,11 @@ class ThumbParameters:
 class PadParameters:
     """The contact pads of an ordinary finger: two plain blocks on the palmar side, as the linkage study lays them.
 
-    Each pad's mounting face lies ``mount_offset_mm`` below its link line (palmar, ``-Z`` in the linkage plane),
-    and the pad fills ``thickness_mm`` below that, ``width_mm`` across the finger (along the FE axis, centred on
+    Each pad's mounting face lies below its link line (palmar, ``-Z`` in the linkage plane): the proximal pad's
+    ``mount_offset_mm`` below, the distal pad's ``distal_mount_offset_mm`` (None: the same as the proximal). The
+    study sets each depth to the least that clears that pad's own hardware (``mount_policy:
+    shallowest_supported``), so a proximal pad under a low-mounted PIP servo can sit deeper than the distal one.
+    The pad fills ``thickness_mm`` below its face, ``width_mm`` across the finger (along the FE axis, centred on
     the linkage plane).
     - Proximal pad: from ``proximal_start_mm`` to ``proximal_end_mm`` along the proximal link line (linkage
       ``x``, from ``O``); the end is the study's ``A''``.
@@ -185,6 +188,13 @@ class PadParameters:
     mount_offset_mm: float
     thickness_mm: float
     width_mm: float
+    distal_mount_offset_mm: float | None = None
+
+    @property
+    def mount_offsets_mm(self) -> tuple[float, float]:
+        """(proximal, distal) mounting depths."""
+        distal = self.mount_offset_mm if self.distal_mount_offset_mm is None else self.distal_mount_offset_mm
+        return self.mount_offset_mm, distal
 
     def __post_init__(self) -> None:
         _finite(self)
@@ -193,8 +203,8 @@ class PadParameters:
         for name in ("thickness_mm", "width_mm"):
             if getattr(self, name) <= 0.0:
                 raise ValueError(f"PadParameters.{name} must be positive")
-        if self.mount_offset_mm < 0.0:
-            raise ValueError("PadParameters.mount_offset_mm must not be negative")
+        if min(self.mount_offsets_mm) < 0.0:
+            raise ValueError("PadParameters: a mount offset must not be negative")
 
 
 @dataclass(frozen=True)
