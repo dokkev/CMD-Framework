@@ -289,3 +289,11 @@ mm; placements where its 3 mm finger touches at q0; reused command, μ 1.3 → 2
 (137–216), 228% (199–312); distal pad force 2.2/3.2/4.2× the 3 mm finger's; 54–56 valid pairs each.
 Study 2 start offset (e19): removing |Δc(0)|, CFL's motion change is least in 7 of 9 cells; exceptions 2R-DD 90°/9 mm
 (3.81 vs 4.21 mm) and RCJ 150°/5 mm (0.70 vs 0.87 mm), at 2.4 and 17.8 points less coverage.
+
+## Study 3: force mediation (post hoc, 2026-11-22; `sim/isaaclab/scripts/study3_measurement/mediation.py`)
+
+Reused command (A, 15 hands): rho(E, |N_d/N_d(O) - 1|) 0.94; rho(Delta_contact, N_d/N_d(O)) 0.62; partial
+E-Delta_contact given the force deviation 0.55 [-0.02, 0.93]; partial E-force given Delta_contact 0.87 [0.35, 1.00].
+Reused torque (C, 16 hands): forces 0.84-1.45x O's; partial E-Delta_contact given force 0.80 [0.37, 0.95]; partial
+E-force given Delta_contact 0.66 [0.30, 0.90]. Candidate intercorrelations over 45 hands: Delta_contact with the
+others |rho| <= 0.40; the largest pair is coverage-thickness (-0.67). CFL Study 1 optima: MA_wc 0.41-0.58.

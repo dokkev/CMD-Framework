@@ -15,6 +15,7 @@
 | v10 | e1b5910 | 5, 5, 5 | — | grid on 45 redesigns (rho 0.60; skeleton also matters there via lost placements), lug sentence |
 | v11 | 7b198b9 | 5, 6, 5 | — | fixed-axis family with the skeleton kept exactly (95/179/228%), offset-free Study 2, C2 restated |
 | v12 | 00b632e | 6, 6, 6 | — | Stage 2 protocol, spacers and 2R-remote treated fairly, Holm, post hoc label, Fig. 1 legend |
+| v13 | 8f3ecd0 | 6, 5, 6 | — | new north star (C1 room, C2 contact Jacobian), H1-H3 per study, Study 3 setup per A.6.4, new title, CAD Fig. 1; reviewers read the PDF |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -97,3 +98,15 @@ false at 9 mm (a maxDs redesign at Delta_contact 3.5 mm errs 39.7% against R's 4
 SSoT after the round. Remaining critiques (not addressed): C4 partly built in by the frame of the placement; why a
 redesign rather than a contact-sensing protocol; title length; 'contact Jacobian' wording; C-bar_pad as a grasp
 measure; Montana / Kerr-Roth and function-generation synthesis not cited.
+
+v13 pattern (2026-11-22, after the C1/C2 rewrite; reviewers read the PDF with figures): r1 6, r2 5, r3 6. All
+three: Study 3 under a reused command works through over-closure (force), and force-matched closing leaves 3-7%;
+H1's 2R-DD baseline is weak and CFL vs 2R-remote is mixed; mechanical advantage unreported; dense text;
+3.9x (Fig. 1, one placement) vs 3.3x (median). r2: candidates designed, not sampled (no intercorrelations), no noise
+floor. r3: H2/H3 falsifiers lax, "keep" overclaims. v14 answers: a post hoc mediation analysis (mediation.py):
+under torque reuse the forces stay within 0.84-1.45x O's and Delta_contact predicts the error with the force held
+fixed (partial 0.80 [0.37, 0.95]); under the command, Delta_contact sets the force (0.62), which tracks the error
+(0.94). Candidates |rho| <= 0.40 over 45 hands. Study 1 told as an ablation (remote actuation makes room, the
+polycentric joint keeps it at deep flexion), MA_wc 0.41-0.58. H3 restores "fails if Delta_contact misses in any
+setting". Robustness with magnitudes (stiffness sweep R 14-26%, U 44-131%), load-step resolution, Stage 2 effect
+size and test, C1 hardware failure line. Contributions shortened; scope sentences moved to the design section.
