@@ -261,7 +261,7 @@ def draw_finger(ax, stem, hand, rho, ref_centre=None):
 
 def fig_overview():
     import json
-    fig = plt.figure(figsize=(W, 1.95))
+    fig = plt.figure(figsize=(W, 1.85))
     outer = fig.add_gridspec(1, 2, width_ratios=[3.0, 1.25], wspace=0.16)
     left = outer[0].subgridspec(1, 3, wspace=0.0)
     axes = [fig.add_subplot(left[0, i]) for i in range(3)]
