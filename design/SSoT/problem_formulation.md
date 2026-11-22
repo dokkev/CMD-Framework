@@ -549,7 +549,7 @@ $$
 \mathbf J(M,q)=\frac{d}{dq}\begin{bmatrix}\mathbf c(M,q)\\ \varphi(M,q)\end{bmatrix}=\begin{bmatrix}\mathbf c'(M,q)\\ 1\end{bmatrix}
 $$
 
-두 face는 어느 설계에서나 $q$만큼 돌므로($\varphi=q$, 명제 4) 한 점의 경로가 distal face의 자세를 정하고, 설계는 $\mathbf c'(M,q)$로만 다르다. $\mathbf c'$는 distal face가 proximal face에 대해 도는 순간 회전 중심(pole)의 위치와 같은 정보다. $\mathbf J$는 손바닥 좌표계에서 본 손가락 contact Jacobian의 PIP 열이다. MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.2). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다.
+두 face는 어느 설계에서나 $q$만큼 돌므로($\varphi=q$, 명제 4) 한 점의 경로가 distal face의 자세를 정하고, 설계는 $\mathbf c'(M,q)$로만 다르다. $\mathbf c'$는 distal face가 proximal face에 대해 도는 순간 회전 중심(pole)의 위치와 같은 정보다. $\mathbf J$는 손바닥 좌표계에서 본 손가락 contact Jacobian의 PIP 열이다. MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.2). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다. 반대로 $\mathbf c(q)$의 변화는 관절 명령으로 보상할 수 없다. 모든 설계에서 $\varphi=q$이므로 두 face가 주어진 상대 각도에 이르는 굽힘은 설계와 관계없이 같고, 그 굽힘에서 남는 위치 차이가 $\Delta\mathbf c$이다.
 
 **그 변화.**
 

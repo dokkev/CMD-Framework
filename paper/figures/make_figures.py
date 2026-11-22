@@ -303,8 +303,8 @@ def fig_overview():
 
 def fig_study3():
     import json
-    fig, axes = plt.subplots(2, 1, figsize=(3.45, 3.05), gridspec_kw=dict(hspace=0.70))
-    xs = r"contact-surface motion change $\Delta_{\mathrm{contact}}$ (mm)"
+    fig, axes = plt.subplots(1, 2, figsize=(3.45, 1.75), sharey=True, gridspec_kw=dict(wspace=0.08))
+    xs = r"$\Delta_{\mathrm{contact}}$ (mm)"
     # (a) reused flexion command, three interface properties
     ax = axes[0]
     fr = json.loads((TWO_PAD / "dose_A_all.json").read_text())
@@ -320,22 +320,19 @@ def fig_study3():
     for hand, rec in shape["hands"].items():
         ax.plot(rec["D_c_mm"], 100 * rec["E_median"], marker="^", ms=3.4, color=THICK[7], mfc="none", mew=0.8, ls="none",
                 zorder=2)
-    ax.text(0.03, 0.97, rf"friction (●) $\rho={fr['tests']['rho_E_Dc']:.2f}$, $n={fr['tests']['n_hands']}$" + "\n"
-            rf"compliance (square) $\rho={comp['rho_E_Dc']:.2f}$, $n={comp['n_hands']}$" + "\n"
-            rf"shape (triangle) $\rho={shape['rho_E_Dc']:.2f}$, $n={len(shape['hands'])}$",
-            transform=ax.transAxes, fontsize=5.9, va="top", linespacing=1.15)
+    ax.text(0.03, 0.97, "circle: friction\nsquare: stiffness\ntriangle: shape", transform=ax.transAxes, fontsize=5.4,
+            va="top", linespacing=1.1)
     ax.set_xlabel(xs)
-    ax.set_ylabel("error in measured effect (%)")
-    ax.set_title("(a) reused flexion command: three interface changes", fontsize=7.4, fontweight="bold", loc="left")
+    ax.set_ylabel("error (%)")
+    ax.set_title("(a) three interface changes", fontsize=6.8, fontweight="bold", loc="left")
     ax.set_xlim(0, 5.5)
-    ax.set_ylim(-5, 205)
+    ax.set_ylim(-5, 210)
     handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
-    ax.legend(handles=handles, loc="center right", bbox_to_anchor=(1.0, 0.40), fontsize=6.0, frameon=False,
-              handletextpad=0.2, borderaxespad=0.1)
+    ax.legend(handles=handles, loc="lower right", fontsize=5.4, frameon=False, handletextpad=0.1, borderaxespad=0.1,
+              labelspacing=0.2)
     # (b) friction effect under three protocols
     ax = axes[1]
-    styles = (("A", "o", True, "reused command (●)"), ("C", "D", False, "reused torque (diamond)"),
-              ("E", "x", False, "closed from touch (×)"))
+    styles = (("A", "o", True, "reused command (filled)"), ("C", "D", False, "reused torque (open)"))
     lines = []
     for cond, mk, filled, lab in styles:
         d = json.loads((TWO_PAD / f"dose_{cond}_all.json").read_text())
@@ -344,13 +341,12 @@ def fig_study3():
             ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker=mk, ms=3.4 if mk != "x" else 3.8, color=c,
                     mfc=c if filled else "white", mew=0.9, ls="none", zorder=3)
         t = d.get("tests", {})
-        lines.append(rf"{lab}: $\rho={t.get('rho_E_Dc', float('nan')):.2f}$, $n={t.get('n_hands', 0)}$")
-    ax.text(0.03, 0.97, "\n".join(lines), transform=ax.transAxes, fontsize=5.9, va="top", linespacing=1.15)
+        lines.append(lab)
+    ax.text(0.03, 0.97, "filled: reused command\nopen: reused torque", transform=ax.transAxes, fontsize=5.4, va="top",
+            linespacing=1.1)
     ax.set_xlabel(xs)
-    ax.set_ylabel("error (%)")
-    ax.set_title("(b) friction effect under three protocols", fontsize=7.4, fontweight="bold", loc="left")
+    ax.set_title("(b) two protocols (friction)", fontsize=6.8, fontweight="bold", loc="left")
     ax.set_xlim(0, 5.5)
-    ax.set_ylim(-5, 175)
     fig.savefig(DEST / "fig_study3.png")
     plt.close(fig)
 
