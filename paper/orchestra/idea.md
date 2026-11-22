@@ -61,7 +61,11 @@ surface moves relative to the proximal one as the finger flexes**. Write it with
 term: in the **proximal-phalanx frame** F_p (it turns with the proximal phalanx at the MCP; origin on the proximal
 contact face), c(q) is the point under the fingertip on the distal contact face, and its derivative in flexion
 J(q) = d/dq [c(q); φ(q)] = [c′(q); 1] is the PIP column of the finger's contact Jacobian (rotation part 1 on
-every design, Proposition 4; c′ carries the pole of the relative motion). D_c is the position-level change of
+every design, Proposition 4; c′ carries the pole of the relative motion). Cite the standard contact Jacobian
+(Montana 1988; Murray, Li, Sastry 1994). The standard one is taken at the moving contact point, but since φ = q the
+PIP column at any distal-face point x is [R_{π/2}(x − p̂(q)); 1] (p̂: instantaneous centre in F_p), so wherever
+the object touches the distal face the pole path sets the column; c stands for any such point, and the choice of
+point and origin enters only the start offset Δc(0). Say "one path sets it" (the pole path), not "one point". D_c is the position-level change of
 c over [0, q_req] (≈ the integral of the Jacobian change, since the q = 0 pose barely differs). The MCP column
 (lever includes the pad depth) is NOT kept — the stated limitation. The transmission (servo angle → flexion) is
 excluded, recorded and compensated by control. Keeping the contact Jacobian does NOT keep the contact mechanics

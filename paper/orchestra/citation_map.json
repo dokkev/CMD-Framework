@@ -434,6 +434,13 @@
   "venue": "Springer"
  },
  {
+  "key": "montana1988kinematics",
+  "title": "The Kinematics of Contact and Grasp",
+  "author": "Montana, David J.",
+  "year": "1988",
+  "venue": "The International Journal of Robotics Research"
+ },
+ {
   "key": "murray1994mathematical",
   "title": "A Mathematical Introduction to Robotic Manipulation",
   "author": "Murray, Richard M. and Li, Zexiang and Sastry, S. Shankar",

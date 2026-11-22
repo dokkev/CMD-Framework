@@ -549,7 +549,19 @@ $$
 \mathbf J(M,q)=\frac{d}{dq}\begin{bmatrix}\mathbf c(M,q)\\ \varphi(M,q)\end{bmatrix}=\begin{bmatrix}\mathbf c'(M,q)\\ 1\end{bmatrix}
 $$
 
-두 face는 어느 설계에서나 $q$만큼 돌므로($\varphi=q$, 명제 4) 한 점의 경로가 distal face의 자세를 정하고, 설계는 $\mathbf c'(M,q)$로만 다르다. $\mathbf c'$는 distal face가 proximal face에 대해 도는 순간 회전 중심(pole)의 위치와 같은 정보다. $\mathbf J$는 손바닥 좌표계에서 본 손가락 contact Jacobian의 PIP 열이다. MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.2). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다. 반대로 $\mathbf c(q)$의 변화는 관절 명령으로 보상할 수 없다. 모든 설계에서 $\varphi=q$이므로 두 face가 주어진 상대 각도에 이르는 굽힘은 설계와 관계없이 같고, 그 굽힘에서 남는 위치 차이가 $\Delta\mathbf c$이다.
+두 face는 어느 설계에서나 $q$만큼 돌므로($\varphi=q$, 명제 4) 한 점의 경로가 distal face의 자세를 정하고, 설계는 $\mathbf c'(M,q)$로만 다르다. $\mathbf c'$는 distal face가 proximal face에 대해 도는 순간 회전 중심(pole)의 위치와 같은 정보다. $\mathbf J$는 $\mathcal F_p$에서 본, 점 $\mathbf c$에서의 손가락 contact Jacobian(Montana 1988; Murray, Li, Sastry 1994)의 PIP 열이다.
+
+**접촉점이 움직여도 같은 열이다.** 표준 contact Jacobian은 물체와 실제로 닿는 점에서 쓰고, 그 점은 물체가 구르거나 미끄러지면 face 위를 움직인다. 그래도 지키는 대상은 같다. $\varphi=q$이므로 distal face 위의 임의의 점 $\mathbf x$에서 PIP 열은
+$$
+\mathbf J_{\mathbf x}(q)=\begin{bmatrix}R_{\pi/2}\big(\mathbf x(q)-\hat{\mathbf p}(q)\big)\\ 1\end{bmatrix}
+$$
+이다($\hat{\mathbf p}(q)$: $\mathcal F_p$에서 본 순간 회전 중심). 또 유한 pole로 쓰면 $\mathbf x(q)=R_q\mathbf x(0)+(I-R_q)\mathbf p(q)$이므로, 두 설계에서 대응하는 점의 차이는
+$$
+\Delta\mathbf x(q)=R_q\,\Delta\mathbf x(0)+(I-R_q)\,\Delta\mathbf p(q)
+$$
+이다. $q=0$에서 두 distal face는 같은 방향(축이 일직선)이므로 $\Delta\mathbf x(0)$은 평행이동이고 face 위의 모든 점에 같다. 따라서 이 차이는 점에 따르지 않는다. 두 설계의 pole 경로와 $q=0$의 위치가 같으면, 접촉점이 distal face의 어디에 있든 그 점의 PIP 열이 같다. $\mathbf c$는 그 대표점이고, 점(과 $\mathcal F_p$ 원점)을 고르는 규칙은 시작 오프셋 $\Delta\mathbf c(0)$에만 들어간다. Pole은 한 점이 아니라 flexion마다 하나인 경로이며, 고정 축에서만 한 점이다.
+
+MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.2). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다. 반대로 $\mathbf c(q)$의 변화는 관절 명령으로 보상할 수 없다. 모든 설계에서 $\varphi=q$이므로 두 face가 주어진 상대 각도에 이르는 굽힘은 설계와 관계없이 같고, 그 굽힘에서 남는 위치 차이가 $\Delta\mathbf c$이다.
 
 **그 변화.**
 
@@ -654,7 +666,7 @@ $$
 | $m(q)$ | 자세 $q$에서 두 pad의 정확한 clearance: 분리축에서의 틈의 최댓값(0: 맞닿음, 음수: 겹침) (Study 0, 명제 1) |
 | $\mathbf p(q)$, $\mathbf c(M,q)$ | Contact face를 기준으로 본 pole의 위치, proximal contact face를 기준으로 본 distal contact face 위의 점의 경로 |
 | $\Delta_{\mathrm{contact}}(M,M')$, $\Delta_{\mathrm{skel}}(M,M')$ | 두 손가락의, proximal phalanx 좌표계 $\mathcal F_p$에서 본 distal 접촉점 경로의 차이와 손끝 경로(뼈대 운동)의 차이 [mm]. $[0,q_{\mathrm{req}}]$에서의 최대 거리를 $L_f$로 나눔 (Study 2) |
-| $\mathcal F_p$, $\mathbf c(M,q)$, $\mathbf J(M,q)$ | Proximal phalanx 좌표계(MCP에서 함께 돎, 원점은 proximal contact face 위), 그 좌표계에서 본 distal 접촉점의 경로, 그 경로와 distal face 자세의 $q$에 대한 자코비안 $[\mathbf c';1]$ (손가락 contact Jacobian의 PIP 열; Study 2) |
+| $\mathcal F_p$, $\mathbf c(M,q)$, $\mathbf J(M,q)$ | Proximal phalanx 좌표계(MCP에서 함께 돎, 원점은 proximal contact face 위), 그 좌표계에서 본 distal 접촉점의 경로, 그 경로와 distal face 자세의 $q$에 대한 자코비안 $[\mathbf c';1]$ (손가락 contact Jacobian의 PIP 열; distal face의 어느 점에서나 pole 경로가 정함; Study 2) |
 | $M_0$, $h_0$, $\Delta_{\mathrm{contact}}^{\min}$ | Study 2의 기준 손가락(가장 얇은 두께 $h_0$의 Study 1 설계)과, 더 두꺼운 두께에서 다시 설계해 찾은 가장 작은 $\Delta_{\mathrm{contact}}$ |
 
 **Optimization.** 요구사항, 허용 범위, 목적함수와 제약.
