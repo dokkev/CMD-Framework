@@ -2,6 +2,15 @@
 
 Experiment design: the principles, what each study must show, the discipline claims are held to, and the paper plan with each contribution's status (Section 9). The problem, what CoDe solves and the contributions are in [north-star.md](north-star.md), which takes precedence; the mathematics is in [problem_formulation.md](problem_formulation.md).
 
+The SSoT has four files, each with one job. When they disagree, the higher one wins and the lower one is fixed. `north-star.md` refers to no other file.
+
+| File | Job |
+|---|---|
+| `north-star.md` | The paper's story: the problem, what CoDe solves, the contributions claimed |
+| `research-objective.md` (this file) | Experiment design: principles, what each study must show, claim discipline, status and paper plan |
+| `problem_formulation.md` | Mathematics: definitions, variables and their names, each study's formulation |
+| `code_formulation.md` | Implementation: how the formulation is written as code |
+
 ## 1. Purpose
 
 CoDe is meant to be a research platform on which contact-interface experiments are possible and interpretable: researchers can study diverse contact morphologies if they wish, and can change only the contact interface while how its contact surfaces move relative to each other is kept. The problem it addresses, its approach and the contributions claimed are in [north-star.md](north-star.md); this file states how the studies test them.

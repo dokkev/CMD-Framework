@@ -1,15 +1,6 @@
 # CoDe Hand — North Star
 
-This file fixes the paper's story and its contributions: the problem, what CoDe solves, the contributions claimed and the order in which the paper tells them. Every other SSoT file and the manuscript follow it. How the studies test the claims, their status and the venue plan are in `research-objective.md`.
-
-The SSoT has four files, each with one job. When they disagree, the higher one wins and the lower one is fixed.
-
-| File | Job |
-|---|---|
-| `north-star.md` (this file) | The paper's story: the problem, what CoDe solves, the contributions claimed |
-| `research-objective.md` | Experiment design: principles, what each study must show, claim discipline, status and paper plan |
-| `problem_formulation.md` | Mathematics: definitions, variables and their names, each study's formulation |
-| `code_formulation.md` | Implementation: how the formulation is written as code |
+This is the top document of the SSoT. It fixes the paper's story and its contributions: the problem, what CoDe solves, the contributions claimed and the order in which the paper tells them. Every other SSoT file and the manuscript follow it; when they disagree, this file wins.
 
 ## In one sentence
 
@@ -19,7 +10,7 @@ On servo-driven research hands a contact interface beyond the fingertip either d
 
 Contact is central to dexterous manipulation, and the contact interface (its geometry, size, compliance and sensing) sets that contact. Research hands are mostly chains of servos at the joints: they are easy to build, maintain, model and simulate. Tendon-driven and linkage-driven hands free the joints, but pay in modelling and simulation effort.
 
-- **P1 — No room beyond the fingertip.** Servo bodies and joints occupy the space a contact interface needs, above all around the joint. A proximal pad beside a servo must be very thin or cost range of motion, and every new interface is a redesign with its own integration cost. Interfaces, and the manipulation studied with them, therefore gather at the fingertip, and the lack of room and the fingertip focus reinforce each other. This loop is the motivation, stated as an observation, not a claim (`research-objective.md` §9, open decision 3).
+- **P1 — No room beyond the fingertip.** Servo bodies and joints occupy the space a contact interface needs, above all around the joint. A proximal pad beside a servo must be very thin or cost range of motion, and every new interface is a redesign with its own integration cost. Interfaces, and the manipulation studied with them, therefore gather at the fingertip, and the lack of room and the fingertip focus reinforce each other. This loop is the motivation, stated as an observation, not a claim.
 - **P2 — The redesign becomes a second variable.** A finger redesigned to carry an interface changes its morphology with it. Interface studies often reuse one protocol across hands (scripted grasps, joint-space policies, the same actuator targets), so a measured difference mixes the interface's effect with the hand's change. Keeping the skeleton does not solve this: the object meets the contact surfaces, not the skeleton. For a joint turning about a fixed axis, a thicker interface at its own depth changes how the contact surfaces move whatever the redesign.
 
 ## What CoDe does
@@ -30,7 +21,7 @@ Contact is central to dexterous manipulation, and the contact interface (its geo
 
 ## What is kept, and in which frame
 
-In the proximal-phalanx frame (it turns with the proximal phalanx at the MCP), take the point under the fingertip on the distal contact surface. Its path over flexion, and its derivative in flexion together with the distal surface's rotation, describe how the contact surfaces move relative to each other; the derivative is the PIP column of the finger's contact Jacobian. The rotation part is the same on every design (the two surfaces turn by the flexion), so a design differs only in where the distal surface turns about, and the same holds at every point of the distal face where an object may touch (`problem_formulation.md` A.6.3). The MCP column, whose lever includes the pad depth, is not kept. The transmission from servo angle to flexion is not part of it: it is compensated by control.
+In the proximal-phalanx frame (it turns with the proximal phalanx at the MCP), take the point under the fingertip on the distal contact surface. Its path over flexion, and its derivative in flexion together with the distal surface's rotation, describe how the contact surfaces move relative to each other; the derivative is the PIP column of the finger's contact Jacobian. The rotation part is the same on every design (the two surfaces turn by the flexion), so a design differs only in where the distal surface turns about, and the same holds at every point of the distal face where an object may touch. The MCP column, whose lever includes the pad depth, is not kept. The transmission from servo angle to flexion is not part of it: it is compensated by control.
 
 ## Contributions
 
