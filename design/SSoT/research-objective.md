@@ -228,6 +228,13 @@ Hardware is not available for the extended abstract. The physical stage tests th
 
 **Venue.** RSS 2027 (Athens, July 6–11). Extended abstract due 2026-12-04, stage-1 decision 2027-02-05, final paper due 2027-04-16 (from the call for papers; re-check on roboticsconference.org before each deadline).
 
+**How the paper tells the north star's story** (details the north star leaves out):
+
+- **Design section.** The finite pole of the distal phalanx relative to the proximal one is introduced here, not in the introduction. Room (C1): the clearance and coverage laws show that the best joint turns about a point on the contact face; a physical pin must sit above the pad's mounting surface, so that point must be a virtual pole, hence the CFL. Motion (C2.1): the contact Jacobian (PIP column in the proximal-phalanx frame, the same at every distal-face point; `problem_formulation.md` A.6.3), the contact-motion law, the sum rule and the fixed-axis bound.
+- **C1** is shown by Study 1. Its failure condition is stated against 2R-DD; 2R-remote (a belt-driven fixed axis) can match the CFL at shallow flexion and pays in C2.2.
+- **C2.2** is shown by Study 2 (failure: the CFL reaches the bound). **C2.3** is shown by Study 3 under reused flexion commands and joint torques. It compares five candidates a designer might hold (Δ_contact, Δ_skel, coverage, pad thickness, transmission) and includes a fixed-axis family that keeps its skeleton exactly. Failure: another candidate's interval excludes zero in every setting.
+- **Evidence range.** The interfaces studied are pad thicknesses (3–9 mm), with one pad shape in simulation; camera-based tactile modules are future work. The hardware checks of both contributions are in Section 8.4.
+
 **Evidence for each contribution** (contributions as stated in `north-star.md`; status 2026-11-22):
 
 | | Evidence | Status |
