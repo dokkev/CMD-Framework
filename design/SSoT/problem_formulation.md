@@ -6,7 +6,7 @@
 2. **요구사항 (A.2–A.3).** Contact interface의 치수와 손가락의 크기·비율을 하한과 상한으로 지정한다.
 3. **기하와 운동 (A.4).** Morphology는 joint 자세에 따라 형상을 만들고, 그 형상에 self-collision이 없는 자세의 집합이 유효한 운동 범위를 정한다.
 4. **최적화 (A.5).** 요구사항, 요구 운동, 전달 성능 조건을 만족하는 morphology 가운데 contact pad coverage가 가장 큰 것을 찾는다.
-5. **비교 연구 (A.6).** 해석(Study 0)이 관절이 contact interface에서 빼앗는 것과 relative contact trajectory의 하한을 유도하고, 구조마다 자기 최적 설계로 두 가지를 확인한다. 두께와 요구 flexion에 따라 각 구조가 확보하는 coverage(Study 1), 더 두꺼운 interface에 맞춰 다시 설계할 때 relative contact trajectory를 얼마나 지키는가(Study 2). 구조끼리 외형을 맞추지 않는다.
+5. **비교 연구 (A.6).** 해석(Study 0)이 관절이 contact interface에서 빼앗는 것과 접촉면 상대 운동(proximal phalanx 좌표계에서 본 distal 접촉점의 경로) 변화의 하한을 유도하고, 구조마다 자기 최적 설계로 두 가지를 확인한다. 두께와 요구 flexion에 따라 각 구조가 확보하는 coverage(Study 1), 더 두꺼운 interface에 맞춰 다시 설계할 때 접촉점 경로를 얼마나 지키는가(Study 2). 구조끼리 외형을 맞추지 않는다.
 
 Contact interface는 이 문제의 출발점이다. 그 치수는 요구사항으로 먼저 주어지고, mechanism, actuation, structure는 그것을 수용하도록 설계된다.
 
@@ -395,7 +395,7 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 | 관절이 contact interface에서 빼앗는 것을 정하는 관계 | Study 0 (해석) | A.6.0 |
 | 1. 구조가 contact interface를 제한한다 | 구조별 native 설계의 비교, Study 1 | A.6.1, A.6.2 |
 | 2. Interface의 두께와 요구 flexion에 따라 구조가 확보하는 접촉면이 다르다 | Study 1 | A.6.2 |
-| 3. Interface가 두꺼워져도 relative contact trajectory를 지키도록 다시 설계할 수 있는지가 구조마다 다르다 | Study 2 | A.6.3 |
+| 3. Interface가 두꺼워져도 접촉점 경로(proximal phalanx 좌표계)를 지키도록 다시 설계할 수 있는지가 구조마다 다르다 | Study 2 | A.6.3 |
 
 ### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
 
@@ -433,13 +433,13 @@ $$
 
 이다. 분모의 둘째 항은 관절 간격이 굽히면 짧아지는 것이고, 셋째 항은 pole이 palmar 쪽에 있으면 두 phalanx 끝이 벌어지는 것이다. 필요한 것보다 깊은 pole($z>t$)은 $G$를 줄이지 못하고 분모만 키운다. 이 조건 밖의 설계에서는 $X$, 덮는 거리, 굽힌 윤곽을 pole과 pad의 치수로 직접 계산한다.
 
-**명제 4 (relative contact trajectory).** Contact face를 기준으로 본 pole의 위치(두 성분 모두)를 $\mathbf p(q)$라 하면, contact face 위의 점은 $\mathbf c(q)=\mathbf p+R_q(\mathbf c_0-\mathbf p)$로 움직인다. 두 손가락의 pole이 contact face에 대해 $\Delta\mathbf p(q)$만큼 다르면
+**명제 4 (접촉점 경로).** Contact face를 기준으로 본 pole의 위치(두 성분 모두)를 $\mathbf p(q)$라 하면, contact face 위의 점은 $\mathbf c(q)=\mathbf p+R_q(\mathbf c_0-\mathbf p)$로 움직인다. 두 손가락의 pole이 contact face에 대해 $\Delta\mathbf p(q)$만큼 다르면
 
 $$
 \boxed{\;\|\Delta\mathbf c(q)\|=2\sin\frac{q}{2}\,\|\Delta\mathbf p(q)\|\;}
 $$
 
-이다. 기준 자세에서 두 contact face의 상대 위치가 같을 때, relative contact trajectory가 같을 필요충분조건은 $\mathbf p(q)$가 모든 $q$에서 같은 것이다(깊이 $\tau$만이 아니라 pole의 $x$ 좌표도). 그때 같은 pad를 같은 자리에 그대로 실을 수 있다(명제 1의 $m(q)$가 같다).
+이다. 기준 자세에서 두 contact face의 상대 위치가 같을 때, 접촉점 경로(A.6.3의 $\mathbf c(q)$)가 같을 필요충분조건은 $\mathbf p(q)$가 모든 $q$에서 같은 것이다(깊이 $\tau$만이 아니라 pole의 $x$ 좌표도). 그때 같은 pad를 같은 자리에 그대로 실을 수 있다(명제 1의 $m(q)$가 같다).
 
 **구조는 $z(q)$, $P_x(q)$, $d$로 들어간다.**
 
@@ -457,7 +457,7 @@ $$
 - H1 (경험적 가설). Coverage를 최대화한 설계에서는 pad끼리의 접촉이 자주 활성 제약이다: 설계의 pad로 계산한 $\min_q m(q)$가 0에 가깝다. 정리가 아니다. Actuator의 자리, pad 길이의 하한, 다른 제약이 먼저 걸리면 틈이 남는다. 성립한 설계의 수와 벗어난 설계를 보고한다. 대칭 법칙은 그 설계의 $G$에 대한 추정으로 함께 보고한다.
 - P2 (계산의 일치). 최적 설계의 $\bar C_{\mathrm{pad}}$는 pole의 경로, pad의 치수, phalanx 구조의 끝, 기준 자세의 distal link 선으로 직접 계산한 값과 같다(명제 3).
 - P3. 고정 축에서 두 pad가 고르게 놓인 설계는 $G=2(d+h)\tan(q_{\mathrm{req}}/2)$를 따른다. 요구 flexion과 두께가 커지면 pad 길이가 이 식대로 줄어든다. $q^\ast<q_{\mathrm{req}}$인 설계에서는 $G_{\mathrm{sym}}$이 $q_{\mathrm{req}}$에 따라 커지지 않는다.
-- P4. 두 pad의 깊이가 같은 고정 축 손가락을 contact face가 축에서 $\delta=\Delta h-\Delta d$만큼 멀어지도록 다시 설계하면($\Delta d$: 장착 깊이를 줄인 양), relative contact trajectory는 $2\sin(q_{\mathrm{req}}/2)\,|\delta|$ 이상 바뀐다. 등호는 축이 contact face에 대해 $x$ 방향으로 움직이지 않을 때이다. 이것은 어떤 다시 설계로도 넘을 수 없는 하한이고, $r$이 고정된 구름 접촉에서도 같은 형태이다. Pole을 옮겨 $\mathbf p(q)$를 유지하는 구조는 relative contact trajectory와 pad를 함께 유지한다(명제 4).
+- P4. 두 pad의 깊이가 같은 고정 축 손가락을 contact face가 축에서 $\delta=\Delta h-\Delta d$만큼 멀어지도록 다시 설계하면($\Delta d$: 장착 깊이를 줄인 양), 접촉점 경로는 $2\sin(q_{\mathrm{req}}/2)\,|\delta|$ 이상 바뀐다. 등호는 축이 contact face에 대해 $x$ 방향으로 움직이지 않을 때이다. 이것은 어떤 다시 설계로도 넘을 수 없는 하한이고, $r$이 고정된 구름 접촉에서도 같은 형태이다. Pole을 옮겨 $\mathbf p(q)$를 유지하는 구조는 접촉점 경로와 pad를 함께 유지한다(명제 4).
 - 이 모델에서 가장 좋은 관절은 contact face 위의 점을 중심으로 도는 관절이다($\tau=0$, $G=0$).
 
 ### A.6.1. 공통 설정
