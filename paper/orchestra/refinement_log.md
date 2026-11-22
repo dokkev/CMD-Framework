@@ -9,6 +9,8 @@
 | v4 | a865d79 | 5, 5, 6 | 3.0/2.33/2.0/2.0/2.33/2.33/2.67 | kept: touch-referenced closure, pad stiffness, bootstrap CIs, Study 1/2 checks, Stage-2 plan; Overall unchanged; reviewers turned the touch-referenced result against C4 (case 3a) |
 | v5 | 31fc051 | 5, 5, 5 | — | prediction-first framing; r3 down on the bound vs 2R-DD (case 3b, reverted direction) |
 | v6 | c570180 | 5, 5, 6 | — | candidate-invariant table, retargeting argument, general fixed-axis statement (case 3a) |
+| v7 | ef15bfe | 5, 5, 6 | — | reused-torque column; r3 Accept, r1/r2 unchanged |
+| v8 | cfca3fe | 5, 5, (pending) | — | falsification lines, scope, fit |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -55,3 +57,10 @@ conclusion only).
 
 After v6: r1/r2 still read Study 3 as built in by position over-closure. v7 adds the reused-torque column (no
 over-closure; Delta_contact still the only predictor, 0.75 [0.38, 0.93]), the impedance evidence, the grasp face offset.
+
+Pattern over v3-v8 (2026-11-22): r3 (kinematics) 6 in four of six rounds; r1/r2 stay at 5 with one structural
+objection: under a face-referenced placement and rigid-contact pads, C4 is close to true by construction (face offset
+-> over-closure), the competing invariants are weak by construction (transmission compensated, sum rule couples
+Delta_skel, thickness three levels), and force or torque protocols already cut most of the error. Text changes no
+longer move these two scores; what could: a task not referenced to O's contact (e.g. in-hand rolling or a pick from a
+fixed pose), deformable pads, or a quantified benefit beyond the best interface-independent protocol.
