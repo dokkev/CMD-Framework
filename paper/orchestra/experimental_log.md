@@ -193,3 +193,55 @@ Readings:
   2R/RCJ runs agree cell by cell. Extra effort can only raise CFL; 2R-remote still leads at 90°. The 120° crossover
   (between 5 and 7 mm, 6 mm: 0.740 vs 0.729) is within the CFL run spread and is stated as approximate.
 - 2R-remote actuator pose fixed because its objective is independent of it (MA ≡ 1, occlusion not counted).
+
+## Study 3: does an interface measurement follow the contact-surface motion? (simulation, 2026-11-21/22)
+
+Source: `docs/experimental/separability.md` (experiments 3–8, pre-registration and amendments),
+logs `sim/isaaclab/logs/experimental/two_pad/` (dose_{A,B,C}_*.json, impedance.json), scripts
+`sim/isaaclab/scripts/experimental/two_pad_wrench.py`, `dose_analysis.py`, `impedance_analysis.py`.
+
+Setup. Isaac Lab 3 + Newton 1.6.1 / MuJoCo-Warp (implicitfast, elliptic cone, impratio 1000, 2 substeps,
+dt 1/120 s, contact stiffness ke 2.5e3 N/m per shape). Three fingers of the CoDe hand model, each a CFL design;
+MCP and abduction held. A cylinder (ρ 15 or 20 mm, 70 mm long) free in the sagittal plane (x, z, rotation; gravity
+off) is placed where O's two pads touch it at q0 (e17 placements: 33 per thickness, q0 every 5°), held by stiff
+drives while the PIP closes to q0 + 5° (flexion stiffness K0 = 5 N·m/rad, scheduled through each hand's
+transmission), then released. Gate 0: both pads of every finger ≥ 0.2 N, still, angle between the contact normals
+= measured flexion within 2° (Proposition 4 holds in simulation to 0.25°). Load ramp 2 N/s on the cylinder in
++x (to the tip), +x−z, −z (off the face), −x (to the MCP) until slip (10 mm/s relative speed), contact loss or
+5 mm collapse. Interface change: pad friction μ 1.3 → 2.0 (validated on O: |f_t|/|f_n| at slip = 1.300/2.000).
+Effect Δ(H) = F_limit(μ 2.0) − F_limit(μ 1.3) per placement and direction; error E = |Δ(H) − Δ(O)|/|Δ(O)|,
+median over valid pairs (O and H valid at both μ). Load step 0.067 N.
+
+Hands: O (3 mm, Study 1 design); per thickness 3→5/7/9 mm the Study 2 most-coverage redesign R, Study 1's first
+independent design U, and ε-constraint redesigns spreading D_c at near-best coverage (e18; chosen on design
+metrics only so that D_c, D_s and C̄_pad are decorrelated). Naive swap (O's skeleton with thicker pads): pads
+collide at 47° of flexion at 5, 7 and 9 mm → mechanically infeasible, not measured.
+
+Condition A (same flexion command; primary). Over 15 hands that hold the cylinder (5/7/9 mm):
+Spearman ρ(E, D_c) = +0.83, one-sided permutation p = 0.0001; per thickness +1.00 (n 3), +0.93 (n 8), +0.80 (n 4);
+standardized fit E ~ +0.84 D_c − 0.45 D_s + 0.08 Δh; balanced 4 per thickness ρ = +0.86, p = 0.0009. Symmetric
+|ln(Δ_H/Δ_O)|: ρ with D_c +0.69, with D_s −0.17 (the negative D_s sign of the relative error comes from its cap at
+100 % for underestimates). R per thickness: E 3 % (5 mm, D_c 0.35), 21 % (7 mm, 0.86), 41 % (9 mm, 2.32); U: 52 %
+(1.58), 124 % (3.91), 106 % (3.89). Same-D_c pair at 7 mm (D_c 2.3, D_s 4.6 vs 9.2 mm): E 72 % vs 70 %.
+R (D_s 7.7 mm) vs a 7 mm hand with D_s 3.8 mm and D_c 3.1 mm: 21 % vs 92 %. R vs U paired (7 mm, 46 pairs): 45 of 46
+R < U, Wilcoxon p = 4e-14. Mechanism: at the same command U presses 3.3× O's distal force (O 1.5–6 N) and the free
+cylinder is pushed 2–3.5 mm toward the MCP; q* within 1° of O's. Hands with D_c ≥ 2.9 mm (3 of 18) could not hold
+the cylinder under the command (ejected at release, also under torque reuse → geometric).
+
+Condition B (oracle: distal force matched to O's using the simulator's contact force). 7 mm, 6 hands: E 2.8–6.8 %,
+ρ(E, D_c) = +0.83, p = 0.029; most differences ≤ 3 load steps. U then grips at 4–7° less flexion (normals turn).
+
+Condition C (O's PIP flexion torque reused, each hand through its own dθ/dq). 16 hands: E 3–40 %,
+ρ(E, D_c) = +0.75, p = 0.0006 (coverage confound ρ(E, C̄_pad) = −0.52); distal force 0.89–1.26× O's.
+7 mm R vs U paired: 16 % vs 20 %, p = 0.56.
+
+Condition D (flexion impedance τ = τ_O + K_q(q*_O − q), K_q/K0 ∈ {0.1, 0.3, 1, 3, 10}; K0 reproduces A within
+1.6 % force; O, R, U at 7 mm): E_R 25/14/20/24/26 %, E_U 44/87/119/125/131 %; R < U at every stiffness
+(p = 0.007 at 0.1 K0, ≤ 4e-8 above). The gap grows up to K0 and levels off: U's finger yields 4.5° at 0.1 K0 and
+0.1° at 10 K0 while its distal force saturates near 17.5 N (contact compliance takes the interference). Servo
+torque median 0.08–0.33 of the XM335 stall torque; above stall for U in 4 % (3 K0) and 11 % (10 K0) of runs.
+
+Robustness and the shape interface: see the next section (filled when the runs finish).
+
+Figures: `fig_overview.png` (Fig. 1: O/U/R grasp drawings + E vs D_c), `fig_study3.png` (A vs C, impedance),
+renders `report/study3/figures/study3_two_pad_grasp_render.png`.

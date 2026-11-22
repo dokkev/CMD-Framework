@@ -149,48 +149,198 @@ def rot(q, pts, c):
     return (np.asarray(pts) - c) @ R.T + c
 
 
-def panel(ax, t, z, title, half=40.7, q=np.radians(120), label_mirror=False):
+def panel(ax, t, z, title, half=40.7, q=np.radians(120), label_mirror=False, k=1.0):
+    """k scales fonts and line widths (k < 1 for the single-column version)."""
     P = np.array([0.0, -z])
     tau = t - z
     s = tau * np.tan(q / 2)
     ell = half - s
     # proximal: link on z=0, pad hanging to depth t, joint-side end at x=-s
-    ax.plot([-half - 2, 0], [0, 0], color=RED, lw=2.4, solid_capstyle="round", zorder=3)
-    ax.add_patch(Polygon([[-s - ell, 0], [-s, 0], [-s, -t], [-s - ell, -t]], closed=True, fc=PAD_R, ec=RED, lw=0.8, zorder=2))
+    ax.plot([-half - 2, 0], [0, 0], color=RED, lw=2.4*k, solid_capstyle="round", zorder=3)
+    ax.add_patch(Polygon([[-s - ell, 0], [-s, 0], [-s, -t], [-s - ell, -t]], closed=True, fc=PAD_R, ec=RED, lw=0.8*k, zorder=2))
     # distal (reference pose mirrored about x=0), then flexed about the pole
     link = rot(q, [[0, 0], [half + 2, 0]], P)
     pad = rot(q, [[s, 0], [s + ell, 0], [s + ell, -t], [s, -t]], P)
-    ax.plot(*link.T, color=BLUE, lw=2.4, solid_capstyle="round", zorder=3)
-    ax.add_patch(Polygon(pad, closed=True, fc=PAD_B, ec=BLUE, lw=0.8, zorder=2))
+    ax.plot(*link.T, color=BLUE, lw=2.4*k, solid_capstyle="round", zorder=3)
+    ax.add_patch(Polygon(pad, closed=True, fc=PAD_B, ec=BLUE, lw=0.8*k, zorder=2))
     # mirror line through the pole, normal (cos q/2, -sin q/2)
     d = np.array([np.sin(q / 2), np.cos(q / 2)])
     m = np.array([P - 30 * d, P + 9 * d])
-    ax.plot(*m.T, color=INK2, lw=0.6, ls=(0, (4, 2)), zorder=1)
-    ax.add_patch(Circle(P, 1.3, fc="white", ec=INK, lw=1.0, zorder=5))
-    ax.annotate("pole", xy=P + [1.2, 0.6], xytext=P + [7, 5.5], fontsize=7, color=INK,
-                arrowprops=dict(arrowstyle="-", color=INK, lw=0.5))
+    ax.plot(*m.T, color=INK2, lw=0.6*k, ls=(0, (4, 2)), zorder=1)
+    ax.add_patch(Circle(P, 1.3, fc="white", ec=INK, lw=1.0*k, zorder=5))
+    ax.annotate("pole", xy=P + [1.2, 0.6], xytext=P + [7, 5.5], fontsize=7*k, color=INK,
+                arrowprops=dict(arrowstyle="-", color=INK, lw=0.5*k))
     # gap annotation
     y = 4.0
-    ax.annotate("", xy=(-s, y), xytext=(0, y), arrowprops=dict(arrowstyle="<->", color=INK, lw=0.7, shrinkA=0, shrinkB=0))
-    ax.plot([-s, -s], [-t - 0.3, y + 1], color=INK2, lw=0.4, ls=(0, (1, 1)))
-    ax.plot([0, 0], [-z, y + 1], color=INK2, lw=0.4, ls=(0, (1, 1)))
-    ax.text(-s / 2, y + 1.3, f"{s:.1f} mm", ha="center", va="bottom", fontsize=7)
-    ax.text(-s - ell / 2, -t / 2, f"pad {ell:.0f} mm", ha="center", va="center", fontsize=6.5, color=INK)
+    ax.annotate("", xy=(-s, y), xytext=(0, y), arrowprops=dict(arrowstyle="<->", color=INK, lw=0.7*k, shrinkA=0, shrinkB=0))
+    ax.plot([-s, -s], [-t - 0.3, y + 1], color=INK2, lw=0.4*k, ls=(0, (1, 1)))
+    ax.plot([0, 0], [-z, y + 1], color=INK2, lw=0.4*k, ls=(0, (1, 1)))
+    ax.text(-s / 2, y + 1.3, f"{s:.1f} mm", ha="center", va="bottom", fontsize=7*k)
+    ax.text(-s - ell / 2, -t / 2, f"pad {ell:.0f} mm", ha="center", va="center", fontsize=6.5*k, color=INK)
     if label_mirror:
-        ax.text(*(P - 27 * d + [3.4, -4.6]), "mirror line", fontsize=6.3, color=INK2, rotation=np.degrees(np.arctan2(d[1], d[0])),
+        ax.text(*(P - 27 * d + [3.4, -4.6]), "mirror line", fontsize=6.3*k, color=INK2, rotation=np.degrees(np.arctan2(d[1], d[0])),
                 ha="center", va="bottom")
-    ax.set_title(title, fontsize=7.5, pad=2, loc="left")
+    ax.set_title(title, fontsize=7.5*k, pad=2, loc="left")
     ax.set_aspect("equal"); ax.axis("off")
     ax.set_xlim(-half - 3, 22); ax.set_ylim(-44, 11)
 
 
 def fig_concept():
-    fig, axes = plt.subplots(1, 3, figsize=(W, 1.85))
-    panel(axes[0], 5, 0, "(a) fixed axis, face 5 mm deep", label_mirror=True)
-    panel(axes[1], 9, 0, "(b) fixed axis, face 9 mm deep")
-    panel(axes[2], 9, 5, "(c) pole 5 mm lower, face 9 mm deep")
-    fig.subplots_adjust(wspace=0.05)
+    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.32))
+    k = 0.72
+    panel(axes[0], 5, 0, "(a) fixed axis, 5 mm", label_mirror=True, k=k)
+    panel(axes[1], 9, 0, "(b) fixed axis, 9 mm", k=k)
+    panel(axes[2], 9, 5, "(c) pole 5 mm lower, 9 mm", k=k)
+    fig.subplots_adjust(wspace=0.02)
     fig.savefig(DEST / "fig_pole_concept.png")
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------- Study 3 and Figure 1
+TWO_PAD = ROOT / "sim" / "isaaclab" / "logs" / "experimental" / "two_pad"
+HANDS3 = ROOT / "design" / "output" / "sim" / "study3" / "hands"
+GREY, ORANGE, BLUE = "#8a8984", ARCH["2R-remote"][1], ARCH["CFL"][1]
+THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # one hue, light to dark: pad thickness
+
+
+def two_pad_state(hand, mu=1.3, cond="A", rho=15.0, q0=105.0):
+    import glob
+    import json
+    found = None
+    for f in sorted(glob.glob(str(TWO_PAD / f"tp_{hand}_mu{mu:g}_{cond}_r{rho:g}_*.json"))):
+        d = json.loads(Path(f).read_text())
+        if d.get("impratio") == 1000.0:
+            found = d
+    return next(e for e in found["envs"] if e["q0_deg"] == q0 and e["direction"] == "-x")["pre"]
+
+
+def finger_geometry(stem, q_deg):
+    import yaml
+    sys.path.insert(0, str(ROOT / "design"))
+    from core.morphology.code_hand.model import four_bar
+    from core.morphology.code_hand.parameters import FingerParameters
+    d = yaml.safe_load((HANDS3 / f"cfl_q120_h3to7_{stem}.yaml").read_text())
+    fp = FingerParameters(**{**FingerParameters().__dict__, **d["finger"]})
+    pins = {k: np.asarray(getattr(four_bar(fp, q_deg), k), float) for k in ("a", "ap", "b", "bp", "c")}
+    return pins, d["pads"]
+
+
+def draw_finger(ax, stem, hand, rho, ref_centre=None):
+    """Side view at the settled grasp, palm up (the linkage plane flipped so the object sits above the pads)."""
+    st = two_pad_state(hand)
+    q = float(np.mean(st["q_finger_deg"]))
+    pins, pads = finger_geometry(stem, q)
+    m, h = pads["mount_offset_mm"], pads["thickness_mm"]
+    d = m + h
+    qr = np.radians(q)
+    u, v = np.array([np.cos(qr), -np.sin(qr)]), np.array([np.sin(qr), np.cos(qr)])
+    F = np.array([1.0, -1.0])  # flip: palm up
+    o = np.zeros(2)
+    a, ap, b, bp, c = (pins[k] for k in ("a", "ap", "b", "bp", "c"))
+    pad_fc, pad_ec = "#f2c46d", "#a26a00"
+    s0, s1 = pads["proximal_start_mm"], pads["proximal_end_mm"]
+    ax.add_patch(Polygon([np.array(pt) * F for pt in ((s0, -m), (s1, -m), (s1, -d), (s0, -d))], fc=pad_fc, ec=pad_ec,
+                         lw=0.6, zorder=3))
+    t0, t1 = pads["distal_start_mm"], pads["distal_end_mm"]
+    ax.add_patch(Polygon([pt * F for pt in (b + t0 * u - m * v, b + t1 * u - m * v, b + t1 * u - d * v, b + t0 * u - d * v)],
+                         fc=pad_fc, ec=pad_ec, lw=0.6, zorder=3))
+    for p0, p1, lw in ((o, a, 2.0), (a, ap, 2.0), (ap, b, 1.0), (a, bp, 1.0), (b, bp, 2.0), (b, c, 2.0), (bp, c, 2.0)):
+        ax.plot(*np.c_[p0 * F, p1 * F], color=INK if lw > 1.5 else INK2, lw=lw, solid_capstyle="round", zorder=4)
+    for p in (o, a, ap, b, bp):
+        ax.add_patch(Circle(p * F, 1.2, fc="white", ec=INK, lw=0.6, zorder=5))
+    centre = (np.asarray(st["centre_face_mm"]) + np.array([0.0, -d])) * F
+    if ref_centre is not None:
+        ax.add_patch(Circle(ref_centre, rho, fill=False, ec=GREY, lw=0.7, ls=(0, (2.5, 1.5)), zorder=2))
+    ax.add_patch(Circle(centre, rho, fc="#e8eef6", ec="#4a6f99", lw=0.8, zorder=2))
+    ax.set_aspect("equal")
+    ax.set_xlim(-4, 64)
+    ax.set_ylim(-14, 52)
+    ax.axis("off")
+    return centre, st
+
+
+def fig_overview():
+    import json
+    fig = plt.figure(figsize=(W, 1.95))
+    outer = fig.add_gridspec(1, 2, width_ratios=[3.0, 1.25], wspace=0.16)
+    left = outer[0].subgridspec(1, 3, wspace=0.0)
+    axes = [fig.add_subplot(left[0, i]) for i in range(3)]
+    rho = 15.0
+    o_centre, o_st = draw_finger(axes[0], "h0", "O", rho)
+    _, u_st = draw_finger(axes[1], "hu", "U", rho, ref_centre=o_centre)
+    _, r_st = draw_finger(axes[2], "hr", "R", rho, ref_centre=o_centre)
+    titles = [("(a) O: 3 mm pads", "reference"),
+              ("(b) U: 7 mm pads", "skeleton change 3.4 mm\ncontact change 3.9 mm"),
+              ("(c) R: 7 mm pads", "skeleton change 7.7 mm\ncontact change 0.9 mm")]
+    for ax, (t, sub), st in zip(axes, titles, (o_st, u_st, r_st)):
+        ax.text(0.02, 1.0, t, transform=ax.transAxes, fontsize=7.6, fontweight="bold", va="bottom")
+        ax.text(0.02, -0.01, f"{sub}\ndistal force {st['n_distal_total']:.1f} N", transform=ax.transAxes,
+                fontsize=6.4, color=INK2, va="top", linespacing=1.2)
+    ax = fig.add_subplot(outer[1])
+    d = json.loads((TWO_PAD / "dose_A_all.json").read_text())
+    for hand, rec in d["hands"].items():
+        t = int(rec["thickness_mm"])
+        named = hand in ("R", "U") or hand.endswith(("_hr", "_hu"))
+        ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="s" if named else "o", ms=4.0 if named else 3.4,
+                color=THICK[t], mfc=THICK[t] if named else "white", mew=0.9, ls="none", zorder=3)
+    for hand in ("R", "U"):
+        rec = d["hands"][hand]
+        ax.annotate(hand, (rec["D_c_mm"], 100 * rec["E_rel_median"]), xytext=(4, -2), textcoords="offset points",
+                    fontsize=7, fontweight="bold", color=THICK[7])
+    tests = d["tests"]
+    ax.text(0.04, 0.97, rf"$\rho={tests['rho_E_Dc']:.2f}$, $p={tests['p_one_sided']:.4f}$" + "\n" +
+            rf"vs skeleton change: $\rho={tests['rho_E_Ds']:.2f}$", transform=ax.transAxes, fontsize=6.4, va="top")
+    ax.set_xlabel("contact-surface motion change (mm)")
+    ax.set_ylabel("measurement error (%)", labelpad=1)
+    ax.set_title("(d) same command, 15 redesigns", fontsize=7.6, fontweight="bold", loc="left")
+    ax.set_xlim(0, 5.5)
+    ax.set_ylim(-5, 175)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
+    ax.legend(handles=handles, loc="lower right", fontsize=6.2, frameon=False, handletextpad=0.2, borderaxespad=0.1)
+    fig.savefig(DEST / "fig_overview.png")
+    plt.close(fig)
+
+
+def fig_study3():
+    import json
+    fig, axes = plt.subplots(2, 1, figsize=(3.45, 3.2), gridspec_kw=dict(hspace=0.62))
+    ax = axes[0]
+    for cond, filled, lab in (("A", True, "position reuse"), ("C", False, "torque reuse")):
+        d = json.loads((TWO_PAD / f"dose_{cond}_all.json").read_text())
+        for hand, rec in d["hands"].items():
+            t = int(rec["thickness_mm"])
+            ax.plot(rec["D_c_mm"], 100 * rec["E_rel_median"], marker="o" if filled else "D", ms=3.6 if filled else 3.2,
+                    color=THICK[t], mfc=THICK[t] if filled else "white", mew=0.9, ls="none", zorder=3)
+        tests = d["tests"]
+        y = 0.97 if cond == "A" else 0.83
+        ax.text(0.03, y, rf"{lab}: $\rho={tests['rho_E_Dc']:.2f}$ ($n={tests['n_hands']}$)", transform=ax.transAxes,
+                fontsize=6.3, va="top")
+    ax.set_xlabel("contact-surface motion change (mm)")
+    ax.set_ylabel("error in measured effect (%)")
+    ax.set_title("(a) position (filled) vs torque (open) reuse", fontsize=7.6, fontweight="bold", loc="left")
+    ax.set_xlim(0, 5.5)
+    ax.set_ylim(-5, 170)
+    handles = [plt.Line2D([], [], marker="o", ls="none", color=c, mfc=c, ms=3.4, label=f"3→{t} mm") for t, c in THICK.items()]
+    ax.legend(handles=handles, loc="center right", bbox_to_anchor=(1.0, 0.45), fontsize=6.0, frameon=False, handletextpad=0.2, borderaxespad=0.1)
+    ax = axes[1]
+    imp = json.loads((TWO_PAD / "impedance.json").read_text())
+    for hand, color, lab in (("R", BLUE, "R (contact kept)"), ("U", ORANGE, "U (coverage only)")):
+        rows_ = sorted((float(k), v) for k, v in imp["hands"][hand].items())
+        k = np.array([r[0] for r in rows_])
+        med = np.array([100 * r[1]["E_rel_median"] for r in rows_])
+        lo = np.array([100 * r[1]["E_rel_q25"] for r in rows_])
+        hi = np.array([100 * r[1]["E_rel_q75"] for r in rows_])
+        ax.fill_between(k, lo, hi, color=color, alpha=0.15, lw=0)
+        ax.plot(k, med, "-o", color=color, lw=1.6, ms=3.6, mec="white", mew=0.6, label=lab)
+    ax.set_xscale("log")
+    ax.axvline(1.0, color=INK2, lw=0.5, ls=(0, (1, 1.2)))
+    ax.text(1.08, 165, "position\nreuse ($K_0$)", fontsize=6.2, color=INK2, va="top")
+    ax.set_xlabel(r"flexion stiffness $K_q/K_0$ (same on every hand)")
+    ax.set_ylabel("error (%)")
+    ax.set_title("(b) flexion impedance, torque to position", fontsize=7.6, fontweight="bold", loc="left")
+    ax.set_ylim(-5, 170)
+    ax.legend(loc="center right", fontsize=6.0, frameon=False)
+    fig.savefig(DEST / "fig_study3.png")
     plt.close(fig)
 
 
@@ -198,4 +348,6 @@ if __name__ == "__main__":
     fig_concept()
     fig_study1()
     fig_study2()
+    fig_overview()
+    fig_study3()
     print("written to", DEST)

@@ -111,6 +111,12 @@ def main(argv=None) -> int:
     parser.add_argument("--max_force", type=float, default=80.0)
     parser.add_argument("--grasps", type=Path, default=GRASPS_JSON)
     parser.add_argument("--radius_mm", type=float, default=15.0)
+    parser.add_argument("--profile", default="flat", choices=("flat", "crowned"), help="pad surface profile (interface)")
+    parser.add_argument("--tag", default=None, help="added to the run name after the condition (robustness runs), so "
+                        "the main analyses, which read <condition>_r<radius>, never pick these runs up")
+    parser.add_argument("--contact_ke", type=float, default=None,
+                        help="robustness: every shape's contact stiffness [N/m] (preset 2.5e3); damping scales with its root")
+    parser.add_argument("--substeps", type=int, default=None, help="robustness: physics substeps (preset 2)")
     parser.add_argument("--impratio", type=float, default=None, help="MuJoCo friction-to-normal impedance ratio (default: the preset's 10)")
     parser.add_argument("--render", type=Path, default=None,
                         help="also render environment --render_env with Newton's GL viewer (headless) once the grasp has "
@@ -162,12 +168,18 @@ def finish(args, physics, results) -> int:
     if not results:  # --render_only
         return 0
     cond = args.condition if args.condition != "D" else f"D{args.stiffness_scale:g}"
+    if args.profile != "flat":
+        cond += f"-{args.profile}"
+    if args.tag:
+        cond += f"-{args.tag}"
     run = common.run_id(f"tp_{args.hand}_mu{args.mu:g}_{cond}_r{args.radius_mm:g}")
     out = common.write_json(OUT / f"{run}.json", {
         "hand": args.hand, "mu": args.mu, "condition": cond, "stiffness_scale": args.stiffness_scale,
         "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
-        "impratio": args.impratio, "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
+        "impratio": args.impratio, "contact_ke": args.contact_ke, "substeps": args.substeps,
+        "profile": args.profile, "tag": args.tag,
+        "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
                  "angle_deg": GATE_ANGLE_DEG, "match": GATE_MATCH},
         "envs": results, "manifest": common.manifest(command=sys.argv)})
@@ -241,9 +253,11 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
     usd = ASSET_DIR / f"planar_cylinder_r{rho_mm:g}.usda"
     if not usd.exists():
         write_planar_cylinder_usd(usd, rho, LENGTH_M, MASS_KG)
-    name = register_description_hand(f"tp_{args.hand}_mu{args.mu:g}", HANDS[args.hand],
+    from code_isaaclab.contact_interface import VARIANTS
+
+    name = register_description_hand(f"tp_{args.hand}_mu{args.mu:g}_{args.profile}", HANDS[args.hand],
                                      cylinder_cfg(0.01, 0.02, 0.01, (0.3, 0.3, 0.1), kinematic=True),
-                                     pad_friction=args.mu)
+                                     profile=VARIANTS[args.profile], pad_friction=args.mu)
 
     @configclass
     class Cfg(CoDeReorientMainEnvCfg):
@@ -254,6 +268,12 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
     env_cfg.sim.gravity = (0.0, 0.0, 0.0)
     if args.impratio is not None:
         env_cfg.sim.physics.solver_cfg.impratio = args.impratio
+    if args.contact_ke is not None:  # MuJoCo-Warp turns each shape's ke, kd into its solref
+        shape = env_cfg.sim.physics.default_shape_cfg
+        shape.kd = shape.kd * math.sqrt(args.contact_ke / shape.ke)
+        shape.ke = args.contact_ke
+    if args.substeps is not None:
+        env_cfg.sim.physics.num_substeps = args.substeps
     env_cfg.scene.num_envs = len(envs)
     env_cfg.events.reset_object = None
     env_cfg.events.reset_hand.params["joint_position_noise"] = 0.0

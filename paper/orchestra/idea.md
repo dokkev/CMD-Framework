@@ -1,21 +1,23 @@
 # idea.md — CoDe Hand: designing a finger around its contact interfaces
 
-Sources (synced with the SSoT on 2026-11-21, commit 6be3d93): `design/SSoT/north-star.md` (problem,
-contributions C1–C5), `design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status),
-`design/SSoT/problem_formulation.md` A.3–A.6, `report/study0/derivation.md`.
-Study 3 enters only as hypothesis H3, stated as an open measurement problem (research-objective §8.1). Its design,
-the frozen-policy protocol and the regrasp-geometry numbers are in the playground (`docs/experimental/`) and must
-NOT be used in the paper.
+Sources (synced 2026-11-22 with the SSoT after the Study 3 update): `design/SSoT/north-star.md`,
+`design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status), `design/SSoT/problem_formulation.md`
+A.3–A.6, `report/study0/derivation.md`, and for Study 3 `docs/experimental/separability.md` (experiments 3–8,
+pre-registered gates and amendments) with the logs in `sim/isaaclab/logs/experimental/two_pad/`.
+Study 3 is now a simulation result (H3), with its scope stated: reused joint-position (impedance) commands,
+CFL, q_req 120°, 3→5/7/9 mm, a free cylinder held by two pads, rigid contact (MuJoCo-Warp).
 
-Why the relative contact trajectory (north-star): (1) the object meets the contact faces, not the skeleton;
+Why keep how the contact surfaces move (north-star): (1) the object meets the contact faces, not the skeleton;
 (2) a redesign does not keep it unless it is the target (Study 1's two independent 7 mm CFL designs at 120°:
-1.28 and 3.91 mm vs 0.86 mm for the Study 2 redesign); (3) it can be kept at little cost (C1, C3).
+1.28 and 3.91 mm vs 0.86 mm for the Study 2 redesign); (3) it can be kept at little cost (C1, C3);
+(4) shown in simulation (Study 3): with reused position commands, the error in a measured interface effect
+follows its change and not the skeleton's.
 Transmission (decided): compensated by control and recorded — flexion commands through each hand's θ(q) table with
 gains K_θ = K_q/(dθ/dq)² hold flexion within 0.07° in simulation (MuJoCo-Warp, torque limits off); on hardware,
 whether torque limits allow it where MA_wc falls (up to −18 %) is open.
 
 Contributions (north-star): C1 a bound (Study 0); C2 a finger (Study 1); C3 redesign that keeps contact
-(Study 2); C4 why it matters (open; Study 3, H3); C5 a platform (hardware, H4).
+(Study 2); C4 why it matters (Study 3, H3; simulation); C5 a platform (hardware, H4).
 
 ## 1. North star and the message
 
@@ -48,23 +50,23 @@ Central question: how can a hand be designed so that contact interfaces can be v
 systematically while its underlying morphology changes as little as possible?
 Supporting questions answered in this paper: (Q1) how does hand architecture constrain the space and
 geometry available to interfaces? (Q2) how much must the morphology change to accommodate a different
-interface, and how much does its relative contact trajectory change? (Q3) does keeping that trajectory
+interface, and how much does its contact-surface motion change? (Q3) does keeping that motion
 change what an interface experiment measures?
 
-## 3. Key concept: the relative contact trajectory
+## 3. Key concept: how the contact surfaces move (the finger's contact Jacobian)
 
-Robot configuration R = (H, C): underlying hand H = (E, Q, A) (structure, articulation geometry,
-actuation) fixed; contact interface C variable. The kinematic target of a contact-centric hand is the
-**relative contact trajectory: the path of the distal contact face seen from the proximal contact face, as a
-function of flexion q (not of time)**. It excludes the transmission from servo angle to flexion, which is
-recorded separately. (This term replaced "contact-centric kinematics" on 2026-11-21; do not use the old
-term.) What a policy and an object meet is the contact face, not the skeleton. When an interface is thicker
-than the finger was designed for, the relative contact trajectory has priority over the skeleton's: the mechanism's
-internal dimensions may change to keep the contact faces moving as before. With identical rigid-body
-kinematics, a thicker interface moves the contact face away from the point the phalanx turns about and so
-changes the contact-point Jacobian — an effect of the hand's geometry, not of the interface under study,
-and exactly what a redesign should remove. Preserving the relative contact trajectory does NOT mean preserving
-contact mechanics (compliance, friction, sensing change with the interface — that is what is studied).
+Robot configuration R = (H, C): underlying hand H = (E, Q, A) (structure, articulation geometry, actuation)
+fixed; contact interface C variable. The kinematic target of a contact-centric hand is **how the distal contact
+surface moves relative to the proximal one as the finger flexes**. Write it with an explicit frame, not a coined
+term: in the **proximal-phalanx frame** F_p (it turns with the proximal phalanx at the MCP; origin on the proximal
+contact face), c(q) is the point under the fingertip on the distal contact face, and its derivative in flexion
+J(q) = d/dq [c(q); φ(q)] = [c′(q); 1] is the PIP column of the finger's contact Jacobian (rotation part 1 on
+every design, Proposition 4; c′ carries the pole of the relative motion). D_c is the position-level change of
+c over [0, q_req] (≈ the integral of the Jacobian change, since the q = 0 pose barely differs). The MCP column
+(lever includes the pad depth) is NOT kept — the stated limitation. The transmission (servo angle → flexion) is
+excluded, recorded and compensated by control. Keeping the contact Jacobian does NOT keep the contact mechanics
+(compliance, friction, sensing change with the interface — that is what is studied). Do not write "relative
+contact trajectory" or "RCT" in the paper; "contact-surface motion" for the quantity, "skeleton motion" for D_s.
 
 ## 4. The CoDe approach (engineering means, not ends)
 
@@ -122,7 +124,7 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - **Prop. 4 (trajectory law).** p(q) = pole relative to the proximal face; a distal-face point
   moves as c(q) = p + R_q(c_0 − p). Two fingers whose poles differ by Δp: ‖Δc(q)‖ = 2 sin(q/2) ‖Δp(q)‖.
   Contact faces move alike iff the pole keeps its place relative to the face; then the same pad fits in the
-  same place → keeping the relative contact trajectory and keeping the pads are one condition.
+  same place → keeping the contact-surface motion and keeping the pads are one condition.
 - **Corollary (fixed-axis bound).** Redesigning a fixed-axis finger so the faces move Δh − Δd away from the
   axis: max_q ‖Δc‖ ≥ 2 sin(q_req/2)|Δh − Δd| wherever the new axis is (equality if it does not move along the
   face). Same for rolling joint with fixed roller radius.
@@ -150,16 +152,16 @@ occupy): (ℓ_1 + ℓ_2)/L_f = 1 − (x_0 + G)/L_f.
 - H1: Architecture bounds the usable contact surface; the spread grows with thickness and required flexion.
   (Study 1.) If false: interface volume is limited by packaging, not the joint.
 - H2: Only a joint that moves its pole can be redesigned for a thicker interface while keeping the
-  relative contact trajectory and the coverage. (Study 2 vs. Corollary.) If false: every interface
+  contact-surface motion and the coverage. (Study 2 vs. Corollary.) If false: every interface
   comparison must report D_c as a covariate.
-- H3 (C4, open; research-objective §8.1): keeping the relative contact trajectory keeps an interface measurement
-  from depending on how the hand was adapted. Interface variable c from c₀ to c₁ on hand H, task measure M,
-  effect Δ(H) = M(H,c₁) − M(H,c₀); decoupled when E(H) = |Δ(H) − Δ(H₀)| is small against Δ(H₀). A test must:
-  (i) remove by control what control can undo (transmission) and declare what is not kept (MCP level);
-  (ii) same task and controller on every hand, commands and stiffness in flexion, state whether command or
-  contact force is held fixed; (iii) no re-training/re-tuning per hand (a policy moved between hands measures
-  transfer); (iv) report E(H) vs Δ(H₀) with the raw between-hand difference at one interface value as control;
-  (v) an interface change with a clearly non-zero effect on H₀. Design not settled; no result claimed.
+- H3 (C4, Study 3, simulation): with reused position commands, the error in a measured interface effect follows
+  the change in contact-surface motion, not the skeleton's change. Effect Δ(H) = F(H, c₁) − F(H, c₀) of an
+  interface change (pad friction μ 1.3 → 2.0) on the load F a free cylinder held by two pads takes before the
+  grasp gives way (4 load directions); error E(H) = |Δ(H) − Δ(O)| / |Δ(O)| against the reference hand O (3 mm),
+  median over placements. Conditions: same flexion command (A, primary), oracle force matching (B, ground-truth
+  contact force, an upper bound on compensation), joint-torque reuse (C), flexion-space impedance sweep (D).
+  The test meets (i)–(v): transmission compensated, MCP declared; one evaluator, no re-tuning; raw between-hand
+  differences reported; the friction effect on O is 1.2–2.7 N. Numbers in experimental_log.md (Study 3).
 - H4 (C5, Stage 2, hardware, criterion 4 of research-objective §5.7): interfaces can be exchanged on one physical
   CoDe hand with the same actuation and procedure, keeping the predicted motion. Planned measures: what an
   exchange touches (parts, time, whether the articulation is disassembled); reached flexion vs. model;
@@ -176,6 +178,6 @@ partial at 9 mm; CFL search hard). Candidate designs are design alternatives, no
 is about the search. Planar feasibility is not buildability. Matched morphology reduces confounding; it
 does not establish perfect causal isolation. Never claim universal superiority of CFL. Results are within
 the 2D model, equal-thickness rigid pads, fixed L_f and the stated coverage definition. Occlusion and an MA
-floor were not imposed. No learning results exist; H3 is an open problem, not a result. Do not claim that keeping the trajectory preserves policy performance.
+floor were not imposed. No learning results exist. H3 is a simulation result with a scope: reused joint-position (impedance) commands; with reused joint torque the error shrinks 4–5× (still ordered by D_c); with oracle force feedback it is 3–7 %. Do not claim that keeping the contact surfaces' motion preserves policy performance, that it matters under every control protocol, or that more skeleton change is better (only that skeleton change does not predict the error). Rigid contact; the plateau of the impedance sweep is set by contact stiffness. Exploratory vs confirmatory: report the post-hoc amendments (impratio 1000, hand reselection, two added hands, symmetric metric) as such.
 Limitation (north-star Not claimed): the MCP level is not kept — a revolute MCP is a fixed axis, so the proximal
 face's path relative to the palm changes with pad thickness on every redesign (C1 applies there).
