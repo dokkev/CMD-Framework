@@ -58,10 +58,11 @@ class FourBarView(KinematicJoint):
         if self.packaging.pip_servo_body:  # the idealized CFL has none
             sketch.servo(axis, pip_footprint(self.packaging, self.finger).outline)
         # Each rigid body with its pad's inner end: A'' (on O-A) with O, A and A';
-        # B'' (on B-C) with B, B' and C. A-B' black, the driver A'-B grey.
+        # B'' (on B-C) with B, B' and C, drawn as its outline B''-B'-C (B lies on B''-C, so no inner B-B' bar).
+        # A-B' black, the driver A'-B grey.
         app, bpp = self.finger.proximal_end.array, self.distal_start(phi_deg)
         sketch.body_links(axis, proximal=[(o, a), (o, app), (app, a), (app, ap), (o, ap)],
-                          distal=[(bp, b, c, bp), (bpp, b), (bpp, bp), (bpp, c)], black=[(a, bp)], gray=[(ap, b)])
+                          distal=[(bpp, bp, c, bpp)], black=[(a, bp)], gray=[(ap, b)])
         sketch.nodes(axis, a, b, bp)  # pivots
         sketch.corners(axis, c, app, bpp)
         sketch.active(axis, o, ap)
