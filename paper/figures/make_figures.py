@@ -48,17 +48,23 @@ def rows(path):
         return list(csv.DictReader(f))
 
 
-def style_line(key, ideal=False):
+def style_line(key, ideal=False, k=1.0):
+    """k scales line width and marker size (k < 1 for single-column figures)."""
     label, color, marker = ARCH[key]
     if ideal:
-        return dict(color=color, ls=(0, (3, 2)), lw=1.0, marker=marker, ms=3.2, mfc="white", mec=color, mew=0.8, alpha=0.9)
-    return dict(color=color, lw=1.6, marker=marker, ms=4.2, mec="white", mew=0.6)
+        return dict(color=color, ls=(0, (3, 2)), lw=1.0*k, marker=marker, ms=3.2*k, mfc="white", mec=color, mew=0.8*k, alpha=0.9)
+    return dict(color=color, lw=1.6*k, marker=marker, ms=4.2*k, mec="white", mew=0.6*k)
+
+
+SMALL = dict(fontsize=6.5)  # column figures: labels at print size
 
 
 # ---------------------------------------------------------------- Study 1
 def fig_study1():
+    """Single column, drawn at print size (3.45 in)."""
     data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    fig, axes = plt.subplots(1, 3, figsize=(W, 1.9), sharey=True)
+    k = 0.75
+    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.62), sharey=True, gridspec_kw=dict(wspace=0.12))
     for ax, q in zip(axes, (90, 120, 150)):
         for name in list(ARCH) + list(IDEAL):
             key, ideal = (IDEAL[name], True) if name in IDEAL else (name, False)
@@ -68,71 +74,82 @@ def fig_study1():
                 continue
             h, c = map(np.array, zip(*pts))
             shown = c >= 48
-            ax.plot(h[shown], c[shown], **style_line(key, ideal), zorder=3 if not ideal else 2)
+            ax.plot(h[shown], c[shown], **style_line(key, ideal, k), zorder=3 if not ideal else 2)
             for hh in h[~shown]:  # off-scale degenerate designs: a marker pinned to the floor
-                ax.plot(hh, 48.9, marker="v", color=ARCH[key][1], ms=4.2, mec="white", mew=0.5, clip_on=False, zorder=4)
+                ax.plot(hh, 48.9, marker="v", color=ARCH[key][1], ms=3.4, mec="white", mew=0.4, clip_on=False, zorder=4)
             if name == "2R-DD" and q == 150:
-                ax.text(5.55, 63.0, "2R-DD: none found\nbeyond 5 mm", fontsize=6.2, color=INK2, ha="left", va="center", linespacing=1.1)
-        ax.set_title(rf"$q_{{\mathrm{{req}}}}={q}^\circ$", pad=3)
-        ax.set_xticks([3, 5, 7, 9]); ax.set_xlim(2.5, 9.5); ax.set_ylim(48, 86)
-        ax.set_xlabel("pad thickness $h$ (mm)")
-    axes[0].set_ylabel(r"best $\bar C_{\mathrm{pad}}$ (%)")
-    handles = [plt.Line2D([], [], **style_line(k), label=ARCH[k][0]) for k in ARCH]
-    handles += [plt.Line2D([], [], **style_line(IDEAL[n], True), label=n.replace("*", " (bound)")) for n in IDEAL]
-    fig.legend(handles=handles, loc="upper center", ncol=6, frameon=False, bbox_to_anchor=(0.5, 1.12),
-               handlelength=2.2, columnspacing=1.4)
+                ax.text(5.6, 61.5, "2R-DD:\nnone past 5", fontsize=5.6, color=INK2, ha="left", va="center", linespacing=1.05)
+        ax.text(0.5, 0.98, rf"$q_{{\mathrm{{req}}}}={q}^\circ$", transform=ax.transAxes, ha="center", va="top", fontsize=6.8)
+        ax.set_xticks([3, 5, 7, 9]); ax.set_xlim(2.5, 9.5); ax.set_ylim(48, 88)
+        ax.tick_params(labelsize=6.2)
+    axes[1].set_xlabel("pad thickness $h$ (mm)", fontsize=6.8)
+    axes[0].set_ylabel(r"best $\bar C_{\mathrm{pad}}$ (%)", fontsize=6.8)
+    handles = [plt.Line2D([], [], **style_line(kk, k=k), label=ARCH[kk][0]) for kk in ARCH]
+    handles += [plt.Line2D([], [], **style_line(IDEAL[n], True, k), label=n.replace("*", "")) for n in IDEAL]
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.53, 0.88),
+               handlelength=1.8, columnspacing=0.9, fontsize=6.2, labelspacing=0.25, handletextpad=0.4)
     fig.savefig(DEST / "fig_study1_coverage.png")
     plt.close(fig)
 
 
 # ---------------------------------------------------------------- Study 2
 def fig_study2():
+    """Single column, 2 x 2, drawn at print size (3.45 in)."""
     summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
     prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
-    fig, axes = plt.subplots(1, 4, figsize=(W, 1.85), gridspec_kw=dict(width_ratios=[1, 1, 1, 1.25], wspace=0.38))
+    k = 0.75
+    fig, axes = plt.subplots(2, 2, figsize=(3.45, 2.45), gridspec_kw=dict(wspace=0.32, hspace=0.62))
+    axes = axes.ravel()
     for ax, q in zip(axes[:3], (90.0, 120.0, 150.0)):
         hb = np.array([3, 5, 7, 9.0])
         bound = 2 * np.sin(np.radians(q) / 2) * (hb - 3)
-        ax.plot(hb, bound, color=INK, ls=(0, (1, 1.2)), lw=1.1, zorder=2)
+        ax.plot(hb, bound, color=INK, ls=(0, (1, 1.2)), lw=0.9, zorder=2)
         ymax = bound[-1] * 1.18
-        for k in ARCH:
+        for kk in ARCH:
             pts = sorted((float(r["to_mm"]), LF * float(r["change_at_most_c_pad"]))
-                         for r in summ if S2KEY.get(r["architecture"]) == k and float(r["required_flexion_deg"]) == q
+                         for r in summ if S2KEY.get(r["architecture"]) == kk and float(r["required_flexion_deg"]) == q
                          and r["change_at_most_c_pad"] not in ("", "nan"))
             if not pts:
                 continue
             h, d = map(np.array, zip(*([(3.0, 0.0)] + pts)))
             ok = d <= ymax
-            ax.plot(h[ok], d[ok], **style_line(k), zorder=3)
-            if (~ok).any():
-                ax.plot(h[ok][-1:].tolist() + [h[~ok][0]], d[ok][-1:].tolist() + [ymax * 1.05], color=ARCH[k][1], lw=1.6, clip_on=True)
+            ax.plot(h[ok], d[ok], **style_line(kk, k=k), zorder=3)
+            if (~ok).any():  # off-scale: run the line to the top edge, mark each value there
+                ax.plot(h[ok][-1:].tolist() + [h[~ok][0]], d[ok][-1:].tolist() + [ymax * 1.05], color=ARCH[kk][1],
+                        lw=1.6*k, clip_on=True)
             for hh, dd in zip(h[~ok], d[~ok]):
-                ax.plot(hh, ymax, marker=ARCH[k][2], color=ARCH[k][1], ms=4.2, mec="white", mew=0.5, clip_on=False, zorder=4)
-                ax.text(hh - 0.5, ymax * 0.97, f"{dd:.1f}", fontsize=6.3, color=INK2, ha="right", va="top")
+                ax.plot(hh, ymax, marker=ARCH[kk][2], color=ARCH[kk][1], ms=3.2, mec="white", mew=0.4, clip_on=False, zorder=4)
+                right = hh < 9  # the value goes where the line is not
+                ax.text(hh + (0.35 if right else -0.35), ymax * 0.985, f"{dd:.0f}", fontsize=5.6, color=ARCH[kk][1],
+                        ha="left" if right else "right", va="top")
         ax.set_ylim(0, ymax); ax.set_xlim(2.7, 9.3); ax.set_xticks([3, 5, 7, 9])
-        ax.set_title(rf"$q_{{\mathrm{{req}}}}={int(q)}^\circ$", pad=3)
-        ax.set_xlabel("redesigned for $h$ (mm)")
-    axes[0].set_ylabel(r"$\Delta_{\mathrm{contact}}$ (mm)")
+        ax.set_title(rf"$q_{{\mathrm{{req}}}}={int(q)}^\circ$", pad=6, fontsize=6.8)
+        ax.set_xlabel("redesigned for $h$ (mm)", fontsize=6.5, labelpad=1)
+        ax.tick_params(labelsize=6.2)
+    for a in (axes[0], axes[2]):
+        a.set_ylabel(r"$\Delta_{\mathrm{contact}}$ (mm)", fontsize=6.8)
     # (d) over the flexion, q_req 120, 3 -> 9 mm
     ax = axes[3]
-    for k in ARCH:
+    for kk in ARCH:
         pts = sorted((float(r["q_deg"]), float(r["contact_apart_mm"])) for r in prof
-                     if S2KEY.get(r["architecture"]) == k and float(r["required_flexion_deg"]) == 120.0 and float(r["to_mm"]) == 9.0)
+                     if S2KEY.get(r["architecture"]) == kk and float(r["required_flexion_deg"]) == 120.0 and float(r["to_mm"]) == 9.0)
         if pts:
             qq, dd = map(np.array, zip(*pts))
-            ax.plot(qq, dd, color=ARCH[k][1], lw=1.6)
-            ax.plot(qq[-1], dd[-1], marker=ARCH[k][2], color=ARCH[k][1], ms=4.2, mec="white", mew=0.6, ls="none")
+            ax.plot(qq, dd, color=ARCH[kk][1], lw=1.6*k)
+            ax.plot(qq[-1], dd[-1], marker=ARCH[kk][2], color=ARCH[kk][1], ms=3.2, mec="white", mew=0.4, ls="none")
     qq = np.linspace(0, 120, 100)
-    ax.plot(qq, 2 * np.sin(np.radians(qq) / 2) * 6, color=INK, ls=(0, (1, 1.2)), lw=1.1)
+    ax.plot(qq, 2 * np.sin(np.radians(qq) / 2) * 6, color=INK, ls=(0, (1, 1.2)), lw=0.9)
     ax.set_xlim(0, 124); ax.set_xticks([0, 30, 60, 90, 120]); ax.set_ylim(0, 11)
-    ax.set_xlabel(r"flexion $q$ ($^\circ$)"); ax.set_ylabel(r"$\|\Delta\mathbf{c}(q)\|$ (mm)")
-    ax.set_title(r"$q_{\mathrm{req}}=120^\circ$, $3\to9$ mm", pad=3)
+    ax.set_xlabel(r"flexion $q$ ($^\circ$)", fontsize=6.5, labelpad=1)
+    ax.set_ylabel(r"$\|\Delta\mathbf{c}(q)\|$ (mm)", fontsize=6.8)
+    ax.set_title(r"$120^\circ$, $3\to9$ mm", pad=6, fontsize=6.8)
+    ax.tick_params(labelsize=6.2)
     for a, lab in zip(axes, "abcd"):
-        a.text(-0.02, 1.07, f"({lab})", transform=a.transAxes, fontsize=8, fontweight="bold", ha="right")
-    handles = [plt.Line2D([], [], **style_line(k), label=ARCH[k][0]) for k in ARCH]
-    handles.append(plt.Line2D([], [], color=INK, ls=(0, (1, 1.2)), lw=1.1, label=r"fixed-axis bound $2\sin(q/2)\,\Delta h$"))
-    fig.legend(handles=handles, loc="upper center", ncol=5, frameon=False, bbox_to_anchor=(0.5, 1.13),
-               handlelength=2.2, columnspacing=1.4)
+        a.text(-0.04, 1.08, f"({lab})", transform=a.transAxes, fontsize=6.8, fontweight="bold", ha="right")
+    handles = [plt.Line2D([], [], **style_line(kk, k=k), label=ARCH[kk][0]) for kk in ARCH]
+    handles.append(plt.Line2D([], [], color=INK, ls=(0, (1, 1.2)), lw=0.9, label="fixed-axis bound"))
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.52, 0.965),
+               handlelength=1.8, columnspacing=0.9, fontsize=6.2, labelspacing=0.25, handletextpad=0.4)
     fig.savefig(DEST / "fig_study2_redesign.png")
     plt.close(fig)
 
@@ -176,18 +193,21 @@ def panel(ax, t, z, title, half=40.7, q=np.radians(120), label_mirror=False, k=1
     ax.plot([-s, -s], [-t - 0.3, y + 1], color=INK2, lw=0.4*k, ls=(0, (1, 1)))
     ax.plot([0, 0], [-z, y + 1], color=INK2, lw=0.4*k, ls=(0, (1, 1)))
     ax.text(-s / 2, y + 1.3, f"{s:.1f} mm", ha="center", va="bottom", fontsize=7*k)
-    ax.text(-s - ell / 2, -t / 2, f"pad {ell:.0f} mm", ha="center", va="center", fontsize=6.5*k, color=INK)
+    if t >= 7:  # thick pad: the label fits inside
+        ax.text(-s - ell / 2, -t / 2, f"pad {ell:.0f} mm", ha="center", va="center", fontsize=6.5*k, color=INK)
+    else:  # thin pad: above the link, left-aligned clear of the gap arrow
+        ax.text(-s - ell + 0.5, 1.2, f"pad {ell:.0f} mm", ha="left", va="bottom", fontsize=6.5*k, color=INK)
     if label_mirror:
-        ax.text(*(P - 27 * d + [3.4, -4.6]), "mirror line", fontsize=6.3*k, color=INK2, rotation=np.degrees(np.arctan2(d[1], d[0])),
-                ha="center", va="bottom")
+        ax.text(*(P - 25 * d + [-2.0, 1.2]), "mirror line", fontsize=6.3*k, color=INK2, rotation=np.degrees(np.arctan2(d[1], d[0])),
+                ha="center", va="bottom", rotation_mode="anchor")
     ax.set_title(title, fontsize=7.5*k, pad=2, loc="left")
     ax.set_aspect("equal"); ax.axis("off")
     ax.set_xlim(-half - 3, 22); ax.set_ylim(-44, 11)
 
 
 def fig_concept():
-    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.32))
-    k = 0.72
+    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.22), gridspec_kw=dict(wspace=0.04))
+    k = 0.88
     panel(axes[0], 5, 0, "(a) fixed axis, 5 mm", label_mirror=True, k=k)
     panel(axes[1], 9, 0, "(b) fixed axis, 9 mm", k=k)
     panel(axes[2], 9, 5, "(c) pole 5 mm lower, 9 mm", k=k)
