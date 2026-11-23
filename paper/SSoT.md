@@ -94,9 +94,12 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
     from first principles; simple models explain the trade-off against conventional designs; the comparison
     and the validation follow from that metric. Plain, precise engineering prose, the design rationale stated
     explicitly, each quantity defined before it is used.
+  - **Voice, after Wensing:** "we" is not needed. The subject of a sentence is the design, the mechanism or the
+    analysis ("The CFL keeps …", "This section derives …", "Each pad is mounted …"); the passive is used where
+    the actor does not matter.
   - **Delivery (how fast the message lands):** Vaswani et al., "Attention Is All You Need" (NeurIPS 2017).
-    One message per paragraph, stated in its first sentence; short declarative sentences in the active voice
-    ("we"); few parentheses and no semicolon chains; one or two numbers per sentence, the rest in tables and
+    One message per paragraph, stated in its first sentence; short declarative sentences; few parentheses and
+    no semicolon chains; one or two numbers per sentence, the rest in tables and
     figures; nothing the reader must hold in mind before it pays off.
 - Introduction: no equations and no experimental numbers. Say a result in words and point to its section.
 - State results directly. No sentence that concedes or cuts down the work to forestall a reviewer
