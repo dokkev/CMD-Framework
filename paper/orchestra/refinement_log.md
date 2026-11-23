@@ -21,6 +21,7 @@
 | v16 | 16c483e | 6, 6, 6 | — | soft-pad counterfactual (17th), grid key fix (rho 0.86), Holm 25; r1/r3 Opus (r1 after a safeguard retry), r2 Fable 5.2 after two safeguard errors |
 | v17 | d722efa | 6, 6, 6 | — | Study 4 (reversed conclusion, post hoc), Fig. 1(d), ideal torque wording, Stage 2 trend test; all three reviews on Fable 5.2 after Opus safeguard errors on every first try and retry |
 | v18 | 6a80bac | 6, 6, 6 | — | independence framing; Study 3 trimmed to one table by protocol (18th: ideal torque, partial 0.79); Study 4 folded in (19th: error rho 0.94, reversal fails, direction = signed face offset); H2 failure condition dropped; MA cost stated; details to captions; r1 Opus, r2/r3 Fable 5.2 after two Opus safeguard errors each |
+| v19 | d7ce877 | 6, 6, 6 | — | C2 scoped to servo setpoints in intro and conclusion; H3 scope; placements, R/U/M defined; signed face offset tested (Delta_contact keeps 0.69 given it); dropped hands scored; Holm; 9 mm limit; S1/S2 named; r1 Opus, r2 Opus on retry, r3 Fable 5.2 after two Opus safeguard errors |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -154,3 +155,12 @@ governing variable and is not a candidate in Table I (r2, r3); CFL at 9 mm (Delt
 tolerance (r2); undefined terms (placements, grid, reversed share, M) and -37% vs -41% (r2, r3); hands dropped for
 not holding, clustering, multiplicity (r2); S1/S2 stated only in a caption, pole path of the CoDe linkage never
 plotted (r3); H2 still a weak test (r3); simulation and linear pad model (all).
+
+v19: 6, 6, 6 (r1 Opus; r2 Opus on the retry; r3 Fable 5.2 after two Opus safeguard errors). All Accept; r3 raised
+Clarity and Presentation to 3. The statistics critique turned into a strength (pre-registered grid, Holm, post hoc
+labels). Remaining: under the reused setpoint the effect may be preload; report each hand's setpoint normal force and
+Delta_contact's partial given it (r2); the contact-model sensitivity checks are missing from the text (r2); Delta_contact
+at the grasp pose vs its maximum over q (r2, r3); the definition of r_C under which Eq. (7) holds (r3); Prop. 1 exact
+only when the pole moves in depth alone (r3); the optimised CFL's pole depth vs d + h never shown (r3); RCJ below the
+bound at 90 deg (r3); partial correlations per setting not in Table I (r3); MA unconstrained (all); "contact Jacobian"
+is the PIP column only (r1, r3); missing underactuated/linkage contact-force literature (r1); simulation only (all).
