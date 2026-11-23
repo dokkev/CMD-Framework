@@ -53,6 +53,8 @@ def main() -> int:
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
+    from PIL import Image
+    Image.open(out).convert("RGB").save(out)  # opaque RGB, no SMask (PaperPlaza)
     print(out, f"{width} x {height} in")
     return 0
 
