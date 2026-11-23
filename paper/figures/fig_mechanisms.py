@@ -192,10 +192,10 @@ def main() -> int:
     # among the three); (b) the poles; (c) a third panel. Positions in inches.
     aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
     head, cap = 0.17, 0.13  # panel-label row; a sketch's title row
-    sw_small = 0.55  # in, per small sketch
+    sw_small = 0.74  # in, per small sketch
     sh_small = sw_small * aspect
     height = head + 3 * (cap + sh_small)
-    sw_big = 1.5
+    sw_big = 1.62
     sh_big = sw_big * aspect
     fig = plt.figure(figsize=(WIDTH, height))
 
@@ -224,6 +224,22 @@ def main() -> int:
     pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
            "C": st.tip[0], "O": np.zeros(2)}
     offsets = {"A": (-3, -7), "A'": (9, 7), "B": (6, -1), "B'": (5, -7), "C": (4, -5), "O": (-6, -8)}
+    # L_1 (O to the proximal phalanx's end) and L_2 (the distal phalanx's start to C) as dimension lines outside
+    # the pads, the lengths that define L_f and the contour L_f(q) (Sec. III-A)
+    r1e, r2s = four.finger.proximal_end.array, four.distal_start(FLEXION)
+    dim = dict(arrowstyle="<|-|>", lw=0.5, color=INK2, mutation_scale=4, shrinkA=0, shrinkB=0)
+    below = float(np.asarray(views["cfl"].proximal_pad())[:, 1].min()) - 3.0
+    cax_.annotate("", xy=(r1e[0], below), xytext=(0.0, below), arrowprops=dim, zorder=29)
+    cax_.text(r1e[0] / 2, below - 1.0, "$L_1$", fontsize=7, ha="center", va="top", color=INK, zorder=30)
+    u = (pts["C"] - r2s) / np.linalg.norm(pts["C"] - r2s)
+    n = np.array([-u[1], u[0]])
+    pad2 = np.asarray(views["cfl"].distal_pad(FLEXION))
+    side = np.sign(np.mean((pad2 - r2s) @ n)) or 1.0
+    reach = float(np.max(side * ((pad2 - r2s) @ n))) + 3.0
+    p0, p1 = r2s + side * reach * n, pts["C"] + side * reach * n
+    cax_.annotate("", xy=p1, xytext=p0, arrowprops=dim, zorder=29)
+    cax_.annotate("$L_2$", xy=(p0 + p1) / 2, xytext=tuple(4.5 * side * n), textcoords="offset points", fontsize=7,
+                  ha="center", va="center", color=INK, zorder=30)
     for name, at in pts.items():
         cax_.annotate(f"${name}$", xy=at, xytext=offsets[name], textcoords="offset points", fontsize=7,
                       ha="center", va="center", color=INK, zorder=30)
@@ -245,9 +261,9 @@ def main() -> int:
     # Study 0's analysis rather than any optimization run: a fixed axis's P is the pin (a point); equal rollers'
     # P = (a + r) - i r tan(q/4) lies on one segment (Study 0, Eq. 14); a four-bar's P follows from the closure of
     # its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
-    bx = 2.3
+    bx = 2.55
     fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ over flexion", **label)
-    pax = box(bx + 0.32, 0.3, 2.1, height - head - 0.36)
+    pax = box(bx + 0.32, 0.3, 2.0, height - head - 0.36)
     blue, yellow = ARCH[3][2], ARCH[2][2]
     qr = np.radians(FLEXION)
     # at 60, 90, 120 and 150 deg, light to dark: the four-bars' 95% regions as outlines, the rollers' as fills
@@ -288,7 +304,7 @@ def main() -> int:
     # G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, (90 + q_req) / 2, q_req} deg. A pin sits on the link line
     # (z = 0); the largest roller inside the face (r = t) puts its pole r tan(q_req / 4) deep; a virtual pole sits on
     # the face (z = t). On the floor: where each surface crosses 0.8.
-    cx = 4.78
+    cx = 4.92
     fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage over pad and flexion", **label)
     cax = fig.add_axes(((cx - 0.05) / WIDTH, 0.0, (WIDTH - cx + 0.05) / WIDTH, (height - head) / height),
                        projection="3d")
