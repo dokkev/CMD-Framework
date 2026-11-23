@@ -97,6 +97,10 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
   - **Voice, after Wensing:** "we" is not needed. The subject of a sentence is the design, the mechanism or the
     analysis ("The CFL keeps …", "This section derives …", "Each pad is mounted …"); the passive is used where
     the actor does not matter.
+  - **Presenting design decisions:** Chi et al., "Universal Manipulation Interface: In-The-Wild Robot
+    Teaching Without In-The-Wild Robots" (RSS 2024). Each design choice is introduced by the requirement it
+    serves and the failure it prevents, so the reader sees why the system looks as it does before seeing how
+    well it works. Use it for the CoDe mechanism and for the design studies: requirement, choice, consequence.
   - **Delivery (how fast the message lands):** Vaswani et al., "Attention Is All You Need" (NeurIPS 2017).
     One message per paragraph, stated in its first sentence; short declarative sentences; few parentheses and
     no semicolon chains; one or two numbers per sentence, the rest in tables and
