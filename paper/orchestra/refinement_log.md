@@ -27,6 +27,7 @@
 | v22 | 72af53d | 6, 6, 6 | — | current limit (servo at <=25% of stall), within-thickness intervals, near-zero control (R at 0.35 mm errs 3%), Stage 2 reference; all three Opus at the first try |
 | v23 | e84ee3e | 6, 6, 6 | — | Stage 2 separation (Delta_contact rises while Delta_skel falls along R, M, U; simulated ordering in 43 of 48 blocks); r2 Presentation 3; all Opus at the first try |
 | v24 | 0b6c14b | 6, 6, 6 | — | c0-free fixed-axis floor (0.59-0.79; read as a strength), reversal marked model-level, Stage 2 backlash and pad compression, Prop. 2 remark split; all Opus at the first try |
+| v26 | 92ab39b | 6, 6, 6 | — | pad compression in the simulation (0.5-2.3 mm), spacers zero by construction, v25 clarity edits; Presentation 3 from all three (first time), Clarity 3 from r1; all Opus at the first try |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -210,3 +211,10 @@ without a new round: the 48 blocks are simulated; spacers cover only interfaces 
 saturated current limit acts as a torque (Table I's torque column). Repeats: point contact and pad compression of
 the order of the 1 mm tolerance, designed samples, post hoc numbers, the spacer arm, MA, density. The loop stays
 paused at the plateau (thirteen rounds at 6, 6, 6).
+
+v26: 6, 6, 6, all Accept; Presentation 3 from all three for the first time (r1 also Clarity 3). Read as strengths:
+the Stage 2 hands make Delta_contact and Delta_skel predict opposite trends; the skeleton-kept control; the spacer
+cost and the c0-free floor. Remaining: MA (the largest for r1), a C1 metric for the Jacobian claim (r3), Delta_contact
+under load (r2), how the 27 grid hands were sampled (r2), -41% vs -37% still read as one experiment (r2), load-
+dependent friction of the textured cover with R and U pressing 4x apart (r1), a repeated build in Stage 2 (r2),
+contact model (all). Overall unchanged since v12 (fifteen rounds).
