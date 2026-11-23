@@ -142,6 +142,14 @@ def main(argv=None) -> int:
                         help="Gate 0: largest difference between the two contact normals' angle and the flexion [deg]")
     parser.add_argument("--hydro_buffer", type=float, default=1.0,
                         help="hydroelastic buffer fraction of the worst case (Newton warns on overflow)")
+    parser.add_argument("--materials", action="store_true",
+                        help="print the pads' and the cylinder's friction, gap and hydroelastic flags as built, and stop")
+    parser.add_argument("--njmax", type=int, default=None,
+                        help="MuJoCo-Warp constraint rows (the hand's default 1024); hydroelastic pads need more")
+    parser.add_argument("--hydro_gap", type=float, default=None,
+                        help="hydroelastic: Newton's per-shape contact gap [m] (Isaac Lab's default 0.01). A gap widens "
+                             "the speculative contact band, whose tilted normals inflate friction on curved patches "
+                             "(scripts/experimental/hydro_friction_probe.py); 0 restores the set friction")
     parser.add_argument("--impratio", type=float, default=None, help="MuJoCo friction-to-normal impedance ratio (default: the preset's 10)")
     parser.add_argument("--render", type=Path, default=None,
                         help="also render environment --render_env with Newton's GL viewer (headless) once the grasp has "
@@ -211,7 +219,7 @@ def finish(args, physics, results) -> int:
         "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
         "impratio": args.impratio, "contact_ke": args.contact_ke, "substeps": args.substeps,
-        "pad_modulus_pa": args.pad_modulus, "pad_reference_mm": args.pad_reference_mm, "hydro_buffer": args.hydro_buffer, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
+        "pad_modulus_pa": args.pad_modulus, "pad_reference_mm": args.pad_reference_mm, "hydro_buffer": args.hydro_buffer, "hydro_gap_m": args.hydro_gap, "njmax": args.njmax, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
         "profile": args.profile, "tag": args.tag,
         "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
@@ -229,6 +237,28 @@ def finish(args, physics, results) -> int:
     print(out)
     return 0
 
+
+
+def report_materials(u) -> None:
+    """The pads' and the cylinder's contact properties as Newton and MuJoCo-Warp hold them (environment 0)."""
+    model = u.sim.physics_manager.get_model()
+    mu = model.shape_material_mu.numpy()
+    gap = model.shape_gap.numpy() if getattr(model, "shape_gap", None) is not None else None
+    flags = model.shape_flags.numpy()
+    import newton
+    hydro_flag = int(newton.ShapeFlags.HYDROELASTIC)
+    for k, label in enumerate(model.shape_label):
+        if ("_pad" in label or "/Cyl/" in label) and "env_0/" in label:
+            print(f"shape {k:4d} {label:60s} mu {mu[k]:.3f} gap {None if gap is None else round(float(gap[k]), 4)} "
+                  f"hydro {bool(flags[k] & hydro_flag)}")
+    solver = getattr(type(u.sim.physics_manager), "_solver", None)
+    if solver is not None and hasattr(solver, "mjw_model"):
+        gf = solver.mjw_model.geom_friction.numpy()[0]
+        to_shape = solver.mjc_geom_to_newton_shape.numpy()[0] if hasattr(solver, "mjc_geom_to_newton_shape") else None
+        for g in range(gf.shape[0]):
+            k = int(to_shape[g]) if to_shape is not None else -1
+            if k >= 0 and ("_pad" in model.shape_label[k] or "/Cyl/" in model.shape_label[k]):
+                print(f"mjw geom {g:4d} -> {model.shape_label[k]:60s} friction {gf[g, 0]:.3f}")
 
 def render(args, u, origins, face_w) -> None:
     """Newton's GL viewer, headless (EGL), on the current state; one PNG per requested environment."""
@@ -320,6 +350,8 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
     env_cfg.sim.gravity = (0.0, 0.0, 0.0)
     if args.impratio is not None:
         env_cfg.sim.physics.solver_cfg.impratio = args.impratio
+    if args.njmax is not None:
+        env_cfg.sim.physics.solver_cfg.njmax = args.njmax
     if args.contact_ke is not None:  # MuJoCo-Warp turns each shape's ke, kd into its solref
         shape = env_cfg.sim.physics.default_shape_cfg
         shape.kd = shape.kd * math.sqrt(args.contact_ke / shape.ke)
@@ -329,6 +361,8 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
     if hydro:  # hydroelastic between the pads and the cylinder only; every other pair keeps point contact
         env_cfg.sim.physics.default_shape_cfg.is_hydroelastic = False
         env_cfg.sim.physics.collision_cfg.sdf_hydroelastic_config.buffer_fraction = args.hydro_buffer
+        if args.hydro_gap is not None:
+            env_cfg.sim.physics.default_shape_cfg.gap = args.hydro_gap
     env_cfg.scene.num_envs = len(envs)
     env_cfg.events.reset_object = None
     env_cfg.events.reset_hand.params["joint_position_noise"] = 0.0
@@ -362,6 +396,9 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         env.reset(seed=0)
         u = env.unwrapped
         n, dev = u.num_envs, u.device
+        if args.materials:
+            report_materials(u)
+            return
         cyl, robot = u.scene["cyl"], u.scene["robot"]
         sensor = u.scene.sensors["cyl_contacts"]
         origins = u.scene.env_origins
