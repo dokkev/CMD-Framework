@@ -8,14 +8,16 @@ the contact face (PNG only).
 2R-DD, 2R-remote, RCJ: each one's Study 1 design for q_req = 120 deg and 7 mm pads. CFL: the CoDe prototype's
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
-there.
+there. (c, d) also trace the distal phalanx's instantaneous centre relative to the proximal one over 0-120 deg
+(purple; star: at 120 deg): the contact point rolling on the proximal roller, and the crossing of the four-bar's links.
 (e) The finite poles P(120 deg) each joint type can reach over the study's design space, in the proximal
 phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run): a pin is the phalanx
 end (a point); equal rollers, the proximal one centred at the phalanx end, put P = r - i r tan(q/4) (Study 0,
 Eq. 14) on one segment for the study's r of 9.5-20 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b
 from the closure of its links (feasible_space.md, F1), covers an area: shaded, the region holding 95% of the crossed
 four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
-density. Dots: the CFL's Study 1 designs for 3-9 mm pads, all inside it.
+density. Dots: the CFL's Study 1 designs for 3-9 mm pads, all inside it; lines: how each one's P(q) moves for q
+from 0 to 120 deg, and the same for Study 1's RCJ (r = 9.5 mm, straight down). No text labels: the caption names them.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -49,6 +51,7 @@ MARK = {"2r_dd": "^", "2r_remote": "s", "rcj": "D", "cfl": "o"}
 PROTOTYPE = DESIGN / "output" / "linkage" / "config" / "paper_single_objective" / "portfolio_001" / "seeds.csv"
 WIDTH = 7.16
 INK, INK2 = "#0b0b0b", "#52514e"
+ICR = "#8a3ffc"  # the instantaneous centre's path in (c, d)
 # (key, title, colour as in the paper's other figures, one-line description, ours)
 ARCH = [("2r_dd", "2R-DD", "#1baf7a", "servo at the joint", False),
         ("2r_remote", "2R-remote", "#eb6834", "pin joint, belt from a proximal servo", False),
@@ -60,13 +63,19 @@ SAMPLES = DESIGN / "output" / "linkage" / "config" / "samples" / "seeds.csv"
 FRONTS = DESIGN / "output" / "study" / "study2_redesign_2026-11-21" / "fronts.csv"
 
 
-def finite_pole(view, q_deg: float) -> np.ndarray:
-    """The point the distal phalanx turns about from extension to q (Lemma 1), from two distal-pad corners."""
-    p0, p1 = view.distal_pad(0.0)[:2], view.distal_pad(q_deg)[:2]
+def finite_pole(view, q_deg: float, q0_deg: float = 0.0) -> np.ndarray:
+    """The point the distal phalanx turns about from q0 (default: extension) to q (Lemma 1), from two distal-pad
+    corners. With q close to q0 it is the instantaneous centre at q0."""
+    p0, p1 = view.distal_pad(q0_deg)[:2], view.distal_pad(q_deg)[:2]
     d0, d1 = p0[1] - p0[0], p1[1] - p1[0]
     th = np.arctan2(d1[1], d1[0]) - np.arctan2(d0[1], d0[0])
     rot = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
     return np.linalg.solve(np.eye(2) - rot, p1[0] - rot @ p0[0])
+
+
+def icr_path(view, q_deg: float, n: int = 121) -> np.ndarray:
+    """The instantaneous centre of the distal phalanx relative to the proximal one over [0, q] (its fixed centrode)."""
+    return np.array([finite_pole(view, t + 0.05, t) for t in np.linspace(0.0, q_deg, n)])
 
 
 def pole_on_pad(view, q_deg: float) -> tuple[float, float]:
@@ -164,6 +173,10 @@ def main() -> int:
         sketch.frame(ax, xlim, ylim)
         view = views[key]
         view.draw(ax, FLEXION, hit=set(), style="sketch")
+        if key in ("rcj", "cfl"):  # the moving instantaneous centre over 0-120 deg, now at 120 deg
+            path = icr_path(view, FLEXION)
+            ax.plot(*path.T, color=ICR, lw=1.1, zorder=20, solid_capstyle="round")
+            ax.plot(*path[-1], marker="*", ms=5.5, color=ICR, mec="white", mew=0.3, zorder=21)
         fig.text(x0 + panel_w / WIDTH / 2, 1 - 0.02 / height, title, ha="center", va="top", fontsize=8.5,
                  color=colour, fontweight="bold" if ours else "normal")
     for i, lab in enumerate("abcd"):
@@ -186,19 +199,22 @@ def main() -> int:
     pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
     # the CFL's Study 1 designs (3-9 mm), in the same frame
     s1 = one_finger.study1_designs("cfl", config["architectures"]["cfl"], FLEXION, config)
+    # and how each one's P moves as the joint flexes to 120 deg (Lemma 1 from extension to q)
     for ref in s1.values():
         v = view_of(ref.mechanism, ref.config, ref.x)
-        pt = finite_pole(v, FLEXION) - v.joint.finger.joint.a.array
-        pax.plot(*pt, marker="o", ms=2.8, color=blue, mec="white", mew=0.4, zorder=4)
+        a0 = v.joint.finger.joint.a.array
+        track = np.array([finite_pole(v, t) - a0 for t in np.linspace(2.0, FLEXION, 60)])
+        pax.plot(*track.T, color=blue, lw=0.7, zorder=3.5)
+        pax.plot(*track[-1], marker="o", ms=2.8, color=blue, mec="white", mew=0.4, zorder=4)
+    # Study 1's RCJ (r = 9.5 mm): P = r - i r tan(q/4) moves straight down as the joint flexes
+    t = np.radians(np.linspace(0.0, FLEXION, 30))
+    pax.plot(np.full_like(t, 9.5), -9.5 * np.tan(t / 4), color="#a87000", lw=0.7, zorder=3.5)
     # equal rollers, the proximal one's centre at the phalanx end: P = r - i r tan(q/4), r in the study's 9.5-20 mm
     r = np.array([9.5, 20.0])
     pax.plot(r, -r * np.tan(np.radians(FLEXION) / 4), color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    pax.text(-1.0, 0.8, "2R: a point", fontsize=6.3, color=INK, ha="right", va="bottom", zorder=5)
-    pax.text(21.5, -12.8, "RCJ: a segment", fontsize=6.3, color="#a87000", ha="left", va="center", zorder=5)
-    pax.text(49.0, 22.0, "CFL: an area", fontsize=6.3, color=blue, ha="right", va="top", fontweight="bold", zorder=5)
     pax.set_xlim(-26, 50); pax.set_ylim(-15, 23); pax.set_aspect("equal")
     pax.set_xlabel("from the proximal phalanx's end (mm)", fontsize=7, labelpad=1)
     pax.set_ylabel("above its axis (mm)", fontsize=7, labelpad=1)
