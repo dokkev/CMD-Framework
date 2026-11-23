@@ -1,0 +1,9 @@
+[project]
+name = "code-drake"
+version = "0.1.0"
+description = "Study 3 two-pad grasp measurement replicated in Drake (point and hydroelastic contact)"
+requires-python = ">=3.12,<3.13"
+dependencies = ["drake==1.58.0", "numpy", "pyyaml", "scipy"]
+
+[tool.uv]
+package = false

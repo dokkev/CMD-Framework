@@ -144,6 +144,8 @@ def main(argv=None) -> int:
                         help="hydroelastic buffer fraction of the worst case (Newton warns on overflow)")
     parser.add_argument("--materials", action="store_true",
                         help="print the pads' and the cylinder's friction, gap and hydroelastic flags as built, and stop")
+    parser.add_argument("--deterministic", action="store_true",
+                        help="run-to-run deterministic solver and collision (Newton's sorted contacts; slower)")
     parser.add_argument("--njmax", type=int, default=None,
                         help="MuJoCo-Warp constraint rows (the hand's default 1024); hydroelastic pads need more")
     parser.add_argument("--hydro_gap", type=float, default=None,
@@ -219,7 +221,7 @@ def finish(args, physics, results) -> int:
         "delta_deg": args.delta_deg,
         "rate_n_s": args.rate, "max_force_n": args.max_force, "flexion_stiffness": K_Q, "flexion_damping": D_Q,
         "impratio": args.impratio, "contact_ke": args.contact_ke, "substeps": args.substeps,
-        "pad_modulus_pa": args.pad_modulus, "pad_reference_mm": args.pad_reference_mm, "hydro_buffer": args.hydro_buffer, "hydro_gap_m": args.hydro_gap, "njmax": args.njmax, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
+        "pad_modulus_pa": args.pad_modulus, "pad_reference_mm": args.pad_reference_mm, "hydro_buffer": args.hydro_buffer, "hydro_gap_m": args.hydro_gap, "njmax": args.njmax, "deterministic": args.deterministic, "pad_hydroelastic_n_m3": getattr(args, "pad_hydroelastic", None),
         "profile": args.profile, "tag": args.tag,
         "slip_mm_s": SLIP_MM_S, "primary_slip_mm_s": SLIP_MM_S[PRIMARY], "physics": physics,
         "gate": {"pad_n": GATE_N, "speed_mm_s": GATE_SPEED_MM_S, "spin_rad_s": GATE_SPIN_RAD_S,
@@ -352,6 +354,11 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         env_cfg.sim.physics.solver_cfg.impratio = args.impratio
     if args.njmax is not None:
         env_cfg.sim.physics.solver_cfg.njmax = args.njmax
+    if args.deterministic:
+        import warp
+        warp.config.deterministic_max_records = 1024  # MuJoCo-Warp's solver revisits atomic sites (static bound overflows)
+        env_cfg.sim.physics.deterministic_mode = "run_to_run"
+        env_cfg.sim.physics.solver_cfg.disable_sensors = True
     if args.contact_ke is not None:  # MuJoCo-Warp turns each shape's ke, kd into its solref
         shape = env_cfg.sim.physics.default_shape_cfg
         shape.kd = shape.kd * math.sqrt(args.contact_ke / shape.ke)
@@ -472,7 +479,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
             theta = common.torch_of(robot.data.joint_pos)[:, servo_ids]
             q_star = torch.stack([term._tables.flexion(names[k], theta[:, i]) for i, k in enumerate(pip)], dim=1)
             return {"normal": nrm, "friction": fr, "point": pt, "mag": mag, "touching": touching, "slip": slip,
-                    "centre": c, "v": v, "w": w, "q_star": q_star,
+                    "centre": c, "v": v, "w": w, "q_star": q_star, "total": total[:, pad_cols],
                     "other_n": total[:, other_cols].norm(dim=-1).sum(dim=1)}
 
         q_cmd = torch.tensor([g["q0_deg"] + args.delta_deg for g, _ in envs], device=dev)
@@ -633,6 +640,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         f_slip = [inf.clone() for _ in SLIP_MM_S]
         f_loss, f_collapse, f_roll = inf.clone(), inf.clone(), inf.clone()
         mu_eff = inf.clone()
+        mu_eff_geo = inf.clone()  # the same pad's total force split by the cylinder's true normal (contact point -> axis)
         slip_pad = torch.full((n,), -1, device=dev, dtype=torch.long)
         trace = []
         dt = u.step_dt
@@ -652,6 +660,13 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
                     sel = s["mag"].gather(1, pad[:, None])[:, 0].clamp_min(1e-9)
                     ratio = s["friction"].norm(dim=-1).gather(1, pad[:, None])[:, 0] / sel
                     mu_eff = torch.where(hit, ratio, mu_eff)
+                    tot = s["total"].gather(1, pad[:, None, None].expand(-1, 1, 3))[:, 0]
+                    pt = s["point"].gather(1, pad[:, None, None].expand(-1, 1, 3))[:, 0]
+                    rad = (s["centre"] - pt) * torch.tensor([1.0, 0.0, 1.0], device=dev)  # in the plane of motion
+                    nt = rad / rad.norm(dim=-1, keepdim=True).clamp_min(1e-9)
+                    fn = (tot * nt).sum(-1)
+                    ft = (tot - fn[:, None] * nt).norm(dim=-1)
+                    mu_eff_geo = torch.where(hit, ft / fn.abs().clamp_min(1e-9), mu_eff_geo)
                     slip_pad = torch.where(hit, pad, slip_pad)
                 f_slip[k] = torch.where(hit, torch.full_like(inf, f), f_slip[k])
             lost = (s["mag"][:, 0::2].sum(dim=1) < LOSS_N) | (s["mag"][:, 1::2].sum(dim=1) < LOSS_N)
@@ -716,6 +731,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
                 "limit": {"f_limit_n": None if first is None else hit[first], "event": first, **events,
                           "slip_by_threshold": {f"{t:g}": val(f_slip[k][e]) for k, t in enumerate(SLIP_MM_S)},
                           "roll_n": val(f_roll[e]), "mu_eff_at_slip": val(mu_eff[e]),
+                          "mu_eff_geo_at_slip": val(mu_eff_geo[e]),
                           "slip_pad": None if int(slip_pad[e]) < 0 else
                           [f"{f}_{s}" for f in FINGERS for s in ("proximal", "distal")][int(slip_pad[e])]},
                 "trace": [[row[0], *row[1 + e]] for row in trace],  # load, displacement, max slip, N_p, N_d
