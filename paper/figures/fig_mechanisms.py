@@ -9,8 +9,10 @@ the contact face (PNG only).
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there.
-(e) Face depth minus pole depth at q_req = 120 deg for Study 1's designs (design/output/study/study2_pole_law/
-designs.csv): the gap of Eq. (2) is 2 (t - z) tan(q/2), so a smaller value leaves more room for the pads.
+(e) Where each joint's finite pole sits at q_req = 120 deg, relative to the proximal pad: along the finger from
+its joint-side end, and above its mounting surface. A pin or roller centre must stay above the mount. Dots: the
+feasible CFL designs of output/linkage/config/samples/seeds.csv under the prototype config; markers: each
+architecture's Study 1 designs for 3-9 mm pads (the CFL's descend into the pad as the pads thicken).
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -49,6 +51,25 @@ ARCH = [("2r_dd", "2R-DD", "#1baf7a", "servo at the joint", False),
         ("2r_remote", "2R-remote", "#eb6834", "pin joint, belt from a proximal servo", False),
         ("rcj", "RCJ", "#eda100", "rolling contact joint", False),
         ("cfl", "CFL (ours)", "#2a78d6", "crossed four-bar, proximal servo", True)]
+
+
+SAMPLES = DESIGN / "output" / "linkage" / "config" / "samples" / "seeds.csv"
+
+
+def finite_pole(view, q_deg: float) -> np.ndarray:
+    """The point the distal phalanx turns about from extension to q (Lemma 1), from two distal-pad corners."""
+    p0, p1 = view.distal_pad(0.0)[:2], view.distal_pad(q_deg)[:2]
+    d0, d1 = p0[1] - p0[0], p1[1] - p1[0]
+    th = np.arctan2(d1[1], d1[0]) - np.arctan2(d0[1], d0[0])
+    rot = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+    return np.linalg.solve(np.eye(2) - rot, p1[0] - rot @ p0[0])
+
+
+def pole_on_pad(view, q_deg: float) -> tuple[float, float]:
+    """The pole relative to the proximal pad: along the finger from its joint-side end, and height above its
+    mounting surface (negative: inside the pad, toward the contact face)."""
+    pole, pad = finite_pole(view, q_deg), np.asarray(view.proximal_pad())
+    return float(pole[0] - pad[:, 0].max()), float(pole[1] - pad[:, 1].max())
 
 
 def main() -> int:
@@ -99,24 +120,48 @@ def main() -> int:
     for i, lab in enumerate("abcd"):
         fig.text(0.005 + i * panel_w / WIDTH + 0.004, 1 - 0.02 / height, f"({lab})", ha="left", va="top", fontsize=7.5,
                  fontweight="bold")
-    # (e) the pole is designable: how far the pole sits above the contact face, against pad thickness
-    left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.075
-    pax = fig.add_axes((left, 0.27, 0.995 - left - 0.005, 0.56))
-    rows = [r for r in csv.DictReader(open(POLE_LAW)) if float(r["required_flexion_deg"]) == FLEXION]
+    # (e) where each joint's pole can sit at q_req, relative to the proximal pad
+    left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.07
+    pax = fig.add_axes((left, 0.25, 0.995 - left - 0.005, 0.6))
+    pax.add_patch(plt.Rectangle((-14, 0), 40, 14, fc="#e9e8e4", ec="none", zorder=0))
+    pax.text(25, 12.8, "pins, rollers", ha="right", va="top", fontsize=6.3, color=INK2)
+    pax.add_patch(plt.Rectangle((-14, -THICKNESS), 14, THICKNESS, fc="#f6c4c3", ec="#e34948", lw=0.6, zorder=0.5))
+    pax.text(-7, -THICKNESS / 2, "pad", ha="center", va="center", fontsize=6.3, color=INK2)
+    pax.axhline(0, color=INK2, lw=0.5, zorder=1)
+    run = load_run(PROTOTYPE.parent.parent / "run_003")
+    names = list(run.mechanism.variable_names)
+    cloud = []
+    for r in csv.DictReader(open(SAMPLES)):
+        try:
+            cloud.append(pole_on_pad(view_of("linkage", run.config, [float(r[n]) for n in names]), FLEXION))
+        except Exception:  # noqa: BLE001 -- a sample that does not reach the flexion is skipped
+            continue
+    cloud = np.array(cloud)
+    pax.scatter(cloud[:, 0], cloud[:, 1], s=1.2, color="#2a78d6", alpha=0.25, lw=0, zorder=2)
     for key, title, colour, _, ours in ARCH:
-        pts = sorted((float(r["thickness_mm"]), float(r["face_depth_proximal_mm"]) - float(r["pole_depth_at_req_mm"]))
-                     for r in rows if r["architecture"] == key)
-        h, gap = map(np.array, zip(*pts))
-        pax.plot(h, gap, color=colour, marker=MARK[key], ms=3.6, lw=1.4 if ours else 1.1, mec="white", mew=0.4,
-                 zorder=3 if ours else 2)
-    pax.set_xticks([3, 5, 7, 9]); pax.set_xlim(2.5, 9.5); pax.set_ylim(0, 14)
-    pax.set_xlabel("pad thickness $h$ (mm)", fontsize=7, labelpad=1)
-    pax.set_ylabel("face above pole (mm)", fontsize=7, labelpad=1)
+        pts = []
+        for h, ref in one_finger.study1_designs(key, config["architectures"][key], FLEXION, config).items():
+            try:
+                pts.append(pole_on_pad(view_of(ref.mechanism, ref.config, ref.x), FLEXION))
+            except Exception:  # noqa: BLE001
+                continue
+        pts = np.array(pts)
+        pax.scatter(pts[:, 0], pts[:, 1], s=14, marker=MARK[key], color=colour, edgecolor="white", lw=0.4,
+                    zorder=4 if ours else 3)
+        if ours:  # the CFL's pole descends with the pad thickness
+            pax.annotate("", xy=(pts[-1, 0] + 2.6, pts[-1, 1]), xytext=(pts[0, 0] + 2.6, pts[0, 1]),
+                         arrowprops=dict(arrowstyle="->", color=colour, lw=0.7))
+            pax.text(pts[-1, 0] + 3.4, (pts[0, 1] + pts[-1, 1]) / 2, "3$\\to$9 mm", color=colour, fontsize=6.3,
+                     ha="left", va="center")
+    pax.set_xlim(-14, 26); pax.set_ylim(-THICKNESS - 1.5, 14)
+    pax.set_aspect("equal")
+    pax.set_xlabel("from the pad's end (mm)", fontsize=7, labelpad=1)
+    pax.set_ylabel("above the mount (mm)", fontsize=7, labelpad=1)
     pax.tick_params(labelsize=6.5, length=2)
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
-    pax.grid(axis="y", color="#e4e3df", lw=0.5)
-    fig.text(left - 0.045, 1 - 0.02 / height, "(e) pole vs face, $120^\\circ$", ha="left", va="top", fontsize=7.5,
+    pax.grid(False)
+    fig.text(left - 0.04, 1 - 0.02 / height, "(e) where the pole can sit", ha="left", va="top", fontsize=7.5,
              fontweight="bold")
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
