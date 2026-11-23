@@ -349,13 +349,24 @@ def dial(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, q_cmd, qs, 
     q1 = min(q_cmd + math.radians(opts["sweep_deg"]), math.radians(120.0))
     n_sweep, n_hold = int(round(opts["sweep_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
     touched = False
-    for i in range(n_sweep + n_hold):
-        q = q1 * min(1.0, (i + 1) / n_sweep)
-        s.ctrl.theta_cmd = float(np.interp(q, qs, th))
-        s.step()
-        touched = touched or s.measure()["normal"][1] > GATE_N
+    strokes = int(opts.get("strokes", 1))
+    per_stroke = []
+    for k in range(strokes):  # each stroke closes 0 -> q1 and holds; all but the last then open back to 0
+        for i in range(n_sweep + n_hold):
+            q = q1 * min(1.0, (i + 1) / n_sweep)
+            s.ctrl.theta_cmd = float(np.interp(q, qs, th))
+            s.step()
+            touched = touched or s.measure()["normal"][1] > GATE_N
+        per_stroke.append(-math.degrees(spin.get_angle(s.pctx)))
+        if k + 1 < strokes:
+            for i in range(n_sweep):
+                q = q1 * max(0.0, 1.0 - (i + 1) / n_sweep)
+                s.ctrl.theta_cmd = float(np.interp(q, qs, th))
+                s.step()
+            per_stroke.append(-math.degrees(spin.get_angle(s.pctx)))
     m_ = s.measure()
-    return {"rotation_deg": -math.degrees(spin.get_angle(s.pctx)), "touched": bool(touched),
+    return {"rotation_deg": -math.degrees(spin.get_angle(s.pctx)), "touched": bool(touched), "strokes": strokes,
+            "rotation_after_deg": per_stroke,
             "held": bool(touched), "distal_normal_end_n": float(m_["normal"][1]),
             "proximal_normal_end_n": float(m_["normal"][0]), "q_end_deg": math.degrees(m_["q"])}
 
@@ -520,6 +531,8 @@ def main() -> int:
     p.add_argument("--face_load_n", type=float, default=0.5, help="pullin: load toward the face (three fingers)")
     p.add_argument("--close_s", type=float, default=2.0)
     p.add_argument("--gap_mm", type=float, default=1.0, help="dial: its axis this far off the proximal face")
+    p.add_argument("--grasps", type=Path, default=None, help="placements file (default: the Study 3 grasps)")
+    p.add_argument("--strokes", type=int, default=1, help="dial: close-and-open strokes (the last one is not opened)")
     p.add_argument("--brake_nm", type=float, default=0.0, help="dial: its brake torque (one finger)")
     p.add_argument("--dial_k", type=float, default=0.0, help="dial: its axis's spring away from the face [N/m]")
     p.add_argument("--pad_kh_mm", default=None,
@@ -528,11 +541,12 @@ def main() -> int:
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
-    grasps = [g for g in json.loads(GRASPS.read_text())["grasps"] if g["rho_mm"] == args.radius_mm][: args.only]
+    grasps = [g for g in json.loads((args.grasps or GRASPS).read_text())["grasps"]
+              if g["rho_mm"] == args.radius_mm][: args.only]
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
             "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
             "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
-            "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm}
+            "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm, "strokes": args.strokes}
     directions = ["none"] if args.task in ("roll", "pullin", "dial") else args.directions
     tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
              for g in grasps for d in directions]
