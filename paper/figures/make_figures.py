@@ -65,7 +65,7 @@ def fig_study1():
     """Single column, drawn at print size (3.45 in)."""
     data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
     k = 0.75
-    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.62), sharey=True, gridspec_kw=dict(wspace=0.12))
+    fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.38), sharey=True, gridspec_kw=dict(wspace=0.12))
     for ax, q in zip(axes, (90, 120, 150)):
         for name in list(ARCH) + list(IDEAL):
             key, ideal = (IDEAL[name], True) if name in IDEAL else (name, False)
@@ -99,7 +99,7 @@ def fig_study2():
     summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
     prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
     k = 0.75
-    fig, axes = plt.subplots(2, 2, figsize=(3.45, 2.45), gridspec_kw=dict(wspace=0.32, hspace=0.62))
+    fig, axes = plt.subplots(2, 2, figsize=(3.45, 2.05), gridspec_kw=dict(wspace=0.32, hspace=0.66))
     axes = axes.ravel()
     for ax, q in zip(axes[:3], (90.0, 120.0, 150.0)):
         hb = np.array([3, 5, 7, 9.0])
@@ -151,7 +151,106 @@ def fig_study2():
     handles.append(plt.Line2D([], [], color=INK, ls=(0, (1, 1.2)), lw=0.9, label="fixed-axis bound"))
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.52, 0.965),
                handlelength=1.8, columnspacing=0.9, fontsize=6.2, labelspacing=0.25, handletextpad=0.4)
+    for ax_ in axes[:2]:  # the top row shares (c)'s x axis; its label would run into (c) and (d)'s titles
+        ax_.set_xlabel("")
     save_rgb(fig, DEST / "fig_study2_redesign.png")
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------- Studies 1 and 2 in one double-column figure
+def fig_study12():
+    """Studies 1 and 2 in one double-column row (7.16 in, print size): (a-c) best coverage per pad thickness at
+    q_req 90, 120, 150 deg (Study 1); (d-f) Delta_contact after redesign from 3 mm at the coverage end of each front,
+    the same three q_req, one shared axis (Study 2); (g) ||Delta c(q)|| over flexion at 120 deg, 3 -> 9 mm."""
+    data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
+    summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
+    prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
+    k = 0.75
+    fig = plt.figure(figsize=(W, 1.52))
+    gs = fig.add_gridspec(1, 9, width_ratios=[1, 1, 1, 0.42, 1, 1, 1, 0.42, 1.15], wspace=0.16,
+                          left=0.05, right=0.995, bottom=0.22, top=0.74)
+    cov = [fig.add_subplot(gs[0, i]) for i in range(3)]
+    for a in cov[1:]:
+        a.sharey(cov[0])
+    dc = [fig.add_subplot(gs[0, 4 + i]) for i in range(3)]
+    for a in dc[1:]:
+        a.sharey(dc[0])
+    prof_ax = fig.add_subplot(gs[0, 8])
+    # (a-c) Study 1
+    for ax, q in zip(cov, (90, 120, 150)):
+        for name in list(ARCH) + list(IDEAL):
+            key, ideal = (IDEAL[name], True) if name in IDEAL else (name, False)
+            pts = sorted((float(r["thickness_mm"]), 100 * float(r["c_pad_mean"]))
+                         for r in data if r["architecture"] == name and float(r["required_flexion_deg"]) == q)
+            if not pts:
+                continue
+            h, c = map(np.array, zip(*pts))
+            shown = c >= 48
+            ax.plot(h[shown], c[shown], **style_line(key, ideal, k), zorder=3 if not ideal else 2)
+            for hh in h[~shown]:
+                ax.plot(hh, 48.9, marker="v", color=ARCH[key][1], ms=3.4, mec="white", mew=0.4, clip_on=False, zorder=4)
+        ax.set_xticks([3, 5, 7, 9]); ax.set_xlim(2.5, 9.5); ax.set_ylim(48, 88)
+        ax.tick_params(labelsize=6.2)
+    for a in cov[1:]:
+        plt.setp(a.get_yticklabels(), visible=False)
+    cov[1].set_xlabel("pad thickness $h$ (mm)", fontsize=6.8, labelpad=1)
+    cov[0].set_ylabel(r"best $\bar C_{\mathrm{pad}}$ (%)", fontsize=6.8, labelpad=1)
+    cov[2].text(5.6, 61.5, "2R-DD:\nnone past 5", fontsize=5.6, color=INK2, ha="left", va="center", linespacing=1.05)
+    # (d-f) Study 2
+    ymax = 12.5
+    for ax, q in zip(dc, (90.0, 120.0, 150.0)):
+        hb = np.array([3, 5, 7, 9.0])
+        ax.plot(hb, 2 * np.sin(np.radians(q) / 2) * (hb - 3), color=INK, ls=(0, (1, 1.2)), lw=0.9, zorder=2)
+        for kk in ARCH:
+            pts = sorted((float(r["to_mm"]), LF * float(r["change_at_most_c_pad"]))
+                         for r in summ if S2KEY.get(r["architecture"]) == kk and float(r["required_flexion_deg"]) == q
+                         and r["change_at_most_c_pad"] not in ("", "nan"))
+            if not pts:
+                continue
+            h, d = map(np.array, zip(*([(3.0, 0.0)] + pts)))
+            ok = d <= ymax
+            ax.plot(h[ok], d[ok], **style_line(kk, k=k), zorder=3)
+            if (~ok).any():
+                ax.plot(h[ok][-1:].tolist() + [h[~ok][0]], d[ok][-1:].tolist() + [ymax * 1.05], color=ARCH[kk][1],
+                        lw=1.6 * k, clip_on=True)
+            for hh, dd in zip(h[~ok], d[~ok]):
+                ax.plot(hh, ymax, marker=ARCH[kk][2], color=ARCH[kk][1], ms=3.2, mec="white", mew=0.4, clip_on=False,
+                        zorder=4)
+                ax.text(hh - 0.3, ymax * 0.985, f"{dd:.0f}", fontsize=5.6, color=ARCH[kk][1], ha="right", va="top")
+        ax.set_ylim(0, ymax); ax.set_xlim(2.7, 9.3); ax.set_xticks([3, 5, 7, 9])
+        ax.tick_params(labelsize=6.2)
+    for a in dc[1:]:
+        plt.setp(a.get_yticklabels(), visible=False)
+    dc[1].set_xlabel("redesigned for $h$ (mm)", fontsize=6.8, labelpad=1)
+    dc[0].set_ylabel(r"$\Delta_{\mathrm{contact}}$ (mm)", fontsize=6.8, labelpad=1)
+    # (g) over the flexion, q_req 120, 3 -> 9 mm
+    ax = prof_ax
+    for kk in ARCH:
+        pts = sorted((float(r["q_deg"]), float(r["contact_apart_mm"])) for r in prof
+                     if S2KEY.get(r["architecture"]) == kk and float(r["required_flexion_deg"]) == 120.0
+                     and float(r["to_mm"]) == 9.0)
+        if pts:
+            qq, dd = map(np.array, zip(*pts))
+            ax.plot(qq, dd, color=ARCH[kk][1], lw=1.6 * k)
+            ax.plot(qq[-1], dd[-1], marker=ARCH[kk][2], color=ARCH[kk][1], ms=3.2, mec="white", mew=0.4, ls="none")
+    qq = np.linspace(0, 120, 100)
+    ax.plot(qq, 2 * np.sin(np.radians(qq) / 2) * 6, color=INK, ls=(0, (1, 1.2)), lw=0.9)
+    ax.set_xlim(0, 124); ax.set_xticks([0, 60, 120]); ax.set_ylim(0, 11)
+    ax.set_xlabel(r"flexion $q$ ($^\circ$)", fontsize=6.8, labelpad=1)
+    ax.set_ylabel(r"$\|\Delta\mathbf{c}(q)\|$ (mm)", fontsize=6.8, labelpad=1)
+    ax.tick_params(labelsize=6.2)
+    titles = [rf"$q_{{\mathrm{{req}}}}={q}^\circ$" for q in (90, 120, 150)] * 2 + [r"$120^\circ$, $3\to9$ mm"]
+    for a, lab, t in zip(cov + dc + [prof_ax], "abcdefg", titles):
+        a.set_title(rf"$\mathbf{{({lab})}}$ {t}", pad=2, fontsize=6.8)
+    handles = [plt.Line2D([], [], **style_line(kk, k=k), label=ARCH[kk][0]) for kk in ARCH]
+    handles += [plt.Line2D([], [], **style_line(IDEAL[n], True, k), label=n.replace("*", "")) for n in IDEAL]
+    handles.append(plt.Line2D([], [], color=INK, ls=(0, (1, 1.2)), lw=0.9, label="fixed-axis bound"))
+    fig.legend(handles=handles, loc="upper center", ncol=7, frameon=False, bbox_to_anchor=(0.6, 1.0),
+               handlelength=1.8, columnspacing=1.1, fontsize=6.2, handletextpad=0.4)
+    old = plt.rcParams["savefig.bbox"]
+    plt.rcParams["savefig.bbox"] = "standard"  # drawn at its print width; no tight crop
+    save_rgb(fig, DEST / "fig_study12.png")
+    plt.rcParams["savefig.bbox"] = old
     plt.close(fig)
 
 
@@ -393,8 +492,7 @@ def fig_study3():
 
 if __name__ == "__main__":
     # fig_concept()  # folded into Fig. 2 (c)
-    fig_study1()
-    fig_study2()
+    fig_study12()  # Studies 1 and 2 in one figure (2026-11-23); fig_study1/fig_study2 kept for the report
     # fig_overview() dropped from the manuscript (2026-11-22)
-    fig_study3()
+    # fig_study3()  # replaced by fig_study3.py (Study 3 in one double-column figure, 2026-11-23)
     print("written to", DEST)

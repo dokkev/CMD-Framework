@@ -12,7 +12,10 @@ its change of the contact Jacobian, Delta_contact, one marker per redesigned han
 (b) Contact model, pad friction, holding: Isaac Lab point (as (a), filled), the Drake replica with point contact, and
     Drake with hydroelastic pads (E = 0.1 MPa over 3 mm on every hand). Inputs: sim/drake/logs/e21_point.json,
     e21_hydro.json (analyze.py --out).
-(c) Task, Drake, point, pad friction: holding against a load, grasp acquisition, turning a sprung dial. Inputs:
+(c) The three tasks on hand O (radius 15 mm, q0 = 100 deg, mu 1.3), drawn from Drake states (sim/drake/
+    render_tasks.py -> logs/task_snapshots.json): pads, phalanx lines and the object, no linkage; red arrows: the load;
+    grasp acquisition shows its start faintly.
+(d) Task, Drake, point, pad friction: holding against a load, grasp acquisition, turning a sprung dial. Inputs:
     e21_point.json, e23_point.json, e24_point.json (analyze_roll.py --out). In-hand rolling (experiment 22, which
     failed its test) is left out of the figure; the paper states it as a limitation.
 Legends give Spearman rho(E, Delta_contact) and its exact or Monte Carlo one-sided permutation p (sim/drake/analyze.py).
@@ -34,7 +37,7 @@ sys.path.insert(0, str(ROOT / "sim" / "drake"))
 from analyze import spearman_perm  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
-WIDTH, HEIGHT = 7.16, 1.68
+WIDTH, HEIGHT = 7.16, 1.6
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
 GREY, INK2 = "#9a9a9a", "#555555"
 YLIM = (2, 600)
@@ -69,10 +72,84 @@ def style(ax, title):
               borderaxespad=0.0, labelspacing=0.15, handlelength=1.0)
 
 
+TASK = {"hold": ("hold", "#2a78d6"), "acquire": ("grasp acquisition", "#9b5de5"), "dial": ("dial turning", "#eda100")}
+PAD_FC, PAD_EC, LINK = "#c4daf4", "#2a78d6", "#9a9a9a"
+
+
+def rot(q, p):
+    """Flexion by q about +y in (x, z dorsal): +x toward -z."""
+    c, s_ = np.cos(q), np.sin(q)
+    return np.array([c * p[0] + s_ * p[1], -s_ * p[0] + c * p[1]])
+
+
+def scene(ax, snap, key, state, faint=False):
+    """Pads, phalanx lines and the object at one Drake state (mm); the linkage is not drawn."""
+    from matplotlib.patches import Circle, Polygon
+    pads = snap["pads"]
+    m, d = pads["mount_offset_mm"], pads["mount_offset_mm"] + pads["thickness_mm"]
+    a = 0.3 if faint else 1.0
+    prox = [(pads["proximal_start_mm"], -m), (pads["proximal_end_mm"], -m), (pads["proximal_end_mm"], -d),
+            (pads["proximal_start_mm"], -d)]
+    bx, bz, q = state["distal"]
+    B = np.array([bx, bz])
+    dist = [B + rot(q, np.array(p)) for p in ((pads["distal_start_mm"], -m), (pads["distal_end_mm"], -m),
+                                               (pads["distal_end_mm"], -d), (pads["distal_start_mm"], -d))]
+    if not faint:
+        ax.add_patch(Polygon(prox, closed=True, fc=PAD_FC, ec=PAD_EC, lw=0.6, zorder=2))
+        ax.plot([pads["proximal_start_mm"] - 4, B[0]], [0, 0], color=LINK, lw=1.4, solid_capstyle="round", zorder=1)
+    ax.add_patch(Polygon(dist, closed=True, fc=PAD_FC, ec=PAD_EC, lw=0.6, alpha=a, zorder=2))
+    tip = B + rot(q, np.array([pads["distal_end_mm"] + 2, 0.0]))
+    ax.plot([B[0], tip[0]], [B[1], tip[1]], color=LINK, lw=1.4, alpha=a, solid_capstyle="round", zorder=1)
+    c = np.array(state["centre"])
+    colour = TASK[key][1]
+    ax.add_patch(Circle(c, snap["rho_mm"], fc="white" if key != "dial" else "#fff3d6", ec=colour, lw=0.8, alpha=a,
+                        zorder=3))
+    spin = state["spin"]
+    ax.plot([c[0], c[0] + snap["rho_mm"] * np.cos(-np.pi / 2 - spin)],
+            [c[1], c[1] + snap["rho_mm"] * np.sin(-np.pi / 2 - spin)], color=colour, lw=0.6, alpha=a, zorder=4)
+
+
+def scenes(fig, rect, snap):
+    """(c): the three tasks, stacked over the figure's height in rect (x0, y0, w, h, figure fractions), each at its
+    Drake state; red arrows give the load."""
+    x0, y0, w, h = rect
+    for i, key in enumerate(("hold", "acquire", "dial")):
+        ax = fig.add_axes((x0, y0 + (2 - i) * h / 3, w, h / 3))
+        t = snap[key]
+        if key == "acquire":
+            scene(ax, snap, key, t["start"], faint=True)
+        scene(ax, snap, key, t["end"])
+        c = np.array(t["end"]["centre"])
+        if key == "hold":
+            ax.annotate("", xy=c + [11, 0], xytext=c, arrowprops=dict(arrowstyle="-|>", color="#b8322a", lw=0.7,
+                                                                    mutation_scale=5), zorder=5)
+        elif key == "acquire":
+            s0 = np.array(t["start"]["centre"])
+            ax.annotate("", xy=c + [-0.5, 0], xytext=s0, arrowprops=dict(arrowstyle="-|>", color=INK2, lw=0.6,
+                                                                        mutation_scale=5, ls=(0, (2, 1))), zorder=5)
+            ax.annotate("", xy=c + [8, 8], xytext=c, arrowprops=dict(arrowstyle="-|>", color="#b8322a", lw=0.7,
+                                                                    mutation_scale=5), zorder=5)
+        else:
+            axis = np.array(t["axis"])
+            zz = np.linspace(axis[1] - 16, axis[1], 9)
+            xx = axis[0] + 2.2 * np.array([0, 1, -1, 1, -1, 1, -1, 1, 0])
+            ax.plot(xx, zz - 4, color=INK2, lw=0.5, zorder=1)
+            ax.plot(axis[0], axis[1], marker="+", color=INK2, ms=4, mew=0.6, zorder=5)
+        ax.set_xlim(4, 62); ax.set_ylim(-47, 4); ax.set_aspect("equal", adjustable="datalim"); ax.axis("off")
+        ax.text(1.0, 0.92, TASK[key][0], transform=ax.transAxes, fontsize=5.8, color=TASK[key][1], ha="right",
+                va="top")
+
+
 def main() -> int:
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    fig, axes = plt.subplots(1, 3, figsize=(WIDTH, HEIGHT), gridspec_kw=dict(wspace=0.22))
+    fig = plt.figure(figsize=(WIDTH, HEIGHT))
+    gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 0.62, 1], wspace=0.22, left=0.055, right=0.995, bottom=0.2,
+                          top=0.61)
+    axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 3])]
+    box = gs[0, 2].get_position(fig)
+    scenes(fig, (box.x0 - 0.01, 0.02, box.width + 0.02, 0.9), json.loads((DRAKE / "task_snapshots.json").read_text()))
+    fig.text(box.x0 - 0.01, 0.985, "(c) tasks on $O$", fontsize=7, fontweight="bold", ha="left", va="top")
 
     # (a) Isaac Lab, three settings at the reused setpoint
     ax = axes[0]
@@ -115,14 +192,13 @@ def main() -> int:
     series(ax, hydro, "Drake, hydroelastic", "#eb6834", "D", True, ms=3.0)
     style(ax, "(b) contact model")
 
-    # (c) task
-    ax = axes[2]
+    # (d) task
+    ax = axes[3]
     series(ax, point, "hold", "#2a78d6", "^", False)
     series(ax, json.loads((DRAKE / "e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
     series(ax, json.loads((DRAKE / "e24_point.json").read_text()), "dial turning", "#eda100", "P", True)
-    style(ax, "(c) task (Drake, point)")
+    style(ax, "(d) task (Drake, point)")
 
-    fig.subplots_adjust(left=0.055, right=0.995, bottom=0.2, top=0.61)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_study3.png"
     fig.savefig(out, dpi=400)
