@@ -23,6 +23,16 @@ The description is what ``sim/`` builds its robot assets from, so ``sim/`` never
   supply voltage, the position gain and the assumptions they rest on. Actuated joints name it in ``actuator.servo``.
 - ``four_bar``: per finger, the tree joint angles of the four-bar as tables of the PIP angle, so a simulator can
   start in a closed pose and report the PIP angle without re-implementing the closure.
+- ``visuals``: drawing-only geometry, no mass and no contact (optional; older descriptions lack it). So far every
+  servo's body: ``servo`` (the model's ``<digit>/<joint>``), the ``body`` its housing rides on (the body that moves
+  with the servo frame, not the one its output turns), ``shape`` (``"servo"``: the profile in ``servo.shape``) and the
+  servo's actuator frame in the hand frame at the geometric zero (``position``, ``quat_wxyz``): the model's servo
+  frame, which is the packaging code's actuator frame (shaft at the origin, +Z the shaft, +Y toward the rounded cap,
+  the body along -Y, centred along Z).
+- ``servo.shape``: the servo body's packaging profile (``core.hardware``), the one the packaging constraints and the
+  optimization use, extruded along the shaft: ``d_extrusion`` (``radius``, ``rear_extent``, ``depth``: x +-radius,
+  y from -rear_extent to 0 plus a cap of that radius in y >= 0) or ``box_extrusion`` (``width``, ``length``,
+  ``shaft_from_front``, ``depth``), in metres.
 
 Units: metres, degrees, kilograms. Masses and inertias are placeholders (servo masses from the X330 datasheet
 plus rough structure); they are marked as such and must be replaced before dynamics are interpreted.
@@ -46,7 +56,8 @@ ROOT = HERE.parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.hardware.xm335 import XM335DriveModel
+from core.hardware.actuator import BoxExtrusion, DShapedExtrusion
+from core.hardware.xm335 import XM335Actuator, XM335DriveModel
 from core.morphology.code_hand import FINGERS, CoDeHand, four_bar, load, pip_servo_deg
 from core.morphology.code_hand.parameters import PROTOTYPE
 
@@ -91,6 +102,36 @@ def _box(name, pad) -> dict:
 def _joint(name, parent, child, anchor, axis, limits, actuator=None):
     return {"name": name, "parent": parent, "child": child, "anchor": _m(anchor),
             "axis": [round(float(v), 9) for v in axis], "limits_deg": list(limits), "actuator": actuator}
+
+
+SERVO_BODY = {"aa": "palm", "fe": "{d}_mcp", "pip": "{d}_proximal", "ro": "palm", "raa": "thumb_cmc",
+              "mcp": "thumb_proximal", "ip": "thumb_distal"}
+"""The body each servo's housing rides on, from the model's chains (``model.py``): a servo frame moves with the body
+whose joint rotations precede it. The finger AA servo is the base (palm); FE follows AA (``_mcp``); the PIP servo
+follows FE (``_proximal``). The thumb RO servo is the layout pose (palm); RAA follows RO (``thumb_cmc``); the MCP
+servo turns with its own MCP angle (``Rz(mcp)`` is in its frame: ``thumb_proximal``). The IP servo's frame is the MCP
+frame moved along -Y, but its body lies beyond the IP axis, in the distal segment's span (the CAD's thumb distal
+segment is that servo's body, then the fingertip case), so like the MCP servo it rides on the segment it turns
+(``thumb_distal``); at the geometric zero the frame is the same."""
+def servo_shape(geometry) -> dict:
+    """A packaging profile (``core.hardware.actuator``) as ``servo.shape`` data, in metres."""
+    if isinstance(geometry, DShapedExtrusion):
+        return {"type": "d_extrusion", "radius": geometry.radius_mm * MM, "rear_extent": geometry.rear_extent_mm * MM,
+                "depth": geometry.depth_mm * MM, "source": "core.hardware.xm335.XM335Actuator.geometry"}
+    if isinstance(geometry, BoxExtrusion):
+        return {"type": "box_extrusion", "width": geometry.width_mm * MM, "length": geometry.length_mm * MM,
+                "shaft_from_front": geometry.shaft_from_front_mm * MM, "depth": geometry.depth_mm * MM}
+    raise TypeError(f"no servo shape for {type(geometry).__name__}")
+
+
+def servo_visuals(frames) -> list[dict]:
+    """``visuals`` entries: every servo's body at its actuator frame at the geometric zero (module docstring). The
+    model's servo frame is the packaging actuator frame: shaft at the origin along +Z, the body along -Y, the cap
+    toward +Y, centred along Z (``parameters``: the X330 body is symmetric, +-11 mm, about the servo frame)."""
+    return [{"name": f"{key.split('/')[0]}_{key.split('/')[1]}_servo_body", "servo": key,
+             "body": SERVO_BODY[key.split("/")[1]].replace("{d}", key.split("/")[0]), "shape": "servo",
+             "position": _m(frame[:3, 3]), "quat_wxyz": _quat_wxyz(frame[:3, :3])}
+            for key, frame in frames.servos.items()]
 
 
 def four_bar_table(finger) -> dict:
@@ -192,9 +233,11 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         "pads": None if pads is None else dataclasses.asdict(pads),
         "joints": joints,
         "loops": loops,
-        "servo": XM335DriveModel(supply_voltage_v=supply_voltage_v).as_dict(),
+        "servo": {**XM335DriveModel(supply_voltage_v=supply_voltage_v).as_dict(),
+                  "shape": servo_shape(XM335Actuator().geometry)},
         "four_bar": tables,
         "tips": {**{d: _m(frames.points[f"{d}/C"]) for d in FINGERS}, "thumb": _m(tip)},
+        "visuals": servo_visuals(frames),
     }
 
 
@@ -209,7 +252,7 @@ def main(argv=None) -> int:
     args.out.write_text(json.dumps(data, indent=1) + "\n")
     boxes = sum(len(body.get("boxes", [])) for body in data["bodies"])
     print(f"{args.out}: {len(data['bodies'])} bodies, {len(data['joints'])} tree joints, {len(data['loops'])} loops, "
-          f"{boxes} pads, "
+          f"{boxes} pads, {len(data['visuals'])} servo visuals, "
           f"source {data['source']['commit'][:8]}{' (dirty)' if data['source']['dirty'] else ''}")
     return 0
 
