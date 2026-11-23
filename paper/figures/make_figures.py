@@ -394,6 +394,6 @@ if __name__ == "__main__":
     fig_concept()
     fig_study1()
     fig_study2()
-    fig_overview()
+    # fig_overview() dropped from the manuscript (2026-11-22)
     fig_study3()
     print("written to", DEST)
