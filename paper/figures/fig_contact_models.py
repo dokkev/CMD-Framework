@@ -59,7 +59,7 @@ def scatter(ax, rows, key, ekey="E"):
 def main() -> int:
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    fig, axes = plt.subplots(1, 2, figsize=(3.45, 1.7), gridspec_kw=dict(wspace=0.32))
+    fig, axes = plt.subplots(1, 2, figsize=(3.45, 2.0), gridspec_kw=dict(wspace=0.3))
     point = load("e21_point.json")
     isaac = [{"d_contact": r["d_contact"], "E": r.get("E_isaac")} for r in point]
     scatter(axes[0], isaac, "isaac")
@@ -69,18 +69,18 @@ def main() -> int:
     scatter(axes[1], load("e22_point.json"), "roll")
     scatter(axes[1], load("e23_point.json"), "pullin")
     for ax, title in zip(axes, ("(a) contact model", "(b) task")):
-        ax.set_title(title, fontsize=7, loc="left", pad=2, fontweight="bold")
+        ax.text(0.03, 0.98, title, transform=ax.transAxes, fontsize=7, fontweight="bold", va="top", ha="left")
         ax.set_xlabel(r"$\Delta_{\mathrm{contact}}$ (mm)", fontsize=7, labelpad=1)
         ax.set_yscale("log")
-        ax.set_ylim(2, 400)
+        ax.set_ylim(2, 800)
         ax.set_xlim(0, 5.5)
         ax.tick_params(labelsize=6, length=2)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
-        ax.legend(fontsize=5, frameon=False, loc="lower right", handletextpad=0.2, borderaxespad=0.1,
-                  labelspacing=0.2)
+        ax.legend(fontsize=5.2, frameon=False, loc="lower left", bbox_to_anchor=(-0.05, 1.01), handletextpad=0.2,
+                  borderaxespad=0.0, labelspacing=0.15, handlelength=1.0)
     axes[0].set_ylabel("$E$ (%)", fontsize=7, labelpad=1)
-    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.2, top=0.9)
+    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.17, top=0.74)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_contact_models.png"
     fig.savefig(out, dpi=400)
