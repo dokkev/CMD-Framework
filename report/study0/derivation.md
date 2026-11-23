@@ -235,15 +235,15 @@ Crossed four-bar 일반에 대해 이 문서가 주장하는 것은 없다. 다�
 ### 4.4 Pole이 놓일 수 있는 자리 (2026-11-22)
 
 보조정리 1을 복소평면으로 쓰면(평면을 $\mathbb C$로, $R_q$는 $e^{iq}$ 곱하기) 변위 $y\mapsto e^{iq}y+b$의 pole은
-$P(q)=b/(1-e^{iq})=\tfrac b2\big(1+i\cot\tfrac q2\big)$이다. 한 자세 $q$에서 설계를 바꿔 가며 닿을 수 있는 $P$의 집합은 구조마다 다르다.
+$P(q)=b/(1-e^{iq})=\tfrac b2\big(1+i\cot\tfrac q2\big)$이다. Proximal phalanx의 좌표(원점: 관절 쪽 끝의 축 위, 실수축: phalanx 축 방향, 허수축: dorsal)에서 한 자세 $q$의 $P$가 설계에 따라 놓일 수 있는 자리는 구조마다 차원이 다르다.
 
-- **고정 축:** 한 설계의 $P$는 pin이고 $q$와 무관하다. pin은 link 선 위 어디에나 둘 수 있으므로 집합은 **link 선**($\operatorname{Im}P=0$)이다.
-- **같은 roller (반지름 $r$):** (14)에 의해 $P(q)=(a+r)-i\,r\tan\frac q4$이다. 접선 $x=a+r$은 어디에나 둘 수 있고 깊이는 $r$이 정하므로, 집합은 link 선 아래 **띠**($r_{\min}\tan\frac q4$–$r_{\max}\tan\frac q4$)이다. 깊은 pole에는 큰 roller가 필요하다. 한 설계의 $P(q)$는 $q$에 따라 수직으로만 움직인다.
-- **Crossed four-bar:** $b$는 두 link의 닫힘(`feasible_space.md` F1: 움직이는 pivot은 두 원의 교점)으로 정해지므로, pivot의 위치를 바꾸면 $P$가 link 선 위아래로 **영역**을 덮는다.
+- **고정 축:** pin이 곧 phalanx의 끝이므로 $P=0$, **한 점**이다.
+- **같은 roller (반지름 $r$):** proximal roller의 중심이 phalanx의 끝이면 (14)에 의해 $P(q)=r-i\,r\tan\frac q4$이다. 남은 변수는 $r$ 하나이므로 $P$는 원점에서 기울기 $-\tan\frac q4$로 뻗는 **선분**이다($r$ 3–8 mm).
+- **Crossed four-bar:** $b$는 두 link의 닫힘(`feasible_space.md` F1: 움직이는 pivot은 두 원의 교점)으로 정해지므로, pivot의 위치를 바꾸면 $P$가 **영역**을 덮는다(원점: proximal pivot $A$).
 
-확인(해석적 sweep, 최적화 run이 아님): pivot을 phalanx 안에 둔 crossed four-bar를 무작위로 60,000개 뽑아(A, B는 link 선 위 관절에서 15 mm 이내, A′, B′는 dorsal 14 mm 이내) $[0,q_{\mathrm{req}}]$에서 조립 형태를 유지하며 닫히는 것만 남기고 $P(q_{\mathrm{req}})$를 계산했다. $q_{\mathrm{req}}=120^\circ$에서 25,577개가 닫혔고, $P$의 5–95% 구간은 실수부 $-6.4$–$10.3$ mm, 허수부 $-2.5$–$3.7$ mm였다. $q_{\mathrm{req}}$가 커질수록 영역은 palmar 쪽으로 내려간다. 그림은 `paper/figures/fig_mechanisms.py`의 (e)이다(원고 Fig. 2e, 90°, 120°, 150°를 겹침).
+확인(해석적 sweep, 최적화 run이 아님): pivot을 phalanx 안에 둔 crossed four-bar를 무작위로 60,000개 뽑아(A, B는 link 선 위 관절에서 15 mm 이내, A′, B′는 dorsal 14 mm 이내) $[0,120^\circ]$에서 조립 형태를 유지하며 닫히는 25,577개의 $P(120^\circ)-A$를 계산했다. 그 90%는 phalanx 끝에서 약 −4–25 mm, 축에서 약 ±4 mm의 영역에 있다. 그림은 `paper/figures/fig_mechanisms.py`의 (e)이다(원고 Fig. 2e).
 
-주의: 깊이만 보면 큰 roller의 띠가 이 sweep의 영역보다 더 내려간다. 차이는 깊이를 얻는 방식에 있다. Roller의 pole은 roller 안에 있으므로 깊은 pole은 큰 roller(그만큼 공간을 차지하는 물체)를 요구하고, pin과 roller는 pad의 장착면 위에 있어야 한다. Four-bar의 pole은 가상의 점이라 그 제약이 없다(따름정리 3.1의 "가장 좋은 관절은 contact face 위의 점을 중심으로 도는 관절").
+Pin과 roller는 물체가 있는 자리에 놓여야 하므로 pad의 장착면 위에 머물고, 깊은 pole을 얻으려면 roller가 커져야 한다. Four-bar의 pole은 가상의 점이라 그 제약이 없다(따름정리 3.1의 "가장 좋은 관절은 contact face 위의 점을 중심으로 도는 관절").
 
 ### 4.5 요약
 
