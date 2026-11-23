@@ -3,7 +3,8 @@
     conda run -n cmd python paper/figures/fig_mechanisms.py [dest_dir]
 
 2R-DD, 2R-remote and RCJ: each one's Study 1 design for q_req = 120 deg and 7 mm pads. CFL: the CoDe prototype's
-finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced; prototype track, drawn only).
+finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced; prototype track, drawn only),
+its pads drawn at the same 7 mm as the others.
 All drawn at 120 deg of flexion in the
 sketch style of Study 1's design figures (design/scripts/study/study1_thickness_coverage/figure_designs.py):
 grey servo bodies, red proximal and blue distal links, pads shaded, dotted the distal segment's centre of
@@ -26,7 +27,9 @@ import one_finger  # noqa: E402
 from core.optimization.mechanism import read_config_file  # noqa: E402
 from visualize import sketch  # noqa: E402
 from visualize.finger import view_of  # noqa: E402
-from visualize.finger.view import view_from_row  # noqa: E402
+from dataclasses import replace  # noqa: E402
+
+from visualize.finger.view import load_run  # noqa: E402
 from visualize.fronts import read_rows, with_role  # noqa: E402
 from visualize.style import use  # noqa: E402
 
@@ -50,8 +53,14 @@ def main() -> int:
     config = read_config_file(one_finger.DEFAULT_CONFIG)
     views = {}
     for key, *_ in ARCH:
-        if key == "cfl":  # the CoDe prototype's finger
-            views[key] = view_from_row(with_role(read_rows(PROTOTYPE), "balanced"), PROTOTYPE.parent.parent)
+        if key == "cfl":  # the CoDe prototype's finger, its pads drawn as thick as the others' (qualitative)
+            row = with_role(read_rows(PROTOTYPE), "balanced")
+            run = load_run(PROTOTYPE.parent.parent / row["run"].split("/")[-1])
+            pk = run.config.packaging
+            config_cfl = replace(run.config, packaging=replace(
+                pk, proximal_pad=replace(pk.proximal_pad, height_mm=THICKNESS),
+                distal_pad=replace(pk.distal_pad, height_mm=THICKNESS)))
+            views[key] = view_of(run.mechanism.name, config_cfl, run.mechanism.read_design(row))
             continue
         designs = one_finger.study1_designs(key, config["architectures"][key], FLEXION, config)
         ref = designs[THICKNESS]
