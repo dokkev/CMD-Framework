@@ -62,7 +62,8 @@ class FourBarView(KinematicJoint):
         app, bpp = self.finger.proximal_end.array, self.distal_start(phi_deg)
         sketch.body_links(axis, proximal=[(o, a), (o, app), (app, a), (app, ap), (o, ap)],
                           distal=[(bp, b, c, bp), (bpp, b), (bpp, bp), (bpp, c)], black=[(a, bp)], gray=[(ap, b)])
-        sketch.nodes(axis, a, b, bp, c, app, bpp)
+        sketch.nodes(axis, a, b, bp)  # pivots
+        sketch.corners(axis, c, app, bpp)
         sketch.active(axis, o, ap)
 
     def status(self, phi_deg: float) -> list[str]:

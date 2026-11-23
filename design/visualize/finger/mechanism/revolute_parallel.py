@@ -31,7 +31,8 @@ class BeltPinView(PinView):
             axis.plot(*np.array((ap + sign * side, a + sign * side)).T, color=sketch.INK, linewidth=1.0, zorder=3.5)
         near, far = geo.joint.posed(geo.joint.distal_mount, [math.radians(phi_deg)])[0]
         sketch.body_links(axis, proximal=[((0.0, 0.0), a, ap)], distal=[(a, near, far, a)])
-        sketch.nodes(axis, a, near, far)
+        sketch.nodes(axis, a)
+        sketch.corners(axis, near, far)
         sketch.active(axis, (0.0, 0.0), ap)
 
     def draw_solid(self, axis, phi_deg: float, hit: set[str]) -> None:

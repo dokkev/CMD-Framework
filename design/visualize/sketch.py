@@ -79,6 +79,15 @@ def nodes(axis, *points) -> None:
     axis.scatter(points[:, 0], points[:, 1], s=16, color=NODE, zorder=5)
 
 
+SHOW_CORNERS = False  # rigid-body corners (a fingertip, a pad's end) are not pivots: no dot unless asked
+
+
+def corners(axis, *points) -> None:
+    """Corners of a rigid body that are not pivots; drawn as nodes only when ``SHOW_CORNERS``."""
+    if SHOW_CORNERS:
+        nodes(axis, *points)
+
+
 def ground(axis, outline) -> None:
     """Hatching along the MCP servo's back: the palm."""
 
