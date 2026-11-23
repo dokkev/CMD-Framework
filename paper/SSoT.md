@@ -85,7 +85,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
-- Two references, for two different things:
+- References (Wensing's register takes precedence when they pull apart):
   - **Register and structure (how it reads as engineering):** Bhatia, Johnson and Mason, "Direct Drive Hands:
     Force-Motion Transparency in Gripper Design" (RSS 2019, the DDHand paper), and Wensing et al.,
     "Proprioceptive Actuator Design in the MIT Cheetah: Impact Mitigation and High-Bandwidth Physical
@@ -102,7 +102,8 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
     serves and the failure it prevents, so the reader sees why the system looks as it does before seeing how
     well it works. Use it for the CoDe mechanism and for the design studies: requirement, choice, consequence.
   - **Delivery (how fast the message lands):** Vaswani et al., "Attention Is All You Need" (NeurIPS 2017).
-    One message per paragraph, stated in its first sentence; short declarative sentences; few parentheses and
+    One message per paragraph, stated in its first sentence; sentences joined by explicit logical connectives
+    (thus, in contrast, as a result, to this end) as in Wensing, not chopped into fragments; few parentheses and
     no semicolon chains; one or two numbers per sentence, the rest in tables and
     figures; nothing the reader must hold in mind before it pays off.
 - Introduction: no equations and no experimental numbers. Say a result in words and point to its section.
