@@ -46,6 +46,7 @@ S2 = math.sqrt(0.5)
 DIRECTIONS = {"+x": (1.0, 0.0), "+x-z": (S2, -S2), "-z": (0.0, -1.0), "-x": (-1.0, 0.0)}  # x along, z dorsal
 POINT_STIFFNESS = 2.5e3  # N/m, Isaac Lab's shape ke
 PAD_REFERENCE_M = 0.003  # every hand's pads get O's foundation stiffness: modulus / 3 mm (sixteenth experiment)
+SPIN_DAMPING = 0.0  # N m s/rad on the cylinder's spin (the rolling task's bearing); 0 for the limit measurement
 MODULUS_PA = 1.0e5  # soft silicone; chosen on O alone so its settled pad force sits near the point model's
 
 
@@ -149,7 +150,7 @@ def _build(hand: str, mu: float, rho_mm: float, contact: str, time_step: float, 
     face = m + h  # proximal face depth below the link line
     joints = [plant.AddJoint(PrismaticJoint("slide_x", world.body_frame(), cx.body_frame(), [1.0, 0.0, 0.0])),
               plant.AddJoint(PrismaticJoint("slide_z", cx.body_frame(), cz.body_frame(), [0.0, 0.0, 1.0])),
-              plant.AddJoint(RevoluteJoint("spin", cz.body_frame(), roller.body_frame(), y))]
+              plant.AddJoint(RevoluteJoint("spin", cz.body_frame(), roller.body_frame(), y, damping=SPIN_DAMPING))]
     if hold:  # the drives that hold the cylinder while the finger closes (implicit PD; a second plant releases it)
         for j, (kp, kd) in zip(joints, ((1.0e5, 1.0e3), (1.0e5, 1.0e3), (10.0, 0.1))):
             plant.AddJointActuator(j.name(), j).set_controller_gains(PdControllerGains(p=kp, d=kd))
@@ -301,10 +302,43 @@ class Stage:
                 "v": Vr.translational(), "w": Vr.rotational()[1], "q": qf}
 
 
+def roll(s: "Stage", m0: dict, q_cmd: float, qs, th, opts: dict) -> dict:
+    """In-hand rolling (task 2): from the settled grasp, the same open-loop flexion sweep on every hand, q_cmd ->
+    q_cmd + sweep over sweep_s, then held for hold_s. Returns the cylinder's rotation (deg, + with flexion), its
+    displacement in the proximal-face frame (mm: along the face toward the tip, away from the face), whether both pads
+    still touch at the end, and the step at which the grasp was lost, if it was."""
+    spin = s.plant.GetJointByName("spin")
+    phi0 = spin.get_angle(s.pctx)
+    c0 = m0["c"].copy()
+    n_sweep, n_hold = int(round(opts["sweep_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
+    lost_at = None
+    q1 = q_cmd + math.radians(opts["sweep_deg"])
+    for i in range(n_sweep + n_hold):
+        q = q_cmd + (q1 - q_cmd) * min(1.0, (i + 1) / n_sweep)
+        s.ctrl.theta_cmd = float(np.interp(q, qs, th))
+        s.step()
+        m_ = s.measure()
+        if lost_at is None and (m_["normal"] < LOSS_N).any():
+            lost_at = i + 1
+    m_ = s.measure()
+    dc = 1e3 * (m_["c"] - c0)
+    return {"rotation_deg": -math.degrees(spin.get_angle(s.pctx) - phi0), "along_mm": float(dc[0]),
+            "off_face_mm": float(-dc[2]), "held": bool((m_["normal"] >= LOSS_N).all()), "lost_at_step": lost_at,
+            "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"])}
+
+
 def run_env(task):
     try:
         return _run_env(task)
-    except RuntimeError as err:  # a solver failure loses this placement only
+    except RuntimeError:  # a solver failure: once more at half the time step (recorded)
+        pass
+    try:
+        retry = list(task)
+        retry[4] = task[4] / 2
+        out = _run_env(tuple(retry))
+        out["retried_time_step"] = retry[4]
+        return out
+    except RuntimeError as err:  # still failing: this placement only is lost
         hand, mu, rho_mm, contact, time_step, g, direction, delta = task[:8]
         return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction,
                 "pre": {}, "gate0": {"pass": False, "solver_fail": str(err)[:200]},
@@ -312,9 +346,10 @@ def run_env(task):
 
 
 def _run_env(task):
-    hand, mu, rho_mm, contact, time_step, g, direction, delta, modulus = task
-    global MODULUS_PA
+    hand, mu, rho_mm, contact, time_step, g, direction, delta, modulus, opts = task
+    global MODULUS_PA, SPIN_DAMPING
     MODULUS_PA = modulus
+    SPIN_DAMPING = opts.get("spin_damping", 0.0)
     geom = finger_geometry(hand)
     qs, th = servo_table(geom)
     q_cmd = math.radians(g["q0_deg"] + delta)
@@ -360,6 +395,9 @@ def _run_env(task):
            "normal_angle_deg": ang, "centre_mm": (1e3 * m_["c"][[0, 2]]).tolist(), "ratio": ratio}
     gate = {"pass": bool(pads_ok and still and angle_ok), "pads": bool(pads_ok), "still": bool(still),
             "angle": bool(angle_ok), "speed_mm_s": float(speed), "spin_rad_s": float(spin)}
+    if opts.get("task") == "roll":
+        return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction, "pre": pre,
+                "gate0": gate, "roll": roll(s, m_, q_cmd, qs, th, opts) if gate["pass"] else None, "limit": {}}
     d = np.array(DIRECTIONS[direction])
     c0 = m_["c"].copy()
     limit = {"event": None, "f_limit_n": None, "mu_eff_geo_at_slip": None, "slip_pad": None, "roll_n": None}
@@ -402,12 +440,21 @@ def main() -> int:
     p.add_argument("--only", type=int, default=None, help="first N placements")
     p.add_argument("--directions", nargs="+", default=list(DIRECTIONS))
     p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--task", choices=("limit", "roll"), default="limit",
+                   help="limit: the load ramp (Study 3); roll: in-hand rolling by an open-loop flexion sweep")
+    p.add_argument("--sweep_deg", type=float, default=15.0)
+    p.add_argument("--sweep_s", type=float, default=3.0)
+    p.add_argument("--hold_s", type=float, default=1.0)
+    p.add_argument("--spin_damping", type=float, default=0.0, help="N m s/rad on the cylinder's spin")
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads(GRASPS.read_text())["grasps"] if g["rho_mm"] == args.radius_mm][: args.only]
-    tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus)
-             for g in grasps for d in args.directions]
+    opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
+            "spin_damping": args.spin_damping}
+    directions = ["none"] if args.task == "roll" else args.directions
+    tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
+             for g in grasps for d in directions]
     t0 = time.time()
     with Pool(args.workers) as pool:
         envs = pool.map(run_env, tasks)
@@ -415,10 +462,12 @@ def main() -> int:
     print(f"{args.hand} mu {args.mu} r {args.radius_mm} {args.contact}: Gate 0 passed {len(ok)}/{len(envs)} "
           f"in {time.time() - t0:.0f} s")
     OUT.mkdir(exist_ok=True)
-    name = f"dk_{args.hand}_mu{args.mu:g}_{args.contact}{('-' + args.tag) if args.tag else ''}_r{args.radius_mm:g}.json"
+    stem = "dk" if args.task == "limit" else f"dk{args.task}"
+    name = f"{stem}_{args.hand}_mu{args.mu:g}_{args.contact}{('-' + args.tag) if args.tag else ''}_r{args.radius_mm:g}.json"
     (OUT / name).write_text(json.dumps({"hand": args.hand, "mu": args.mu, "contact": args.contact,
                                         "time_step": args.time_step, "delta_deg": args.delta_deg,
-                                        "modulus_pa": args.modulus if args.contact == "hydro" else None, "envs": envs}))
+                                        "modulus_pa": args.modulus if args.contact == "hydro" else None, "opts": opts,
+                                        "envs": envs}))
     return 0
 
 
