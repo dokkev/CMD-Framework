@@ -254,14 +254,13 @@ def arc_arrow(sc, centre, r, a0, a1, y, rgba, n=24):
     arrow(sc, pts[-5], pts[-1], y, rgba)
 
 
-def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1.0) -> Scene:
-    sc = Scene(folder)
-    g = T.finger_geometry("O")
+def add_finger(sc: "Scene", hand: str, B, q: float) -> None:
+    """One finger of `hand` (its own pivots, pads and PIP servo tilt) with the distal at pose (B, q), in mm."""
+    g = T.finger_geometry(hand)
     pads = g["pads"]
-    tilt = yaml.safe_load(T.hand_file("O").read_text())["finger"]["pip_servo_tilt_deg"]
+    tilt = yaml.safe_load(T.hand_file(hand).read_text())["finger"]["pip_servo_tilt_deg"]
     a, ap, bpl = g["a"], g["ap"], g["bp_local"]
-    bx, bz, q = st["distal"]
-    B = np.array([bx, bz])
+    B = np.asarray(B, float)
     Bp = B + rot(q, bpl)
     m, th = pads["mount_offset_mm"], pads["thickness_mm"]
     hw = WIDTH / 2
@@ -300,6 +299,12 @@ def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1
     for p, r in ((a, 1.6), (ap, 2.2), (B, 1.6), (Bp, 1.6)):
         sc.cylinder(p, -hw - plate - 5.5, hw + plate + 5.5, r, STEEL)
     sc.cylinder((0.0, 0.0), -hw - plate - 1.0, hw + plate + 1.0, 4.0, STEEL)
+
+
+
+def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1.0) -> Scene:
+    sc = Scene(folder)
+    add_finger(sc, "O", st["distal"][:2], st["distal"][2])
 
     # the object
     c = np.array(st["centre"])

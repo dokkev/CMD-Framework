@@ -11,7 +11,8 @@ its change of the contact Jacobian, Delta_contact, one marker per redesigned han
     dose_A-grid_expanded.json (as make_figures.fig_study3 before 2026-11-23).
 (c) Contact model, pad friction, grasp pull-out: Isaac Lab point (as (b), filled), the Drake replica with point contact, and
     Drake with hydroelastic pads (E = 0.1 MPa over 3 mm on every hand). Inputs: sim/drake/logs/e21_point.json,
-    e21_hydro.json (analyze.py --out).
+    e21_hydro.json (analyze.py --out); and with each pad as soft as it is thick (0.1 MPa over its own thickness),
+    against O carrying the same pad (experiment 25; e25_hydro_own.json, analyze_e25.py --out).
 (a) The three tasks on hand O (radius 15 mm, q0 = 100 deg, mu 1.3), three frames each in order, rendered in 3D by
     Drake's VTK renderer at simulated states (sim/drake/render_tasks.py -> logs/task_snapshots.json; render3d.py ->
     logs/render_<task><frame>.png): O's linkage (links drawn bowed, pins exact), pads and servos; red arrows: load.
@@ -40,7 +41,7 @@ from analyze import spearman_perm  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
 STRIP_IN = 0.74  # (a), the task frames
-WIDTH, HEIGHT = 7.16, 1.30 + STRIP_IN
+WIDTH, HEIGHT = 7.16, 1.22 + STRIP_IN
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
 GREY, INK2 = "#9a9a9a", "#555555"
 YLIM = (2, 600)
@@ -119,7 +120,7 @@ def main() -> int:
                          "mathtext.fontset": "stix", "font.size": 7})
     fig = plt.figure(figsize=(WIDTH, HEIGHT))
     top = STRIP_IN / HEIGHT  # the strip's share of the height
-    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=0.28 / HEIGHT, top=0.80 / HEIGHT)
+    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=0.28 / HEIGHT, top=0.74 / HEIGHT)
     axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 2])]
     strip(fig, 1.0 - top, 1.0)
     fig.text(0.002, 1.0 - 0.004, "(a)", fontsize=7, fontweight="bold", ha="left", va="top")
@@ -162,7 +163,9 @@ def main() -> int:
     series(ax, [{"d_contact": r["d_contact"], "E": r.get("E_isaac")} for r in point], "Isaac Lab, point",
            "#52514e", "o", True)
     series(ax, point, "Drake, point", "#2a78d6", "^", False)
-    series(ax, hydro, "Drake, hydroelastic", "#eb6834", "D", True, ms=3.0)
+    series(ax, hydro, "Drake, hydroelastic, 3 mm", "#eb6834", "D", True, ms=3.0)
+    series(ax, json.loads((DRAKE / "e25_hydro_own.json").read_text()), "Drake, hydroelastic, own thickness",
+           "#9c2f1e", "s", False, ms=3.0)
     style(ax, "(c) contact model")
 
     # (d) task
