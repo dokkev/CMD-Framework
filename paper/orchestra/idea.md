@@ -23,8 +23,9 @@ problems, C contributions, H a study's hypotheses, R its safe claims (research-o
   Study 0), (2) the CFL can, within 10–51 % of the bound, at almost no cost in coverage (Study 2: what keeping
   it costs), (3) keeping it lets the interface be studied independently of the finger (Study 3: what keeping
   it buys; simulation; under the reused impedance setpoint a servo hand runs, the part of a measured effect the
-  redesign adds follows Δ_contact; the fixed-axis family that keeps the skeleton errs 95–228 %). Fails if the
-  CFL reaches the bound or, under those commands, another quantity predicts the added part as consistently.
+  redesign adds follows Δ_contact; the fixed-axis family that keeps the skeleton errs 95–228 %). Fails if,
+  under those commands, another quantity predicts the added part as consistently (C2.2 has no failure
+  condition: reaching the bound is not a real test).
   Framing (2026-11-22): the paper's question is whether an interface can be studied independently of the
   finger that carries it; Study 3's table is grouped by what a protocol reuses (setpoint: Δ_contact alone;
   ideal torque: Δ_contact at fixed force and Δ_skel through the force; touch: Δ_skel).

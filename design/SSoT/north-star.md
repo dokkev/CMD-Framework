@@ -29,7 +29,7 @@ Two contributions, one per problem. Each is a claim to be tested, with a stated 
   2. The CFL can keep it, well inside that bound, at near-best contact surface.
   3. Keeping it lets the interface be studied independently of the finger: under the commands a servo hand runs (a reused impedance setpoint), the part of a measured interface effect that a redesign adds follows the change in the contact Jacobian, not the skeleton's; the rest of the kinematics may change.
 
-  *Fails if* the CFL reaches the bound, or if, under those commands, another design quantity predicts the added part as consistently.
+  *Fails if*, under those commands, another design quantity predicts the added part as consistently.
 
 ## How the paper tells it
 
