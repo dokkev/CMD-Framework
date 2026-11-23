@@ -22,6 +22,7 @@
 | v17 | d722efa | 6, 6, 6 | — | Study 4 (reversed conclusion, post hoc), Fig. 1(d), ideal torque wording, Stage 2 trend test; all three reviews on Fable 5.2 after Opus safeguard errors on every first try and retry |
 | v18 | 6a80bac | 6, 6, 6 | — | independence framing; Study 3 trimmed to one table by protocol (18th: ideal torque, partial 0.79); Study 4 folded in (19th: error rho 0.94, reversal fails, direction = signed face offset); H2 failure condition dropped; MA cost stated; details to captions; r1 Opus, r2/r3 Fable 5.2 after two Opus safeguard errors each |
 | v19 | d7ce877 | 6, 6, 6 | — | C2 scoped to servo setpoints in intro and conclusion; H3 scope; placements, R/U/M defined; signed face offset tested (Delta_contact keeps 0.69 given it); dropped hands scored; Holm; 9 mm limit; S1/S2 named; r1 Opus, r2 Opus on retry, r3 Fable 5.2 after two Opus safeguard errors |
+| v20 | 3f61a74 | 6, 6, 6 | — | setpoint force and face offset held fixed (0.64, 0.69), CFL pole depth, r_C defined, partial row in Table I, sensitivity under Fig. 5, MA as a stated trade-off (no floor); r1 and r2 Opus (r1 on retry), r3 Fable 5.2 after two Opus safeguard errors |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -164,3 +165,11 @@ at the grasp pose vs its maximum over q (r2, r3); the definition of r_C under wh
 only when the pole moves in depth alone (r3); the optimised CFL's pole depth vs d + h never shown (r3); RCJ below the
 bound at 90 deg (r3); partial correlations per setting not in Table I (r3); MA unconstrained (all); "contact Jacobian"
 is the PIP column only (r1, r3); missing underactuated/linkage contact-force literature (r1); simulation only (all).
+
+v20: 6, 6, 6, all Accept. MA moved from a weakness to a stated trade-off for r2; r1 and r3 still ask for a floor.
+Misreadings caused by compression: r1 read the force-matching 3-7% as setpoint recomputation; 0.7x/3.9x (Fig. 1, one
+placement) vs 0.75x/3.3x (median) still unclear. New: the counterfactual's construct validity and the pad stiffness
+implementation (r2); "pre-registered" needs a verifiable record (r2); Delta_contact is a path deviation, not a bound on
+the Jacobian column (r3); Study 3 only at 120 deg (r3); the CFL's parametrisation absent (r3); Eq. (7) assumes equal
+face deepening (r3); captions carry too much (r2, r3). Safeguard errors: every failure is tagged
+[reasoning_extraction]; likely the THOUGHT section of prompt_reviewer.txt.
