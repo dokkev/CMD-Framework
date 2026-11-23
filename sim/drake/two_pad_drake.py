@@ -327,6 +327,28 @@ def roll(s: "Stage", m0: dict, q_cmd: float, qs, th, opts: dict) -> dict:
             "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"])}
 
 
+def pullin(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, theta_cmd, opts) -> dict:
+    """Grasp acquisition (task 3): the finger starts open (q = 0) with the cylinder on the proximal face, offset mm
+    toward the tip of where O's distal pad meets it, under a constant load (toward the face, and toward the tip); the
+    same open-loop closing to O's command on every hand (close_s), then held (hold_s). Returns how far the cylinder
+    was drawn toward the MCP along the face (mm), whether both pads hold it at the end, and its final place."""
+    s = Stage(hand, mu, rho_mm, contact, time_step, False, k_theta, d_theta)
+    start = np.array([x0[0] + opts["offset_mm"] * 1e-3, x0[1]])
+    s.plant.GetJointByName("slide_x").set_translation(s.pctx, start[0])
+    s.plant.GetJointByName("slide_z").set_translation(s.pctx, start[1])
+    s.ctrl.load = np.array([opts["tip_load_n"], opts["face_load_n"]]) / FINGERS
+    s.sim.Initialize()
+    n_close, n_hold = int(round(opts["close_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
+    for i in range(n_close + n_hold):
+        s.ctrl.theta_cmd = theta_cmd * min(1.0, (i + 1) / n_close)
+        s.step()
+    m_ = s.measure()
+    c = m_["c"]
+    return {"drawn_mm": float(1e3 * (start[0] - c[0])), "x_end_mm": float(1e3 * c[0]),
+            "off_face_mm": float(1e3 * (start[1] - c[2])), "held": bool((m_["normal"] >= GATE_N).all()),
+            "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"])}
+
+
 def run_env(task):
     try:
         return _run_env(task)
@@ -360,6 +382,10 @@ def _run_env(task):
     face = (geom["pads"]["mount_offset_mm"] + geom["pads"]["thickness_mm"]) * mm
     x0 = np.array([g["x_c_mm"] * mm, -(face + rho_mm * mm)])
 
+    if opts.get("task") == "pullin":
+        return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction,
+                "pullin": pullin(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, theta_cmd, opts),
+                "gate0": {"pass": True}, "limit": {}}
     # stage 1: the cylinder held, the finger closes to O's command (40 steps) and holds (30)
     s1 = Stage(hand, mu, rho_mm, contact, time_step, True, k_theta, d_theta)
     jx, jz = s1.plant.GetJointByName("slide_x"), s1.plant.GetJointByName("slide_z")
@@ -440,19 +466,24 @@ def main() -> int:
     p.add_argument("--only", type=int, default=None, help="first N placements")
     p.add_argument("--directions", nargs="+", default=list(DIRECTIONS))
     p.add_argument("--workers", type=int, default=8)
-    p.add_argument("--task", choices=("limit", "roll"), default="limit",
+    p.add_argument("--task", choices=("limit", "roll", "pullin"), default="limit",
                    help="limit: the load ramp (Study 3); roll: in-hand rolling by an open-loop flexion sweep")
     p.add_argument("--sweep_deg", type=float, default=15.0)
     p.add_argument("--sweep_s", type=float, default=3.0)
     p.add_argument("--hold_s", type=float, default=1.0)
     p.add_argument("--spin_damping", type=float, default=0.0, help="N m s/rad on the cylinder's spin")
+    p.add_argument("--offset_mm", type=float, default=5.0, help="pullin: start this far toward the tip")
+    p.add_argument("--tip_load_n", type=float, default=0.5, help="pullin: load toward the tip (three fingers)")
+    p.add_argument("--face_load_n", type=float, default=0.5, help="pullin: load toward the face (three fingers)")
+    p.add_argument("--close_s", type=float, default=2.0)
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads(GRASPS.read_text())["grasps"] if g["rho_mm"] == args.radius_mm][: args.only]
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
-            "spin_damping": args.spin_damping}
-    directions = ["none"] if args.task == "roll" else args.directions
+            "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
+            "face_load_n": args.face_load_n, "close_s": args.close_s}
+    directions = ["none"] if args.task in ("roll", "pullin") else args.directions
     tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
              for g in grasps for d in directions]
     t0 = time.time()
