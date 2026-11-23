@@ -1,7 +1,8 @@
-"""Frames of the three tasks in Fig. 4(c), from Drake states of hand O (radius 15 mm, the q0 = 100 deg placement,
-pad friction 1.3), three per task in order: holding (placed with the finger open; held after the release; the load
-ramp after the grasp gives way, the cylinder drawn out by about 14 mm), grasp acquisition (open; closing; drawn in), and the sprung dial (open;
-turning; turned). Each frame keeps the distal pose, the cylinder's centre and spin, and the load on the cylinder.
+"""Frames of the three tasks in Fig. 4(a), from Drake states of hand O (radius 15 mm, the q0 = 100 deg placement,
+pad friction 1.3), three per task in order: grasp pull-out (placed with the finger open; held after the release; the
+-z load ramp after the grasp gives way, the cylinder drawn out), grasp acquisition (open; closing; drawn in), and the
+sprung dial (open; turning; turned). Each frame keeps the distal pose, the cylinder's centre and spin, and the load
+on the cylinder.
 Writes logs/task_snapshots.json for render3d.py.
 
     uv run python render_tasks.py
