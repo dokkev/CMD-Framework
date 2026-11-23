@@ -5,16 +5,17 @@
 All panels: the error a redesign adds to a measured interface effect, E (median over placements, log scale), against
 its change of the contact Jacobian, Delta_contact, one marker per redesigned hand, under the reused impedance setpoint
 (condition A, open loop).
-(a) Isaac Lab 3 (Newton, MuJoCo-Warp), point contact: pad friction at O's contacts (filled, colour by thickness),
+(b) Isaac Lab 3 (Newton, MuJoCo-Warp), point contact: pad friction at O's contacts (filled, colour by thickness),
     pad stiffness (squares), friction on the hand-independent grid (grey rings); dotted: the CFL redesigns of Study 2;
     dashed: E = 20%. Inputs: sim/isaaclab/logs/experimental/two_pad/dose_A_all.json, comp.json,
     dose_A-grid_expanded.json (as make_figures.fig_study3 before 2026-11-23).
-(b) Contact model, pad friction, holding: Isaac Lab point (as (a), filled), the Drake replica with point contact, and
+(c) Contact model, pad friction, holding: Isaac Lab point (as (b), filled), the Drake replica with point contact, and
     Drake with hydroelastic pads (E = 0.1 MPa over 3 mm on every hand). Inputs: sim/drake/logs/e21_point.json,
     e21_hydro.json (analyze.py --out).
-(c) The three tasks on hand O (radius 15 mm, q0 = 100 deg, mu 1.3), rendered in 3D by Drake's VTK renderer at the
-    simulated end states (sim/drake/render_tasks.py -> logs/task_snapshots.json; sim/drake/render3d.py ->
-    logs/render_<task>.png): O's linkage, pads and servos; red arrows: the load.
+(a) The three tasks on hand O (radius 15 mm, q0 = 100 deg, mu 1.3), three frames each in order, rendered in 3D by
+    Drake's VTK renderer at simulated states (sim/drake/render_tasks.py -> logs/task_snapshots.json; render3d.py ->
+    logs/render_<task><frame>.png): O's linkage (links drawn bowed, pins exact), pads and servos; red arrows: load.
+Panels (b)-(d) below were (a), (b), (d) before 2026-11-23.
 (d) Task, Drake, point, pad friction: holding against a load, grasp acquisition, turning a sprung dial. Inputs:
     e21_point.json, e23_point.json, e24_point.json (analyze_roll.py --out). In-hand rolling (experiment 22, which
     failed its test) is left out of the figure; the paper states it as a limitation.
@@ -37,7 +38,8 @@ sys.path.insert(0, str(ROOT / "sim" / "drake"))
 from analyze import spearman_perm  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
-WIDTH, HEIGHT = 7.16, 1.52
+STRIP_IN = 0.74  # (a), the task frames
+WIDTH, HEIGHT = 7.16, 1.30 + STRIP_IN
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
 GREY, INK2 = "#9a9a9a", "#555555"
 YLIM = (2, 600)
@@ -81,35 +83,45 @@ def rot(q, p):
     return np.array([c * p[0] + s_ * p[1], -s_ * p[0] + c * p[1]])
 
 
-def renders(fig, rect):
-    """(c): the three tasks on O, rendered in 3D by Drake (sim/drake/render3d.py) at their simulated states, side by
-    side in rect (x0, y0, w, h, figure fractions), cropped to one common box so the three share a scale."""
+def strip(fig, y0, y1):
+    """(a): each task on O in three frames, in order, rendered in 3D by Drake (sim/drake/render3d.py) at simulated
+    states, across the figure between heights y0 and y1 (figure fractions); one crop box per task, so its frames
+    share a scale within each task."""
     from PIL import Image
-    ims = [np.asarray(Image.open(DRAKE / f"render_{k}.png").convert("RGB")) for k in TASK]
-    ink = np.any(np.stack([im.min(axis=2) < 245 for im in ims]), axis=0)
-    rows, cols = np.where(ink[:, :])
-    left = int(0.20 * ims[0].shape[1])  # from the MCP joint on; the MCP servo is left out
-    box = (max(rows.min() - 8, 0), rows.max() + 8, max(cols.min(), left), cols.max() + 8)
-    x0, y0, w, h = rect
-    for i, (key, im) in enumerate(zip(TASK, ims)):
-        ax = fig.add_axes((x0 + i * w / 3, y0 + 0.13, w / 3, h - 0.13))
-        ax.imshow(im[box[0]:box[1], box[2]:box[3]], interpolation="lanczos")
-        ax.set_anchor("C")
-        ax.axis("off")
-        fig.text(x0 + (i + 0.5) * w / 3, y0 + 0.06, TASK[key][0], fontsize=6, color=TASK[key][1], ha="center",
-                 va="center")
+    ims = {k: [np.asarray(Image.open(DRAKE / f"render_{k}{i}.png").convert("RGB")) for i in range(3)] for k in TASK}
+    boxes = {}
+    for k, v in ims.items():  # one crop box per task, so its three frames share a scale
+        ink = np.any(np.stack([im.min(axis=2) < 245 for im in v]), axis=0)
+        rows, cols = np.where(ink)
+        left = int(0.22 * ink.shape[1])  # from the MCP joint on; the MCP servo is left out
+        boxes[k] = (max(rows.min() - 6, 0), rows.max() + 6, max(cols.min(), left), cols.max() + 6)
+    x0, x1, gap = 0.012, 0.995, 0.02
+    gw = (x1 - x0 - 2 * gap) / 3
+    label_h = 0.13 / HEIGHT
+    for g, key in enumerate(TASK):
+        gx = x0 + g * (gw + gap)
+        fig.text(gx + gw / 2, y1 - 0.01, TASK[key][0], fontsize=6.5, color=TASK[key][1], ha="center", va="top")
+        for i, im in enumerate(ims[key]):
+            fw = 0.92 * gw / 3  # frame width; the rest of a third is the gap with its arrow
+            ax = fig.add_axes((gx + i * gw / 3 + (gw / 3 - fw) / 2, y0, fw, y1 - y0 - label_h))
+            box = boxes[key]
+            ax.imshow(im[box[0]:box[1], box[2]:box[3]], interpolation="lanczos")
+            ax.set_anchor("N")
+            ax.axis("off")
+            if i < 2:
+                fig.text(gx + (i + 1) * gw / 3, y0 + 0.45 * (y1 - y0 - label_h), r"$\rightarrow$", fontsize=5,
+                         color=INK2, ha="center", va="center")
 
 
 def main() -> int:
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
     fig = plt.figure(figsize=(WIDTH, HEIGHT))
-    gs = fig.add_gridspec(1, 4, width_ratios=[1, 1, 1.75, 1], wspace=0.22, left=0.05, right=0.995, bottom=0.2,
-                          top=0.61)
-    axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 3])]
-    box = gs[0, 2].get_position(fig)
-    renders(fig, (box.x0 - 0.015, 0.0, box.width + 0.03, 0.9))
-    fig.text(box.x0, 0.985, "(c) tasks on $O$ (Drake)", fontsize=7, fontweight="bold", ha="left", va="top")
+    top = STRIP_IN / HEIGHT  # the strip's share of the height
+    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=0.28 / HEIGHT, top=0.80 / HEIGHT)
+    axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 2])]
+    strip(fig, 1.0 - top, 1.0)
+    fig.text(0.002, 1.0 - 0.004, "(a)", fontsize=7, fontweight="bold", ha="left", va="top")
 
     # (a) Isaac Lab, three settings at the reused setpoint
     ax = axes[0]
@@ -139,7 +151,7 @@ def main() -> int:
     for x, t in ((0.35, 5), (0.86, 7), (2.32, 9)):  # the CFL redesigns of Study 2 (q_req 120 deg)
         ax.axvline(x, color=THICK[t], lw=0.7, ls=":", zorder=1)
         ax.text(x + 0.06, 2.3, f"{t} mm", fontsize=5.4, color=THICK[t], va="bottom", rotation=90)
-    style(ax, "(a) reused setpoint")
+    style(ax, "(b) reused setpoint")
     ax.set_ylabel("error $E$ (%)", fontsize=7, labelpad=1)
 
     # (b) contact model
@@ -150,7 +162,7 @@ def main() -> int:
            "#52514e", "o", True)
     series(ax, point, "Drake, point", "#2a78d6", "^", False)
     series(ax, hydro, "Drake, hydroelastic", "#eb6834", "D", True, ms=3.0)
-    style(ax, "(b) contact model")
+    style(ax, "(c) contact model")
 
     # (d) task
     ax = axes[3]
