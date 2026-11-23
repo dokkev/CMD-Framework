@@ -48,6 +48,39 @@ def test_every_body_but_markers_gets_visuals_and_every_servo_is_drawn(desc):
     assert case.body == "thumb_distal"
 
 
+def test_profiles_are_simple_and_fully_triangulated(desc):
+    from shapely.geometry import Polygon
+
+    from code_isaaclab.assets.visuals import ear_clip
+
+    for piece in hand_visuals(desc):
+        poly = np.asarray(piece.profile)
+        if not Polygon(poly).exterior.is_ccw:
+            poly = poly[::-1]
+        assert Polygon(poly).is_valid, piece.name
+        assert len(ear_clip(poly)) == len(poly) - 2, piece.name
+
+
+def test_link_plates_end_round_about_their_pins(desc):
+    from shapely.geometry import Point, Polygon
+
+    from code_isaaclab.assets.visuals import COUPLER_HALF_WIDTH_MM, DRIVER_HALF_WIDTH_MM, finger_plane
+
+    pieces = {p.name: p for p in hand_visuals(desc)}
+    pl = finger_plane(desc, "index")
+    pin = {name: pl.xz(np.asarray(desc.joint(f"index_{name}")["anchor"]) * 1e3) for name in ("a", "pip_servo", "b")}
+    pin["bp"] = pl.xz(np.asarray(desc.loops[0]["anchor"]) * 1e3)
+    for link, ends, half in (("index_driver", ("pip_servo", "b"), DRIVER_HALF_WIDTH_MM),
+                             ("index_coupler", ("a", "bp"), COUPLER_HALF_WIDTH_MM)):
+        ring = Polygon(pieces[link].profile).exterior
+        for end in ends:  # a semicircle of the half width about the pin, and nothing nearer to it
+            arc = np.array([c for c in np.array(ring.coords) if abs(np.linalg.norm(c - pin[end]) - half) < 0.02])
+            angles = np.unwrap(np.sort(np.arctan2(*(arc - pin[end]).T[::-1])))
+            gaps = np.diff(np.concatenate([angles, angles[:1] + 2 * np.pi]))
+            assert len(arc) >= 16 and 2 * np.pi - gaps.max() > np.radians(175), (link, end)
+            assert abs(ring.distance(Point(pin[end])) - half) < 0.02
+
+
 def test_body_poses_close_the_four_bars_from_the_tables(desc):
     for angles in finger_poses(desc, [0.0, 60.0, 120.0]):
         poses = body_poses(desc, angles)

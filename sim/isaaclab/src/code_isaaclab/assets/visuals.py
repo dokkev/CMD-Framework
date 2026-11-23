@@ -69,6 +69,8 @@ DRIVER_SIDE = 1
 """The driver's side along the FE axis (``+1``: the servo horn's, ``+y``); the coupler is on the other."""
 SIDE_MM = 2.0
 """Phalanx side plate thickness (inside the servo depth, 1 mm in from its faces)."""
+DRIVER_HALF_WIDTH_MM, COUPLER_HALF_WIDTH_MM = 3.2, 2.8
+"""The link plates' half widths (render3d's): each ends in a semicircle of this radius about its pin."""
 CAP_SEGMENTS = 32
 
 
@@ -137,10 +139,10 @@ def arc_bar(p, q, half_width: float, sag: float, n: int = 32) -> np.ndarray:
     tan /= np.linalg.norm(tan, axis=1)[:, None]
     nor = np.stack([-tan[:, 1], tan[:, 0]], axis=1)
 
-    def cap(c, t0, start):
+    def cap(c, t0, start):  # a semicircle of the half width about the pin, from one side of the bar to the other
         a0 = math.atan2(t0[1], t0[0])
-        us = np.linspace(math.pi / 2, -math.pi / 2, 12)[1:-1] if not start else np.linspace(
-            math.pi / 2, 3 * math.pi / 2, 12)[1:-1]
+        us = (np.linspace(-math.pi / 2, -3 * math.pi / 2, 18) if start  # right side, behind the pin, left side
+              else np.linspace(math.pi / 2, -math.pi / 2, 18))[1:-1]  # left side, ahead of the pin, right side
         return [c + half_width * np.array([math.cos(a0 + u), math.sin(a0 + u)]) for u in us]
 
     return np.array(list(pts + half_width * nor) + cap(pts[-1], tan[-1], False)
@@ -476,8 +478,8 @@ def finger_pieces(desc: Description, digit: str) -> list[Extrusion]:
     sgn = 1.0 if DRIVER_SIDE > 0 else -1.0
     drv = (sgn * outer[0], sgn * outer[1])
     cpl = (-sgn * outer[0], -sgn * outer[1])
-    out.append(pl.piece(f"{d}_driver", f"{d}_servo_link", "link", arc_bar(Ap, B, 3.2, 8.0), *drv))
-    out.append(pl.piece(f"{d}_coupler", f"{d}_driver_link", "link", arc_bar(A, Bp, 2.8, 5.0), *cpl))
+    out.append(pl.piece(f"{d}_driver", f"{d}_servo_link", "link", arc_bar(Ap, B, DRIVER_HALF_WIDTH_MM, 8.0), *drv))
+    out.append(pl.piece(f"{d}_coupler", f"{d}_driver_link", "link", arc_bar(A, Bp, COUPLER_HALF_WIDTH_MM, 5.0), *cpl))
     out.append(pl.piece(f"{d}_pip_hub", f"{d}_servo_link", "steel", circle(Ap, 2.6, 64), sgn * S, drv[0],
                         hub_of=f"{d}/pip"))
     out.append(pl.piece(f"{d}_pin_b", f"{d}_distal", "steel", circle(B, 1.6, 32), -sgn * side[1], drv[1]))
@@ -550,8 +552,7 @@ def thumb_and_palm_pieces(desc: Description, fingers: list[Extrusion]) -> list[E
     start = craa + (S + GAP_MM) * wraa
     s2 = np.array([(start - cm) @ um, (start - cm) @ vm])
     along = s2 / np.linalg.norm(s2)
-    across = np.array([-along[1], along[0]])
-    meta = circles_hull([((0.0, 0.0), 8.0), (s2 - along + across * 7.0, 1.0), (s2 - along - across * 7.0, 1.0)])
+    meta =circles_hull([((0.0, 0.0), 8.0), (s2 - along * 7.0, 7.0)])  # round at the MCP pin and at the RAA hub
     for s, tag in ((-1, "r"), (1, "l")):
         out.append(Extrusion(f"thumb_metacarpal_plate_{tag}", "thumb_metacarpal", "plate", meta, cm, um, vm, wm,
                              min(s * outer[0], s * outer[1]), max(s * outer[0], s * outer[1])))
@@ -567,9 +568,8 @@ def thumb_and_palm_pieces(desc: Description, fingers: list[Extrusion]) -> list[E
     ci = frame("thumb/ip")[0]
     ip2 = np.array([(ci - cm) @ um, (ci - cm) @ vm])
     along = ip2 / np.linalg.norm(ip2)
-    across = np.array([-along[1], along[0]])
     mid = along * (r_cap + 4.0)
-    prox = circles_hull([(ip2, 8.0), (mid + across * 7.0, 1.0), (mid - across * 7.0, 1.0)])
+    prox = circles_hull([(ip2, 8.0), (mid + along * 3.0, 7.0)])  # round at the IP pin and over the MCP servo
     for s, tag in ((-1, "r"), (1, "l")):
         out.append(Extrusion(f"thumb_proximal_plate_{tag}", "thumb_proximal", "plate", prox, cm, um, vm, wm,
                              min(s * side[0], s * side[1]), max(s * side[0], s * side[1])))
