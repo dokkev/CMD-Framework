@@ -222,3 +222,13 @@ under load (r2), how the 27 grid hands were sampled (r2), -41% vs -37% still rea
 dependent friction of the textured cover with R and U pressing 4x apart (r1), a repeated build in Stage 2 (r2),
 contact model (all). Overall unchanged since v12 (fifteen rounds).
 | v30 | 7eb982a+ | 6, 6, 6 | — | Fig. 4 task sequences rendered in Drake 3D (grasp pull-out, acquisition, 30° dial of experiment 26), protocol scope stated, non-holding hands scored, Stage 2 preload and tolerances; Presentation 2 -> 3 from all three; remaining: the rule is protocol-specific and the abstract/conclusion read as general (r1, r2), thick soft pads not modelled as thick (r1, r2; experiment 25 running), Delta_contact is a position not a Jacobian and c0 is free in Eq. (11) (r3), the fixed-axis bound assumes the axis keeps its depth (r3), "studied on its own" overstates R's 21/41% (r3), -37% vs -41% (r2), MA 0.41-0.58 (r1) |
+
+v27: 6, 6, 6, all Accept (manuscript e56892b; restructured Design/Experiment, rewritten introduction, Fig. 2
+with the CFL kinematics, no study or C/H labels). Identical sub-scores from all three: O3 Q3 C2 Si2 So3 P2 Co3,
+confidence 4. Presentation fell from 3 (v26) to 2 and Clarity is 2 for all. Common critiques: the reused-setpoint
+result reduces to preload (E ~ |N_H/N_O - 1|; Delta_contact includes the start offset); the prescription holds
+only under reused setpoints (touch favours the skeleton, force matching leaves 3-7%); designed samples of 14-16
+hands; simulation only; dense text, undefined labels (O, R, U, M, grid, r_{1,e}, r_{2,s}, mounting rule, goal),
+Figs. 2c and 4b-d hard to read; 2R-remote gets much of the room at 90-120 deg. r3: Corollary 1 vs the 0.59-0.80
+floor reads as a contradiction (the c0-free assumption change is not explained). r1: no convergence or seed
+variance for the GA/NSGA-II.
