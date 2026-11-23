@@ -18,6 +18,8 @@ from the closure of its links (feasible_space.md, F1), covers an area: shaded, t
 four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
 density. Only the design space is drawn, no particular design (Study 1's CFL poles all lie inside it; see
 report/study0/derivation.md 4.4). No text labels: the caption names them.
+Rollers: radii r1, r2 each in the study's 9.5-20 mm; equal (the study's RCJ) give the segment, unequal the light
+area around it (roller_pole).
 (c) Study 0's coverage law (Eq. 10) for a pole at constant depth z and faces at depth t (Corollary 3.1): coverage
 peaks at z = t. Bars: the depths each joint's pole reaches in (b). Replaces the paper's former Fig. 3.
 Drawn at print size (full text width, 7.16 in).
@@ -85,6 +87,16 @@ def pole_on_pad(view, q_deg: float) -> tuple[float, float]:
     mounting surface (negative: inside the pad, toward the contact face)."""
     pole, pad = finite_pole(view, q_deg), np.asarray(view.proximal_pad())
     return float(pole[0] - pad[:, 0].max()), float(pole[1] - pad[:, 1].max())
+
+
+def roller_pole(r1, r2, q: float):
+    """P(q) of two rollers of radii r1 (proximal, centred at the phalanx end) and r2 rolling without slip, as x + i z
+    (z dorsal). The distal roller's centre goes round the proximal roller by q r2 / (r1 + r2) while the distal
+    phalanx turns by q; with r1 = r2 = r this is Study 0's Eq. 14, r - i r tan(q/4)."""
+    r1, r2 = np.asarray(r1, float), np.asarray(r2, float)
+    c0 = r1 + r2
+    c = c0 * np.exp(-1j * q * r2 / (r1 + r2))
+    return (c - np.exp(-1j * q) * c0) / (1 - np.exp(-1j * q))
 
 
 def four_bar_poles(q: float, n: int = 200000, seed: int = 0) -> np.ndarray:
@@ -198,16 +210,23 @@ def main() -> int:
     pax = box(bx + 0.32, 0.3, 2.3, height - head - 0.36)
     from scipy.stats import gaussian_kde
     blue, yellow = ARCH[3][2], ARCH[2][2]
-    poles = four_bar_poles(np.radians(FLEXION))
+    qr = np.radians(FLEXION)
+    poles = four_bar_poles(qr)
     gx, gy = np.meshgrid(np.linspace(-26, 50, 320), np.linspace(-15, 23, 170))
     kde = gaussian_kde(poles.T, bw_method=0.25)
     dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
     level = np.sort(kde(poles.T))[int(0.05 * len(poles))]  # the region holding 95% of them
     pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
     pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
-    # equal rollers, the proximal one's centre at the phalanx end: P = r - i r tan(q/4), r in the study's 9.5-20 mm
-    r = np.array([9.5, 20.0])
-    pax.plot(r, -r * np.tan(np.radians(FLEXION) / 4), color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
+    # rollers, the proximal one's centre at the phalanx end, radii each in the study's 9.5-20 mm: unequal ones
+    # cover an area (the image of the radius square's boundary), equal ones the segment P = r - i r tan(q/4)
+    radii = np.linspace(9.5, 20.0, 60)
+    lo_r, hi_r = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
+    edge = np.concatenate([roller_pole(radii, lo_r, qr), roller_pole(hi_r, radii, qr),
+                           roller_pole(radii[::-1], hi_r, qr), roller_pole(lo_r, radii[::-1], qr)])
+    pax.fill(edge.real, edge.imag, color=yellow, alpha=0.35, lw=0.8, ec=yellow, zorder=2)
+    seg = roller_pole(radii, radii, qr)
+    pax.plot(seg.real, seg.imag, color=yellow, lw=2.4, solid_capstyle="butt", zorder=3)
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
@@ -246,7 +265,9 @@ def main() -> int:
     # the depths each joint's pole reaches at 120 deg, as drawn in (b): the four-bars' 95% region's extent
     inside = dens >= level
     deepest, highest = -gy[inside].min(), -gy[inside].max()
-    reach = [(blue, (highest, deepest)), (yellow, tuple(np.array([9.5, 20.0]) * np.tan(qreq / 4)))]
+    rr = np.meshgrid(radii, radii)
+    roller_depth = -roller_pole(rr[0], rr[1], qreq).imag
+    reach = [(blue, (highest, deepest)), (yellow, (roller_depth.min(), roller_depth.max()))]
     for k, (colour, (z0, z1)) in enumerate(reach):
         y = lo + 0.018 + 0.022 * k
         cax.plot([max(z0, zz[0]), min(z1, zz[-1])], [y, y], color=colour, lw=2.6, solid_capstyle="butt", zorder=3)
