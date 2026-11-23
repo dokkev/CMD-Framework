@@ -232,3 +232,4 @@ hands; simulation only; dense text, undefined labels (O, R, U, M, grid, r_{1,e},
 Figs. 2c and 4b-d hard to read; 2R-remote gets much of the room at 90-120 deg. r3: Corollary 1 vs the 0.59-0.80
 floor reads as a contradiction (the c0-free assumption change is not explained). r1: no convergence or seed
 variance for the GA/NSGA-II.
+| v31 | e56892b | 6, 6, 6 | — | experiment 25 (pads as soft as thick) and the 30° dial in; protocol scope in the conclusion, bound's depth condition, -37/-41 split; Presentation 3, 2, 3; remaining: Delta_contact is a position (offset/preload predictors not in Table I; r2, r3), protocol-specific rule (r1, r2), lead over Delta_skel not significant at 14-16 hands (all), "studied independently" and "only a joint whose pole moves" imprecise (r3), CFL/RCJ ideal undefined after the cut (r3), R's number missing from the reversal (r3), noise floor not stated (r2) |
