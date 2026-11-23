@@ -10,8 +10,9 @@ finger (design/output/linkage/config/paper_single_objective/portfolio_001, balan
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there.
 (e) Where each joint's finite pole sits at q_req = 120 deg, relative to the proximal pad: along the finger from
-its joint-side end, and above its mounting surface. A pin or roller centre must stay above the mount. Dots: the
-feasible CFL designs of output/linkage/config/samples/seeds.csv under the prototype config; markers: each
+its joint-side end, and above its mounting surface. A pin or roller centre must stay above the mount. Shaded: the region
+holding 90% of the feasible CFL designs of output/linkage/config/samples/seeds.csv (prototype config; Gaussian
+kernel density), together with the CFL redesigns on Study 2's fronts at 120 deg, each set weighted equally; markers: each
 architecture's Study 1 designs for 3-9 mm pads (the CFL's descend into the pad as the pads thicken).
 Drawn at print size (full text width, 7.16 in).
 """
@@ -54,6 +55,7 @@ ARCH = [("2r_dd", "2R-DD", "#1baf7a", "servo at the joint", False),
 
 
 SAMPLES = DESIGN / "output" / "linkage" / "config" / "samples" / "seeds.csv"
+FRONTS = DESIGN / "output" / "study" / "study2_redesign_2026-11-21" / "fronts.csv"
 
 
 def finite_pole(view, q_deg: float) -> np.ndarray:
@@ -137,7 +139,32 @@ def main() -> int:
         except Exception:  # noqa: BLE001 -- a sample that does not reach the flexion is skipped
             continue
     cloud = np.array(cloud)
-    pax.scatter(cloud[:, 0], cloud[:, 1], s=1.2, color="#2a78d6", alpha=0.25, lw=0, zorder=2)
+    # and the CFL redesigns of Study 2 for 5-9 mm pads at 120 deg (their poles sit inside the pad)
+    s1 = one_finger.study1_designs("cfl", config["architectures"]["cfl"], FLEXION, config)
+    fronts = []
+    for r in csv.DictReader(open(FRONTS)):
+        if r["architecture"] != "cfl" or float(r["required_flexion_deg"]) != FLEXION:
+            continue
+        ref = s1[float(r["to_mm"])]
+        try:
+            fronts.append(pole_on_pad(view_of(ref.mechanism, ref.config, [float(v) for v in r["x"].split(";")]),
+                                      FLEXION))
+        except Exception:  # noqa: BLE001
+            continue
+    fronts = np.array(fronts)
+    allp = np.vstack([cloud, fronts])
+    weights = np.r_[np.full(len(cloud), 0.5 / len(cloud)), np.full(len(fronts), 0.5 / len(fronts))]
+    # the CFL's reachable poles as a region: the density level holding 90% of the (equally weighted) designs
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(allp.T, bw_method=0.3, weights=weights)
+    gx, gy = np.meshgrid(np.linspace(-14, 26, 240), np.linspace(-THICKNESS - 1.5, 14, 120))
+    dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
+    dv = kde(allp.T)
+    order = np.argsort(dv)
+    level = dv[order][np.searchsorted(np.cumsum(weights[order]), 0.10)]
+    pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=["#2a78d6"], alpha=0.22, zorder=2)
+    pax.contour(gx, gy, dens, levels=[level], colors=["#2a78d6"], linewidths=0.7, zorder=2.1)
+    pax.text(-12.5, 11.0, "CFL designs", color="#2a78d6", fontsize=6.3, ha="left", va="center")
     for key, title, colour, _, ours in ARCH:
         pts = []
         for h, ref in one_finger.study1_designs(key, config["architectures"][key], FLEXION, config).items():
