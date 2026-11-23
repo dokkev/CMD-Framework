@@ -1,23 +1,25 @@
-"""Fig. 2 of the RSS 2027 extended abstract: the four PIP joints compared, and how far each one's pole sits from
-the contact face (PNG only).
+"""Fig. 2 of the RSS 2027 extended abstract: the four PIP joints, where each can put its pole, and where the pole
+should be (PNG only).
 
     conda run -n cmd python paper/figures/fig_mechanisms.py [dest_dir]
 
-(a-d) Sketches at 120 deg of flexion, one scale, in the style of Study 1's design figures
+(a) Sketches in a 2x2 grid at 120 deg of flexion, one scale, in the style of Study 1's design figures
 (design/scripts/study/study1_thickness_coverage/figure_designs.py), with pivots dotted and no palm hatching.
 2R-DD, 2R-remote, RCJ: each one's Study 1 design for q_req = 120 deg and 7 mm pads. CFL: the CoDe prototype's
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
-there. (c, d) also trace the distal phalanx's instantaneous centre relative to the proximal one over 0-120 deg
+there. RCJ and CFL also trace the distal phalanx's instantaneous centre relative to the proximal one over 0-120 deg
 (purple; star: at 120 deg): the contact point rolling on the proximal roller, and the crossing of the four-bar's links.
-(e) The finite poles P(120 deg) each joint type can reach over the study's design space, in the proximal
+(b) The finite poles P(120 deg) each joint type can reach over the study's design space, in the proximal
 phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run): a pin is the phalanx
 end (a point); equal rollers, the proximal one centred at the phalanx end, put P = r - i r tan(q/4) (Study 0,
 Eq. 14) on one segment for the study's r of 9.5-20 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b
 from the closure of its links (feasible_space.md, F1), covers an area: shaded, the region holding 95% of the crossed
 four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
-density. Dots: the CFL's Study 1 designs for 3-9 mm pads, all inside it; lines: how each one's P(q) moves for q
-from 0 to 120 deg, and the same for Study 1's RCJ (r = 9.5 mm, straight down). No text labels: the caption names them.
+density. Only the design space is drawn, no particular design (Study 1's CFL poles all lie inside it; see
+report/study0/derivation.md 4.4). No text labels: the caption names them.
+(c) Study 0's coverage law (Eq. 10) for a pole at constant depth z and faces at depth t (Corollary 3.1): coverage
+peaks at z = t. Bars: the depths each joint's pole reaches in (b). Replaces the paper's former Fig. 3.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -161,15 +163,21 @@ def main() -> int:
         view.draw(probe, FLEXION, hit=set(), style="sketch")
     box = probe.dataLim
     plt.close(probe_fig)
-    xlim, ylim = (box.x0 - 1.5, box.x1 + 1.5), (box.y0 - 1.5, box.y1 + 1.5)
-    panel_w = 1.26  # in, per sketch; a plot panel follows
-    panel_h = panel_w * (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
-    title_h, foot_h = 0.2, 0.0
-    height = title_h + panel_h + foot_h
+    xlim, ylim = (box.x0 - 3.0, box.x1 + 3.0), (box.y0 - 2.0, box.y1 + 2.0)
+    # (a) the four sketches in a 2x2 grid; (b) the poles; (c) a third panel. Positions in inches.
+    sw = 0.9  # in, per sketch
+    sh = sw * (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
+    head, cap = 0.17, 0.13  # panel-label row; a sketch's title row
+    height = head + 2 * (cap + sh)
     fig = plt.figure(figsize=(WIDTH, height))
+
+    def box(x, y, w, h):
+        return fig.add_axes((x / WIDTH, y / height, w / WIDTH, h / height))
+
     for i, (key, title, colour, desc, ours) in enumerate(ARCH):
-        x0 = 0.005 + i * panel_w / WIDTH
-        ax = fig.add_axes((x0, foot_h / height, panel_w / WIDTH, panel_h / height))
+        col, row = i % 2, i // 2
+        x0, y0 = 0.02 + col * (sw + 0.04), (1 - row) * (cap + sh)
+        ax = box(x0, y0, sw, sh)
         sketch.frame(ax, xlim, ylim)
         view = views[key]
         view.draw(ax, FLEXION, hit=set(), style="sketch")
@@ -177,17 +185,17 @@ def main() -> int:
             path = icr_path(view, FLEXION)
             ax.plot(*path.T, color=ICR, lw=1.1, zorder=20, solid_capstyle="round")
             ax.plot(*path[-1], marker="*", ms=5.5, color=ICR, mec="white", mew=0.3, zorder=21)
-        fig.text(x0 + panel_w / WIDTH / 2, 1 - 0.02 / height, title, ha="center", va="top", fontsize=8.5,
+        fig.text((x0 + sw / 2) / WIDTH, (y0 + sh + cap - 0.01) / height, title, ha="center", va="top", fontsize=7.5,
                  color=colour, fontweight="bold" if ours else "normal")
-    for i, lab in enumerate("abcd"):
-        fig.text(0.005 + i * panel_w / WIDTH + 0.004, 1 - 0.02 / height, f"({lab})", ha="left", va="top", fontsize=7.5,
-                 fontweight="bold")
-    # (e) the finite pole P(q_req) in the complex plane (Lemma 1, P = b / (1 - e^{iq})), by joint type, from
+    label = dict(ha="left", va="top", fontsize=7.5, fontweight="bold")
+    fig.text(0.02 / WIDTH, 1 - 0.02 / height, "(a) the four PIP joints at $120^\\circ$", **label)
+    # (b) the finite pole P(q_req) in the complex plane (Lemma 1, P = b / (1 - e^{iq})), by joint type, from
     # Study 0's analysis rather than any optimization run: a fixed axis's P is the pin (a point); equal rollers'
-    # P = (a + r) - i r tan(q/4) lies on one vertical segment (Study 0, Eq. 14); a four-bar's P follows from the
-    # closure of its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
-    left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.075
-    pax = fig.add_axes((left, 0.25, 0.995 - left - 0.005, 0.6))
+    # P = (a + r) - i r tan(q/4) lies on one segment (Study 0, Eq. 14); a four-bar's P follows from the closure of
+    # its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
+    bx = 2.0
+    fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ at $120^\\circ$", **label)
+    pax = box(bx + 0.32, 0.3, 2.3, height - head - 0.36)
     from scipy.stats import gaussian_kde
     blue, yellow = ARCH[3][2], ARCH[2][2]
     poles = four_bar_poles(np.radians(FLEXION))
@@ -197,18 +205,6 @@ def main() -> int:
     level = np.sort(kde(poles.T))[int(0.05 * len(poles))]  # the region holding 95% of them
     pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
     pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
-    # the CFL's Study 1 designs (3-9 mm), in the same frame
-    s1 = one_finger.study1_designs("cfl", config["architectures"]["cfl"], FLEXION, config)
-    # and how each one's P moves as the joint flexes to 120 deg (Lemma 1 from extension to q)
-    for ref in s1.values():
-        v = view_of(ref.mechanism, ref.config, ref.x)
-        a0 = v.joint.finger.joint.a.array
-        track = np.array([finite_pole(v, t) - a0 for t in np.linspace(2.0, FLEXION, 60)])
-        pax.plot(*track.T, color=blue, lw=0.7, zorder=3.5)
-        pax.plot(*track[-1], marker="o", ms=2.8, color=blue, mec="white", mew=0.4, zorder=4)
-    # Study 1's RCJ (r = 9.5 mm): P = r - i r tan(q/4) moves straight down as the joint flexes
-    t = np.radians(np.linspace(0.0, FLEXION, 30))
-    pax.plot(np.full_like(t, 9.5), -9.5 * np.tan(t / 4), color="#a87000", lw=0.7, zorder=3.5)
     # equal rollers, the proximal one's centre at the phalanx end: P = r - i r tan(q/4), r in the study's 9.5-20 mm
     r = np.array([9.5, 20.0])
     pax.plot(r, -r * np.tan(np.radians(FLEXION) / 4), color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
@@ -222,8 +218,46 @@ def main() -> int:
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    fig.text(left - 0.045, 1 - 0.02 / height, "(e) pole $P$ at $120^\\circ$", ha="left", va="top", fontsize=7.5,
-             fontweight="bold")
+    # (c) where the pole should be: Study 0's coverage law (Eq. 10) with a pole at constant depth z below the link
+    # line, pads at depth t (mount depth 0), G = 2 [t - z]_+ tan(q_req / 2), the finger of Fig. 3's old panels
+    # (L_f = 90 mm, pads of 40.7 mm each at G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, 105, 120} deg.
+    # Coverage peaks where the pole reaches the face (z = t, Corollary 3.1). Bars below: the depths each joint's
+    # pole reaches at 120 deg, as in (b) (pin: 0; rollers: r tan 30 deg for r in 9.5-20 mm; four-bars: their 95%).
+    cx = 4.75
+    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage vs pole depth", **label)
+    cax = box(cx + 0.36, 0.3, WIDTH - cx - 0.42, height - head - 0.36)
+    Lf, x0, qreq = 90.0, 90.0 - 2 * 40.7, np.radians(FLEXION)
+    qs = np.radians([90.0, 105.0, 120.0])
+    zz = np.linspace(-4, 14, 400)
+
+    def coverage(t, z):
+        g = 2 * np.maximum(t - z, 0.0) * np.tan(qreq / 2)
+        return np.mean([(Lf - x0 - g) / (Lf - g * (1 - np.cos(q / 2)) + 2 * z * np.sin(q / 2)) for q in qs], axis=0)
+
+    greys = {3: "#bdbcb8", 5: "#8f8e8a", 7: "#5f5e5a", 9: "#2b2a27"}
+    curves = {t: coverage(t, zz) for t in greys}
+    for t, colour in greys.items():
+        cax.plot(zz, curves[t], color=colour, lw=1.1, zorder=3)
+        peak = coverage(t, t)
+        cax.plot(t, peak, marker="o", ms=3.2, mfc="white", mec=colour, mew=0.9, zorder=4)
+        cax.text(t, peak + 0.006, f"$t={t}$", fontsize=6.3, color=INK2, ha="center", va="bottom")
+    lo = min(c.min() for c in curves.values()) - 0.075
+    hi = max(c.max() for c in curves.values()) + 0.03
+    # the depths each joint's pole reaches at 120 deg, as drawn in (b): the four-bars' 95% region's extent
+    inside = dens >= level
+    deepest, highest = -gy[inside].min(), -gy[inside].max()
+    reach = [(blue, (highest, deepest)), (yellow, tuple(np.array([9.5, 20.0]) * np.tan(qreq / 4)))]
+    for k, (colour, (z0, z1)) in enumerate(reach):
+        y = lo + 0.018 + 0.022 * k
+        cax.plot([max(z0, zz[0]), min(z1, zz[-1])], [y, y], color=colour, lw=2.6, solid_capstyle="butt", zorder=3)
+    cax.plot(0, lo + 0.062, marker="o", ms=4.0, color=INK, zorder=4)  # the pin: depth 0
+    cax.set_xlim(zz[0], zz[-1]); cax.set_ylim(lo, hi)
+    cax.set_xlabel("pole depth $z$ below the link line (mm)", fontsize=7, labelpad=1)
+    cax.set_ylabel(r"$\bar C_{\mathrm{pad}}$", fontsize=7, labelpad=1)
+    cax.tick_params(labelsize=6.5, length=2)
+    for side in ("top", "right"):
+        cax.spines[side].set_visible(False)
+    cax.grid(False)
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
     fig.savefig(path, dpi=400)

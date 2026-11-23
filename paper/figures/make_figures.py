@@ -391,7 +391,7 @@ def fig_study3():
     plt.close(fig)
 
 if __name__ == "__main__":
-    fig_concept()
+    # fig_concept()  # folded into Fig. 2 (c)
     fig_study1()
     fig_study2()
     # fig_overview() dropped from the manuscript (2026-11-22)
