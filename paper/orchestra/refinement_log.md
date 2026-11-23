@@ -23,6 +23,7 @@
 | v18 | 6a80bac | 6, 6, 6 | — | independence framing; Study 3 trimmed to one table by protocol (18th: ideal torque, partial 0.79); Study 4 folded in (19th: error rho 0.94, reversal fails, direction = signed face offset); H2 failure condition dropped; MA cost stated; details to captions; r1 Opus, r2/r3 Fable 5.2 after two Opus safeguard errors each |
 | v19 | d7ce877 | 6, 6, 6 | — | C2 scoped to servo setpoints in intro and conclusion; H3 scope; placements, R/U/M defined; signed face offset tested (Delta_contact keeps 0.69 given it); dropped hands scored; Holm; 9 mm limit; S1/S2 named; r1 Opus, r2 Opus on retry, r3 Fable 5.2 after two Opus safeguard errors |
 | v20 | 3f61a74 | 6, 6, 6 | — | setpoint force and face offset held fixed (0.64, 0.69), CFL pole depth, r_C defined, partial row in Table I, sensitivity under Fig. 5, MA as a stated trade-off (no floor); r1 and r2 Opus (r1 on retry), r3 Fable 5.2 after two Opus safeguard errors |
+| v21 | 65bf2eb | 6, 6, 6 | — | force matching vs recomputation separated, contact model named, pre-registration record stated, Fig. 1 one placement vs medians, c(q) keeps the column; all three Opus on the first try with the ASSESSMENT NOTES prompt |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -178,3 +179,12 @@ Reviewer prompt change (from v21, 2026-11-22): the THOUGHT section of prompt_rev
 and reasoning... the note-taking phase") is renamed ASSESSMENT NOTES and asks for a concise assessment of the claims
 and evidence. Every Opus safeguard failure since v14 was tagged [reasoning_extraction]; the review content and the
 JSON are unchanged, so scores stay comparable.
+
+v21: 6, 6, 6, all Accept, all three on Opus at the first try: the ASSESSMENT NOTES prompt removed the safeguard
+failures. The misreadings of v20 are gone. Remaining: point contact with a normal stiffness makes part of the
+Delta_contact-error relation expected by construction, and the soft-pad reversal is a property of that model (r2);
+Stage 2's ground truth for the interface effect is not stated (r2; it is the friction change measured on O itself);
+current-limited position control, as on LEAP, between setpoint and torque (r1); a Delta_contact = 0 control (spacers)
+in Study 3 (r3); a c0-free metric (r3); which constraint keeps the CFL pole about 4 mm above the face (r3); the q-space
+stiffness on hardware (r3); cluster bootstrap by thickness (r2); MA floor, coverage-to-grasp link, density (all).
+Plateau: 6, 6, 6 since v12 (ten rounds); the remaining critiques are mostly simulation scope and density.
