@@ -40,8 +40,9 @@ sys.path.insert(0, str(ROOT / "sim" / "drake"))
 from analyze import spearman_perm  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
-STRIP_IN = 0.74  # (a), the task frames
-WIDTH, HEIGHT = 7.16, 1.22 + STRIP_IN
+STRIP_IN = 0.63  # (a), the task frames
+PLOT_IN, LEGEND_IN, BOTTOM_IN = 0.86, 0.53, 0.28  # each plot, its title and legend above it, the x label
+WIDTH, HEIGHT = 7.16, STRIP_IN + LEGEND_IN + PLOT_IN + BOTTOM_IN
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
 GREY, INK2 = "#9a9a9a", "#555555"
 YLIM = (2, 600)
@@ -71,9 +72,11 @@ def style(ax, title):
     ax.minorticks_off()
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
-    ax.text(0.03, 0.97, title, transform=ax.transAxes, fontsize=7, fontweight="bold", va="top", ha="left")
-    ax.legend(fontsize=5.6, frameon=False, loc="lower left", bbox_to_anchor=(-0.04, 1.0), handletextpad=0.2,
-              borderaxespad=0.0, labelspacing=0.15, handlelength=1.0)
+    # the panel title heads the legend above the axes, so neither covers data
+    leg = ax.legend(title=title, fontsize=5.8, frameon=False, loc="lower left", bbox_to_anchor=(-0.02, 1.01),
+                    handletextpad=0.2, borderaxespad=0.0, labelspacing=0.15, handlelength=1.0, alignment="left")
+    leg.get_title().set_fontsize(7)
+    leg.get_title().set_fontweight("bold")
 
 
 TASK = {"hold": ("grasp pull-out", "#2a78d6"), "acquire": ("grasp acquisition", "#9b5de5"), "dial": ("dial turning", "#eda100")}
@@ -120,7 +123,8 @@ def main() -> int:
                          "mathtext.fontset": "stix", "font.size": 7})
     fig = plt.figure(figsize=(WIDTH, HEIGHT))
     top = STRIP_IN / HEIGHT  # the strip's share of the height
-    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=0.28 / HEIGHT, top=0.74 / HEIGHT)
+    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=BOTTOM_IN / HEIGHT,
+                          top=(BOTTOM_IN + PLOT_IN) / HEIGHT)
     axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 2])]
     strip(fig, 1.0 - top, 1.0)
     fig.text(0.002, 1.0 - 0.004, "(a)", fontsize=7, fontweight="bold", ha="left", va="top")
@@ -152,7 +156,7 @@ def main() -> int:
     ax.text(5.55, 21, "20%", fontsize=5.6, ha="right", va="bottom", color=INK2)
     for x, t in ((0.35, 5), (0.86, 7), (2.32, 9)):  # the CFL redesigns of Study 2 (q_req 120 deg)
         ax.axvline(x, color=THICK[t], lw=0.7, ls=":", zorder=1)
-        ax.text(x + 0.06, 2.3, f"{t} mm", fontsize=5.4, color=THICK[t], va="bottom", rotation=90)
+        ax.text(x + 0.05, {5: 130, 7: 420, 9: 420}[t], f"{t} mm", fontsize=5.6, color=THICK[t], va="top", ha="left")
     style(ax, "(b) reused setpoint")
     ax.set_ylabel("error $E$ (%)", fontsize=7, labelpad=1)
 
