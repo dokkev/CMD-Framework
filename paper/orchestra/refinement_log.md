@@ -20,6 +20,7 @@
 | v15 | f7b5853 | 6, 6, 6 | — | gap-law explanation fixed, CFL floor, direct comparisons (7 of 12), gap law max error; r1 re-run on Opus |
 | v16 | 16c483e | 6, 6, 6 | — | soft-pad counterfactual (17th), grid key fix (rho 0.86), Holm 25; r1/r3 Opus (r1 after a safeguard retry), r2 Fable 5.2 after two safeguard errors |
 | v17 | d722efa | 6, 6, 6 | — | Study 4 (reversed conclusion, post hoc), Fig. 1(d), ideal torque wording, Stage 2 trend test; all three reviews on Fable 5.2 after Opus safeguard errors on every first try and retry |
+| v18 | 6a80bac | 6, 6, 6 | — | independence framing; Study 3 trimmed to one table by protocol (18th: ideal torque, partial 0.79); Study 4 folded in (19th: error rho 0.94, reversal fails, direction = signed face offset); H2 failure condition dropped; MA cost stated; details to captions; r1 Opus, r2/r3 Fable 5.2 after two Opus safeguard errors each |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -143,3 +144,13 @@ conclusion was read as the headline but flagged as post hoc with a counterfactua
 (-15% against -51%) was missing. Repeated: the reused-command result is a preload effect (force matching leaves
 3-7%); transmission idealised; MA and backlash; design space unspecified; H2 nearly unfalsifiable. Pending answers:
 the eighteenth (equal torque, 27 new hands) and nineteenth (Study 4 confirmation) experiments.
+
+v18: 6, 6, 6 (r1 Opus; r2 and r3 on Fable 5.2 after two Opus safeguard errors each). All three Accept, Clarity 2,
+Presentation 2. Read as strengths: the pole analysis (r3 re-derived every equation), the skeleton-kept negative
+result, a failed prediction reported openly, the tolerance as a design rule, the protocol columns. Common critiques:
+scope C2 to reused impedance setpoints in the C2 bullet and conclusion, not only in Study 3 (all three); mechanical
+advantage unconstrained in Study 1 (all three); the signed normal offset of the distal face may be the simpler
+governing variable and is not a candidate in Table I (r2, r3); CFL at 9 mm (Delta_contact 2.3 mm) is beyond the 1 mm
+tolerance (r2); undefined terms (placements, grid, reversed share, M) and -37% vs -41% (r2, r3); hands dropped for
+not holding, clustering, multiplicity (r2); S1/S2 stated only in a caption, pole path of the CoDe linkage never
+plotted (r3); H2 still a weak test (r3); simulation and linear pad model (all).
