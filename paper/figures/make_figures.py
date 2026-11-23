@@ -166,7 +166,7 @@ def fig_study12():
     summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
     prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
     k = 0.75
-    fig = plt.figure(figsize=(W, 1.52))
+    fig = plt.figure(figsize=(W, 1.46))
     gs = fig.add_gridspec(1, 9, width_ratios=[1, 1, 1, 0.42, 1, 1, 1, 0.42, 1.15], wspace=0.16,
                           left=0.05, right=0.995, bottom=0.22, top=0.74)
     cov = [fig.add_subplot(gs[0, i]) for i in range(3)]

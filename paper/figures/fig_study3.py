@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT / "sim" / "drake"))
 from analyze import spearman_perm  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
-WIDTH, HEIGHT = 7.16, 1.6
+WIDTH, HEIGHT = 7.16, 1.52
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
 GREY, INK2 = "#9a9a9a", "#555555"
 YLIM = (2, 600)

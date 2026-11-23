@@ -228,8 +228,8 @@ def main() -> int:
     # (a) the CFL enlarged with its pivots and frame labelled, the other three small and stacked beside it (one scale
     # among the three); (b) the poles; (c) a third panel. Positions in inches.
     aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
-    head, cap = 0.17, 0.13  # panel-label row; a sketch's title row
-    sw_small = 0.74  # in, per small sketch
+    head, cap = 0.17, 0.115  # panel-label row; a sketch's title row
+    sw_small = 0.68  # in, per small sketch
     sh_small = sw_small * aspect
     height = head + 3 * (cap + sh_small)
     sw_big = 1.55
