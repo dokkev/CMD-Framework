@@ -312,7 +312,7 @@ def roll(s: "Stage", m0: dict, q_cmd: float, qs, th, opts: dict) -> dict:
     c0 = m0["c"].copy()
     n_sweep, n_hold = int(round(opts["sweep_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
     lost_at = None
-    q1 = q_cmd + math.radians(opts["sweep_deg"])
+    q1 = min(q_cmd + math.radians(opts["sweep_deg"]), math.radians(120.0))  # never past the required flexion
     for i in range(n_sweep + n_hold):
         q = q_cmd + (q1 - q_cmd) * min(1.0, (i + 1) / n_sweep)
         s.ctrl.theta_cmd = float(np.interp(q, qs, th))
