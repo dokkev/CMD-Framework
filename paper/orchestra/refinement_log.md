@@ -173,3 +173,8 @@ implementation (r2); "pre-registered" needs a verifiable record (r2); Delta_cont
 the Jacobian column (r3); Study 3 only at 120 deg (r3); the CFL's parametrisation absent (r3); Eq. (7) assumes equal
 face deepening (r3); captions carry too much (r2, r3). Safeguard errors: every failure is tagged
 [reasoning_extraction]; likely the THOUGHT section of prompt_reviewer.txt.
+
+Reviewer prompt change (from v21, 2026-11-22): the THOUGHT section of prompt_reviewer.txt ("discuss your intuitions
+and reasoning... the note-taking phase") is renamed ASSESSMENT NOTES and asks for a concise assessment of the claims
+and evidence. Every Opus safeguard failure since v14 was tagged [reasoning_extraction]; the review content and the
+JSON are unchanged, so scores stay comparable.

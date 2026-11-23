@@ -19,18 +19,16 @@ INSTRUCTIONS:
 
 Respond in the following format:
 
-THOUGHT:
-<THOUGHT>
+ASSESSMENT NOTES:
+<NOTES>
 
 REVIEW JSON:
 ```json
 <JSON>
 ```
 
-In <THOUGHT>, first briefly discuss your intuitions and reasoning for the evaluation.
-Detail your high-level arguments, necessary choices and desired outcomes of the review.
-Do not make generic comments here, but be specific to your current paper.
-Treat this as the note-taking phase of your review.
+In <NOTES>, write a concise assessment of the paper: its central claims, how strong the evidence for each is,
+and the main points your scores rest on. Be specific to this paper, not generic.
 
 In <JSON>, provide the review in JSON format with the following fields in the order:
 - "Summary": A summary of the paper content and its contributions.
