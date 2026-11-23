@@ -46,6 +46,8 @@ S2 = math.sqrt(0.5)
 DIRECTIONS = {"+x": (1.0, 0.0), "+x-z": (S2, -S2), "-z": (0.0, -1.0), "-x": (-1.0, 0.0)}  # x along, z dorsal
 POINT_STIFFNESS = 2.5e3  # N/m, Isaac Lab's shape ke
 PAD_REFERENCE_M = 0.003  # every hand's pads get O's foundation stiffness: modulus / 3 mm (sixteenth experiment)
+DIAL_BRAKE_NM = 0.0  # the dial's Coulomb-like brake torque (task 1)
+DIAL_Z_STIFFNESS = 0.0  # N/m: the dial's axis on a soft spring off the proximal face (0: held stiffly)
 SPIN_DAMPING = 0.0  # N m s/rad on the cylinder's spin (the rolling task's bearing); 0 for the limit measurement
 MODULUS_PA = 1.0e5  # soft silicone; chosen on O alone so its settled pad force sits near the point model's
 
@@ -152,8 +154,13 @@ def _build(hand: str, mu: float, rho_mm: float, contact: str, time_step: float, 
               plant.AddJoint(PrismaticJoint("slide_z", cx.body_frame(), cz.body_frame(), [0.0, 0.0, 1.0])),
               plant.AddJoint(RevoluteJoint("spin", cz.body_frame(), roller.body_frame(), y, damping=SPIN_DAMPING))]
     if hold:  # the drives that hold the cylinder while the finger closes (implicit PD; a second plant releases it)
-        for j, (kp, kd) in zip(joints, ((1.0e5, 1.0e3), (1.0e5, 1.0e3), (10.0, 0.1))):
+        held = joints if hold is True else joints[:2]  # hold == "xz": a dial, free to turn only
+        z_gains = (DIAL_Z_STIFFNESS, 5.0) if hold == "xz" and DIAL_Z_STIFFNESS > 0 else (1.0e5, 1.0e3)
+        for j, (kp, kd) in zip(held, ((1.0e5, 1.0e3), z_gains, (10.0, 0.1))):
             plant.AddJointActuator(j.name(), j).set_controller_gains(PdControllerGains(p=kp, d=kd))
+        if hold == "xz" and DIAL_BRAKE_NM > 0.0:  # the dial's brake: a damper that saturates at DIAL_BRAKE_NM
+            plant.AddJointActuator("brake", joints[2], effort_limit=DIAL_BRAKE_NM).set_controller_gains(
+                PdControllerGains(p=0.0, d=100.0))
 
     def props(kind: str, thickness: float = 0.0) -> ProximityProperties:
         pr = ProximityProperties()
@@ -213,7 +220,7 @@ def make_system(hand, mu, rho_mm, contact, time_step, hold, k_theta, d_theta):
             self.DeclareVectorOutputPort("load", nv, self.calc_load)
 
         def calc_desired(self, context, out):  # actuators in order: servo, then (if held) slide_x, slide_z, spin
-            qd = [ctrl.theta_cmd] + (list(ctrl.hold_at) if hold else [])
+            qd = [ctrl.theta_cmd] + (list(ctrl.hold_at)[: n_act - 1] if hold else [])
             out.SetFromVector(np.array(qd + [0.0] * n_act))
 
         def calc_load(self, context, out):
@@ -327,6 +334,32 @@ def roll(s: "Stage", m0: dict, q_cmd: float, qs, th, opts: dict) -> dict:
             "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"])}
 
 
+def dial(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, q_cmd, qs, th, opts) -> dict:
+    """Dial turning (task 1): the cylinder on a fixed axis (x, z held, free to turn against the bearing damping),
+    gap_mm off the proximal face so that only the distal pad meets it; the same open-loop closing on every hand, from
+    0 to min(O's command + sweep, 120 deg) over sweep_s, then held for hold_s. Returns the dial's rotation (deg, + as
+    the flexion drives it) and the distal pad's final normal force."""
+    s = Stage(hand, mu, rho_mm, contact, time_step, "xz", k_theta, d_theta)
+    centre = np.array([x0[0], x0[1] - opts["gap_mm"] * 1e-3])
+    s.plant.GetJointByName("slide_x").set_translation(s.pctx, centre[0])
+    s.plant.GetJointByName("slide_z").set_translation(s.pctx, centre[1])
+    s.ctrl.hold_at = np.array([centre[0], centre[1], 0.0])
+    s.sim.Initialize()
+    spin = s.plant.GetJointByName("spin")
+    q1 = min(q_cmd + math.radians(opts["sweep_deg"]), math.radians(120.0))
+    n_sweep, n_hold = int(round(opts["sweep_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
+    touched = False
+    for i in range(n_sweep + n_hold):
+        q = q1 * min(1.0, (i + 1) / n_sweep)
+        s.ctrl.theta_cmd = float(np.interp(q, qs, th))
+        s.step()
+        touched = touched or s.measure()["normal"][1] > GATE_N
+    m_ = s.measure()
+    return {"rotation_deg": -math.degrees(spin.get_angle(s.pctx)), "touched": bool(touched),
+            "held": bool(touched), "distal_normal_end_n": float(m_["normal"][1]),
+            "proximal_normal_end_n": float(m_["normal"][0]), "q_end_deg": math.degrees(m_["q"])}
+
+
 def pullin(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, theta_cmd, opts) -> dict:
     """Grasp acquisition (task 3): the finger starts open (q = 0) with the cylinder on the proximal face, offset mm
     toward the tip of where O's distal pad meets it, under a constant load (toward the face, and toward the tip); the
@@ -369,9 +402,12 @@ def run_env(task):
 
 def _run_env(task):
     hand, mu, rho_mm, contact, time_step, g, direction, delta, modulus, opts = task
-    global MODULUS_PA, SPIN_DAMPING
+    global MODULUS_PA, SPIN_DAMPING, DIAL_BRAKE_NM
     MODULUS_PA = modulus
     SPIN_DAMPING = opts.get("spin_damping", 0.0)
+    DIAL_BRAKE_NM = opts.get("brake_nm", 0.0)
+    global DIAL_Z_STIFFNESS
+    DIAL_Z_STIFFNESS = opts.get("dial_k", 0.0)
     geom = finger_geometry(hand)
     qs, th = servo_table(geom)
     q_cmd = math.radians(g["q0_deg"] + delta)
@@ -382,6 +418,10 @@ def _run_env(task):
     face = (geom["pads"]["mount_offset_mm"] + geom["pads"]["thickness_mm"]) * mm
     x0 = np.array([g["x_c_mm"] * mm, -(face + rho_mm * mm)])
 
+    if opts.get("task") == "dial":
+        return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction,
+                "dial": dial(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, q_cmd, qs, th, opts),
+                "gate0": {"pass": True}, "limit": {}}
     if opts.get("task") == "pullin":
         return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction,
                 "pullin": pullin(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, theta_cmd, opts),
@@ -466,7 +506,7 @@ def main() -> int:
     p.add_argument("--only", type=int, default=None, help="first N placements")
     p.add_argument("--directions", nargs="+", default=list(DIRECTIONS))
     p.add_argument("--workers", type=int, default=8)
-    p.add_argument("--task", choices=("limit", "roll", "pullin"), default="limit",
+    p.add_argument("--task", choices=("limit", "roll", "pullin", "dial"), default="limit",
                    help="limit: the load ramp (Study 3); roll: in-hand rolling by an open-loop flexion sweep")
     p.add_argument("--sweep_deg", type=float, default=15.0)
     p.add_argument("--sweep_s", type=float, default=3.0)
@@ -476,14 +516,18 @@ def main() -> int:
     p.add_argument("--tip_load_n", type=float, default=0.5, help="pullin: load toward the tip (three fingers)")
     p.add_argument("--face_load_n", type=float, default=0.5, help="pullin: load toward the face (three fingers)")
     p.add_argument("--close_s", type=float, default=2.0)
+    p.add_argument("--gap_mm", type=float, default=1.0, help="dial: its axis this far off the proximal face")
+    p.add_argument("--brake_nm", type=float, default=0.0, help="dial: its brake torque (one finger)")
+    p.add_argument("--dial_k", type=float, default=0.0, help="dial: its axis's spring away from the face [N/m]")
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads(GRASPS.read_text())["grasps"] if g["rho_mm"] == args.radius_mm][: args.only]
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
             "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
-            "face_load_n": args.face_load_n, "close_s": args.close_s}
-    directions = ["none"] if args.task in ("roll", "pullin") else args.directions
+            "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
+            "brake_nm": args.brake_nm, "dial_k": args.dial_k}
+    directions = ["none"] if args.task in ("roll", "pullin", "dial") else args.directions
     tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
              for g in grasps for d in directions]
     t0 = time.time()
