@@ -340,7 +340,7 @@ def fig_overview():
 def fig_study3():
     """Study 3: the error against Delta_contact at a reused impedance setpoint, with the design tolerance."""
     import json
-    fig, ax = plt.subplots(figsize=(3.45, 1.12))
+    fig, ax = plt.subplots(figsize=(3.45, 1.0))
     grid = json.loads((TWO_PAD / "dose_A-grid_expanded.json").read_text())
     fr = json.loads((TWO_PAD / "dose_A_all.json").read_text())
     comp = json.loads((TWO_PAD / "comp.json").read_text())
