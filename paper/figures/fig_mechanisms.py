@@ -49,6 +49,9 @@ from visualize.finger.view import load_run  # noqa: E402
 from visualize.fronts import read_rows, with_role  # noqa: E402
 from visualize.style import use  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pngout import save_rgb  # noqa: E402
+
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
 FLEXION, THICKNESS = 120.0, 7.0
 POLE_LAW = DESIGN / "output" / "study" / "study2_pole_law" / "designs.csv"
@@ -144,6 +147,40 @@ def four_bar_pole_sets(degs, n: int = 200000, seed: int = 0) -> dict[int, np.nda
     return {d: np.array(v) for d, v in out.items()}
 
 
+POLE_CACHE = DESIGN / "output" / "paper" / "fig_mechanisms_poles.npz"
+
+
+def cached_pole_sets(degs, n: int = 200000, seed: int = 0) -> dict[int, np.ndarray]:
+    """four_bar_pole_sets, saved once to POLE_CACHE (keyed by n, seed and the flexions) and read back after, since
+    the sampling takes minutes and does not change when only the sketches are edited. Delete the file to redraw."""
+    key = f"n{n}_s{seed}_" + "_".join(str(int(d)) for d in sorted(degs))
+    if POLE_CACHE.exists():
+        data = np.load(POLE_CACHE)
+        if str(data["key"]) == key:
+            return {int(d): data[f"q{int(d)}"] for d in degs}
+    sets = four_bar_pole_sets(degs, n, seed)
+    POLE_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(POLE_CACHE, key=key, **{f"q{d}": v for d, v in sets.items()})
+    return sets
+
+
+RING_CACHE = DESIGN / "output" / "paper" / "fig_mechanisms_rings.npz"
+
+
+def cached_outlines(degs, gx, gy) -> dict[int, np.ndarray]:
+    """The 95% outlines of the four-bar pole sets, saved to RING_CACHE: the kernel density over ~45,000 poles on the
+    grid takes minutes. Keyed by the pole cache's key and the grid; delete the file to recompute."""
+    key = f"{len(degs)}_{gx.shape}_{gx.min()}_{gx.max()}_{gy.min()}_{gy.max()}"
+    if RING_CACHE.exists() and POLE_CACHE.exists() and RING_CACHE.stat().st_mtime >= POLE_CACHE.stat().st_mtime:
+        data = np.load(RING_CACHE)
+        if str(data["key"]) == key and all(f"q{int(d)}" in data.files for d in degs):
+            return {int(d): data[f"q{int(d)}"] for d in degs}
+    sets = cached_pole_sets(degs)
+    rings = {int(d): region_outline(sets[int(d)], gx, gy) for d in degs}
+    np.savez_compressed(RING_CACHE, key=key, **{f"q{d}": v for d, v in rings.items()})
+    return rings
+
+
 def region_outline(points: np.ndarray, gx, gy, share: float = 0.95) -> np.ndarray:
     """The outline of the region holding `share` of the points (Gaussian kernel density, bandwidth 0.25); its
     largest closed piece only, so that stray islands of the density do not show."""
@@ -195,7 +232,7 @@ def main() -> int:
     sw_small = 0.74  # in, per small sketch
     sh_small = sw_small * aspect
     height = head + 3 * (cap + sh_small)
-    sw_big = 1.62
+    sw_big = 1.55
     sh_big = sw_big * aspect
     fig = plt.figure(figsize=(WIDTH, height))
 
@@ -217,29 +254,13 @@ def main() -> int:
         return ax
 
     # the CFL, enlarged, its pivots and the proximal frame named as in the text (Sec. III-A)
-    big_y = (height - head - cap - sh_big) / 2
+    big_y = 0.07
     cax_ = panel("cfl", 0.02, big_y, sw_big, sh_big, 7.5)
     four = views["cfl"].joint
     st = four.sweep([FLEXION])
     pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
            "C": st.tip[0], "O": np.zeros(2)}
     offsets = {"A": (-3, -7), "A'": (9, 7), "B": (6, -1), "B'": (5, -7), "C": (4, -5), "O": (-6, -8)}
-    # L_1 (O to the proximal phalanx's end) and L_2 (the distal phalanx's start to C) as dimension lines outside
-    # the pads, the lengths that define L_f and the contour L_f(q) (Sec. III-A)
-    r1e, r2s = four.finger.proximal_end.array, four.distal_start(FLEXION)
-    dim = dict(arrowstyle="<|-|>", lw=0.5, color=INK2, mutation_scale=4, shrinkA=0, shrinkB=0)
-    below = float(np.asarray(views["cfl"].proximal_pad())[:, 1].min()) - 3.0
-    cax_.annotate("", xy=(r1e[0], below), xytext=(0.0, below), arrowprops=dim, zorder=29)
-    cax_.text(r1e[0] / 2, below - 1.0, "$L_1$", fontsize=7, ha="center", va="top", color=INK, zorder=30)
-    u = (pts["C"] - r2s) / np.linalg.norm(pts["C"] - r2s)
-    n = np.array([-u[1], u[0]])
-    pad2 = np.asarray(views["cfl"].distal_pad(FLEXION))
-    side = np.sign(np.mean((pad2 - r2s) @ n)) or 1.0
-    reach = float(np.max(side * ((pad2 - r2s) @ n))) + 3.0
-    p0, p1 = r2s + side * reach * n, pts["C"] + side * reach * n
-    cax_.annotate("", xy=p1, xytext=p0, arrowprops=dim, zorder=29)
-    cax_.annotate("$L_2$", xy=(p0 + p1) / 2, xytext=tuple(4.5 * side * n), textcoords="offset points", fontsize=7,
-                  ha="center", va="center", color=INK, zorder=30)
     for name, at in pts.items():
         cax_.annotate(f"${name}$", xy=at, xytext=offsets[name], textcoords="offset points", fontsize=7,
                       ha="center", va="center", color=INK, zorder=30)
@@ -252,6 +273,31 @@ def main() -> int:
                   va="center", color=INK, zorder=31)
     cax_.annotate("$\\mathcal{F}_1$", xy=(0, 14), xytext=(-5, -7), textcoords="offset points", fontsize=6.5,
                   ha="right", va="center", color=INK, zorder=31)
+    # the finger model as a legend above the CFL, extended (q = 0): phalanx lengths L_1, L_vp, L_2 along the link line,
+    # and one pad's length, thickness, mount depth and face depth t = d + h, measured palmar (Sec. III-A)
+    ly = big_y + sh_big + cap + 0.03
+    lax = box(0.04, ly, 1.62, height - head - ly)
+    lax.set_xlim(-19, 94); lax.set_ylim(-17, 13); lax.set_aspect("equal"); lax.axis("off")
+    L1, Lvp, L2 = 40.0, 8.0, 42.0
+    lax.plot([-4, 94], [0, 0], color=INK2, lw=0.5, ls=(0, (3, 2)), zorder=1)
+    lax.plot([0, L1], [0, 0], color="#d7263d", lw=2.0, solid_capstyle="butt", zorder=2)
+    lax.plot([L1 + Lvp, L1 + Lvp + L2], [0, 0], color="#1f3fbf", lw=2.0, solid_capstyle="butt", zorder=2)
+    d_, h_ = 2.5, 7.0
+    lax.add_patch(plt.Rectangle((4, -d_ - h_), L1 - 6, h_, fc="#f6b8c2", ec="#d7263d", lw=0.7, zorder=2))
+    lax.add_patch(plt.Rectangle((L1 + Lvp + 2, -d_ - h_), L2 - 8, h_, fc="#bcc8f2", ec="#1f3fbf", lw=0.7, zorder=2))
+    dl = dict(arrowstyle="<|-|>", lw=0.45, color=INK2, mutation_scale=3.5, shrinkA=0, shrinkB=0)
+    top = 4.0
+    for x0_, x1_, name in ((0, L1, "$L_1$"), (L1, L1 + Lvp, "$L_{vp}$"), (L1 + Lvp, L1 + Lvp + L2, "$L_2$")):
+        lax.annotate("", xy=(x1_, top), xytext=(x0_, top), arrowprops=dl)
+        lax.text((x0_ + x1_) / 2, top + 1.0, name, fontsize=6.5, ha="center", va="bottom")
+    lax.annotate("", xy=(L1 - 2, -d_ - h_ - 2.5), xytext=(4, -d_ - h_ - 2.5), arrowprops=dl)
+    lax.text((L1 + 2) / 2, -d_ - h_ - 3.2, "$\\ell_1$", fontsize=6.5, ha="center", va="top")
+    lax.annotate("", xy=(L1 + 1.0, -d_), xytext=(L1 + 1.0, -d_ - h_), arrowprops=dl)
+    lax.text(L1 + 1.8, -d_ - h_ / 2, "$h_1$", fontsize=6.5, ha="left", va="center")
+    lax.plot([1.5, 1.5], [0, -d_], color=INK2, lw=0.45)
+    lax.text(0.6, -d_ / 2 + 0.6, "$d_1$", fontsize=6.5, ha="right", va="center")
+    lax.annotate("", xy=(-11, 0), xytext=(-11, -d_ - h_), arrowprops=dl)
+    lax.text(-11.8, -(d_ + h_) / 2, "$t_1$", fontsize=6.5, ha="right", va="center")
     for i, key in enumerate(("2r_dd", "2r_remote", "rcj")):
         y0 = (2 - i) * (cap + sh_small)
         panel(key, 0.02 + sw_big + 0.08, y0, sw_small, sh_small, 6.5)
@@ -269,12 +315,12 @@ def main() -> int:
     # at 60, 90, 120 and 150 deg, light to dark: the four-bars' 95% regions as outlines, the rollers' as fills
     shown = {60: ("#a9cbef", "#f7dc95"), 90: ("#6aa3e3", "#f2c25a"), 120: ("#2a78d6", "#eda100"),
              150: ("#0d3c78", "#a87000")}
-    sets = four_bar_pole_sets(shown)
     gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
+    rings = cached_outlines(shown, gx, gy)
     radii = np.linspace(9.5, 20.0, 60)
     lo_r, hi_r = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
     for deg, (c_four, c_roll) in shown.items():
-        ring = region_outline(sets[deg], gx, gy)
+        ring = rings[deg]
         pax.plot(ring[:, 0], ring[:, 1], color=c_four, lw=0.9, zorder=1 + deg / 1000)
         # rollers, the proximal one centred at the phalanx end, radii each in the study's 9.5-20 mm, equal or not
         t = np.radians(deg)
@@ -339,7 +385,7 @@ def main() -> int:
     cax.view_init(elev=16, azim=60)
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
-    fig.savefig(path, dpi=400)
+    save_rgb(fig, path, dpi=400)
     plt.close(fig)
     print(path, f"{WIDTH:.2f} x {height:.2f} in")
     return 0

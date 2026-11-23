@@ -7,6 +7,7 @@ import csv
 import sys
 from pathlib import Path
 
+from pngout import save_rgb
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -88,7 +89,7 @@ def fig_study1():
     handles += [plt.Line2D([], [], **style_line(IDEAL[n], True, k), label=n.replace("*", "")) for n in IDEAL]
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.53, 0.88),
                handlelength=1.8, columnspacing=0.9, fontsize=6.2, labelspacing=0.25, handletextpad=0.4)
-    fig.savefig(DEST / "fig_study1_coverage.png")
+    save_rgb(fig, DEST / "fig_study1_coverage.png")
     plt.close(fig)
 
 
@@ -150,7 +151,7 @@ def fig_study2():
     handles.append(plt.Line2D([], [], color=INK, ls=(0, (1, 1.2)), lw=0.9, label="fixed-axis bound"))
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.52, 0.965),
                handlelength=1.8, columnspacing=0.9, fontsize=6.2, labelspacing=0.25, handletextpad=0.4)
-    fig.savefig(DEST / "fig_study2_redesign.png")
+    save_rgb(fig, DEST / "fig_study2_redesign.png")
     plt.close(fig)
 
 
@@ -212,7 +213,7 @@ def fig_concept():
     panel(axes[1], 9, 0, "(b) fixed axis, 9 mm", k=k)
     panel(axes[2], 9, 5, "(c) pole 5 mm lower, 9 mm", k=k)
     fig.subplots_adjust(wspace=0.02)
-    fig.savefig(DEST / "fig_pole_concept.png")
+    save_rgb(fig, DEST / "fig_pole_concept.png")
     plt.close(fig)
 
 
@@ -353,7 +354,7 @@ def fig_overview():
     for ax_, t in [(cad_ax, "(a) CoDe hand: room for thick pads"), *panel_titles]:
         ax_.text(0.0, top, t, transform=blended_transform_factory(ax_.transAxes, fig.transFigure), fontsize=7.6,
                  fontweight="bold", va="bottom")
-    fig.savefig(DEST / "fig_overview.png")
+    save_rgb(fig, DEST / "fig_overview.png")
     plt.close(fig)
 
 
@@ -387,7 +388,7 @@ def fig_study3():
     ax.set_ylabel("error $E$ (%)")
     ax.set_xlim(0, 5.5)
     ax.set_ylim(-5, 210)
-    fig.savefig(DEST / "fig_study3.png")
+    save_rgb(fig, DEST / "fig_study3.png")
     plt.close(fig)
 
 if __name__ == "__main__":
