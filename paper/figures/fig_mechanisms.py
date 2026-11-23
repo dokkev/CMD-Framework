@@ -274,7 +274,7 @@ def main() -> int:
     cax_.annotate("$\\mathcal{F}_1$", xy=(0, 14), xytext=(-5, -7), textcoords="offset points", fontsize=6.5,
                   ha="right", va="center", color=INK, zorder=31)
     # the finger model as a legend above the CFL, extended (q = 0): phalanx lengths L_1, L_vp, L_2 along the link line,
-    # and one pad's length, thickness, mount depth and face depth t = d + h, measured palmar (Sec. III-A)
+    # and one pad's length, thickness and face depth t, measured palmar (Sec. III-A)
     ly = big_y + sh_big + cap + 0.03
     lax = box(0.04, ly, 1.62, height - head - ly)
     lax.set_xlim(-19, 94); lax.set_ylim(-17, 13); lax.set_aspect("equal"); lax.axis("off")
@@ -294,8 +294,6 @@ def main() -> int:
     lax.text((L1 + 2) / 2, -d_ - h_ - 3.2, "$\\ell_1$", fontsize=6.5, ha="center", va="top")
     lax.annotate("", xy=(L1 + 1.0, -d_), xytext=(L1 + 1.0, -d_ - h_), arrowprops=dl)
     lax.text(L1 + 1.8, -d_ - h_ / 2, "$h_1$", fontsize=6.5, ha="left", va="center")
-    lax.plot([1.5, 1.5], [0, -d_], color=INK2, lw=0.45)
-    lax.text(0.6, -d_ / 2 + 0.6, "$d_1$", fontsize=6.5, ha="right", va="center")
     lax.annotate("", xy=(-11, 0), xytext=(-11, -d_ - h_), arrowprops=dl)
     lax.text(-11.8, -(d_ + h_) / 2, "$t_1$", fontsize=6.5, ha="right", va="center")
     for i, key in enumerate(("2r_dd", "2r_remote", "rcj")):
