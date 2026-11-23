@@ -9,11 +9,12 @@ the contact face (PNG only).
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there.
-(e) Where each joint's finite pole sits at q_req = 120 deg, relative to the proximal pad: along the finger from
-its joint-side end, and above its mounting surface. A pin or roller centre must stay above the mount. Shaded: the region
-holding 90% of the feasible CFL designs of output/linkage/config/samples/seeds.csv (prototype config; Gaussian
-kernel density), together with the CFL redesigns on Study 2's fronts at 120 deg, each set weighted equally; markers: each
-architecture's Study 1 designs for 3-9 mm pads (the CFL's descend into the pad as the pads thicken).
+(e) The finite pole P(q_req) in the complex plane, by joint type, from Study 0's analysis (no optimization run):
+a fixed axis's P is its pin (a point); equal rollers' P = (a + r) - i r tan(q/4) (Study 0, Eq. 14) lies on one
+vertical segment for r in 3-8 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b from the closure of
+its links (feasible_space.md, F1), covers an area: shaded, the region holding 90% of the four-bars whose pivots lie
+in the phalanges (A, B on the link line within 15 mm of the joint, A', B' up to 14 mm dorsal) and that close
+through q_req; Gaussian kernel density.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -74,6 +75,43 @@ def pole_on_pad(view, q_deg: float) -> tuple[float, float]:
     return float(pole[0] - pad[:, 0].max()), float(pole[1] - pad[:, 1].max())
 
 
+def four_bar_poles(q: float, n: int = 60000, seed: int = 0) -> np.ndarray:
+    """P(q) of crossed four-bars whose pivots lie in the phalanges: A, B on the link line within 15 mm of the joint,
+    A', B' up to 14 mm dorsal; each closes through [0, q] (F1: the moving pivot is a circle intersection) and keeps
+    its assembly branch. Returns the finite poles (Lemma 1) of those that do."""
+    rng = np.random.default_rng(seed)
+    qs = np.linspace(0.0, q, 61)
+
+    def rot(t):  # palmar flexion: clockwise in (x distal, z dorsal)
+        return np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
+
+    out = []
+    for _ in range(n):
+        a, b = np.array([rng.uniform(-15, 0), 0.0]), np.array([rng.uniform(0, 15), 0.0])
+        ap = np.array([rng.uniform(-10, 15), rng.uniform(0, 14)])
+        bp = np.array([rng.uniform(-10, 15), rng.uniform(0, 14)])
+        r1, r2, w = np.linalg.norm(b - ap), np.linalg.norm(bp - a), bp - b
+        prev, ok = b.copy(), True
+        for t in qs:
+            ah = a - rot(t) @ w
+            d = np.linalg.norm(ah - ap)
+            if not abs(r1 - r2) < d < r1 + r2:
+                ok = False
+                break
+            along = (r1 ** 2 - r2 ** 2 + d ** 2) / (2 * d)
+            u = (ah - ap) / d
+            mid, off = ap + along * u, np.sqrt(max(r1 ** 2 - along ** 2, 0.0)) * np.array([-u[1], u[0]])
+            c1, c2 = mid + off, mid - off
+            prev = c1 if np.linalg.norm(c1 - prev) < np.linalg.norm(c2 - prev) else c2
+        if not ok:
+            continue
+        disp = prev - rot(q) @ b
+        pole = np.linalg.solve(np.eye(2) - rot(q), disp)
+        if np.all(np.isfinite(pole)) and np.linalg.norm(pole) < 40:
+            out.append(pole)
+    return np.array(out)
+
+
 def main() -> int:
     use("paper")
     sketch.LINK_WIDTH = 2.0  # thinner links at print size
@@ -122,73 +160,38 @@ def main() -> int:
     for i, lab in enumerate("abcd"):
         fig.text(0.005 + i * panel_w / WIDTH + 0.004, 1 - 0.02 / height, f"({lab})", ha="left", va="top", fontsize=7.5,
                  fontweight="bold")
-    # (e) where each joint's pole can sit at q_req, relative to the proximal pad
-    left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.07
+    # (e) the finite pole P(q_req) in the complex plane (Lemma 1, P = b / (1 - e^{iq})), by joint type, from
+    # Study 0's analysis rather than any optimization run: a fixed axis's P is the pin (a point); equal rollers'
+    # P = (a + r) - i r tan(q/4) lies on one vertical segment (Study 0, Eq. 14); a four-bar's P follows from the
+    # closure of its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
+    left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.075
     pax = fig.add_axes((left, 0.25, 0.995 - left - 0.005, 0.6))
-    pax.add_patch(plt.Rectangle((-14, 0), 40, 14, fc="#e9e8e4", ec="none", zorder=0))
-    pax.text(25, 12.8, "pins, rollers", ha="right", va="top", fontsize=6.3, color=INK2)
-    pax.add_patch(plt.Rectangle((-14, -THICKNESS), 14, THICKNESS, fc="#f6c4c3", ec="#e34948", lw=0.6, zorder=0.5))
-    pax.text(-7, -THICKNESS / 2, "pad", ha="center", va="center", fontsize=6.3, color=INK2)
-    pax.axhline(0, color=INK2, lw=0.5, zorder=1)
-    run = load_run(PROTOTYPE.parent.parent / "run_003")
-    names = list(run.mechanism.variable_names)
-    cloud = []
-    for r in csv.DictReader(open(SAMPLES)):
-        try:
-            cloud.append(pole_on_pad(view_of("linkage", run.config, [float(r[n]) for n in names]), FLEXION))
-        except Exception:  # noqa: BLE001 -- a sample that does not reach the flexion is skipped
-            continue
-    cloud = np.array(cloud)
-    # and the CFL redesigns of Study 2 for 5-9 mm pads at 120 deg (their poles sit inside the pad)
-    s1 = one_finger.study1_designs("cfl", config["architectures"]["cfl"], FLEXION, config)
-    fronts = []
-    for r in csv.DictReader(open(FRONTS)):
-        if r["architecture"] != "cfl" or float(r["required_flexion_deg"]) != FLEXION:
-            continue
-        ref = s1[float(r["to_mm"])]
-        try:
-            fronts.append(pole_on_pad(view_of(ref.mechanism, ref.config, [float(v) for v in r["x"].split(";")]),
-                                      FLEXION))
-        except Exception:  # noqa: BLE001
-            continue
-    fronts = np.array(fronts)
-    allp = np.vstack([cloud, fronts])
-    weights = np.r_[np.full(len(cloud), 0.5 / len(cloud)), np.full(len(fronts), 0.5 / len(fronts))]
-    # the CFL's reachable poles as a region: the density level holding 90% of the (equally weighted) designs
+    poles = four_bar_poles(np.radians(FLEXION))
     from scipy.stats import gaussian_kde
-    kde = gaussian_kde(allp.T, bw_method=0.3, weights=weights)
-    gx, gy = np.meshgrid(np.linspace(-14, 26, 240), np.linspace(-THICKNESS - 1.5, 14, 120))
+    kde = gaussian_kde(poles.T, bw_method=0.25)
+    gx, gy = np.meshgrid(np.linspace(-12, 16, 240), np.linspace(-8, 8, 140))
     dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
-    dv = kde(allp.T)
-    order = np.argsort(dv)
-    level = dv[order][np.searchsorted(np.cumsum(weights[order]), 0.10)]
-    pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=["#2a78d6"], alpha=0.22, zorder=2)
-    pax.contour(gx, gy, dens, levels=[level], colors=["#2a78d6"], linewidths=0.7, zorder=2.1)
-    pax.text(-12.5, 11.0, "CFL designs", color="#2a78d6", fontsize=6.3, ha="left", va="center")
-    for key, title, colour, _, ours in ARCH:
-        pts = []
-        for h, ref in one_finger.study1_designs(key, config["architectures"][key], FLEXION, config).items():
-            try:
-                pts.append(pole_on_pad(view_of(ref.mechanism, ref.config, ref.x), FLEXION))
-            except Exception:  # noqa: BLE001
-                continue
-        pts = np.array(pts)
-        pax.scatter(pts[:, 0], pts[:, 1], s=14, marker=MARK[key], color=colour, edgecolor="white", lw=0.4,
-                    zorder=4 if ours else 3)
-        if ours:  # the CFL's pole descends with the pad thickness
-            pax.annotate("", xy=(pts[-1, 0] + 2.6, pts[-1, 1]), xytext=(pts[0, 0] + 2.6, pts[0, 1]),
-                         arrowprops=dict(arrowstyle="->", color=colour, lw=0.7))
-            pax.text(pts[-1, 0] + 3.4, (pts[0, 1] + pts[-1, 1]) / 2, "3$\\to$9 mm", color=colour, fontsize=6.3,
-                     ha="left", va="center")
-    pax.set_xlim(-14, 26); pax.set_ylim(-THICKNESS - 1.5, 14)
-    pax.set_aspect("equal")
-    pax.set_xlabel("from the pad's end (mm)", fontsize=7, labelpad=1)
-    pax.set_ylabel("above the mount (mm)", fontsize=7, labelpad=1)
+    level = np.sort(kde(poles.T))[int(0.10 * len(poles))]
+    blue, yellow = ARCH[3][2], ARCH[2][2]
+    pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
+    pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
+    r = np.array([3.0, 8.0])  # roller radii
+    depth = -r * np.tan(np.radians(FLEXION) / 4)
+    pax.plot([0, 0], [0, depth[-1]], color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
+    pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)
+    pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
+    pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
+    pax.text(0.7, 0.6, "2R: one point", fontsize=6.3, color=INK, ha="left", va="bottom", zorder=5)
+    pax.text(-0.7, depth[-1] + 0.2, "RCJ: a segment", fontsize=6.3, color="#a87000", ha="right", va="bottom", zorder=5)
+    pax.text(15.5, 6.6, "CFL: an area", fontsize=6.3, color=blue, ha="right", va="top", fontweight="bold", zorder=5)
+    pax.set_xlim(-12, 16); pax.set_ylim(-8, 8); pax.set_aspect("equal")
+    pax.set_xlabel(r"Re $P$ (mm, distal)", fontsize=7, labelpad=1)
+    pax.set_ylabel(r"Im $P$ (mm, dorsal)", fontsize=7, labelpad=1)
     pax.tick_params(labelsize=6.5, length=2)
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    fig.text(left - 0.04, 1 - 0.02 / height, "(e) where the pole can sit", ha="left", va="top", fontsize=7.5,
+    fig.text(left - 0.045, 1 - 0.02 / height, "(e) pole $P$ at $120^\\circ$", ha="left", va="top", fontsize=7.5,
              fontweight="bold")
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
