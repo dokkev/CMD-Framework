@@ -24,6 +24,7 @@
 | v19 | d7ce877 | 6, 6, 6 | — | C2 scoped to servo setpoints in intro and conclusion; H3 scope; placements, R/U/M defined; signed face offset tested (Delta_contact keeps 0.69 given it); dropped hands scored; Holm; 9 mm limit; S1/S2 named; r1 Opus, r2 Opus on retry, r3 Fable 5.2 after two Opus safeguard errors |
 | v20 | 3f61a74 | 6, 6, 6 | — | setpoint force and face offset held fixed (0.64, 0.69), CFL pole depth, r_C defined, partial row in Table I, sensitivity under Fig. 5, MA as a stated trade-off (no floor); r1 and r2 Opus (r1 on retry), r3 Fable 5.2 after two Opus safeguard errors |
 | v21 | 65bf2eb | 6, 6, 6 | — | force matching vs recomputation separated, contact model named, pre-registration record stated, Fig. 1 one placement vs medians, c(q) keeps the column; all three Opus on the first try with the ASSESSMENT NOTES prompt |
+| v22 | 72af53d | 6, 6, 6 | — | current limit (servo at <=25% of stall), within-thickness intervals, near-zero control (R at 0.35 mm errs 3%), Stage 2 reference; all three Opus at the first try |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -188,3 +189,11 @@ current-limited position control, as on LEAP, between setpoint and torque (r1); 
 in Study 3 (r3); a c0-free metric (r3); which constraint keeps the CFL pole about 4 mm above the face (r3); the q-space
 stiffness on hardware (r3); cluster bootstrap by thickness (r2); MA floor, coverage-to-grasp link, density (all).
 Plateau: 6, 6, 6 since v12 (ten rounds); the remaining critiques are mostly simulation scope and density.
+
+v22: 6, 6, 6, all Accept, all Opus at the first try. The current-limit and bootstrap answers were taken as
+strengths. Remaining, mostly repeats: point contact makes the Delta_contact-error relation partly geometric by
+construction (all); no first-order derivation of E from the normal over-closure (r3); the counterfactual's
+justification (r1, r2); MA at free advantage and 2R-DD as a weak baseline (r1, r3); spacers designed for the
+maximum thickness as a stronger baseline (r3); Stage 2 power and whether R, M, U separate Delta_contact from
+Delta_skel (r1, r2); density. Post-round edits (no review): the grid column is the 18 plus 27 new hands; M is
+named the middle redesign. Plateau: eleven rounds at 6, 6, 6 since v12; the loop is paused here.
