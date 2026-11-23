@@ -29,6 +29,7 @@
 | v24 | 0b6c14b | 6, 6, 6 | — | c0-free fixed-axis floor (0.59-0.79; read as a strength), reversal marked model-level, Stage 2 backlash and pad compression, Prop. 2 remark split; all Opus at the first try |
 | v26 | 92ab39b | 6, 6, 6 | — | pad compression in the simulation (0.5-2.3 mm), spacers zero by construction, v25 clarity edits; Presentation 3 from all three (first time), Clarity 3 from r1; all Opus at the first try |
 | v27 | 3f3019d | 6, 6, 7 | — | Study 3 as one double-column figure: a second simulator (Drake) with hydroelastic pads and three more open-loop tasks (rolling fails); r1, r2: Presentation 2 (length over the limit, Fig. 1 placeholder); shared doubt that the error is the preload; r3: 7, the first above 6 |
+| v28 | a7c8fec | 6, 6, 6 | — | fits 5+1 pages: CAD Fig. 1, Studies 1-2 merged, Drake task scenes, preload stated as the error's path, direct candidate comparison, PIP-column limit; all three Presentation and Clarity 2 (text too compressed); r3 7 -> 6 (RCJ below the bound unexplained, start offset, sign conventions) |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
