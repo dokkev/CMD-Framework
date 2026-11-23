@@ -44,6 +44,7 @@ ARCH = [("2r_dd", "2R-DD", "#1baf7a", "servo at the joint", False),
 
 def main() -> int:
     use("paper")
+    sketch.LINK_WIDTH = 2.0  # thinner links at print size
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix"})
     config = read_config_file(one_finger.DEFAULT_CONFIG)

@@ -23,6 +23,8 @@ PAD, PAD_EDGE, SERVO_EDGE = "#d5e8d4", "#82b366", INK
 PADS = {"proximal": (PROXIMAL_PAD, "#e11d48"), "distal": (DISTAL_PAD, "#2563eb")}
 """Each pad's fill and outline (``visualize.finger.solid``'s)."""
 ROLLER, ROLLER_EDGE = "#f2f2f2", "#555555"
+LINK_WIDTH = 3.0
+"""Link line width [pt]; a figure drawn at print size may set it lower."""
 XLIM, YLIM = (-14.0, 104.0), (-62.0, 30.0)
 """The paper's sketches, one scale for every mechanism."""
 
@@ -54,7 +56,7 @@ def pad(axis, polygon, hit: bool = False, which: str | None = None) -> None:
 def links(axis, *chains, color: str = LINK, zorder: float = 3) -> None:
     for chain in chains:
         points = np.asarray(chain, dtype=float)
-        axis.plot(points[:, 0], points[:, 1], color=color, linewidth=3.0, solid_capstyle="round", zorder=zorder)
+        axis.plot(points[:, 0], points[:, 1], color=color, linewidth=LINK_WIDTH, solid_capstyle="round", zorder=zorder)
 
 
 def body_links(axis, proximal=(), distal=(), black=(), gray=()) -> None:
