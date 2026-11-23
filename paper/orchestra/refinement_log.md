@@ -25,6 +25,7 @@
 | v20 | 3f61a74 | 6, 6, 6 | — | setpoint force and face offset held fixed (0.64, 0.69), CFL pole depth, r_C defined, partial row in Table I, sensitivity under Fig. 5, MA as a stated trade-off (no floor); r1 and r2 Opus (r1 on retry), r3 Fable 5.2 after two Opus safeguard errors |
 | v21 | 65bf2eb | 6, 6, 6 | — | force matching vs recomputation separated, contact model named, pre-registration record stated, Fig. 1 one placement vs medians, c(q) keeps the column; all three Opus on the first try with the ASSESSMENT NOTES prompt |
 | v22 | 72af53d | 6, 6, 6 | — | current limit (servo at <=25% of stall), within-thickness intervals, near-zero control (R at 0.35 mm errs 3%), Stage 2 reference; all three Opus at the first try |
+| v23 | e84ee3e | 6, 6, 6 | — | Stage 2 separation (Delta_contact rises while Delta_skel falls along R, M, U; simulated ordering in 43 of 48 blocks); r2 Presentation 3; all Opus at the first try |
 
 Recurring weaknesses after v1 (not fixable by presentation alone):
 1. The premise that a few mm of D_c confounds an interface measurement is not demonstrated; no D_c tolerance.
@@ -197,3 +198,7 @@ justification (r1, r2); MA at free advantage and 2R-DD as a weak baseline (r1, r
 maximum thickness as a stronger baseline (r3); Stage 2 power and whether R, M, U separate Delta_contact from
 Delta_skel (r1, r2); density. Post-round edits (no review): the grid column is the 18 plus 27 new hands; M is
 named the middle redesign. Plateau: eleven rounds at 6, 6, 6 since v12; the loop is paused here.
+
+v23: 6, 6, 6, all Accept. Answered by v24 (no further run): the c0-free fixed-axis floor (0.59/0.67/0.79 of the
+bound, from r3, checked numerically; the CFL is below it in every cell); the reversal marked as within this contact
+model (r2); Stage 2 reports backlash and pad compression with Delta_contact (r1, r2); the Prop. 2 remark split.
