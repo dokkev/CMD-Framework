@@ -264,6 +264,6 @@ The earlier Study 3 programme (3A pilot and main experiment, 3B) is archived in 
 **Open decisions.**
 
 1. **Transmission on hardware.** Whether the servos' torque limits allow the compensation where MA_wc falls (up to −18% on the Study 3 hands); simulation runs without torque limits.
-   The CFL, like a rolling joint, gains range of motion and room for the pads at the cost of mechanical advantage (MA_wc 0.41–0.58 against 1 for a revolute joint with the servo at it). The design for hardware holds MA_wc as a constraint in the optimization (the paper states this in its conclusion; 2026-11-22).
+   The CFL, like a rolling joint, gains range of motion and room for the pads at the cost of mechanical advantage (MA_wc 0.41–0.58 against 1 for a revolute joint with the servo at it). Study 1 leaves MA_wc free: a fixed floor would select the winner by the choice of its value. The paper states the coverage–range-of-motion–MA trade-off as a limitation; a designer sets the floor from the payload or reads the coverage–MA Pareto front (decided 2026-11-22; a pilot at MA_wc ≥ 0.5 was stopped unfinished, `output/study/linkage/cfl_q*_ma05`, not evidence).
 2. **Hardware scope for the final paper.** Section 8.4 plans one finger with three configurations; whether the final paper adds more interfaces (a camera-based tactile module) is open.
 3. **"Interfaces concentrate on distal phalanges."** Not established (counterexamples exist). P1 states it as an observation that motivates the work, not as a claim; a survey of hands and tactile-manipulation papers would support it.
