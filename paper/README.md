@@ -1,4 +1,6 @@
-# Paper: Studies 0–2 (RSS)
+# Paper workspace (RSS 2027)
+
+**How the manuscript is written (format, words, figures, review loop) is fixed in [SSoT.md](SSoT.md), which takes precedence over this README.** The notes below on stages and scope are historical.
 
 Written by following the PaperOrchestra stages (google-research/paper-orchestra) with Claude
 instead of its Gemini/OpenAI backend; no project material is sent to an external LLM API.
