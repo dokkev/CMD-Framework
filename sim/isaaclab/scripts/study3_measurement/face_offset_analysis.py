@@ -39,7 +39,8 @@ def sim_name(stem: str) -> str:
 
 def main() -> int:
     with E20.open(encoding="utf-8") as stream:
-        geo = {sim_name(r["hand"]): {k: float(r[k]) for k in ("contact_mm", "normal_mm", "tangential_mm")}
+        geo = {sim_name(r["hand"]): {k: float(r[k]) for k in ("contact_mm", "normal_mm", "tangential_mm",
+                                                               "signed_normal_contacts_mm", "signed_normal_grid_mm")}
                for r in csv.DictReader(stream)}
     out = {}
     for name, (file, key) in SETTINGS.items():
@@ -50,9 +51,18 @@ def main() -> int:
         for f in ("contact_mm", "normal_mm", "tangential_mm"):
             x = np.array([geo[h][f] for h in hs])
             out[name][f] = {"rho": da.spearman(x, e), "ci95": boot(x, e)}
+        # v18 review (r2, r3): the face's signed normal offset over the poses this placement set grasps at, as a
+        # candidate of its own (unsigned, as E is), and each of it and Delta_contact with the other held fixed.
+        col = "signed_normal_grid_mm" if name == "grid" else "signed_normal_contacts_mm"
+        off = np.abs(np.array([geo[h][col] for h in hs]))
+        dc = np.array([geo[h]["contact_mm"] for h in hs])
+        out[name]["offset_abs_mm"] = {"rho": da.spearman(off, e), "ci95": boot(off, e)}
+        out[name]["partial_Dc_given_offset"] = da.partial_spearman(e, dc, off)
+        out[name]["partial_offset_given_Dc"] = da.partial_spearman(e, off, dc)
         print(f"{name:9s} n {len(hs):2d} " + "  ".join(
             f"{f[:-3]} {out[name][f]['rho']:+.2f} [{out[name][f]['ci95'][0]:+.2f}, {out[name][f]['ci95'][1]:+.2f}]"
-            for f in ("contact_mm", "normal_mm", "tangential_mm")))
+            for f in ("contact_mm", "normal_mm", "tangential_mm", "offset_abs_mm"))
+              + f"  partial Dc|off {out[name]['partial_Dc_given_offset']:+.2f} off|Dc {out[name]['partial_offset_given_Dc']:+.2f}")
     (da.ROOT / "face_offset.json").write_text(json.dumps(out, indent=1))
     return 0
 

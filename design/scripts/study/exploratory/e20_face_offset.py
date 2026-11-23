@@ -8,7 +8,8 @@ rebuilt from the design in the hand file (the study's own kinematics, ``contact_
 O's over q in [0, 120] deg. The difference Delta c(q) splits into its component along the distal face's normal
 n(q) = (sin q, cos q) (how far the face sits from O's face: what over-closes a reused command) and along the face
 (how far the same face point slides along it). Writes ``output/study/exploratory/e20_face_offset/summary.csv`` with
-Delta_contact, its normal and tangential maxima [mm].
+Delta_contact, its normal and tangential maxima [mm], and the signed normal offset (positive: the face moved away
+from the object) averaged over the flexion range each placement set grasps at (v18 review, r2/r3).
 """
 
 from __future__ import annotations
@@ -33,6 +34,11 @@ HANDS = ROOT / "output" / "sim" / "study3" / "hands"
 OUT = ROOT / "output" / "study" / "exploratory" / "e20_face_offset"
 
 
+def band(q: np.ndarray, lo_deg: float, hi_deg: float) -> np.ndarray:
+    """Poses in the flexion range a placement set grasps at (O's contacts: 35-115 deg; the grid: 85-115 deg)."""
+    return (q >= math.radians(lo_deg)) & (q <= math.radians(hi_deg))
+
+
 def main() -> int:
     config = read_config_file(ROOT / "scripts" / "study" / "study2_morphology_adaptation" / "one_finger.yaml")
     spec = config["architectures"]["cfl"]
@@ -52,11 +58,14 @@ def main() -> int:
         q = got["q"]
         d = got["contact"] - ref["contact"]
         normal = np.stack((np.sin(q), np.cos(q)), axis=1)
-        dn = np.abs(np.sum(d * normal, axis=1))
+        sn = np.sum(d * normal, axis=1)  # signed: positive moves the face away from the object
+        dn = np.abs(sn)
         dt = np.abs(np.sum(d * np.stack((np.cos(q), -np.sin(q)), axis=1), axis=1))
         rows.append({"hand": name, "thickness_mm": h, "contact_mm": float(np.max(np.linalg.norm(d, axis=1))),
                      "normal_mm": float(np.max(dn)), "tangential_mm": float(np.max(dt)),
-                     "normal_at_105_mm": float(np.interp(math.radians(105.0), q, dn))})
+                     "normal_at_105_mm": float(np.interp(math.radians(105.0), q, dn)),
+                     "signed_normal_contacts_mm": float(np.mean(sn[band(q, 35.0, 115.0)])),
+                     "signed_normal_grid_mm": float(np.mean(sn[band(q, 85.0, 115.0)]))})
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / "summary.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
