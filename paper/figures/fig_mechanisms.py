@@ -10,14 +10,13 @@ finger (design/output/linkage/config/paper_single_objective/portfolio_001, balan
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there. RCJ and CFL also trace the distal phalanx's instantaneous centre relative to the proximal one over 0-120 deg
 (purple; star: at 120 deg): the contact point rolling on the proximal roller, and the crossing of the four-bar's links.
-(b) The finite poles P(120 deg) each joint type can reach over the study's design space, in the proximal
-phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run): a pin is the phalanx
-end (a point); equal rollers, the proximal one centred at the phalanx end, put P = r - i r tan(q/4) (Study 0,
-Eq. 14) on one segment for the study's r of 9.5-20 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b
-from the closure of its links (feasible_space.md, F1), covers an area: shaded, the region holding 95% of the crossed
-four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
-density. Only the design space is drawn, no particular design (Study 1's CFL poles all lie inside it; see
-report/study0/derivation.md 4.4). No text labels: the caption names them.
+(b) The finite poles P each joint type can reach over the study's design space at 60, 90, 120 and 150 deg (light to
+dark), in the proximal phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run):
+a pin is the phalanx end (a point); rollers fill a narrow area (roller_pole); a crossed four-bar's P = b / (1 - e^{iq})
+(Lemma 1), with b from the closure of its links (feasible_space.md, F1), covers a wide one: outlined, the region
+holding 95% of the crossed four-bars drawn from the study's CFL bounds that close through q (four_bar_pole_sets,
+region_outline; Gaussian kernel density, largest piece). Only the design space is drawn, no particular design.
+Legend: 2R, RCJ, CFL, in the colours (c) shares.
 Rollers: radii r1, r2 each in the study's 9.5-20 mm, equal (the study's RCJ, Eq. 14's segment) or not, filled as
 one area (roller_pole).
 (c) Study 0's coverage law (Eq. 10) against the pole's height above the face, t - z (Corollary 3.1): coverage
@@ -100,14 +99,15 @@ def roller_pole(r1, r2, q: float):
     return (c - np.exp(-1j * q) * c0) / (1 - np.exp(-1j * q))
 
 
-def four_bar_poles(q: float, n: int = 200000, seed: int = 0) -> np.ndarray:
-    """P(q), relative to the proximal pivot A (the proximal phalanx's end on its axis), of crossed four-bars drawn
-    uniformly from the study's CFL design space (A, B on the link line in 0-90 mm with B distal of A; A' from A by
-    -20..30 mm along and 0..25 mm dorsal; B' from B by -50..20 mm along and -60..80 mm across), kept if the links
-    A'-B and A-B' cross and the linkage closes through [0, q] on its assembly branch (F1: the moving pivot is a
-    circle intersection). Returns their finite poles (Lemma 1)."""
+def four_bar_pole_sets(degs, n: int = 200000, seed: int = 0) -> dict[int, np.ndarray]:
+    """P(q), relative to the proximal pivot A (the proximal phalanx's end on its axis), for each q in degs, of crossed
+    four-bars drawn uniformly from the study's CFL design space (A, B on the link line in 0-90 mm with B distal of
+    A; A' from A by -20..30 mm along and 0..25 mm dorsal; B' from B by -50..20 mm along and -60..80 mm across). A
+    design counts at q if its links A'-B and A-B' cross and the linkage closes through [0, q] on its assembly branch
+    (F1: the moving pivot is a circle intersection, followed in 1 deg steps). Returns their finite poles (Lemma 1)."""
     rng = np.random.default_rng(seed)
-    qs = np.linspace(0.0, q, 61)
+    degs = sorted(int(d) for d in degs)
+    steps = np.radians(np.arange(0, degs[-1] + 1))
 
     def rot(t):  # palmar flexion: clockwise in (x distal, z dorsal)
         return np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
@@ -116,7 +116,7 @@ def four_bar_poles(q: float, n: int = 200000, seed: int = 0) -> np.ndarray:
         side = lambda a, b, c: (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])  # noqa: E731
         return side(p1, p2, p3) * side(p1, p2, p4) < 0 and side(p3, p4, p1) * side(p3, p4, p2) < 0
 
-    out = []
+    out = {d: [] for d in degs}
     for _ in range(n):
         ax_ = rng.uniform(0.1, 90.0)
         a, b = np.array([ax_, 0.0]), np.array([rng.uniform(ax_, 90.0), 0.0])
@@ -125,24 +125,34 @@ def four_bar_poles(q: float, n: int = 200000, seed: int = 0) -> np.ndarray:
         if not crossed(ap, b, a, bp):
             continue
         r1, r2, w = np.linalg.norm(b - ap), np.linalg.norm(bp - a), bp - b
-        prev, ok = b.copy(), True
-        for t in qs:
+        prev = b.copy()
+        for k, t in enumerate(steps):
             ah = a - rot(t) @ w
             d = np.linalg.norm(ah - ap)
             if not abs(r1 - r2) < d < r1 + r2:
-                ok = False
                 break
             along = (r1 ** 2 - r2 ** 2 + d ** 2) / (2 * d)
             u = (ah - ap) / d
             mid, off = ap + along * u, np.sqrt(max(r1 ** 2 - along ** 2, 0.0)) * np.array([-u[1], u[0]])
             c1, c2 = mid + off, mid - off
             prev = c1 if np.linalg.norm(c1 - prev) < np.linalg.norm(c2 - prev) else c2
-        if not ok:
-            continue
-        pole = np.linalg.solve(np.eye(2) - rot(q), prev - rot(q) @ b)
-        if np.all(np.isfinite(pole)):
-            out.append(pole - a)
-    return np.array(out)
+            if k in out:
+                pole = np.linalg.solve(np.eye(2) - rot(t), prev - rot(t) @ b)
+                if np.all(np.isfinite(pole)):
+                    out[k].append(pole - a)
+    return {d: np.array(v) for d, v in out.items()}
+
+
+def region_outline(points: np.ndarray, gx, gy, share: float = 0.95) -> np.ndarray:
+    """The outline of the region holding `share` of the points (Gaussian kernel density, bandwidth 0.25); its
+    largest closed piece only, so that stray islands of the density do not show."""
+    from contourpy import contour_generator
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(points.T, bw_method=0.25)
+    dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
+    level = np.sort(kde(points.T))[int((1 - share) * len(points))]
+    lines = contour_generator(gx, gy, dens).lines(level)
+    return max(lines, key=len)
 
 
 def main() -> int:
@@ -207,30 +217,36 @@ def main() -> int:
     # P = (a + r) - i r tan(q/4) lies on one segment (Study 0, Eq. 14); a four-bar's P follows from the closure of
     # its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
     bx = 2.0
-    fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ at $120^\\circ$", **label)
+    fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ over flexion", **label)
     pax = box(bx + 0.32, 0.3, 2.3, height - head - 0.36)
-    from scipy.stats import gaussian_kde
     blue, yellow = ARCH[3][2], ARCH[2][2]
     qr = np.radians(FLEXION)
-    poles = four_bar_poles(qr)
-    gx, gy = np.meshgrid(np.linspace(-26, 50, 320), np.linspace(-15, 23, 170))
-    kde = gaussian_kde(poles.T, bw_method=0.25)
-    dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
-    level = np.sort(kde(poles.T))[int(0.05 * len(poles))]  # the region holding 95% of them
-    pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
-    pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
-    # rollers, the proximal one's centre at the phalanx end, radii each in the study's 9.5-20 mm: unequal ones
-    # and equal ones alike: one area (the image of the radius square's boundary), drawn without telling them apart
+    # at 60, 90, 120 and 150 deg, light to dark: the four-bars' 95% regions as outlines, the rollers' as fills
+    shown = {60: ("#a9cbef", "#f7dc95"), 90: ("#6aa3e3", "#f2c25a"), 120: ("#2a78d6", "#eda100"),
+             150: ("#0d3c78", "#a87000")}
+    sets = four_bar_pole_sets(shown)
+    gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
     radii = np.linspace(9.5, 20.0, 60)
     lo_r, hi_r = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
-    edge = np.concatenate([roller_pole(radii, lo_r, qr), roller_pole(hi_r, radii, qr),
-                           roller_pole(radii[::-1], hi_r, qr), roller_pole(lo_r, radii[::-1], qr)])
-    pax.fill(edge.real, edge.imag, fc=yellow, alpha=0.6, ec="none", zorder=2)
-    pax.fill(edge.real, edge.imag, fc="none", ec=yellow, lw=0.8, zorder=2.1)
+    for deg, (c_four, c_roll) in shown.items():
+        ring = region_outline(sets[deg], gx, gy)
+        pax.plot(ring[:, 0], ring[:, 1], color=c_four, lw=0.9, zorder=1 + deg / 1000)
+        # rollers, the proximal one centred at the phalanx end, radii each in the study's 9.5-20 mm, equal or not
+        t = np.radians(deg)
+        edge = np.concatenate([roller_pole(radii, lo_r, t), roller_pole(hi_r, radii, t),
+                               roller_pole(radii[::-1], hi_r, t), roller_pole(lo_r, radii[::-1], t)])
+        pax.fill(edge.real, edge.imag, fc=c_roll, ec="none", zorder=2 + deg / 1000)
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    pax.legend(handles=[Line2D([], [], marker="o", ms=4.0, color=INK, lw=0, label="2R"),
+                        Patch(fc=yellow, ec="none", label="RCJ"),
+                        Line2D([], [], color=blue, lw=1.0, label="CFL")],
+               loc="upper right", fontsize=6.5, frameon=False, handlelength=1.4, handletextpad=0.5,
+               borderaxespad=0.1, labelspacing=0.3)
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    pax.set_xlim(-26, 50); pax.set_ylim(-15, 23); pax.set_aspect("equal")
+    pax.set_xlim(-32, 52); pax.set_ylim(-20, 38); pax.set_aspect("equal")
     pax.set_xlabel("from the proximal phalanx's end (mm)", fontsize=7, labelpad=1)
     pax.set_ylabel("above its axis (mm)", fontsize=7, labelpad=1)
     pax.tick_params(labelsize=6.5, length=2)
