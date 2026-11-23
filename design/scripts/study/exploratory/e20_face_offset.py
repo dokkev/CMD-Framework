@@ -65,7 +65,9 @@ def main() -> int:
                      "normal_mm": float(np.max(dn)), "tangential_mm": float(np.max(dt)),
                      "normal_at_105_mm": float(np.interp(math.radians(105.0), q, dn)),
                      "signed_normal_contacts_mm": float(np.mean(sn[band(q, 35.0, 115.0)])),
-                     "signed_normal_grid_mm": float(np.mean(sn[band(q, 85.0, 115.0)]))})
+                     "signed_normal_grid_mm": float(np.mean(sn[band(q, 85.0, 115.0)])),
+                     "contact_band_contacts_mm": float(np.mean(np.linalg.norm(d, axis=1)[band(q, 35.0, 115.0)])),
+                     "contact_band_grid_mm": float(np.mean(np.linalg.norm(d, axis=1)[band(q, 85.0, 115.0)]))})
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / "summary.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
