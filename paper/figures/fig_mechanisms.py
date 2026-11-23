@@ -19,9 +19,10 @@ region_outline; Gaussian kernel density, largest piece). Only the design space i
 Legend: 2R, RCJ, CFL, in the colours (c) shares.
 Rollers: radii r1, r2 each in the study's 9.5-20 mm, equal (the study's RCJ, Eq. 14's segment) or not, filled as
 one area (roller_pole).
-(c) Study 0's coverage law (Eq. 10) against the pole's height above the face, t - z (Corollary 3.1): coverage
-peaks with the pole on the face. Dots: what each joint type allows (pin: t; rollers inside the face, r <= t:
-t (1 - tan(q/4)); a virtual pole: 0). Replaces the paper's former Fig. 3.
+(c) Study 0's coverage law (Eq. 10) over pad thickness and required flexion, one surface per joint type: a pin on
+the link line, the largest roller inside the face (r = t), a virtual pole on the face. The pin's falls steeply toward
+thick pads and deep flexion; the others stay nearly flat. Floor: where each crosses 0.8. Replaces the paper's
+former Fig. 3.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -253,43 +254,45 @@ def main() -> int:
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    # (c) where the pole should be, from Study 0 alone: the coverage law (Eq. 10) for a pole at constant depth z
-    # under faces at depth t, against the pole's height above the face, tau = t - z; G = 2 [tau]_+ tan(q_req / 2);
-    # the finger of the paper's former Fig. 3 (L_f = 90 mm, pads of 40.7 mm each at G = 0, so x0 = 8.6 mm);
-    # averaged over Q_eval = {90, 105, 120} deg. Coverage peaks at tau = 0, the pole on the face (Corollary 3.1).
-    # What each joint type allows: a pin on the link line, tau = t (black); rollers kept inside the face (r <= t),
-    # whose pole lies r tan(q/4) deep, tau >= t (1 - tan(q/4)) (yellow); a virtual pole (four-bar), tau = 0 (blue).
-    cx = 4.75
-    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage vs pole height", **label)
-    cax = box(cx + 0.36, 0.3, WIDTH - cx - 0.42, height - head - 0.36)
-    Lf, x0, qreq = 90.0, 90.0 - 2 * 40.7, np.radians(FLEXION)
-    qs = np.radians([90.0, 105.0, 120.0])
-    taus = np.linspace(-2.0, 10.0, 400)
+    # (c) how coverage falls with pad thickness h and required flexion q_req, per joint type, from Study 0 alone:
+    # the coverage law (Eq. 10) with faces at depth t = h (mount depth 0), a pole at constant depth z, gap
+    # G = 2 [t - z]_+ tan(q_req / 2), the finger of the paper's former Fig. 3 (L_f = 90 mm, pads of 40.7 mm each at
+    # G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, (90 + q_req) / 2, q_req} deg. A pin sits on the link line
+    # (z = 0); the largest roller inside the face (r = t) puts its pole r tan(q_req / 4) deep; a virtual pole sits on
+    # the face (z = t). On the floor: where each surface crosses 0.8.
+    cx = 4.62
+    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage over pad and flexion", **label)
+    cax = fig.add_axes(((cx - 0.05) / WIDTH, 0.0, (WIDTH - cx + 0.05) / WIDTH, (height - head) / height),
+                       projection="3d")
+    cax.set_box_aspect((1.0, 1.0, 0.95), zoom=0.92)
+    Lf, x0 = 90.0, 90.0 - 2 * 40.7
+    hh, qd = np.meshgrid(np.linspace(1, 9, 60), np.linspace(90, 150, 60))
+    qq = np.radians(qd)
+    depth = {"2r": 0.0 * hh, "rcj": hh * np.tan(qq / 4), "cfl": hh}
 
-    def coverage(t, tau):
-        z = t - tau
-        g = 2 * np.maximum(tau, 0.0) * np.tan(qreq / 2)
-        return np.mean([(Lf - x0 - g) / (Lf - g * (1 - np.cos(q / 2)) + 2 * z * np.sin(q / 2)) for q in qs], axis=0)
+    def coverage(z, t, qreq):
+        g = 2 * np.maximum(t - z, 0.0) * np.tan(qreq / 2)
+        evals = [np.radians(90.0) + 0 * qreq, (np.radians(90.0) + qreq) / 2, qreq]
+        return np.mean([(Lf - x0 - g) / (Lf - g * (1 - np.cos(q / 2)) + 2 * z * np.sin(q / 2)) for q in evals],
+                       axis=0)
 
-    greys = {3: "#bdbcb8", 5: "#8f8e8a", 7: "#5f5e5a", 9: "#2b2a27"}
-    roller_floor = 1 - np.tan(qreq / 4)
-    for t, colour in greys.items():
-        cax.plot(taus, coverage(t, taus), color=colour, lw=1.1, zorder=3)
-        cax.text(10.2, coverage(t, 10.0), f"$t={t}$", fontsize=6.3, color=INK2, ha="left", va="center")
-        for tau, mk in ((t, dict(marker="o", ms=3.6, color=INK)),
-                        (t * roller_floor, dict(marker="o", ms=3.6, color=yellow, mec="white", mew=0.3)),
-                        (0.0, dict(marker="o", ms=3.6, color=blue, mec="white", mew=0.3))):
-            cax.plot(tau, coverage(t, tau), zorder=4, **mk)
-    cax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    cax.set_xlim(taus[0], taus[-1] + 2.2)  # room for the t labels at the curves' ends
-    cax.set_xticks([-2, 0, 2, 4, 6, 8, 10])
-    cax.spines["bottom"].set_bounds(taus[0], taus[-1])
-    cax.set_xlabel("pole height above the face, $t-z$ (mm)", fontsize=7, labelpad=1)
-    cax.set_ylabel(r"$\bar C_{\mathrm{pad}}$", fontsize=7, labelpad=1)
-    cax.tick_params(labelsize=6.5, length=2)
-    for side in ("top", "right"):
-        cax.spines[side].set_visible(False)
-    cax.grid(False)
+    floor = 0.3
+    sheet = {"2r": "#6f6e6a", "rcj": yellow, "cfl": blue}
+    for key, colour in sheet.items():
+        c = np.clip(coverage(depth[key], hh, qq), floor, 1.0)
+        cax.plot_surface(hh, qd, c, color=colour, alpha=0.5, lw=0, antialiased=True, shade=True, rstride=2, cstride=2)
+        cax.plot_wireframe(hh, qd, c, color=colour, lw=0.3, rstride=12, cstride=12, alpha=0.9)
+        cax.contour(hh, qd, c, levels=[0.8], zdir="z", offset=floor, colors=[colour], linewidths=1.0)
+    cax.set_xlim(1, 9); cax.set_ylim(90, 150); cax.set_zlim(floor, 0.9)
+    cax.set_xticks([2, 5, 8]); cax.set_yticks([90, 120, 150]); cax.set_zticks([0.3, 0.5, 0.7, 0.9])
+    cax.set_xlabel("pad $h$ (mm)", labelpad=-9, fontsize=6.5)
+    cax.set_ylabel("flexion $q_{\\mathrm{req}}$ (deg)", labelpad=-8, fontsize=6.5)
+    cax.set_zlabel(r"$\bar C_{\mathrm{pad}}$", labelpad=-9, fontsize=6.5)
+    cax.tick_params(labelsize=5.5, pad=-3)
+    for axis in (cax.xaxis, cax.yaxis, cax.zaxis):
+        axis.pane.set_facecolor((1, 1, 1, 0)); axis.pane.set_edgecolor("#bdbcb8")
+        axis._axinfo["grid"]["color"] = (0.85, 0.85, 0.85, 1); axis._axinfo["grid"]["linewidth"] = 0.3
+    cax.view_init(elev=16, azim=60)
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
     fig.savefig(path, dpi=400)
