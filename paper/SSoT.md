@@ -85,8 +85,16 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
-- Style of Vaswani et al., "Attention Is All You Need": short declarative sentences, active voice, few
-  parentheses, no semicolon chains, one or two numbers per sentence, the rest in tables and figures.
+- Reference papers for style: Bhatia, Johnson and Mason, "Direct Drive Hands: Force-Motion Transparency in
+  Gripper Design" (RSS 2019, the DDHand paper), and Wensing et al., "Proprioceptive Actuator Design in the
+  MIT Cheetah: Impact Mitigation and High-Bandwidth Physical Interaction for Dynamic Legged Robots" (IEEE
+  T-RO 2017). Both are mechanism-design papers written the way this one should be: a physical requirement
+  motivates a design principle; the principle is made measurable by a design metric defined from first
+  principles; simple models explain the trade-off against conventional designs; the comparison and the
+  validation follow from that metric. Write in their register: plain, precise engineering prose, the design
+  rationale stated explicitly, each quantity defined before it is used.
+- Sentences: short and declarative, active voice ("we"), few parentheses, no semicolon chains, one or two
+  numbers per sentence, the rest in tables and figures.
 - Introduction: no equations and no experimental numbers. Say a result in words and point to its section.
 - State results directly. No sentence that concedes or cuts down the work to forestall a reviewer
   ("That much is expected", "admittedly"). Answer an expected objection with the stronger result. Scope that
