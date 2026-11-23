@@ -12,8 +12,9 @@ its change of the contact Jacobian, Delta_contact, one marker per redesigned han
 (b) Contact model, pad friction, holding: Isaac Lab point (as (a), filled), the Drake replica with point contact, and
     Drake with hydroelastic pads (E = 0.1 MPa over 3 mm on every hand). Inputs: sim/drake/logs/e21_point.json,
     e21_hydro.json (analyze.py --out).
-(c) Task, Drake, point, pad friction: holding against a load, grasp acquisition, turning a sprung dial, in-hand
-    rolling. Inputs: e21_point.json, e23_point.json, e24_point.json, e22_point.json (analyze_roll.py --out).
+(c) Task, Drake, point, pad friction: holding against a load, grasp acquisition, turning a sprung dial. Inputs:
+    e21_point.json, e23_point.json, e24_point.json (analyze_roll.py --out). In-hand rolling (experiment 22, which
+    failed its test) is left out of the figure; the paper states it as a limitation.
 Legends give Spearman rho(E, Delta_contact) and its exact or Monte Carlo one-sided permutation p (sim/drake/analyze.py).
 Experiments 21-24: docs/experimental/separability.md.
 """
@@ -119,7 +120,6 @@ def main() -> int:
     series(ax, point, "hold", "#2a78d6", "^", False)
     series(ax, json.loads((DRAKE / "e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
     series(ax, json.loads((DRAKE / "e24_point.json").read_text()), "dial turning", "#eda100", "P", True)
-    series(ax, json.loads((DRAKE / "e22_point.json").read_text()), "in-hand rolling", "#1baf7a", "s", True, ms=2.8)
     style(ax, "(c) task (Drake, point)")
 
     fig.subplots_adjust(left=0.055, right=0.995, bottom=0.2, top=0.61)
