@@ -238,10 +238,10 @@ Crossed four-bar 일반에 대해 이 문서가 주장하는 것은 없다. 다�
 $P(q)=b/(1-e^{iq})=\tfrac b2\big(1+i\cot\tfrac q2\big)$이다. Proximal phalanx의 좌표(원점: 관절 쪽 끝의 축 위, 실수축: phalanx 축 방향, 허수축: dorsal)에서 한 자세 $q$의 $P$가 설계에 따라 놓일 수 있는 자리는 구조마다 차원이 다르다.
 
 - **고정 축:** pin이 곧 phalanx의 끝이므로 $P=0$, **한 점**이다.
-- **같은 roller (반지름 $r$):** proximal roller의 중심이 phalanx의 끝이면 (14)에 의해 $P(q)=r-i\,r\tan\frac q4$이다. 남은 변수는 $r$ 하나이므로 $P$는 원점에서 기울기 $-\tan\frac q4$로 뻗는 **선분**이다($r$ 3–8 mm).
+- **같은 roller (반지름 $r$):** proximal roller의 중심이 phalanx의 끝이면 (14)에 의해 $P(q)=r-i\,r\tan\frac q4$이다. 남은 변수는 $r$ 하나이므로 $P$는 원점에서 기울기 $-\tan\frac q4$로 뻗는 **선분**이다. Study의 범위 $r\in[9.5, 20]$ mm에서 120°의 선분은 $(9.5,-5.5)$–$(20,-11.5)$ mm이다. Study 1의 RCJ는 모든 두께에서 $r=9.5$ mm를 골랐다.
 - **Crossed four-bar:** $b$는 두 link의 닫힘(`feasible_space.md` F1: 움직이는 pivot은 두 원의 교점)으로 정해지므로, pivot의 위치를 바꾸면 $P$가 **영역**을 덮는다(원점: proximal pivot $A$).
 
-확인(해석적 sweep, 최적화 run이 아님): pivot을 phalanx 안에 둔 crossed four-bar를 무작위로 60,000개 뽑아(A, B는 link 선 위 관절에서 15 mm 이내, A′, B′는 dorsal 14 mm 이내) $[0,120^\circ]$에서 조립 형태를 유지하며 닫히는 25,577개의 $P(120^\circ)-A$를 계산했다. 그 90%는 phalanx 끝에서 약 −4–25 mm, 축에서 약 ±4 mm의 영역에 있다. 그림은 `paper/figures/fig_mechanisms.py`의 (e)이다(원고 Fig. 2e).
+확인(해석적 sweep, 최적화 run이 아님): Study의 CFL 설계 공간 경계(A, B는 link 선 위 0–90 mm, B는 A보다 distal; A′는 A에서 −20–30 mm, dorsal 0–25 mm; B′는 B에서 −50–20 mm, −60–80 mm)에서 pivot을 200,000번 뽑았다. 두 link가 교차하는 것(49,960개) 가운데 $[0,120^\circ]$에서 조립 형태를 유지하며 닫히는 44,909개의 $P(120^\circ)-A$를 계산했다. 그 95%는 phalanx 끝에서 약 −23–49 mm, 축에서 약 −11–21 mm의 영역에 있다. Study 1의 CFL 설계(3, 5, 7, 9 mm)의 $P-A$는 $(23.7,-3.2)$, $(26.1,-5.3)$, $(28.4,-7.6)$, $(28.4,-8.8)$ mm로 모두 이 영역 안이고, 영역의 palmar 쪽 끝에 있다. 이 sweep의 닫힘식은 평가기와 대조했다: Study 1 CFL 네 설계에서 $P$와 $B(120^\circ)$가 소수 둘째 자리까지 같다. 같은 대조에서 2R의 $P$는 pin과, RCJ의 $P$는 (14)와 정확히 일치했다. 그림은 `paper/figures/fig_mechanisms.py`의 (e)이다(원고 Fig. 2e).
 
 Pin과 roller는 물체가 있는 자리에 놓여야 하므로 pad의 장착면 위에 머물고, 깊은 pole을 얻으려면 roller가 커져야 한다. Four-bar의 pole은 가상의 점이라 그 제약이 없다(따름정리 3.1의 "가장 좋은 관절은 contact face 위의 점을 중심으로 도는 관절").
 

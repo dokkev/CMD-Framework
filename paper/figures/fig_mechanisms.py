@@ -9,13 +9,13 @@ the contact face (PNG only).
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there.
-(e) The finite poles P(120 deg) each joint type can reach over its designs, in the proximal phalanx's frame
-(origin: its end on its axis), from Study 0's analysis (no optimization run): a pin is the phalanx end (a point);
-equal rollers, the proximal one centred at the phalanx end, put P = r - i r tan(q/4) (Study 0, Eq. 14) on one
-segment for r in 3-8 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b from the closure of its links
-(feasible_space.md, F1), covers an area: shaded, the region holding 90% of the four-bars whose pivots lie in the
-phalanges (A, B on the link line within 15 mm of the joint, A', B' up to 14 mm dorsal) that close through 120 deg;
-Gaussian kernel density.
+(e) The finite poles P(120 deg) each joint type can reach over the study's design space, in the proximal
+phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run): a pin is the phalanx
+end (a point); equal rollers, the proximal one centred at the phalanx end, put P = r - i r tan(q/4) (Study 0,
+Eq. 14) on one segment for the study's r of 9.5-20 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b
+from the closure of its links (feasible_space.md, F1), covers an area: shaded, the region holding 95% of the crossed
+four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
+density. Dots: the CFL's Study 1 designs for 3-9 mm pads, all inside it.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -76,21 +76,30 @@ def pole_on_pad(view, q_deg: float) -> tuple[float, float]:
     return float(pole[0] - pad[:, 0].max()), float(pole[1] - pad[:, 1].max())
 
 
-def four_bar_poles(q: float, n: int = 60000, seed: int = 0) -> np.ndarray:
-    """P(q), relative to the proximal phalanx's end A, of crossed four-bars whose pivots lie in the phalanges: A, B on the link line within 15 mm of the joint,
-    A', B' up to 14 mm dorsal; each closes through [0, q] (F1: the moving pivot is a circle intersection) and keeps
-    its assembly branch. Returns the finite poles (Lemma 1) of those that do."""
+def four_bar_poles(q: float, n: int = 200000, seed: int = 0) -> np.ndarray:
+    """P(q), relative to the proximal pivot A (the proximal phalanx's end on its axis), of crossed four-bars drawn
+    uniformly from the study's CFL design space (A, B on the link line in 0-90 mm with B distal of A; A' from A by
+    -20..30 mm along and 0..25 mm dorsal; B' from B by -50..20 mm along and -60..80 mm across), kept if the links
+    A'-B and A-B' cross and the linkage closes through [0, q] on its assembly branch (F1: the moving pivot is a
+    circle intersection). Returns their finite poles (Lemma 1)."""
     rng = np.random.default_rng(seed)
     qs = np.linspace(0.0, q, 61)
 
     def rot(t):  # palmar flexion: clockwise in (x distal, z dorsal)
         return np.array([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
 
+    def crossed(p1, p2, p3, p4) -> bool:
+        side = lambda a, b, c: (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])  # noqa: E731
+        return side(p1, p2, p3) * side(p1, p2, p4) < 0 and side(p3, p4, p1) * side(p3, p4, p2) < 0
+
     out = []
     for _ in range(n):
-        a, b = np.array([rng.uniform(-15, 0), 0.0]), np.array([rng.uniform(0, 15), 0.0])
-        ap = np.array([rng.uniform(-10, 15), rng.uniform(0, 14)])
-        bp = np.array([rng.uniform(-10, 15), rng.uniform(0, 14)])
+        ax_ = rng.uniform(0.1, 90.0)
+        a, b = np.array([ax_, 0.0]), np.array([rng.uniform(ax_, 90.0), 0.0])
+        ap = a + np.array([rng.uniform(-20, 30), rng.uniform(0, 25)])
+        bp = b + np.array([rng.uniform(-50, 20), rng.uniform(-60, 80)])
+        if not crossed(ap, b, a, bp):
+            continue
         r1, r2, w = np.linalg.norm(b - ap), np.linalg.norm(bp - a), bp - b
         prev, ok = b.copy(), True
         for t in qs:
@@ -106,10 +115,9 @@ def four_bar_poles(q: float, n: int = 60000, seed: int = 0) -> np.ndarray:
             prev = c1 if np.linalg.norm(c1 - prev) < np.linalg.norm(c2 - prev) else c2
         if not ok:
             continue
-        disp = prev - rot(q) @ b
-        pole = np.linalg.solve(np.eye(2) - rot(q), disp)
-        if np.all(np.isfinite(pole)) and np.linalg.norm(pole) < 40:
-            out.append(pole - a)  # relative to A, the proximal phalanx's end on its axis
+        pole = np.linalg.solve(np.eye(2) - rot(q), prev - rot(q) @ b)
+        if np.all(np.isfinite(pole)):
+            out.append(pole - a)
     return np.array(out)
 
 
@@ -170,22 +178,28 @@ def main() -> int:
     from scipy.stats import gaussian_kde
     blue, yellow = ARCH[3][2], ARCH[2][2]
     poles = four_bar_poles(np.radians(FLEXION))
-    gx, gy = np.meshgrid(np.linspace(-6, 30, 260), np.linspace(-10, 10, 150))
+    gx, gy = np.meshgrid(np.linspace(-26, 50, 320), np.linspace(-15, 23, 170))
     kde = gaussian_kde(poles.T, bw_method=0.25)
     dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
-    level = np.sort(kde(poles.T))[int(0.10 * len(poles))]
+    level = np.sort(kde(poles.T))[int(0.05 * len(poles))]  # the region holding 95% of them
     pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
     pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
-    # equal rollers, the proximal one's centre at the phalanx end: P = r - i r tan(q/4), r in 3-8 mm
-    r = np.array([3.0, 8.0])
+    # the CFL's Study 1 designs (3-9 mm), in the same frame
+    s1 = one_finger.study1_designs("cfl", config["architectures"]["cfl"], FLEXION, config)
+    for ref in s1.values():
+        v = view_of(ref.mechanism, ref.config, ref.x)
+        pt = finite_pole(v, FLEXION) - v.joint.finger.joint.a.array
+        pax.plot(*pt, marker="o", ms=2.8, color=blue, mec="white", mew=0.4, zorder=4)
+    # equal rollers, the proximal one's centre at the phalanx end: P = r - i r tan(q/4), r in the study's 9.5-20 mm
+    r = np.array([9.5, 20.0])
     pax.plot(r, -r * np.tan(np.radians(FLEXION) / 4), color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    pax.text(-0.6, 0.5, "2R: a point", fontsize=6.3, color=INK, ha="right", va="bottom", zorder=5)
-    pax.text(8.6, -4.6, "RCJ: a segment", fontsize=6.3, color="#a87000", ha="left", va="center", zorder=5)
-    pax.text(29.5, 7.6, "CFL: an area", fontsize=6.3, color=blue, ha="right", va="top", fontweight="bold", zorder=5)
-    pax.set_xlim(-6, 30); pax.set_ylim(-8, 8); pax.set_aspect("equal")
+    pax.text(-1.0, 0.8, "2R: a point", fontsize=6.3, color=INK, ha="right", va="bottom", zorder=5)
+    pax.text(21.5, -12.8, "RCJ: a segment", fontsize=6.3, color="#a87000", ha="left", va="center", zorder=5)
+    pax.text(49.0, 22.0, "CFL: an area", fontsize=6.3, color=blue, ha="right", va="top", fontweight="bold", zorder=5)
+    pax.set_xlim(-26, 50); pax.set_ylim(-15, 23); pax.set_aspect("equal")
     pax.set_xlabel("from the proximal phalanx's end (mm)", fontsize=7, labelpad=1)
     pax.set_ylabel("above its axis (mm)", fontsize=7, labelpad=1)
     pax.tick_params(labelsize=6.5, length=2)
