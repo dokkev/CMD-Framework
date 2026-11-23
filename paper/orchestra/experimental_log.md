@@ -331,3 +331,12 @@ Relative error vs Delta_contact: rho 0.94 [0.84, 0.97], p < 1e-5 (holds). Revers
 direction (rho -0.99 with the signed error, -0.88 with the reversed share): an advancing face presses harder and
 hides or reverses the loss (minDs family, up to 40% reversed; U), a retreating face exaggerates it. Paper: Study 4
 folded into Study 3 as "the interface that forced the redesign"; abstract says the error *can* reverse a conclusion.
+
+## Study 3: second engine, contact models and tasks (experiments 21–26, pre-registered; 2026-11-23; `sim/drake/`)
+
+Drake (SAP) replica of the two-pad measurement on one planar finger, condition A, the same gates and load ramp.
+- Point contact: ρ(E, Δ_contact) = 0.67 (p 0.003, 16 hands); R 19%, U 72%.
+- Hydroelastic pads, 0.1 MPa over 3 mm on every hand: ρ 0.86 (p < 10⁻⁴), Δ_skel 0.09; R 17%, U 254%.
+- Pads as soft as they are thick (0.1 MPa over each pad's own thickness), against O carrying the same pad (experiment 25): ρ(E′, Δ_contact) = 0.78 (p 0.0003, 15 hands; three hands with Δ_contact ≥ 4.4 mm cannot hold), Δ_skel −0.10. R 5.9, 16.3, 104.2%; U 109.4, 347.2, 370.4% at 5, 7, 9 mm. Below 1 mm of Δ_contact the errors match point contact; above it they are two to three times larger.
+- Tasks under the same open-loop commands (point contact): grasp pull-out (the load ramp above), grasp acquisition (closing from open to draw a cylinder in against a load; ρ 0.87, Δ_skel 0.11, 18 hands), turning a sprung dial by 15–42° in one closing (experiment 26: ρ 0.81, p 0.0001, Δ_skel 0.09; R 31%, U 88%; noise floor 0.7%). In-hand rolling by a flexion sweep fails (ρ 0.28).
+- Figure: `fig_study3.png` (a) task frames rendered in Drake at simulated states, (b) Isaac Lab, (c) contact models, (d) tasks.
