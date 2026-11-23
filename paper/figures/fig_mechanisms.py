@@ -18,8 +18,8 @@ from the closure of its links (feasible_space.md, F1), covers an area: shaded, t
 four-bars drawn from the study's CFL bounds that close through 120 deg (see four_bar_poles); Gaussian kernel
 density. Only the design space is drawn, no particular design (Study 1's CFL poles all lie inside it; see
 report/study0/derivation.md 4.4). No text labels: the caption names them.
-Rollers: radii r1, r2 each in the study's 9.5-20 mm; equal (the study's RCJ) give the segment, unequal the light
-area around it (roller_pole).
+Rollers: radii r1, r2 each in the study's 9.5-20 mm, equal (the study's RCJ, Eq. 14's segment) or not, filled as
+one area (roller_pole).
 (c) Study 0's coverage law (Eq. 10) for a pole at constant depth z and faces at depth t (Corollary 3.1): coverage
 peaks at z = t. Bars: the depths each joint's pole reaches in (b). Replaces the paper's former Fig. 3.
 Drawn at print size (full text width, 7.16 in).
@@ -219,14 +219,13 @@ def main() -> int:
     pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
     pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
     # rollers, the proximal one's centre at the phalanx end, radii each in the study's 9.5-20 mm: unequal ones
-    # cover an area (the image of the radius square's boundary), equal ones the segment P = r - i r tan(q/4)
+    # and equal ones alike: one area (the image of the radius square's boundary), drawn without telling them apart
     radii = np.linspace(9.5, 20.0, 60)
     lo_r, hi_r = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
     edge = np.concatenate([roller_pole(radii, lo_r, qr), roller_pole(hi_r, radii, qr),
                            roller_pole(radii[::-1], hi_r, qr), roller_pole(lo_r, radii[::-1], qr)])
-    pax.fill(edge.real, edge.imag, color=yellow, alpha=0.35, lw=0.8, ec=yellow, zorder=2)
-    seg = roller_pole(radii, radii, qr)
-    pax.plot(seg.real, seg.imag, color=yellow, lw=2.4, solid_capstyle="butt", zorder=3)
+    pax.fill(edge.real, edge.imag, fc=yellow, alpha=0.6, ec="none", zorder=2)
+    pax.fill(edge.real, edge.imag, fc="none", ec=yellow, lw=0.8, zorder=2.1)
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
