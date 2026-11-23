@@ -20,6 +20,7 @@ RADII, MU = (15.0, 20.0), (1.3, 2.0)
 TASKS = {  # task: (file stem, variant tag prefix, variants, result key, metric, minimum |D(O)|, O must hold)
     "roll": ("dkroll", "s", (8, 15), "roll", "rotation_deg", 0.5, False),
     "pullin": ("dkpullin", "a", (3, 6), "pullin", "drawn_mm", 0.3, True),
+    "dial": ("dkdial", "s", (8, 15), "dial", "rotation_deg", 0.3, True),
 }
 TASK = "roll"
 

@@ -5,9 +5,9 @@
 (a) E against Delta_contact over the redesigned hands under the reused impedance setpoint (condition A, pad friction
 1.3 -> 2.0): Isaac Lab point contact (the paper's Study 3), the Drake replica with point contact, and Drake with
 hydroelastic pads (E = 0.1 MPa over 3 mm). (b) The same measure in two open-loop tasks beyond holding (Drake, point):
-in-hand rolling by a flexion sweep and grasp acquisition under a load. Each panel states Spearman rho(E, D_contact)
+in-hand rolling by a flexion sweep, grasp acquisition under a load and turning a sprung dial. Each panel states Spearman rho(E, D_contact)
 and its one-sided p. Inputs: sim/drake/logs/e21_point.json, e21_hydro.json (analyze.py --out), e22_point.json,
-e23_point.json (analyze_roll.py --out); experiments 21-23 in docs/experimental/separability.md.
+e23_point.json, e24_point.json (analyze_roll.py --out); experiments 21-24 in docs/experimental/separability.md.
 """
 import json
 import sys
@@ -30,6 +30,7 @@ SERIES = {  # key: (label, colour, marker, filled)
     "grasp": ("hold (Drake, point)", "#2a78d6", "^", False),
     "roll": ("in-hand rolling", "#1baf7a", "s", True),
     "pullin": ("grasp acquisition", "#9b5de5", "v", True),
+    "dial": ("dial turning", "#eda100", "P", True),
 }
 
 
@@ -68,6 +69,7 @@ def main() -> int:
     scatter(axes[1], point, "grasp")
     scatter(axes[1], load("e22_point.json"), "roll")
     scatter(axes[1], load("e23_point.json"), "pullin")
+    scatter(axes[1], load("e24_point.json"), "dial")
     for ax, title in zip(axes, ("(a) contact model", "(b) task")):
         ax.text(0.03, 0.98, title, transform=ax.transAxes, fontsize=7, fontweight="bold", va="top", ha="left")
         ax.set_xlabel(r"$\Delta_{\mathrm{contact}}$ (mm)", fontsize=7, labelpad=1)
@@ -80,7 +82,7 @@ def main() -> int:
         ax.legend(fontsize=5.2, frameon=False, loc="lower left", bbox_to_anchor=(-0.05, 1.01), handletextpad=0.2,
                   borderaxespad=0.0, labelspacing=0.15, handlelength=1.0)
     axes[0].set_ylabel("$E$ (%)", fontsize=7, labelpad=1)
-    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.17, top=0.74)
+    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.17, top=0.7)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_contact_models.png"
     fig.savefig(out, dpi=400)
