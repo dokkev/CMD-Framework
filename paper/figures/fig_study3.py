@@ -17,10 +17,11 @@ its change of the contact Jacobian, Delta_contact, one marker per redesigned han
     logs/render_<task><frame>.png): O's linkage (links drawn bowed, pins exact), pads and servos; red arrows: load.
 Panels (b)-(d) below were (a), (b), (d) before 2026-11-23.
 (d) Task, Drake, point, pad friction: grasp pull-out (the load rising until the grasp gives way), grasp acquisition, turning a sprung dial. Inputs:
-    e21_point.json, e23_point.json, e24_point.json (analyze_roll.py --out). In-hand rolling (experiment 22, which
+    e21_point.json, e23_point.json, e26_point.json (analyze_roll.py --out; the dial of experiment 26, turned about 30
+    degrees, replaced experiment 24's 5-10 degree dial on 2026-11-23). In-hand rolling (experiment 22, which
     failed its test) is left out of the figure; the paper states it as a limitation.
 Legends give Spearman rho(E, Delta_contact) and its exact or Monte Carlo one-sided permutation p (sim/drake/analyze.py).
-Experiments 21-24: docs/experimental/separability.md.
+Experiments 21-26: docs/experimental/separability.md.
 """
 import json
 import sys
@@ -168,7 +169,7 @@ def main() -> int:
     ax = axes[3]
     series(ax, point, "grasp pull-out", "#2a78d6", "^", False)
     series(ax, json.loads((DRAKE / "e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
-    series(ax, json.loads((DRAKE / "e24_point.json").read_text()), "dial turning", "#eda100", "P", True)
+    series(ax, json.loads((DRAKE / "e26_point.json").read_text()), "dial turning", "#eda100", "P", True)
     style(ax, "(d) task (Drake, point)")
 
     DEST.mkdir(parents=True, exist_ok=True)

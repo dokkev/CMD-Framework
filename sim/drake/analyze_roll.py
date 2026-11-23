@@ -21,7 +21,9 @@ TASKS = {  # task: (file stem, variant tag prefix, variants, result key, metric,
     "roll": ("dkroll", "s", (8, 15), "roll", "rotation_deg", 0.5, False),
     "pullin": ("dkpullin", "a", (3, 6), "pullin", "drawn_mm", 0.3, True),
     "dial": ("dkdial", "s", (8, 15), "dial", "rotation_deg", 0.3, True),
+    "dial30": ("dkdial", "s", (45,), "dial", "rotation_deg", 0.3, True),  # experiment 26
 }
+TASK_RADII = {"dial30": (10.0, 12.0)}
 TASK = "roll"
 
 
@@ -35,7 +37,7 @@ def error(hand, contact, tag):
     _, _, variants, rk, metric, min_effect, o_holds = TASKS[TASK]
     rel, lost, n = [], 0, 0
     for s in variants:
-        for r in RADII:
+        for r in TASK_RADII.get(TASK, RADII):
             runs = {(h, m): load(h, m, contact, tag, s, r) for h in ("O", hand) for m in MU}
             if any(v is None for v in runs.values()):
                 return None

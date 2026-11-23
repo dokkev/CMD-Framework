@@ -303,7 +303,7 @@ def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1
 
     # the object
     c = np.array(st["centre"])
-    rho = snap["rho_mm"]
+    rho = snap[task].get("rho_mm", snap["rho_mm"])
     y_lo, y_hi = -14.0, 14.0  # a little longer than the finger is wide
     if task == "dial":
         sc.cylinder(c, y_lo, y_hi, rho, KNOB, n=96)

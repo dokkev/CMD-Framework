@@ -28,14 +28,15 @@ def pose(s):
             "centre": [1e3 * c[0], 1e3 * c[2]], "spin": float(spin)}
 
 
-def setup():
+def setup(g=None, rho=None):
+    g, rho = g or G, rho or RHO
     geom = T.finger_geometry(HAND)
     qs, th = T.servo_table(geom)
-    q_cmd = math.radians(G["q0_deg"] + 5.0)
+    q_cmd = math.radians(g["q0_deg"] + 5.0)
     theta_cmd = float(np.interp(q_cmd, qs, th))
     ratio = float(np.interp(q_cmd, qs, np.gradient(th, qs)))
     face = (geom["pads"]["mount_offset_mm"] + geom["pads"]["thickness_mm"]) * 1e-3
-    x0 = np.array([G["x_c_mm"] * 1e-3, -(face + RHO * 1e-3)])
+    x0 = np.array([g["x_c_mm"] * 1e-3, -(face + rho * 1e-3)])
     return geom, qs, th, q_cmd, theta_cmd, T.K_Q / ratio ** 2, T.D_Q / ratio ** 2, x0
 
 
@@ -106,26 +107,32 @@ def acquire():
     return {"frames": frames}
 
 
+DIAL_RHO, DIAL_Q0 = 10.0, 70.0  # experiment 26: the 30-degree dial, one of its placements
+
+
 def dial():
-    geom, qs, th, q_cmd, theta_cmd, k, d, x0 = setup()
+    """Experiment 26's dial: radius 10 mm, axis 3 mm off the proximal face, 300 N/m away from it, closing to
+    min(q0 + 5 + 45 deg, 120 deg) over 3 s and held 1 s."""
+    g = [x for x in json.loads((T.OUT / "grasps_r10.json").read_text())["grasps"] if x["q0_deg"] == DIAL_Q0][0]
+    geom, qs, th, q_cmd, theta_cmd, k, d, x0 = setup(g, DIAL_RHO)
     T.DIAL_Z_STIFFNESS, T.DIAL_BRAKE_NM = 300.0, 0.0
-    s = T.Stage(HAND, MU, RHO, "point", 1e-3, "xz", k, d)
-    centre = np.array([x0[0], x0[1] - 1e-3])
+    s = T.Stage(HAND, MU, DIAL_RHO, "point", 1e-3, "xz", k, d)
+    centre = np.array([x0[0], x0[1] - 3e-3])
     s.plant.GetJointByName("slide_x").set_translation(s.pctx, centre[0])
     s.plant.GetJointByName("slide_z").set_translation(s.pctx, centre[1])
     s.ctrl.hold_at = np.array([centre[0], centre[1], 0.0])
     s.sim.Initialize()
     frames = [frame(s)]
-    q1 = min(q_cmd + math.radians(15.0), math.radians(120.0))
+    q1 = min(q_cmd + math.radians(45.0), math.radians(120.0))
     for i in range(120):
         q = q1 * min(1.0, (i + 1) / 90)
         s.ctrl.theta_cmd = float(np.interp(q, qs, th))
         s.step()
-        if i == 74:
+        if i == 79:
             frames.append(frame(s))
     frames.append(frame(s))
     T.DIAL_Z_STIFFNESS = 0.0
-    return {"frames": frames, "axis": [1e3 * centre[0], 1e3 * centre[1]]}
+    return {"frames": frames, "axis": [1e3 * centre[0], 1e3 * centre[1]], "rho_mm": DIAL_RHO}
 
 
 def main():
