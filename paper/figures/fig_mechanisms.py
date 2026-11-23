@@ -9,12 +9,13 @@ the contact face (PNG only).
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced), drawn qualitatively: pads
 at 7 mm like the others, the distal pad laid on its link, and A'' placed at A so the proximal triangle closes
 there.
-(e) The finite pole P(q_req) in the complex plane, by joint type, from Study 0's analysis (no optimization run):
-a fixed axis's P is its pin (a point); equal rollers' P = (a + r) - i r tan(q/4) (Study 0, Eq. 14) lies on one
-vertical segment for r in 3-8 mm; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1), with b from the closure of
-its links (feasible_space.md, F1), covers an area: shaded, the region holding 90% of the four-bars whose pivots lie
-in the phalanges (A, B on the link line within 15 mm of the joint, A', B' up to 14 mm dorsal) and that close
-through q_req; Gaussian kernel density.
+(e) The finite poles P(q_req) that each joint type can reach over its designs, in the complex plane, for
+q_req = 90, 120 and 150 deg overlaid, from Study 0's analysis (no optimization run): a fixed axis's P is its pin,
+anywhere on the link line (a line); equal rollers' P = (a + r) - i r tan(q/4) (Study 0, Eq. 14), with the tangent
+anywhere and r in 3-8 mm, fills a band below the link line; a crossed four-bar's P = b / (1 - e^{iq}) (Lemma 1),
+with b from the closure of its links (feasible_space.md, F1), covers an area: shaded, the region holding 90% of the
+four-bars whose pivots lie in the phalanges (A, B on the link line within 15 mm of the joint, A', B' up to 14 mm
+dorsal) and that close through q_req; Gaussian kernel density.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -166,24 +167,28 @@ def main() -> int:
     # closure of its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
     left = 0.005 + len(ARCH) * panel_w / WIDTH + 0.075
     pax = fig.add_axes((left, 0.25, 0.995 - left - 0.005, 0.6))
-    poles = four_bar_poles(np.radians(FLEXION))
     from scipy.stats import gaussian_kde
-    kde = gaussian_kde(poles.T, bw_method=0.25)
     gx, gy = np.meshgrid(np.linspace(-12, 16, 240), np.linspace(-8, 8, 140))
-    dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
-    level = np.sort(kde(poles.T))[int(0.10 * len(poles))]
     blue, yellow = ARCH[3][2], ARCH[2][2]
-    pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[blue], alpha=0.25, zorder=1)
-    pax.contour(gx, gy, dens, levels=[level], colors=[blue], linewidths=0.8, zorder=1.1)
-    r = np.array([3.0, 8.0])  # roller radii
-    depth = -r * np.tan(np.radians(FLEXION) / 4)
-    pax.plot([0, 0], [0, depth[-1]], color=yellow, lw=3.0, solid_capstyle="butt", zorder=3)
-    pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)
-    pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
+    shades = {90: ("#93bde9", "#e8c27a"), 120: ("#2a78d6", "#eda100"), 150: ("#0d3c78", "#a87000")}
+    r_min, r_max = 3.0, 8.0  # roller radii, mm
+    for k, (qd, (cb, cy)) in enumerate(shades.items()):
+        poles = four_bar_poles(np.radians(qd))
+        kde = gaussian_kde(poles.T, bw_method=0.25)
+        dens = kde(np.vstack([gx.ravel(), gy.ravel()])).reshape(gx.shape)
+        level = np.sort(kde(poles.T))[int(0.10 * len(poles))]
+        pax.contourf(gx, gy, dens, levels=[level, dens.max() * 1.01], colors=[cb], alpha=0.12, zorder=1)
+        pax.contour(gx, gy, dens, levels=[level], colors=[cb], linewidths=0.8, zorder=1.1)
+        # equal rollers: the tangent x = a + r anywhere, depth r tan(q/4) for r in 3-8 mm: a band
+        lo, hi = -r_min * np.tan(np.radians(qd) / 4), -r_max * np.tan(np.radians(qd) / 4)
+        pax.fill_between([-12, 16], [lo, lo], [hi, hi], color=cy, alpha=0.18, lw=0, zorder=2)
+        pax.plot([-12, 16], [hi, hi], color=cy, lw=0.8, zorder=2.1)
+        pax.text(15.5, 7.4 - 1.25 * k, f"{qd}$^\\circ$", color=cb, fontsize=6.3, ha="right", va="top", zorder=5)
+    pax.plot([-12, 16], [0, 0], color=INK, lw=1.6, zorder=4)  # a pin anywhere on the link line
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    pax.text(0.7, 0.6, "2R: one point", fontsize=6.3, color=INK, ha="left", va="bottom", zorder=5)
-    pax.text(-0.7, depth[-1] + 0.2, "RCJ: a segment", fontsize=6.3, color="#a87000", ha="right", va="bottom", zorder=5)
-    pax.text(15.5, 6.6, "CFL: an area", fontsize=6.3, color=blue, ha="right", va="top", fontweight="bold", zorder=5)
+    pax.text(-11.5, 0.4, "2R: a line", fontsize=6.3, color=INK, ha="left", va="bottom", zorder=5)
+    pax.text(-11.5, -7.6, "RCJ: a band set by $r$", fontsize=6.3, color="#a87000", ha="left", va="bottom", zorder=5)
+    pax.text(-11.5, 7.4, "CFL: an area", fontsize=6.3, color=blue, ha="left", va="top", fontweight="bold", zorder=5)
     pax.set_xlim(-12, 16); pax.set_ylim(-8, 8); pax.set_aspect("equal")
     pax.set_xlabel(r"Re $P$ (mm, distal)", fontsize=7, labelpad=1)
     pax.set_ylabel(r"Im $P$ (mm, dorsal)", fontsize=7, labelpad=1)
@@ -191,7 +196,7 @@ def main() -> int:
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    fig.text(left - 0.045, 1 - 0.02 / height, "(e) pole $P$ at $120^\\circ$", ha="left", va="top", fontsize=7.5,
+    fig.text(left - 0.045, 1 - 0.02 / height, "(e) pole $P$ at $q_{\\mathrm{req}}$", ha="left", va="top", fontsize=7.5,
              fontweight="bold")
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
