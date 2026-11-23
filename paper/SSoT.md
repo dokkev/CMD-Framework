@@ -106,6 +106,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
     (thus, in contrast, as a result, to this end) as in Wensing, not chopped into fragments; few parentheses and
     no semicolon chains; one or two numbers per sentence, the rest in tables and
     figures; nothing the reader must hold in mind before it pays off.
+- Abstract: in the shape of the Attention abstract: the dominant approach, its limitation, the proposal ("This paper proposes …, dispensing with …"), what the analysis and the experiments show, one or two numbers.
 - Introduction: no equations and no experimental numbers. Say a result in words and point to its section.
 - State results directly. No sentence that concedes or cuts down the work to forestall a reviewer
   ("That much is expected", "admittedly"). Answer an expected objection with the stronger result. Scope that
