@@ -233,3 +233,17 @@ Figs. 2c and 4b-d hard to read; 2R-remote gets much of the room at 90-120 deg. r
 floor reads as a contradiction (the c0-free assumption change is not explained). r1: no convergence or seed
 variance for the GA/NSGA-II.
 | v31 | e56892b | 6, 6, 6 | — | experiment 25 (pads as soft as thick) and the 30° dial in; protocol scope in the conclusion, bound's depth condition, -37/-41 split; Presentation 3, 2, 3; remaining: Delta_contact is a position (offset/preload predictors not in Table I; r2, r3), protocol-specific rule (r1, r2), lead over Delta_skel not significant at 14-16 hands (all), "studied independently" and "only a joint whose pole moves" imprecise (r3), CFL/RCJ ideal undefined after the cut (r3), R's number missing from the reversal (r3), noise floor not stated (r2) |
+
+v33: 6, 6, 6, all Accept (manuscript 6ccab83; whole text in the register of Wensing et al., abstract in the
+shape of the Attention abstract, classical derivations reduced to formula plus citation, five pages). Sub-scores:
+r2, r3 O3 Q3 C2 Si2 So3 P2 Co3; r1 O3 Q2 C2 Si2 So3 P2 Co2. Clarity and Presentation stay at 2. The pole
+analysis is still read as compact and correct, and the framing as clear and new. New or sharper critiques:
+"CFL" is used from the contribution list on and never expanded, "2R-DD" neither (all three); M names both a
+generic design and the middle redesign (r2); Fig. 1 caption lacks (a); hand counts 15/14/45/27/18 vs "18
+redesigns" not reconciled (r1, r2); the abstract's "a fixed axis cannot preserve this motion" is stronger than
+the corollary, which rests on the mounting rule and c0 (all three); the room contribution is mostly remote
+actuation, and the headline compares with 2R-DD only (r1, r2); "both errors follow the skeleton" overstates the
+torque column, 0.69 vs 0.71 (r3); the 48% vs -41% number comes from U, not from a skeleton-keeping redesign
+(r3); the costs of the CFL (mechanical advantage, backlash, part count) are barely discussed (all three);
+related work too brief (all three). Repeats: simulation only, preload, protocol-specific, pre-registration
+unverifiable, seed variance.
