@@ -20,8 +20,9 @@ density. Only the design space is drawn, no particular design (Study 1's CFL pol
 report/study0/derivation.md 4.4). No text labels: the caption names them.
 Rollers: radii r1, r2 each in the study's 9.5-20 mm, equal (the study's RCJ, Eq. 14's segment) or not, filled as
 one area (roller_pole).
-(c) Study 0's coverage law (Eq. 10) for a pole at constant depth z and faces at depth t (Corollary 3.1): coverage
-peaks at z = t. Bars: the depths each joint's pole reaches in (b). Replaces the paper's former Fig. 3.
+(c) Study 0's coverage law (Eq. 10) against the pole's height above the face, t - z (Corollary 3.1): coverage
+peaks with the pole on the face. Dots: what each joint type allows (pin: t; rollers inside the face, r <= t:
+t (1 - tan(q/4)); a virtual pole: 0). Replaces the paper's former Fig. 3.
 Drawn at print size (full text width, 7.16 in).
 """
 import csv
@@ -236,43 +237,38 @@ def main() -> int:
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    # (c) where the pole should be: Study 0's coverage law (Eq. 10) with a pole at constant depth z below the link
-    # line, pads at depth t (mount depth 0), G = 2 [t - z]_+ tan(q_req / 2), the finger of Fig. 3's old panels
-    # (L_f = 90 mm, pads of 40.7 mm each at G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, 105, 120} deg.
-    # Coverage peaks where the pole reaches the face (z = t, Corollary 3.1). Bars below: the depths each joint's
-    # pole reaches at 120 deg, as in (b) (pin: 0; rollers: r tan 30 deg for r in 9.5-20 mm; four-bars: their 95%).
+    # (c) where the pole should be, from Study 0 alone: the coverage law (Eq. 10) for a pole at constant depth z
+    # under faces at depth t, against the pole's height above the face, tau = t - z; G = 2 [tau]_+ tan(q_req / 2);
+    # the finger of the paper's former Fig. 3 (L_f = 90 mm, pads of 40.7 mm each at G = 0, so x0 = 8.6 mm);
+    # averaged over Q_eval = {90, 105, 120} deg. Coverage peaks at tau = 0, the pole on the face (Corollary 3.1).
+    # What each joint type allows: a pin on the link line, tau = t (black); rollers kept inside the face (r <= t),
+    # whose pole lies r tan(q/4) deep, tau >= t (1 - tan(q/4)) (yellow); a virtual pole (four-bar), tau = 0 (blue).
     cx = 4.75
-    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage vs pole depth", **label)
+    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage vs pole height", **label)
     cax = box(cx + 0.36, 0.3, WIDTH - cx - 0.42, height - head - 0.36)
     Lf, x0, qreq = 90.0, 90.0 - 2 * 40.7, np.radians(FLEXION)
     qs = np.radians([90.0, 105.0, 120.0])
-    zz = np.linspace(-4, 14, 400)
+    taus = np.linspace(-2.0, 10.0, 400)
 
-    def coverage(t, z):
-        g = 2 * np.maximum(t - z, 0.0) * np.tan(qreq / 2)
+    def coverage(t, tau):
+        z = t - tau
+        g = 2 * np.maximum(tau, 0.0) * np.tan(qreq / 2)
         return np.mean([(Lf - x0 - g) / (Lf - g * (1 - np.cos(q / 2)) + 2 * z * np.sin(q / 2)) for q in qs], axis=0)
 
     greys = {3: "#bdbcb8", 5: "#8f8e8a", 7: "#5f5e5a", 9: "#2b2a27"}
-    curves = {t: coverage(t, zz) for t in greys}
+    roller_floor = 1 - np.tan(qreq / 4)
     for t, colour in greys.items():
-        cax.plot(zz, curves[t], color=colour, lw=1.1, zorder=3)
-        peak = coverage(t, t)
-        cax.plot(t, peak, marker="o", ms=3.2, mfc="white", mec=colour, mew=0.9, zorder=4)
-        cax.text(t, peak + 0.006, f"$t={t}$", fontsize=6.3, color=INK2, ha="center", va="bottom")
-    lo = min(c.min() for c in curves.values()) - 0.075
-    hi = max(c.max() for c in curves.values()) + 0.03
-    # the depths each joint's pole reaches at 120 deg, as drawn in (b): the four-bars' 95% region's extent
-    inside = dens >= level
-    deepest, highest = -gy[inside].min(), -gy[inside].max()
-    rr = np.meshgrid(radii, radii)
-    roller_depth = -roller_pole(rr[0], rr[1], qreq).imag
-    reach = [(blue, (highest, deepest)), (yellow, (roller_depth.min(), roller_depth.max()))]
-    for k, (colour, (z0, z1)) in enumerate(reach):
-        y = lo + 0.018 + 0.022 * k
-        cax.plot([max(z0, zz[0]), min(z1, zz[-1])], [y, y], color=colour, lw=2.6, solid_capstyle="butt", zorder=3)
-    cax.plot(0, lo + 0.062, marker="o", ms=4.0, color=INK, zorder=4)  # the pin: depth 0
-    cax.set_xlim(zz[0], zz[-1]); cax.set_ylim(lo, hi)
-    cax.set_xlabel("pole depth $z$ below the link line (mm)", fontsize=7, labelpad=1)
+        cax.plot(taus, coverage(t, taus), color=colour, lw=1.1, zorder=3)
+        cax.text(10.2, coverage(t, 10.0), f"$t={t}$", fontsize=6.3, color=INK2, ha="left", va="center")
+        for tau, mk in ((t, dict(marker="o", ms=3.6, color=INK)),
+                        (t * roller_floor, dict(marker="o", ms=3.6, color=yellow, mec="white", mew=0.3)),
+                        (0.0, dict(marker="o", ms=3.6, color=blue, mec="white", mew=0.3))):
+            cax.plot(tau, coverage(t, tau), zorder=4, **mk)
+    cax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
+    cax.set_xlim(taus[0], taus[-1] + 2.2)  # room for the t labels at the curves' ends
+    cax.set_xticks([-2, 0, 2, 4, 6, 8, 10])
+    cax.spines["bottom"].set_bounds(taus[0], taus[-1])
+    cax.set_xlabel("pole height above the face, $t-z$ (mm)", fontsize=7, labelpad=1)
     cax.set_ylabel(r"$\bar C_{\mathrm{pad}}$", fontsize=7, labelpad=1)
     cax.tick_params(labelsize=6.5, length=2)
     for side in ("top", "right"):
