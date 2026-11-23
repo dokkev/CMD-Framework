@@ -23,6 +23,8 @@ PAD, PAD_EDGE, SERVO_EDGE = "#d5e8d4", "#82b366", INK
 PADS = {"proximal": (PROXIMAL_PAD, "#e11d48"), "distal": (DISTAL_PAD, "#2563eb")}
 """Each pad's fill and outline (``visualize.finger.solid``'s)."""
 ROLLER, ROLLER_EDGE = "#f2f2f2", "#555555"
+SHOW_GROUND = True
+"""Hatch the palm behind the MCP servo; a figure may turn it off."""
 LINK_WIDTH = 3.0
 """Link line width [pt]; a figure drawn at print size may set it lower."""
 XLIM, YLIM = (-14.0, 104.0), (-62.0, 30.0)
@@ -109,7 +111,8 @@ def palm(axis, packaging) -> None:
     """The MCP servo on its ground."""
 
     outline = packaging.mcp_footprint().outline
-    ground(axis, outline)
+    if SHOW_GROUND:
+        ground(axis, outline)
     servo(axis, outline)
 
 
