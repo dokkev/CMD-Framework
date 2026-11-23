@@ -188,20 +188,23 @@ def main() -> int:
     box = probe.dataLim
     plt.close(probe_fig)
     xlim, ylim = (box.x0 - 3.0, box.x1 + 3.0), (box.y0 - 2.0, box.y1 + 2.0)
-    # (a) the four sketches in a 2x2 grid; (b) the poles; (c) a third panel. Positions in inches.
-    sw = 0.9  # in, per sketch
-    sh = sw * (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
+    # (a) the CFL enlarged with its pivots and frame labelled, the other three small and stacked beside it (one scale
+    # among the three); (b) the poles; (c) a third panel. Positions in inches.
+    aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
     head, cap = 0.17, 0.13  # panel-label row; a sketch's title row
-    height = head + 2 * (cap + sh)
+    sw_small = 0.55  # in, per small sketch
+    sh_small = sw_small * aspect
+    height = head + 3 * (cap + sh_small)
+    sw_big = 1.5
+    sh_big = sw_big * aspect
     fig = plt.figure(figsize=(WIDTH, height))
 
     def box(x, y, w, h):
         return fig.add_axes((x / WIDTH, y / height, w / WIDTH, h / height))
 
-    for i, (key, title, colour, desc, ours) in enumerate(ARCH):
-        col, row = i % 2, i // 2
-        x0, y0 = 0.02 + col * (sw + 0.04), (1 - row) * (cap + sh)
-        ax = box(x0, y0, sw, sh)
+    def panel(key, x0, y0, w, h, fontsize):
+        _, title, colour, _, ours = next(a for a in ARCH if a[0] == key)
+        ax = box(x0, y0, w, h)
         sketch.frame(ax, xlim, ylim)
         view = views[key]
         view.draw(ax, FLEXION, hit=set(), style="sketch")
@@ -209,17 +212,42 @@ def main() -> int:
             path = icr_path(view, FLEXION)
             ax.plot(*path.T, color=ICR, lw=1.1, zorder=20, solid_capstyle="round")
             ax.plot(*path[-1], marker="*", ms=5.5, color=ICR, mec="white", mew=0.3, zorder=21)
-        fig.text((x0 + sw / 2) / WIDTH, (y0 + sh + cap - 0.01) / height, title, ha="center", va="top", fontsize=7.5,
-                 color=colour, fontweight="bold" if ours else "normal")
+        fig.text((x0 + w / 2) / WIDTH, (y0 + h + cap - 0.01) / height, title, ha="center", va="top",
+                 fontsize=fontsize, color=colour, fontweight="bold" if ours else "normal")
+        return ax
+
+    # the CFL, enlarged, its pivots and the proximal frame named as in the text (Sec. III-A)
+    big_y = (height - head - cap - sh_big) / 2
+    cax_ = panel("cfl", 0.02, big_y, sw_big, sh_big, 7.5)
+    four = views["cfl"].joint
+    st = four.sweep([FLEXION])
+    pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
+           "C": st.tip[0], "O": np.zeros(2)}
+    offsets = {"A": (-3, -7), "A'": (9, 7), "B": (6, -1), "B'": (5, -7), "C": (4, -5), "O": (-6, -8)}
+    for name, at in pts.items():
+        cax_.annotate(f"${name}$", xy=at, xytext=offsets[name], textcoords="offset points", fontsize=7,
+                      ha="center", va="center", color=INK, zorder=30)
+    arrow = dict(arrowstyle="-|>", lw=0.7, color=INK, mutation_scale=6, shrinkA=0, shrinkB=0)
+    cax_.annotate("", xy=(14, 0), xytext=(0, 0), arrowprops=arrow, zorder=31)
+    cax_.annotate("", xy=(0, 14), xytext=(0, 0), arrowprops=arrow, zorder=31)
+    cax_.annotate("$x$", xy=(14, 0), xytext=(1, -5), textcoords="offset points", fontsize=6.5, ha="center",
+                  va="center", color=INK, zorder=31)
+    cax_.annotate("$z$", xy=(0, 14), xytext=(-4, 1), textcoords="offset points", fontsize=6.5, ha="center",
+                  va="center", color=INK, zorder=31)
+    cax_.annotate("$\\mathcal{F}_1$", xy=(0, 14), xytext=(-5, -7), textcoords="offset points", fontsize=6.5,
+                  ha="right", va="center", color=INK, zorder=31)
+    for i, key in enumerate(("2r_dd", "2r_remote", "rcj")):
+        y0 = (2 - i) * (cap + sh_small)
+        panel(key, 0.02 + sw_big + 0.08, y0, sw_small, sh_small, 6.5)
     label = dict(ha="left", va="top", fontsize=7.5, fontweight="bold")
     fig.text(0.02 / WIDTH, 1 - 0.02 / height, "(a) the four PIP joints at $120^\\circ$", **label)
     # (b) the finite pole P(q_req) in the complex plane (Lemma 1, P = b / (1 - e^{iq})), by joint type, from
     # Study 0's analysis rather than any optimization run: a fixed axis's P is the pin (a point); equal rollers'
     # P = (a + r) - i r tan(q/4) lies on one segment (Study 0, Eq. 14); a four-bar's P follows from the closure of
     # its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
-    bx = 2.0
+    bx = 2.3
     fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ over flexion", **label)
-    pax = box(bx + 0.32, 0.3, 2.3, height - head - 0.36)
+    pax = box(bx + 0.32, 0.3, 2.1, height - head - 0.36)
     blue, yellow = ARCH[3][2], ARCH[2][2]
     qr = np.radians(FLEXION)
     # at 60, 90, 120 and 150 deg, light to dark: the four-bars' 95% regions as outlines, the rollers' as fills
@@ -260,7 +288,7 @@ def main() -> int:
     # G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, (90 + q_req) / 2, q_req} deg. A pin sits on the link line
     # (z = 0); the largest roller inside the face (r = t) puts its pole r tan(q_req / 4) deep; a virtual pole sits on
     # the face (z = t). On the floor: where each surface crosses 0.8.
-    cx = 4.62
+    cx = 4.78
     fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage over pad and flexion", **label)
     cax = fig.add_axes(((cx - 0.05) / WIDTH, 0.0, (WIDTH - cx + 0.05) / WIDTH, (height - head) / height),
                        projection="3d")
