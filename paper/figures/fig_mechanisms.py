@@ -4,7 +4,7 @@
 
 2R-DD, 2R-remote and RCJ: each one's Study 1 design for q_req = 120 deg and 7 mm pads. CFL: the CoDe prototype's
 finger (design/output/linkage/config/paper_single_objective/portfolio_001, balanced; prototype track, drawn only),
-its pads drawn at the same 7 mm as the others and the distal pad laid on its link (no pivot clearance).
+its pads drawn at the same 7 mm as the others the distal pad laid on its link (no pivot clearance), and A'' placed at A so the proximal triangle closes there.
 All drawn at 120 deg of flexion in the
 sketch style of Study 1's design figures (design/scripts/study/study1_thickness_coverage/figure_designs.py):
 grey servo bodies, red proximal and blue distal links, pads shaded, dotted the distal segment's centre of
@@ -63,6 +63,8 @@ def main() -> int:
             x = list(run.mechanism.read_design(row))
             names = list(run.mechanism.variable_names)
             x[names.index("distal_mount_offset_mm")] = 0.0  # pad on its link, no pivot clearance (qualitative)
+            # A'' (= A'_x + offset) at A: the red triangle O-A'-A'' closes at the pivot
+            x[names.index("app_offset_mm")] = x[names.index("a_x_mm")] - x[names.index("ap_x_mm")]
             views[key] = view_of(run.mechanism.name, config_cfl, x)
             continue
         designs = one_finger.study1_designs(key, config["architectures"][key], FLEXION, config)
