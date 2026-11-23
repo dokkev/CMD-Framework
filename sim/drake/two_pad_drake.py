@@ -402,8 +402,11 @@ def run_env(task):
 
 def _run_env(task):
     hand, mu, rho_mm, contact, time_step, g, direction, delta, modulus, opts = task
-    global MODULUS_PA, SPIN_DAMPING, DIAL_BRAKE_NM
+    global MODULUS_PA, SPIN_DAMPING, DIAL_BRAKE_NM, PAD_REFERENCE_M
     MODULUS_PA = modulus
+    if opts.get("pad_kh_mm"):  # experiment 25: the foundation stiffness of a pad this thick (own: the hand's own)
+        PAD_REFERENCE_M = (finger_geometry(hand)["pads"]["thickness_mm"] if opts["pad_kh_mm"] == "own"
+                           else float(opts["pad_kh_mm"])) * 1e-3
     SPIN_DAMPING = opts.get("spin_damping", 0.0)
     DIAL_BRAKE_NM = opts.get("brake_nm", 0.0)
     global DIAL_Z_STIFFNESS
@@ -519,6 +522,9 @@ def main() -> int:
     p.add_argument("--gap_mm", type=float, default=1.0, help="dial: its axis this far off the proximal face")
     p.add_argument("--brake_nm", type=float, default=0.0, help="dial: its brake torque (one finger)")
     p.add_argument("--dial_k", type=float, default=0.0, help="dial: its axis's spring away from the face [N/m]")
+    p.add_argument("--pad_kh_mm", default=None,
+                   help="hydroelastic pads' foundation stiffness as modulus / this thickness (mm, or 'own': the hand's "
+                        "own pad thickness); default 3 mm on every hand (experiment 21)")
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
@@ -526,7 +532,7 @@ def main() -> int:
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
             "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
             "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
-            "brake_nm": args.brake_nm, "dial_k": args.dial_k}
+            "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm}
     directions = ["none"] if args.task in ("roll", "pullin", "dial") else args.directions
     tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
              for g in grasps for d in directions]
