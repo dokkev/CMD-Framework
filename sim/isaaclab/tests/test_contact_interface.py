@@ -10,7 +10,14 @@ import math
 import numpy as np
 import pytest
 
-from code_isaaclab.contact_interface import CROWNED, FLAT, PadProfile, contact_face_height, pad_mesh, pad_profile_polygon
+from code_isaaclab.contact_interface import (
+    CROWNED,
+    FLAT,
+    PadProfile,
+    contact_face_height,
+    pad_mesh,
+    pad_profile_polygon,
+)
 
 HALF = (0.0178, 0.0015, 0.0095)
 
@@ -36,8 +43,9 @@ def test_crowned_profile_keeps_the_envelope_and_mounting_face():
     assert np.allclose(np.hypot(xs, contact_face_height(xs, HALF[0], HALF[1], 2e-3) - centre), radius)
 
 
-def test_crowned_mesh_is_convex_and_closed():
-    points, counts, indices = pad_mesh(HALF, CROWNED)
+@pytest.mark.parametrize("profile", [CROWNED, PadProfile("crosswise", crown_mm=0.5, across_width=True)])
+def test_crowned_mesh_is_convex_and_closed(profile):
+    points, counts, indices = pad_mesh(HALF, profile)
     # every face's outward normal sees all other points behind it (convex polyhedron)
     start = 0
     centroid = points.mean(axis=0)
@@ -54,7 +62,7 @@ def test_crowned_mesh_is_convex_and_closed():
     for count in counts:
         ring = indices[start : start + count]
         start += count
-        for a, b in zip(ring, ring[1:] + ring[:1]):
+        for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
             edges[frozenset((a, b))] = edges.get(frozenset((a, b)), 0) + 1
     assert set(edges.values()) == {2}
 
@@ -95,6 +103,29 @@ def test_variant_assets_differ_only_in_the_pad_surfaces():
         assert name in ("points", "faceVertexCounts", "faceVertexIndices", "extent"), (prim, name)
     pads = {prim for prim, _ in differing}
     assert len(pads) == 6  # three fingers x (proximal, distal)
+
+
+def test_distal_width_crown_changes_only_the_selected_colliders(tmp_path):
+    from code_isaaclab.hands.description_hands import description_asset
+    from code_isaaclab.tasks.rotate.env_cfg import HANDS
+
+    distal = ("index_distal_pad", "middle_distal_pad", "ring_distal_pad")
+    profile = PadProfile("distal_width", crown_mm=0.5, across_width=True, pads=distal)
+    flat, curved = (
+        _usd_attributes(description_asset(HANDS["O"], profile=p, out_dir=tmp_path, thumb_pad=True))
+        for p in (FLAT, profile)
+    )
+    assert flat.keys() == curved.keys()
+    differing = {(prim, attr) for prim, attr in flat if flat[(prim, attr)] != curved[(prim, attr)]}
+    assert {prim.rsplit("/", 1)[-1] for prim, _ in differing} == set(distal)
+    assert {attr for _, attr in differing} <= {"points", "faceVertexCounts", "faceVertexIndices", "extent"}
+    for prim, attr in differing:
+        if attr == "points":
+            box, crown = np.asarray(flat[(prim, attr)]), np.asarray(curved[(prim, attr)])
+            np.testing.assert_allclose(box.min(axis=0), crown.min(axis=0))
+            np.testing.assert_allclose(box.max(axis=0), crown.max(axis=0))
+            edge = np.isclose(np.abs(crown[:, 2]), box[:, 2].max())
+            assert crown[edge, 1].max() == pytest.approx(box[:, 1].max() - 0.0005)
 
 
 def test_code_tasks_share_everything_but_the_hand_asset():

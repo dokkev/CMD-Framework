@@ -355,7 +355,8 @@ def write_usd(
 
         for box in body.get("boxes", []):
             if pad_profile is not None and is_pad(box):
-                points, counts, indices = pad_mesh(box["half_extents"], pad_profile)
+                surface = pad_profile.for_pad(box["name"])
+                points, counts, indices = pad_mesh(box["half_extents"], surface)
                 mesh = UsdGeom.Mesh.Define(stage, f"/code_hand/{body['name']}/{box['name']}")
                 mesh.CreatePointsAttr([Gf.Vec3f(*p) for p in points])
                 mesh.CreateFaceVertexCountsAttr(counts)
@@ -364,8 +365,8 @@ def write_usd(
                 w, x, y, z = box["quat_wxyz"]
                 mesh.AddTranslateOp().Set(Gf.Vec3d(*(np.asarray(box["center"], dtype=float) - origin[body["name"]])))
                 mesh.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(w, x, y, z))
-                mesh.GetPrim().SetCustomDataByKey("code:pad_profile", pad_profile.name)
-                mesh.GetPrim().SetCustomDataByKey("code:crown_mm", float(pad_profile.crown_mm))
+                mesh.GetPrim().SetCustomDataByKey("code:pad_profile", surface.name)
+                mesh.GetPrim().SetCustomDataByKey("code:crown_mm", float(surface.crown_mm))
                 if visuals:
                     mesh.CreateDisplayColorAttr([Gf.Vec3f(*srgb_to_linear(PAD_RGB))])
                     mesh.CreatePurposeAttr(UsdGeom.Tokens.guide)

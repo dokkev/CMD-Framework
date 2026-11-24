@@ -115,6 +115,109 @@ uv run python scripts/rollout_metrics.py ... --out logs/verify/random_newton_vbd
 uv run python scripts/rollout_metrics.py --compare logs/verify/*.json
 ```
 
+### Morphology O continuous cube rotation
+
+`CoDe-Rotate-Cube-O` uses the O hand, a 40 mm cube, cached stable grasps, and
+relative joint targets. The task rewards rotation about world +z. Its actor
+uses simulated cube pose and angular velocity alongside joint history.
+
+From `sim/isaaclab`, generate the O grasp cache if one does not exist, then
+train a checkpoint:
+
+```bash
+uv run python scripts/rotate_cube/gen_grasps.py --hand O physics=newton_mjwarp
+uv run python scripts/reorient_o/train.py --task CoDe-Rotate-Cube-O \
+    --iterations 1000 --num_envs 4096 --no_video --logger tensorboard
+```
+
+To fine-tune a checkpoint, add `--checkpoint <path>`. Each `--iterations` value
+counts additional PPO updates. Use `--override env.rewards.<term>.weight=<weight>`
+for a reward experiment and `--fresh_optimizer` when changing the optimizer
+learning rate. The run saves the resolved environment and agent configs under
+`params/` alongside the checkpoints.
+
+The optional `milestones` reward credits new 30° increments while the
+cube stays within the configured displacement and tilt bounds at the
+crossing. Both rotation measures must reach the increment. Re-crossing a
+credited angle pays zero. A weight of 36 gives 1.2 reward per increment
+at the default 30 Hz control rate.
+With milestones enabled, `timeout_progress` can also reward the total
+retained rotation at a clean timeout. This term stays at zero if the
+cube crossed either grasp bound at any step.
+Its optional `second_half_weight` adds credit for forward rotation in
+the second half of the episode, capped by total net forward rotation.
+
+`joint_target_limit_regrasp` is an optional cost on normalized joint targets
+near selected actuator limits. `min_progress_rad` and `ramp_progress_rad`
+defer and smooth this cost until the policy has made some rotation, so early
+grasp acquisition is not penalized. Setting `max_distance_m` and `min_up_dot`
+also gates the cost to states where the cube remains inside a chosen grasp
+envelope. A gated cost requires the milestones term to be enabled.
+
+For a separately generated evaluation cache, set a new destination and a seed
+range disjoint from the training cache:
+
+```bash
+CODE_ROTATE_CUBE_GRASPS="$PWD/logs/rotate_cube/heldout_grasps" \
+    uv run python scripts/rotate_cube/gen_grasps.py --hand O --target 256 \
+    --num_envs 128 --max_rounds 14 --seed_start 10000 physics=newton_mjwarp
+
+uv run --extra rsl-rl python scripts/rotate_cube/eval_policy.py \
+    --checkpoint <checkpoint-a.pt> --checkpoint <checkpoint-b.pt> \
+    --num_envs 96 --eval_seed 21000 physics=newton_mjwarp \
+    env.events.reset_grasp.params.cache="$PWD/logs/rotate_cube/heldout_grasps/O.pt" \
+    env.terminations.object_off_grasp.params.max_distance=0.07 \
+    env.terminations.object_tilted.params.min_dot=0.0
+```
+
+The evaluator records the first episode in each environment, including the
+terminal state before reset. It uses the actor mean with the configured
+observation noise and reports signed world-z rotation, projected heading
+change, and timeout, tilt, and displacement metrics. The stricter 90° and
+360° metrics require agreement of both rotation measures, a clean timeout,
+at most 40 mm of displacement and at most 60° of tilt from the reset pose.
+The command above uses the `tilt90` comparison termination thresholds.
+Set the same physics, observation and action settings across compared runs.
+To remove observation noise from a paired comparison, add
+`env.observations.policy.enable_corruption=false`.
+If changing the starting MCP/PIP angles or cube size through the
+`CODE_REORIENT_O_*` settings, generate a new cache under a separate
+`CODE_ROTATE_CUBE_GRASPS` path and use those same settings at train and eval.
+
+Set `CODE_ROTATE_CUBE_CROWN_MM=1` to lower the ends of each pad's contact
+face by 1 mm along its length, with the same center height and mounting
+face. For a width-wise crown on the three distal finger pads, set
+`CODE_ROTATE_CUBE_CROWN_LAYOUT=distal_width` and a sagitta such as
+`CODE_ROTATE_CUBE_CROWN_MM=0.5`. The flat setting is `0`.
+For a fixed-policy pad transfer comparison,
+reuse the same checkpoint, grasp cache, and evaluation seed in both
+conditions. For training on a crowned profile, generate a new cache in a
+separate directory with that profile.
+
+The evaluator's `--contact_metrics` option reports contact with the
+pad-carrying links. To seed a training curriculum with post-turn states,
+evaluate one checkpoint on a training cache and use `--export_grasps`.
+The export selects clean timeouts with at least 45° of forward rotation,
+the 40 mm and 60° limits respected, low linear speed, and simultaneous
+thumb-link and finger-link contact at the final step. Keep the held-out
+cache out of the curriculum.
+
+`CODE_ROTATE_CUBE_PHASE_PERIOD_S` optionally appends the sine and cosine
+of an episode clock to the policy observation. Use the training period
+again at evaluation time. This variant has two extra input features and
+requires a compatible checkpoint.
+
+`CODE_ROTATE_CUBE_GOAL_OBS=1` also appends two errors to the next rotation
+milestone, using the projected heading and the integrated world-z
+rotation. The next target advances when the milestone reward credits the
+current target. To warm-start from an otherwise compatible checkpoint,
+use `scripts/rotate_cube/extend_observations.py --features 2` and load
+the resulting checkpoint with `--fresh_optimizer`.
+
+Pass `--trace path.npz` when evaluating one checkpoint to record net
+rotation, heading, displacement, tilt, action activity and normalized
+joint targets before reset.
+
 ### Verified (2026-11-07)
 - **Upstream reference.** `Isaac-Reorient-Cube-Allegro` runs on `newton_mjwarp`: 4 envs, 100 random steps.
 - **Project task, stepping.** `CoDe-Reorient-Cube-Allegro` initializes and steps on both presets: 4 envs, 100
