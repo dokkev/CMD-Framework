@@ -1,9 +1,9 @@
 """The three Drake tasks on hand O (pad friction 1.3) rendered at t = 0, 1 and 2 s after each task starts:
 grasp pull-out (t = 0 when the -z load ramp starts on the settled grasp), grasp acquisition (t = 0 when the open
-finger starts closing) and the 30-degree dial (t = 0 when the finger starts closing). Same placements and settings as
-render_tasks.py; drawn on the hand's URDF geometry (render3d.render_on_hand); one row per task in logs/task_times.png.
+finger starts closing) and experiment 28z's fingertip disk (t = 0 when the finger starts closing; frames at --dial_times,
+default 1, 2.5 and 4 s: the touch angle, mid-sweep, the sweep's end). Same placements and settings as render_tasks.py; drawn on the hand's URDF geometry (render3d.render_on_hand); one row per task in logs/task_times.png.
 
-    uv run python render_task_times.py [--times 0 1 2]
+    uv run python render_task_times.py [--times 0 1 2] [--dial_times 1 2.5 4]
 """
 import argparse
 import json
@@ -96,20 +96,25 @@ def dial(times):
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--times", type=float, nargs="+", default=[0.0, 1.0, 2.0])
+    p.add_argument("--dial_times", type=float, nargs="+", default=[1.0, 2.5, 4.0],
+                   help="the fingertip disk's frames [s from the start: 1 s to the touch angle, 3 s sweep, 1 s hold]")
     a = p.parse_args()
     geom = T.finger_geometry(RT.HAND)
     snap = {"hand": RT.HAND, "mu": RT.MU, "rho_mm": RT.RHO, "q0_deg": RT.G["q0_deg"], "pads": geom["pads"],
             "b_mm": geom["b"].tolist()}
     tasks = {"hold": pullout(a.times), "acquire": acquire(a.times)}
-    dframes, axis = dial(a.times)
-    tasks["dial"] = dframes
-    snap["dial"] = {"axis": axis, "rho_mm": RT.DIAL_RHO, "frames": [dframes[t] for t in a.times]}
+    snap["tipdial"] = RT.tipdial(a.dial_times)
     for k in ("hold", "acquire"):
         snap[k] = {"frames": [tasks[k][t] for t in a.times]}
     (T.OUT / "task_times.json").write_text(json.dumps({"times_s": a.times, **snap}, indent=1))
 
     paths = {}
-    for task in ("hold", "acquire", "dial"):
+    for i, (t, st) in enumerate(zip(a.dial_times, snap["tipdial"]["frames"])):
+        sc = R3.tipdial_scene(st, snap["tipdial"], T.OUT / "render3d" / f"t_tipdial{i}")
+        out = T.OUT / f"render_t_tipdial_{t:g}s.png"
+        R3.render_on_hand(sc, out, st["distal"][2], camera=R3.TIPDIAL_CAMERA, ref=R3.TIPDIAL_REF)
+        paths[("tipdial", i)] = out
+    for task in ("hold", "acquire"):
         frames = snap[task]["frames"]
         for i, (t, st) in enumerate(zip(a.times, frames)):
             ghost = frames[0]["centre"] if i > 0 and task in ("hold", "acquire") else None
@@ -124,16 +129,16 @@ def main() -> int:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     names = {"hold": "grasp pull-out\n(−z load from t = 0)", "acquire": "grasp acquisition\n(closing from t = 0)",
-             "dial": "dial\n(closing from t = 0)"}
+             "tipdial": "fingertip disk (z axis)\n(closing from t = 0)"}
     fig, axes = plt.subplots(3, len(a.times), figsize=(3.2 * len(a.times), 8.0))
-    for r, task in enumerate(("hold", "acquire", "dial")):
-        for c, t in enumerate(a.times):
+    for r, task in enumerate(("hold", "acquire", "tipdial")):
+        for c, t in enumerate(a.dial_times if task == "tipdial" else a.times):
             ax = axes[r, c]
             ax.imshow(np.asarray(Image.open(paths[(task, c)]).convert("RGB")))
             ax.axis("off")
             st = snap[task]["frames"][c]
             load = np.linalg.norm(st.get("load_n", [0, 0]))
-            extra = f"load {load:.1f} N" if task == "hold" else (f"spin {math.degrees(st['spin']):.0f}°" if task == "dial" else "")
+            extra = f"load {load:.1f} N" if task == "hold" else (f"turned {st['rotation_deg'] + 0.0:.0f}°" if task == "tipdial" else "")
             ax.set_title(f"t = {t:g} s" + (f"\n{extra}" if extra else ""), fontsize=9)
         axes[r, 0].text(-0.04, 0.5, names[task], transform=axes[r, 0].transAxes, rotation=90, ha="right",
                         va="center", fontsize=9)

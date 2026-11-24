@@ -134,8 +134,9 @@ class Scene:
                 f.write(f"f {a + 1}//{a + 1} {b + 1}//{b + 1} {c + 1}//{c + 1}\n")
         self.items.append((path, rgba))
 
-    def extrude(self, poly, y0, y1, rgba, smooth_deg=35.0):
-        """A 2D profile in (x, z dorsal) mm extruded across y0..y1 (mm)."""
+    def extrude(self, poly, y0, y1, rgba, smooth_deg=35.0, axis="y"):
+        """A 2D profile in (x, z dorsal) mm extruded across y0..y1 (mm); ``axis="z"``: a profile in (x, y) extruded
+        along z0..z1."""
         poly = np.asarray(poly, float)
         if np.sum(poly[:, 0] * np.roll(poly[:, 1], -1) - np.roll(poly[:, 0], -1) * poly[:, 1]) < 0:
             poly = poly[::-1]
@@ -165,15 +166,17 @@ class Scene:
                 normals.append([0.0, sgn, 0.0])
             faces += [(base + a, base + b, base + c) for a, b, c in ear_clip(poly)]
         verts, normals = np.array(verts, float), np.array(normals, float)
+        if axis == "z":
+            verts, normals = verts[:, [0, 2, 1]], normals[:, [0, 2, 1]]
         self._write(verts, normals, fix_winding(verts, normals, faces), rgba)
 
-    def cylinder(self, centre, y0, y1, r, rgba, n=72):
+    def cylinder(self, centre, y0, y1, r, rgba, n=72, axis="y"):
         poly = [np.asarray(centre, float) + r * np.array([math.cos(t), math.sin(t)])
                 for t in np.linspace(0, 2 * math.pi, n, endpoint=False)]
-        self.extrude(poly, y0, y1, rgba, smooth_deg=20.0)
+        self.extrude(poly, y0, y1, rgba, smooth_deg=20.0, axis=axis)
 
-    def bar(self, p, q, half_width, y0, y1, rgba):
-        self.extrude(circles_hull([(p, half_width), (q, half_width)], 24), y0, y1, rgba)
+    def bar(self, p, q, half_width, y0, y1, rgba, axis="y"):
+        self.extrude(circles_hull([(p, half_width), (q, half_width)], 24), y0, y1, rgba, axis=axis)
 
     def arc_bar(self, p, q, half_width, sag, y0, y1, rgba, n=32):
         """A link from p to q bowed by sag (mm) to its left (+90 deg from p->q in (x, z)), with round ends; the pins
@@ -430,7 +433,7 @@ THUMB_NEUTRAL = {"thumb_ro": 0.0, "thumb_raa": 0.0, "thumb_mcp": 0.0, "thumb_ip"
 """The thumb out of the way at its joints' zeros [deg]: it lies beside the index finger, its pad toward +y."""
 
 
-def hand_frame(hand: str = "O"):
+def hand_frame(hand: str = "O", ref: str = TASK_REF):
     """The hand's URDF and description, and the planar frame's origin in the hand frame (mm): the reference finger's
     MCP-FE axis, x along the proximal at MCP 0, z dorsal (the hand frame's axes), with each task finger's lateral
     offset from it (mm)."""
@@ -439,7 +442,7 @@ def hand_frame(hand: str = "O"):
     urdf, description = LH.paths(hand)
     desc = json.loads(description.read_text())
     joints = {j["name"]: j for j in desc["joints"]}
-    origin = 1e3 * np.asarray(joints[f"{TASK_REF}_fe"]["anchor"], float)
+    origin = 1e3 * np.asarray(joints[f"{ref}_fe"]["anchor"], float)
     offsets = {f: 1e3 * joints[f"{f}_fe"]["anchor"][1] - origin[1] for f in TASK_FINGERS}
     return urdf, description, desc, origin, offsets
 
@@ -452,7 +455,7 @@ def task_span(hand: str = "O", margin_mm: float = 4.5) -> tuple[float, float]:
 
 
 def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict | None = None,
-                   size=(W, H)) -> Path:
+                   size=(W, H), ref: str = TASK_REF) -> Path:
     """The scene (in the reference finger's planar frame) with the hand's URDF geometry (the USD's visuals, through
     load_hand.py), palm down in the hand frame: MCP FE and AA at 0, the task fingers' four-bars closed at flexion q
     [rad] from the description's ``four_bar`` table, the other fingers' at 0, the thumb at ``THUMB_NEUTRAL``."""
@@ -464,7 +467,7 @@ def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict
 
     import load_hand as LH
 
-    urdf, description, desc, origin, _ = hand_frame(hand)
+    urdf, description, desc, origin, _ = hand_frame(hand, ref)
     diagram, plant, sg, model, desc, _ = LH.load_hand(urdf, description, renderer=True, gravity=False,
                                                      pose=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
     ctx = diagram.CreateDefaultContext()
@@ -499,6 +502,64 @@ def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict
     return out
 
 
+TIPDIAL_REF = "index"
+"""Experiment 28z's disk sits under the index finger, its axle on the outer side (+y, away from the middle finger).
+The simulation is one finger on one disk (radius 15 mm, 12 mm to the side), so one disk is drawn; under the middle
+or ring finger it would reach under a neighbour's pad, and one disk per finger would overlap."""
+TIPDIAL_CAMERA = {"target_mm": (62.0, 4.0, -28.0), "dist": 0.20, "az_deg": 205.0, "el_deg": -55.0, "fov_deg": 33.0}
+"""The disk from well below (55 deg), from the index finger's outer side and a little behind, in the index finger's
+planar frame: the disk's underside with its pointer and the three fingers' pads show."""
+DISK = [0.93, 0.78, 0.45, 1.0]
+
+
+def build_tipdial(st: dict, tip: dict, folder: Path) -> Scene:
+    """Experiment 28z's frame in the index finger's planar frame (mm): the disk (axis z, at the simulated centre and
+    spin) with a pointer on its underside (its start faint), a scale every 10 deg, the axle, its hub and a narrow arm
+    (toward the fingertip) below, and an arc arrow in the direction it turns once it has turned."""
+    sc = Scene(folder)
+    rho, thick = tip["rho_mm"], tip["thick_mm"]
+    c = np.asarray(st["centre"], float)
+    cxy, z_top, z_bot = c[:2], c[2] + thick / 2, c[2] - thick / 2
+    sc.cylinder(cxy, z_bot, z_top, rho, DISK, n=120, axis="z")
+    for k in range(48):  # knurl on the rim, turning with the disk
+        t = 2 * math.pi * k / 48 + st["spin"]
+        sc.cylinder(cxy + (rho - 0.2) * np.array([math.cos(t), math.sin(t)]), z_bot + 0.4, z_top - 0.4, 0.7, DISK,
+                    n=10, axis="z")
+    phi0 = math.pi / 2  # the pointer starts outward (+y), away from the finger
+    u = lambda a: np.array([math.cos(a), math.sin(a)])
+    if abs(st["spin"]) > 0.03:
+        sc.bar(cxy + 3.0 * u(phi0), cxy + (rho - 2.5) * u(phi0), 1.0, z_bot - 0.5, z_bot + 0.2,
+               [0.62, 0.64, 0.68, 1.0], axis="z")
+    sc.bar(cxy + 3.0 * u(phi0 + st["spin"]), cxy + (rho - 2.5) * u(phi0 + st["spin"]), 1.4, z_bot - 0.8, z_bot + 0.2,
+           KNOB, axis="z")
+    for k in range(-9, 10):  # the fixed scale, on the sprung sleeve (it follows the disk down, not round)
+        a = phi0 + math.radians(10 * k)
+        sc.bar(cxy + (rho + 1.8) * u(a), cxy + (rho + (5.0 if k % 3 == 0 else 3.6)) * u(a), 0.45,
+               z_bot - 0.6, z_bot + 0.6, GHOST, axis="z")
+    base = tip["base_z"]
+    sc.cylinder(cxy, base, z_bot, 2.5, STEEL, axis="z")  # the axle, down to its hub and a narrow arm outward
+    sc.cylinder(cxy, base - 4.0, base, 5.0, MID, axis="z")
+    sc.bar(cxy, cxy + np.array([rho + 14.0, 0.0]), 3.0, base - 4.0, base - 1.0, MID, axis="z")
+    if abs(st["spin"]) > 0.01:
+        sgn = math.copysign(1.0, st["spin"])
+        r, z = rho + 7.0, z_bot - 1.5
+        pts = [cxy + r * u(phi0 + sgn * math.radians(a)) for a in np.linspace(-20, 45, 24)]
+        for a_, b_ in zip(pts[:-4], pts[1:-3]):
+            sc.bar(a_, b_, 0.8, z - 0.8, z + 0.8, LOAD, axis="z")
+        d = (pts[-1] - pts[-5]) / np.linalg.norm(pts[-1] - pts[-5])
+        nrm = np.array([-d[1], d[0]])
+        base = pts[-1] - 4.5 * d
+        sc.extrude([base + 2.6 * nrm, base - 2.6 * nrm, pts[-1]], z - 0.8, z + 0.8, LOAD, smooth_deg=0.0, axis="z")
+    return sc
+
+
+def tipdial_scene(st: dict, tip: dict, folder: Path) -> Scene:
+    """build_tipdial with the bracket's depth: the axle's hub 10 mm below the lowest the disk goes in the frames."""
+    lowest = min(f["centre"][2] for f in tip["frames"]) - tip["thick_mm"] / 2
+    info = {**tip, "base_z": lowest - 10.0}
+    return build_tipdial(st, info, folder)
+
+
 def main():
     snap = json.loads((T.OUT / "task_snapshots.json").read_text())
     for task in ("hold", "acquire", "dial"):
@@ -508,6 +569,12 @@ def main():
             sc = build(task, st, snap, T.OUT / "render3d" / f"{task}{i}", ghost=ghost,
                        turn_sign=math.copysign(1.0, frames[-1]["spin"]), finger=False, span=task_span())
             render_on_hand(sc, T.OUT / f"render_{task}{i}.png", st["distal"][2])
+    if "tipdial" in snap:
+        tip = snap["tipdial"]
+        for i, st in enumerate(tip["frames"]):
+            sc = tipdial_scene(st, tip, T.OUT / "render3d" / f"tipdial{i}")
+            render_on_hand(sc, T.OUT / f"render_tipdial{i}.png", st["distal"][2], camera=TIPDIAL_CAMERA,
+                           ref=TIPDIAL_REF)
 
 
 if __name__ == "__main__":
