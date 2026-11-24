@@ -107,7 +107,13 @@ class GraspCacheReset(ManagerTermBase):
     with ``joint_noise`` rad of uniform noise on every actuated joint (PIP in flexion, the four-bar closed from the
     tables) and the cube ``lift_m`` above
     its rest, turned about world z by a uniform random yaw. Records each grasp (``grasp_q`` actuated, PIP in
-    flexion; ``grasp_pos`` env frame) for the rewards and terminations."""
+    flexion; ``grasp_pos`` env frame) for the rewards and terminations.
+
+    With ``pool`` (a reset pool from ``scripts/rotate_cube/harvest_reset_pool.py``), each reset draws from the pool with
+    probability ``pool_fraction`` instead: a mid-rotation state of a policy roll-out with its joint and cube velocities,
+    PD targets and the relative action's targets (OmniReset's diverse resets, Yin et al. 2026). The state counts as the
+    grasp, so the episode-relative terms (milestones, timeout progress, the goal observation, the tilt reference) start
+    from it; the gait clock resumes at the state's phase (``phase_offset``)."""
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
@@ -117,6 +123,7 @@ class GraspCacheReset(ManagerTermBase):
         self.grasp_q = torch.zeros(n, len(p["actuated"]), device=dev)
         self.grasp_target = torch.zeros_like(self.grasp_q)
         self.grasp_cache_index = torch.full((n,), -1, dtype=torch.long, device=dev)
+        self.phase_offset = torch.zeros(n, dtype=torch.long, device=dev)
         self.grasp_pos = _t(self.obj.data.default_root_pose)[:, :3].clone()
         self.cache = None
         self._actuated = [self.robot.joint_names.index(j) for j in p["actuated"]]
@@ -158,6 +165,24 @@ class GraspCacheReset(ManagerTermBase):
                 k: values.to(device=dev, dtype=torch.float32)
                 for k, values in (("q", q), ("pos", pos), ("quat", quat), ("target", target))
             }
+        self.pool = None
+        self.pool_fraction = float(p.get("pool_fraction", 0.0))
+        if p.get("pool"):
+            data = torch.load(Path(p["pool"]), map_location="cpu", weights_only=True)
+            if data["hand"] != env.cfg.hand_key or list(data["joint_names"]) != list(self.robot.joint_names):
+                raise ValueError(f"Reset pool {p['pool']} does not match hand {env.cfg.hand_key}'s joints")
+            if list(data["actuated"]) != list(p["actuated"]):
+                raise ValueError(f"Reset pool {p['pool']} targets are for other actuated joints")
+            n_pool = len(data["q"])
+            shapes = {"q": (n_pool, len(self.robot.joint_names)), "qd": (n_pool, len(self.robot.joint_names)),
+                      "target": (n_pool, len(self.robot.joint_names)), "phase_step": (n_pool,),
+                      "target_flex": (n_pool, len(p["actuated"])), "pos": (n_pool, 3), "quat": (n_pool, 4),
+                      "vel": (n_pool, 6)}  # fmt: skip
+            if n_pool == 0 or any(data[k].shape != v or not torch.isfinite(data[k]).all() for k, v in shapes.items()):
+                raise ValueError(f"Reset pool {p['pool']} must hold matching nonempty finite {', '.join(shapes)}")
+            if not 0.0 < self.pool_fraction <= 1.0:
+                raise ValueError("pool_fraction must lie in (0, 1]")
+            self.pool = {k: data[k].to(device=dev, dtype=torch.float32) for k in shapes}
         from code_isaaclab.flexion_control import FlexionTables
         from code_isaaclab.loops import FourBarTables
 
@@ -172,7 +197,8 @@ class GraspCacheReset(ManagerTermBase):
         return out
 
     def __call__(
-        self, env, env_ids, actuated: list, four_bar_tables: dict, joint_noise: float, lift_m: float, cache: str | None
+        self, env, env_ids, actuated: list, four_bar_tables: dict, joint_noise: float, lift_m: float, cache: str | None,
+        pool: str | None = None, pool_fraction: float = 0.0,
     ):
         if env_ids is None or isinstance(env_ids, slice):
             ids = torch.arange(env.num_envs, device=env.device)[env_ids if isinstance(env_ids, slice) else slice(None)]
@@ -215,6 +241,26 @@ class GraspCacheReset(ManagerTermBase):
         self.obj.write_root_velocity_to_sim_index(root_velocity=torch.zeros(k, 6, device=env.device), env_ids=ids)
         self.grasp_q[ids] = self._to_flexion(q[:, self._actuated])
         self.grasp_target[ids] = self._to_flexion(target)
+        self.grasp_pos[ids] = pose[:, :3] - origins
+        self.phase_offset[ids] = 0
+        if self.pool is not None:
+            sel = torch.rand(k, device=env.device) < self.pool_fraction
+            if sel.any():
+                self._reset_from_pool(ids[sel], origins[sel])
+
+    def _reset_from_pool(self, ids: torch.Tensor, origins: torch.Tensor):
+        pick = torch.randint(0, self.pool["q"].shape[0], (len(ids),), device=ids.device)
+        self.grasp_cache_index[ids] = -2 - pick  # pool rows, apart from cache rows (>= 0) and generation (-1)
+        q = self.pool["q"][pick]
+        pose = torch.cat((self.pool["pos"][pick] + origins, self.pool["quat"][pick]), dim=1)
+        self.robot.write_joint_position_to_sim_index(position=q, env_ids=ids)
+        self.robot.write_joint_velocity_to_sim_index(velocity=self.pool["qd"][pick], env_ids=ids)
+        self.robot.set_joint_position_target_index(target=self.pool["target"][pick], env_ids=ids)
+        self.obj.write_root_pose_to_sim_index(root_pose=pose, env_ids=ids)
+        self.obj.write_root_velocity_to_sim_index(root_velocity=self.pool["vel"][pick], env_ids=ids)
+        self.phase_offset[ids] = self.pool["phase_step"][pick].long()
+        self.grasp_q[ids] = self._to_flexion(q[:, self._actuated])
+        self.grasp_target[ids] = self.pool["target_flex"][pick]
         self.grasp_pos[ids] = pose[:, :3] - origins
 
 
@@ -514,7 +560,10 @@ def retained_turns_at_timeout(env, second_half_weight: float = 0.0) -> torch.Ten
 def gait_phase(env, period_s: float) -> torch.Tensor:
     """``(sin, cos)`` of the episode clock with period ``period_s``: a timing input for repeating release and regrasp
     (project observation)."""
-    angle = env.episode_length_buf * (2.0 * torch.pi * env.step_dt / period_s)
+    steps = env.episode_length_buf
+    if hasattr(env, "event_manager"):  # a reset-pool state resumes its clock
+        steps = steps + grasp_term(env).phase_offset
+    angle = steps * (2.0 * torch.pi * env.step_dt / period_s)
     return torch.stack((angle.sin(), angle.cos()), dim=-1)
 
 
