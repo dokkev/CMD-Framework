@@ -220,8 +220,21 @@ def main() -> int:
         designs = one_finger.study1_designs(key, config["architectures"][key], FLEXION, config)
         ref = designs[THICKNESS]
         views[key] = view_of(ref.mechanism, ref.config, ref.x)
+    # (b): Study 1's highest-coverage design of every joint at 120 deg, for 3 and 9 mm pads (the trade-off each pays)
+    EASY, HARD = (3.0, 120.0), (7.0, 150.0)  # (pad thickness, required flexion)
+    tradeoff, cover = {}, {}
+    names_s1 = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
+    with open(ROOT / "design" / "output" / "study" / "study1_thickness_coverage" / "summary.csv") as f:
+        for r in csv.DictReader(f):
+            cover[(r["architecture"], float(r["thickness_mm"]), float(r["required_flexion_deg"]))] = \
+                float(r["c_pad_mean"])
+    for key, *_ in ARCH:
+        for h, q in (EASY, HARD):
+            designs = one_finger.study1_designs(key, config["architectures"][key], q, config)
+            if h in designs:  # no design meets the requirement: the cell is left empty
+                tradeoff[(key, h, q)] = view_of(designs[h].mechanism, designs[h].config, designs[h].x)
     probe_fig, probe = plt.subplots()
-    for view in views.values():
+    for view in list(views.values()) + list(tradeoff.values()):
         view.draw(probe, FLEXION, hit=set(), style="sketch")
     box = probe.dataLim
     plt.close(probe_fig)
@@ -236,11 +249,11 @@ def main() -> int:
     def box(x, y, w, h):
         return fig.add_axes((x / WIDTH, y / height, w / WIDTH, h / height))
 
-    def panel(key, x0, y0, w, h, fontsize, title=True):
+    def panel(key, x0, y0, w, h, fontsize, title=True, view=None):
         _, name, colour, _, ours = next(a for a in ARCH if a[0] == key)
         ax = box(x0, y0, w, h)
         sketch.frame(ax, xlim, ylim)
-        view = views[key]
+        view = views[key] if view is None else view
         view.draw(ax, FLEXION, hit=set(), style="sketch")
         if key in ("rcj", "cfl"):  # the moving instantaneous centre over 0-120 deg, now at 120 deg
             path = icr_path(view, FLEXION)
@@ -297,18 +310,38 @@ def main() -> int:
     lax.annotate("", xy=(-11, 0), xytext=(-11, -d_ - h_), arrowprops=dl)
     lax.text(-11.8, -(d_ + h_) / 2, "$t_1$", fontsize=6.5, ha="right", va="center")
 
-    # (b) the four PIP joints at 120 deg, one scale, 2 x 2
-    bx0, sw = 1.66, 0.68
+    # (b) the trade-off: each joint's highest-coverage design (Study 1) for 3 mm pads at 120 deg (top) and for 7 mm
+    # pads at 150 deg (bottom), one scale, each drawn at its required flexion; under it the coverage it keeps
+    bx0, sw = 1.60, 0.72
     sh = sw * aspect
-    fig.text(bx0 / WIDTH, 1 - 0.02 / height, "(b) PIP joints at $120^\\circ$", **label)
-    top_y = height - head - cap - sh - 0.02
+    fig.text(bx0 / WIDTH, 1 - 0.02 / height, "(b) thicker pads, deeper flexion: what each joint gives up", **label)
+    top_y = height - head - cap - sh - 0.01
     for i, key in enumerate(("2r_dd", "2r_remote", "rcj", "cfl")):
-        col, row = i % 2, i // 2
-        panel(key, bx0 + col * (sw + 0.06), top_y - row * (cap + sh + 0.02), sw, sh, 6.3)
+        x0 = bx0 + 0.16 + i * (sw + 0.03)
+        _, _, colour, _, ours = next(a for a in ARCH if a[0] == key)
+        for row, (h, q) in enumerate((EASY, HARD)):
+            y0 = top_y - row * (sh + 0.16)
+            if (key, h, q) in tradeoff:
+                ax = panel(key, x0, y0, sw, sh, 6.3, title=row == 0, view=tradeoff[(key, h, q)])
+                if row == 1:
+                    ax.cla(); sketch.frame(ax, xlim, ylim)
+                    tradeoff[(key, h, q)].draw(ax, q, hit=set(), style="sketch")
+            else:
+                ax = box(x0, y0, sw, sh); ax.axis("off")
+                ax.text(0.5, 0.5, f"no design\nreaches ${q:.0f}^\\circ$", transform=ax.transAxes, ha="center",
+                        va="center", fontsize=6.3, color=colour, linespacing=1.0)
+        name = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}[key]
+        c0, c1 = cover.get((name, *EASY)), cover.get((name, *HARD))
+        txt = f"$\\bar C_{{pad}}$ {c0:.2f}$\\to$" + ("none" if c1 is None else f"{c1:.2f}")
+        fig.text((x0 + sw / 2) / WIDTH, (top_y - sh - 0.18) / height, txt, ha="center", va="top", fontsize=6.3,
+                 color=colour, fontweight="bold" if ours else "normal")
+    for y, txt in ((top_y + sh / 2, "3 mm, $120^\\circ$"), (top_y - sh / 2 - 0.16, "7 mm, $150^\\circ$")):
+        fig.text((bx0 + 0.08) / WIDTH, y / height, txt, rotation=90, ha="center", va="center", fontsize=6.3,
+                 color=INK2)
 
     # (c) the poles each joint can reach over the study's design space, at 60-150 deg (light to dark), with the
     # proximal contact faces of 3-9 mm pads (CFL mount) for reference
-    cx0 = 3.28
+    cx0 = 4.80
     fig.text(cx0 / WIDTH, 1 - 0.02 / height, "(c) achievable pole locations", **label)
     pax = box(cx0 + 0.36, 0.30, WIDTH - cx0 - 0.42, height - head - 0.38)
     blue, yellow = ARCH[3][2], ARCH[2][2]
@@ -332,14 +365,14 @@ def main() -> int:
     handles = [Line2D([], [], marker="o", ms=4.0, color=INK, lw=0, label="pin (2R)"),
                Patch(fc=yellow, ec="none", label="rollers (RCJ)"),
                Line2D([], [], color=blue, lw=1.0, label="crossed four-bar (CFL)"),
-               Patch(fc="#e8e6e1", ec="none", label="contact faces, 3–9 mm pads")]
-    handles += [Line2D([], [], color=shown[d][0], lw=1.2, label=f"${d}^\\circ$") for d in shown]
-    pax.legend(handles=handles, loc="upper right", fontsize=6.0, frameon=False, handlelength=1.3,
+               Patch(fc="#e8e6e1", ec="none", label="contact faces, 3–9 mm pads"),
+               Line2D([], [], color="none", label="light to dark: $60$–$150^\\circ$")]
+    pax.legend(handles=handles, loc="upper right", bbox_to_anchor=(1.02, 1.06), fontsize=5.4, frameon=False, handlelength=1.3,
                handletextpad=0.4, borderaxespad=0.1, labelspacing=0.25, ncol=1)
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.set_xlim(-32, 62); pax.set_ylim(-20, 38); pax.set_aspect("equal")
-    pax.set_xlabel("along the finger from the proximal phalanx's end (mm)", fontsize=6.8, labelpad=1)
+    pax.set_xlabel("along the finger from the PIP end (mm)", fontsize=6.8, labelpad=1)
     pax.set_ylabel("above the link line (mm)", fontsize=6.8, labelpad=1)
     pax.tick_params(labelsize=6.3, length=2)
     for side in ("top", "right"):
