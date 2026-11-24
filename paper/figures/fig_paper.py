@@ -134,56 +134,109 @@ def pole_shift_scene(ax, q=np.radians(120), L=28.0, t0=6.0, t1=10.0):
     ax.set_xlim(-32, 31); ax.set_ylim(-31, 14); ax.set_aspect("equal"); ax.axis("off")
 
 
+def clearance_row(ax, z, t=7.0, q=np.radians(120), L=16.0):
+    """One finger end for Fig. 2(a): proximal link and pad, the distal pad extended (dashed ghost) and flexed by q
+    about the pole z below the link line, with the gap G = 2 (t - z)_+ tan(q/2) the pads need."""
+    s = max(t - z, 0.0) * np.tan(q / 2)
+    P = np.array([s / 2 if z < t else 0.0, -z]) if False else np.array([0.0, -z])
+    ax.plot([-L - 2, -s / 2 if z < t else 0], [0, 0], color=GREY, lw=1.8, solid_capstyle="butt")
+    ax.add_patch(Polygon([[-L, 0], [-s / 2, 0], [-s / 2, -t], [-L, -t]], fc="#d6e4f5", ec=BLUE, lw=0.7))
+    ghost = [[s / 2, 0], [s / 2 + L - 2, 0], [s / 2 + L - 2, -t], [s / 2, -t]]
+    ax.add_patch(Polygon(ghost, fc="none", ec="#a8a8a6", lw=0.6, ls=(0, (2, 1.2))))
+    ax.plot([-s / 2, s / 2 + L], [0, 0], color="#a8a8a6", lw=0.5, ls=(0, (1, 1)))
+    P = np.array([0.0, -z])
+    flexed = rot(ghost, q, P)
+    ax.add_patch(Polygon(flexed, fc="#d6e4f5", ec=BLUE, lw=0.7))
+    ax.plot(*rot([[s / 2, 0], [s / 2 + L - 1, 0]], q, P).T, color=GREY, lw=1.8, solid_capstyle="butt")
+    ax.plot(*P, marker="o", ms=4.2, color=PURPLE, mec="white", mew=0.4, zorder=6)
+    ax.text(P[0] + 1.2, P[1] - 0.4, "$P$", fontsize=6.6, color=PURPLE, va="top", style="italic")
+    if s > 0.2:
+        ax.annotate("", xy=(-s / 2, 3.0), xytext=(s / 2, 3.0),
+                    arrowprops=dict(arrowstyle="<|-|>", lw=0.6, color=INK, mutation_scale=4, shrinkA=0, shrinkB=0))
+        for x in (-s / 2, s / 2):
+            ax.plot([x, x], [0, 3.6], color=INK, lw=0.4)
+        ax.text(0, 4.2, f"$G={2 * s:.1f}$ mm", fontsize=6.6, ha="center", va="bottom")
+    else:
+        ax.text(0, 4.2, "$G=0$", fontsize=6.6, ha="center", va="bottom", color=BLUE)
+    ax.set_xlim(-L - 3, L + 14); ax.set_ylim(-L - 6, 9); ax.set_aspect("equal"); ax.axis("off")
+
+
 def fig2():
-    from matplotlib.path import Path as MPath
-    from fig_mechanisms import cached_outlines, roller_pole
-    h = 2.05
+    h = 1.95
     fig = plt.figure(figsize=(W, h))
-    fig.text(0.5, 0.995, "Where should the finger rotate?", fontsize=8, style="italic", ha="center", va="top")
-    top = h - 0.20
-    # (a) for room: about a point at the contact face
-    label(fig, 0.02, top, "(a) For room: at the contact face", h)
-    for i, (z, ttl) in enumerate(((0.0, "about the link line"), (7.0, "about the contact face"))):
-        ax = fig.add_axes(((0.04 + i * 1.04) / W, 0.08 / h, 1.00 / W, (top - 0.42) / h))
-        clearance_scene(ax, z, title=ttl)
-    fig.text(1.07 / W, 0.03 / h, "same 7 mm pads, flexed $90^\\circ$", fontsize=5.8, color=INK2, ha="center",
-             va="bottom")
-    # (b) for the same contact motion: where it was, relative to the contact face
-    label(fig, 2.22, top, "(b) For the same contact motion: where it was,\n     relative to the contact face", h)
-    bx = fig.add_axes((2.24 / W, 0.04 / h, 2.30 / W, (top - 0.36) / h))
-    pole_shift_scene(bx)
-    fig.text(4.52 / W, (top - 0.34) / h, "thicker pad, links kept;\n$q=120^\\circ$", fontsize=5.8, color=AMBER,
-             ha="right", va="top", linespacing=1.0)
-    # (c) which joint can put it there: achievable poles at 120 deg and the two targets
-    label(fig, 4.72, top, "(c) Which joint can put it there?", h)
-    pax = fig.add_axes((5.05 / W, 0.30 / h, 2.05 / W, (top - 0.48) / h))
-    gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
-    ring = cached_outlines({90: None, 120: None, 150: None}, gx, gy)[120]
-    pax.fill(ring[:, 0], ring[:, 1], fc="#dbe7f7", ec=BLUE, lw=0.8, zorder=1)
-    radii = np.linspace(9.5, 20.0, 60)
-    lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
-    tq = np.radians(120)
-    edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
-                           roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
-    pax.fill(edge.real, edge.imag, fc=TEAL, ec="none", alpha=0.85, zorder=2)
-    pax.axhline(0, color=GREY, lw=1.4, zorder=3)
-    # targets from the reference CFL design (3 mm pads, 120 deg): its pole, and the 7 mm faces 4 mm deeper
-    ref_pole, face3, face7 = np.array([23.69, -3.18]), -6.0, -10.0
-    keep = ref_pole + np.array([0.0, face7 - face3])
-    pax.axhline(face7, color=PURPLE, lw=0.8, ls=(0, (3, 1.5)), zorder=4)
-    pax.plot(*keep, marker="*", ms=8, color=PURPLE, mec="white", mew=0.4, zorder=6)
-    inside = MPath(ring).contains_point(keep)
-    pax.text(keep[0] + 1, keep[1] + 2.0, "keep motion", fontsize=5.6, color=PURPLE, va="bottom", ha="center")
-    pax.text(-36, face7 - 1.0, "room: on the 7 mm contact face", fontsize=5.6, color=PURPLE, va="top")
-    pax.text(-36, 1.2, "fixed axis: any pin on the link line", fontsize=5.6, color=GREY, va="bottom")
-    pax.text(-30, 30, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", va="top")
-    pax.text(13, -20, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", va="top")
-    pax.set_xlim(-38, 52); pax.set_ylim(-24, 34); pax.set_aspect("equal")
-    pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("from the link line (mm)", labelpad=1)
+    head = h - 0.04
+    # (a) interface clearance
+    label(fig, 0.10, head, "(a) Interface clearance", h)
+    fig.text(1.05 / W, (head - 0.20) / h, "$h=t=7$ mm; $q=120^\\circ$", fontsize=6.4, ha="center", va="top")
+    for i, (z, name, col) in enumerate(((0.0, "link-line pole", GREY), (7.0, "contact-face pole", BLUE))):
+        y0 = head - 0.36 - (i + 1) * 0.62
+        ax = fig.add_axes((0.30 / W, y0 / h, 1.40 / W, 0.62 / h))
+        clearance_row(ax, z)
+        fig.text(0.18 / W, (y0 + 0.31) / h, name, rotation=90, fontsize=6.2, color=col, ha="center", va="center")
+    fig.text(1.05 / W, 0.04 / h, "$G=2[t-z]_+\\tan(q/2)$", fontsize=7, ha="center", va="bottom")
+    # (b) pole placement: the optimized designs' pole depth against their contact-face depth
+    label(fig, 2.30, head, "(b) Pole placement", h)
+    fig.text(3.65 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
+             ha="center", va="top")
+    pax = fig.add_axes((2.75 / W, 0.55 / h, 1.85 / W, (head - 0.85) / h))
+    pts = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pole_depths.json").read_text())
+    tt = np.array([0, 19.5])
+    pax.fill_between(tt, tt, 16, color="#eef3fa", lw=0, zorder=0)
+    pax.plot(tt, tt, color=PURPLE, lw=0.9, ls=(0, (3, 1.6)), zorder=1)
+    pax.axhline(0, color=INK2, lw=0.5, ls=(0, (1, 1.4)), zorder=1)
+    pax.text(1.0, 14.6, "zero pad gap\n(symmetric case)", fontsize=6.0, color=PURPLE, va="top", linespacing=1.0)
+    pax.text(9.4, 10.6, "$z=t$", fontsize=6.0, color=PURPLE, rotation=38, ha="center", va="center")
+    for key in ("2r_remote", "2r_dd", "rcj", "cfl"):
+        d = pts[key]
+        t, z = np.array([r["t"] for r in d]), np.array([r["z"] for r in d])
+        if key == "rcj":
+            pax.plot([t.min() - 1.5, t.max() + 0.8], [z.mean()] * 2, color=TEAL, lw=0.7, alpha=0.6, zorder=2)
+        pax.plot(t, z, ls="none", marker={"cfl": "o", "2r_remote": "s", "2r_dd": "D", "rcj": "^"}[key], ms=4.0,
+                 color=ARCH[key][1], mec="white", mew=0.4, zorder=3, label=ARCH[key][0], clip_on=False)
+    pax.set_xlim(0, 19.5); pax.set_ylim(-0.8, 16); pax.set_xticks([0, 5, 10, 15]); pax.set_yticks([0, 5, 10, 15])
+    pax.set_xlabel("contact-face depth $t$ (mm)", labelpad=1); pax.set_ylabel("pole depth $z$ (mm)", labelpad=1)
     clean(pax)
+    pax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4, frameon=False, fontsize=6.0,
+               handletextpad=0.1, columnspacing=0.6)
+    # (c) motion preservation: the same three designs from the skeleton frame and from the contact frame
+    label(fig, 4.80, head, "(c) Motion preservation", h)
+    fig.text(5.85 / W, (head - 0.20) / h, "$t: 6\\to10$ mm; $q: 0\\to120^\\circ$", fontsize=6.4, ha="center",
+             va="top")
+    q = np.radians(np.linspace(0, 120, 61))
+    L, z0, t0, t1 = 22.0, 0.0, 6.0, 10.0
+    dt = t1 - t0
+
+    def path(pt, pole):
+        return np.array([rot([pt], qq, np.asarray(pole))[0] for qq in q])
+    designs = (("reference", GREY, (0, -z0), t0, (0, (2.6, 1.6)), 1.0, 5),
+               ("skeleton-preserving", AMBER, (0, -z0), t1, "-", 1.4, 3),
+               ("contact-preserving", BLUE, (0, -z0 - dt), t1, "-", 1.4, 3))
+    for row, (frame, name) in enumerate((("skel", "Skeleton frame"), ("contact", "Contact frame"))):
+        y0 = head - 0.42 - (row + 1) * 0.60
+        ax = fig.add_axes((5.05 / W, y0 / h, 1.10 / W, 0.55 / h))
+        ends = {}
+        for nm, col, pole, t, ls, lw, zo in designs:
+            pth = path((L, 0.0), pole) if frame == "skel" else path((L, -t), pole) - np.array([0.0, -t])
+            ax.plot(*pth.T, color=col, lw=lw, ls=ls, zorder=zo)
+            ends[nm] = pth[-1]
+        ax.plot([-L - 2, L + 2], [0, 0], color=INK2, lw=0.4, ls=(0, (1, 1.4)), zorder=0)
+        ax.plot(L, 0, marker="o", ms=3.4, color=GREY, zorder=6)
+        off = "contact-preserving" if frame == "skel" else "skeleton-preserving"
+        a_, b_ = ends["reference"], ends[off]
+        ax.plot(*np.array([a_, b_]).T, color=PURPLE, lw=0.8, zorder=7)
+        ax.plot(*a_, marker="o", ms=3.0, color=GREY, zorder=7)
+        ax.text(-L - 2, -4, f"{np.linalg.norm(a_ - b_):.2f} mm", fontsize=6.0, color=PURPLE, va="top")
+        ax.set_aspect("equal"); ax.axis("off"); ax.set_xlim(-L - 3, L + 3); ax.set_ylim(-L - 4, 3)
+        fig.text(4.92 / W, (y0 + 0.30) / h, name, fontsize=6.4, va="center", rotation=90, ha="center",
+                 color=INK2)
+    handles = [plt.Line2D([], [], color=GREY, lw=1.0, ls=(0, (2.6, 1.6)), label="reference"),
+               plt.Line2D([], [], color=AMBER, lw=1.4, label="skeleton-preserving"),
+               plt.Line2D([], [], color=BLUE, lw=1.4, label="contact-preserving")]
+    fig.legend(handles=handles, loc="center left", bbox_to_anchor=(6.16 / W, 1.05 / h), frameon=False,
+               fontsize=5.8, handlelength=1.4, labelspacing=0.3, handletextpad=0.3)
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
-    print("fig2", h, "keep target inside CFL region:", inside)
+    print("fig2", h)
 
 
 # ------------------------------------------------------------------------------------------------------------ Fig. 3
