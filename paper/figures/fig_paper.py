@@ -265,6 +265,10 @@ def fig2():
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
         x = list(base.x)
+        if key == "cfl":  # the candidate whose lengthened pads come closest at 150 deg (fig2_pad_search.py)
+            best = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pad_search.json").read_text())[0]
+            base = one_finger.study1_designs(key, cfg["architectures"][key], best["cfg"][0], cfg)[best["cfg"][1]]
+            x = list(best["x"])
         nm = list(mech_of(base.mechanism).variable_names)
         if servo_up:
             x[nm.index("servo_tilt_deg")] = 0.0
