@@ -256,7 +256,7 @@ def fig2():
                  ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
             v = view_of(base.mechanism, with_pads(base.config, hh), x)
-            qd = 120.0 if key == "2r_dd" else first_hit(v)
+            qd = 120.0 if key == "2r_dd" else min(150.0, first_hit(v))
             n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
             v.draw(ax, qd, hit=set(), style="sketch")
             alpha = 1.0 if hh == 7.0 else 0.30
@@ -298,7 +298,7 @@ def fig2():
             fig.text((0.08 + 0.58) / W, (head - 1.44) / h, "35 mm pads collide at $120^\\circ$ (red)",
                      fontsize=5.6, color="#c0392b", ha="center", va="top")
         else:
-            fig.text((0.08 + 1.20 + 0.58) / W, (head - 1.44) / h, "closes to $180^\\circ$ with every pad",
+            fig.text((0.08 + 1.20 + 0.58) / W, (head - 1.44) / h, "reaches $150^\\circ$ with every pad",
                      fontsize=5.6, color=BLUE, ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
         x0 = 0.55 + j * 0.55
