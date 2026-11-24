@@ -41,9 +41,9 @@ from analyze import spearman_perm  # noqa: E402
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
 STRIP_IN = 0.63  # (a), the task frames
 PLOT_IN, LEGEND_IN, BOTTOM_IN = 0.78, 0.53, 0.28  # each plot, its title and legend above it, the x label
-WIDTH, HEIGHT = 7.16, STRIP_IN + LEGEND_IN + PLOT_IN + BOTTOM_IN
+WIDTH, HEIGHT = 7.16, 3.2
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # as the other figures: pad thickness, light to dark
-GREY, INK2 = "#9a9a9a", "#555555"
+GREY, INK2, INK = "#9a9a9a", "#555555", "#0b0b0b"
 YLIM = (2, 600)
 
 
@@ -117,67 +117,119 @@ def strip(fig, y0, y1):
                          color=INK2, ha="center", va="center")
 
 
-def main() -> int:
-    plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
-                         "mathtext.fontset": "stix", "font.size": 7})
-    fig = plt.figure(figsize=(WIDTH, HEIGHT))
-    top = STRIP_IN / HEIGHT  # the strip's share of the height
-    gs = fig.add_gridspec(1, 3, wspace=0.3, left=0.05, right=0.995, bottom=BOTTOM_IN / HEIGHT,
-                          top=(BOTTOM_IN + PLOT_IN) / HEIGHT)
-    axes = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1]), None, fig.add_subplot(gs[0, 2])]
-    strip(fig, 1.0 - top, 1.0)
-    fig.text(0.002, 1.0 - 0.004, "(a)", fontsize=7, fontweight="bold", ha="left", va="top")
+def strip_one(fig, key, x0, x1, y0, y1, steps):
+    """One task on O in three frames between figure fractions (x0, x1) x (y0, y1), a caption under each frame."""
+    from PIL import Image
+    ims = [np.asarray(Image.open(DATA / "renders" / f"render_{key}{i}.png").convert("RGB")) for i in range(3)]
+    ink = np.any(np.stack([im.min(axis=2) < 245 for im in ims]), axis=0)
+    rows, cols = np.where(ink)
+    left = int(0.22 * ink.shape[1])
+    box = (max(rows.min() - 6, 0), rows.max() + 6, max(cols.min(), left), cols.max() + 6)
+    gw = (x1 - x0) / 3
+    cap = 0.2 / HEIGHT
+    for i, im in enumerate(ims):
+        ax = fig.add_axes((x0 + i * gw + 0.04 * gw, y0 + cap, 0.92 * gw, y1 - y0 - cap))
+        ax.imshow(im[box[0]:box[1], box[2]:box[3]], interpolation="lanczos")
+        ax.set_anchor("S")
+        ax.axis("off")
+        fig.text(x0 + (i + 0.5) * gw, y0 + cap - 0.01, steps[i], fontsize=5.9, color=INK2, ha="center", va="top",
+                 linespacing=1.05)
+        if i < 2:
+            fig.text(x0 + (i + 1) * gw, y0 + cap + 0.45 * (y1 - y0 - cap), r"$\rightarrow$", fontsize=6,
+                     color=INK2, ha="center", va="center")
 
-    # (a) Isaac Lab, three settings at the reused setpoint
-    ax = axes[0]
+
+def scatter_isaac(ax, key):
+    """E against key ('D_c_mm' or 'D_s_mm') for the Isaac Lab sets at the reused setpoint."""
     grid = json.loads((DATA / "isaac_dose_A-grid_expanded.json").read_text())["hands"]
     fr = json.loads((DATA / "isaac_dose_A_all.json").read_text())["hands"]
     comp = json.loads((DATA / "isaac_comp.json").read_text())["hands"]
-    gx = [r["D_c_mm"] for r in grid.values()]
+    gx = [r[key] for r in grid.values()]
     gy = [100 * r["E_rel_median"] for r in grid.values()]
     ax.plot(gx, gy, ls="none", marker="o", ms=2.6, mec=GREY, mfc="none", mew=0.6, zorder=2,
             label=label("friction, grid (45)", gx, gy))
-    fx = [r["D_c_mm"] for r in fr.values()]
+    fx = [r[key] for r in fr.values()]
     fy = [100 * r["E_rel_median"] for r in fr.values()]
     for r in fr.values():
         c = THICK[int(r["thickness_mm"])]
-        ax.plot(r["D_c_mm"], 100 * r["E_rel_median"], ls="none", marker="o", ms=3.3, mec=c, mfc=c, mew=0.8, zorder=3)
+        ax.plot(r[key], 100 * r["E_rel_median"], ls="none", marker="o", ms=3.3, mec=c, mfc=c, mew=0.8, zorder=3)
     ax.plot([], [], ls="none", marker="o", ms=3.3, mec=THICK[7], mfc=THICK[7], label=label("friction (15)", fx, fy))
-    sx = [r["D_c_mm"] for r in comp.values()]
+    sx = [r[key] for r in comp.values()]
     sy = [100 * r["E_median"] for r in comp.values()]
     for hand, r in comp.items():
         c = THICK[7 if not hand.startswith("h3to") else int(hand[4])]
-        ax.plot(r["D_c_mm"], 100 * r["E_median"], ls="none", marker="s", ms=3.0, mec=c, mfc="white", mew=0.8,
-                zorder=3)
+        ax.plot(r[key], 100 * r["E_median"], ls="none", marker="s", ms=3.0, mec=c, mfc="white", mew=0.8, zorder=3)
     ax.plot([], [], ls="none", marker="s", ms=3.0, mec=THICK[7], mfc="white", mew=0.8,
             label=label("stiffness (14)", sx, sy))
     ax.axhline(20, color=INK2, lw=0.6, ls=(0, (3, 2)), zorder=1)
-    ax.text(5.55, 21, "20%", fontsize=5.6, ha="right", va="bottom", color=INK2)
-    for x, t in ((0.35, 5), (0.86, 7), (2.32, 9)):  # the CFL redesigns of Study 2 (q_req 120 deg)
-        ax.axvline(x, color=THICK[t], lw=0.7, ls=":", zorder=1)
-        ax.text(x + 0.05, {5: 130, 7: 420, 9: 420}[t], f"{t} mm", fontsize=5.6, color=THICK[t], va="top", ha="left")
-    style(ax, "(b) reused setpoint")
-    ax.set_ylabel("error $E$ (%)", fontsize=7, labelpad=1)
 
-    # (b) contact model
-    ax = axes[1]
-    point = json.loads((DATA / "drake_e21_point.json").read_text())
-    hydro = json.loads((DATA / "drake_e21_hydro.json").read_text())
-    series(ax, [{"d_contact": r["d_contact"], "E": r.get("E_isaac")} for r in point], "Isaac Lab, point",
-           "#52514e", "o", True)
-    series(ax, point, "Drake, point", "#2a78d6", "^", False)
-    series(ax, hydro, "Drake, hydroelastic, 3 mm", "#eb6834", "D", True, ms=3.0)
-    series(ax, json.loads((DATA / "drake_e25_hydro_own.json").read_text()), "Drake, hydroelastic, own thickness",
-           "#9c2f1e", "s", False, ms=3.0)
-    style(ax, "(c) contact model")
 
-    # (d) task
-    ax = axes[3]
-    series(ax, point, "grasp pull-out", "#2a78d6", "^", False)
-    series(ax, json.loads((DATA / "drake_e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
-    series(ax, json.loads((DATA / "drake_e26_point.json").read_text()), "dial turning", "#eda100", "P", True)
-    style(ax, "(d) task (Drake, point)")
-
+def main() -> int:
+    """Fig. 4 (2026-11-24 figure plan), double column, about 80 mm tall: (a) the protocol on O, grasp pull-out in
+    three Drake frames; (b) a reversed conclusion: the softer, thicker pad's effect measured on each 7 mm redesign
+    at O's placements, against its true effect on O; (c) the error E against Delta_contact and (d) against
+    Delta_skel, Isaac Lab at the reused setpoint. The other simulator, contact models and tasks go to Table I."""
+    plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+                         "mathtext.fontset": "stix", "font.size": 7})
+    fig = plt.figure(figsize=(WIDTH, HEIGHT))
+    lab = dict(fontsize=7.2, fontweight="bold", ha="left", va="top")
+    # (a) protocol
+    fig.text(0.004, 0.995, "(a) protocol on $O$: grasp pull-out", **lab)
+    strip_one(fig, "hold", 0.0, 0.47, 0.585, 0.95,
+              ("close to $q_0+5^\\circ$\nat stiffness $K_0$", "release the\ncylinder", "load until\nthe grasp gives way"))
+    # (b) a reversed conclusion
+    fig.text(0.525, 0.995, "(b) a reversed conclusion ($7$ mm, $O$'s placements)", **lab)
+    bx = fig.add_axes((0.585, 0.62, 0.405, 0.31))
+    con = json.loads((DATA / "isaac_conclusion_study3.json").read_text())["hands"]
+    dc = {"R": 0.86, "U": 3.91}
+    hands = [(k, v) for k, v in con.items() if int(v["thickness_mm"]) == 7]
+    def dmm(k):
+        if k in dc:
+            return dc[k]
+        return float(k.split("_")[0][1:].replace("p", "."))
+    hands.sort(key=lambda kv: (dmm(kv[0]), kv[0]))
+    xs = np.arange(len(hands))
+    for i, (k, v) in enumerate(hands):
+        m = v["measured_change_pct"]
+        col = "#2a78d6" if k == "R" else ("#c0392b" if m > 0 else "#9a9a9a")
+        bx.bar(i, m, width=0.62, color=col, zorder=3, hatch="////" if "maxDs" in k else None, edgecolor="white",
+               lw=0)
+        bx.plot([i - 0.38, i + 0.38], [v["true_change_pct"]] * 2, color=INK, lw=1.2, zorder=5)
+        bx.text(i, m + (3 if m > 0 else -3), f"{m:+.0f}", fontsize=5.6, ha="center", va="bottom" if m > 0 else "top",
+                color=INK2)
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    bx.legend(handles=[Line2D([], [], color=INK, lw=1.2, label="true effect, on $O$"),
+                       Patch(fc="#c0392b", label="sign reversed"),
+                       Patch(fc="#9a9a9a", hatch="////", ec="white", label="largest $\\Delta_{\\mathrm{skel}}$")],
+              fontsize=5.8, frameon=False, loc="upper left", handlelength=1.4, borderaxespad=0.1, labelspacing=0.2)
+    bx.axhline(0, color=INK2, lw=0.5, zorder=2)
+    names = [("$R$\n" if k == "R" else "$U$\n" if k == "U" else "") + f"{dmm(k):.3g}" for k, _ in hands]
+    bx.set_xticks(xs); bx.set_xticklabels(names, fontsize=5.8)
+    bx.set_xlabel(r"7 mm redesign, by $\Delta_{\mathrm{contact}}$ (mm)", fontsize=6.6, labelpad=1)
+    bx.set_ylabel("measured effect (%)", fontsize=6.6, labelpad=1)
+    bx.set_ylim(-85, 65)
+    bx.tick_params(labelsize=6, length=2)
+    for side in ("top", "right"):
+        bx.spines[side].set_visible(False)
+    # (c), (d) the error against the contact-surface and the skeleton motion change
+    for x0, key, title, xl in ((0.055, "D_c_mm", "(c) error vs. contact-surface motion change", r"$\Delta_{\mathrm{contact}}$ (mm)"),
+                               (0.585, "D_s_mm", "(d) error vs. skeleton motion change", r"$\Delta_{\mathrm{skel}}$ (mm)")):
+        ax = fig.add_axes((x0, 0.10, 0.405, 0.245))
+        scatter_isaac(ax, key)
+        ax.set_yscale("log"); ax.set_ylim(*YLIM)
+        ax.set_yticks([3, 10, 30, 100, 300]); ax.set_yticklabels(["3", "10", "30", "100", "300"]); ax.minorticks_off()
+        ax.set_xlabel(xl, fontsize=6.8, labelpad=1)
+        ax.set_ylabel("error $E$ (%)", fontsize=6.8, labelpad=1)
+        ax.tick_params(labelsize=6, length=2)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.set_xlim(left=0)
+        leg = ax.legend(title=title, fontsize=5.8, frameon=False, loc="lower left", bbox_to_anchor=(-0.02, 1.01),
+                        handletextpad=0.2, borderaxespad=0.0, labelspacing=0.15, handlelength=1.0, alignment="left",
+                        ncol=2, columnspacing=0.8)
+        leg.get_title().set_fontsize(7.2)
+        leg.get_title().set_fontweight("bold")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_study3.png"
     fig.savefig(out, dpi=400)

@@ -1,0 +1,134 @@
+{
+ "set": "A",
+ "hands": {
+  "R": {
+   "thickness_mm": 7,
+   "pairs": 107,
+   "true_change_pct": -41.0958893372029,
+   "measured_change_pct": -54.79451829976857,
+   "reversed_share": 0.037383177570093455,
+   "relative_error": 0.2666666507720947
+  },
+  "d1p5_minDs_s0": {
+   "thickness_mm": 7,
+   "pairs": 108,
+   "true_change_pct": -41.3793065176567,
+   "measured_change_pct": 4.13792880196641,
+   "reversed_share": 0.5277777777777778,
+   "relative_error": 0.9333329757054434
+  },
+  "d2p25_minDs_s0": {
+   "thickness_mm": 7,
+   "pairs": 108,
+   "true_change_pct": -41.3793065176567,
+   "measured_change_pct": 16.551722607062683,
+   "reversed_share": 0.7222222222222222,
+   "relative_error": 1.3166668603817737
+  },
+  "d3_minDs_s0": {
+   "thickness_mm": 7,
+   "pairs": 108,
+   "true_change_pct": -41.3793065176567,
+   "measured_change_pct": 24.137931884965177,
+   "reversed_share": 0.7777777777777778,
+   "relative_error": 1.6000001192092967
+  },
+  "U": {
+   "thickness_mm": 7,
+   "pairs": 107,
+   "true_change_pct": -41.0958893372029,
+   "measured_change_pct": 47.945207492744565,
+   "reversed_share": 0.794392523364486,
+   "relative_error": 2.1666665077209473
+  },
+  "d1p5_maxDs_s0": {
+   "thickness_mm": 7,
+   "pairs": 100,
+   "true_change_pct": -38.40580014365238,
+   "measured_change_pct": -57.971018718035715,
+   "reversed_share": 0.04,
+   "relative_error": 0.43396222977589216
+  },
+  "d3_maxDs_s0": {
+   "thickness_mm": 7,
+   "pairs": 36,
+   "true_change_pct": -36.29032265042167,
+   "measured_change_pct": -68.54838746891558,
+   "reversed_share": 0.1111111111111111,
+   "relative_error": 0.8666666746139526
+  },
+  "h3to5_hr": {
+   "thickness_mm": 5,
+   "pairs": 108,
+   "true_change_pct": -26.20689289464974,
+   "measured_change_pct": -25.51723840262188,
+   "reversed_share": 0.037037037037037035,
+   "relative_error": 0.05263167553662303
+  },
+  "h3to5_hu": {
+   "thickness_mm": 5,
+   "pairs": 108,
+   "true_change_pct": -26.20689289464974,
+   "measured_change_pct": 20.689655725227365,
+   "reversed_share": 0.7685185185185185,
+   "relative_error": 1.9736843269287507
+  },
+  "h3to5_d3_minDs_s0": {
+   "thickness_mm": 5,
+   "pairs": 107,
+   "true_change_pct": -26.027396253627717,
+   "measured_change_pct": 58.9041106627971,
+   "reversed_share": 0.7850467289719626,
+   "relative_error": 3.3684210823513467
+  },
+  "h3to9_hr": {
+   "thickness_mm": 9,
+   "pairs": 108,
+   "true_change_pct": -51.03447680524376,
+   "measured_change_pct": -15.172413623006964,
+   "reversed_share": 0.3425925925925926,
+   "relative_error": 0.5945946814545481
+  },
+  "h3to9_hu": {
+   "thickness_mm": 9,
+   "pairs": 108,
+   "true_change_pct": -51.03447680524376,
+   "measured_change_pct": 24.827585143793527,
+   "reversed_share": 0.7777777777777778,
+   "relative_error": 1.486486619062205
+  },
+  "h3to9_d3p5_maxDs_s0": {
+   "thickness_mm": 9,
+   "pairs": 47,
+   "true_change_pct": -44.776119084314665,
+   "measured_change_pct": -34.328357252943995,
+   "reversed_share": 0.2553191489361702,
+   "relative_error": 0.4333333969116211
+  },
+  "h3to9_d5_minDs_s0": {
+   "thickness_mm": 9,
+   "pairs": 108,
+   "true_change_pct": -51.03447680524376,
+   "measured_change_pct": 55.862063182236795,
+   "reversed_share": 0.8148148148148148,
+   "relative_error": 1.9054058259904432
+  }
+ },
+ "rho_reversed_share_Dc": {
+  "rho": 0.7984581497797358,
+  "ci95": [
+   0.3381497779152584,
+   0.9809241224337819
+  ],
+  "p_one_sided": 0.0004199958000419996
+ },
+ "rho_relative_error_Dc": {
+  "rho": 0.6094613148925725,
+  "ci95": [
+   0.04513142130768116,
+   0.9375
+  ],
+  "p_one_sided": 0.01119988800111999
+ },
+ "n_hands": 14
+}
