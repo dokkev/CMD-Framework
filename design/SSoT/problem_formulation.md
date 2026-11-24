@@ -396,7 +396,7 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 | C1 | H1, R1: 두께와 요구 flexion마다 구조가 확보하는 coverage | Study 1 | A.6.1, A.6.2 |
 | C2.2 | H2, R2: 두꺼운 interface에서도 접촉점 경로(proximal phalanx 좌표계)를 지키도록 다시 설계할 수 있는가 | Study 2 | A.6.3 |
 | C2.3 | H3, R3: 명령이나 토크를 재사용할 때 interface 측정의 오차가 어느 설계 변화를 따르는가 | Study 3 (시뮬레이션) | A.6.4 |
-| C2.3 | H4, R4: 재설계가 interface 연구의 결론(버티는 하중의 변화)을 바꾸는가 | Study 4 (시뮬레이션) | A.6.5 |
+| C2.3 | H4, R4: 재설계가 interface 연구의 결론(버티는 하중의 변화)을 바꾸는가 | Study 3, 결론 (시뮬레이션) | A.6.5 |
 
 ### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
 
@@ -669,9 +669,9 @@ $\mathcal V(H)$는 $O$와 $H$가 두 interface 값 모두에서 Gate 0을 통과
 
 **해석과 범위.** 같은 두께에서 $\Delta_{\mathrm{contact}}$와 $\Delta_{\mathrm{skel}}$은 합 하한(A.6.3) 때문에 서로 맞바뀐다. 그래서 둘 중 무엇이 오차를 예측하는지는 partial 상관과, $\Delta_{\mathrm{skel}}=0$인 fixed-axis 계열로 가른다. 결과는 시뮬레이션(강체 손, MuJoCo-Warp 접촉), CFL 한 구조와 fixed-axis 대조 계열, $q_{\mathrm{req}}=120^\circ$ 하나, 두 pad grasp 하나, interface 성질 셋 안에서의 진술이다(research-objective §8.3).
 
-### A.6.5. Study 4: 재설계가 interface 연구의 결론을 바꾸는가 (시뮬레이션)
+### A.6.5. Study 3 (계속): 재설계가 interface 연구의 결론을 바꾸는가 (시뮬레이션)
 
-Study 3이 측정 오차를 무엇이 예측하는지 묻는다면, Study 4는 그 오차가 연구의 결론을 바꾸는지 묻는다(H4, research-objective §6). 장치와 절차는 A.6.4(조건 A)와 같다.
+A.6.4가 측정 오차를 무엇이 예측하는지 묻는다면, 이 절은 그 오차가 연구의 결론을 바꾸는지 묻는다(H4, research-objective §6). 장치와 절차는 A.6.4(조건 A)와 같다.
 
 **Interface 변화.** O의 3 mm pad를 두께 $h$의 pad로 바꾼다. 두꺼운 pad는 더 부드럽다: 접촉 강성 $k(h)=2.5\ \mathrm{kN/m}\times3\ \mathrm{mm}/h$ (직렬 스프링).
 

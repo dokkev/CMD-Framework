@@ -323,13 +323,13 @@ Candidates: Delta_contact 0.69 [0.42, 0.83], Delta_skel 0.71 [0.41, 0.87], cover
 [-0.75, -0.09]. Post hoc: the force deviation follows Delta_skel (0.67), not Delta_contact (0.10); each predicts E
 with the other held fixed (0.78, 0.79). Paper: Table I's torque column; C2.3 scoped to the impedance setpoint.
 
-## Study 4 confirmation: soft 7 mm pads on the grid, 27 new hands (nineteenth experiment, pre-registered 6bc25cf; 2026-11-22)
+## Study 3, conclusion part, confirmation: soft 7 mm pads on the grid, 27 new hands (nineteenth experiment, pre-registered 6bc25cf; 2026-11-22)
 
 `conclusion_analysis.py --set grid`, `conclusion_grid.json`. True change (O with the soft pad's stiffness) -37%.
 Relative error vs Delta_contact: rho 0.94 [0.84, 0.97], p < 1e-5 (holds). Reversed share vs Delta_contact: rho -0.04
 (fails). Measured change -4 to -75%. Post hoc: the sign of the distal face's normal offset over 85-115 deg sets the
 direction (rho -0.99 with the signed error, -0.88 with the reversed share): an advancing face presses harder and
-hides or reverses the loss (minDs family, up to 40% reversed; U), a retreating face exaggerates it. Paper: Study 4
+hides or reverses the loss (minDs family, up to 40% reversed; U), a retreating face exaggerates it. Paper: the last part of Study 3
 folded into Study 3 as "the interface that forced the redesign"; abstract says the error *can* reverse a conclusion.
 
 ## Study 3: second engine, contact models and tasks (experiments 21–26, pre-registered; 2026-11-23; `sim/drake/`)
