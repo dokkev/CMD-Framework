@@ -299,12 +299,29 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "servo at the pin (2R-DD)", 3.0, False), ("cfl", "CoDe (CFL)", 7.0, False))
-    for i, (key, name, base_h, servo_up) in enumerate(panels):
+    panels = (("2r_dd", "2R-DD\n(servo at the pin)", 3.0, False, None),
+              ("cfl", "U: CFL,\ncoverage only", 7.0, False, "hu"),
+              ("cfl", "R: CFL,\ncontact kept", 7.0, False, "hr"))
+    for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
         x = list(base.x)
-        if key == "cfl":  # of the searched candidates, the one whose common-length pads come closest at 150 deg
+        if hand:  # the Study 3 hand's design vector (design/output/sim/study3/hands/<hand>.yaml)
+            import yaml
+            ydoc = yaml.safe_load(open(ROOT / "design" / "output" / "sim" / "study3" / "hands" /
+                                       f"cfl_q120_h3to7_{hand}.yaml"))
+            base = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)[7.0]
+            x = [float(vv) for vv in ydoc["source"]["design"]]
+            xx = list(x)
+            nm_ = list(mech_of(base.mechanism).variable_names)
+            for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
+                xx[nm_.index(k_)] = 0.0
+            ep_, ed_, gap_ = common_pad_extension(view_of, base.mechanism,
+                                                  [with_pads(base.config, t_) for t_ in (7.0, 5.0, 3.0)], xx,
+                                                  qd=120.0)
+            cfl_ext = (ep_, ed_)
+            print(hand, "ext", cfl_ext, "gap", round(gap_, 2))
+        elif key == "cfl":  # of the searched candidates, the one whose common-length pads come closest at 150 deg
             cands = json.loads((ROOT / "report" / "study0" / "data" / "fig2_cfl_pad_gap150.json").read_text())
             choice = None
             for cnd in cands:
@@ -325,13 +342,15 @@ def fig2():
         if key == "cfl":
             for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
                 x[nm.index(k_)] = 0.0
-        ax = fig.add_axes(((0.08 + i * 1.20) / W, (head - 1.40) / h, 1.16 / W, 1.12 / h))
-        ax.set_xlim(-6, 96); ax.set_ylim(-48, 30); ax.set_aspect("equal"); ax.axis("off")
-        fig.text((0.08 + i * 1.20 + 0.58) / W, (head - 0.20) / h, name, fontsize=6.4, color=ARCH[key][1],
-                 ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
+        pw = 0.80
+        ax = fig.add_axes(((0.04 + i * (pw + 0.02)) / W, (head - 1.36) / h, pw / W, 1.02 / h))
+        ax.set_xlim(-6, 96); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
+        col_ = {None: GREY, "hu": AMBER, "hr": BLUE}[hand]
+        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 0.20) / h, name, fontsize=6.0, color=col_,
+                 ha="center", va="top", fontweight="bold" if hand == "hr" else "normal", linespacing=1.0)
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
             v = view_of(base.mechanism, with_pads(base.config, hh), x)
-            qd = 120.0 if key == "2r_dd" else min(150.0, first_hit(v))
+            qd = 120.0 if (key == "2r_dd" or hand) else min(150.0, first_hit(v))
             n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
             v.draw(ax, qd, hit=set(), style="sketch")
             alpha = 1.0 if hh == 7.0 else 0.30
@@ -403,12 +422,10 @@ def fig2():
                     ax.plot(*path.T, color=PURPLE, lw=1.0, zorder=40, solid_capstyle="round")
                     ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
                 print("CFL pad extension", hh, ext)
-        if key == "2r_dd":
-            fig.text((0.08 + 0.58) / W, (head - 1.44) / h, "35 mm pads collide at $120^\\circ$ (red)",
-                     fontsize=5.6, color="#c0392b", ha="center", va="top")
-        else:
-            fig.text((0.08 + 1.20 + 0.58) / W, (head - 1.44) / h, "reaches $150^\\circ$ with every pad",
-                     fontsize=5.6, color=BLUE, ha="center", va="top")
+        foot = {None: ("35 mm pads collide (red)", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
+                "hr": ("clear at $120^\\circ$", BLUE)}[hand]
+        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
+                 ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
         x0 = 0.55 + j * 0.55
         fig.patches.append(Rectangle((x0 / W, 0.10 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
