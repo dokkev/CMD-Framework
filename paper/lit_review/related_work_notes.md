@@ -108,6 +108,8 @@ The finite displacement pole (centre of finite rotation) of planar rigid motion 
 | murray1994mathematical | https://catalog.hathitrust.org/Record/002811962 |
 | gottschalk1996obbtree | https://history.siggraph.org/?p=116994 ; https://www.cs.unc.edu/~geom/OBB/paper.html |
 | deb2002nsga2 | https://repository.ias.ac.in/9403 |
+| hsu2019rcm | https://www.researchgate.net/publication/338942048 (IROS 2019, pp. 3172-3178; verified 2026-11-24) |
+| khullar2021rcm | https://waseda.elsevierpure.com/en/publications/a-multi-fingered-robot-hand-with-remote-center-of-motion-mechanis/ (ROBIO 2021, pp. 564-570; verified 2026-11-24) |
 
 ### Caveats on individual fields
 

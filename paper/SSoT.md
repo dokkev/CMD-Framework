@@ -64,6 +64,8 @@ model, the analysis and the design studies; Experiment holds simulation only.
 | relative contact trajectory, RCT, contact-centric kinematics, D_c, D_s | replaced by the terms below |
 | mount depth d | one depth symbol, the face depth t |
 | A'', B'' | construction points of the code; the paper uses r_{1,e}, r_{2,s} |
+| center of rotation (as a term), skeletal motion, skeletal kinematics, contact-surface kinematics | one name per quantity: pole, skeleton motion, contact-surface motion |
+| a mechanism synthesis method | the optimization formulation (two objectives solved with GA/NSGA-II) |
 
 ### 4.2 Terms (define once, never vary)
 
@@ -73,7 +75,7 @@ model, the analysis and the design studies; Experiment holds simulation only.
 | contact Jacobian (PIP column) | J(q) = [c'(q); 1]; used where the claim is stated, not as a running synonym |
 | skeleton motion, r_C(q) | fingertip path written from the proximal link line |
 | Δ_contact, Δ_skel | their largest changes over [0, q_req], in mm |
-| pole, P(q) | finite pole of the distal phalanx relative to the proximal one (Lemma 1) |
+| pole, P(q) | the point about which the distal phalanx rotates relative to the proximal one (finite pole). Introduced once with this gloss; "center of rotation" is not used as a second name |
 | face depth t | depth of a pad's contact face below the link line, set by the mounting rule |
 | the mounting rule | each pad at the shallowest depth clear of its joint hardware, no spacers |
 | the goal | the common requirements of every design search |
@@ -94,9 +96,10 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
     from first principles; simple models explain the trade-off against conventional designs; the comparison
     and the validation follow from that metric. Plain, precise engineering prose, the design rationale stated
     explicitly, each quantity defined before it is used.
-  - **Voice, after Wensing:** "we" is not needed. The subject of a sentence is the design, the mechanism or the
-    analysis ("The CFL keeps …", "This section derives …", "Each pad is mounted …"); the passive is used where
-    the actor does not matter.
+  - **Voice:** "we" is allowed but not overused. The introduction and the conclusion are written to draw the
+    reader in, and may say "we introduce", "our intuition", "our main contributions". In the design and
+    experiment sections the subject is the design, the mechanism or the analysis ("The CFL keeps …"), with the
+    passive where the actor does not matter.
   - **Presenting design decisions:** Chi et al., "Universal Manipulation Interface: In-The-Wild Robot
     Teaching Without In-The-Wild Robots" (RSS 2024). Each design choice is introduced by the requirement it
     serves and the failure it prevents, so the reader sees why the system looks as it does before seeing how
