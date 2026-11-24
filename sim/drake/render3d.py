@@ -579,6 +579,39 @@ def tipdial_scene(st: dict, tip: dict, folder: Path, contact_marker: bool = True
     return build_tipdial(st, info, folder, contact_marker)
 
 
+HOLD_ISO_CAMERA = {"target_mm": (22.0, -4.0, -12.0), "dist": 0.33, "az_deg": 22.0, "el_deg": -36.0, "fov_deg": 33.0,
+                   "up": [0.0, 0.0, -1.0]}
+"""The pull-out frames as a power grasp, the hand palm up: from above the palm (36 deg), in front of it and on the ring
+finger's side, so the three fingers wrapping the cylinder, the pads, the palm housing, the cylinder's end with its
+stripe, the load arrow and the ghost show. Chosen over views from further in front (azimuth 45 and 70 deg), where the
+closed fingers' backs hide the cylinder and its end face turns edge-on."""
+
+
+def strip(paths, out: Path, pad: int = 12) -> Path:
+    """The images side by side, cropped to their common ink box."""
+    from PIL import Image
+    ims = [np.asarray(Image.open(p).convert("RGB")) for p in paths]
+    ink = np.any(np.stack([im.min(axis=2) < 245 for im in ims]), axis=0)
+    r, c = np.where(ink)
+    box = (max(r.min() - pad, 0), r.max() + pad, max(c.min() - pad, 0), c.max() + pad)
+    Image.fromarray(np.concatenate([im[box[0]:box[1], box[2]:box[3]] for im in ims], axis=1)).save(out)
+    print(out)
+    return out
+
+
+def render_hold_iso(snap: dict) -> list[Path]:
+    """render_hold_iso{0,1,2}.png and render_hold_iso_strip.png: the pull-out frames with index, middle and ring
+    closed on the cylinder at the frame's flexion, from HOLD_ISO_CAMERA."""
+    frames, out = snap["hold"]["frames"], []
+    for i, st in enumerate(frames):
+        ghost = frames[1]["centre"] if i == 2 else None
+        sc = build("hold", st, snap, T.OUT / "render3d" / f"hold_iso{i}", ghost=ghost, finger=False,
+                   span=task_span())
+        out.append(render_on_hand(sc, T.OUT / f"render_hold_iso{i}.png", st["distal"][2], camera=HOLD_ISO_CAMERA))
+    strip(out, T.OUT / "render_hold_iso_strip.png")
+    return out
+
+
 def main():
     snap = json.loads((T.OUT / "task_snapshots.json").read_text())
     for task in ("hold", "acquire", "dial"):
@@ -588,6 +621,7 @@ def main():
             sc = build(task, st, snap, T.OUT / "render3d" / f"{task}{i}", ghost=ghost,
                        turn_sign=math.copysign(1.0, frames[-1]["spin"]), finger=False, span=task_span())
             render_on_hand(sc, T.OUT / f"render_{task}{i}.png", st["distal"][2])
+    render_hold_iso(snap)
     if "tipdial" in snap:
         tip = snap["tipdial"]
         for i, st in enumerate(tip["frames"]):
