@@ -121,46 +121,45 @@ def main() -> int:
     import json
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    width, height = 7.16, 2.30
+    width, height = 3.45, 2.75
     fig = plt.figure(figsize=(width, height))
-    lab = dict(fontsize=7.5, fontweight="bold", va="top")
-    # (a)
-    fig.text(0.01, 0.985, "(a) CoDe Hand", **lab)
-    iso = usd_render(CAD / "hand_usd_palm_up.png")
-    aw = 1.95
-    ah = aw * iso.shape[0] / iso.shape[1]
-    a = fig.add_axes((0.03 / width, (height - 0.25 - ah) / height, aw / width, ah / height))
-    a.imshow(iso); a.axis("off")
-    fig.text(1.0 / width, (height - 0.30 - ah) / height, "the hand as simulated (Isaac Lab; blue: pads)", fontsize=6.3,
-             color=INK2, ha="center", va="top")
-    # (b)
-    bx = 2.15
-    fig.text(bx / width, 0.985, "(b) What should a redesign for thicker pads preserve?", **lab)
+    lab = dict(fontsize=7, fontweight="bold", va="top")
     d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
-    cols = (("O", "#6a6a6a", "original (O)", "reference contact motion"),
-            ("U", HAND_C["U"], "coverage only (U): links kept", f"$\\Delta_{{contact}}$ = {d['U']['D_c_mm']:.2f} mm"),
-            ("R", HAND_C["R"], "contact-preserving (R)", f"$\\Delta_{{contact}}$ = {d['R']['D_c_mm']:.2f} mm"))
-    sw = 1.62
-    for i, (kind, col, title, foot) in enumerate(cols):
-        x0 = bx + 0.05 + i * (sw + 0.05)
-        ax = fig.add_axes((x0 / width, 0.86 / height, sw / width, 1.20 / height))
-        finger_sketch(ax, col, kind)
-        fig.text((x0 + sw / 2) / width, 1.98 / height, title, fontsize=6.6, color=col, ha="center", va="bottom",
-                 fontweight="bold")
-        fig.text((x0 + sw / 2) / width, 0.90 / height, foot, fontsize=6.4, color=col, ha="center", va="top")
-    fig.text((bx + 0.1) / width, 0.66 / height, "purple: pole;  dashed: O's contact motion;  solid: the redesign's",
-             fontsize=5.8, color=INK2, va="center")
-    # (c)
-    fig.text(bx / width, 0.50 / height, "(c) Error in the measured interface effect", **lab)
+    # (a) the hand, top left
+    fig.text(0.01, 0.995, "(a) CoDe Hand", **lab)
+    iso = usd_render(CAD / "hand_usd_palm_up.png")
+    aw = 1.55
+    ah = aw * iso.shape[0] / iso.shape[1]
+    a = fig.add_axes((0.02 / width, (height - 0.17 - ah) / height, aw / width, ah / height))
+    a.imshow(iso); a.axis("off")
+    # (c) the error each redesign adds, top right
+    cx0 = 1.72
+    fig.text(cx0 / width, 0.995, "(c) Error in the measured\ninterface effect", linespacing=1.0, **lab)
     ex = (("U", d["U"]["E_rel_median"]), ("R", d["R"]["E_rel_median"]))
-    cx = fig.add_axes(((bx + 0.15) / width, 0.08 / height, 3.4 / width, 0.30 / height))
+    cx = fig.add_axes(((cx0 + 0.02) / width, (height - 0.78) / height, 1.25 / width, 0.36 / height))
     for k, (h, e) in enumerate(ex):
         cx.barh(1 - k, e * 100, height=0.62, color=HAND_C[h], edgecolor="none")
-        cx.text(e * 100 + 3, 1 - k, f"{e * 100:.0f}% ({h})", va="center", fontsize=6.8, color=HAND_C[h],
+        cx.text(e * 100 + 4, 1 - k, f"{e * 100:.0f}% ({h})", va="center", fontsize=6.5, color=HAND_C[h],
                 fontweight="bold")
-    cx.set_xlim(0, 150); cx.set_ylim(-0.5, 1.5); cx.axis("off")
-    fig.text((bx + 4.0) / width, 0.23 / height, "Preserve the contact\nmotion, not the skeleton.", fontsize=7.2,
-             fontweight="bold", color=INK, ha="center", va="center", linespacing=1.1)
+    cx.set_xlim(0, 185); cx.set_ylim(-0.5, 1.5); cx.axis("off")
+    fig.text((cx0 + 0.85) / width, (height - 0.98) / height, "Preserve the contact\nmotion, not the skeleton.",
+             fontsize=6.8, fontweight="bold", color=INK, ha="center", va="center", linespacing=1.05)
+    # (b) what a redesign for thicker pads should preserve, bottom row
+    by = height - 1.30
+    fig.text(0.01, by / height, "(b) What should a redesign for thicker pads preserve?", **lab)
+    cols = (("O", "#6a6a6a", "original (O)", "reference"),
+            ("U", HAND_C["U"], "links kept (U)", f"$\\Delta_{{contact}}$ {d['U']['D_c_mm']:.2f} mm"),
+            ("R", HAND_C["R"], "contact kept (R)", f"$\\Delta_{{contact}}$ {d['R']['D_c_mm']:.2f} mm"))
+    sw = 1.10
+    for i, (kind, col, title, foot) in enumerate(cols):
+        x0 = 0.03 + i * (sw + 0.03)
+        ax = fig.add_axes((x0 / width, 0.22 / height, sw / width, (by - 0.36) / height))
+        finger_sketch(ax, col, kind)
+        fig.text((x0 + sw / 2) / width, (by - 0.15) / height, title, fontsize=6.4, color=col, ha="center",
+                 va="top", fontweight="bold")
+        fig.text((x0 + sw / 2) / width, 0.25 / height, foot, fontsize=6.2, color=col, ha="center", va="top")
+    fig.text(width / 2 / width, 0.04 / height, "purple: pole;  dashed: O's contact motion;  solid: the redesign's",
+             fontsize=5.8, color=INK2, ha="center", va="bottom")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
