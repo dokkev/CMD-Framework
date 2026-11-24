@@ -512,10 +512,11 @@ TIPDIAL_REF = "index"
 """Experiment 28z's disk sits under the index finger, its axle on the outer side (+y, away from the middle finger).
 The simulation is one finger on one disk (radius 15 mm, 12 mm to the side), so one disk is drawn; under the middle
 or ring finger it would reach under a neighbour's pad, and one disk per finger would overlap."""
-TIPDIAL_CAMERA = {"target_mm": (60.0, 6.0, -30.0), "dist": 0.15, "az_deg": 0.0, "el_deg": -90.0, "fov_deg": 33.0,
-                  "up": [1.0, 0.0, 0.0]}
-"""Straight up the disk's axis from below (the image's up is +x, toward the fingertips), so the disk's turn reads as a
-clock hand; the index pad's contact on the disk's top face is outlined on its underside too (a dashed red ring)."""
+TIPDIAL_CAMERA = {"target_mm": (58.0, -2.0, -16.0), "dist": 0.19, "az_deg": 140.0, "el_deg": 50.0, "fov_deg": 33.0}
+"""From above the finger (dorsal), 40 deg off the disk's axis, ahead of the fingertip on the index finger's outer side
+(azimuth 140 deg): the fingertip on the disk's top face, the pointer and scale on that face, and the curled fingers
+behind. Chosen over a view from the front (100 deg, the distal phalanx covers half the disk) and from the outer
+side (205 deg, the disk small and the curled fingers hidden)."""
 TIPDIAL_FINGERS, TIPDIAL_CURLED = ("index",), ("middle", "ring")
 """The index finger turns the disk at the frame's flexion; middle and ring are curled away (``CURL``)."""
 CURL = (90.0, 120.0)
@@ -524,10 +525,11 @@ DISK = [0.93, 0.78, 0.45, 1.0]
 CONTACT = [0.86, 0.10, 0.10, 1.0]
 
 
-def build_tipdial(st: dict, tip: dict, folder: Path) -> Scene:
+def build_tipdial(st: dict, tip: dict, folder: Path, contact_marker: bool = True) -> Scene:
     """Experiment 28z's frame in the index finger's planar frame (mm): the disk (axis z, at the simulated centre and
-    spin) with a pointer through it (its start faint), the index pad's contact outlined on its top face and, at the
-    same place, on its underside, a scale every 10 deg, the axle and its hub below, and an arc arrow in the direction it turns once it has turned."""
+    spin) with a pointer and a scale every 10 deg on its top face (the pointer's start faint), a cap on the axle, the
+    index pad's contact outlined on the top face (``contact_marker``), the axle and its hub below, and an arc arrow
+    above the top face in the direction it turns once it has turned."""
     sc = Scene(folder)
     rho, thick = tip["rho_mm"], tip["thick_mm"]
     c = np.asarray(st["centre"], float)
@@ -540,28 +542,26 @@ def build_tipdial(st: dict, tip: dict, folder: Path) -> Scene:
     phi0 = math.pi / 2  # the pointer starts outward (+y), away from the finger
     u = lambda a: np.array([math.cos(a), math.sin(a)])
     if abs(st["spin"]) > 0.03:
-        sc.bar(cxy + 6.5 * u(phi0), cxy + (rho - 2.0) * u(phi0), 1.2, z_bot - 0.5, z_bot + 0.2,
+        sc.bar(cxy + 3.0 * u(phi0), cxy + (rho - 2.0) * u(phi0), 1.2, z_top - 0.2, z_top + 0.3,
                [0.62, 0.64, 0.68, 1.0], axis="z")
-    sc.bar(cxy + 6.5 * u(phi0 + st["spin"]), cxy + (rho - 2.0) * u(phi0 + st["spin"]), 1.8, z_bot - 0.8, z_top + 0.3,
-           KNOB, axis="z")  # through the disk, so it shows from either side
-    if st.get("contact") is not None and st.get("distal_force_n", 0.0) > 0.05:
-        # the index pad's contact on the top face, outlined on both faces (seen through the disk from below)
-        p = np.asarray(st["contact"], float)[:2]
-        for z0, z1 in ((z_top - 0.2, z_top + 0.6), (z_bot - 0.9, z_bot + 0.2)):
-            for k in range(16):
-                a0, a1 = 2 * math.pi * k / 16, 2 * math.pi * (k + 0.6) / 16
-                sc.bar(p + 3.0 * u(a0), p + 3.0 * u(a1), 0.5, z0, z1, CONTACT, axis="z")
-            sc.cylinder(p, z0, z1, 0.9, CONTACT, axis="z")
+    sc.bar(cxy + 3.0 * u(phi0 + st["spin"]), cxy + (rho - 2.0) * u(phi0 + st["spin"]), 1.8, z_top - 0.2,
+           z_top + 0.6, KNOB, axis="z")
+    sc.cylinder(cxy, z_top - 0.2, z_top + 1.2, 3.0, STEEL, axis="z")  # the axle's cap
+    if contact_marker and st.get("contact") is not None and st.get("distal_force_n", 0.0) > 0.05:
+        p = np.asarray(st["contact"], float)[:2]  # the index pad's contact on the top face
+        for k in range(16):
+            a0, a1 = 2 * math.pi * k / 16, 2 * math.pi * (k + 0.6) / 16
+            sc.bar(p + 3.0 * u(a0), p + 3.0 * u(a1), 0.5, z_top - 0.2, z_top + 0.6, CONTACT, axis="z")
     for k in range(-9, 10):  # the fixed scale, on the sprung sleeve (it follows the disk down, not round)
         a = phi0 + math.radians(10 * k)
         sc.bar(cxy + (rho + 1.8) * u(a), cxy + (rho + (5.0 if k % 3 == 0 else 3.6)) * u(a), 0.45,
-               z_bot - 0.6, z_bot + 0.6, GHOST, axis="z")
+               z_top - 0.6, z_top + 0.6, GHOST, axis="z")
     base = tip["base_z"]
     sc.cylinder(cxy, base, z_bot, 2.0, STEEL, axis="z")  # the axle, down to its hub (small: it shadows the disk)
     sc.cylinder(cxy, base - 4.0, base, 4.0, MID, axis="z")
     if abs(st["spin"]) > 0.01:
         sgn = math.copysign(1.0, st["spin"])
-        r, z = rho + 7.0, z_bot - 1.5
+        r, z = rho + 7.0, z_top + 1.5
         pts = [cxy + r * u(phi0 + sgn * math.radians(a)) for a in np.linspace(-20, 45, 24)]
         for a_, b_ in zip(pts[:-4], pts[1:-3]):
             sc.bar(a_, b_, 0.8, z - 0.8, z + 0.8, LOAD, axis="z")
@@ -572,11 +572,11 @@ def build_tipdial(st: dict, tip: dict, folder: Path) -> Scene:
     return sc
 
 
-def tipdial_scene(st: dict, tip: dict, folder: Path) -> Scene:
+def tipdial_scene(st: dict, tip: dict, folder: Path, contact_marker: bool = True) -> Scene:
     """build_tipdial with the hub's depth: the axle's hub 10 mm below the lowest the disk goes in the frames."""
     lowest = min(f["centre"][2] for f in tip["frames"]) - tip["thick_mm"] / 2
     info = {**tip, "base_z": lowest - 10.0}
-    return build_tipdial(st, info, folder)
+    return build_tipdial(st, info, folder, contact_marker)
 
 
 def main():
