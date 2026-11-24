@@ -27,7 +27,7 @@ NAME = {"CFL": "CFL (CoDe)", "2R-remote": "2R-remote", "2R-DD": "2R-DD", "RCJ": 
         "CFL ideal": "CFL ideal (상한)", "RCJ ideal": "RCJ ideal (상한)"}
 ARCH2 = {"cfl": "CFL", "2r_remote": "2R-remote", "2r_dd": "2R-DD", "rcj": "RCJ", "cfl_ideal": "CFL ideal",
          "rcj_ideal": "RCJ ideal"}
-SETTINGS = [  # key, file, label, what it is
+SETTINGS = [  # key, file, label, what it is (group and task measure in GROUP and MEASURE below)
     ("isaac_A", "isaac_dose_A_all.json", "Isaac Lab",
      "Isaac Lab 3 (Newton MuJoCo-Warp), point contact; O's placements; friction mu 1.3 -> 2.0; pull-out"),
     ("drake_point", "drake_e21_point.json", "Drake point",
@@ -46,6 +46,14 @@ SETTINGS = [  # key, file, label, what it is
     ("rolling", "drake_e22_point.json", "in-hand rolling",
      "Drake point; rolling a cylinder in hand by a flexion sweep; experiment 22"),
 ]
+GROUP = {"isaac_A": "contact", "drake_point": "contact", "drake_hydro": "contact", "soft_pad": "contact",
+         "acquire": "task", "dial": "task", "rolling": "task", "contact_setpoint": "command"}
+MEASURE = {  # what each setting measures; D = measure(mu 2.0) - measure(mu 1.3) in every setting
+    "isaac_A": "pull-out limit load (N)", "drake_point": "pull-out limit load (N)",
+    "drake_hydro": "pull-out limit load (N)", "soft_pad": "pull-out limit load (N); reference O carries the same pad",
+    "acquire": "distance the cylinder is drawn in toward the MCP (mm)", "dial": "dial rotation (deg)",
+    "rolling": "cylinder rotation during the flexion sweep (deg)",
+    "contact_setpoint": "pull-out limit load (N), joint setpoint re-chosen per hand from the kinematics"}
 DIRECTION = {"+x": "+x (손가락 끝 쪽)", "-x": "−x (손바닥 쪽)", "-z": "−z (빼내는 쪽)", "+x-z": "+x−z (대각)"}
 EVAL_KEYS = ["clean_timeout_rate", "signed_rotation_deg_mean", "quarter_turn_within_40mm_and_60deg_rate",
              "half_turn_within_40mm_and_60deg_rate", "three_quarter_turn_within_40mm_and_60deg_rate",
@@ -100,7 +108,8 @@ def build() -> dict:
         p = REP / "study3/data" / fname
         src.append(rel(p))
         rows = [r for r in per_hand(p) if r["hand"] != "O"]
-        settings[key] = {"label": label, "description": what, "source": rel(p), "hands": rows}
+        settings[key] = {"label": label, "group": GROUP[key], "task_measure": MEASURE[key], "description": what,
+                         "source": rel(p), "hands": rows}
         for r in rows:
             if r.get("thickness_mm"):
                 thickness[r["hand"]] = r["thickness_mm"]
@@ -238,19 +247,46 @@ def render(d: dict) -> str:
         for r in s["hands"]:
             hands.setdefault(r["hand"], r)
     order = sorted(hands, key=lambda n: hands[n]["d_contact_mm"])
-    rows = []
-    for n in order:
-        x = hands[n]
-        r = [n, f'{x["thickness_mm"]:g} mm' if x.get("thickness_mm") else "", f'{x["d_contact_mm"]:.2f} mm',
-             f'{x["d_skel_mm"]:.2f} mm']
-        for s in st.values():
-            v = next((y["E"] for y in s["hands"] if y["hand"] == n), None)
-            shade = "" if v is None else \
-                f' style="background:color-mix(in srgb, var(--s1) {round(55 * min(math.log10(max(v * 100, 1)) / math.log10(400), 1))}%, transparent)"'
-            r.append((pct(v, 0), shade))
-        rows.append(r)
-    HANDS = table(["손", "pad", "Δcontact", "Δskel"] + [s["label"] for s in st.values()], rows, 1, cls="small",
-                  bold=lambda r: r[0] in ("R", "U")) + source(*[s["source"] for s in st.values()])
+
+    def by_hand(keys: list[str], labels: list[str]) -> str:
+        rows = []
+        for n in order:
+            x = hands[n]
+            r = [n, f'{x["thickness_mm"]:g} mm' if x.get("thickness_mm") else "", f'{x["d_contact_mm"]:.2f} mm',
+                 f'{x["d_skel_mm"]:.2f} mm']
+            for k in keys:
+                v = next((y["E"] for y in st[k]["hands"] if y["hand"] == n), None)
+                shade = "" if v is None else \
+                    f' style="background:color-mix(in srgb, var(--s1) {round(55 * min(math.log10(max(v * 100, 1)) / math.log10(400), 1))}%, transparent)"'
+                r.append((pct(v, 0), shade))
+            rows.append(r)
+        return table(["손", "pad", "Δcontact", "Δskel"] + labels, rows, 1, cls="small",
+                     bold=lambda r: r[0] in ("R", "U")) + source(*[st[k]["source"] for k in keys])
+
+    common = ("한 행이 재설계 손 하나이고, Δ<sub>contact</sub> 순으로 정렬했습니다. 칸은 그 손의 오차 E(배치별 오차의 "
+              "중앙값)이고, 진할수록 큽니다. 빈칸은 O와 함께 쥘 수 있는 배치가 없던 손입니다.")
+    HANDS = (
+        "<h3>표 3-2. 같은 과제(pull-out), 접촉 환경만 바꿈</h3>"
+        f'<p class="note">{common} 과제는 표 3-1과 같은 pull-out이고, 시뮬레이터와 접촉 모델만 다릅니다. '
+        "표 3-1의 오차 열을 손마다 중앙값으로 줄인 값이어서, R과 U의 Drake point 칸이 표 3-1의 중앙값(19%, 72%)과 같습니다. "
+        "Isaac Lab: Newton MuJoCo-Warp, point contact. Drake point: 접촉 강성 2.5 kN/m. Drake hydro: 모든 손에 0.1 MPa, "
+        "3 mm 두께의 탄성 pad. 두께만큼 부드러운 pad: 각 pad가 자기 두께만큼 부드럽고, 기준은 같은 pad를 단 O입니다.</p>"
+        + by_hand(["isaac_A", "drake_point", "drake_hydro", "soft_pad"],
+                  ["Isaac Lab", "Drake point", "Drake hydro", "두께만큼 부드러운 pad"])
+        + "<h3>표 3-3. 다른 과제 (Drake point, 같은 명령 재사용)</h3>"
+        f'<p class="note">{common} 모든 과제에서 마찰 μ 1.3 → 2.0의 효과를 그 과제의 측정값으로 잽니다. '
+        "pull-out: grasp가 풀리는 하중(N, 표 3-2의 Drake point와 같은 열). "
+        "grasp 획득: 편 손가락을 O의 명령까지 닫으며 하중을 거스르고 원기둥을 끌어들인 거리(mm). "
+        "다이얼: 스프링 다이얼을 한 번 닫으며 돌린 각도(°, O 기준 약 18–42°). "
+        "in-hand rolling: 쥔 뒤 굽힘을 8° 또는 15° 더 밀며 원기둥이 구른 각도(°). "
+        "grasp 획득에서 끝에 쥐지 못한 경우는 가장 큰 오차로 셉니다.</p>"
+        + by_hand(["drake_point", "acquire", "dial", "rolling"], ["pull-out", "grasp 획득", "다이얼", "in-hand rolling"])
+        + "<h3>표 3-4. 명령 방식 (Drake point, pull-out)</h3>"
+        f'<p class="note">{common} 왼쪽은 O의 관절 setpoint를 그대로 준 경우(표 3-2의 Drake point와 같은 열), '
+        "오른쪽은 관절 임피던스 제어는 그대로 두고 setpoint만 손마다 기구학으로 다시 잡은 경우입니다. "
+        "손끝 접촉점이 O와 같은 자리에 오도록 했고, 런타임 접촉 정보는 쓰지 않습니다(27차).</p>"
+        + by_hand(["drake_point", "contact_setpoint"], ["O의 setpoint 재사용", "접촉 기준 setpoint"])
+    )
 
     rows = [[r["checkpoint"], str(r["eval_seed"]), pct(r["clean_timeout_rate"]), f'{r["signed_rotation_deg_mean"]:.0f}°',
              pct(r["quarter_turn_within_40mm_and_60deg_rate"]), pct(r["half_turn_within_40mm_and_60deg_rate"]),

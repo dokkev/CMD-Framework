@@ -2,7 +2,7 @@
  "metadata": {
   "title": "CoDe Hand Study 0-4 PI report: data",
   "created": "2026-11-24",
-  "git_commit": "a1217923b66e9501cadc25e2728085b914119dfd",
+  "git_commit": "16a6cb205eda83e5a7ea9f29a091760edfb40439",
   "generator": "report/pi/make_report.py",
   "sources": [
    "report/study1/data/thickness_coverage_summary.csv",
@@ -2204,6 +2204,8 @@
  "study3_errors_by_hand": {
   "isaac_A": {
    "label": "Isaac Lab",
+   "group": "contact",
+   "task_measure": "pull-out limit load (N)",
    "description": "Isaac Lab 3 (Newton MuJoCo-Warp), point contact; O's placements; friction mu 1.3 -> 2.0; pull-out",
    "source": "report/study3/data/isaac_dose_A_all.json",
    "hands": [
@@ -2331,6 +2333,8 @@
   },
   "drake_point": {
    "label": "Drake point",
+   "group": "contact",
+   "task_measure": "pull-out limit load (N)",
    "description": "Drake (SAP), point contact 2.5 kN/m; experiment 21; pull-out",
    "source": "report/study3/data/drake_e21_point.json",
    "hands": [
@@ -2466,6 +2470,8 @@
   },
   "drake_hydro": {
    "label": "Drake hydro",
+   "group": "contact",
+   "task_measure": "pull-out limit load (N)",
    "description": "Drake, hydroelastic pads 0.1 MPa over 3 mm on every hand; experiment 21; pull-out",
    "source": "report/study3/data/drake_e21_hydro.json",
    "hands": [
@@ -2601,6 +2607,8 @@
   },
   "soft_pad": {
    "label": "두께만큼 부드러운 pad",
+   "group": "contact",
+   "task_measure": "pull-out limit load (N); reference O carries the same pad",
    "description": "Drake, hydroelastic pads 0.1 MPa over each pad's own thickness, against O carrying the same pad; experiment 25",
    "source": "report/study3/data/drake_e25_hydro_own.json",
    "hands": [
@@ -2728,6 +2736,8 @@
   },
   "acquire": {
    "label": "grasp 획득",
+   "group": "task",
+   "task_measure": "distance the cylinder is drawn in toward the MCP (mm)",
    "description": "Drake point; closing from open to draw a cylinder in against a load; experiment 23",
    "source": "report/study3/data/drake_e23_point.json",
    "hands": [
@@ -2879,6 +2889,8 @@
   },
   "dial": {
    "label": "다이얼",
+   "group": "task",
+   "task_measure": "dial rotation (deg)",
    "description": "Drake point; turning a sprung dial by 15-42 deg in one closing; experiment 26",
    "source": "report/study3/data/drake_e26_point.json",
    "hands": [
@@ -3030,6 +3042,8 @@
   },
   "contact_setpoint": {
    "label": "접촉 기준 setpoint",
+   "group": "command",
+   "task_measure": "pull-out limit load (N), joint setpoint re-chosen per hand from the kinematics",
    "description": "Drake point; each hand's joint setpoint re-chosen from the kinematics so its distal fingertip contact point matches O's (no runtime contact); experiment 27; pull-out",
    "source": "report/study3/data/drake_e27_point.json",
    "hands": [
@@ -3181,6 +3195,8 @@
   },
   "rolling": {
    "label": "in-hand rolling",
+   "group": "task",
+   "task_measure": "cylinder rotation during the flexion sweep (deg)",
    "description": "Drake point; rolling a cylinder in hand by a flexion sweep; experiment 22",
    "source": "report/study3/data/drake_e22_point.json",
    "hands": [
