@@ -307,8 +307,8 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "servo at the pin\n(2R-DD)", 3.0, False, None),
-              ("cfl", "CoDe prototype (CFL)", 7.0, False, "proto"))
+    panels = (("2r_dd", "Servo at Joint", 3.0, False, None),
+              ("cfl", "CoDe Mechanism", 7.0, False, "proto"))
     for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
@@ -399,6 +399,14 @@ def fig2():
                 if not ov.is_empty and ov.geom_type == "Polygon":
                     ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
                                          alpha=0.9, zorder=26 + j))
+                    if hh == 7.0:
+                        cx_, cy_ = ov.centroid.x, ov.centroid.y
+                        ax.add_patch(Circle((cx_, cy_), 9.0, fc="none", ec="#c0392b", lw=0.8, ls=(0, (2, 1.5)),
+                                            zorder=40))
+                        ax.annotate("pad interference", xy=(cx_ + 6.5, cy_ - 6.5), xytext=(cx_ + 22, cy_ - 30),
+                                    fontsize=5.8, color="#c0392b", ha="left", va="center", zorder=41,
+                                    arrowprops=dict(arrowstyle="-|>", color="#c0392b", lw=0.7, mutation_scale=6,
+                                                    shrinkA=1, shrinkB=0))
             else:
                 # pads lengthened toward the joint as far as they stay clear of each other over 0..qd
                 from shapely.geometry import Polygon as SPoly
@@ -439,7 +447,7 @@ def fig2():
                     ax.plot(*path.T, color=PURPLE, lw=1.0, zorder=40, solid_capstyle="round")
                     ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
                 print("CFL pad extension", hh, ext)
-        foot = {None: ("pads collide (red)", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
+        foot = {None: ("", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
                 "hr": ("clear at $150^\\circ$", BLUE),
                 "proto": ("larger RoM with every pad", BLUE)}[hand]
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
