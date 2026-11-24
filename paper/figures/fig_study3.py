@@ -140,28 +140,98 @@ def strip_one(fig, key, x0, x1, y0, y1, steps):
 
 
 def scatter_isaac(ax, key):
-    """E against key ('D_c_mm' or 'D_s_mm') for the Isaac Lab sets at the reused setpoint."""
+    """E against key ('D_c_mm' or 'D_s_mm') for the Isaac Lab sets at the reused setpoint, faint markers; returns
+    every (x, E%) pooled, for the binned trend."""
     grid = json.loads((DATA / "isaac_dose_A-grid_expanded.json").read_text())["hands"]
     fr = json.loads((DATA / "isaac_dose_A_all.json").read_text())["hands"]
     comp = json.loads((DATA / "isaac_comp.json").read_text())["hands"]
-    gx = [r[key] for r in grid.values()]
-    gy = [100 * r["E_rel_median"] for r in grid.values()]
-    ax.plot(gx, gy, ls="none", marker="o", ms=2.6, mec=GREY, mfc="none", mew=0.6, zorder=2,
-            label=label("friction, grid (45)", gx, gy))
-    fx = [r[key] for r in fr.values()]
-    fy = [100 * r["E_rel_median"] for r in fr.values()]
+    pts = []
+    for r in grid.values():
+        ax.plot(r[key], 100 * r["E_rel_median"], ls="none", marker="o", ms=2.4, mec="#b9b9b9", mfc="none", mew=0.5,
+                zorder=2)
+        pts.append((r[key], 100 * r["E_rel_median"]))
     for r in fr.values():
         c = THICK[int(r["thickness_mm"])]
-        ax.plot(r[key], 100 * r["E_rel_median"], ls="none", marker="o", ms=3.3, mec=c, mfc=c, mew=0.8, zorder=3)
-    ax.plot([], [], ls="none", marker="o", ms=3.3, mec=THICK[7], mfc=THICK[7], label=label("friction (15)", fx, fy))
-    sx = [r[key] for r in comp.values()]
-    sy = [100 * r["E_median"] for r in comp.values()]
+        ax.plot(r[key], 100 * r["E_rel_median"], ls="none", marker="o", ms=2.8, mec=c, mfc=c, mew=0.6, alpha=0.75,
+                zorder=3)
+        pts.append((r[key], 100 * r["E_rel_median"]))
     for hand, r in comp.items():
         c = THICK[7 if not hand.startswith("h3to") else int(hand[4])]
-        ax.plot(r[key], 100 * r["E_median"], ls="none", marker="s", ms=3.0, mec=c, mfc="white", mew=0.8, zorder=3)
-    ax.plot([], [], ls="none", marker="s", ms=3.0, mec=THICK[7], mfc="white", mew=0.8,
-            label=label("stiffness (14)", sx, sy))
-    ax.axhline(20, color=INK2, lw=0.6, ls=(0, (3, 2)), zorder=1)
+        ax.plot(r[key], 100 * r["E_median"], ls="none", marker="s", ms=2.6, mec=c, mfc="white", mew=0.6, alpha=0.75,
+                zorder=3)
+        pts.append((r[key], 100 * r["E_median"]))
+    return np.array(pts)
+
+
+def trend(ax, pts, edges, colour):
+    """Median and interquartile band of E in bins of x, drawn over the markers."""
+    mids, med, lo, hi = [], [], [], []
+    for a, b in zip(edges[:-1], edges[1:]):
+        y = pts[(pts[:, 0] >= a) & (pts[:, 0] < b), 1]
+        if len(y) < 3:
+            continue
+        mids.append(np.median(pts[(pts[:, 0] >= a) & (pts[:, 0] < b), 0]))
+        med.append(np.median(y)); lo.append(np.percentile(y, 25)); hi.append(np.percentile(y, 75))
+    ax.fill_between(mids, lo, hi, color=colour, alpha=0.18, lw=0, zorder=4)
+    ax.plot(mids, med, color=colour, lw=1.8, zorder=5, solid_capstyle="round")
+
+
+ROBUST = [  # (setting, rho with Delta_contact, rho with Delta_skel, group); Spearman, from the saved results
+    ("friction", 0.83, -0.40, "Isaac Lab"), ("stiffness", 0.80, -0.51, "Isaac Lab"),
+    ("friction, grid", 0.86, 0.22, "Isaac Lab"),
+    ("point contact", 0.67, -0.37, "Drake"), ("hydroelastic, 3 mm", 0.86, 0.09, "Drake"),
+    ("hydroelastic, soft", 0.78, -0.10, "Drake"),
+    ("grasp acquisition", 0.87, 0.11, "Tasks"), ("dial turning", 0.81, 0.09, "Tasks"),
+    ("reused torque", 0.69, 0.71, "Other protocols"), ("re-zeroed at touch", 0.44, 0.88, "Other protocols"),
+]
+
+
+def robustness():
+    """Fig. 5, single column: for each setting, how strongly the error follows each motion change (Spearman rho),
+    the contact-surface change filled, the skeleton change open; the reused setpoint above, other protocols below."""
+    fig = plt.figure(figsize=(3.45, 2.05))
+    ax = fig.add_axes((0.40, 0.17, 0.57, 0.72))
+    y = 0
+    ticks, labels, groups = [], [], []
+    last = None
+    for name, rc, rs, grp in ROBUST:
+        if grp != last:
+            if last is not None:
+                y += 0.6
+            groups.append((grp, y))
+            last = grp
+        ax.plot([rs, rc], [y, y], color="#d0d0d0", lw=1.0, zorder=1)
+        ax.plot(rs, y, ls="none", marker="o", ms=4.2, mfc="white", mec=INK2, mew=0.9, zorder=3)
+        ax.plot(rc, y, ls="none", marker="o", ms=4.6, color="#2a78d6", zorder=4)
+        ticks.append(y); labels.append(name)
+        y += 1
+    ax.axvline(0, color=INK2, lw=0.5, zorder=0)
+    prot = [t for (n, *_r), t in zip(ROBUST, ticks) if _r[2] == "Other protocols"]
+    ax.axhspan(min(prot) - 0.6, max(prot) + 0.5, color="#f1efe9", zorder=0, lw=0)
+    ax.set_yticks(ticks); ax.set_yticklabels(labels, fontsize=6.0)
+    ax.set_ylim(y - 0.4, -0.7)
+    ax.set_xlim(-1, 1); ax.set_xticks([-1, -0.5, 0, 0.5, 1])
+    ax.set_xlabel("how strongly the error follows the change ($\\rho$)", fontsize=6.4, labelpad=1)
+    ax.tick_params(labelsize=6, length=2)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for grp, gy in groups:
+        fig.text(0.005, ax.transData.transform((0, gy))[1] / fig.dpi / 2.05 + 0.0, "", fontsize=1)
+        ax.text(-1.0 - 0.02, gy - 0.55, grp, transform=ax.transData, fontsize=6.2, fontweight="bold", ha="right",
+                va="center", clip_on=False)
+    from matplotlib.lines import Line2D
+    ax.legend(handles=[Line2D([], [], ls="none", marker="o", ms=4.6, color="#2a78d6",
+                              label="$\\Delta_{\\mathrm{contact}}$ (contact surfaces)"),
+                       Line2D([], [], ls="none", marker="o", ms=4.2, mfc="white", mec=INK2, mew=0.9,
+                              label="$\\Delta_{\\mathrm{skel}}$ (skeleton)")],
+              fontsize=6.0, frameon=False, loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=2, borderaxespad=0.0,
+              handletextpad=0.2, columnspacing=0.8)
+    out = DEST / "fig_robust.png"
+    fig.savefig(out, dpi=400)
+    from PIL import Image
+    Image.open(out).convert("RGB").save(out)
+    plt.close(fig)
+    print(out)
 
 
 def main() -> int:
@@ -212,30 +282,44 @@ def main() -> int:
     bx.tick_params(labelsize=6, length=2)
     for side in ("top", "right"):
         bx.spines[side].set_visible(False)
-    # (c), (d) the error against the contact-surface and the skeleton motion change
-    for x0, key, title, xl in ((0.055, "D_c_mm", "(c) error vs. contact-surface motion change", r"$\Delta_{\mathrm{contact}}$ (mm)"),
-                               (0.585, "D_s_mm", "(d) error vs. skeleton motion change", r"$\Delta_{\mathrm{skel}}$ (mm)")):
-        ax = fig.add_axes((x0, 0.10, 0.405, 0.245))
-        scatter_isaac(ax, key)
+    # (c), (d) the error against the contact-surface and the skeleton motion change: faint markers, the binned
+    # median with its interquartile band on top, one rho range in the corner
+    from matplotlib.lines import Line2D
+    for x0, key, title, xl, edges, rho, colour in (
+            (0.055, "D_c_mm", "(c) error vs. contact-surface change", r"$\Delta_{\mathrm{contact}}$ (mm)",
+             np.array([0, 0.75, 1.5, 2.25, 3.0, 3.75, 6.0]), "rises steadily: $\\rho$ = 0.80–0.86", "#2a78d6"),
+            (0.585, "D_s_mm", "(d) error vs. skeleton change", r"$\Delta_{\mathrm{skel}}$ (mm)",
+             np.array([0, 2, 4, 6, 8, 10, 14]), "no trend: $\\rho$ from −0.51 to 0.22", INK2)):
+        ax = fig.add_axes((x0, 0.10, 0.405, 0.27))
+        if key == "D_c_mm":
+            ax.axvspan(0, 1.0, color="#e3eefb", zorder=0, lw=0)
+            ax.text(0.5, 420, "< 1 mm:\n$E$ ≲ 20%", fontsize=5.8, color="#1b4f93", ha="center", va="top",
+                    linespacing=1.0)
+        pts = scatter_isaac(ax, key)
+        trend(ax, pts, edges, colour)
+        ax.axhline(20, color=INK2, lw=0.5, ls=(0, (3, 2)), zorder=1)
         ax.set_yscale("log"); ax.set_ylim(*YLIM)
         ax.set_yticks([3, 10, 30, 100, 300]); ax.set_yticklabels(["3", "10", "30", "100", "300"]); ax.minorticks_off()
         ax.set_xlabel(xl, fontsize=6.8, labelpad=1)
         ax.set_ylabel("error $E$ (%)", fontsize=6.8, labelpad=1)
         ax.tick_params(labelsize=6, length=2)
+        ax.set_xlim(left=0, right=edges[-1])
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
-        ax.set_xlim(left=0)
-        leg = ax.legend(title=title, fontsize=5.8, frameon=False, loc="lower left", bbox_to_anchor=(-0.02, 1.01),
-                        handletextpad=0.2, borderaxespad=0.0, labelspacing=0.15, handlelength=1.0, alignment="left",
-                        ncol=2, columnspacing=0.8)
-        leg.get_title().set_fontsize(7.2)
-        leg.get_title().set_fontweight("bold")
+        ax.text(0.98, 0.04, rho, transform=ax.transAxes, fontsize=6.2, color=colour, ha="right", va="bottom",
+                fontweight="bold")
+        ax.text(0.0, 1.20, title, transform=ax.transAxes, fontsize=7.2, fontweight="bold", ha="left", va="bottom")
+        ax.legend(handles=[Line2D([], [], color=colour, lw=1.8, label="median (band: middle half)"),
+                           Line2D([], [], ls="none", marker="o", ms=2.8, color=THICK[7], label="one redesign")],
+                  fontsize=5.8, frameon=False, loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=2,
+                  borderaxespad=0.0, handletextpad=0.3, columnspacing=0.9)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_study3.png"
     fig.savefig(out, dpi=400)
     from PIL import Image
     Image.open(out).convert("RGB").save(out)  # opaque RGB, no SMask (PaperPlaza)
     print(out, f"{WIDTH} x {HEIGHT} in")
+    robustness()
     return 0
 
 
