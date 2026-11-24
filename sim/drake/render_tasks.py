@@ -149,7 +149,7 @@ def tipdial(times, placement=None, opts=None):
     approach_s, q_t -> q_t + sweep over sweep_s, held hold_s]. The run is two_pad_drake.tipdial's (same settings and
     command), stepped here so frames can be kept; it is checked against two_pad_drake.tipdial's own rotation. Each frame
     keeps the distal pose, the disk's centre (x, y, z mm; y from the finger's plane), its spin about z, its rotation
-    (deg, as two_pad_drake reports it) and the distal force [N]."""
+    (deg, as two_pad_drake reports it), the distal force [N] and its force-weighted contact point (mm, or None)."""
     placement, opts = {**TIPDIAL, **(placement or {})}, {**TIPDIAL_OPTS, **(opts or {})}
     g = [x for x in json.loads((T.OUT / "tipdial_z.json").read_text())["grasps"]
          if all(abs(x[k] - v) < 1e-9 for k, v in placement.items())][0]
@@ -183,8 +183,8 @@ def tipdial(times, placement=None, opts=None):
             Xd = s.plant.EvalBodyPoseInWorld(s.pctx, s.bodies["distal"])
             R = Xd.rotation().matrix()
             pos = 1e3 * s.plant.EvalBodyPoseInWorld(s.pctx, s.bodies["roller"]).translation()
-            force, _ = s.contacts()
-            return {"t_s": t, "distal": [1e3 * Xd.translation()[0], 1e3 * Xd.translation()[2],
+            force, point = s.contacts()
+            return {"t_s": t, "contact": (1e3 * point[1]).tolist() if np.all(np.isfinite(point[1])) else None, "distal": [1e3 * Xd.translation()[0], 1e3 * Xd.translation()[2],
                                          math.atan2(R[0, 2], R[0, 0])],
                     "centre": pos.tolist(), "spin": float(spin.get_angle(s.pctx)),
                     "rotation_deg": -math.degrees(spin.get_angle(s.pctx)),

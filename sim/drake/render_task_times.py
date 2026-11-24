@@ -112,7 +112,8 @@ def main() -> int:
     for i, (t, st) in enumerate(zip(a.dial_times, snap["tipdial"]["frames"])):
         sc = R3.tipdial_scene(st, snap["tipdial"], T.OUT / "render3d" / f"t_tipdial{i}")
         out = T.OUT / f"render_t_tipdial_{t:g}s.png"
-        R3.render_on_hand(sc, out, st["distal"][2], camera=R3.TIPDIAL_CAMERA, ref=R3.TIPDIAL_REF)
+        R3.render_on_hand(sc, out, st["distal"][2], camera=R3.TIPDIAL_CAMERA, ref=R3.TIPDIAL_REF,
+                          fingers=R3.TIPDIAL_FINGERS, curled=R3.TIPDIAL_CURLED)
         paths[("tipdial", i)] = out
     for task in ("hold", "acquire"):
         frames = snap[task]["frames"]
