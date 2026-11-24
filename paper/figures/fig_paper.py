@@ -299,9 +299,8 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "2R-DD\n(servo at the pin)", 3.0, False, None),
-              ("cfl", "U: CFL,\ncoverage only", 7.0, False, "hu"),
-              ("cfl", "R: CFL,\ncontact kept", 7.0, False, "hr"))
+    panels = (("2r_dd", "servo at the pin\n(2R-DD)", 3.0, False, None),
+              ("cfl", "CoDe (CFL), the R hand", 7.0, False, "hr"))
     for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
@@ -342,7 +341,7 @@ def fig2():
         if key == "cfl":
             for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
                 x[nm.index(k_)] = 0.0
-        pw = 0.80
+        pw = 1.15
         ax = fig.add_axes(((0.04 + i * (pw + 0.02)) / W, (head - 1.36) / h, pw / W, 1.02 / h))
         ax.set_xlim(-6, 96); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
         col_ = {None: GREY, "hu": AMBER, "hr": BLUE}[hand]
