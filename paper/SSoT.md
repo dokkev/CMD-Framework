@@ -23,7 +23,9 @@ the evidence are in `design/SSoT/` and are not repeated here.
 ## 2. Format and build
 
 - RSS 2027 extended abstract, Stage 1: at most 5 pages of content and 1 page of references (6 pages in all).
-  Nothing beyond the 6 pages is reviewed. Due 2026-12-04; re-check the dates on roboticsconference.org.
+  Nothing beyond the 6 pages is reviewed.
+  Length is deferred (user, 2026-11-24): write for the storyline first and fit the five pages in a final pass;
+  do not cut content during revisions to stay within the page limit. Due 2026-12-04; re-check the dates on roboticsconference.org.
 - Template: RSS (IEEEtran, natbib `plainnat`). Anonymous review.
 - Manuscript repo: private `dokkev/ContactCentricDesign-RSS2027`, synced with Overleaf, cloned at
   `../ContactCentricDesign-RSS2027`. It is the only LaTeX copy: pull before editing.
