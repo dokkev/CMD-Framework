@@ -16,6 +16,7 @@ from matplotlib.patches import Polygon, Circle
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "design" / "output" / "study"
+REPORT = ROOT / "report"  # paper data, committed (copied from design/output/study)
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
 DEST.mkdir(parents=True, exist_ok=True)
 
@@ -63,7 +64,7 @@ SMALL = dict(fontsize=6.5)  # column figures: labels at print size
 # ---------------------------------------------------------------- Study 1
 def fig_study1():
     """Single column, drawn at print size (3.45 in)."""
-    data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
+    data = rows(REPORT / "study1" / "data" / "thickness_coverage_summary.csv")
     k = 0.75
     fig, axes = plt.subplots(1, 3, figsize=(3.45, 1.38), sharey=True, gridspec_kw=dict(wspace=0.12))
     for ax, q in zip(axes, (90, 120, 150)):
@@ -96,8 +97,8 @@ def fig_study1():
 # ---------------------------------------------------------------- Study 2
 def fig_study2():
     """Single column, 2 x 2, drawn at print size (3.45 in)."""
-    summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
-    prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
+    summ = rows(REPORT / "study2" / "data" / "redesign_summary.csv")
+    prof = rows(REPORT / "study2" / "data" / "redesign_profiles.csv")
     k = 0.75
     fig, axes = plt.subplots(2, 2, figsize=(3.45, 2.05), gridspec_kw=dict(wspace=0.32, hspace=0.66))
     axes = axes.ravel()
@@ -162,9 +163,9 @@ def fig_study12():
     """Studies 1 and 2 in one double-column row (7.16 in, print size): (a-c) best coverage per pad thickness at
     q_req 90, 120, 150 deg (Study 1); (d-f) Delta_contact after redesign from 3 mm at the coverage end of each front,
     the same three q_req, one shared axis (Study 2); (g) ||Delta c(q)|| over flexion at 120 deg, 3 -> 9 mm."""
-    data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
-    prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
+    data = rows(REPORT / "study1" / "data" / "thickness_coverage_summary.csv")
+    summ = rows(REPORT / "study2" / "data" / "redesign_summary.csv")
+    prof = rows(REPORT / "study2" / "data" / "redesign_profiles.csv")
     k = 0.75
     fig = plt.figure(figsize=(W, 1.52))
     gs = fig.add_gridspec(1, 9, width_ratios=[1, 1, 1, 0.42, 1, 1, 1, 0.42, 1.15], wspace=0.16,
@@ -255,9 +256,9 @@ def fig_study12():
     """Studies 1 and 2 in one double-column row (7.16 in, print size): (a-c) best coverage per pad thickness at
     q_req 90, 120, 150 deg (Study 1); (d-f) Delta_contact after redesign from 3 mm at the coverage end of each front,
     the same three q_req, one shared axis (Study 2); (g) ||Delta c(q)|| over flexion at 120 deg, 3 -> 9 mm."""
-    data = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    summ = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
-    prof = rows(OUT / "study2_redesign_2026-11-21" / "profiles.csv")
+    data = rows(REPORT / "study1" / "data" / "thickness_coverage_summary.csv")
+    summ = rows(REPORT / "study2" / "data" / "redesign_summary.csv")
+    prof = rows(REPORT / "study2" / "data" / "redesign_profiles.csv")
     k = 0.75
     fig = plt.figure(figsize=(W, 1.52))
     gs = fig.add_gridspec(1, 9, width_ratios=[1, 1, 1, 0.42, 1, 1, 1, 0.42, 1.15], wspace=0.16,

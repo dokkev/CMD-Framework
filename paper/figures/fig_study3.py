@@ -34,8 +34,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-TWO_PAD = ROOT / "sim" / "isaaclab" / "logs" / "experimental" / "two_pad"
-DRAKE = ROOT / "sim" / "drake" / "logs"
+DATA = ROOT / "report" / "study3" / "data"  # paper data, committed (copied from sim/*/logs)
 sys.path.insert(0, str(ROOT / "sim" / "drake"))
 from analyze import spearman_perm  # noqa: E402
 
@@ -93,7 +92,7 @@ def strip(fig, y0, y1):
     states, across the figure between heights y0 and y1 (figure fractions); one crop box per task, so its frames
     share a scale within each task."""
     from PIL import Image
-    ims = {k: [np.asarray(Image.open(DRAKE / f"render_{k}{i}.png").convert("RGB")) for i in range(3)] for k in TASK}
+    ims = {k: [np.asarray(Image.open(DATA / "renders" / f"render_{k}{i}.png").convert("RGB")) for i in range(3)] for k in TASK}
     boxes = {}
     for k, v in ims.items():  # one crop box per task, so its three frames share a scale
         ink = np.any(np.stack([im.min(axis=2) < 245 for im in v]), axis=0)
@@ -131,9 +130,9 @@ def main() -> int:
 
     # (a) Isaac Lab, three settings at the reused setpoint
     ax = axes[0]
-    grid = json.loads((TWO_PAD / "dose_A-grid_expanded.json").read_text())["hands"]
-    fr = json.loads((TWO_PAD / "dose_A_all.json").read_text())["hands"]
-    comp = json.loads((TWO_PAD / "comp.json").read_text())["hands"]
+    grid = json.loads((DATA / "isaac_dose_A-grid_expanded.json").read_text())["hands"]
+    fr = json.loads((DATA / "isaac_dose_A_all.json").read_text())["hands"]
+    comp = json.loads((DATA / "isaac_comp.json").read_text())["hands"]
     gx = [r["D_c_mm"] for r in grid.values()]
     gy = [100 * r["E_rel_median"] for r in grid.values()]
     ax.plot(gx, gy, ls="none", marker="o", ms=2.6, mec=GREY, mfc="none", mew=0.6, zorder=2,
@@ -162,21 +161,21 @@ def main() -> int:
 
     # (b) contact model
     ax = axes[1]
-    point = json.loads((DRAKE / "e21_point.json").read_text())
-    hydro = json.loads((DRAKE / "e21_hydro.json").read_text())
+    point = json.loads((DATA / "drake_e21_point.json").read_text())
+    hydro = json.loads((DATA / "drake_e21_hydro.json").read_text())
     series(ax, [{"d_contact": r["d_contact"], "E": r.get("E_isaac")} for r in point], "Isaac Lab, point",
            "#52514e", "o", True)
     series(ax, point, "Drake, point", "#2a78d6", "^", False)
     series(ax, hydro, "Drake, hydroelastic, 3 mm", "#eb6834", "D", True, ms=3.0)
-    series(ax, json.loads((DRAKE / "e25_hydro_own.json").read_text()), "Drake, hydroelastic, own thickness",
+    series(ax, json.loads((DATA / "drake_e25_hydro_own.json").read_text()), "Drake, hydroelastic, own thickness",
            "#9c2f1e", "s", False, ms=3.0)
     style(ax, "(c) contact model")
 
     # (d) task
     ax = axes[3]
     series(ax, point, "grasp pull-out", "#2a78d6", "^", False)
-    series(ax, json.loads((DRAKE / "e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
-    series(ax, json.loads((DRAKE / "e26_point.json").read_text()), "dial turning", "#eda100", "P", True)
+    series(ax, json.loads((DATA / "drake_e23_point.json").read_text()), "grasp acquisition", "#9b5de5", "v", True)
+    series(ax, json.loads((DATA / "drake_e26_point.json").read_text()), "dial turning", "#eda100", "P", True)
     style(ax, "(d) task (Drake, point)")
 
     DEST.mkdir(parents=True, exist_ok=True)

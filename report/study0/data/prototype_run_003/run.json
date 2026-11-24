@@ -1,0 +1,275 @@
+{
+  "mechanism": "linkage",
+  "formulation": "cfl-pf1",
+  "objectives": [
+    "c_pad_mean"
+  ],
+  "config": {
+    "bounds": {
+      "a_x_mm": [
+        0.1,
+        100.0
+      ],
+      "b_x_mm": [
+        0.0,
+        100.0
+      ],
+      "b_z_mm": [
+        0.0,
+        0.0
+      ],
+      "ap_x_mm": [
+        -19.9,
+        130.0
+      ],
+      "ap_z_mm": [
+        0.0,
+        25.0
+      ],
+      "bp_x_mm": [
+        -50.0,
+        120.0
+      ],
+      "bp_z_mm": [
+        -60.0,
+        80.0
+      ],
+      "servo_tilt_deg": [
+        15.0,
+        15.0
+      ],
+      "bc_length_mm": [
+        0.1,
+        100.0
+      ],
+      "a_z_mm": [
+        0.0,
+        0.0
+      ],
+      "app_offset_mm": [
+        -60.0,
+        60.0
+      ],
+      "bpp_offset_mm": [
+        -60.0,
+        60.0
+      ],
+      "proximal_mount_offset_mm": [
+        0.0,
+        10.0
+      ],
+      "distal_mount_offset_mm": [
+        0.0,
+        10.0
+      ]
+    },
+    "packaging": {
+      "pip_servo": {
+        "radius_mm": 9.5,
+        "rear_extent_mm": 25.5,
+        "depth_mm": 22.0
+      },
+      "mcp_servo": {
+        "radius_mm": 9.5,
+        "rear_extent_mm": 25.5,
+        "depth_mm": 22.0
+      },
+      "mcp_servo_rear": [
+        0.0,
+        1.0
+      ],
+      "pivot_clearance_diameter_mm": 6.0,
+      "proximal_pad": {
+        "height_mm": 5.0,
+        "offset_mm": 0.0,
+        "length_mm": null,
+        "max_length_mm": 100.0
+      },
+      "distal_pad": {
+        "height_mm": 5.0,
+        "offset_mm": 0.0,
+        "length_mm": null,
+        "max_length_mm": 100.0
+      },
+      "pad_mcp_check": true,
+      "pad_mcp_clearance_mm": 0.0,
+      "pip_servo_pad_check": true,
+      "a_pin_servo_check": true,
+      "pad_pad_check": true,
+      "distal_pad_mcp_check": true,
+      "distal_carrier_height_mm": 0.0,
+      "overlap_depth": true,
+      "allow_collision_pip_servo_to_joint_a": true,
+      "allow_collision_pip_servo_to_joint_bp": true,
+      "ap_clearance_diameter_mm": 10.0,
+      "pad_link_ratio_max": null,
+      "a_pivot_diameter_mm": 6.0,
+      "ap_pivot_diameter_mm": 10.0,
+      "b_pivot_diameter_mm": 6.0,
+      "bp_pivot_diameter_mm": 6.0,
+      "pip_servo_above_oa": false,
+      "links_clear_pads": true,
+      "pads_off_pins": true
+    },
+    "required_rom_rad": 2.6179938779914944,
+    "mcp_flexion_max_rad": 0.0,
+    "mcp_rotation_checked": false,
+    "transmission_angle_range_rad": [
+      0.5235987755982988,
+      2.6179938779914944
+    ],
+    "ma_min": 0.2,
+    "extended_length_bounds_mm": [
+      90.0,
+      100.0
+    ],
+    "proximal_length_bounds_mm": [
+      null,
+      null
+    ],
+    "proximal_length_ratio_bounds": [
+      0.35,
+      null
+    ],
+    "distal_length_ratio_bounds": [
+      0.25,
+      null
+    ],
+    "joint_span_ratio_bounds": [
+      null,
+      0.35
+    ],
+    "joint_span_bounds_mm": [
+      null,
+      null
+    ],
+    "minimum_proximal_support_mm": 20.0,
+    "minimum_distal_support_mm": 25.0,
+    "pip_servo_tilt_rad": 0.2617993877991494,
+    "flexion_step_rad": 0.017453292519943295,
+    "verify_step_rad": 0.0008726646259971648,
+    "mcp_step_rad": 0.017453292519943295,
+    "resolution_mm": 0.1,
+    "link_length_resolution_mm": 0.1,
+    "objectives": [
+      "c_pad_mean"
+    ],
+    "hypervolume_reference": {
+      "c_pad_mean": 0
+    },
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "tilt_step_deg": 5.0,
+    "proximal_pad_past_icr_max_mm": null,
+    "mount_policy": "searched",
+    "align_mount_offsets": false,
+    "pads_on_links": false,
+    "symmetric_four_bar": false,
+    "warm_start": [
+      "output/linkage/config/samples/seeds.csv"
+    ],
+    "relative_bounds": {
+      "ap_from_a_x_mm": [
+        -20.0,
+        30.0
+      ],
+      "ap_from_a_z_mm": [
+        0.0,
+        25.0
+      ],
+      "bp_from_b_x_mm": [
+        -50.0,
+        20.0
+      ],
+      "bp_from_b_z_mm": [
+        -60.0,
+        80.0
+      ]
+    },
+    "proximal_overhang_max_mm": null,
+    "distal_overhang_max_mm": null,
+    "pulley_radius_mm": null,
+    "icr0_share_bounds": [
+      null,
+      null
+    ],
+    "dorsal_space_mm": null,
+    "link_radius_mm": null,
+    "profile": "prototype",
+    "include_linkage_occlusion": true,
+    "access_depth_mm": 20.0,
+    "search_bounds": {
+      "a_x_mm": [
+        0.1,
+        99.9
+      ],
+      "b_x_mm": [
+        0.1,
+        99.9
+      ],
+      "b_z_mm": [
+        0.0,
+        0.0
+      ],
+      "ap_x_mm": [
+        -19.9,
+        130.0
+      ],
+      "ap_z_mm": [
+        0.0,
+        25.0
+      ],
+      "bp_x_mm": [
+        -50.0,
+        120.0
+      ],
+      "bp_z_mm": [
+        -60.0,
+        80.0
+      ],
+      "servo_tilt_deg": [
+        15.0,
+        15.0
+      ],
+      "bc_length_mm": [
+        0.1,
+        99.9
+      ],
+      "a_z_mm": [
+        0.0,
+        0.0
+      ],
+      "app_offset_mm": [
+        -60.0,
+        60.0
+      ],
+      "bpp_offset_mm": [
+        -60.0,
+        60.0
+      ],
+      "proximal_mount_offset_mm": [
+        0.0,
+        10.0
+      ],
+      "distal_mount_offset_mm": [
+        0.0,
+        10.0
+      ]
+    }
+  },
+  "optimizer": {
+    "algorithm": "ga",
+    "population_size": 200,
+    "generations": 3000,
+    "seed": 2,
+    "options": {}
+  },
+  "pymoo_version": "0.6.2",
+  "source_git_commit": "941c09295d8af135b8de85a1f9a02df5d657818b",
+  "evaluation_count": 600000,
+  "feasible_evaluation_count": 143906,
+  "pareto_count": 1
+}

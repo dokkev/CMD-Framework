@@ -36,6 +36,7 @@ import numpy as np  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 DESIGN = ROOT / "design"
+REPORT = DESIGN.parent / "report"  # paper data, committed (copied from design/output)
 for path in (DESIGN, DESIGN / "scripts" / "study", DESIGN / "scripts" / "study" / "study2_morphology_adaptation"):
     sys.path.insert(0, str(path))
 
@@ -54,9 +55,9 @@ from pngout import save_rgb  # noqa: E402
 
 DEST = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "ContactCentricDesign-RSS2027" / "figures"
 FLEXION, THICKNESS = 120.0, 7.0
-POLE_LAW = DESIGN / "output" / "study" / "study2_pole_law" / "designs.csv"
+POLE_LAW = REPORT / "study2" / "data" / "pole_law_designs.csv"
 MARK = {"2r_dd": "^", "2r_remote": "s", "rcj": "D", "cfl": "o"}
-PROTOTYPE = DESIGN / "output" / "linkage" / "config" / "paper_single_objective" / "portfolio_001" / "seeds.csv"
+PROTOTYPE = REPORT / "study0" / "data" / "prototype_seeds.csv"
 WIDTH = 7.16
 INK, INK2 = "#0b0b0b", "#52514e"
 ICR = "#8a3ffc"  # the instantaneous centre's path in (c, d)
@@ -67,8 +68,8 @@ ARCH = [("2r_dd", "2R-DD", "#1baf7a", "servo at the joint", False),
         ("cfl", "CFL (ours)", "#2a78d6", "crossed four-bar, proximal servo", True)]
 
 
-SAMPLES = DESIGN / "output" / "linkage" / "config" / "samples" / "seeds.csv"
-FRONTS = DESIGN / "output" / "study" / "study2_redesign_2026-11-21" / "fronts.csv"
+SAMPLES = REPORT / "study0" / "data" / "linkage_samples_seeds.csv"
+FRONTS = REPORT / "study2" / "data" / "redesign_fronts.csv"
 
 
 def finite_pole(view, q_deg: float, q0_deg: float = 0.0) -> np.ndarray:
@@ -204,7 +205,7 @@ def main() -> int:
     for key, *_ in ARCH:
         if key == "cfl":  # the CoDe prototype's finger, its pads drawn as thick as the others' (qualitative)
             row = with_role(read_rows(PROTOTYPE), "balanced")
-            run = load_run(PROTOTYPE.parent.parent / row["run"].split("/")[-1])
+            run = load_run(PROTOTYPE.parent / ("prototype_" + row["run"].split("/")[-1]))
             pk = run.config.packaging
             config_cfl = replace(run.config, packaging=replace(
                 pk, proximal_pad=replace(pk.proximal_pad, height_mm=THICKNESS),

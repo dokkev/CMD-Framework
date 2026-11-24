@@ -1,0 +1,146 @@
+[
+ {
+  "hand": "R",
+  "d_contact": 0.86,
+  "d_skel": 7.67,
+  "E": 0.19375000000000012,
+  "pairs": 46,
+  "E_isaac": 0.21000556712359353,
+  "pairs_isaac": 48
+ },
+ {
+  "hand": "d1p5_minDs_s0",
+  "d_contact": 1.6,
+  "d_skel": 5.37,
+  "E": 0.28991596638655437,
+  "pairs": 48,
+  "E_isaac": 0.516598537388296,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "d2p25_minDs_s0",
+  "d_contact": 2.33,
+  "d_skel": 4.62,
+  "E": 0.4641025641025635,
+  "pairs": 48,
+  "E_isaac": 0.7173389089009923,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "d2p25_maxDs_s0",
+  "d_contact": 2.3,
+  "d_skel": 9.17,
+  "E": 0.660919540229885,
+  "pairs": 22,
+  "E_isaac": 0.7001634064269773,
+  "pairs_isaac": 12
+ },
+ {
+  "hand": "d3_minDs_s0",
+  "d_contact": 3.09,
+  "d_skel": 3.83,
+  "E": 0.5108695652173912,
+  "pairs": 48,
+  "E_isaac": 0.9155174052566575,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "U",
+  "d_contact": 3.91,
+  "d_skel": 3.38,
+  "E": 0.7166666666666659,
+  "pairs": 48,
+  "E_isaac": 1.2358544228555846,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "d1p5_maxDs_s0",
+  "d_contact": 1.46,
+  "d_skel": 9.67,
+  "E": 0.1863425925925922,
+  "pairs": 52,
+  "E_isaac": 0.31306707091425223,
+  "pairs_isaac": 48
+ },
+ {
+  "hand": "d3_maxDs_s0",
+  "d_contact": 3.04,
+  "d_skel": 11.55,
+  "E": 0.23529411764705876,
+  "pairs": 49,
+  "E_isaac": 0.5277777032719674,
+  "pairs_isaac": 23
+ },
+ {
+  "hand": "h3to5_hr",
+  "d_contact": 0.35,
+  "d_skel": 3.55,
+  "E": 0.04166666666666626,
+  "pairs": 49,
+  "E_isaac": 0.034210433262640366,
+  "pairs_isaac": 54
+ },
+ {
+  "hand": "h3to5_hu",
+  "d_contact": 1.58,
+  "d_skel": 2.02,
+  "E": 0.36939571150097456,
+  "pairs": 48,
+  "E_isaac": 0.5188042129683051,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "h3to5_d3_s0",
+  "d_contact": 2.92,
+  "d_skel": 6.38,
+  "E": 0.7368421052631579,
+  "pairs": 11,
+  "E_isaac": null,
+  "pairs_isaac": 0
+ },
+ {
+  "hand": "h3to5_d3_minDs_s0",
+  "d_contact": 3.09,
+  "d_skel": 0.38,
+  "E": 0.6043478260869566,
+  "pairs": 48,
+  "E_isaac": 1.031947354631476,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "h3to9_hr",
+  "d_contact": 2.32,
+  "d_skel": 9.37,
+  "E": 0.14835164835164844,
+  "pairs": 46,
+  "E_isaac": 0.4066725547030302,
+  "pairs_isaac": 48
+ },
+ {
+  "hand": "h3to9_hu",
+  "d_contact": 3.89,
+  "d_skel": 7.17,
+  "E": 0.5517241379310346,
+  "pairs": 45,
+  "E_isaac": 1.0600358870284057,
+  "pairs_isaac": 52
+ },
+ {
+  "hand": "h3to9_d3p5_maxDs_s0",
+  "d_contact": 3.52,
+  "d_skel": 12.72,
+  "E": 0.2592592592592591,
+  "pairs": 49,
+  "E_isaac": 0.3967213149482035,
+  "pairs_isaac": 24
+ },
+ {
+  "hand": "h3to9_d5_minDs_s0",
+  "d_contact": 5.08,
+  "d_skel": 5.32,
+  "E": 0.8377192982456142,
+  "pairs": 44,
+  "E_isaac": 1.5659420152242318,
+  "pairs_isaac": 52
+ }
+]
