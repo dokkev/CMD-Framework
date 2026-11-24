@@ -481,42 +481,48 @@ def fig2():
     clean(pax)
     pax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4, frameon=False, fontsize=6.0,
                handletextpad=0.1, columnspacing=0.6)
-    # (c) motion preservation: the same three designs from the skeleton frame and from the contact frame
-    label(fig, 4.80, head, "(c) Motion preservation", h)
-    fig.text(5.85 / W, (head - 0.20) / h, "$t: 6\\to10$ mm; $q: 0\\to120^\\circ$", fontsize=6.4, ha="center",
-             va="top")
-    q = np.radians(np.linspace(0, 120, 61))
-    L, z0, t0, t1 = 22.0, 0.0, 6.0, 10.0
-    dt = t1 - t0
-
-    def path(pt, pole):
-        return np.array([rot([pt], qq, np.asarray(pole))[0] for qq in q])
-    designs = (("reference", GREY, (0, -z0), t0, (0, (2.6, 1.6)), 1.0, 5),
-               ("skeleton-preserving", AMBER, (0, -z0), t1, "-", 1.4, 3),
-               ("contact-preserving", BLUE, (0, -z0 - dt), t1, "-", 1.4, 3))
-    for row, (frame, name) in enumerate((("skel", "skeleton"), ("contact", "contact"))):
-        y0 = head - 0.42 - (row + 1) * 0.60
-        ax = fig.add_axes((5.05 / W, y0 / h, 1.10 / W, 0.55 / h))
-        ends = {}
-        for nm, col, pole, t, ls, lw, zo in designs:
-            pth = path((L, 0.0), pole) if frame == "skel" else path((L, -t), pole) - np.array([0.0, -t])
-            ax.plot(*pth.T, color=col, lw=lw, ls=ls, zorder=zo)
-            ends[nm] = pth[-1]
-        ax.plot([-L - 2, L + 2], [0, 0], color=INK2, lw=0.4, ls=(0, (1, 1.4)), zorder=0)
-        ax.plot(L, 0, marker="o", ms=3.4, color=GREY, zorder=6)
-        off = "contact-preserving" if frame == "skel" else "skeleton-preserving"
-        a_, b_ = ends["reference"], ends[off]
-        ax.plot(*np.array([a_, b_]).T, color=PURPLE, lw=0.8, zorder=7)
-        ax.plot(*a_, marker="o", ms=3.0, color=GREY, zorder=7)
-        ax.text(-L - 2, -4, f"{np.linalg.norm(a_ - b_):.2f} mm", fontsize=6.0, color=PURPLE, va="top")
-        ax.set_aspect("equal"); ax.axis("off"); ax.set_xlim(-L - 3, L + 3); ax.set_ylim(-L - 4, 3)
-        fig.text(4.92 / W, (y0 + 0.30) / h, name, fontsize=6.4, va="center", rotation=90, ha="center",
-                 color=INK2)
-    handles = [plt.Line2D([], [], color=GREY, lw=1.0, ls=(0, (2.6, 1.6)), label="reference"),
-               plt.Line2D([], [], color=AMBER, lw=1.4, label="skeleton-preserving"),
-               plt.Line2D([], [], color=BLUE, lw=1.4, label="contact-preserving")]
-    fig.legend(handles=handles, loc="center left", bbox_to_anchor=(6.16 / W, 1.05 / h), frameon=False,
-               fontsize=5.8, handlelength=1.4, labelspacing=0.3, handletextpad=0.3)
+    # (c) the CFL's kinematic model (the CoDe prototype at 120 deg): pivots, fingertip, frame
+    label(fig, 4.80, head, "(c) CFL kinematic model", h)
+    from visualize.finger.view import load_run
+    from visualize.fronts import read_rows, with_role
+    proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
+    row = with_role(read_rows(proto), "balanced")
+    run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
+    v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
+    qk = 120.0
+    kax = fig.add_axes((4.80 / W, 0.10 / h, 2.32 / W, (head - 0.30) / h))
+    kax.set_xlim(-12, 98); kax.set_ylim(-52, 30); kax.set_aspect("equal"); kax.axis("off")
+    faint_extended(kax, v, (v.proximal_pad(), v.distal_pad(0.0)), pins=True)
+    n0p, n0l, n0c = len(kax.patches), len(kax.lines), len(kax.collections)
+    v.draw(kax, qk, hit=set(), style="sketch")
+    for p_ in kax.patches[n0p:]:
+        p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_linewidth(0.5)
+    for ln in kax.lines[n0l:]:
+        ln.set_color("#6b6b69"); ln.set_linewidth(min(ln.get_linewidth(), 1.3))
+    for c in kax.collections[n0c:]:
+        c.set_facecolor("white"); c.set_edgecolor("#6b6b69")
+    for pad in (v.proximal_pad(), v.distal_pad(qk)):
+        kax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
+    four = v.joint
+    st = four.sweep([qk])
+    pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
+           "C": st.tip[0], "O": np.zeros(2)}
+    offs = {"A": (-3, -7), "A'": (6, 7), "B": (7, -2), "B'": (6, -6), "C": (5, -5), "O": (-6, -8)}
+    for nm_, at in pts.items():
+        kax.plot(*at, marker="o", ms=2.8, mfc="white", mec=INK, mew=0.6, zorder=30)
+        kax.annotate(f"${nm_}$", xy=at, xytext=offs[nm_], textcoords="offset points", fontsize=7, ha="center",
+                     va="center", color=INK, zorder=31)
+    arrow = dict(arrowstyle="-|>", lw=0.7, color=INK, mutation_scale=6, shrinkA=0, shrinkB=0)
+    kax.annotate("", xy=(14, 0), xytext=(0, 0), arrowprops=arrow, zorder=31)
+    kax.annotate("", xy=(0, 14), xytext=(0, 0), arrowprops=arrow, zorder=31)
+    kax.text(15, -1.5, "$x$", fontsize=6.5, va="top")
+    kax.text(-1.5, 15, "$z$", fontsize=6.5, ha="right")
+    kax.text(-3, 9, "$\\mathcal{F}_1$", fontsize=7, ha="right")
+    path = __import__("fig_mechanisms").icr_path(v, qk)
+    kax.plot(*path.T, color=PURPLE, lw=1.0, zorder=25)
+    kax.plot(*path[-1], marker="o", ms=3.4, color=PURPLE, mec="white", mew=0.3, zorder=26)
+    fig.text(5.96 / W, 0.06 / h, "$q=120^\\circ$ (faint: $q=0$); purple: instantaneous centre", fontsize=5.6,
+             color=INK2, ha="center", va="bottom")
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
     print("fig2", h)
