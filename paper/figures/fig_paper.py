@@ -244,11 +244,15 @@ def fig2():
                         va="center", linespacing=1.0)
                 continue
             x = list(ds[hh].x)
+            names_ = list(mech_of(ds[hh].mechanism).variable_names)
             if key == "2r_dd":  # drawn with the servo upright (the optimized design tilts it)
-                x[list(mech_of(ds[hh].mechanism).variable_names).index("servo_tilt_deg")] = 0.0
+                x[names_.index("servo_tilt_deg")] = 0.0
+            else:  # pads drawn on their phalanges (no mounting offset)
+                for nm in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
+                    x[names_.index(nm)] = 0.0
             v = view_of(ds[hh].mechanism, ds[hh].config, x)
             qd = float(r[0]["q_max_deg"])
-            draw_geometry(ax, v, ARCH[key][1], qd, faint=False)
+            draw_geometry(ax, v, ARCH[key][1], qd, faint=False, pins=key != "cfl")
             fig.text((0.30 + j * cw + cw / 2) / W, (y0 + 0.10) / h,
                      f"$\\ell_1={float(r[0]['proximal_pad_mm']):.0f}$ mm, ${qd:.0f}^\\circ$", fontsize=5.6,
                      color=ARCH[key][1], ha="center", va="top")
@@ -341,7 +345,7 @@ def common_interval(pf, df):
     return (X, rays, lo, hi) if hi > lo else None
 
 
-def draw_geometry(ax, view, colour, q, faint=True):
+def draw_geometry(ax, view, colour, q, faint=True, pins=True):
     """The design at 0 (faint) and q deg (solid): mechanism grey, mounted pads light, the part of each contact face
     that holds the inscribed cylinder at q (paired coverage) dark."""
     import matplotlib.colors as mc
@@ -358,6 +362,13 @@ def draw_geometry(ax, view, colour, q, faint=True):
             ln.set_markerfacecolor("#a8a8a6"); ln.set_markeredgecolor("#8c8c8c")
         for c in ax.collections[n0c:]:
             c.set_facecolor("#a8a8a6"); c.set_edgecolor("#8c8c8c"); c.set_alpha(alpha)
+        if not pins:  # no pivot dots or joint discs
+            from matplotlib.patches import Circle as _C
+            for c in list(ax.collections[n0c:]):
+                c.remove()
+            for p_ in list(ax.patches[n0p:]):
+                if isinstance(p_, _C):
+                    p_.remove()
         for pad in (view.proximal_pad(), view.distal_pad(qq)):
             ax.add_patch(Polygon(pad, fc=light, ec=colour, lw=0.4, alpha=alpha, zorder=20))
     pf = view.proximal_pad()[[0, 1]]
