@@ -14,7 +14,7 @@ import os
 
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
+from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg, RslRlRNNModelCfg
 
 
 @configclass
@@ -38,3 +38,16 @@ class CoDeRotateCubePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         super().__post_init__()
         if os.environ.get("CODE_ROTATE_CUBE_HORA", "0") == "1":
             self.num_steps_per_env = 8  # Hora's horizon_length
+        if os.environ.get("CODE_ROTATE_CUBE_GRU", "0") == "1":
+            # LEAP Hand Isaac Lab's recurrent actor-critic: a 256-unit GRU before the same MLP heads, trained from
+            # scratch at learning rate 5e-4, adaptive (KL 0.02). rsl_rl's RNNModel feeds the GRU output alone to the
+            # MLP (LEAP also concatenates the observation and layer-normalises).
+            gru = dict(rnn_type="gru", rnn_hidden_dim=256, rnn_num_layers=1, hidden_dims=[512, 256, 128],
+                       activation="elu", obs_normalization=True)
+            gaussian = RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0)
+            self.actor = RslRlRNNModelCfg(**gru, distribution_cfg=gaussian)
+            self.critic = RslRlRNNModelCfg(**gru)
+            self.algorithm.learning_rate = 5.0e-4
+            self.algorithm.schedule = "adaptive"
+            self.algorithm.desired_kl = 0.02
+            self.save_interval = 100

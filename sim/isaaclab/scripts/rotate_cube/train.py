@@ -48,6 +48,7 @@ PROJECT = "code-hand-inhand"
 TASK_ENV_KEYS = (
     "CODE_ROTATE_CUBE_GRASPS", "CODE_ROTATE_CUBE_CROWN_MM", "CODE_ROTATE_CUBE_CROWN_LAYOUT",
     "CODE_ROTATE_CUBE_PHASE_PERIOD_S", "CODE_ROTATE_CUBE_GOAL_OBS", "CODE_ROTATE_CUBE_HORA",
+    "CODE_ROTATE_CUBE_GRU",
 )
 """Recorded in the manifest when set (unset: the task's defaults, see ``tasks/rotate_cube/env_cfg.py``)."""
 
