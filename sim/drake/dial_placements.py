@@ -5,10 +5,21 @@ face + rho) and its centre lies rho from the distal face line at q0; x_c is solv
     uv run python dial_placements.py --radius_mm 10 [--check]   ->  logs/grasps_r<rho>.json
 
 --check recomputes the 15 and 20 mm placements and compares x_c with the grasp file.
+
+--tip y|z: experiment 28's fingertip dial instead, placed on O at its touch angle q_t (stored as q0_deg), in the
+proximal-face frame (x along the face, z dorsal; the same coordinates on every hand):
+  y: a dial in the finger's plane, tangent to O's distal pad at q_t at the pad point back_mm short of its tip end;
+     centre = that point + rho along the pad's outward normal; its axle springs along that normal (axis_deg = q_t).
+  z: a disk with its axis along z whose top face is at the depth of O's fingertip face point at q_t; its centre is
+     x_back_mm proximal of that point and y_mm to the side of the finger's plane.
+
+    uv run python dial_placements.py --tip y --radius_mm 8 12 --q_touch 20 35 50 --back_mm 3 8 [--out file]
+    uv run python dial_placements.py --tip z --radius_mm 12 --q_touch 20 35 50 --x_back_mm 6 --y_mm 9 [--thick_mm 4]
 """
 import argparse
 import json
 import math
+from pathlib import Path
 
 import numpy as np
 from scipy.optimize import brentq
@@ -40,11 +51,51 @@ def x_contact(geom, qs, th, q0_deg, rho):
     return min(roots) if roots else None
 
 
+def tip_placements(a) -> list[dict]:
+    geom = T.finger_geometry("O")
+    qs, th = T.servo_table(geom)
+    end = geom["pads"]["distal_end_mm"]
+    out = []
+    for rho in a.radius_mm:
+        for qt in a.q_touch:
+            q = math.radians(qt)
+            n = T.rot(q) @ np.array([0.0, -1.0])  # the distal pad's outward (palmar) normal
+            if a.tip == "y":
+                for b in a.back_mm:
+                    c = T.reference_point(geom, qs, th, q, end - b) + rho * n
+                    out.append({"rho_mm": rho, "q0_deg": float(qt), "x_c_mm": float(c[0]), "z_c_mm": float(c[1]),
+                                "axis_deg": float(qt), "back_mm": b})
+            else:
+                tip = T.reference_point(geom, qs, th, q, "tip")
+                for xb in a.x_back_mm:
+                    for y in a.y_mm:
+                        out.append({"rho_mm": rho, "q0_deg": float(qt), "x_c_mm": float(tip[0] - xb),
+                                    "z_c_mm": float(tip[1] - a.thick_mm / 2), "y_mm": y, "x_back_mm": xb,
+                                    "thick_mm": a.thick_mm})
+    return out
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--radius_mm", type=float, default=10.0)
+    p.add_argument("--radius_mm", type=float, nargs="+", default=[10.0])
     p.add_argument("--check", action="store_true")
+    p.add_argument("--tip", choices=("y", "z"), default=None)
+    p.add_argument("--q_touch", type=float, nargs="+", default=[20.0, 35.0, 50.0])
+    p.add_argument("--back_mm", type=float, nargs="+", default=[3.0, 8.0])
+    p.add_argument("--x_back_mm", type=float, nargs="+", default=[6.0])
+    p.add_argument("--y_mm", type=float, nargs="+", default=[9.0])
+    p.add_argument("--thick_mm", type=float, default=4.0)
+    p.add_argument("--out", type=Path, default=None)
     a = p.parse_args()
+    if a.tip:
+        out = tip_placements(a)
+        path = a.out or T.OUT / f"tipdial_{a.tip}.json"
+        path.write_text(json.dumps({"grasps": out}, indent=1))
+        print(path, len(out))
+        for g in out:
+            print("  ", {k: round(v, 2) if isinstance(v, float) else v for k, v in g.items()})
+        return 0
+    a.radius_mm = a.radius_mm[0]
     geom = T.finger_geometry("O")
     qs, th = T.servo_table(geom)
     if a.check:
