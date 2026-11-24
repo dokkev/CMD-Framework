@@ -211,7 +211,7 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
     ax.set_xlim(-Lp - 2, 18); ax.set_ylim(-Lp - 8, 10); ax.set_aspect("equal"); ax.axis("off")
 
 
-def common_pad_extension(view_of, mech, configs, x, qd=150.0, step=0.25, margin=0.3):
+def common_pad_extension(view_of, mech, configs, x, qd=150.0, step=0.25, margin=0.3, max_ed=0.0):
     """One lengthening (ep proximal, ed distal, toward the joint) for every pad thickness in ``configs``: as long as
     every pair stays ``margin`` clear over 0..qd. Returns (ep, ed, gap at qd of the thickest pads)."""
     from shapely.geometry import Polygon as SPoly
@@ -242,7 +242,7 @@ def common_pad_extension(view_of, mech, configs, x, qd=150.0, step=0.25, margin=
     for _ in range(3):
         while ep < 30 and clear(ep + step, ed):
             ep += step
-        while ed < 30 and clear(ep, ed + step):
+        while ed + step <= max_ed and clear(ep, ed + step):
             ed += step
     pp0, d0, poses = data[0]
     pp, dd = padded(pp0, d0, ep, ed)
