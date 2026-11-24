@@ -358,3 +358,10 @@ For the manuscript session: Fig. 4 and the text must change wherever experiment 
 - Data: report/study3/data/drake_e28z_point.json, drake_e28y_point.json. Log: report/study3/experiments.md, experiment 28. The renders for the new task are being made (sim/drake, render_tipdial*.png).
 - Wording: the permutation p for 18 hands uses 20,000 random permutations, not exact enumeration. Say "permutation p", not "exact".
 
+## Study 3 renders for the paper (2026-11-24; Drake VTK on the hand's URDF geometry, the same visuals as the USD)
+
+- `report/study3/data/renders/render_hold{0,1,2}.png`: grasp pull-out on hand O (index, middle and ring at the frame's flexion); Fig. 4(a) uses these through fig_study3.py's strip_one.
+- `report/study3/data/renders/render_tipdial{0,1,2}.png`: the fingertip disk (experiment 28z), seen from above at 40° off its axis. Only the index finger turns the disk; middle and ring are curled away. t = 1.0 s (just before touch), 2.5 s (30°), 5.0 s (25° after the hold).
+- `report/study3/figures/task_frames.png`: pull-out, acquisition and the fingertip disk at three times each, a candidate overview panel.
+- Regenerate them with `sim/drake/render_tasks.py`, `render3d.py` and `render_task_times.py`. The acquisition task is being redone (object rolled from the palm), so its frames will change.
+
