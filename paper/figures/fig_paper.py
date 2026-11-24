@@ -223,58 +223,42 @@ def fig2():
     sketch.SHOW_GROUND = False
     cfg = read_config_file(one_finger.DEFAULT_CONFIG)
     label(fig, 0.10, head, "(a) Interface clearance", h)
-    s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    cases = (("2r_dd", "servo at the pin (2R-DD)"), ("cfl", "CoDe prototype (CFL)"))
     from core.optimization.mechanism import mechanism as mech_of
-    for i, (key, name) in enumerate(cases):
-        if key == "cfl":  # the CoDe prototype's finger, flexed to its 180 deg
-            from visualize.finger.view import load_run
-            from visualize.fronts import read_rows, with_role
-            proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
-            row = with_role(read_rows(proto), "balanced")
-            run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
-            v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
-            qd = 180.0
-        else:
-            ds = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)
-            x = list(ds[7.0].x)  # drawn with the servo upright (the optimized design tilts it by 45 deg)
-            x[list(mech_of(ds[7.0].mechanism).variable_names).index("servo_tilt_deg")] = 0.0
-            v = view_of(ds[7.0].mechanism, ds[7.0].config, x)
-            qd = 120.0
-        ax = fig.add_axes(((0.10 + i * 1.06) / W, (head - 1.08) / h, 0.98 / W, 0.82 / h))
-        ax.set_xlim(-6, 66); ax.set_ylim(-52, 34); ax.set_aspect("equal"); ax.axis("off")
-        draw_geometry(ax, v, ARCH[key][1], qd, faint=False)
-        pad = v.proximal_pad()
-        ell = float(pad[:, 0].max() - pad[:, 0].min())
-        hpad = float(pad[:, 1].max() - pad[:, 1].min())
-        fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 1.20) / h, f"$h={hpad:.0f}$ mm, $q={qd:.0f}^\\circ$",
-                 fontsize=5.6, color=INK2, ha="center", va="top")
-        fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 0.20) / h, name, fontsize=6.0, color=ARCH[key][1],
-                 ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
-        fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 1.08) / h, f"$\\ell_1={ell:.0f}$ mm", fontsize=6.0,
-                 color=ARCH[key][1], ha="center", va="top")
-    fig.text(1.12 / W, (head - 1.32) / h, "one scale", fontsize=5.6, color=INK2, ha="center", va="top")
-    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.78) / h))
-    for key in ("2r_dd", "cfl"):
-        for qd, ls in ((120.0, "-"), (150.0, (0, (3, 1.6)))):
-            pts = sorted((float(r["thickness_mm"]), float(r["proximal_pad_mm"]), float(r["c_pad_mean"]))
-                         for r in s1 if r["architecture"] == S1NAME[key] and float(r["required_flexion_deg"]) == qd)
-            pts = [(hh, l) for hh, l, c in pts if c > 0.3]  # designs that hold the cylinder
-            if pts:
-                hh, ll = map(np.array, zip(*pts))
-                cax.plot(hh, ll, color=ARCH[key][1], lw=1.2, ls=ls, marker=ARCH[key][2], ms=2.6, mec="white",
-                         mew=0.3)
-    cax.plot([], [], color=INK2, lw=1.0, label="$q_{req}=120^\\circ$")
-    cax.plot([], [], color=INK2, lw=1.0, ls=(0, (3, 1.6)), label="$150^\\circ$")
-    cax.legend(loc="lower left", fontsize=5.4, frameon=False, handlelength=1.8, borderaxespad=0.1, ncol=2)
-    cax.set_xlim(2.5, 9.5); cax.set_ylim(15, 38); cax.set_xticks([3, 5, 7, 9])
-    cax.set_xlabel("pad thickness $h$ (mm)", labelpad=1); cax.set_ylabel("proximal pad $\\ell_1$ (mm)", labelpad=1)
-    clean(cax)
+    s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
+    cw, ch = 0.70, 0.86
+    for j, hh in enumerate((3.0, 5.0, 7.0)):
+        fig.text((0.30 + j * cw + cw / 2) / W, (head - 0.20) / h, f"$h={hh:.0f}$ mm", fontsize=6.4, ha="center",
+                 va="top")
+    for i, (key, name) in enumerate((("2r_dd", "servo at the pin\n(2R-DD)"), ("cfl", "CoDe\n(CFL)"))):
+        ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
+        y0 = head - 0.30 - (i + 1) * ch
+        fig.text(0.16 / W, (y0 + ch / 2) / h, name, rotation=90, fontsize=6.2, color=ARCH[key][1], ha="center",
+                 va="center", linespacing=1.0, fontweight="bold" if key == "cfl" else "normal")
+        for j, hh in enumerate((3.0, 5.0, 7.0)):
+            ax = fig.add_axes(((0.30 + j * cw) / W, (y0 + 0.12) / h, cw / W, (ch - 0.14) / h))
+            ax.set_xlim(-6, 66); ax.set_ylim(-56, 34); ax.set_aspect("equal"); ax.axis("off")
+            r = [x for x in s1 if x["architecture"] == S1NAME[key] and float(x["required_flexion_deg"]) == 150.0
+                 and float(x["thickness_mm"]) == hh]
+            if hh not in ds or not r or float(r[0]["c_pad_mean"]) < 0.3:
+                ax.text(30, -10, "no design\nreaches $150^\\circ$", fontsize=5.8, color=ARCH[key][1], ha="center",
+                        va="center", linespacing=1.0)
+                continue
+            x = list(ds[hh].x)
+            if key == "2r_dd":  # drawn with the servo upright (the optimized design tilts it)
+                x[list(mech_of(ds[hh].mechanism).variable_names).index("servo_tilt_deg")] = 0.0
+            v = view_of(ds[hh].mechanism, ds[hh].config, x)
+            qd = float(r[0]["q_max_deg"])
+            draw_geometry(ax, v, ARCH[key][1], qd, faint=False)
+            fig.text((0.30 + j * cw + cw / 2) / W, (y0 + 0.10) / h,
+                     f"$\\ell_1={float(r[0]['proximal_pad_mm']):.0f}$ mm, ${qd:.0f}^\\circ$", fontsize=5.6,
+                     color=ARCH[key][1], ha="center", va="top")
+    fig.text(1.35 / W, 0.06 / h, "designs for $q_{req}=150^\\circ$, each at its largest flexion; one scale",
+             fontsize=5.6, color=INK2, ha="center", va="bottom")
     # (b) pole placement: the optimized designs' pole depth against their contact-face depth
-    label(fig, 2.30, head, "(b) Pole placement", h)
-    fig.text(3.65 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
+    label(fig, 2.55, head, "(b) Pole placement", h)
+    fig.text(3.80 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
              ha="center", va="top")
-    pax = fig.add_axes((2.75 / W, 0.62 / h, 1.85 / W, (head - 0.95) / h))
+    pax = fig.add_axes((2.98 / W, 0.62 / h, 1.68 / W, (head - 0.95) / h))
     pts = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pole_depths.json").read_text())
     tt = np.array([0, 19.5])
     pax.fill_between(tt, tt, 16, color="#eef3fa", lw=0, zorder=0)
