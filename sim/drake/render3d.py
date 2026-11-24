@@ -512,11 +512,11 @@ TIPDIAL_REF = "index"
 """Experiment 28z's disk sits under the index finger, its axle on the outer side (+y, away from the middle finger).
 The simulation is one finger on one disk (radius 15 mm, 12 mm to the side), so one disk is drawn; under the middle
 or ring finger it would reach under a neighbour's pad, and one disk per finger would overlap."""
-TIPDIAL_CAMERA = {"target_mm": (58.0, -2.0, -16.0), "dist": 0.19, "az_deg": 140.0, "el_deg": 50.0, "fov_deg": 33.0}
-"""From above the finger (dorsal), 40 deg off the disk's axis, ahead of the fingertip on the index finger's outer side
-(azimuth 140 deg): the fingertip on the disk's top face, the pointer and scale on that face, and the curled fingers
-behind. Chosen over a view from the front (100 deg, the distal phalanx covers half the disk) and from the outer
-side (205 deg, the disk small and the curled fingers hidden)."""
+TIPDIAL_CAMERA = {"target_mm": (52.0, -16.0, -4.0), "dist": 0.27, "az_deg": 110.0, "el_deg": 50.0, "fov_deg": 33.0}
+"""From above the finger (dorsal), 40 deg off the disk's axis, in front of the fingertip and a little to the index
+finger's outer side: the curled middle and ring fingers face the camera, the fingertip rests on the disk's top face,
+and the pointer and scale on that face show. (Azimuth 110 rather than 100 deg uncovers a little more of the disk beside
+the distal phalanx early in the sweep.)"""
 TIPDIAL_FINGERS, TIPDIAL_CURLED = ("index",), ("middle", "ring")
 """The index finger turns the disk at the frame's flexion; middle and ring are curled away (``CURL``)."""
 CURL = (90.0, 120.0)
