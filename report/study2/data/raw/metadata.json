@@ -1,0 +1,43 @@
+{
+ "created": "2026-11-24",
+ "git_commit": "3355cf8a15fc7513367889483463ea2c61cc8d98",
+ "generator": "report/make_raw_tables.py",
+ "study": "Study 2: redesign of each architecture's 3 mm design for 5, 7 and 9 mm pads (2D side model)",
+ "files": {
+  "report/study2/data/raw/redesign.csv": {
+   "rows": "one per (architecture, required flexion, target thickness): the two ends of the Pareto front of coverage against contact-surface change",
+   "columns": [
+    "architecture",
+    "idealized",
+    "required_flexion_deg",
+    "from_mm",
+    "to_mm",
+    "fixed_axis_bound_mm",
+    "study1_c_pad",
+    "front_points",
+    "d_contact_at_most_c_pad_mm",
+    "most_c_pad",
+    "least_d_contact_mm",
+    "c_pad_at_least_d_contact"
+   ]
+  },
+  "report/study2/data/redesign_fronts.csv": {
+   "rows": "every point of every front (already committed; not copied)"
+  }
+ },
+ "sources": [
+  "report/study2/data/redesign_summary.csv",
+  "report/study2/data/redesign_fronts.csv"
+ ],
+ "definitions": {
+  "d_contact": "Δ_contact: largest change over flexion of the distal contact point's path, seen from the proximal pad face, between the 3 mm design and the redesign; stored as a fraction of the finger length, converted here with L_f = 90 mm",
+  "fixed_axis_bound_mm": "lowest Δ_contact a fixed-axis joint can reach for this thickness change, 2 sin(q_req/2) Δh",
+  "d_contact_at_most_c_pad_mm / most_c_pad": "the coverage end of the front (the design reported)",
+  "least_d_contact_mm / c_pad_at_least_d_contact": "the other end of the front",
+  "study1_c_pad": "Study 1's best coverage at the target thickness"
+ },
+ "units": {
+  "lengths": "mm",
+  "c_pad": "fraction"
+ }
+}

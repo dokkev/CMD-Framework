@@ -1,0 +1,44 @@
+{
+ "created": "2026-11-24",
+ "git_commit": "3355cf8a15fc7513367889483463ea2c61cc8d98",
+ "generator": "report/make_raw_tables.py",
+ "study": "Study 1: best pad coverage per architecture, pad thickness and required flexion (2D side model, finger length 90 mm)",
+ "files": {
+  "report/study1/data/raw/coverage.csv": {
+   "rows": "one per (architecture, required flexion, pad thickness): the best design found",
+   "columns": [
+    "architecture",
+    "idealized",
+    "required_flexion_deg",
+    "pad_thickness_mm",
+    "c_pad",
+    "c_pad_worst_run",
+    "runs",
+    "design_found",
+    "stop_reason",
+    "proximal_pad_mm",
+    "distal_pad_mm",
+    "finger_length_mm",
+    "q_max_deg",
+    "ma_wc"
+   ]
+  }
+ },
+ "sources": [
+  "report/study1/data/thickness_coverage_summary.csv"
+ ],
+ "definitions": {
+  "c_pad": "pad coverage C̄_pad (fraction 0-1) of the best design over the search runs",
+  "c_pad_worst_run": "the worst of the runs (GA and NSGA-II, three seeds each)",
+  "idealized": "upper bound without the joint actuator (CFL ideal, RCJ ideal)",
+  "design_found": "false where no design meets the requirement",
+  "q_max_deg": "largest collision-free flexion found (evaluator cap 180)",
+  "ma_wc": "worst-case mechanical advantage of the transmission",
+  "stop_reason": "the constraint that ended the search's improvement"
+ },
+ "units": {
+  "lengths": "mm",
+  "angles": "deg",
+  "c_pad": "fraction"
+ }
+}
