@@ -85,13 +85,18 @@ class AxisReorientCommand(ReorientCommand):
         env_ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long)
         if env_ids.numel() == 0:
             return
-        if self._sequence is not None:
+        if self.cfg.continuous_step is not None:  # continuous rotation: the previous goal turned on by one step
+            angle = self.goal_angle[env_ids] + self.cfg.continuous_step
+        elif self._sequence is not None:
             angle = self._sequence[env_ids, self._index[env_ids] % self._sequence.shape[1]]
             self._index[env_ids] += 1
         else:
             angle = draw_goals(self.goal_angle[env_ids], self.cfg.max_angle, self.cfg.min_step, torch.rand_like)
         self.goal_angle[env_ids] = angle
         quat = math_utils.quat_from_angle_axis(angle, self._axis.expand(len(env_ids), 3))
+        if self.cfg.base_quat is not None:  # goals turn the object's reset orientation about the world axis
+            base = torch.tensor(self.cfg.base_quat, dtype=quat.dtype, device=quat.device).expand_as(quat)
+            quat = math_utils.quat_mul(quat, base)
         self.quat_command_w[env_ids] = math_utils.quat_unique(quat) if self.cfg.make_quat_unique else quat
 
     def reset(self, env_ids=None):
@@ -114,6 +119,12 @@ class AxisReorientCommandCfg(ReorientCommandCfg):
     min_step: float = math.radians(30.0)
     """Least angle between consecutive goals [rad]. Goals cannot be reached for free only if it exceeds twice the
     success threshold."""
+    continuous_step: float | None = None
+    """Continuous rotation [rad]: each new goal is the previous one turned by this angle about the axis (the sign sets
+    the direction), with no range limit; the first goal of an episode is one step from the reset orientation. ``None``:
+    goals drawn in ``[-max_angle, max_angle]`` (``max_angle``, ``min_step`` and ``sequence_seed`` then apply)."""
+    base_quat: tuple[float, float, float, float] | None = None
+    """Reset orientation of the object (x, y, z, w) that the goals turn (None: the identity)."""
     sequence_seed: int | None = None
     """Evaluation: draw every environment's goals from a fixed sequence of this seed (None: draw at random)."""
     sequence_length: int = 512

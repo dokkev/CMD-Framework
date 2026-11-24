@@ -32,7 +32,7 @@ Under re-zeroing (E) all 18 hold. Possible caption clause:
 
 Each experiment's plan was committed to `docs/experimental/separability.md` before its data. Examples:
 - experiment 25: plan commit a280bef, then the small sample, then the full run;
-- experiment 26: plan commit made before any hand other than O was run.
+- experiment 26: plan commit eb615e4, made before any hand other than O was run.
 The repository history therefore dates every plan. If the paper can point to a public log or a supplement, this is the
 record to cite.
 
