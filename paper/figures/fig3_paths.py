@@ -28,6 +28,7 @@ for arch in ('cfl', '2r_remote', '2r_dd', 'rcj'):
     d = np.max(np.linalg.norm(red['contact']-ref['contact'],axis=1))
     du = np.max(np.linalg.norm(u['contact']-ref['contact'],axis=1))
     print(arch, 'redesign Dc %.2f (csv %.2f)  study1-7mm Dc %.2f' % (d, float(best['contact_change_mm']), du))
-    out[arch] = {'q': ref['q'].tolist(), 'ref': ref['contact'].tolist(), 'red': red['contact'].tolist(), 'u': u['contact'].tolist()}
+    out[arch] = {'q': ref['q'].tolist(), 'ref': ref['contact'].tolist(), 'red': red['contact'].tolist(), 'u': u['contact'].tolist(),
+                 'ref_tip': ref['tip'].tolist(), 'red_tip': red['tip'].tolist(), 'u_tip': u['tip'].tolist()}
 Path('/home/dk/workspace/cmd_framework/design/output/paper').mkdir(exist_ok=True)
 json.dump(out, open('/home/dk/workspace/cmd_framework/design/output/paper/fig3_paths_q120_3to7.json','w'))

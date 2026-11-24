@@ -140,6 +140,21 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 - Before submission, on the Overleaf PDF: `pdfimages -list` shows no `smask`, `pdffonts` shows every font
   embedded and no Type 3.
 
+### 6.1 Figure plan (user, 2026-11-24)
+
+Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
+and coverage retention go in the text. White background, thin technical linework, LaTeX-style math, restrained
+colour: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple. Final plots come from the
+evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-drawn values.
+
+| Figure | Role | Content |
+|---|---|---|
+| Fig. 1 | overview | the hand manipulating (USD), the CFL finger (CAD) with room for interfaces, contact- vs skeleton-centred redesign, interfaces incl. NARI-Touch |
+| Fig. 2 | kinematic principle (double column, 45–50 mm) | (a) clearance set by the pole, (b) achievable poles (CFL, RCJ, fixed axis), (c) motion seen from the skeleton frame and the contact frame; no mechanism detail |
+| Fig. 3 | design validation (double column, 65–75 mm) | (a) optimized geometry at 120°, 7 mm (evaluator: pads light, cylinder-holding surface dark, mechanism grey, extended + flexed) and coverage dots; (b) reference–redesign paths at 120°, 3→7 mm, and Δ_contact dots with the fixed-axis value dashed |
+| Fig. 4 | scientific validation (double column, 70–80 mm) | one column per task: the task, R's and U's error, every redesign's error against Δ_contact |
+| Table I | contact-model robustness | R and U errors per contact model (medians per design's valid conditions, not matched condition by condition) |
+
 ## 7. Numbers and their sources
 
 To be filled before submission: every number in the abstract, the design studies, the experiment and the

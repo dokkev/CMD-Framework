@@ -1,0 +1,461 @@
+"""Figs. 2-4 and Table I of the RSS 2027 extended abstract, from the evaluator and the raw study data (PNG only).
+
+    conda run -n cmd python paper/figures/fig_paper.py [fig2|fig3|fig4|table|all]
+
+Figure plan (user, 2026-11-24): physical meaning first; no trend lines, Pareto fronts or statistics in the figures.
+  Fig. 2  kinematic principle (Study 0): (a) clearance set by the pole, (b) achievable poles, (c) motion seen from
+          the skeleton frame and from the contact frame. (a) and (c) are schematics from the closed-form model.
+  Fig. 3  design validation (Studies 1, 2): (a) optimized geometry at 120 deg, 7 mm (evaluator) and coverage dots;
+          (b) reference and redesign paths at 120 deg, 3 -> 7 mm, and contact-deviation dots with the fixed-axis value.
+  Fig. 4  scientific validation (Study 3): four columns (hold with a friction change, hold with a stiffness change,
+          grasp acquisition, dial turning): the task, R's and U's error, every redesign's error against its
+          contact-surface change.
+  Table I contact-model robustness (R and U errors), written as LaTeX to sections/table_robust.tex.
+Colours: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple.
+"""
+import csv
+import json
+import sys
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+from matplotlib.patches import Polygon, Circle, FancyArrowPatch, Rectangle  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / "paper" / "figures"), str(ROOT / "design"), str(ROOT / "design" / "scripts" / "study"),
+                str(ROOT / "design" / "scripts" / "study" / "study2_morphology_adaptation")]
+from pngout import save_rgb  # noqa: E402
+
+MS = ROOT.parent / "ContactCentricDesign-RSS2027"
+DEST = MS / "figures"
+OUT = ROOT / "design" / "output" / "study"
+S3 = ROOT / "report" / "study3" / "data"
+W = 7.16
+INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
+BLUE, AMBER, GREY, TEAL, PURPLE = "#2a6fc9", "#e0942b", "#7d7d7d", "#1b9e8a", "#8a3ffc"
+ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "rcj": ("RCJ", TEAL, "D"),
+        "cfl": ("CFL", BLUE, "o")}
+S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
+LF = 90.0
+
+plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+                     "mathtext.fontset": "stix", "font.size": 7, "axes.linewidth": 0.6,
+                     "xtick.major.width": 0.6, "ytick.major.width": 0.6, "xtick.major.size": 2,
+                     "ytick.major.size": 2, "axes.labelsize": 7, "xtick.labelsize": 6.3, "ytick.labelsize": 6.3})
+
+
+def rows(path):
+    with open(path) as f:
+        return list(csv.DictReader(f))
+
+
+def clean(ax):
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+
+
+def label(fig, x, y, text, h):
+    fig.text(x / W, y / h, text, fontsize=7.5, fontweight="bold", va="top", ha="left")
+
+
+def rot(points, q, c):
+    """Flexion by q (rad, palmar = clockwise) about c."""
+    cq, sq = np.cos(q), np.sin(q)
+    R = np.array([[cq, sq], [-sq, cq]])
+    return (np.asarray(points, float) - c) @ R.T + c
+
+
+# ------------------------------------------------------------------------------------------------------------ Fig. 2
+def clearance_scene(ax, z, t=7.0, q=np.radians(90), L=30.0, title=""):
+    """Two phalanges with pads of depth t; the pole z below the link line; the gap the pads need so that the distal
+    pad, flexed by q about the pole, just meets the proximal one: G = 2 (t - z)_+ tan(q/2)."""
+    s = max(t - z, 0.0) * np.tan(q / 2)
+    P = np.array([0.0, -z])
+    ax.plot([-L - 3, 0], [0, 0], color=INK2, lw=1.6, solid_capstyle="round")
+    ax.add_patch(Polygon([[-L, 0], [-s, 0], [-s, -t], [-L, -t]], fc="#c9d9f2", ec=BLUE, lw=0.6))
+    dist_link, dist_pad = [[0, 0], [L + 3, 0]], [[s, 0], [L, 0], [L, -t], [s, -t]]
+    ax.plot(*np.array(dist_link).T, color=INK2, lw=1.6, alpha=0.25, solid_capstyle="round")
+    ax.add_patch(Polygon(dist_pad, fc="#c9d9f2", ec=BLUE, lw=0.6, alpha=0.35))
+    ax.plot(*rot(dist_link, q, P).T, color=INK2, lw=1.6, solid_capstyle="round")
+    ax.add_patch(Polygon(rot(dist_pad, q, P), fc="#c9d9f2", ec=BLUE, lw=0.6))
+    ax.plot(*P, marker="o", ms=4.2, color=PURPLE, mec="white", mew=0.4, zorder=6)
+    if s > 0.2:
+        for x in (-s, s):
+            ax.plot([x, x], [-t, 3.0], color=INK, lw=0.4, ls=(0, (1, 1)))
+        ax.annotate("", xy=(-s, 3.0), xytext=(s, 3.0),
+                    arrowprops=dict(arrowstyle="<|-|>", lw=0.6, color=INK, mutation_scale=4, shrinkA=0, shrinkB=0))
+        ax.text(s + 1.5, 3.0, f"gap {2 * s:.0f} mm", fontsize=6.2, ha="left", va="center")
+    else:
+        ax.text(1.5, 3.0, "no gap", fontsize=6.2, ha="left", va="center")
+    ax.set_xlim(-L - 4, L * 0.9); ax.set_ylim(-L - 2, 7); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_title(title, fontsize=6.6, pad=1)
+
+
+def motion_frames(ax_s, ax_c):
+    """Closed-form sketch (fixed pole per design, 0-120 deg): O with 3 mm pads, a 7 mm redesign that keeps the
+    links and pole (skeleton-preserving) and one whose pole keeps its place relative to the contact faces
+    (contact-preserving). Left: the fingertip in the skeleton frame (link line); right: the distal contact point in
+    the contact frame (proximal contact face)."""
+    q = np.radians(np.linspace(0, 120, 61))
+    L, z0, t0, t1 = 40.0, 1.5, 3.0, 7.0
+    dt = t1 - t0
+
+    def path(pt, pole):
+        return np.array([rot([pt], qq, np.asarray(pole))[0] for qq in q])
+    designs = (("O (3 mm)", GREY, (0, -z0), t0, (0, (2.4, 1.6))),
+               ("skeleton-preserving", AMBER, (0, -z0), t1, "-"),
+               ("contact-preserving", BLUE, (0, -z0 - dt), t1, "-"))
+    for name, col, pole, t, ls in designs:
+        tip = path((L, 0.0), pole)
+        con = path((L, -t), pole) - np.array([0.0, -t])
+        lw = 1.0 if name.startswith("O") else 1.4
+        z = 5 if name.startswith("O") else 3
+        ax_s.plot(*tip.T, color=col, lw=lw, ls=ls, zorder=z)
+        ax_c.plot(*con.T, color=col, lw=lw, ls=ls, zorder=z)
+    for ax, ttl, ylab in ((ax_s, "fingertip, skeleton frame", "fingertip"),
+                          (ax_c, "contact point, contact frame", "distal contact point")):
+        ax.axhline(0, color=LIGHT, lw=0.6, zorder=0)
+        ax.set_aspect("equal"); ax.axis("off")
+        ax.set_title(ttl, fontsize=6.4, pad=1)
+        ax.set_xlim(-26, 44); ax.set_ylim(-48, 6)
+    ax_s.text(-24, -4, "skeleton-preserving\nfollows O", fontsize=5.8, color=AMBER, ha="left", va="top",
+              linespacing=1.0)
+    ax_c.text(-24, -4, "contact-preserving\nfollows O", fontsize=5.8, color=BLUE, ha="left", va="top",
+              linespacing=1.0)
+
+
+def fig2():
+    from fig_mechanisms import cached_outlines, roller_pole
+    h = 1.95
+    fig = plt.figure(figsize=(W, h))
+    # (a) clearance, same pad depth, two pole depths
+    label(fig, 0.02, h - 0.02, "(a) Clearance", h)
+    for i, (z, ttl) in enumerate(((0.0, "pole on the link line"), (7.0, "pole at the contact face"))):
+        ax = fig.add_axes(((0.04 + i * 1.08) / W, 0.10 / h, 1.04 / W, (h - 0.42) / h))
+        clearance_scene(ax, z, title=ttl)
+    fig.text(1.12 / W, 0.04 / h, "same 7 mm pads, flexed $90^\\circ$ about the pole", fontsize=5.8, color=INK2,
+             ha="center", va="bottom")
+    # (b) achievable poles
+    label(fig, 2.30, h - 0.02, "(b) Achievable poles", h)
+    pax = fig.add_axes((2.62 / W, 0.30 / h, 1.95 / W, (h - 0.58) / h))
+    shown = {90: "#9cc0ea", 120: BLUE, 150: "#123f7a"}
+    gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
+    rings = cached_outlines({d: None for d in shown}, gx, gy)
+    pax.axhspan(-12, -6, color="#ebeae6", lw=0, zorder=0)
+    radii = np.linspace(9.5, 20.0, 60)
+    lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
+    teal = {90: "#a7ddd4", 120: TEAL, 150: "#0e5c50"}
+    for deg, col in shown.items():
+        ring = rings[deg]
+        pax.plot(ring[:, 0], ring[:, 1], color=col, lw=0.9, zorder=2)
+        tq = np.radians(deg)
+        edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
+                               roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
+        pax.fill(edge.real, edge.imag, fc=teal[deg], ec="none", zorder=3)
+    pax.plot(0, 0, marker="o", ms=4.0, color=GREY, zorder=4)
+    pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=1)
+    pax.set_xlim(-32, 55); pax.set_ylim(-20, 38); pax.set_aspect("equal")
+    pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
+    clean(pax)
+    pax.text(2, 1.5, "fixed axis", fontsize=5.8, color=GREY, va="bottom")
+    pax.text(-31, -9, "contact faces, 3–9 mm pads", fontsize=5.6, color=INK2, va="center", ha="left")
+    pax.text(-30, 33, "CFL", fontsize=6.2, color=BLUE, fontweight="bold", va="top")
+    pax.text(14, -17, "RCJ", fontsize=6.2, color=TEAL, fontweight="bold", va="center")
+    pax.text(52, 36, "light to dark:\n$90^\\circ$, $120^\\circ$, $150^\\circ$", fontsize=5.6, color=INK2, ha="right",
+             va="top", linespacing=1.0)
+    # (c) motion seen from two frames
+    label(fig, 4.70, h - 0.02, "(c) Motion preservation", h)
+    ax_s = fig.add_axes((4.72 / W, 0.30 / h, 1.18 / W, (h - 0.58) / h))
+    ax_c = fig.add_axes((5.95 / W, 0.30 / h, 1.18 / W, (h - 0.58) / h))
+    motion_frames(ax_s, ax_c)
+    handles = [plt.Line2D([], [], color=GREY, lw=1.0, ls=(0, (2.4, 1.6)), label="O, 3 mm"),
+               plt.Line2D([], [], color=AMBER, lw=1.4, label="7 mm, skeleton-preserving"),
+               plt.Line2D([], [], color=BLUE, lw=1.4, label="7 mm, contact-preserving")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(5.90 / W, 0.0), ncol=2, frameon=False,
+               fontsize=5.6, handlelength=1.6, columnspacing=0.8, handletextpad=0.3)
+    save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
+    plt.close(fig)
+    print("fig2", h)
+
+
+# ------------------------------------------------------------------------------------------------------------ Fig. 3
+def common_interval(pf, df):
+    """The distances T = T_1 & T_2 from the faces' crossing X (problem formulation A.3, occlusion ignored), and X and
+    the two open rays; None if parallel or empty."""
+    rays = []
+    for f in (pf, df):
+        a = f[0] - f[1]
+        rays.append(a / np.linalg.norm(a))
+    cross = rays[0][0] * rays[1][1] - rays[0][1] * rays[1][0]
+    if abs(cross) < 1e-9:
+        return None
+    gap = df[1] - pf[1]
+    s = (gap[0] * rays[1][1] - gap[1] * rays[1][0]) / cross
+    X = pf[1] + s * rays[0]
+    spans = []
+    for f, r in zip((pf, df), rays):
+        a, b = float((f[0] - X) @ r), float((f[1] - X) @ r)
+        spans.append((max(min(a, b), 0.0), max(a, b)))
+    lo, hi = max(spans[0][0], spans[1][0]), min(spans[0][1], spans[1][1])
+    return (X, rays, lo, hi) if hi > lo else None
+
+
+def draw_geometry(ax, view, colour, q):
+    """The design at 0 (faint) and q deg (solid): mechanism grey, mounted pads light, the part of each contact face
+    that holds the inscribed cylinder at q (paired coverage) dark."""
+    import matplotlib.colors as mc
+    light = mc.to_hex(np.array(mc.to_rgb(colour)) * 0.35 + 0.65)
+    for qq, alpha in ((0.0, 0.22), (q, 1.0)):
+        n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
+        view.draw(ax, qq, hit=set(), style="sketch")
+        for p in ax.patches[n0p:]:
+            p.set_facecolor("#e3e3e1" if alpha == 1 else "#f1f1f0"); p.set_edgecolor("#8c8c8c"); p.set_alpha(alpha)
+            p.set_linewidth(0.5)
+        for ln in ax.lines[n0l:]:
+            ln.set_color("#8c8c8c"); ln.set_alpha(alpha); ln.set_linewidth(min(ln.get_linewidth(), 1.2))
+            ln.set_markersize(min(ln.get_markersize(), 2.5))
+            ln.set_markerfacecolor("#a8a8a6"); ln.set_markeredgecolor("#8c8c8c")
+        for c in ax.collections[n0c:]:
+            c.set_facecolor("#a8a8a6"); c.set_edgecolor("#8c8c8c"); c.set_alpha(alpha)
+        for pad in (view.proximal_pad(), view.distal_pad(qq)):
+            ax.add_patch(Polygon(pad, fc=light, ec=colour, lw=0.4, alpha=alpha, zorder=20))
+    pf = view.proximal_pad()[[0, 1]]
+    dpad = view.distal_pad(q)
+    df = dpad[[1, 0]]
+    got = common_interval(pf, df)
+    if got:
+        X, rays, lo, hi = got
+        for r in rays:
+            seg = np.array([X + lo * r, X + hi * r])
+            ax.plot(*seg.T, color=colour, lw=2.4, solid_capstyle="butt", zorder=25)
+
+
+def fig3():
+    import one_finger
+    from core.optimization.mechanism import read_config_file
+    from visualize import sketch
+    from visualize.finger import view_of
+    sketch.SHOW_GROUND = False
+    cfg = read_config_file(one_finger.DEFAULT_CONFIG)
+    q_req, h_rep = 120.0, 7.0
+    views = {}
+    for key in ARCH:
+        ds = one_finger.study1_designs(key, cfg["architectures"][key], q_req, cfg)
+        views[key] = view_of(ds[h_rep].mechanism, ds[h_rep].config, ds[h_rep].x)
+    probe_fig, probe = plt.subplots()
+    for v in views.values():
+        v.draw(probe, 0.0, hit=set(), style="sketch"); v.draw(probe, q_req, hit=set(), style="sketch")
+    box = probe.dataLim
+    plt.close(probe_fig)
+    xlim, ylim = (box.x0 - 2, box.x1 + 2), (box.y0 - 2, box.y1 + 2)
+    aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
+    s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
+    s2 = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
+    traj = json.loads((ROOT / "design" / "output" / "paper" / "fig3_paths_q120_3to7.json").read_text())
+    h = 2.85
+    fig = plt.figure(figsize=(W, h))
+    row_a, row_b = h - 0.20, h / 2 - 0.08
+    # (a) left: optimized geometry, one scale
+    label(fig, 0.02, h - 0.02, f"(a) Coverage: optimized designs at $q_{{req}}={q_req:.0f}^\\circ$, {h_rep:.0f} mm pads",
+          h)
+    gw = 0.93
+    gh = gw * aspect
+    for i, key in enumerate(ARCH):
+        ax = fig.add_axes(((0.04 + i * (gw + 0.02)) / W, (row_a - 0.12 - gh) / h, gw / W, gh / h))
+        ax.set_xlim(*xlim); ax.set_ylim(*ylim); ax.set_aspect("equal"); ax.axis("off")
+        draw_geometry(ax, views[key], ARCH[key][1], q_req)
+        c = next(float(r["c_pad_mean"]) for r in s1 if r["architecture"] == S1NAME[key]
+                 and float(r["required_flexion_deg"]) == q_req and float(r["thickness_mm"]) == h_rep)
+        fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.06) / h, ARCH[key][0], fontsize=6.6,
+                 color=ARCH[key][1], ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
+        fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.14 - gh) / h, f"$\\bar C_{{pad}}$ = {100 * c:.0f}%",
+                 fontsize=6.2, color=ARCH[key][1], ha="center", va="top")
+    fig.text(0.05 / W, (row_b + 0.30) / h, "dark: contact surface holding the cylinder;  light: mounted pad;  "
+             "grey: actuator, linkage, rollers, joints;  faint: extended", fontsize=5.6, color=INK2, va="center")
+    # (a) right: coverage dots, every condition
+    for j, q in enumerate((90.0, 120.0, 150.0)):
+        ax = fig.add_axes(((4.32 + j * 0.95) / W, (row_b + 0.55) / h, 0.82 / W, (row_a - row_b - 0.85) / h))
+        for k, key in enumerate(ARCH):
+            for hh in (3.0, 5.0, 7.0, 9.0):
+                r = [x for x in s1 if x["architecture"] == S1NAME[key] and float(x["required_flexion_deg"]) == q
+                     and float(x["thickness_mm"]) == hh]
+                x = hh + (k - 1.5) * 0.32
+                if r and float(r[0]["c_pad_mean"]) > 0.3:
+                    ax.plot(x, 100 * float(r[0]["c_pad_mean"]), ls="none", marker=ARCH[key][2], ms=3.0,
+                            color=ARCH[key][1], mec="white", mew=0.3, zorder=3)
+                else:
+                    ax.plot(x, 46, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
+        ax.set_xticks([3, 5, 7, 9]); ax.set_xlim(2, 10); ax.set_ylim(45, 88)
+        ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
+        if j == 0:
+            ax.set_ylabel("$\\bar C_{pad}$ (%)", labelpad=1)
+        else:
+            ax.set_yticklabels([])
+        if j == 1:
+            ax.set_xlabel("pad thickness (mm);  $\\times$: no feasible design", labelpad=1, fontsize=6.2)
+        clean(ax)
+    # (b) left: reference and redesign paths, 120 deg, 3 -> 7 mm
+    label(fig, 0.02, row_b + 0.02, "(b) Preservation: redesign from 3 to 7 mm at $q_{req}=120^\\circ$", h)
+    axc = fig.add_axes((0.30 / W, 0.30 / h, 1.80 / W, (row_b - 0.48) / h))
+    axs = fig.add_axes((2.30 / W, 0.30 / h, 1.80 / W, (row_b - 0.48) / h))
+    for key in ("2r_remote", "cfl"):  # the fixed axis and the CFL; the others are in the dots
+        t = traj[key]
+        col = ARCH[key][1]
+        for ax, a, b in ((axc, "ref", "red"), (axs, "ref_tip", "red_tip")):
+            ref, red = np.array(t[a]), np.array(t[b])
+            ax.plot(*ref.T, color=col, lw=0.8, ls=(0, (2.2, 1.4)), zorder=2)
+            ax.plot(*red.T, color=col, lw=1.3, zorder=3)
+    for ax, ttl in ((axc, "distal contact point, contact frame"), (axs, "fingertip, skeleton frame")):
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.set_title(ttl, fontsize=6.4, pad=1)
+        ax.set_xlabel("x (mm)", labelpad=1); ax.set_ylabel("z (mm)", labelpad=1)
+        clean(ax)
+    axc.plot([], [], color=INK2, lw=0.8, ls=(0, (2.2, 1.4)), label="3 mm reference")
+    axc.plot([], [], color=INK2, lw=1.3, label="7 mm redesign")
+    axc.text(0.98, 0.06, "CFL keeps it", transform=axc.transAxes, fontsize=5.8, color=BLUE, ha="right")
+    axs.text(0.02, 0.06, "2R-remote keeps it", transform=axs.transAxes, fontsize=5.8, color=AMBER, ha="left")
+    axc.legend(fontsize=5.6, frameon=False, loc="lower left", handlelength=1.8, borderaxespad=0.1)
+    # (b) right: contact deviation dots, every condition, fixed-axis value dashed
+    for j, q in enumerate((90.0, 120.0, 150.0)):
+        ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
+        for k, key in enumerate(ARCH):
+            for hh in (5.0, 7.0, 9.0):
+                r = [x for x in s2 if x["architecture"] == key and float(x["required_flexion_deg"]) == q
+                     and float(x["to_mm"]) == hh]
+                x = hh + (k - 1.5) * 0.32
+                if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
+                    ax.plot(x, LF * float(r[0]["change_at_most_c_pad"]), ls="none", marker=ARCH[key][2], ms=3.0,
+                            color=ARCH[key][1], mec="white", mew=0.3, zorder=3)
+                else:
+                    ax.plot(x, 0.0, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
+        for hh in (5.0, 7.0, 9.0):
+            fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
+            ax.plot([hh - 0.75, hh + 0.75], [fa, fa], color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=2)
+        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(0, 12.5)
+        ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
+        if j == 0:
+            ax.set_ylabel("$\\Delta_{contact}$ (mm)", labelpad=1)
+        else:
+            ax.set_yticklabels([])
+        if j == 1:
+            ax.set_xlabel("redesigned for (mm);  dashed: fixed axis", labelpad=1, fontsize=6.2)
+        clean(ax)
+    handles = [plt.Line2D([], [], ls="none", marker=ARCH[k][2], ms=3.4, color=ARCH[k][1], label=ARCH[k][0])
+               for k in ARCH]
+    fig.legend(handles=handles, loc="upper right", bbox_to_anchor=(1.0, 1.0), ncol=4, frameon=False, fontsize=6.0,
+               handletextpad=0.2, columnspacing=0.8)
+    save_rgb(fig, DEST / "fig_study12.png", dpi=400)
+    plt.close(fig)
+    print("fig3", h)
+
+
+# ------------------------------------------------------------------------------------------------------------ Fig. 4
+def task_icon(ax, kind):
+    """A two-pad finger and its object, drawn for the task (schematic)."""
+    ax.set_xlim(-11, 5); ax.set_ylim(-9, 6); ax.set_aspect("equal"); ax.axis("off")
+    ax.plot([-9, 1], [4, 4], color=INK2, lw=1.4, solid_capstyle="round")
+    ax.add_patch(Rectangle((-8.5, 2.6), 9, 1.4, fc="#c9d9f2", ec=BLUE, lw=0.5))
+    d = rot([[1, 4], [1, -6]], 0, np.array([1, 4]))
+    ax.plot(*d.T, color=INK2, lw=1.4, solid_capstyle="round")
+    ax.add_patch(Rectangle((-0.4, -5.5), 1.4, 9, fc="#c9d9f2", ec=BLUE, lw=0.5))
+    arrow = dict(arrowstyle="-|>", lw=0.9, color=INK, mutation_scale=6)
+    if kind in ("friction", "stiffness"):
+        ax.add_patch(Circle((-3.6, -1.7), 4.2, fc="#f2e2cc", ec="#9a7a52", lw=0.6))
+        ax.add_patch(FancyArrowPatch((-3.6, -1.7), (-8.8, -7.5), **arrow))
+        return ("pull-out load; pad friction $1.3\\to2.0$" if kind == "friction" else
+                "pull-out load; pad stiffness $2.5\\to1.0$ kN/m")
+    elif kind == "acquire":
+        ax.add_patch(Circle((-5.0, -4.0), 3.4, fc="#f2e2cc", ec="#9a7a52", lw=0.6))
+        ax.add_patch(FancyArrowPatch((-7.5, -6.8), (-4.0, -3.0), **arrow))
+        return "close and draw the object in; pad friction"
+    else:
+        ax.add_patch(Circle((-3.6, -1.7), 4.2, fc="#f2e2cc", ec="#9a7a52", lw=0.6))
+        ax.plot([-3.6, -3.6], [-1.7, 2.0], color="#9a7a52", lw=0.8)
+        ax.add_patch(FancyArrowPatch((-8.6, -1.0), (-6.0, -5.6), connectionstyle="arc3,rad=0.4", **arrow))
+        return "turn a sprung dial $45^\\circ$; pad friction"
+
+
+def fig4():
+    isaac_f = {k: (v["D_c_mm"], v["E_rel_median"]) for k, v in
+               json.load(open(S3 / "isaac_dose_A_all.json"))["hands"].items() if v.get("E_rel_median") is not None}
+    isaac_k = {k: (v["D_c_mm"], v["E_median"]) for k, v in json.load(open(S3 / "isaac_comp.json"))["hands"].items()}
+    acq = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e23_point.json"))}
+    dial = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e26_point.json"))}
+    cols = (("Hold: pad friction", "Isaac Lab", "friction", isaac_f),
+            ("Hold: pad stiffness", "Isaac Lab", "stiffness", isaac_k),
+            ("Grasp acquisition", "Drake", "acquire", acq),
+            ("Dial turning", "Drake", "dial", dial))
+    h = 3.15
+    fig = plt.figure(figsize=(W, h))
+    cw = 1.62
+    for i, (name, sim, kind, data) in enumerate(cols):
+        x0 = 0.42 + i * (cw + 0.12)
+        fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
+        fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
+        ia = fig.add_axes((x0 / W, (h - 0.86) / h, cw / W, 0.58 / h))
+        what = task_icon(ia, kind)
+        fig.text((x0 + cw / 2) / W, (h - 0.90) / h, what, fontsize=5.6, color=INK2, ha="center", va="top")
+        # error of R and U
+        ba = fig.add_axes(((x0 + 0.25) / W, (h - 1.58) / h, (cw - 0.30) / W, 0.46 / h))
+        er, eu = 100 * data["R"][1], 100 * data["U"][1]
+        ba.barh([1, 0], [er, eu], height=0.6, color=[BLUE, AMBER])
+        for y, v in ((1, er), (0, eu)):
+            ba.text(v + 6, y, f"{v:.0f}%", va="center", fontsize=6.4)
+        ba.set_xlim(0, 260); ba.set_yticks([1, 0]); ba.set_yticklabels(["R", "U"])
+        ba.set_xticks([0, 100, 200])
+        clean(ba)
+        if i == 0:
+            ba.set_xlabel("error in the measured effect (%)", labelpad=1, fontsize=6.2)
+        # every redesign
+        sa = fig.add_axes(((x0 + 0.25) / W, 0.50 / h, (cw - 0.30) / W, 0.72 / h))
+        for k, (dc, e) in data.items():
+            if k in ("R", "U", "O"):
+                continue
+            sa.plot(dc, 100 * e, ls="none", marker="o", ms=2.8, color="#b5b5b2", mec="none", zorder=2)
+        sa.plot(*[data["R"][0], 100 * data["R"][1]], ls="none", marker="o", ms=4.0, color=BLUE, zorder=3)
+        sa.plot(*[data["U"][0], 100 * data["U"][1]], ls="none", marker="o", ms=4.0, color=AMBER, zorder=3)
+        sa.set_xlim(0, 5.8); sa.set_ylim(0, max(100 * max(e for _, e in data.values()) * 1.1, 100))
+        sa.set_xlabel("$\\Delta_{contact}$ (mm)", labelpad=1)
+        if i == 0:
+            sa.set_ylabel("error (%)", labelpad=1)
+        clean(sa)
+    handles = [plt.Line2D([], [], ls="none", marker="o", ms=4, color=BLUE, label="R: contact-preserving"),
+               plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="U: coverage-only"),
+               plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=3, frameon=False, fontsize=6.2,
+               handletextpad=0.2, columnspacing=1.2)
+    fig.text(0.02 / W, (h - 1.35) / h, "error of\nR and U", fontsize=6.0, color=INK2, rotation=90, ha="left",
+             va="center", linespacing=1.0)
+    fig.text(0.02 / W, 0.86 / h, "every redesign\n(3 to 5, 7, 9 mm)", fontsize=6.0, color=INK2, rotation=90,
+             ha="left", va="center", linespacing=1.0)
+    save_rgb(fig, DEST / "fig_study3.png", dpi=400)
+    plt.close(fig)
+    print("fig4", h)
+
+
+# ----------------------------------------------------------------------------------------------------------- Table I
+def table():
+    rowsd = (("Isaac Lab, point contact", json.load(open(S3 / "isaac_dose_A_all.json"))["hands"], "E_rel_median"),
+             ("Drake, point contact", {r["hand"]: r for r in json.load(open(S3 / "drake_e21_point.json"))}, "E"),
+             ("Drake, hydroelastic", {r["hand"]: r for r in json.load(open(S3 / "drake_e21_hydro.json"))}, "E"),
+             ("Drake, hydroelastic, thickness-dependent",
+              {r["hand"]: r for r in json.load(open(S3 / "drake_e25_hydro_own.json"))}, "E"))
+    lines = [r"\begin{table}[t]", r"  \centering",
+             r"  \caption{Error of $R$ and $U$ by contact model (pull-out, pad friction change)}",
+             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
+             r"    Contact model & $R$ & $U$ \\", r"    \midrule"]
+    for name, d, key in rowsd:
+        lines.append(f"    {name} & ${100 * d['R'][key]:.0f}\\%$ & ${100 * d['U'][key]:.0f}\\%$ \\\\")
+    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
+    print("\n".join(lines))
+
+
+if __name__ == "__main__":
+    which = sys.argv[1] if len(sys.argv) > 1 else "all"
+    for name, fn in (("fig2", fig2), ("fig3", fig3), ("fig4", fig4), ("table", table)):
+        if which in (name, "all"):
+            fn()
