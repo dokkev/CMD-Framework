@@ -543,12 +543,14 @@ def fig2():
     for nm_, at in pts.items():
         kax.annotate(f"${nm_}$", xy=at, xytext=offs[nm_], textcoords="offset points", fontsize=7, ha="center",
                      va="center", color=INK, zorder=31)
-    arrow = dict(arrowstyle="-|>", lw=0.7, color=INK, mutation_scale=6, shrinkA=0, shrinkB=0)
-    kax.annotate("", xy=(14, 0), xytext=(0, 0), arrowprops=arrow, zorder=31)
-    kax.annotate("", xy=(0, 14), xytext=(0, 0), arrowprops=arrow, zorder=31)
-    kax.text(15, -1.5, "$x$", fontsize=6.5, va="top")
-    kax.text(-1.5, 15, "$z$", fontsize=6.5, ha="right")
-    kax.text(-3, 9, "$\\mathcal{F}_1$", fontsize=7, ha="right")
+    import matplotlib.patheffects as pe
+    halo = [pe.withStroke(linewidth=2.6, foreground="white")]
+    arrow = dict(arrowstyle="-|>", lw=0.8, color=INK, mutation_scale=7, shrinkA=0, shrinkB=0, path_effects=halo)
+    kax.annotate("", xy=(0, 15), xytext=(0, 0), arrowprops=arrow, zorder=35)
+    kax.annotate("", xy=(15, -0.01), xytext=(0, 0), arrowprops=dict(arrow, color="#2b2b2b"), zorder=35)
+    kax.text(15.5, -2.0, "$x$", fontsize=6.5, va="top", zorder=36, path_effects=halo)
+    kax.text(-1.5, 15.5, "$z$", fontsize=6.5, ha="right", zorder=36)
+    kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
     path = __import__("fig_mechanisms").icr_path(v, qk)
     kax.plot(*path.T, color=PURPLE, lw=1.0, zorder=25)
     kax.plot(*path[-1], marker="o", ms=3.4, color=PURPLE, mec="white", mew=0.3, zorder=26)
