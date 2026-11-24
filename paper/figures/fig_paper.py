@@ -215,35 +215,45 @@ def fig2():
     h = 2.45
     fig = plt.figure(figsize=(W, h))
     head = h - 0.04
-    # (a) room: pad thickness, pad length and flexion together, pin joint against a pole at the contact face
+    # (a) room: the optimized designs at 7 mm, 120 deg (evaluator geometry) and the pad length each keeps
+    import one_finger
+    from core.optimization.mechanism import read_config_file
+    from visualize import sketch
+    from visualize.finger import view_of
+    sketch.SHOW_GROUND = False
+    cfg = read_config_file(one_finger.DEFAULT_CONFIG)
     label(fig, 0.10, head, "(a) Interface clearance", h)
-    cases = ((0.0, True, "servo at the pin", GREY), (0.0, False, "remote pin", GREY),
-             (7.0, False, "CoDe: crossed four-bar", BLUE))
-    for i, (z, servo, name, col) in enumerate(cases):
-        ax = fig.add_axes(((0.06 + i * 0.72) / W, (head - 1.08) / h, 0.70 / W, 0.80 / h))
-        flexed_pair(ax, z, colour=BLUE if col == BLUE else GREY, servo=servo, remote=not servo,
-                    linkage=col == BLUE)
-        fig.text((0.06 + i * 0.72 + 0.30) / W, (head - 0.20) / h, name, fontsize=6.0, color=col, ha="center",
-                 va="top")
-    fig.text(1.12 / W, (head - 1.12) / h, "$t=7$ mm, $q=120^\\circ$; hatched: pad lost to the joint",
+    s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
+    cases = (("2r_dd", "servo at the pin"), ("2r_remote", "remote pin"), ("cfl", "CoDe (CFL)"))
+    for i, (key, name) in enumerate(cases):
+        ds = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)
+        v = view_of(ds[7.0].mechanism, ds[7.0].config, ds[7.0].x)
+        ax = fig.add_axes(((0.04 + i * 0.74) / W, (head - 1.08) / h, 0.72 / W, 0.82 / h))
+        ax.set_xlim(-6, 62); ax.set_ylim(-52, 34); ax.set_aspect("equal"); ax.axis("off")
+        draw_geometry(ax, v, ARCH[key][1], 120.0, faint=False)
+        ell = next(float(r["proximal_pad_mm"]) for r in s1 if r["architecture"] == S1NAME[key]
+                   and float(r["required_flexion_deg"]) == 120.0 and float(r["thickness_mm"]) == 7.0)
+        fig.text((0.04 + i * 0.74 + 0.36) / W, (head - 0.20) / h, name, fontsize=6.0, color=ARCH[key][1],
+                 ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
+        fig.text((0.04 + i * 0.74 + 0.36) / W, (head - 1.08) / h, f"$\\ell_1={ell:.0f}$ mm", fontsize=6.0,
+                 color=ARCH[key][1], ha="center", va="top")
+    fig.text(1.12 / W, (head - 1.22) / h, "optimized designs, $h=7$ mm, $q_{req}=120^\\circ$ (one scale)",
              fontsize=5.6, color=INK2, ha="center", va="top")
-    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.62) / h))
-    tt = np.linspace(3, 9, 50)
-    Lp = 30.0
-    for qd, col in ((120, "#9a9a98"), (150, "#3f3f3d")):
-        for servo, ls in ((False, "-"), (True, (0, (3, 1.6)))):
-            kept = np.clip(100 * (1 - (tt + (SERVO_DEPTH if servo else 0)) * np.tan(np.radians(qd) / 2) / Lp), 0, 100)
-            cax.plot(tt, kept, color=col, lw=1.1, ls=ls)
-        cax.text(9.15, np.clip(100 * (1 - 9 * np.tan(np.radians(qd) / 2) / Lp), 0, 100) + (4 if qd == 150 else 0),
-                 f"{qd}$^\\circ$", fontsize=5.6, color=col, va="center")
-    cax.plot(tt, np.full_like(tt, 100), color=BLUE, lw=1.4)
-    cax.text(3.1, 103, "pole at the contact face, any $q$", fontsize=5.6, color=BLUE, va="bottom")
-    cax.plot([], [], color=INK2, lw=1.0, label="remote pin")
-    cax.plot([], [], color=INK2, lw=1.0, ls=(0, (3, 1.6)), label="servo at the pin")
-    cax.legend(loc="upper right", bbox_to_anchor=(1.0, 0.86), fontsize=5.4, frameon=False, handlelength=1.8,
-               borderaxespad=0.1)
-    cax.set_xlim(3, 10.2); cax.set_ylim(0, 118); cax.set_xticks([3, 5, 7, 9]); cax.set_yticks([0, 50, 100])
-    cax.set_xlabel("pad thickness $h$ (mm)", labelpad=1); cax.set_ylabel("pad length kept (%)", labelpad=1)
+    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.70) / h))
+    for key in ("2r_dd", "2r_remote", "cfl"):
+        for qd, ls in ((120.0, "-"), (150.0, (0, (3, 1.6)))):
+            pts = sorted((float(r["thickness_mm"]), float(r["proximal_pad_mm"]), float(r["c_pad_mean"]))
+                         for r in s1 if r["architecture"] == S1NAME[key] and float(r["required_flexion_deg"]) == qd)
+            pts = [(hh, l) for hh, l, c in pts if c > 0.3]  # designs that hold the cylinder
+            if pts:
+                hh, ll = map(np.array, zip(*pts))
+                cax.plot(hh, ll, color=ARCH[key][1], lw=1.2, ls=ls, marker=ARCH[key][2], ms=2.6, mec="white",
+                         mew=0.3)
+    cax.plot([], [], color=INK2, lw=1.0, label="$q_{req}=120^\\circ$")
+    cax.plot([], [], color=INK2, lw=1.0, ls=(0, (3, 1.6)), label="$150^\\circ$")
+    cax.legend(loc="lower left", fontsize=5.4, frameon=False, handlelength=1.8, borderaxespad=0.1, ncol=2)
+    cax.set_xlim(2.5, 9.5); cax.set_ylim(15, 38); cax.set_xticks([3, 5, 7, 9])
+    cax.set_xlabel("pad thickness $h$ (mm)", labelpad=1); cax.set_ylabel("proximal pad $\\ell_1$ (mm)", labelpad=1)
     clean(cax)
     # (b) pole placement: the optimized designs' pole depth against their contact-face depth
     label(fig, 2.30, head, "(b) Pole placement", h)
@@ -332,12 +342,12 @@ def common_interval(pf, df):
     return (X, rays, lo, hi) if hi > lo else None
 
 
-def draw_geometry(ax, view, colour, q):
+def draw_geometry(ax, view, colour, q, faint=True):
     """The design at 0 (faint) and q deg (solid): mechanism grey, mounted pads light, the part of each contact face
     that holds the inscribed cylinder at q (paired coverage) dark."""
     import matplotlib.colors as mc
     light = mc.to_hex(np.array(mc.to_rgb(colour)) * 0.35 + 0.65)
-    for qq, alpha in ((0.0, 0.22), (q, 1.0)):
+    for qq, alpha in (((0.0, 0.22), (q, 1.0)) if faint else ((q, 1.0),)):
         n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
         view.draw(ax, qq, hit=set(), style="sketch")
         for p in ax.patches[n0p:]:
