@@ -14,7 +14,9 @@ four-bar is a tree world -(revolute at A')- driver A'B -(revolute at B)- distal,
 the PIP servo's rescheduled gain K_Q / (dtheta/dq)^2 in Isaac Lab. The cylinder (radius rho) rides a planar slide
 (x, z, spin) whose drives hold it while the finger closes, are released, and the grasp settles (Gate 0); a load then
 ramps until the first of slip (a pad's tangential speed > 10 mm/s), loss (a pad's normal force < 0.2 N / 3) or
-collapse (the cylinder moves 5 mm). Contact: only the two pads and the cylinder collide.
+collapse (the cylinder moves 5 mm). Contact: only the two pads and the cylinder collide. Experiment 27
+(--setpoint contact_ref) keeps all of this but gives each hand its own flexion setpoint: the flexion at which its
+distal-face point below the fingertip lands where O's lands at O's setpoint (contact_mid: the distal pad's middle).
 
     uv run python two_pad_drake.py --hand O --mu 1.3 --radius_mm 15 --contact point [--only 2] [--workers 8]
 """
@@ -98,6 +100,51 @@ def servo_table(g: dict, q_max_deg: float = 125.0) -> tuple[np.ndarray, np.ndarr
             lo, hi = lo - 0.05, hi + 0.05
         th.append(brentq(gap, lo, hi, args=(q,), xtol=1e-12))
     return qs, np.array(th)
+
+
+def _closure_gap(g: dict, theta: float, q: float) -> float:
+    b = g["ap"] + rot(theta) @ (g["b"] - g["ap"])
+    return float(np.linalg.norm(b + rot(q) @ g["bp_local"] - g["a"]) - g["abp"])
+
+
+def reference_point(g: dict, qs: np.ndarray, th: np.ndarray, q: float, where: str = "tip") -> np.ndarray:
+    """A point of the distal contact face at flexion q (rad), in the proximal face's frame (mm: origin at the foot of
+    the MCP axis on the proximal face, x along it, z dorsal): 'tip' is the point below the fingertip (distal frame
+    (distal_end, -face), the point Delta_contact follows), 'mid' the distal pad's middle. The four-bar is closed exactly
+    at q, from the servo table's driver angle."""
+    from scipy.optimize import brentq
+
+    t0 = float(np.interp(q, qs, th))
+    lo, hi = t0 - 0.01, t0 + 0.01
+    while _closure_gap(g, lo, q) * _closure_gap(g, hi, q) > 0:
+        lo, hi = lo - 0.01, hi + 0.01
+    theta = brentq(lambda t: _closure_gap(g, t, q), lo, hi, xtol=1e-13)
+    pads = g["pads"]
+    face = pads["mount_offset_mm"] + pads["thickness_mm"]
+    x = pads["distal_end_mm"] if where == "tip" else (pads["distal_start_mm"] + pads["distal_end_mm"]) / 2
+    b = g["ap"] + rot(theta) @ (g["b"] - g["ap"])
+    return b + rot(q) @ np.array([x, -face]) + np.array([0.0, face])
+
+
+def contact_setpoint(hand: str, q_o_deg: float, where: str = "tip", q_max_deg: float = 125.0) -> dict:
+    """Experiment 27's setpoint: the flexion at which the hand's reference point lands where O's lands at O's setpoint
+    q_o, argmin_q |c_H(q) - c_O(q_o)| over the servo table's range, from kinematics only. Returns the setpoint (deg),
+    the residual (mm) and whether the minimum sits on the range's bound."""
+    from scipy.optimize import minimize_scalar
+
+    g_o = finger_geometry("O")
+    target = reference_point(g_o, *servo_table(g_o, q_max_deg), math.radians(q_o_deg), where)
+    g = finger_geometry(hand)
+    qs, th = servo_table(g, q_max_deg)
+    dist = lambda q: float(np.linalg.norm(reference_point(g, qs, th, q, where) - target))
+    grid = np.radians(np.arange(0.0, q_max_deg + 0.25, 0.5))
+    k = int(np.argmin([dist(q) for q in grid]))
+    lo, hi = grid[max(k - 1, 0)], grid[min(k + 1, len(grid) - 1)]
+    res = minimize_scalar(dist, bounds=(lo, hi), method="bounded", options={"xatol": 1e-9})
+    q = float(res.x)
+    return {"where": where, "q_cmd_o_deg": q_o_deg, "q_cmd_deg": math.degrees(q), "residual_mm": dist(q),
+            "at_bound": bool(q <= 1e-6 or math.degrees(q) >= q_max_deg - 1e-4),
+            "target_mm": target.tolist()}
 
 
 def _build(hand: str, mu: float, rho_mm: float, contact: str, time_step: float, hold: bool,
@@ -425,6 +472,10 @@ def _run_env(task):
     geom = finger_geometry(hand)
     qs, th = servo_table(geom)
     q_cmd = math.radians(g["q0_deg"] + delta)
+    setpoint = None
+    if opts.get("setpoint", "shared") != "shared":  # experiment 27: contact-referenced, 'contact_ref' or 'contact_mid'
+        setpoint = contact_setpoint(hand, g["q0_deg"] + delta, "mid" if opts["setpoint"] == "contact_mid" else "tip")
+        q_cmd = math.radians(setpoint["q_cmd_deg"])
     theta_cmd = float(np.interp(q_cmd, qs, th))
     ratio = float(np.interp(q_cmd, qs, np.gradient(th, qs)))  # dtheta/dq at the command
     k_theta, d_theta = K_Q / ratio ** 2, D_Q / ratio ** 2
@@ -506,7 +557,7 @@ def _run_env(task):
                 limit["event"], limit["f_limit_n"] = event, float(f * FINGERS)
                 break
     return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction, "pre": pre,
-            "gate0": gate, "limit": limit}
+            "gate0": gate, "limit": limit, "setpoint": setpoint}
 
 
 def main() -> int:
@@ -539,6 +590,11 @@ def main() -> int:
                    help="hydroelastic pads' foundation stiffness as modulus / this thickness (mm, or 'own': the hand's "
                         "own pad thickness); default 3 mm on every hand (experiment 21)")
     p.add_argument("--modulus", type=float, default=MODULUS_PA, help="hydroelastic pads: modulus [Pa] (stiffness / 3 mm)")
+    p.add_argument("--setpoint", choices=("shared", "contact_ref", "contact_mid"), default="shared",
+                   help="shared: O's flexion setpoint on every hand (condition A); contact_ref / contact_mid: each "
+                        "hand's flexion that puts its distal-face point below the fingertip / at the pad's middle where "
+                        "O's lands at O's setpoint (experiment 27)")
+    p.add_argument("--map_only", action="store_true", help="print and save the setpoint mapping only, no simulation")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads((args.grasps or GRASPS).read_text())["grasps"]
@@ -546,7 +602,20 @@ def main() -> int:
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
             "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
             "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
-            "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm, "strokes": args.strokes}
+            "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm, "strokes": args.strokes,
+            "setpoint": args.setpoint}
+    if args.setpoint != "shared":
+        where = "mid" if args.setpoint == "contact_mid" else "tip"
+        rows = [contact_setpoint(args.hand, q, where) for q in sorted({g["q0_deg"] + args.delta_deg for g in grasps})]
+        print(f"{args.hand} {args.setpoint}: q_cmd,O -> q_cmd,H (shift) residual")
+        for r in rows:
+            print(f"  {r['q_cmd_o_deg']:6.2f} -> {r['q_cmd_deg']:7.3f} deg ({r['q_cmd_deg'] - r['q_cmd_o_deg']:+6.2f}) "
+                  f"{r['residual_mm']:6.3f} mm{'  AT BOUND' if r['at_bound'] else ''}")
+        OUT.mkdir(exist_ok=True)
+        (OUT / f"setpoint_{args.setpoint}_{args.hand}_r{args.radius_mm:g}_d{args.delta_deg:g}.json").write_text(
+            json.dumps(rows, indent=1))
+        if args.map_only:
+            return 0
     directions = ["none"] if args.task in ("roll", "pullin", "dial") else args.directions
     tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
              for g in grasps for d in directions]
