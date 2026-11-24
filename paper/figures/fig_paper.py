@@ -41,8 +41,16 @@ ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
-plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
-                     "mathtext.fontset": "stix", "font.size": 7, "axes.linewidth": 0.6,
+from matplotlib import font_manager as _fm  # noqa: E402
+for _f in ("/usr/local/share/fonts/Helvetica Light Regular.otf",
+           "/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf",
+           "/usr/share/fonts/opentype/urw-base35/NimbusSans-Italic.otf"):
+    if Path(_f).exists():
+        _fm.fontManager.addfont(_f)
+# Helvetica Light for text; Nimbus Sans (Helvetica metrics) for bold and math italic, which the Light cut lacks
+plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Helvetica Light", "Nimbus Sans", "DejaVu Sans"],
+                     "mathtext.fontset": "custom", "mathtext.rm": "Helvetica Light", "mathtext.it": "Nimbus Sans:italic",
+                     "mathtext.bf": "Nimbus Sans:bold", "font.size": 7, "font.weight": "light", "axes.linewidth": 0.6,
                      "xtick.major.width": 0.6, "ytick.major.width": 0.6, "xtick.major.size": 2,
                      "ytick.major.size": 2, "axes.labelsize": 7, "xtick.labelsize": 6.3, "ytick.labelsize": 6.3})
 
@@ -58,7 +66,7 @@ def clean(ax):
 
 
 def label(fig, x, y, text, h):
-    fig.text(x / W, y / h, text, fontsize=7.5, fontweight="bold", va="top", ha="left")
+    fig.text(x / W, y / h, text, fontsize=7.5, fontweight="bold", family="Nimbus Sans", va="top", ha="left")
 
 
 def rot(points, q, c):
@@ -350,7 +358,7 @@ def fig2():
         ax.set_xlim(-6, 96); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
         col_ = {None: GREY, "hu": AMBER, "hr": BLUE, "proto": BLUE}[hand]
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 0.20) / h, name, fontsize=6.0, color=col_,
-                 ha="center", va="top", fontweight="bold" if hand in ("hr", "proto") else "normal", linespacing=1.0)
+                 ha="center", va="top", fontweight="bold" if hand in ("hr", "proto") else "normal", family="Nimbus Sans" if hand in ("hr", "proto") else "Helvetica Light", linespacing=1.0)
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
             v = view_of(base.mechanism, with_pads(base.config, hh), x)
             qd = 120.0 if key == "2r_dd" else (143.0 if hand == "proto" else 150.0 if hand
@@ -437,7 +445,7 @@ def fig2():
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
                  ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
-        x0 = 0.55 + j * 0.55
+        x0 = 0.35 + j * 0.70
         fig.patches.append(Rectangle((x0 / W, 0.10 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
                                      fc=PADC[hh], ec="#1f4f9c", lw=0.4))
         fig.text((x0 + 0.18) / W, 0.14 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
@@ -478,7 +486,7 @@ def fig2():
     designs = (("reference", GREY, (0, -z0), t0, (0, (2.6, 1.6)), 1.0, 5),
                ("skeleton-preserving", AMBER, (0, -z0), t1, "-", 1.4, 3),
                ("contact-preserving", BLUE, (0, -z0 - dt), t1, "-", 1.4, 3))
-    for row, (frame, name) in enumerate((("skel", "Skeleton frame"), ("contact", "Contact frame"))):
+    for row, (frame, name) in enumerate((("skel", "skeleton"), ("contact", "contact"))):
         y0 = head - 0.42 - (row + 1) * 0.60
         ax = fig.add_axes((5.05 / W, y0 / h, 1.10 / W, 0.55 / h))
         ends = {}
@@ -602,7 +610,7 @@ def fig3():
         c = next(float(r["c_pad_mean"]) for r in s1 if r["architecture"] == S1NAME[key]
                  and float(r["required_flexion_deg"]) == q_req and float(r["thickness_mm"]) == h_rep)
         fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.06) / h, ARCH[key][0], fontsize=6.6,
-                 color=ARCH[key][1], ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
+                 color=ARCH[key][1], ha="center", va="top", fontweight="bold" if key == "cfl" else "normal", family="Nimbus Sans" if key == "cfl" else "Helvetica Light")
         fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.14 - gh) / h, f"$\\bar C_{{pad}}$ = {100 * c:.0f}%",
                  fontsize=6.2, color=ARCH[key][1], ha="center", va="top")
     fig.text(0.05 / W, (row_b + 0.30) / h, "dark: contact surface holding the cylinder;  light: mounted pad;  "

@@ -142,7 +142,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ### 6.1 Figure plan (user, 2026-11-24)
 
-Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
+Font: Helvetica Light for figure text (bold and math italic in Nimbus Sans, which the Light cut lacks). Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
 and coverage retention go in the text. White background, thin technical linework, LaTeX-style math, restrained
 colour: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple. Final plots come from the
 evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-drawn values.
