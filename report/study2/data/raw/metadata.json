@@ -1,6 +1,6 @@
 {
  "created": "2026-11-24",
- "git_commit": "3355cf8a15fc7513367889483463ea2c61cc8d98",
+ "git_commit": "1ccac25c836aac6d219c70460c4bc09b5284e529",
  "generator": "report/make_raw_tables.py",
  "study": "Study 2: redesign of each architecture's 3 mm design for 5, 7 and 9 mm pads (2D side model)",
  "files": {

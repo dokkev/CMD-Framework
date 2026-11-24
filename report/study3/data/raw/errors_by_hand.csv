@@ -178,6 +178,24 @@ Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_hr,9.0,2.
 Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_hu,9.0,3.89,7.17,0.2811,26
 Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.7483,26
 Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.9502,26
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,R,7.0,0.86,7.67,0.2712,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0628,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3368,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.4921,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d3_minDs_s0,7.0,3.09,3.83,0.4321,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,U,7.0,3.91,3.38,0.6583,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d4p5_s0,7.0,4.41,11.33,0.8335,18
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d5p5_s0,7.0,5.4,12.17,0.8919,13
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0741,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.1561,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to5_hr,5.0,0.35,3.55,0.0494,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to5_hu,5.0,1.58,2.02,0.1977,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.5259,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.4189,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to9_hr,9.0,2.32,9.37,0.0833,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to9_hu,9.0,3.89,7.17,0.4357,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.4429,20
+Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.5324,20
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,R,7.0,0.86,7.67,0.2685,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1742,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.135,11

@@ -38,6 +38,8 @@ DRAKE_SETS = {
     ("dkpullin", "point", "e23-a3"): ("23", "grasp acquisition", "cylinder starts 3 mm past O's contact"),
     ("dkpullin", "point", "e23-a6"): ("23", "grasp acquisition", "cylinder starts 6 mm past O's contact"),
     ("dkdial", "point", "e26-s45"): ("26", "dial", "sprung dial, 45 deg sweep"),
+    ("dkdial", "point", "e24-s8"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 8 deg sweep"),
+    ("dkdial", "point", "e24-s15"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 15 deg sweep"),
     ("dkroll", "point", "e22-s8"): ("22", "in-hand rolling", "flexion sweep of 8 deg"),
     ("dkroll", "point", "e22-s15"): ("22", "in-hand rolling", "flexion sweep of 15 deg"),
 }
@@ -232,6 +234,7 @@ def study3() -> None:
             ("drake_e27m_point.json", "Drake", "pull-out", "contact-referenced setpoint, pad midpoint (auxiliary)"),
             ("drake_e23_point.json", "Drake", "grasp acquisition", "point contact"),
             ("drake_e26_point.json", "Drake", "dial", "point contact"),
+            ("drake_e24_point.json", "Drake", "dial", "superseded by experiment 26: dial turned 5-10 deg"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
         d = json.loads((REP / "study3/data" / fname).read_text())
