@@ -457,30 +457,40 @@ def fig2():
         fig.patches.append(Rectangle((x0 / W, 0.10 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
                                      fc=PADC[hh], ec="#1f4f9c", lw=0.4))
         fig.text((x0 + 0.18) / W, 0.14 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
-    # (b) pole placement: the optimized designs' pole depth against their contact-face depth
-    label(fig, 2.55, head, "(b) Pole placement", h)
-    fig.text(3.80 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
-             ha="center", va="top")
-    pax = fig.add_axes((2.98 / W, 0.62 / h, 1.68 / W, (head - 0.95) / h))
-    pts = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pole_depths.json").read_text())
-    tt = np.array([0, 19.5])
-    pax.fill_between(tt, tt, 16, color="#eef3fa", lw=0, zorder=0)
-    pax.plot(tt, tt, color=PURPLE, lw=0.9, ls=(0, (3, 1.6)), zorder=1)
-    pax.axhline(0, color=INK2, lw=0.5, ls=(0, (1, 1.4)), zorder=1)
-    pax.text(1.0, 14.6, "zero pad gap\n(symmetric case)", fontsize=6.0, color=PURPLE, va="top", linespacing=1.0)
-    pax.text(9.4, 10.6, "$z=t$", fontsize=6.0, color=PURPLE, rotation=38, ha="center", va="center")
-    for key in ("2r_remote", "2r_dd", "rcj", "cfl"):
-        d = pts[key]
-        t, z = np.array([r["t"] for r in d]), np.array([r["z"] for r in d])
-        if key == "rcj":
-            pax.plot([t.min() - 1.5, t.max() + 0.8], [z.mean()] * 2, color=TEAL, lw=0.7, alpha=0.6, zorder=2)
-        pax.plot(t, z, ls="none", marker={"cfl": "o", "2r_remote": "s", "2r_dd": "D", "rcj": "^"}[key], ms=4.0,
-                 color=ARCH[key][1], mec="white", mew=0.4, zorder=3, label=ARCH[key][0], clip_on=False)
-    pax.set_xlim(0, 19.5); pax.set_ylim(-0.8, 16); pax.set_xticks([0, 5, 10, 15]); pax.set_yticks([0, 5, 10, 15])
-    pax.set_xlabel("contact-face depth $t$ (mm)", labelpad=1); pax.set_ylabel("pole depth $z$ (mm)", labelpad=1)
+    # (b) where each joint can put the pole (Study 0): the poles reachable over each design space
+    from fig_mechanisms import cached_outlines, roller_pole
+    label(fig, 2.55, head, "(b) Achievable poles", h)
+    fig.text(3.82 / W, (head - 0.20) / h, "over each joint's design space", fontsize=6.2, color=INK2, ha="center",
+             va="top")
+    pax = fig.add_axes((2.95 / W, 0.42 / h, 1.72 / W, (head - 0.74) / h))
+    shown = {90: "#a9c7ee", 120: "#4f8fdc", 150: "#123f7a"}
+    gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
+    rings = cached_outlines({d: None for d in shown}, gx, gy)
+    pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
+    pax.fill(rings[120][:, 0], rings[120][:, 1], fc="#e4edf9", ec="none", zorder=0.5)
+    for deg, col in shown.items():
+        pax.plot(rings[deg][:, 0], rings[deg][:, 1], color=col, lw=0.9, zorder=2)
+    radii = np.linspace(9.5, 20.0, 60)
+    lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
+    teal = {90: "#a7ddd4", 120: TEAL, 150: "#0e5c50"}
+    for deg in shown:
+        tq = np.radians(deg)
+        edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
+                               roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
+        pax.fill(edge.real, edge.imag, fc=teal[deg], ec="none", zorder=3)
+    pax.plot([-32, 55], [0, 0], color=GREY, lw=1.6, zorder=4)
+    import matplotlib.patheffects as pe
+    halo = [pe.withStroke(linewidth=2.2, foreground="white")]
+    pax.text(54, 1.2, "fixed axis", fontsize=5.6, color=GREY, va="bottom", ha="right", path_effects=halo, zorder=6)
+    pax.text(-31, -18.5, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
+             path_effects=halo, zorder=6)
+    pax.text(-24, 30, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(24, -16.5, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(54, 36, "light to dark:\n$90^\\circ$, $120^\\circ$, $150^\\circ$", fontsize=5.6, color=INK2,
+             ha="right", va="top", linespacing=1.0)
+    pax.set_xlim(-32, 55); pax.set_ylim(-27, 38); pax.set_aspect("equal")
+    pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
     clean(pax)
-    pax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4, frameon=False, fontsize=6.0,
-               handletextpad=0.1, columnspacing=0.6)
     # (c) the CFL's kinematic model (the CoDe prototype at 120 deg): pivots, fingertip, frame
     label(fig, 4.80, head, "(c) CFL kinematic model", h)
     from visualize.finger.view import load_run
