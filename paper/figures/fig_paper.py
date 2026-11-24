@@ -94,91 +94,96 @@ def clearance_scene(ax, z, t=7.0, q=np.radians(90), L=30.0, title=""):
     ax.set_title(title, fontsize=6.6, pad=1)
 
 
-def motion_frames(ax_s, ax_c):
-    """Closed-form sketch (fixed pole per design, 0-120 deg): O with 3 mm pads, a 7 mm redesign that keeps the
-    links and pole (skeleton-preserving) and one whose pole keeps its place relative to the contact faces
-    (contact-preserving). Left: the fingertip in the skeleton frame (link line); right: the distal contact point in
-    the contact frame (proximal contact face)."""
-    q = np.radians(np.linspace(0, 120, 61))
-    L, z0, t0, t1 = 40.0, 1.5, 3.0, 7.0
-    dt = t1 - t0
-
-    def path(pt, pole):
-        return np.array([rot([pt], qq, np.asarray(pole))[0] for qq in q])
-    designs = (("O (3 mm)", GREY, (0, -z0), t0, (0, (2.4, 1.6))),
-               ("skeleton-preserving", AMBER, (0, -z0), t1, "-"),
-               ("contact-preserving", BLUE, (0, -z0 - dt), t1, "-"))
-    for name, col, pole, t, ls in designs:
-        tip = path((L, 0.0), pole)
-        con = path((L, -t), pole) - np.array([0.0, -t])
-        lw = 1.0 if name.startswith("O") else 1.4
-        z = 5 if name.startswith("O") else 3
-        ax_s.plot(*tip.T, color=col, lw=lw, ls=ls, zorder=z)
-        ax_c.plot(*con.T, color=col, lw=lw, ls=ls, zorder=z)
-    for ax, ttl, ylab in ((ax_s, "fingertip, skeleton frame", "fingertip"),
-                          (ax_c, "contact point, contact frame", "distal contact point")):
-        ax.axhline(0, color=LIGHT, lw=0.6, zorder=0)
-        ax.set_aspect("equal"); ax.axis("off")
-        ax.set_title(ttl, fontsize=6.4, pad=1)
-        ax.set_xlim(-26, 44); ax.set_ylim(-48, 6)
-    ax_s.text(-24, -4, "skeleton-preserving\nfollows O", fontsize=5.8, color=AMBER, ha="left", va="top",
-              linespacing=1.0)
-    ax_c.text(-24, -4, "contact-preserving\nfollows O", fontsize=5.8, color=BLUE, ha="left", va="top",
-              linespacing=1.0)
+def pole_shift_scene(ax, q=np.radians(120), L=28.0, t0=6.0, t1=10.0):
+    """Closed-form geometry in the proximal contact frame (proximal contact face on y = 0): a reference finger whose
+    contact faces lie t0 below its link line and a redesign for a thicker pad that keeps the links and the joint, so
+    its faces lie t1 below. Relative to the contact face the joint has moved by dp = t1 - t0; the distal contact
+    point (L, 0) at extension lands dc apart after flexing by q, |dc| = 2 sin(q/2) |dp|."""
+    P0, P1 = np.array([0.0, t0]), np.array([0.0, t1])
+    c0 = np.array([L, 0.0])
+    c_ref, c_red = rot([c0], q, P0)[0], rot([c0], q, P1)[0]
+    # proximal phalanx: the thick pad (redesign) and the reference link line
+    ax.add_patch(Polygon([[-30, 0], [-3, 0], [-3, t1], [-30, t1]], fc="#f6dfbd", ec=AMBER, lw=0.5, zorder=1))
+    ax.plot([-31, 0], [t1, t1], color=INK2, lw=1.5, solid_capstyle="round", zorder=2)
+    ax.plot([-31, 0], [t0, t0], color=GREY, lw=1.0, ls=(0, (2.4, 1.4)), zorder=2)
+    ax.plot([-31, 0], [0, 0], color=BLUE, lw=0.8, zorder=2)
+    ax.text(-30, -1.2, "proximal contact face (frame)", fontsize=5.6, color=BLUE, va="top")
+    # the distal contact point's path from 0 to q about each pole
+    qs = np.linspace(0, q, 60)
+    for P, col, ls, lw in ((P0, GREY, (0, (2.4, 1.4)), 1.0), (P1, AMBER, "-", 1.4)):
+        arc = np.array([rot([c0], qq, P)[0] for qq in qs])
+        ax.plot(*arc.T, color=col, lw=lw, ls=ls, zorder=3)
+    ax.text(-30, t0 + 0.6, "reference link line", fontsize=5.4, color=GREY, va="bottom")
+    ax.text(-30, t1 + 0.6, "link line, 4 mm thicker pad (joint kept)", fontsize=5.4, color=INK2, va="bottom")
+    # poles and their shift
+    ax.add_patch(FancyArrowPatch(P0, P1, arrowstyle="-|>", mutation_scale=6, lw=0.9, color=PURPLE, zorder=6))
+    ax.plot(*P0, marker="o", ms=4.0, mfc="white", mec=PURPLE, mew=0.9, zorder=7)
+    ax.plot(*P1, marker="o", ms=4.0, color=PURPLE, mec="white", mew=0.4, zorder=7)
+    ax.text(1.5, (t0 + t1) / 2, "$\\Delta\\mathbf{p}$", fontsize=7, color=PURPLE, va="center")
+    ax.text(1.5, t0 - 1.6, "keep it here: $\\Delta\\mathbf{c}=0$", fontsize=5.6, color=PURPLE, va="top")
+    # contact points and their shift
+    ax.plot(*c0, marker="o", ms=3.0, color=INK, zorder=5)
+    ax.plot(*c_ref, marker="o", ms=3.0, color=GREY, zorder=5)
+    ax.plot(*c_red, marker="o", ms=3.0, color=AMBER, zorder=5)
+    ax.add_patch(FancyArrowPatch(c_ref, c_red, arrowstyle="-|>", mutation_scale=6, lw=0.9, color=INK, zorder=6))
+    mid = (c_ref + c_red) / 2
+    ax.text(mid[0] + 1.2, mid[1] - 0.5, "$\\Delta\\mathbf{c}$", fontsize=7, color=INK, va="center")
+    ax.text(L - 1, -1.2, "contact point, $q=0$", fontsize=5.6, color=INK2, ha="right", va="top")
+    ax.text(-30, -30.5, "$\\|\\Delta\\mathbf{c}(q)\\| = 2\\sin\\frac{q}{2}\\,\\|\\Delta\\mathbf{p}\\|$",
+            fontsize=7.4, va="bottom")
+    ax.set_xlim(-32, 31); ax.set_ylim(-31, 14); ax.set_aspect("equal"); ax.axis("off")
 
 
 def fig2():
+    from matplotlib.path import Path as MPath
     from fig_mechanisms import cached_outlines, roller_pole
-    h = 1.95
+    h = 2.05
     fig = plt.figure(figsize=(W, h))
-    # (a) clearance, same pad depth, two pole depths
-    label(fig, 0.02, h - 0.02, "(a) Clearance", h)
-    for i, (z, ttl) in enumerate(((0.0, "pole on the link line"), (7.0, "pole at the contact face"))):
-        ax = fig.add_axes(((0.04 + i * 1.08) / W, 0.10 / h, 1.04 / W, (h - 0.42) / h))
+    fig.text(0.5, 0.995, "Where should the finger rotate?", fontsize=8, style="italic", ha="center", va="top")
+    top = h - 0.20
+    # (a) for room: about a point at the contact face
+    label(fig, 0.02, top, "(a) For room: at the contact face", h)
+    for i, (z, ttl) in enumerate(((0.0, "about the link line"), (7.0, "about the contact face"))):
+        ax = fig.add_axes(((0.04 + i * 1.04) / W, 0.08 / h, 1.00 / W, (top - 0.42) / h))
         clearance_scene(ax, z, title=ttl)
-    fig.text(1.12 / W, 0.04 / h, "same 7 mm pads, flexed $90^\\circ$ about the pole", fontsize=5.8, color=INK2,
-             ha="center", va="bottom")
-    # (b) achievable poles
-    label(fig, 2.30, h - 0.02, "(b) Achievable poles", h)
-    pax = fig.add_axes((2.62 / W, 0.30 / h, 1.95 / W, (h - 0.58) / h))
-    shown = {90: "#9cc0ea", 120: BLUE, 150: "#123f7a"}
+    fig.text(1.07 / W, 0.03 / h, "same 7 mm pads, flexed $90^\\circ$", fontsize=5.8, color=INK2, ha="center",
+             va="bottom")
+    # (b) for the same contact motion: where it was, relative to the contact face
+    label(fig, 2.22, top, "(b) For the same contact motion: where it was,\n     relative to the contact face", h)
+    bx = fig.add_axes((2.24 / W, 0.04 / h, 2.30 / W, (top - 0.36) / h))
+    pole_shift_scene(bx)
+    fig.text(4.52 / W, (top - 0.34) / h, "thicker pad, links kept;\n$q=120^\\circ$", fontsize=5.8, color=AMBER,
+             ha="right", va="top", linespacing=1.0)
+    # (c) which joint can put it there: achievable poles at 120 deg and the two targets
+    label(fig, 4.72, top, "(c) Which joint can put it there?", h)
+    pax = fig.add_axes((5.05 / W, 0.30 / h, 2.05 / W, (top - 0.48) / h))
     gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
-    rings = cached_outlines({d: None for d in shown}, gx, gy)
-    pax.axhspan(-12, -6, color="#ebeae6", lw=0, zorder=0)
+    ring = cached_outlines({90: None, 120: None, 150: None}, gx, gy)[120]
+    pax.fill(ring[:, 0], ring[:, 1], fc="#dbe7f7", ec=BLUE, lw=0.8, zorder=1)
     radii = np.linspace(9.5, 20.0, 60)
     lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
-    teal = {90: "#a7ddd4", 120: TEAL, 150: "#0e5c50"}
-    for deg, col in shown.items():
-        ring = rings[deg]
-        pax.plot(ring[:, 0], ring[:, 1], color=col, lw=0.9, zorder=2)
-        tq = np.radians(deg)
-        edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
-                               roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
-        pax.fill(edge.real, edge.imag, fc=teal[deg], ec="none", zorder=3)
-    pax.plot(0, 0, marker="o", ms=4.0, color=GREY, zorder=4)
-    pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=1)
-    pax.set_xlim(-32, 55); pax.set_ylim(-20, 38); pax.set_aspect("equal")
-    pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
+    tq = np.radians(120)
+    edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
+                           roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
+    pax.fill(edge.real, edge.imag, fc=TEAL, ec="none", alpha=0.85, zorder=2)
+    pax.axhline(0, color=GREY, lw=1.4, zorder=3)
+    # targets from the reference CFL design (3 mm pads, 120 deg): its pole, and the 7 mm faces 4 mm deeper
+    ref_pole, face3, face7 = np.array([23.69, -3.18]), -6.0, -10.0
+    keep = ref_pole + np.array([0.0, face7 - face3])
+    pax.axhline(face7, color=PURPLE, lw=0.8, ls=(0, (3, 1.5)), zorder=4)
+    pax.plot(*keep, marker="*", ms=8, color=PURPLE, mec="white", mew=0.4, zorder=6)
+    inside = MPath(ring).contains_point(keep)
+    pax.text(keep[0] + 1, keep[1] + 2.0, "keep motion", fontsize=5.6, color=PURPLE, va="bottom", ha="center")
+    pax.text(-36, face7 - 1.0, "room: on the 7 mm contact face", fontsize=5.6, color=PURPLE, va="top")
+    pax.text(-36, 1.2, "fixed axis: any pin on the link line", fontsize=5.6, color=GREY, va="bottom")
+    pax.text(-30, 30, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", va="top")
+    pax.text(13, -20, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", va="top")
+    pax.set_xlim(-38, 52); pax.set_ylim(-24, 34); pax.set_aspect("equal")
+    pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("from the link line (mm)", labelpad=1)
     clean(pax)
-    pax.text(2, 1.5, "fixed axis", fontsize=5.8, color=GREY, va="bottom")
-    pax.text(-31, -9, "contact faces, 3–9 mm pads", fontsize=5.6, color=INK2, va="center", ha="left")
-    pax.text(-30, 33, "CFL", fontsize=6.2, color=BLUE, fontweight="bold", va="top")
-    pax.text(14, -17, "RCJ", fontsize=6.2, color=TEAL, fontweight="bold", va="center")
-    pax.text(52, 36, "light to dark:\n$90^\\circ$, $120^\\circ$, $150^\\circ$", fontsize=5.6, color=INK2, ha="right",
-             va="top", linespacing=1.0)
-    # (c) motion seen from two frames
-    label(fig, 4.70, h - 0.02, "(c) Motion preservation", h)
-    ax_s = fig.add_axes((4.72 / W, 0.30 / h, 1.18 / W, (h - 0.58) / h))
-    ax_c = fig.add_axes((5.95 / W, 0.30 / h, 1.18 / W, (h - 0.58) / h))
-    motion_frames(ax_s, ax_c)
-    handles = [plt.Line2D([], [], color=GREY, lw=1.0, ls=(0, (2.4, 1.6)), label="O, 3 mm"),
-               plt.Line2D([], [], color=AMBER, lw=1.4, label="7 mm, skeleton-preserving"),
-               plt.Line2D([], [], color=BLUE, lw=1.4, label="7 mm, contact-preserving")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(5.90 / W, 0.0), ncol=2, frameon=False,
-               fontsize=5.6, handlelength=1.6, columnspacing=0.8, handletextpad=0.3)
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
-    print("fig2", h)
+    print("fig2", h, "keep target inside CFL region:", inside)
 
 
 # ------------------------------------------------------------------------------------------------------------ Fig. 3
