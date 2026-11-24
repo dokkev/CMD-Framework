@@ -5,7 +5,7 @@
 
     env -u DISPLAY -u WAYLAND_DISPLAY uv run python scripts/code_hand/render_visuals.py \
         --usd logs/urdf/cfl_q120_h3to7_h0_thumbpad_vis_ball_colliders.usda --pip 0 60 120 \
-        [--view side|side_driver|overview]
+        [--view side|side_driver|overview|palm_up|palm_down|atlas]
 
 No simulation: the USD is imported with ``ModelBuilder.add_usd`` (the importer Isaac Lab's Newton backend uses), the
 four-bars are set closed from the description's ``four_bar`` tables (the joint coordinates), and the bodies are posed
@@ -29,6 +29,17 @@ SIDE_CAMERA = {"target_mm": (40.0, -12.0), "dist": 0.24, "az_deg": -20.0, "el_de
 """As ``sim/drake/load_hand.py`` (``render_hands.py``'s camera for ``hands_ORU_3d.png``)."""
 
 
+HAND_VIEWS = {
+    "palm_up": {"rpy": (math.pi, 0.0, 0.0), "dir": (0.55, -0.55, 0.63), "joints": {}},
+    "palm_down": {"rpy": (0.0, 0.0, 0.0), "dir": (0.55, -0.55, 0.63), "joints": {}},
+    "atlas": {"rpy": (0.0, 0.0, 0.0), "dir": (-0.62, -0.5, 0.6),
+              "joints": {"fe": 25.0, "pip": 35.0, "thumb_mcp": 20.0, "thumb_ip": 20.0}},
+}
+"""As ``sim/drake/load_hand.py``'s ``HAND_VIEWS``: the hand's orientation (palm up: half a turn about x), the
+camera's direction from the point looked at (world, z up) and the joints [deg]."""
+HAND_VIEW_TARGET, HAND_VIEW_DIST, HAND_VIEW_FOV = (0.02, 0.01, 0.0), 0.44, 35.0
+
+
 def side_camera(desc, digit: str = "ring", side: float = -1.0):
     """The camera on ``digit`` from its ``-y`` side (``side=+1``: from ``+y``, mirrored): eye and target."""
     o = np.asarray(desc.joint(f"{digit}_fe")["anchor"], float)
@@ -49,7 +60,7 @@ def main(argv=None) -> int:
     parser.add_argument("--description", type=Path, default=None,
                         help="defaults to design/output/sim/study3/hands/<hand>.json from the USD's name")
     parser.add_argument("--pip", type=float, nargs="+", default=[0.0, 60.0, 120.0])
-    parser.add_argument("--view", choices=("side", "side_driver", "overview"), default="side")
+    parser.add_argument("--view", choices=("side", "side_driver", "overview", *HAND_VIEWS), default="side")
     parser.add_argument("--size", type=int, nargs=2, default=(960, 800))
     args = parser.parse_args(argv)
 
@@ -81,10 +92,25 @@ def main(argv=None) -> int:
             colours[label.rsplit("/", 1)[-1]] = tuple(round(float(v), 3) for v in model.shape_color.numpy()[k])
     print("visual colours (display):", dict(sorted(colours.items())))
 
+    hand_view = HAND_VIEWS.get(args.view)
+    if hand_view is not None:  # orient the hand: the palm's fixed joint to the world
+        k = [i for i, label in enumerate(model.joint_label) if label.endswith("palm_fixed")][0]
+        x_p = model.joint_X_p.numpy()
+        roll = hand_view["rpy"][0]
+        x_p[k] = [0.0, 0.0, 0.0, math.sin(roll / 2), 0.0, 0.0, math.cos(roll / 2)]
+        model.joint_X_p.assign(x_p)
     viewer = newton.viewer.ViewerGL(width=args.size[0], height=args.size[1], headless=True)
     viewer.set_model(model)
     viewer.show_collision = False
-    if args.view in ("side", "side_driver"):
+    if hand_view is not None:
+        roll = hand_view["rpy"][0]
+        rot = np.array([[1.0, 0.0, 0.0], [0.0, math.cos(roll), -math.sin(roll)], [0.0, math.sin(roll), math.cos(roll)]])
+        target = rot @ np.asarray(HAND_VIEW_TARGET)
+        d = np.asarray(hand_view["dir"], float)
+        eye = target + HAND_VIEW_DIST * d / np.linalg.norm(d)
+        viewer.camera.fov = HAND_VIEW_FOV
+        args.pip = [hand_view["joints"].get("pip", 0.0)]
+    elif args.view in ("side", "side_driver"):
         eye, target = side_camera(desc) if args.view == "side" else side_camera(desc, "index", 1.0)
         viewer.camera.fov = SIDE_CAMERA["fov_deg"]
     else:
@@ -100,6 +126,12 @@ def main(argv=None) -> int:
         for digit in desc.four_bar_digits():
             for name, deg in desc.closed_pose(digit, q).items():
                 joint_q[starts[names.index(name)]] = math.radians(deg)
+        for name, deg in (hand_view or {}).get("joints", {}).items():
+            if name == "fe":
+                for digit in desc.four_bar_digits():
+                    joint_q[starts[names.index(f"{digit}_fe")]] = math.radians(deg)
+            elif name != "pip":
+                joint_q[starts[names.index(name)]] = math.radians(deg)
         q_wp = wp.array(joint_q, dtype=wp.float32, device=model.device)
         newton.eval_fk(model, q_wp, model.joint_qd, state)
         viewer.set_camera(pos=wp.vec3(*eye), pitch=pitch, yaw=yaw)
@@ -107,7 +139,8 @@ def main(argv=None) -> int:
             viewer.begin_frame(0.0)
             viewer.log_state(state)
             viewer.end_frame()
-        path = out_dir / f"newton_{stem}_pip{q:g}{'' if args.view == 'overview' else '_' + args.view}.png"
+        path = out_dir / (f"newton_{stem}_{args.view}.png" if hand_view is not None else
+                          f"newton_{stem}_pip{q:g}{'' if args.view == 'overview' else '_' + args.view}.png")
         Image.fromarray(viewer.get_frame().numpy()).save(path)
         print(path)
     viewer.close()

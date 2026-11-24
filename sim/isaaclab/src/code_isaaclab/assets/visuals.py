@@ -51,13 +51,15 @@ MM = 1e-3
 
 PALETTE: dict[str, tuple[float, float, float]] = {
     "plate": (0.84, 0.85, 0.87),
+    "shell": (0.86, 0.87, 0.88),
+    "accent": (0.33, 0.34, 0.37),
     "link": (0.66, 0.68, 0.71),
     "servo": (0.22, 0.23, 0.25),
     "steel": (0.90, 0.91, 0.93),
     "pad": (0.27, 0.50, 0.93),
 }
-"""Display colours (sRGB, as render3d's LIGHT, MID, DARK, STEEL and PAD). USD stores colours linear
-(:func:`srgb_to_linear`); URDF ``rgba`` and Drake take them as given."""
+"""Display colours (sRGB, as render3d's LIGHT, MID, DARK, STEEL and PAD; the palm housing's shell and accents).
+USD stores colours linear (:func:`srgb_to_linear`); URDF ``rgba`` and Drake take them as given."""
 
 GAP_MM = 0.5
 """Clearance kept between a plate and a servo body in the plane where a plate is cut back around it."""
@@ -333,6 +335,102 @@ class Extrusion:
             nrm = np.cross(verts[b] - verts[a], verts[c] - verts[a])
             fixed.append((a, c, b) if np.dot(nrm, normals[a] + normals[b] + normals[c]) < 0 else (a, b, c))
         return verts, normals, np.array(fixed, dtype=np.int32)
+
+
+def rounded_box_mesh(center, half, fillet: float, rot=None, segments: int = 6
+                     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """A rounded box (a box of half extents ``half - fillet`` swept by a sphere of radius ``fillet``), as the convex
+    hull of its corner spheres sampled with ``segments`` steps per quarter circle: vertices, per-vertex normals (the
+    sphere's) and outward triangles, in the units given. ``segments=2`` gives 56 vertices, a collider hull."""
+    from scipy.spatial import ConvexHull
+
+    half, c = np.asarray(half, float), np.asarray(center, float)
+    r = min(float(fillet), float(half.min()))
+    inner = half - r
+    rot = np.eye(3) if rot is None else np.asarray(rot, float)
+    pts, nrm = [], []
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for sz in (-1, 1):
+                for i in range(segments + 1):
+                    phi = 0.5 * math.pi * i / segments
+                    for j in range(segments + 1 if i else 1):
+                        th = 0.5 * math.pi * j / segments
+                        n = np.array([sx * math.sin(phi) * math.cos(th), sy * math.sin(phi) * math.sin(th),
+                                      sz * math.cos(phi)])
+                        pts.append(np.array([sx, sy, sz]) * inner + r * n)
+                        nrm.append(n)
+    pts, nrm = np.array(pts), np.array(nrm)
+    pts, idx = np.unique(np.round(pts, 9), axis=0, return_index=True)
+    nrm = nrm[idx]
+    hull = ConvexHull(pts)
+    faces = []
+    for tri, eq in zip(hull.simplices, hull.equations, strict=True):
+        a, b, cc = tri
+        n = np.cross(pts[b] - pts[a], pts[cc] - pts[a])
+        faces.append((a, b, cc) if n @ eq[:3] > 0 else (a, cc, b))
+    used = np.unique(np.array(faces))
+    remap = -np.ones(len(pts), dtype=np.int64)
+    remap[used] = np.arange(len(used))
+    faces = remap[np.array(faces)]
+    return pts[used] @ rot.T + c, nrm[used] @ rot.T, faces.astype(np.int32)
+
+
+@dataclass(frozen=True)
+class RoundedBox:
+    """A rounded box piece [mm]: ``center`` in the hand frame at the geometric zero, ``rot`` its axes (columns)."""
+
+    name: str
+    body: str
+    material: str
+    center: np.ndarray
+    half: np.ndarray
+    fillet: float
+    rot: np.ndarray
+
+    def mesh(self, segments: int = 6) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        verts, normals, faces = rounded_box_mesh(self.center, self.half, self.fillet, self.rot, segments)
+        return verts * MM, normals, faces
+
+    def distance(self, points: np.ndarray) -> np.ndarray:
+        """Signed distance [mm] of hand-frame points [mm] (negative inside)."""
+        r = min(self.fillet, float(np.min(self.half)))
+        q = np.abs((points - self.center) @ self.rot) - (self.half - r)
+        return np.linalg.norm(np.maximum(q, 0.0), axis=1) + np.minimum(q.max(axis=1), 0.0) - r
+
+
+def housing_boxes(desc: Description) -> list[RoundedBox]:
+    """The palm housing (``bodies[palm].housing`` of the description) as :class:`RoundedBox` pieces (empty if the
+    description has none)."""
+    out = []
+    for body in desc.bodies:
+        for box in body.get("housing", []):
+            out.append(RoundedBox(box["name"], body["name"], "shell", _mm(box["center"]), _mm(box["half_extents"]),
+                                  float(box["fillet"]) / MM, quat_wxyz_to_matrix(box["quat_wxyz"])))
+    return out
+
+
+def housing_pieces(desc: Description) -> list:
+    """The housing's shell (its colliders' shape, drawn finer) and dark accents: a pad on the flat palmar face of the
+    palm block, a band along the hood's front edge."""
+    shell = housing_boxes(desc)
+    out: list = list(shell)
+    by_name = {b.name: b for b in shell}
+    if "palm_block" in by_name:
+        b = by_name["palm_block"]
+        lo, hi = b.center - b.half, b.center + b.half
+        inset = b.fillet + 1.0
+        out.append(RoundedBox("palm_face_pad", b.body, "accent",
+                              np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2] + 0.25]),
+                              np.array([(hi[0] - lo[0]) / 2 - inset, (hi[1] - lo[1]) / 2 - inset, 0.55]), 0.5,
+                              np.eye(3)))
+    if "palm_hood" in by_name:
+        b = by_name["palm_hood"]
+        lo, hi = b.center - b.half, b.center + b.half
+        out.append(RoundedBox("palm_front_band", b.body, "accent",
+                              np.array([hi[0] - 0.9, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]),
+                              np.array([1.2, (hi[1] - lo[1]) / 2 - b.fillet - 1.0, 2.0]), 0.8, np.eye(3)))
+    return out
 
 
 def _unit(v) -> np.ndarray:
@@ -642,9 +740,11 @@ def hand_visuals(desc: Description) -> list[Extrusion]:
     """Every visual piece of the hand (module docstring), each on the body it moves with."""
     fingers = [p for d in desc.four_bar_digits() for p in finger_pieces(desc, d)]
     out = servo_pieces(desc) + pad_pieces(desc) + fingers
+    housing = housing_pieces(desc)
     if "thumb/ro" in _servos(desc):
-        out += thumb_and_palm_pieces(desc, fingers)
-    return out
+        thumb = thumb_and_palm_pieces(desc, fingers)
+        out += [p for p in thumb if not (housing and p.body == "palm")]  # the housing replaces the palm plates
+    return out + housing
 
 
 def body_meshes(desc: Description, pieces: list[Extrusion] | None = None
@@ -796,7 +896,7 @@ def servo_clearances(desc: Description, poses: list[dict[str, float]], near_mm: 
     """The smallest distance [mm] between every visual piece (but the servo bodies themselves and each servo's own
     output hub) and every servo body over the joint ``poses`` (dicts of tree joint angles [deg]), per ``(piece,
     servo)`` pair that comes within ``near_mm``. Negative: they intersect."""
-    pieces = hand_visuals(desc)
+    pieces = [p for p in hand_visuals(desc) if isinstance(p, Extrusion)]
     servos = [p for p in pieces if p.servo is not None]
     others = [p for p in pieces if p.servo is None]
     out: dict[tuple[str, str], float] = {}
@@ -822,10 +922,92 @@ def servo_clearances(desc: Description, poses: list[dict[str, float]], near_mm: 
     return out
 
 
+def _capsule_samples(cap: dict, step: float) -> np.ndarray:
+    """Points [mm] on a capsule's surface (``bodies[].capsule``, hand frame at the geometric zero)."""
+    a, b, r = _mm(cap["start"]), _mm(cap["end"]), float(cap["radius"]) / MM
+    axis = b - a
+    length = float(np.linalg.norm(axis))
+    u = axis / length if length > 1e-9 else np.array([0.0, 0.0, 1.0])
+    e1 = np.cross(u, [1.0, 0.0, 0.0] if abs(u[0]) < 0.9 else [0.0, 1.0, 0.0])
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(u, e1)
+    n = max(8, int(2 * math.pi * r / step))
+    ring = [math.cos(t) * e1 + math.sin(t) * e2 for t in np.linspace(0, 2 * math.pi, n, endpoint=False)]
+    pts = [a + t * axis + r * d for t in np.linspace(0, 1, max(2, int(length / step) + 1)) for d in ring]
+    for c, sgn in ((a, -1.0), (b, 1.0)):  # hemispheres
+        for phi in np.linspace(0, math.pi / 2, max(3, int(r * math.pi / 2 / step))):
+            pts += [c + r * (math.cos(phi) * d + sgn * math.sin(phi) * u) for d in ring]
+    return np.array(pts)
+
+
+def _capsule_distance(points: np.ndarray, cap: dict, pose) -> np.ndarray:
+    r, t = pose
+    a, b, rad = r @ _mm(cap["start"]) + t, r @ _mm(cap["end"]) + t, float(cap["radius"]) / MM
+    ab = b - a
+    s = np.clip(((points - a) @ ab) / max(ab @ ab, 1e-12), 0.0, 1.0)
+    return np.linalg.norm(points - (a + s[:, None] * ab), axis=1) - rad
+
+
+def _box_samples(box: dict, step: float) -> np.ndarray:
+    r = quat_wxyz_to_matrix(box["quat_wxyz"])
+    h = _mm(box["half_extents"])
+    axes = [np.arange(-hi, hi + 1e-9, step) if hi > step else np.array([-hi, hi]) for hi in h]
+    g = np.array(np.meshgrid(*axes, indexing="ij")).reshape(3, -1).T
+    surface = g[np.any(np.isclose(np.abs(g), h, atol=step / 2), axis=1)]
+    return surface @ r.T + _mm(box["center"])
+
+
+def housing_clearances(desc: Description, poses: list[dict[str, float]], step: float = 0.5
+                       ) -> dict[tuple[str, str], tuple[float, int]]:
+    """The smallest distance [mm] between the palm housing (its rounded boxes and their accents, which the palm's
+    convex colliders lie inside) and every moving body, per ``(body, "visual" | "collider")``, over the joint
+    ``poses``, with the index of the pose where it is reached. Negative: they intersect. From surface samples
+    ``step`` apart on the moving parts (against the boxes' exact distance) and the housing's corner vertices (against
+    the moving parts' exact distance)."""
+    housing = [p for p in hand_visuals(desc) if isinstance(p, RoundedBox) and p.body == "palm"]
+    if not housing:
+        return {}
+    pieces = [p for p in hand_visuals(desc) if isinstance(p, Extrusion) and p.body != "palm"]
+    lo = np.min([b.center - b.half for b in housing], axis=0) - 8.0
+    hi = np.max([b.center + b.half for b in housing], axis=0) + 8.0
+    corners = np.concatenate([b.mesh(4)[0] / MM for b in housing])
+    samples: dict[tuple[str, str], list] = {}
+    for piece in pieces:
+        samples.setdefault((piece.body, "visual"), []).append(_surface_samples(piece, step))
+    colliders: dict[str, list] = {}
+    for body in desc.bodies:
+        if body["name"] == "palm":
+            continue
+        parts = [_capsule_samples(body["capsule"], step)] + [_box_samples(b, step) for b in body.get("boxes", [])]
+        samples[(body["name"], "collider")] = parts
+        colliders[body["name"]] = body
+    samples = {k: np.concatenate(v) for k, v in samples.items()}
+    out: dict[tuple[str, str], tuple[float, int]] = {}
+    for k, angles in enumerate(poses):
+        bp = body_poses(desc, angles)
+        for (body, kind), pts in samples.items():
+            r, t = bp[body]
+            moved = pts @ r.T + t
+            near = moved[np.all((moved > lo) & (moved < hi), axis=1)]
+            d = min((float(b.distance(near).min()) for b in housing), default=math.inf) if len(near) else math.inf
+            if kind == "visual":  # the housing's corners into the moving plates
+                for piece in pieces:
+                    if piece.body == body:
+                        d = min(d, float(_distance_to_extrusion(corners, posed(piece, bp[body])).min()))
+            else:
+                cap = colliders[body]["capsule"]
+                d = min(d, float(_capsule_distance(corners, cap, bp[body]).min()))
+            key = (body, kind)
+            if d < out.get(key, (math.inf, -1))[0]:
+                out[key] = (d, k)
+    return out
+
+
 def finger_poses(desc: Description, q_degs) -> list[dict[str, float]]:
     """Every finger closed at each PIP flexion of ``q_degs`` (the ``four_bar`` tables), the rest at zero."""
     return [{k: v for d in desc.four_bar_digits() for k, v in desc.closed_pose(d, q).items()} for q in q_degs]
 
 
-__all__ = ["Extrusion", "PALETTE", "body_meshes", "body_poses", "clearance", "finger_plane", "finger_poses",
-           "hand_visuals", "posed", "servo_clearances", "srgb_to_linear"]
+__all__ = ["Extrusion", "PALETTE", "RoundedBox", "body_meshes", "body_poses", "clearance", "finger_plane",
+           "finger_poses", "hand_visuals", "housing_boxes", "housing_clearances", "posed", "rounded_box_mesh",
+           "servo_clearances", "srgb_to_linear"]

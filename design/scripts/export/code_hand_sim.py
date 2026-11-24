@@ -29,6 +29,12 @@ The description is what ``sim/`` builds its robot assets from, so ``sim/`` never
   servo's actuator frame in the hand frame at the geometric zero (``position``, ``quat_wxyz``): the model's servo
   frame, which is the packaging code's actuator frame (shaft at the origin, +Z the shaft, +Y toward the rounded cap,
   the body along -Y, centred along Z).
+- ``bodies[palm].housing``: the palm housing, the palm's collider in place of its placeholder capsule (optional;
+  older descriptions lack it, and the capsule stays for the placeholder inertia). Rounded boxes in the hand frame
+  (``center``, ``half_extents``, ``fillet``, ``quat_wxyz``, metres) whose union encloses the servos the palm carries
+  (each finger's abduction servo and the thumb's rotation servo): a dorsal hood over the abduction servos, a palm block
+  under their rear halves with the flat palmar face, a heel round the rotation servo and a bridge joining them on the
+  fingers' side of the thumb's sweep. ``palm_housing`` holds the parameters (:class:`PalmHousing`).
 - ``servo.shape``: the servo body's packaging profile (``core.hardware``), the one the packaging constraints and the
   optimization use, extruded along the shaft: ``d_extrusion`` (``radius``, ``rear_extent``, ``depth``: x +-radius,
   y from -rear_extent to 0 plus a cap of that radius in y >= 0) or ``box_extrusion`` (``width``, ``length``,
@@ -134,6 +140,96 @@ def servo_visuals(frames) -> list[dict]:
             for key, frame in frames.servos.items()]
 
 
+@dataclasses.dataclass(frozen=True)
+class PalmHousing:
+    """The palm housing's parameters [mm]; its geometry follows from the servo frames (:func:`palm_housing`)."""
+
+    wall_mm: float = 2.0
+    """Wall over the servos it encloses."""
+    fillet_mm: float = 4.0
+    """Edge radius of every box (each is a rounded box: a box swept by a sphere of this radius)."""
+    palmar_depth_mm: float = 6.0
+    """The flat palmar face below the abduction servos' palmar faces."""
+    front_setback_mm: float = 18.0
+    """The dorsal hood's front edge behind the most proximal MCP-FE axis: clears the FE servos as abduction (+-30 deg)
+    swings them about the abduction axes."""
+    gap_mm: float = 0.5
+    """Clearance to moving parts: the MCP links leave each abduction servo's palmar face at its axis (the palm block
+    stops a servo radius and this gap behind the axes, the hood this gap above the servos' palmar faces); the thumb's
+    rotation servo output and the thumb's base."""
+    thumb_margin_mm: float = 3.0
+    """Beyond the thumb servos' bodies (its links, fingertip case and pad) when sweeping the thumb about its rotation
+    axis over the rotation range."""
+
+
+PALM_HOUSING = PalmHousing()
+
+
+def _servo_box(frame: np.ndarray, geometry) -> np.ndarray:
+    """The 3D corners [mm] of a servo body (its packaging profile extruded over its depth) in the hand frame."""
+    r, hz = geometry.radius_mm, geometry.depth_mm / 2
+    profile = [(-r, -geometry.rear_extent_mm), (r, -geometry.rear_extent_mm)]
+    profile += [(r * np.cos(a), r * np.sin(a)) for a in np.linspace(0.0, np.pi, 13)]
+    pts = np.array([[x, y, z, 1.0] for x, y in profile for z in (-hz, hz)])
+    return (frame @ pts.T).T[:, :3]
+
+
+def _rotate(points: np.ndarray, origin: np.ndarray, axis: np.ndarray, deg: float) -> np.ndarray:
+    a = axis / np.linalg.norm(axis)
+    k = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+    t = np.radians(deg)
+    rot = np.eye(3) + np.sin(t) * k + (1 - np.cos(t)) * k @ k
+    return (points - origin) @ rot.T + origin
+
+
+def palm_housing(frames, geometry, p: PalmHousing = PALM_HOUSING) -> list[dict]:
+    """The housing's rounded boxes (``bodies[palm].housing``, module docstring), axis-aligned in the hand frame (x
+    toward the fingers, z dorsal). From the servo boxes: the hood spans the abduction servos (y, x from the thumb's
+    base to ``front_setback_mm`` behind the MCP-FE axes, z from ``gap_mm`` above their palmar faces to ``wall_mm``
+    above their tops); the palm block under their rear halves (to a servo radius and ``gap_mm`` behind the abduction
+    axes) down to the flat palmar face; the heel round the thumb's rotation servo (its output face left free by
+    ``gap_mm``); the bridge on the fingers' side of everything the thumb sweeps about its rotation axis."""
+    aa = np.concatenate([_servo_box(frames.servos[f"{d}/aa"], geometry) for d in FINGERS])
+    ro_frame = frames.servos["thumb/ro"]
+    ro = _servo_box(ro_frame, geometry)
+    ro_axis, ro_origin = ro_frame[:3, 2], ro_frame[:3, 3]
+    thumb = np.concatenate([_servo_box(frames.servos[f"thumb/{k}"], geometry) for k in ("raa", "mcp", "ip")]
+                           + [frames.points["thumb/tip"][None]])
+    margin = p.thumb_margin_mm
+    lo_t, hi_t = thumb.min(axis=0) - margin, thumb.max(axis=0) + margin
+    thumb_box = np.array([[x, y, z] for x in (lo_t[0], hi_t[0]) for y in (lo_t[1], hi_t[1])
+                          for z in (lo_t[2], hi_t[2])])
+    swept = np.concatenate([_rotate(thumb_box, ro_origin, ro_axis, a) for a in np.linspace(*LIMITS["ro"], 37)])
+    raa_x = _servo_box(frames.servos["thumb/raa"], geometry)[:, 0]
+    aa_axes = np.array([frames.servos[f"{d}/aa"][:3, 3] for d in FINGERS])
+    fe_x = min(frames.servos[f"{d}/fe"][0, 3] for d in FINGERS)
+    lo, hi = aa.min(axis=0), aa.max(axis=0)
+    w, g = p.wall_mm, p.gap_mm
+    y0, y1 = lo[1] - w, hi[1] + w
+    x_back = raa_x.max() + g  # the thumb's base turns about the rotation axis (x): its x extent stays
+    hood_z0 = max(_servo_box(frames.servos[f"{d}/aa"], geometry)[:, 2].min() for d in FINGERS) + g
+    z_top, z_palm = hi[2] + w, lo[2] - p.palmar_depth_mm
+    palm_front = aa_axes[:, 0].min() - geometry.radius_mm - g
+    ro_face = (ro_origin + ro_axis * geometry.depth_mm / 2)[0]
+    heel = (ro.min(axis=0) - w, np.array([ro_face - g, ro.max(axis=0)[1] + w, max(ro.max(axis=0)[2] + w, z_top)]))
+    heel[0][1] = y0
+    heel[0][2] = min(heel[0][2], z_palm)
+    bridge_y1 = swept[:, 1].min() - g
+    boxes = {
+        "palm_hood": ((x_back, y0, hood_z0), (fe_x - p.front_setback_mm, y1, z_top)),
+        "palm_block": ((x_back, y0, z_palm), (palm_front, y1, hood_z0 + p.fillet_mm)),
+        "palm_bridge": ((heel[1][0] - p.fillet_mm, y0, z_palm), (x_back + p.fillet_mm, bridge_y1, z_top)),
+        "palm_heel": (tuple(heel[0]), tuple(heel[1])),
+    }
+    out = []
+    for name, (a, b) in boxes.items():
+        a, b = np.asarray(a, float), np.asarray(b, float)
+        half = (b - a) / 2
+        out.append({"name": name, "center": _m((a + b) / 2), "half_extents": _m(half),
+                    "fillet": round(min(p.fillet_mm, half.min()) * MM, 9), "quat_wxyz": [1.0, 0.0, 0.0, 0.0]})
+    return out
+
+
 def four_bar_table(finger) -> dict:
     """Tree joint angles [deg] of the four-bar against the PIP angle: ``a`` (driver link about ``A``), ``ap``
     (servo link about ``A'``, the PIP servo) and ``b`` (distal about ``B``, relative to the servo link)."""
@@ -155,7 +251,8 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
     frames = model.frames()
     f, t = parameters.finger, parameters.thumb
     bodies = [{"name": "palm", "origin": [0.0, 0.0, 0.0], "mass": 0.3, "com": [0.0, 0.0, 0.0], "fixed": True,
-               "capsule": {"start": [0.0, 0.0, 0.0], "end": [0.0, -0.05, 0.0], "radius": 0.02}}]
+               "capsule": {"start": [0.0, 0.0, 0.0], "end": [0.0, -0.05, 0.0], "radius": 0.02},
+               "housing": palm_housing(frames, XM335Actuator().geometry)}]
     joints, loops, tables = [], [], {}
     servo_zero = pip_servo_deg(f, 0.0)
     pads = parameters.pads
@@ -238,6 +335,7 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
         "four_bar": tables,
         "tips": {**{d: _m(frames.points[f"{d}/C"]) for d in FINGERS}, "thumb": _m(tip)},
         "visuals": servo_visuals(frames),
+        "palm_housing": {k: v for k, v in dataclasses.asdict(PALM_HOUSING).items()},
     }
 
 
@@ -252,7 +350,7 @@ def main(argv=None) -> int:
     args.out.write_text(json.dumps(data, indent=1) + "\n")
     boxes = sum(len(body.get("boxes", [])) for body in data["bodies"])
     print(f"{args.out}: {len(data['bodies'])} bodies, {len(data['joints'])} tree joints, {len(data['loops'])} loops, "
-          f"{boxes} pads, {len(data['visuals'])} servo visuals, "
+          f"{boxes} pads, {len(data['visuals'])} servo visuals, {len(data['bodies'][0]['housing'])} palm boxes, "
           f"source {data['source']['commit'][:8]}{' (dirty)' if data['source']['dirty'] else ''}")
     return 0
 

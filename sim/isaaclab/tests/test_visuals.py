@@ -42,10 +42,13 @@ def test_every_body_but_markers_gets_visuals_and_every_servo_is_drawn(desc):
     pieces = hand_visuals(desc)
     bodies = {p.body for p in pieces}
     assert bodies == {b["name"] for b in desc.bodies}
-    assert {p.servo for p in pieces if p.servo} == {v["servo"] for v in desc.data["visuals"]}
+    assert {p.servo for p in pieces if getattr(p, "servo", None)} == {v["servo"] for v in desc.data["visuals"]}
     assert sum(p.material == "pad" for p in pieces) == 7  # six finger pads and the thumb pad
     case = next(p for p in pieces if p.name == "thumb_tip_case")
     assert case.body == "thumb_distal"
+    palm = [p for p in pieces if p.body == "palm" and getattr(p, "servo", None) is None]
+    assert {p.name for p in palm} >= {"palm_hood", "palm_block", "palm_bridge", "palm_heel"}  # the housing
+    assert not any(p.name.startswith("palm_plate") for p in palm)  # in place of the plain palm plates
 
 
 def test_profiles_are_simple_and_fully_triangulated(desc):
@@ -53,7 +56,7 @@ def test_profiles_are_simple_and_fully_triangulated(desc):
 
     from code_isaaclab.assets.visuals import ear_clip
 
-    for piece in hand_visuals(desc):
+    for piece in (p for p in hand_visuals(desc) if hasattr(p, "profile")):
         poly = np.asarray(piece.profile)
         if not Polygon(poly).exterior.is_ccw:
             poly = poly[::-1]
@@ -109,8 +112,9 @@ def test_meshes_are_closed_and_wound_outward(desc):
 
 
 def test_urdf_visuals_leave_collision_and_inertia_unchanged(desc, tmp_path):
-    plain = ET.parse(write_urdf(desc, tmp_path / "a.urdf", geometry=True)).getroot()
-    vis = ET.parse(write_urdf(desc, tmp_path / "b.urdf", geometry=True, visuals=True)).getroot()
+    plain = ET.parse(write_urdf(desc, tmp_path / "a.urdf", geometry=True, mesh_dir=tmp_path / "m")).getroot()
+    vis = ET.parse(write_urdf(desc, tmp_path / "b.urdf", geometry=True, visuals=True,
+                              mesh_dir=tmp_path / "m")).getroot()
     for tag in ("inertial", "collision"):
         a = [ET.tostring(e).strip() for link in plain.iter("link") for e in link.iter(tag)]
         b = [ET.tostring(e).strip() for link in vis.iter("link") for e in link.iter(tag)]
@@ -176,3 +180,56 @@ def test_newton_imports_the_same_colliders_and_the_display_colours(desc, tmp_pat
                if "/visual_" in label}
     for name, rgb in PALETTE.items():
         assert np.allclose(colours[f"visual_{name}"], rgb, atol=2e-3)
+
+
+def test_housing_replaces_the_palm_capsule_as_convex_colliders(desc, tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    stage = Usd.Stage.Open(str(write_usd(desc, tmp_path / "h.usda", colliders=True, pad_profile=FLAT)))
+    palm = stage.GetPrimAtPath("/code_hand/palm")
+    children = {c.GetName(): c for c in palm.GetChildren()}
+    assert "capsule" not in children
+    boxes = [b["name"] for b in desc.body("palm")["housing"]]
+    for name in boxes:
+        prim = children[name]
+        assert prim.HasAPI(UsdPhysics.CollisionAPI)
+        assert UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr().Get() == UsdPhysics.Tokens.convexHull
+        assert len(UsdGeom.Mesh(prim).GetPointsAttr().Get()) <= 64  # within convex-hull vertex limits
+    urdf = ET.parse(write_urdf(desc, tmp_path / "h.urdf", geometry=True)).getroot()
+    link = next(link for link in urdf.iter("link") if link.get("name") == "palm")
+    meshes = [c.find("geometry/mesh").get("filename") for c in link.iter("collision")]
+    assert len(meshes) == len(boxes) and all((tmp_path / m).exists() for m in meshes)
+    assert not any(c.find("geometry/sphere") is not None for c in link.iter("collision"))
+
+
+def test_housing_geometry_follows_its_parameters(desc):
+    from code_isaaclab.assets.visuals import housing_boxes
+
+    params = desc.data["palm_housing"]
+    boxes = {b.name: b for b in housing_boxes(desc)}
+    lo = {n: b.center - b.half for n, b in boxes.items()}
+    hi = {n: b.center + b.half for n, b in boxes.items()}
+    fe_x = min(np.asarray(desc.joint(f"{d}_fe")["anchor"])[0] * 1e3 for d in ("index", "middle", "ring"))
+    assert max(h[0] for h in hi.values()) == pytest.approx(fe_x - params["front_setback_mm"], abs=1e-6)
+    aa = [v for v in desc.data["visuals"] if v["servo"].endswith("/aa")]
+    aa_z = min(v["position"][2] for v in aa) * 1e3 - desc.servo["shape"]["depth"] / 2 * 1e3
+    assert lo["palm_block"][2] == pytest.approx(aa_z - params["palmar_depth_mm"], abs=0.2)  # the flat palmar face
+    assert all(b.fillet == pytest.approx(params["fillet_mm"]) for b in boxes.values())
+
+
+def test_housing_clears_the_fingers_over_their_range(desc):
+    from code_isaaclab.assets.visuals import housing_clearances
+
+    poses = []
+    for aa, fe, q in ((-30.0, -10.0, 0.0), (30.0, 100.0, 120.0), (30.0, -10.0, 60.0), (-30.0, 100.0, 0.0)):
+        pose = {}
+        for d in desc.four_bar_digits():
+            pose.update(desc.closed_pose(d, q))
+            pose[f"{d}_aa"], pose[f"{d}_fe"] = aa, fe
+        poses.append(pose)
+    result = housing_clearances(desc, poses)
+    visual = {k: v for k, v in result.items() if k[1] == "visual" and not k[0].startswith("thumb")}
+    assert visual and min(v[0] for v in visual.values()) > 0.3
+    # the placeholder MCP capsules start on the abduction axes, inside the housed servos (the pairs are filtered)
+    colliders = {k: v for k, v in result.items() if k[1] == "collider" and not k[0].startswith("thumb")}
+    assert all(v[0] > 0.3 for k, v in colliders.items() if not k[0].endswith("_mcp"))

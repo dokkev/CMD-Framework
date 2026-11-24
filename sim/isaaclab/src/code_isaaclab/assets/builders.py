@@ -26,7 +26,7 @@ import numpy as np
 
 from ..contact_interface import is_pad, pad_mesh
 from .description import Description, rod_inertia
-from .visuals import PALETTE, body_meshes, srgb_to_linear
+from .visuals import PALETTE, body_meshes, rounded_box_mesh, srgb_to_linear
 
 LoopKind = Literal["ball", "revolute"]
 
@@ -35,6 +35,16 @@ PAD_RGB = (0.30, 0.52, 0.93)
 LINK_RGB = (0.78, 0.78, 0.80)
 """Display colours (sRGB) of the ``geometry`` URDF's shape visuals and the USD colliders' ``displayColor``."""
 CAP_SEGMENTS = 16
+HOUSING_SEGMENTS = 2
+"""Steps per quarter circle of a palm housing box's collider hull (56 vertices: within convex-hull vertex limits)."""
+
+
+def housing_collider(box: dict, origin: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """A palm housing box (``bodies[palm].housing``) as its convex collider mesh in its body's frame [m]: vertices
+    and outward triangles."""
+    verts, _, faces = rounded_box_mesh(np.asarray(box["center"], float) - origin, box["half_extents"],
+                                       float(box["fillet"]), _quat_wxyz_matrix(box["quat_wxyz"]), HOUSING_SEGMENTS)
+    return verts, faces
 
 
 def servo_mesh(shape: dict) -> tuple[np.ndarray, np.ndarray]:
@@ -152,9 +162,15 @@ def write_urdf(desc: Description, path: str | Path, *, passive_limit_margin_deg:
 
     def shapes(body: dict) -> list[tuple[str, str, str]]:  # (geometry xml, origin xml, material) in the link frame
         found = []
+        for box in body.get("housing", []):  # the palm housing replaces the placeholder capsule
+            obj = write_obj(*housing_collider(box, frame[body["name"]]), mesh_root / f"{box['name']}.obj")
+            rel = obj.relative_to(out.parent) if obj.is_relative_to(out.parent) else obj
+            found.append((f'<mesh filename="{rel}"/>', 'xyz="0 0 0" rpy="0 0 0"', "link"))
         start = np.asarray(body["capsule"]["start"], dtype=float) - frame[body["name"]]
         end = np.asarray(body["capsule"]["end"], dtype=float) - frame[body["name"]]
         radius, length = float(body["capsule"]["radius"]), float(np.linalg.norm(end - start))
+        if body.get("housing"):
+            length, start, end = -1.0, None, None
         if length > 1e-6:
             direction = (end - start) / length
             axis = np.cross([0.0, 0.0, 1.0], direction)
@@ -163,7 +179,7 @@ def write_urdf(desc: Description, path: str | Path, *, passive_limit_margin_deg:
                 np.diag([1.0, -1.0, -1.0]) if np.linalg.norm(axis) < 1e-9 else _axis_angle_matrix(axis, angle))
             found.append((f'<cylinder radius="{radius:.9g}" length="{length:.9g}"/>',
                           f'xyz="{_xyz((start + end) / 2)}" rpy="{_xyz(_rpy(rot))}"', "link"))
-        for point in (start, end) if length > 1e-6 else (start,):
+        for point in (start, end) if length > 1e-6 else (start,) if start is not None else ():
             found.append((f'<sphere radius="{radius:.9g}"/>', f'xyz="{_xyz(point)}" rpy="0 0 0"', "link"))
         for box in body.get("boxes", []):
             rot = _quat_wxyz_matrix(box["quat_wxyz"])
@@ -305,9 +321,23 @@ def write_usd(
         mass.CreateCenterOfMassAttr(Gf.Vec3f(*(np.asarray(body["com"], dtype=float) - origin[body["name"]])))
         mass.CreateDiagonalInertiaAttr(Gf.Vec3f(*np.diag(rod_inertia(body))))
 
+        for box in body.get("housing", []):  # the palm housing replaces the placeholder capsule: convex hulls
+            verts, faces = housing_collider(box, origin[body["name"]])
+            hull = UsdGeom.Mesh.Define(stage, f"/code_hand/{body['name']}/{box['name']}")
+            hull.CreatePointsAttr([Gf.Vec3f(*v) for v in verts])
+            hull.CreateFaceVertexCountsAttr([3] * len(faces))
+            hull.CreateFaceVertexIndicesAttr(faces.reshape(-1).tolist())
+            hull.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+            if colliders:
+                UsdPhysics.CollisionAPI.Apply(hull.GetPrim())
+                UsdPhysics.MeshCollisionAPI.Apply(hull.GetPrim()).CreateApproximationAttr(UsdPhysics.Tokens.convexHull)
+            if visuals:
+                hull.CreateDisplayColorAttr([Gf.Vec3f(*srgb_to_linear(LINK_RGB))])
+                hull.CreatePurposeAttr(UsdGeom.Tokens.guide)
+
         start = np.asarray(body["capsule"]["start"], dtype=float) - origin[body["name"]]
         end = np.asarray(body["capsule"]["end"], dtype=float) - origin[body["name"]]
-        length = float(np.linalg.norm(end - start))
+        length = -1.0 if body.get("housing") else float(np.linalg.norm(end - start))
         if length > 1e-6:
             cap = UsdGeom.Capsule.Define(stage, f"/code_hand/{body['name']}/capsule")
             cap.CreateRadiusAttr(float(body["capsule"]["radius"]))

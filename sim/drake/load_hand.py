@@ -17,7 +17,8 @@ pose: the PIP servos commanded to theta(q), 3 s simulated with gravity (palm up)
 reached. ``--render``: Drake VTK images of the hand (palm up, at MCP 0 and these PIP angles) to ``logs/load_hand/``;
 ``--view side`` looks at the ring finger from its outer side (the coupler's) with ``render3d.py``'s camera (the look
 of ``logs/hands_ORU_3d.png``), ``side_driver`` mirrored at the index finger from the other side (the driver's),
-``overview`` from the Isaac Lab video camera.
+``overview`` from the Isaac Lab video camera. ``--hand-view [palm_up palm_down atlas]``: whole-hand views
+(``HAND_VIEWS``) to ``logs/load_hand/drake_<hand>_<view>.png``.
 
 The URDF is the one with the drawing-only geometry when it exists (``make_assets.py ... --visuals``:
 ``*_thumbpad_vis.urdf``), otherwise the plain ``*_thumbpad.urdf``; the visuals carry no mass or collision, so the
@@ -87,7 +88,7 @@ def ratio(desc: dict, digit: str, q_deg: float) -> float:
 
 
 def load_hand(urdf: Path, description: Path, *, time_step: float = 1e-3, contact: str = "point", pip_deg: float = 0.0,
-              gravity: bool = True, renderer: bool = False):
+              gravity: bool = True, renderer: bool = False, pose=HAND_POSE):
     """Build the plant. Returns ``(diagram, plant, scene_graph, model, desc, pins)``; ``pins`` lists each loop's
     ``(parent body, p_parent, child body, p_child)`` (the cut pin in both bodies' frames)."""
     from pydrake.geometry import CollisionFilterDeclaration, GeometrySet
@@ -116,7 +117,7 @@ def load_hand(urdf: Path, description: Path, *, time_step: float = 1e-3, contact
         params.shadow_map_size = 4096
         sg.AddRenderer("vtk", MakeRenderEngineVtk(params))
     model = Parser(plant).AddModels(str(urdf))[0]
-    rpy, xyz = HAND_POSE[:3], HAND_POSE[3:]
+    rpy, xyz = pose[:3], pose[3:]
     plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("palm", model), RigidTransform(RollPitchYaw(*rpy), xyz))
     if not gravity:
         plant.mutable_gravity_field().set_gravity_vector([0.0, 0.0, 0.0])
@@ -219,6 +220,53 @@ def check(hand: str, contact: str) -> dict:
     return result
 
 
+HAND_VIEWS = {
+    "palm_up": {"pose": HAND_POSE, "dir": (0.55, -0.55, 0.63), "joints": {}},
+    "palm_down": {"pose": (0.0, 0.0, 0.0, 0.0, 0.0, 0.5), "dir": (0.55, -0.55, 0.63), "joints": {}},
+    "atlas": {"pose": (0.0, 0.0, 0.0, 0.0, 0.0, 0.5), "dir": (-0.62, -0.5, 0.6),
+              "joints": {"fe": 25.0, "pip": 35.0, "thumb_mcp": 20.0, "thumb_ip": 20.0}},
+}
+"""Whole-hand views (the camera in the world, z up): ``palm_up`` and ``palm_down`` three-quarter views from the
+fingers' front right, ``atlas`` from the dorsal back left with the fingers slightly flexed (the Atlas hand photo).
+``sim/isaaclab/scripts/code_hand/render_visuals.py`` uses the same."""
+HAND_VIEW_TARGET, HAND_VIEW_DIST, HAND_VIEW_FOV = (0.02, 0.01, 0.0), 0.44, 35.0
+"""The point looked at (hand frame) [m], the camera's distance [m] and field of view [deg]."""
+
+
+def render_hand_view(hand: str, view: str, size=(1000, 800)) -> Path:
+    """A ``HAND_VIEWS`` image of the whole hand."""
+    from PIL import Image
+    from pydrake.geometry import ClippingRange, ColorRenderCamera, RenderCameraCore
+    from pydrake.math import RigidTransform, RollPitchYaw, RotationMatrix
+    from pydrake.systems.sensors import CameraInfo
+
+    spec = HAND_VIEWS[view]
+    urdf, description = paths(hand)
+    diagram, plant, sg, model, desc, _ = load_hand(urdf, description, renderer=True, pose=spec["pose"])
+    ctx = diagram.CreateDefaultContext()
+    pctx, sctx = plant.GetMyMutableContextFromRoot(ctx), sg.GetMyContextFromRoot(ctx)
+    j = spec["joints"]
+    set_pose(plant, pctx, model, desc, j.get("pip", 0.0), j.get("fe", 0.0),
+             {k: v for k, v in j.items() if k.startswith("thumb_")})
+    rot = RollPitchYaw(*spec["pose"][:3]).ToRotationMatrix().matrix()
+    target = rot @ np.asarray(HAND_VIEW_TARGET) + np.asarray(spec["pose"][3:])
+    d = np.asarray(spec["dir"], float)
+    eye = target + HAND_VIEW_DIST * d / np.linalg.norm(d)
+    fwd = (target - eye) / np.linalg.norm(target - eye)
+    right = np.cross(fwd, [0.0, 0.0, 1.0])
+    right /= np.linalg.norm(right)
+    down = np.cross(fwd, right)
+    camera = ColorRenderCamera(RenderCameraCore("vtk", CameraInfo(size[0], size[1], math.radians(HAND_VIEW_FOV)),
+                                                ClippingRange(0.01, 3.0), RigidTransform()), False)
+    img = sg.get_query_output_port().Eval(sctx).RenderColorImage(
+        camera, sg.world_frame_id(), RigidTransform(RotationMatrix(np.column_stack([right, down, fwd])), eye))
+    OUT.mkdir(parents=True, exist_ok=True)
+    path = OUT / f"drake_{hand}_{view}.png"
+    Image.fromarray(np.array(img.data)[:, :, :3]).save(path)
+    print(path)
+    return path
+
+
 def render(hand: str, pip_degs: list[float], eye=(0.17, -0.10, 0.63), lookat=(0.04, 0.02, 0.535), fov_deg=45.0,
            size=(960, 540), view: str = "overview") -> list[Path]:
     """Drake VTK images of the hand, palm up at MCP 0 and each PIP flexion, from the Isaac Lab video camera
@@ -266,6 +314,8 @@ def main(argv=None) -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--render", type=float, nargs="*", default=None, help="PIP flexions to render [deg]")
     parser.add_argument("--view", choices=("overview", "side", "side_driver"), default="overview")
+    parser.add_argument("--hand-view", choices=tuple(HAND_VIEWS), nargs="*", default=None,
+                        help="whole-hand views (HAND_VIEWS); none given: all")
     parser.add_argument("--contact", choices=("point", "hydroelastic"), default="point")
     args = parser.parse_args(argv)
     if args.check:
@@ -282,6 +332,10 @@ def main(argv=None) -> int:
     if args.render is not None:
         for h in args.hand:
             render(h, args.render or [0.0, 60.0, 120.0], view=args.view)
+    if args.hand_view is not None:
+        for h in args.hand:
+            for view in args.hand_view or HAND_VIEWS:
+                render_hand_view(h, view)
     return 0
 
 
