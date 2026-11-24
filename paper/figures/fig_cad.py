@@ -113,57 +113,82 @@ def finger_sketch(ax, colour, kind):
 
 
 def main() -> int:
-    """Fig. 1 (user layout, 2026-11-24), page width. (a) the CoDe Hand (Isaac Lab USD render); (b) what a redesign for
-    thicker pads should preserve: O, a coverage-only redesign U that keeps O's links, and R that keeps the contact
-    surfaces' motion (qualitative sketches; the Delta_contact values are U's and R's); (c) the error each adds to a
-    measured interface effect under the reused impedance setpoint (Isaac Lab, pad friction 1.3 -> 2.0, median over O's
-    placements and four load directions: report/study3/data/isaac_dose_A_all.json, E_rel_median)."""
+    """Fig. 1 (2026-11-24, user brief): single column. Top: the CFL finger from the CAD (cad/finger_side.png), its room
+    for contact interfaces across the PIP joint marked. Two arrows split into the two ways of redesigning it for a
+    thicker interface: around the contact surfaces' motion (R) or around the skeleton (U, links kept); qualitative
+    sketches (finger_sketch) with the error each adds to a measured interface effect (Isaac Lab,
+    report/study3/data/isaac_dose_A_all.json). Bottom: contact interfaces the finger is meant to carry: the NARI-Touch
+    tactile sensor from its CAD (Onshape Dex-Hand/Sensors/NARI-Touch.step -> cad/nari_touch.png) and illustrative
+    pad cross-sections."""
     import json
+    from PIL import Image
+    from matplotlib.patches import FancyArrowPatch
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    width, height = 3.45, 2.75
+    width, height = 3.45, 3.62
     fig = plt.figure(figsize=(width, height))
-    lab = dict(fontsize=7, fontweight="bold", va="top")
     d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
-    # (a) the hand, top left
-    fig.text(0.01, 0.995, "(a) CoDe Hand", **lab)
-    iso = usd_render(CAD / "hand_usd_palm_up.png")
-    aw = 1.55
-    ah = aw * iso.shape[0] / iso.shape[1]
-    a = fig.add_axes((0.02 / width, (height - 0.17 - ah) / height, aw / width, ah / height))
-    a.imshow(iso); a.axis("off")
-    # (c) the error each redesign adds, top right
-    cx0 = 1.72
-    fig.text(cx0 / width, 0.995, "(c) Error in the measured\ninterface effect", linespacing=1.0, **lab)
-    ex = (("U", d["U"]["E_rel_median"]), ("R", d["R"]["E_rel_median"]))
-    cx = fig.add_axes(((cx0 + 0.02) / width, (height - 0.78) / height, 1.25 / width, 0.36 / height))
-    for k, (h, e) in enumerate(ex):
-        cx.barh(1 - k, e * 100, height=0.62, color=HAND_C[h], edgecolor="none")
-        cx.text(e * 100 + 4, 1 - k, f"{e * 100:.0f}% ({h})", va="center", fontsize=6.5, color=HAND_C[h],
-                fontweight="bold")
-    cx.set_xlim(0, 185); cx.set_ylim(-0.5, 1.5); cx.axis("off")
-    fig.text((cx0 + 0.85) / width, (height - 0.98) / height, "Preserve the contact\nmotion, not the skeleton.",
-             fontsize=6.8, fontweight="bold", color=INK, ha="center", va="center", linespacing=1.05)
-    # (b) what a redesign for thicker pads should preserve, bottom row
-    by = height - 1.30
-    fig.text(0.01, by / height, "(b) What should a redesign for thicker pads preserve?", **lab)
-    cols = (("O", "#6a6a6a", "original (O)", "reference"),
-            ("U", HAND_C["U"], "links kept (U)", f"$\\Delta_{{contact}}$ {d['U']['D_c_mm']:.2f} mm"),
-            ("R", HAND_C["R"], "contact kept (R)", f"$\\Delta_{{contact}}$ {d['R']['D_c_mm']:.2f} mm"))
-    sw = 1.10
-    for i, (kind, col, title, foot) in enumerate(cols):
-        x0 = 0.03 + i * (sw + 0.03)
-        ax = fig.add_axes((x0 / width, 0.22 / height, sw / width, (by - 0.36) / height))
+
+    def inch(x, y):
+        return x / width, y / height
+    # top: the CFL finger, room across the joint
+    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))
+    fw = 3.05
+    fh = fw * fin.shape[0] / fin.shape[1]
+    fy = height - 0.12 - fh
+    f = fig.add_axes((*inch(0.20, fy), fw / width, fh / height))
+    f.imshow(fin); f.axis("off")
+    fig.text(*inch(0.02, height - 0.02), "CoDe finger (crossed four-bar PIP, remote servo)", fontsize=6.6,
+             fontweight="bold", va="top")
+    # bracket under the pads, which run on both sides of the PIP joint
+    x0, x1, yb = 880, 2000, 680
+    f.plot([x0, x0, x1, x1], [yb - 40, yb, yb, yb - 40], color=PAD, lw=0.8, clip_on=False)
+    f.text((x0 + x1) / 2, yb + 25, "room for thick contact interfaces on both phalanges", color=PAD, fontsize=6.2,
+           ha="center", va="top", clip_on=False)
+    # two arrows into the two redesigns
+    top = fy - 0.28
+    for xe, col in ((0.95, HAND_C["R"]), (2.50, HAND_C["U"])):
+        fig.patches.append(FancyArrowPatch(inch(1.73, top), inch(xe, top - 0.30), transform=fig.transFigure,
+                                           arrowstyle="-|>", mutation_scale=8, lw=1.2, color=col,
+                                           connectionstyle="arc3,rad=0.0"))
+    fig.text(*inch(1.73, top + 0.02), "thicker interface: redesign the finger around ...", fontsize=6.3, color=INK2,
+             ha="center", va="bottom", style="italic")
+    panels = (("R", "contact-surface motion", d["R"]),
+              ("U", "skeleton (links kept)", d["U"]))
+    sw, sh = 1.55, 0.95
+    py = top - 0.36 - sh
+    for i, (kind, name, rec) in enumerate(panels):
+        px = 0.12 + i * (sw + 0.10)
+        col = HAND_C[kind]
+        fig.text(*inch(px + sw / 2, top - 0.33), name, fontsize=6.8, color=col, fontweight="bold", ha="center",
+                 va="top")
+        ax = fig.add_axes((*inch(px, py - 0.05), sw / width, sh / height))
         finger_sketch(ax, col, kind)
-        fig.text((x0 + sw / 2) / width, (by - 0.15) / height, title, fontsize=6.4, color=col, ha="center",
+        verdict = "interface effect read correctly" if kind == "R" else "interface effect distorted"
+        fig.text(*inch(px + sw / 2, py - 0.04),
+                 f"error {rec['E_rel_median'] * 100:.0f}%: {verdict}", fontsize=6.3, color=col, ha="center",
                  va="top", fontweight="bold")
-        fig.text((x0 + sw / 2) / width, 0.25 / height, foot, fontsize=6.2, color=col, ha="center", va="top")
-    fig.text(width / 2 / width, 0.04 / height, "purple: pole;  dashed: O's contact motion;  solid: the redesign's",
-             fontsize=5.8, color=INK2, ha="center", va="bottom")
+    fig.text(*inch(width / 2, py - 0.17), "purple: pole;  dashed: original contact motion", fontsize=5.6,
+             color=INK2, ha="center", va="top")
+    # bottom: contact interfaces to carry
+    by = 0.06
+    fig.text(*inch(0.02, by + 0.72), "contact interfaces to carry", fontsize=6.6, fontweight="bold", va="top")
+    nari = np.asarray(Image.open(CAD / "nari_touch.png").convert("RGB"))
+    nw = 0.62
+    nh = nw * nari.shape[0] / nari.shape[1]
+    ax = fig.add_axes((*inch(0.08, by + 0.10), nw / width, nh / height))
+    ax.imshow(nari); ax.axis("off")
+    fig.text(*inch(0.08 + nw / 2, by + 0.08), "NARI-Touch tactile", fontsize=5.8, ha="center", va="top")
+    kinds = (("thick", "thick compliant"), ("textured", "textured skin"), ("thin", "thin rigid"))
+    iw, ih = 0.68, 0.30
+    for k, (kk, nm) in enumerate(kinds):
+        x = 0.95 + k * (iw + 0.15)
+        ax = fig.add_axes((*inch(x, by + 0.16), iw / width, ih / height))
+        icon(ax, kk)
+        fig.text(*inch(x + iw / 2, by + 0.08), nm, fontsize=5.8, ha="center", va="top")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
-    from PIL import Image
     Image.open(out).convert("RGB").save(out)  # opaque RGB, no SMask (PaperPlaza)
     print(out, f"{width} x {height} in")
     return 0
