@@ -148,12 +148,6 @@ Readings:
 | File | Content |
 |---|---|
 | `report/figures/formulation_study.png` | study formulation sketch |
-| `report/study0/figures/study0_pole_sketch.png` | pole and retreat distance: fixed axis 5 mm, 9 mm, lowered pole |
-| `report/study2/figures/study2_principle_sketch.png` | principle of contact-centric redesign |
-| `report/study1/figures/native_designs_paper_2026-11-20.png` | native designs per architecture and q_req |
-| `report/study1/figures/study1_thickness_coverage_native.png` | Study 1 curves: C̄_pad and pad coverage vs h |
-| `report/study2/figures/study2_redesign_2026-11-21.png` | Study 2: D_c vs h, coverage kept, path gap over flexion |
-| `report/study2/figures/study2_pole_law_partial.png` | pole-law check |
 
 ## Study 2 supplementary (from `design/output/study/study2_redesign_2026-11-21/front.csv`, coverage end of each front)
 
@@ -253,7 +247,7 @@ not testable. In this set Δ_skel moves opposite to Δ_contact (ρ(E, Δ_skel) =
 does not separate the two by itself.
 
 Figures: `fig_overview.png` (Fig. 1: O/U/R grasp drawings + E vs D_c), `fig_study3.png` (A vs C, impedance),
-renders `report/study3/figures/study3_two_pad_grasp_render.png`.
+renders (the PNG was removed as unused by the paper; `sim/isaaclab/scripts/study3_measurement/figure_grasp_render.py` regenerates it).
 
 Pad compliance (contact stiffness 2.5e3 → 1e3 N/m, μ 1.3, condition A, ρ 15/20): over 14 holding hands
 ρ(E_comp, Δ_contact) = 0.80 (hand bootstrap 95% [0.33, 0.99]), one-sided p = 0.0004; partial given Δ_skel 0.91

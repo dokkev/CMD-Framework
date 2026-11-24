@@ -362,7 +362,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 6차 결과: 세 두께, 조건 A와 C (2026-11-21)
 
-- 그림: `report/study3/figures/study3_dose_response.png` (`sim/isaaclab/scripts/study3_measurement/figure_dose.py`). 결과는 `logs/study3/two_pad/dose_{A,C}_{all,balanced}.json`.
+- 그림 스크립트: `sim/isaaclab/scripts/study3_measurement/figure_dose.py` (그림 파일은 논문에 쓰지 않아 정리함). 결과는 `logs/study3/two_pad/dose_{A,C}_{all,balanced}.json`.
 - 5 mm와 9 mm의 R, U, Ē (조건 A): R5 3.4%(D_c 0.35), U5 52%(1.58), R9 41%(2.32), U9 106%(3.89). 9 mm의 d5-minDs(5.08)는 157%. 5 mm의 d3(D_c 2.92, D_s 6.38)는 조건 A에서 grasp 실패, 조건 C에서는 25%.
 
 **조건 A (위치 명령 재사용, 주 판정)**
@@ -393,7 +393,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 7차 결과: 조건 D, 임피던스 sweep pilot (O, R, U, 7 mm, 2026-11-21)
 
-- 그림: `report/study3/figures/study3_impedance_sweep.png`. 분석은 `sim/isaaclab/scripts/study3_measurement/impedance_analysis.py`, 결과는 `logs/study3/two_pad/impedance.json`.
+- 그림 파일은 논문에 쓰지 않아 정리함. 분석은 `sim/isaaclab/scripts/study3_measurement/impedance_analysis.py`, 결과는 `logs/study3/two_pad/impedance.json`.
 - 검증(사전 기록): K₀의 D가 조건 A를 재현했다(distal 힘 1.6% 이내, 한계 하중 외력 한 step 이내).
 
 | K/K₀ | E_R | E_U | 대칭 배율 R / U | R < U (쌍), p | 격차 E_U − E_R |

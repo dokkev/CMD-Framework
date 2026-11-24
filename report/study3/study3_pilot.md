@@ -95,7 +95,7 @@ goal 축은 학습 전에 flat 형상으로만 한 scripted probe로 정했다. 
 - explicit DC-motor servo는 hold에서도 loop가 수 m 벌어진다. 그래서 servo를 implicit로 통일했다.
 - VBD는 contact sensor를 지원하지 않는다(`SolverVBD.update_contacts` 미구현). 접촉 진단은 MuJoCo-Warp에서만 했다.
 
-같은 abduct 지령에서 cube의 최대 수직축 회전(그림 `figures/study3b_prescribed_abduction.png`):
+같은 abduct 지령에서 cube의 최대 수직축 회전:
 
 | | flat | crowned |
 |---|---|---|
@@ -103,8 +103,6 @@ goal 축은 학습 전에 flat 형상으로만 한 scripted probe로 정했다. 
 | VBD | 0.033 rad (1.9°) | 0.415 rad (23.8°) |
 
 손가락 벌림에 cube가 따라 도는 정도는 crowned가 flat보다 5–13배 컸고, 두 solver에서 방향이 같다. 학습 전의 수동 접촉 효과다.
-
-![prescribed](figures/study3b_prescribed_abduction.png)
 
 **처리 속도.**
 
@@ -114,8 +112,6 @@ goal 축은 학습 전에 flat 형상으로만 한 scripted probe로 정했다. 
 | 진단 포함 rollout (16 env) | MuJoCo-Warp 약 900 env-step/s, VBD 약 250 env-step/s |
 
 ## 4. Study 3A 결과 (MuJoCo-Warp, 형상마다 seed 5개)
-
-![learning](figures/study3_learning_curves.png)
 
 **학습 곡선.** flat의 다섯 seed는 비슷하게 오른다. crowned는 두 갈래다.
 
@@ -133,8 +129,6 @@ seed 2개만 보았을 때의 "crowned가 늦게 배운다"는 이 갈래 하나
 | crowned → crowned | 0.59 / 0.48 / 0.65 | 0.66 / 0.52 / 0.95 | 0.22 / 0.21 / 0.16 | 0.85 / 0.24 / 0.71 | 0.33 / 0.32 / 0.08 |
 | crowned → flat | 0.61 / 0.53 / 0.65 | 0.26 / 0.12 / 0.99 | 0.24 / 0.20 / 0.21 | 0.79 / 0.13 / 0.83 | 0.39 / 0.38 / 0.20 |
 | pad 외 힘 [N], in-domain: flat / crowned | 0.0 / 17.5 | 0.0 / 15.0 | 0.1 / 0.3 | 0.5 / 0.0 | 0.0 / 0.0 |
-
-![matrix](figures/study3a_transfer_matrix.png)
 
 **seed를 단위로 한 검정.** `tables/seed_stats.csv`에 있다. in-domain 비교는 정확 permutation 검정(5 대 5, 배치 252가지)이고, 전이 격차는 정확 sign-flip 검정(32가지, 최소 p 0.0625)이다. 다중비교 보정은 하지 않았다.
 
@@ -158,8 +152,6 @@ seed 간 분산도 비교했다(Brown–Forsythe, 정확 permutation). crowned �
   - seed 0과 1은 pad 외 몸체로 cube를 누르며(15–17.5 N) 빠르게 흔들어 goal을 여럿 쫓다가 떨어뜨린다.
   - seed 3은 pad만 쓰지만 첫 goal 뒤 대부분 떨어뜨린다(held 0.24, 떨어뜨림 0.71).
   - seed 2와 4는 flat 정책처럼 쥐고 돈다.
-
-![trajectories](figures/study3_trajectories_seed0.png)
 
 ## 5. Study 3B 결과 (MuJoCo-Warp → VBD): 해석하지 않음
 

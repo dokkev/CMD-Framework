@@ -1,0 +1,35 @@
+{
+  "joints": [
+    "index_aa",
+    "index_fe",
+    "index_pip_servo",
+    "middle_aa",
+    "middle_fe",
+    "middle_pip_servo",
+    "ring_aa",
+    "ring_fe",
+    "ring_pip_servo",
+    "thumb_ro",
+    "thumb_raa",
+    "thumb_mcp",
+    "thumb_ip"
+  ],
+  "target_flexion_rad": [
+    -0.05476190522313118,
+    0.559777557849884,
+    1.5860563516616821,
+    -0.09166144579648972,
+    0.72202467918396,
+    1.6311548948287964,
+    -0.05957045778632164,
+    0.6526690125465393,
+    1.6288648843765259,
+    -1.4713687896728516,
+    0.3772112727165222,
+    0.6617633700370789,
+    0.6938424110412598
+  ],
+  "source": "mean commanded target of the grasp cache, PIP in flexion",
+  "grasp_cache": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rotate_cube/goal2720_curriculum20_preload_train/O.pt",
+  "grasps": 1280
+}

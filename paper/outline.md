@@ -98,10 +98,10 @@ to 10–51 % of the fixed-axis bound without giving up coverage.
 | # | Content | Source | Status |
 |---|---|---|---|
 | Fig. 1 | Teaser: same pad thicker → fixed axis vs moving pole | new (compose from pole sketch + designs) | TODO |
-| Fig. 2 | Architectures, native designs | `report/study1/figures/native_designs_paper_2026-11-20.png` | regenerate in paper style |
-| Fig. 3 | Pole and retreat distance | `report/study0/figures/study0_pole_sketch.png` | OK |
-| Fig. 4 | Study 1 curves | `report/study1/figures/study1_thickness_coverage_native.png` | drop suptitle |
-| Fig. 5 | Study 2 redesign | `report/study2/figures/study2_redesign_2026-11-21.png` | drop suptitle, maybe 2 columns |
+| Fig. 2 | Architectures, native designs | (study PNG removed 2026-11-24; the paper figure is drawn by paper/figures) | regenerate in paper style |
+| Fig. 3 | Pole and retreat distance | (study PNG removed 2026-11-24; the paper figure is drawn by paper/figures) | OK |
+| Fig. 4 | Study 1 curves | (study PNG removed 2026-11-24; the paper figure is drawn by paper/figures) | drop suptitle |
+| Fig. 5 | Study 2 redesign | (study PNG removed 2026-11-24; the paper figure is drawn by paper/figures) | drop suptitle, maybe 2 columns |
 | Tab. I | Study 1 C̄_pad | experimental_log | in tex |
 | Tab. II | Study 2 D_c / C̄_pad | experimental_log | in tex |
 

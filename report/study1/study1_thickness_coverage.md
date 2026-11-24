@@ -45,8 +45,6 @@
 
 *: servo 몸체가 없는 상한이다. 2R-remote q150의 7/9 mm 설계는 제약을 만족하지만 pad가 원기둥에 닿지 못한다(C̄_pad 0.209, 0).
 
-![coverage](figures/study1_thickness_coverage_native.png)
-
 ## 읽는 법
 
 1. **두께가 커질 때 CFL이 가장 덜 잃는다.** 3→9 mm에서 잃는 양은 다음과 같다.

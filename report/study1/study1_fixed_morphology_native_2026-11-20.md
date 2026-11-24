@@ -17,8 +17,6 @@
 | Tilt sweep | 12 physical references (CFL, 2R-remote, 2R-DD, RCJ) held at 0/15/30/45°, rest of the design unchanged |
 | Output | `design/output/study/study1_fixed_morphology_native/assembly_results.csv` (4686 assemblies, 66 references) |
 
-![Native designs](figures/native_designs_paper_2026-11-20.png)
-
 *Native designs of each architecture for $q_{\mathrm{req}}$ = 90°, 120° and 150° ($L_f$ = 90 mm, 5 mm pads), each
 drawn at its $q_{\mathrm{req}}$; dotted: the distal segment's centre of rotation from extension. (a) The designs, with
 their pad coverage. (b) Pad coverage against $q_{\mathrm{req}}$. \*Upper bounds without the joint (PIP) servo body.*
@@ -71,8 +69,6 @@ their pad coverage. (b) Pad coverage against $q_{\mathrm{req}}$. \*Upper bounds 
 | RCJ | 9/9/9 · 0.56 (25×8) | 8/9/9 · 0.56 (25×5) | 6/6/9 · 0.44 (20×8) |
 | CFL ideal* | 14/15/15 · 0.78 (35×5) | 14/15/15 · 0.78 (35×5) | 12/15/12 · 0.67 (30×8) |
 | RCJ ideal* | 14/15/15 · 0.78 (35×5) | 11/12/12 · 0.67 (30×5) | 10/12/12 · 0.67 (30×5) |
-
-![Study 1 native pad coverage](figures/study1_native_pad_coverage_2026-11-20.png)
 
 - 90°에서는 2R-remote가 35 mm module까지 받고 CFL은 30 mm까지입니다. 120°에서는 둘이 같고, 150°에서는 CFL만
   30 mm module을 유지합니다 (2R 20 mm, RCJ 20 mm).

@@ -1,0 +1,40 @@
+{
+  "checkpoint": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rsl_rl/code_rotate_cube/2026-11-24_03-21-59_rotate_cube_O_s15_crown1_pose0_late3_ft25e6_preload20/model_4597.pt",
+  "grasp_cache": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rotate_cube/goal2720_curriculum20_preload_train/O.pt",
+  "seed": 61000,
+  "num_envs": 1024,
+  "overrides": [
+    "physics=newton_mjwarp"
+  ],
+  "samples_per_env": 4,
+  "t_range_s": [
+    2.0,
+    20.0
+  ],
+  "max_displacement_m": 0.04,
+  "min_up_dot": 0.5,
+  "drawn_while_active": 3627,
+  "kept": 2873,
+  "t_s_quartiles": [
+    5.400000095367432,
+    9.733333587646484,
+    14.5
+  ],
+  "yaw_deg_p10_p50_p90": [
+    11.092679977416992,
+    113.01541900634766,
+    200.83145141601562
+  ],
+  "heading_deg_octant_counts": [
+    498,
+    154,
+    278,
+    378,
+    722,
+    340,
+    249,
+    254
+  ],
+  "mean_saturated_target_fraction": 0.2789097726345062,
+  "states_with_quarter_targets_saturated": 0.4751131236553192
+}

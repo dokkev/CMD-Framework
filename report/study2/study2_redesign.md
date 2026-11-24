@@ -46,8 +46,6 @@
 
 2R, RCJ와 ideal 구조의 C̄_pad는 모두 Study 1의 최선과 같다(괄호 생략).
 
-![redesign](figures/study2_redesign_2026-11-21.png)
-
 ## 읽는 법
 
 1. **CFL은 다시 설계해도 relative contact trajectory를 가장 적게 바꾼다.** 이것은 q_req 셋과 두께 셋 모두에서 실제 구조 넷 가운데 성립한다.
