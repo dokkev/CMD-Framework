@@ -46,8 +46,19 @@ DEFAULTS = {
 # B stops at q0 80: from q0 90 on, O's distal pad is pressed more than 1.5 mm after the capture (calibration)
 PLACEMENTS = {"A": {"rho": (15.0, 20.0), "q0": (60.0, 70.0, 80.0, 90.0, 100.0), "a": (3.0, 6.0)},
               "B": {"rho": (15.0, 20.0), "q0": (60.0, 65.0, 70.0, 75.0, 80.0), "a": (3.0, 6.0)}}
-THRESHOLD = {"capture_deg": 2.0, "x_end_mm": 0.3}  # |D(O)| for a pair (O only)
+# variant C (palm rolling): the palm slab spans x in [PALM_X0, PALM_X1] (mm, MCP at 0)
+PALM_X0_MM, PALM_X1_MM = -90.0, -0.5
+PALM = {"mcp_end_deg": 90.0, "q_mid_deg": -1.0, "sweep_s": 2.0, "sweep2_s": 0.0, "hold_s": 1.0,
+        "spin_damping": 0.0, "q_end_deg": 0.0}
+PALM_QX = {15.0: 0.0, 20.0: 5.0}  # O's PIP command: its touch flexion of the corner-seated cylinder + this (deg)
+PALM_PLACEMENTS = {15.0: (6.0, 7.0, 8.0, 9.0, 10.0), 20.0: (8.0, 9.0, 10.0, 11.0, 12.0)}  # rho: d (mm)
+THRESHOLD = {"capture_deg": 2.0, "x_end_mm": 0.3, "roll_deg": 2.0}  # |D(O)| for a pair (O only)
 PEN_GATE_MM = 1.5
+
+
+def wrap(a: float) -> float:
+    """An angle into (-pi, pi]."""
+    return (a + math.pi) % (2 * math.pi) - math.pi
 
 
 def kin(hand: str):
@@ -123,7 +134,7 @@ def start_state(hand: str, rho_mm: float, q0: float, a_mm: float, var: str, p: d
             "on_pad": bool(pads["distal_start_mm"] <= loc_d[0] <= pads["distal_end_mm"])}
 
 
-def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta):
+def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: bool = False):
     from pydrake.geometry import AddContactMaterial, Box, Cylinder, ProximityProperties
     from pydrake.math import RigidTransform, RotationMatrix
     from pydrake.multibody.plant import AddMultibodyPlantSceneGraph, CoulombFriction, DiscreteContactApproximation
@@ -179,17 +190,30 @@ def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta):
                                     "distal_pad", props("pad"))
     plant.RegisterCollisionGeometry(roller, RigidTransform(RotationMatrix.MakeXRotation(math.pi / 2)),
                                     Cylinder(rho, T.LENGTH_M), "roller", props("roller"))
+    bodies = {"proximal": proximal, "distal": distal, "roller": roller}
+    if palm:  # variant C: the palm, a slab proximal of the MCP whose top is flush with the proximal pad face's plane
+        from pydrake.geometry import CollisionFilterDeclaration, GeometrySet
+
+        pb = plant.AddRigidBody("palm", rod(0.1, 0.08))
+        plant.WeldFrames(world.body_frame(), pb.body_frame())
+        x0, x1, slab = PALM_X0_MM * MM, PALM_X1_MM * MM, 0.01
+        plant.RegisterCollisionGeometry(pb, RigidTransform(at(((x0 + x1) / 2, -(m + h) + slab / 2))),
+                                        Box(x1 - x0, w, slab), "palm", props("pad"))
+        bodies["palm"] = pb
     plant.Finalize()
-    plant.mutable_gravity_field().set_gravity_vector(np.zeros(3))
-    return builder, plant, sg, {"proximal": proximal, "distal": distal, "roller": roller}
+    plant.mutable_gravity_field().set_gravity_vector(np.array([0.0, 0.0, 9.81]) if palm else np.zeros(3))
+    if palm:  # only the cylinder touches the hand: no palm-pad or pad-pad contact
+        finger = GeometrySet([gid for b in (pb, proximal, distal) for gid in plant.GetCollisionGeometriesForBody(b)])
+        sg.collision_filter_manager().Apply(CollisionFilterDeclaration().ExcludeWithin(finger))
+    return builder, plant, sg, bodies
 
 
 class Sim:
-    def __init__(self, hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta):
+    def __init__(self, hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm=False):
         from pydrake.systems.analysis import Simulator
         from pydrake.systems.framework import LeafSystem
 
-        builder, plant, sg, bodies = build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta)
+        builder, plant, sg, bodies = build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm)
         self.plant, self.bodies = plant, bodies
         self.cmd = np.zeros(2)  # mcp, theta (actuator order)
         self.mcp_rate = 0.0  # the spin damper's velocity target
@@ -227,17 +251,20 @@ class Sim:
         self.sim.AdvanceTo(self.t)
 
     def contacts(self):
-        """Per pad (0 proximal, 1 distal): normal-ish force magnitude on the cylinder and the deepest penetration (mm)."""
+        """Per surface (0 proximal pad, 1 distal pad, 2 palm if there is one): the force on the cylinder, the deepest
+        penetration (mm) and a contact point."""
         plant = self.plant
-        roller, distal, prox = (self.bodies[k].index() for k in ("roller", "distal", "proximal"))
+        roller = self.bodies["roller"].index()
+        surf = [self.bodies[k].index() for k in ("proximal", "distal", "palm") if k in self.bodies]
+        n = len(surf)
         res = plant.get_contact_results_output_port().Eval(self.pctx)
-        force, depth, point = np.zeros((2, 3)), np.zeros(2), np.full((2, 3), np.nan)
+        force, depth, point = np.zeros((n, 3)), np.zeros(n), np.full((n, 3), np.nan)
         for i in range(res.num_point_pair_contacts()):
             c = res.point_pair_contact_info(i)
             pair = {c.bodyA_index(), c.bodyB_index()}
-            if roller not in pair or not pair & {prox, distal}:
+            if roller not in pair or not pair & set(surf):
                 continue
-            k = 0 if prox in pair else 1
+            k = surf.index((pair - {roller}).pop())
             f = c.contact_force() if c.bodyB_index() == roller else -c.contact_force()
             force[k] += f
             depth[k] = max(depth[k], c.point_pair().depth / MM)
@@ -342,11 +369,130 @@ def _run_one(task, time_step=None, frames_at=None):
            "rotation_deg": -math.degrees(ps["spin"]), "capture_deg": cap, "capture_s": cap_t,
            "held": bool((fn >= T.GATE_N).all()), "normal_end_n": fn.tolist(), "max_force_n": max_f.tolist(),
            "max_depth_mm": max_d.tolist(), "end_pen_mm_from_force": (fn / T.POINT_STIFFNESS / MM).tolist(), "max_pen_mm_from_force": (max_f / T.POINT_STIFFNESS / MM).tolist(),
-           "q_end_deg": math.degrees(ps["distal"][2] - ps["mcp"]), "mcp_end_deg": math.degrees(ps["mcp"]),
+           "q_end_deg": math.degrees(wrap(ps["distal"][2] - ps["mcp"])), "mcp_end_deg": math.degrees(ps["mcp"]),
            "trace": trace}
     if frames_at is not None:
         out["frames"] = frames
     return out
+
+
+def palm_q0(rho_mm: float, mcp_deg: float) -> float:
+    """O's touch flexion for variant C: the PIP flexion at which O's distal pad face (as a segment) first reaches a
+    cylinder seated in the palm-proximal corner (MCP at mcp_deg), from kinematics (deg)."""
+    from scipy.optimize import brentq
+
+    g, qs, th = kin("O")
+    p = g["pads"]
+    face = p["mount_offset_mm"] + p["thickness_mm"]
+    mcp = math.radians(mcp_deg)
+    # the corner: the palm (z = -face) and the proximal face (x = -face at MCP 90; in general its line)
+    c_corner = corner_centre(g, rho_mm, mcp)
+
+    def gap(qd):
+        o, R = distal_pose(g, qs, th, math.radians(qd), mcp)
+        loc = R.T @ (c_corner - o / MM)
+        return T._rect_gap(loc[0], loc[1], p["distal_start_mm"], p["distal_end_mm"], -face, -p["mount_offset_mm"]) - rho_mm
+
+    if gap(125.0) > 0:  # the distal pad never reaches it: the command is then the 120 deg cap
+        return 125.0
+    return brentq(gap, 30.0, 125.0)
+
+
+def corner_centre(g, rho_mm, mcp):
+    """Centre (mm, world) of a cylinder resting on the palm (z = -face) against the proximal face at MCP angle mcp."""
+    face = g["pads"]["mount_offset_mm"] + g["pads"]["thickness_mm"]
+    R = T.rot(mcp)
+    # the proximal face line: points R @ (x, -face); its outward normal R @ (0, -1); the centre is rho off it
+    n = R @ np.array([0.0, -1.0])
+    t = R @ np.array([1.0, 0.0])
+    p0 = R @ np.array([0.0, -face]) + rho_mm * n
+    # p0 + u t has z = -face - rho
+    u = (-face - rho_mm - p0[1]) / t[1]
+    return p0 + u * t
+
+
+def _run_palm(task, time_step=None, frames_at=None):
+    """Variant C: the cylinder rests on the palm under gravity, s mm proximal of where it would sit in the
+    palm-proximal corner of O at the end of the motion; O's open-loop command, MCP 0 -> mcp_end and PIP 0 ->
+    q0_C(rho) + q_extra (O's touch flexion of the corner-seated cylinder + 5 deg), over sweep_s, then held."""
+    hand, mu, rho_mm, d_mm, ts, p, delta = task
+    time_step = time_step or ts
+    g, qs, th = kin(hand)
+    go = kin("O")[0]
+    face = g["pads"]["mount_offset_mm"] + g["pads"]["thickness_mm"]
+    mcp_end = math.radians(p["mcp_end_deg"])
+    q0 = palm_q0(rho_mm, p["mcp_end_deg"])
+    q_end = math.radians(min(p["q_end_deg"] or (q0 + p.get("q_extra_deg", PALM_QX[rho_mm])), 120.0) + delta)
+    q_mid = q_end if p["q_mid_deg"] < 0 else math.radians(p["q_mid_deg"])  # < 0: MCP and PIP together
+    x_corner_o = corner_centre(go, rho_mm, mcp_end)[0]
+    x_start = -d_mm  # the centre d mm proximal of the MCP: the same palm-frame x on every hand
+    ratio = float(np.interp(q_end, qs, np.gradient(th, qs)))
+    s = Sim(hand, mu, rho_mm, time_step, p["spin_damping"], T.K_Q / ratio ** 2, T.D_Q / ratio ** 2, palm=True)
+    pl, pctx = s.plant, s.pctx
+    pl.GetJointByName("slide_x").set_translation(pctx, x_start * MM)
+    pl.GetJointByName("slide_z").set_translation(pctx, -(face + rho_mm) * MM)
+    s.sim.Initialize()
+    n_settle, n_sweep, n_sweep2, n_hold = (int(round(x / T.DT_ENV)) for x in (SETTLE_S, p["sweep_s"], p["sweep2_s"],
+                                                                                p["hold_s"]))
+    trace, frames = [], []
+    max_f, max_d = np.zeros(3), np.zeros(3)
+    first_touch, capture_t = None, None
+    spin = pl.GetJointByName("spin")
+    for i in range(n_settle + n_sweep + n_sweep2 + n_hold):
+        k = i - n_settle  # phase 1: MCP 0 -> mcp_end, PIP 0 -> q_mid; phase 2: PIP q_mid -> q_end; then held
+        f1 = 0.0 if k < 0 else min(1.0, (k + 1) / n_sweep)
+        f2 = 0.0 if k < n_sweep else min(1.0, (k + 1 - n_sweep) / max(n_sweep2, 1))
+        q_c = q_mid * f1 + (q_end - q_mid) * f2
+        s.cmd[:] = [mcp_end * f1, theta_of(qs, th, q_c)]
+        s.mcp_rate = 0.0  # the spin damper (if any) is on the palm, i.e. the world
+        s.step()
+        force, depth, point = s.contacts()
+        fn = np.linalg.norm(force, axis=1)
+        max_f, max_d = np.maximum(max_f, fn), np.maximum(max_d, depth)
+        if k >= 0 and first_touch is None and (fn[0] > T.GATE_N or fn[1] > T.GATE_N):
+            first_touch = (k + 1) * T.DT_ENV
+        if k >= 0 and capture_t is None and fn[1] > T.GATE_N and fn[0] > T.GATE_N:
+            capture_t = (k + 1) * T.DT_ENV
+        ps = s.pose()
+        if (i + 1) % 3 == 0:
+            trace.append([round(s.t, 3), round(math.degrees(ps["mcp"]), 2),
+                          round(math.degrees(wrap(ps["distal"][2] - ps["mcp"])), 2), round(ps["centre"][0], 3),
+                          round(ps["centre"][1], 3), round(-math.degrees(ps["spin"]), 2),
+                          *[round(float(v), 3) for v in fn]])
+        if frames_at is not None and i in frames_at:
+            frames.append({"t_s": round(s.t, 4), "step": i, "mcp_rad": ps["mcp"],
+                           "q_rad": wrap(ps["distal"][2] - ps["mcp"]), "distal": ps["distal"], "centre_mm": ps["centre"],
+                           "spin_rad": ps["spin"], "normal_n": fn.tolist()})
+    force, depth, point = s.contacts()
+    fn = np.linalg.norm(force, axis=1)
+    ps = s.pose()
+    loc = T.rot(-ps["mcp"]) @ np.array(ps["centre"])
+    held = bool(fn[1] >= T.GATE_N and (fn[0] >= T.GATE_N or fn[2] >= T.GATE_N))
+    out = {"rho_mm": rho_mm, "d_mm": d_mm, "q0_c_deg": q0, "q_cmd_deg": math.degrees(q_end),
+           "x_start_mm": x_start, "x_corner_o_mm": x_corner_o,
+           "travel_mm": ps["centre"][0] - x_start, "lift_mm": -(ps["centre"][1] + face + rho_mm),
+           "roll_deg": -math.degrees(spin.get_angle(pctx)), "x_prox_mm": float(loc[0]),
+           "off_prox_mm": float(-loc[1] - face - rho_mm), "first_touch_s": first_touch, "capture_s": capture_t,
+           "travel_ph2_mm": None, "held": held, "normal_end_n": fn.tolist(), "max_force_n": max_f.tolist(), "max_depth_mm": max_d.tolist(),
+           "end_pen_mm_from_force": (fn / T.POINT_STIFFNESS / MM).tolist(),
+           "max_pen_mm_from_force": (max_f / T.POINT_STIFFNESS / MM).tolist(),
+           "mcp_end_deg": math.degrees(ps["mcp"]), "q_end_deg": math.degrees(wrap(ps["distal"][2] - ps["mcp"])),
+           "trace": trace}
+    if frames_at is not None:
+        out["frames"] = frames
+    return out
+
+
+def run_palm(task):
+    try:
+        return _run_palm(task)
+    except RuntimeError:
+        try:
+            out = _run_palm(task, time_step=task[4] / 2)
+            out["retried_time_step"] = task[4] / 2
+            return out
+        except RuntimeError as err:
+            return {"rho_mm": task[2], "d_mm": task[3], "solver_fail": str(err)[:200]}
 
 
 def placements(args):
@@ -356,6 +502,8 @@ def placements(args):
 
 
 def cmd_run(args):
+    if args.variant == "C":
+        return cmd_run_palm(args)
     p = dict(DEFAULTS[args.variant])
     for k in p:
         v = getattr(args, k, None)
@@ -385,18 +533,55 @@ def cmd_run(args):
     return 0
 
 
+def cmd_run_palm(args):
+    p = dict(PALM)
+    for k in p:
+        v = getattr(args, k, None)
+        if v is not None:
+            p[k] = v
+    pl = [(r, d) for r in (args.rho or PALM_PLACEMENTS) for d in (args.d or PALM_PLACEMENTS[r])]
+    tasks = [(args.hand, args.mu, r, d, args.time_step, p, args.delta_deg) for r, d in pl]
+    t0 = time.time()
+    with Pool(args.workers) as pool:
+        envs = pool.map(run_palm, tasks)
+    name = f"acqmcpC_{args.hand}_mu{args.mu:g}_{args.tag}.json"
+    (OUT / name).write_text(json.dumps({"hand": args.hand, "mu": args.mu, "variant": "C", "params": p,
+                                        "delta_deg": args.delta_deg, "envs": envs}))
+    print(f"C {args.hand} mu {args.mu}: held {sum(bool(e.get('held')) for e in envs)}/{len(envs)} in "
+          f"{time.time() - t0:.0f} s -> {name}")
+    if args.verbose:
+        for e in envs:
+            if "solver_fail" in e:
+                print("  FAIL", e)
+                continue
+            print(f"  r{e['rho_mm']:g} d {e['d_mm']:g}: q_cmd {e['q_cmd_deg']:.1f} | travel {e['travel_mm']:+.2f} "
+                  f"lift {e['lift_mm']:+.2f} roll {e['roll_deg']:+.1f} x_prox {e['x_prox_mm']:.2f} off "
+                  f"{e['off_prox_mm']:+.2f} touch {e['first_touch_s']} cap {e['capture_s']} held {e['held']} "
+                  f"Fn {np.round(e['normal_end_n'], 2)} maxF {np.round(e['max_force_n'], 2)} "
+                  f"depth {np.round(e['max_depth_mm'], 2)}")
+    return 0
+
+
 MEASURES = ("x_end_mm", "capture_deg", "distal_slide_mm", "rotation_deg")
 
 
 def load_envs(var, hand, mu, tag):
     p = OUT / f"acqmcp{var}_{hand}_mu{mu:g}_{tag}.json"
-    return {(e["rho_mm"], e["q0_deg"], e["a_mm"]): e for e in json.loads(p.read_text())["envs"]} if p.exists() else None
+    if not p.exists():
+        return None
+    return {(e["rho_mm"], e["d_mm"]) if var == "C" else (e["rho_mm"], e["q0_deg"], e["a_mm"]): e
+            for e in json.loads(p.read_text())["envs"]}
 
 
 def pair_ok(e_lo, e_hi, measure):
     """Both runs exist, started on the distal pad only, end held by both pads and have the measure."""
     return all(e is not None and "solver_fail" not in e and e["held"] and e.get(measure) is not None
-               and e["start"]["prox_gap_mm"] > 0 and e["start"]["on_pad"] for e in (e_lo, e_hi))
+               and ("start" not in e or (e["start"]["prox_gap_mm"] > 0 and e["start"]["on_pad"])) for e in (e_lo, e_hi))
+
+
+def pen_ok(e):
+    """Variant C's per-placement gate on O: the deepest point penetration and the end force / 2.5 kN/m, all surfaces."""
+    return max(e["max_depth_mm"]) <= PEN_GATE_MM and max(e["end_pen_mm_from_force"]) <= PEN_GATE_MM
 
 
 def cmd_analyze(args):
@@ -407,7 +592,8 @@ def cmd_analyze(args):
     o = [load_envs(args.variant, "O", mu, args.tag) for mu in (1.3, 2.0)]
     pen_o = max(max(e["max_force_n"]) / T.POINT_STIFFNESS / MM for d in o for e in d.values() if "solver_fail" not in e)
     print(f"O: largest force / 2.5 kN/m = {pen_o:.2f} mm")
-    keys = [k for k in o[0] if pair_ok(o[0][k], o[1].get(k), m) and abs(o[1][k][m] - o[0][k][m]) >= thr]
+    keys = [k for k in o[0] if pair_ok(o[0][k], o[1].get(k), m) and abs(o[1][k][m] - o[0][k][m]) >= thr
+            and (args.variant != "C" or (pen_ok(o[0][k]) and pen_ok(o[1][k])))]
     print(f"pairs (O holds at both mu, |D(O)| >= {thr}): {len(keys)}/{len(o[0])}")
     rows = []
     hands = args.hands or ["R", "U"] + [h for h in DESIGN if h not in ("R", "U")]
@@ -476,7 +662,79 @@ def cmd_calib(args):
               "gap0", round(lo["start"]["prox_gap_mm"], 2))
 
 
+def frames_palm(args):
+    """Variant C on O (mu 1.3, rho 15, d 8): start, rolling (the cylinder spinning fastest), captured; a strip and the
+    frames as JSON for drawing on the URDF hand."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Circle, Polygon, Rectangle
+
+    r, d = 15.0, 8.0
+    p = dict(PALM)
+    n_settle = int(round(SETTLE_S / T.DT_ENV))
+    n_total = n_settle + sum(int(round(p[k] / T.DT_ENV)) for k in ("sweep_s", "sweep2_s", "hold_s"))
+    probe = _run_palm(("O", 1.3, r, d, 1e-3, p, 0.0))
+    tr = np.array(probe["trace"])  # every 3rd step: t, mcp, q, x, z, roll, ...
+    rate = np.abs(np.gradient(tr[:, 5], tr[:, 0]))
+    roll_step = int(round(tr[int(np.argmax(rate)), 0] / T.DT_ENV)) - 1
+    out = _run_palm(("O", 1.3, r, d, 1e-3, p, 0.0), frames_at={n_settle - 1, roll_step, n_total - 1})
+    g = T.finger_geometry("O")
+    pads = g["pads"]
+    m_, h = pads["mount_offset_mm"], pads["thickness_mm"]
+    face = m_ + h
+    snap = {"hand": "O", "mu": 1.3, "rho_mm": r, "d_mm": d, "variant": "C", "params": p,
+            "palm": {"x0_mm": PALM_X0_MM, "x1_mm": PALM_X1_MM, "top_z_mm": -face,
+                     "note": "flush with the proximal pad face's plane (MCP 0); world frame: MCP at the origin, x along "
+                             "the proximal phalanx at MCP 0, z dorsal, gravity +z (palm up)"},
+            "pads": pads, "b_mm": g["b"].tolist(),
+            "frames": [{"label": lab, **fr} for lab, fr in zip(("start", "rolling", "captured"), out["frames"])],
+            "frame_keys": "t_s; mcp_rad (flexion +); q_rad (PIP flexion); distal [x_mm, z_mm, angle_rad] of the distal "
+                          "body frame (at B) in the world; centre_mm [x, z]; spin_rad (about +y); normal_n per "
+                          "surface [proximal, distal, palm]"}
+    (OUT / "acq_palm_snapshots.json").write_text(json.dumps(snap, indent=1))
+    fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.8))
+    for ax, fr, ttl in zip(axes, snap["frames"], ("start (on the palm)", "rolling", "captured")):
+        mcp = fr["mcp_rad"]
+        Rm = T.rot(mcp)
+        P = lambda pts: [Rm @ np.array(p_) for p_ in pts]
+        ax.add_patch(Rectangle((PALM_X0_MM, -face), PALM_X1_MM - PALM_X0_MM, 10, fc="#c9b79c", ec="#6b5b45"))
+        link = [np.array([0.0, 4.0]), np.array([pads["proximal_end_mm"] + 4, 4.0]),
+                np.array([pads["proximal_end_mm"] + 4, -m_]), np.array([0.0, -m_])]
+        ax.add_patch(Polygon(P(link), closed=True, fc="#d9d9d9", ec="#555"))
+        ax.add_patch(Polygon(P([np.array([pads["proximal_start_mm"], -m_]), np.array([pads["proximal_end_mm"], -m_]),
+                                np.array([pads["proximal_end_mm"], -face]), np.array([pads["proximal_start_mm"], -face])]),
+                             closed=True, fc="#4c8bd6", ec="#1f4f8c"))
+        dx, dz, dth = fr["distal"]
+        Rd, o = T.rot(dth), np.array([dx, dz])
+        D = lambda pts: [o + Rd @ np.array(p_) for p_ in pts]
+        t0, t1 = pads["distal_start_mm"], pads["distal_end_mm"]
+        ax.add_patch(Polygon(D([np.array([t0 - 2, 4.0]), np.array([t1 + 2, 4.0]), np.array([t1 + 2, -m_]),
+                                np.array([t0 - 2, -m_])]), closed=True, fc="#d9d9d9", ec="#555"))
+        ax.add_patch(Polygon(D([np.array([t0, -m_]), np.array([t1, -m_]), np.array([t1, -face]),
+                                np.array([t0, -face])]), closed=True, fc="#e07b39", ec="#8c4515"))
+        c = np.array(fr["centre_mm"])
+        ax.add_patch(Circle(c, r, fc="#f2f2f2", ec="#222", lw=1.5))
+        ax.plot([c[0], c[0] + r * math.cos(-fr["spin_rad"])], [c[1], c[1] + r * math.sin(-fr["spin_rad"])], color="#222")
+        ax.plot(0, 0, "ko", ms=5)
+        ax.set_title(f"{ttl}, t {fr['t_s'] - SETTLE_S:.2f} s\nMCP {math.degrees(mcp):.0f} deg, PIP "
+                     f"{math.degrees(fr['q_rad']):.0f} deg, cylinder turned {-math.degrees(fr['spin_rad']):+.0f} deg",
+                     fontsize=10)
+        ax.set_aspect("equal")
+        ax.set_xlim(-60, 85)
+        ax.set_ylim(15, -75)  # palm at the bottom (z dorsal points down the page: palm up)
+        ax.grid(alpha=0.2)
+    fig.suptitle(f"Variant C: palm rolling; hand O, rho {r:g} mm, start {d:g} mm proximal of the MCP, mu 1.3 "
+                 f"(tan: palm, blue: proximal pad, orange: distal pad; gravity toward the palm)", fontsize=10)
+    fig.tight_layout()
+    path = OUT / "acqmcp_frames_C.png"
+    fig.savefig(path, dpi=110)
+    print(path, OUT / "acq_palm_snapshots.json")
+
+
 def cmd_frames(args):
+    if args.variant == "C":
+        return frames_palm(args)
     """Three frames on O (mu 1.3): start, mid-capture, captured, drawn in the finger plane."""
     import matplotlib
     matplotlib.use("Agg")
@@ -539,7 +797,7 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
-    r.add_argument("--variant", choices=("A", "B"), required=True)
+    r.add_argument("--variant", choices=("A", "B", "C"), required=True)
     r.add_argument("--hand", required=True)
     r.add_argument("--mu", type=float, required=True)
     r.add_argument("--rho", type=float, nargs="+", default=None)
@@ -547,13 +805,16 @@ def main():
     r.add_argument("--a", type=float, nargs="+", default=None)
     r.add_argument("--time_step", type=float, default=1e-3)
     r.add_argument("--delta_deg", type=float, default=0.0, help="noise floor: shift O's PIP command")
-    for k in DEFAULTS["A"]:
+    for k in sorted(set(DEFAULTS["A"]) | set(PALM)):
         r.add_argument(f"--{k}", type=float, default=None)
+    r.add_argument("--d", type=float, nargs="+", default=None, help="C: the cylinder's centre this far proximal of the "
+                                                                    "MCP (mm)")
+    r.add_argument("--q_extra_deg", type=float, default=None, help="C: override the per-radius PIP overshoot")
     r.add_argument("--workers", type=int, default=3)
     r.add_argument("--tag", required=True)
     r.add_argument("-v", "--verbose", action="store_true")
     a = sub.add_parser("analyze")
-    a.add_argument("--variant", choices=("A", "B"), required=True)
+    a.add_argument("--variant", choices=("A", "B", "C"), required=True)
     a.add_argument("--tag", required=True)
     a.add_argument("--measure", default="capture_deg")
     a.add_argument("--threshold", type=float, default=None, help="|D(O)| for a pair (default: THRESHOLD)")
@@ -564,7 +825,7 @@ def main():
     c.add_argument("--variant", choices=("A", "B"), required=True)
     c.add_argument("--tag", required=True)
     f = sub.add_parser("frames")
-    f.add_argument("--variant", choices=("A", "B"), required=True)
+    f.add_argument("--variant", choices=("A", "B", "C"), required=True)
     f.add_argument("--frame_placement", type=float, nargs=3, default=[15.0, 80.0, 6.0])
     args = ap.parse_args()
     return {"run": cmd_run, "analyze": cmd_analyze, "calib": cmd_calib, "frames": cmd_frames}[args.cmd](args)
