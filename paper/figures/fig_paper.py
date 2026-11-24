@@ -493,23 +493,54 @@ def fig2():
     kax = fig.add_axes((4.80 / W, 0.10 / h, 2.32 / W, (head - 0.30) / h))
     kax.set_xlim(-12, 98); kax.set_ylim(-52, 30); kax.set_aspect("equal"); kax.axis("off")
     faint_extended(kax, v, (v.proximal_pad(), v.distal_pad(0.0)), pins=True)
+    # bodies only (servos, palm) from the sketch; the links are drawn here in grey shades
     n0p, n0l, n0c = len(kax.patches), len(kax.lines), len(kax.collections)
     v.draw(kax, qk, hit=set(), style="sketch")
     for p_ in kax.patches[n0p:]:
         p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_linewidth(0.5)
-    for ln in kax.lines[n0l:]:
-        ln.set_color("#6b6b69"); ln.set_linewidth(min(ln.get_linewidth(), 1.3))
-    for c in kax.collections[n0c:]:
-        c.set_facecolor("white"); c.set_edgecolor("#6b6b69")
-    for pad in (v.proximal_pad(), v.distal_pad(qk)):
-        kax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
+    for ln in list(kax.lines[n0l:]):
+        ln.remove()
+    for c in list(kax.collections[n0c:]):
+        c.remove()
+    from matplotlib.patches import Circle as _C
+    for p_ in list(kax.patches[n0p:]):
+        if isinstance(p_, _C):
+            p_.remove()
     four = v.joint
     st = four.sweep([qk])
-    pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
-           "C": st.tip[0], "O": np.zeros(2)}
-    offs = {"A": (-3, -7), "A'": (6, 7), "B": (7, -2), "B'": (6, -6), "C": (5, -5), "O": (-6, -8)}
+    A, Ap = four.finger.joint.a.array, four.finger.joint.ap.array
+    B, Bp, C = st.b[0], st.bp[0], st.tip[0]
+    O = np.zeros(2)
+    d0 = v.distal_pad(0.0); dq = v.distal_pad(qk)
+    ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
+    # proximal phalanx (ground link): O-A-A', dark grey
+    kax.plot(*np.array([O, A]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.plot(*np.array([A, Ap]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
+    # distal phalanx: B-B'-C, mid grey
+    kax.plot(*np.array([B, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.plot(*np.array([B, Bp]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
+    # the crossed links A'-B and A-B', black
+    for p1, p2 in ((Ap, B), (A, Bp)):
+        kax.plot(*np.array([p1, p2]).T, color=INK, lw=1.1, solid_capstyle="round", zorder=12)
+    # pivot clearance (dashed) and the pivots: fixed filled, moving open
+    pk = run.config.packaging
+    for nm_, pt in (("a", A), ("ap", Ap), ("b", B), ("bp", Bp)):
+        try:
+            r_ = pk.pivot_radius_mm(nm_)
+        except Exception:
+            r_ = pk.pivot_clearance_diameter_mm / 2.0
+        kax.add_patch(_C(pt, r_, fc="none", ec="#6b6b69", lw=0.5, ls=(0, (1.6, 1.2)), zorder=13))
+    for pt in (A, Ap):
+        kax.plot(*pt, marker="o", ms=3.0, color=INK, zorder=30)
+    for pt in (B, Bp):
+        kax.plot(*pt, marker="o", ms=3.0, mfc="white", mec=INK, mew=0.7, zorder=30)
+    for pt in (O, C):
+        kax.plot(*pt, marker="o", ms=2.0, color=INK, zorder=30)
+    for pad in (v.proximal_pad(), v.distal_pad(qk)):
+        kax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
+    pts = {"A": A, "A'": Ap, "B": B, "B'": Bp, "C": C, "O": O}
+    offs = {"A": (-4, -7), "A'": (7, 7), "B": (8, -2), "B'": (7, -6), "C": (5, -5), "O": (-6, -8)}
     for nm_, at in pts.items():
-        kax.plot(*at, marker="o", ms=2.8, mfc="white", mec=INK, mew=0.6, zorder=30)
         kax.annotate(f"${nm_}$", xy=at, xytext=offs[nm_], textcoords="offset points", fontsize=7, ha="center",
                      va="center", color=INK, zorder=31)
     arrow = dict(arrowstyle="-|>", lw=0.7, color=INK, mutation_scale=6, shrinkA=0, shrinkB=0)
@@ -521,7 +552,7 @@ def fig2():
     path = __import__("fig_mechanisms").icr_path(v, qk)
     kax.plot(*path.T, color=PURPLE, lw=1.0, zorder=25)
     kax.plot(*path[-1], marker="o", ms=3.4, color=PURPLE, mec="white", mew=0.3, zorder=26)
-    fig.text(5.96 / W, 0.06 / h, "$q=120^\\circ$ (faint: $q=0$); purple: instantaneous centre", fontsize=5.6,
+    fig.text(5.96 / W, 0.04 / h, "$q=120^\\circ$ (faint: $q=0$); dashed: pivot clearance;\npurple: instantaneous centre; filled: fixed pivots", fontsize=5.4, linespacing=1.0,
              color=INK2, ha="center", va="bottom")
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
