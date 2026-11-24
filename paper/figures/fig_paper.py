@@ -212,7 +212,7 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
 
 
 def fig2():
-    h = 2.45
+    h = 2.15
     fig = plt.figure(figsize=(W, h))
     head = h - 0.04
     # (a) room: the optimized designs at 7 mm, 120 deg (evaluator geometry) and the pad length each keeps
@@ -223,41 +223,88 @@ def fig2():
     sketch.SHOW_GROUND = False
     cfg = read_config_file(one_finger.DEFAULT_CONFIG)
     label(fig, 0.10, head, "(a) Interface clearance", h)
+    from dataclasses import replace as dc_replace
     from core.optimization.mechanism import mechanism as mech_of
-    s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    cw, ch = 0.70, 0.86
-    for j, hh in enumerate((3.0, 5.0, 7.0)):
-        fig.text((0.30 + j * cw + cw / 2) / W, (head - 0.20) / h, f"$h={hh:.0f}$ mm", fontsize=6.4, ha="center",
-                 va="top")
-    for i, (key, name) in enumerate((("2r_dd", "servo at the pin\n(2R-DD)"), ("cfl", "CoDe\n(CFL)"))):
+    PADC = {3.0: "#bcd3f2", 5.0: "#6f9fe0", 7.0: "#1f4f9c"}  # pad thickness, light to dark
+
+    def with_pads(cf, hh):
+        def one(c):
+            pk = c.packaging
+            return dc_replace(c, packaging=dc_replace(pk, proximal_pad=dc_replace(pk.proximal_pad, height_mm=hh),
+                                                      distal_pad=dc_replace(pk.distal_pad, height_mm=hh)))
+        return one(cf) if hasattr(cf, "packaging") else dc_replace(cf, goal=one(cf.goal))
+
+    def first_hit(v):
+        for qq in np.arange(0.0, 181.0, 1.0):
+            if v.collisions(qq):
+                return qq - 1.0
+        return 180.0
+    panels = (("2r_dd", "servo at the pin (2R-DD)", 3.0, True), ("cfl", "CoDe (CFL)", 7.0, False))
+    for i, (key, name, base_h, servo_up) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
-        y0 = head - 0.30 - (i + 1) * ch
-        fig.text(0.16 / W, (y0 + ch / 2) / h, name, rotation=90, fontsize=6.2, color=ARCH[key][1], ha="center",
-                 va="center", linespacing=1.0, fontweight="bold" if key == "cfl" else "normal")
-        for j, hh in enumerate((3.0, 5.0, 7.0)):
-            ax = fig.add_axes(((0.30 + j * cw) / W, (y0 + 0.12) / h, cw / W, (ch - 0.14) / h))
-            ax.set_xlim(-6, 66); ax.set_ylim(-56, 34); ax.set_aspect("equal"); ax.axis("off")
-            r = [x for x in s1 if x["architecture"] == S1NAME[key] and float(x["required_flexion_deg"]) == 150.0
-                 and float(x["thickness_mm"]) == hh]
-            if hh not in ds or not r or float(r[0]["c_pad_mean"]) < 0.3:
-                ax.text(30, -10, "no design\nreaches $150^\\circ$", fontsize=5.8, color=ARCH[key][1], ha="center",
-                        va="center", linespacing=1.0)
-                continue
-            x = list(ds[hh].x)
-            names_ = list(mech_of(ds[hh].mechanism).variable_names)
-            if key == "2r_dd":  # drawn with the servo upright (the optimized design tilts it)
-                x[names_.index("servo_tilt_deg")] = 0.0
-            else:  # pads drawn on their phalanges (no mounting offset)
-                for nm in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
-                    x[names_.index(nm)] = 0.0
-            v = view_of(ds[hh].mechanism, ds[hh].config, x)
-            qd = float(r[0]["q_max_deg"])
-            draw_geometry(ax, v, ARCH[key][1], qd, faint=False, pins=key != "cfl")
-            fig.text((0.30 + j * cw + cw / 2) / W, (y0 + 0.10) / h,
-                     f"$\\ell_1={float(r[0]['proximal_pad_mm']):.0f}$ mm, ${qd:.0f}^\\circ$", fontsize=5.6,
-                     color=ARCH[key][1], ha="center", va="top")
-    fig.text(1.35 / W, 0.06 / h, "designs for $q_{req}=150^\\circ$, each at its largest flexion; one scale",
-             fontsize=5.6, color=INK2, ha="center", va="bottom")
+        base = ds[base_h]
+        x = list(base.x)
+        nm = list(mech_of(base.mechanism).variable_names)
+        if servo_up:
+            x[nm.index("servo_tilt_deg")] = 0.0
+        else:
+            for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
+                x[nm.index(k_)] = 0.0
+        ax = fig.add_axes(((0.08 + i * 1.20) / W, (head - 1.40) / h, 1.16 / W, 1.12 / h))
+        ax.set_xlim(-6, 70); ax.set_ylim(-48, 30); ax.set_aspect("equal"); ax.axis("off")
+        fig.text((0.08 + i * 1.20 + 0.58) / W, (head - 0.20) / h, name, fontsize=6.4, color=ARCH[key][1],
+                 ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
+        for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
+            v = view_of(base.mechanism, with_pads(base.config, hh), x)
+            qd = 120.0 if key == "2r_dd" else first_hit(v)
+            n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
+            v.draw(ax, qd, hit=set(), style="sketch")
+            alpha = 1.0 if hh == 7.0 else 0.30
+            for p_ in ax.patches[n0p:]:
+                p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_alpha(alpha); p_.set_linewidth(0.5)
+            for ln in ax.lines[n0l:]:
+                ln.set_color("#8c8c8c"); ln.set_alpha(alpha); ln.set_linewidth(min(ln.get_linewidth(), 1.2))
+                ln.set_markersize(0)
+            for c in list(ax.collections[n0c:]):
+                c.remove()
+            from matplotlib.patches import Circle as _C
+            if key == "cfl":
+                for p_ in list(ax.patches[n0p:]):
+                    if isinstance(p_, _C):
+                        p_.remove()
+            if key == "2r_dd":
+                # the same pad length as the CFL's (35 mm) on the pin finger: extend each pad toward the joint and
+                # pose the distal one rigidly with its phalanx; the overlap at 120 deg is the pads' self-collision
+                from shapely.geometry import Polygon as SPoly
+                L = 35.0
+                pp = v.proximal_pad().copy()
+                pp[[1, 2], 0] = pp[0, 0] + L
+                d0, dq = v.distal_pad(0.0), v.distal_pad(qd)
+                ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
+                Rm = np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]])
+                dext = d0.copy()
+                dext[[0, 3], 0] = d0[1, 0] - L
+                dpose = (dext - d0[1]) @ Rm.T + dq[1]
+                for pad in (pp, dpose):
+                    ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+                ov = SPoly(pp).intersection(SPoly(dpose))
+                if not ov.is_empty and ov.geom_type == "Polygon":
+                    ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
+                                         alpha=0.9, zorder=26 + j))
+            else:
+                for pad in (v.proximal_pad(), v.distal_pad(qd)):
+                    ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+        if key == "2r_dd":
+            fig.text((0.08 + 0.58) / W, (head - 1.44) / h, "35 mm pads collide at $120^\\circ$ (red)",
+                     fontsize=5.6, color="#c0392b", ha="center", va="top")
+        else:
+            fig.text((0.08 + 1.20 + 0.58) / W, (head - 1.44) / h, "closes to $180^\\circ$ with every pad",
+                     fontsize=5.6, color=BLUE, ha="center", va="top")
+    for j, hh in enumerate((3.0, 5.0, 7.0)):
+        x0 = 0.55 + j * 0.55
+        fig.patches.append(Rectangle((x0 / W, 0.10 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
+                                     fc=PADC[hh], ec="#1f4f9c", lw=0.4))
+        fig.text((x0 + 0.18) / W, 0.14 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
     # (b) pole placement: the optimized designs' pole depth against their contact-face depth
     label(fig, 2.55, head, "(b) Pole placement", h)
     fig.text(3.80 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
