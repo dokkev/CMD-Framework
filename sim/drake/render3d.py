@@ -1,12 +1,16 @@
 """3D renders of the three Study 3 tasks on hand O at the states Drake simulated (logs/task_snapshots.json, written by
 render_tasks.py), with Drake's VTK renderer.
 
-The finger is hand O's own geometry (finger_geometry): pivots A, A', B, B', the pads and their faces, the PIP servo at
-A' tilted by pip_servo_tilt_deg (the parametric model's placement, core/morphology/code_hand/model.py). Phalanx side
-plates are the rounded hulls around their pivots, the four-bar links are paired plates with pins, and the servos are
-the X330 mesh (assets/x330.stl, read once from the CoDe Hand CAD). The cylinder, or the dial on its axle, is posed from
-the simulation; a red arrow gives the load. Geometry is written as OBJ files in logs/render3d/ and anchored in the
-world.
+The hand is the USD's geometry: the plain URDF with the description's drawing-only visuals (XM335 servos as the
+design's D-profile, links laid out by the packaging layers, the palm housing; sim/isaaclab make_assets.py --visuals),
+loaded by load_hand.py. The planar frame (x along the finger from the MCP-FE axis, z dorsal) is the middle finger's;
+index, middle and ring are closed at the frame's flexion through the description's four_bar table (the simulation
+divides the load over three fingers, as Isaac Lab's hand does), MCP FE and AA at 0, the thumb at its zeros. The
+cylinder, or the dial on its axle, spans the three fingers and is posed from the simulation; a red arrow gives the
+load. Its geometry is written as OBJ files in logs/render3d/ and anchored in the hand frame.
+
+add_finger() still draws one finger from its parameter file alone (pivots, pads, the X330 mesh, bowed link plates),
+for render_hands.py.
 
     uv run python render3d.py   ->  logs/render_<task><frame>.png
 """
@@ -227,6 +231,9 @@ def servo_tris(centre_xz, tilt_deg, servo):
 
 
 GHOST = [0.50, 0.52, 0.56, 1.0]
+GONE_MM = 40.0
+"""A cylinder farther than this from its ghost has left the grasp: it is not drawn, and its path arrow stops here (a
+pulled-out cylinder flies metres away, out of view, and would stretch the shadow map)."""
 
 
 def dashed_ring(sc, centre, r, y, rgba, n=30):
@@ -302,14 +309,19 @@ def add_finger(sc: "Scene", hand: str, B, q: float) -> None:
 
 
 
-def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1.0) -> Scene:
+def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1.0, finger: bool = True,
+          span=(-14.0, 14.0)) -> Scene:
+    """The task frame's scene in the finger's linkage plane (mm): the object (the cylinder or the dial on its axle),
+    the load arrow and the ghost outline, and with ``finger`` the finger drawn by ``add_finger``. ``span``: the
+    object's extent across the finger (y, mm; the camera looks from -y)."""
     sc = Scene(folder)
-    add_finger(sc, "O", st["distal"][:2], st["distal"][2])
+    if finger:
+        add_finger(sc, "O", st["distal"][:2], st["distal"][2])
 
     # the object
     c = np.array(st["centre"])
     rho = snap[task].get("rho_mm", snap["rho_mm"])
-    y_lo, y_hi = -14.0, 14.0  # a little longer than the finger is wide
+    y_lo, y_hi = span
     if task == "dial":
         sc.cylinder(c, y_lo, y_hi, rho, KNOB, n=96)
         for k in range(36):  # knurl
@@ -333,11 +345,17 @@ def build(task: str, st: dict, snap: dict, folder: Path, ghost=None, turn_sign=1
             arc_arrow(sc, axis, rho + 8.0, -math.pi / 2, -math.pi / 2 + turn_sign * math.radians(55), y_lo - 1.0,
                       LOAD)
     else:
+        gone = False
         if ghost is not None:  # where the cylinder was: a dashed outline and its path
             g0 = np.asarray(ghost, float)
             dashed_ring(sc, g0, rho, y_lo - 0.6, GHOST)
-            if np.linalg.norm(c - g0) > 3.0:
-                arrow(sc, g0, c, y_lo - 1.2, GHOST, half_width=0.55, head_len=2.8, head_half=1.6)
+            moved = np.linalg.norm(c - g0)
+            gone = moved > GONE_MM  # out of the hand and out of view: only its path's start, clipped
+            if moved > 3.0:
+                end = g0 + (c - g0) * min(1.0, GONE_MM / moved)
+                arrow(sc, g0, end, y_lo - 1.2, GHOST, half_width=0.55, head_len=2.8, head_half=1.6)
+        if gone:
+            return sc
         sc.cylinder(c, y_lo, y_hi, rho, OBJECT, n=96)
         mark = c + rot(-st["spin"], np.array([0.0, -(rho - 2.0)]))
         sc.bar(c, mark, 0.9, y_lo - 0.6, y_lo + 1.0, [0.45, 0.30, 0.16, 1.0])
@@ -399,6 +417,88 @@ def render(sc: Scene, out: Path, target_xz, dist=0.21, az_deg=-22.0, el_deg=14.0
     print(out)
 
 
+TASK_FINGERS = ("index", "middle", "ring")
+"""The fingers that carry the task: the planar simulation divides the load over three (two_pad_drake.FINGERS), as
+Isaac Lab's hand does with index, middle and ring on one cylinder."""
+TASK_REF = "middle"
+"""The finger whose linkage plane the planar frame maps to (the middle one, so the object spans the three evenly)."""
+TASK_CAMERA = {"target_mm": (28.0, -10.0, -10.0), "dist": 0.30, "az_deg": -34.0, "el_deg": -10.0, "fov_deg": 33.0}
+"""Task frames on the hand: the point looked at in the reference finger's planar frame (x along, y lateral, z dorsal,
+mm), the camera's distance [m], azimuth from -y toward +x and elevation [deg] and field of view (render()'s
+convention): from the ring finger's side and a little below, so the three fingers' pads and the object show."""
+THUMB_NEUTRAL = {"thumb_ro": 0.0, "thumb_raa": 0.0, "thumb_mcp": 0.0, "thumb_ip": 0.0}
+"""The thumb out of the way at its joints' zeros [deg]: it lies beside the index finger, its pad toward +y."""
+
+
+def hand_frame(hand: str = "O"):
+    """The hand's URDF and description, and the planar frame's origin in the hand frame (mm): the reference finger's
+    MCP-FE axis, x along the proximal at MCP 0, z dorsal (the hand frame's axes), with each task finger's lateral
+    offset from it (mm)."""
+    import load_hand as LH
+
+    urdf, description = LH.paths(hand)
+    desc = json.loads(description.read_text())
+    joints = {j["name"]: j for j in desc["joints"]}
+    origin = 1e3 * np.asarray(joints[f"{TASK_REF}_fe"]["anchor"], float)
+    offsets = {f: 1e3 * joints[f"{f}_fe"]["anchor"][1] - origin[1] for f in TASK_FINGERS}
+    return urdf, description, desc, origin, offsets
+
+
+def task_span(hand: str = "O", margin_mm: float = 4.5) -> tuple[float, float]:
+    """The object's extent across the task fingers (y in the reference finger's frame, mm): their pads and a margin."""
+    _, _, desc, _, offsets = hand_frame(hand)
+    hw = desc["pads"]["width_mm"] / 2 + margin_mm
+    return min(offsets.values()) - hw, max(offsets.values()) + hw
+
+
+def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict | None = None,
+                   size=(W, H)) -> Path:
+    """The scene (in the reference finger's planar frame) with the hand's URDF geometry (the USD's visuals, through
+    load_hand.py), palm down in the hand frame: MCP FE and AA at 0, the task fingers' four-bars closed at flexion q
+    [rad] from the description's ``four_bar`` table, the other fingers' at 0, the thumb at ``THUMB_NEUTRAL``."""
+    from PIL import Image
+    from pydrake.geometry import (ClippingRange, ColorRenderCamera, GeometryInstance, Mesh, PerceptionProperties,
+                                  RenderCameraCore, RenderLabel, Rgba)
+    from pydrake.math import RigidTransform, RotationMatrix
+    from pydrake.systems.sensors import CameraInfo
+
+    import load_hand as LH
+
+    urdf, description, desc, origin, _ = hand_frame(hand)
+    diagram, plant, sg, model, desc, _ = LH.load_hand(urdf, description, renderer=True, gravity=False,
+                                                     pose=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+    ctx = diagram.CreateDefaultContext()
+    pctx, sctx = plant.GetMyMutableContextFromRoot(ctx), sg.GetMyMutableContextFromRoot(ctx)
+    LH.set_pose(plant, pctx, model, desc, 0.0, 0.0, THUMB_NEUTRAL)
+    for digit in TASK_FINGERS:
+        for name, value in LH.table(desc, digit, math.degrees(q)).items():
+            plant.GetJointByName(name, model).set_angle(pctx, value)
+    X = RigidTransform(1e-3 * origin)
+    for k, (path, rgba) in enumerate(sc.items):
+        gi = GeometryInstance(X, Mesh(str(path), 1.0), f"task_{k}")
+        pp = PerceptionProperties()
+        pp.AddProperty("phong", "diffuse", Rgba(*rgba))
+        pp.AddProperty("label", "id", RenderLabel(1000 + k))
+        gi.set_perception_properties(pp)
+        sg.RegisterGeometry(sctx, plant.get_source_id(), sg.world_frame_id(), gi)
+
+    c = {**TASK_CAMERA, **(camera or {})}
+    target = 1e-3 * (origin + np.asarray(c["target_mm"], float))
+    az, el = math.radians(c["az_deg"]), math.radians(c["el_deg"])
+    eye = target + c["dist"] * np.array([math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)])
+    fwd = (target - eye) / np.linalg.norm(target - eye)
+    right = np.cross(fwd, [0.0, 0.0, 1.0])
+    right /= np.linalg.norm(right)
+    down = np.cross(fwd, right)
+    core = RenderCameraCore("vtk", CameraInfo(size[0], size[1], math.radians(c["fov_deg"])), ClippingRange(0.01, 3.0),
+                            RigidTransform())
+    img = sg.get_query_output_port().Eval(sctx).RenderColorImage(
+        ColorRenderCamera(core, False), sg.world_frame_id(), RigidTransform(RotationMatrix(np.column_stack([right, down, fwd])), eye))
+    Image.fromarray(np.array(img.data)[:, :, :3]).save(out)
+    print(out)
+    return out
+
+
 def main():
     snap = json.loads((T.OUT / "task_snapshots.json").read_text())
     for task in ("hold", "acquire", "dial"):
@@ -406,8 +506,8 @@ def main():
             frames = snap[task]["frames"]
             ghost = {("acquire", 2): frames[0]["centre"], ("hold", 2): frames[1]["centre"]}.get((task, i))
             sc = build(task, st, snap, T.OUT / "render3d" / f"{task}{i}", ghost=ghost,
-                       turn_sign=math.copysign(1.0, frames[-1]["spin"]))
-            render(sc, T.OUT / f"render_{task}{i}.png", target_xz=(40.0, -17.0), fov_deg=33.0)
+                       turn_sign=math.copysign(1.0, frames[-1]["spin"]), finger=False, span=task_span())
+            render_on_hand(sc, T.OUT / f"render_{task}{i}.png", st["distal"][2])
 
 
 if __name__ == "__main__":
