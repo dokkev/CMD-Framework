@@ -161,24 +161,54 @@ def clearance_row(ax, z, t=7.0, q=np.radians(120), L=16.0):
     ax.set_xlim(-L - 3, L + 14); ax.set_ylim(-L - 6, 9); ax.set_aspect("equal"); ax.axis("off")
 
 
+def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE):
+    """Both phalanges' pads at flexion q about a pole z below the link line, the phalanx (link) length Lp fixed on
+    each side of the joint: each pad keeps Lp - (t - z)_+ tan(q/2); the part lost to the joint is hatched."""
+    s = max(t - z, 0.0) * np.tan(q / 2)
+    P = np.array([0.0, -z])
+    ax.plot([-Lp, 0], [0, 0], color=GREY, lw=1.8, solid_capstyle="butt", zorder=3)
+    ax.add_patch(Polygon([[-Lp, 0], [-s, 0], [-s, -t], [-Lp, -t]], fc="#d6e4f5", ec=colour, lw=0.7, zorder=2))
+    dist_pad = [[s, 0], [Lp, 0], [Lp, -t], [s, -t]]
+    ax.add_patch(Polygon(rot(dist_pad, q, P), fc="#d6e4f5", ec=colour, lw=0.7, zorder=2))
+    ax.plot(*rot([[0, 0], [Lp, 0]], q, P).T, color=GREY, lw=1.8, solid_capstyle="butt", zorder=3)
+    if s > 0.2:
+        for poly in ([[-s, 0], [0, 0], [0, -t], [-s, -t]], rot([[0, 0], [s, 0], [s, -t], [0, -t]], q, P)):
+            ax.add_patch(Polygon(poly, fc="none", ec="#c0392b", lw=0.4, hatch="//////", zorder=4))
+    ax.plot(*P, marker="o", ms=3.8, color=PURPLE, mec="white", mew=0.4, zorder=6)
+    ax.set_xlim(-Lp - 2, 16); ax.set_ylim(-Lp - 6, 4); ax.set_aspect("equal"); ax.axis("off")
+
+
 def fig2():
-    h = 1.95
+    h = 2.45
     fig = plt.figure(figsize=(W, h))
     head = h - 0.04
-    # (a) interface clearance
+    # (a) room: pad thickness, pad length and flexion together, pin joint against a pole at the contact face
     label(fig, 0.10, head, "(a) Interface clearance", h)
-    fig.text(1.05 / W, (head - 0.20) / h, "$h=t=7$ mm; $q=120^\\circ$", fontsize=6.4, ha="center", va="top")
-    for i, (z, name, col) in enumerate(((0.0, "link-line pole", GREY), (7.0, "contact-face pole", BLUE))):
-        y0 = head - 0.36 - (i + 1) * 0.62
-        ax = fig.add_axes((0.30 / W, y0 / h, 1.40 / W, 0.62 / h))
-        clearance_row(ax, z)
-        fig.text(0.18 / W, (y0 + 0.31) / h, name, rotation=90, fontsize=6.2, color=col, ha="center", va="center")
-    fig.text(1.05 / W, 0.04 / h, "$G=2[t-z]_+\\tan(q/2)$", fontsize=7, ha="center", va="bottom")
+    for i, (z, name, col) in enumerate(((0.0, "pin joint", GREY), (7.0, "pole at the contact face", BLUE))):
+        ax = fig.add_axes(((0.10 + i * 1.05) / W, (head - 1.12) / h, 0.95 / W, 0.84 / h))
+        flexed_pair(ax, z, colour=BLUE if i else GREY)
+        fig.text((0.10 + i * 1.05 + 0.40) / W, (head - 0.20) / h, name, fontsize=6.3, color=col, ha="center",
+                 va="top")
+    fig.text(1.10 / W, (head - 1.15) / h, "$t=7$ mm, $q=120^\\circ$; hatched: pad lost to the joint",
+             fontsize=5.6, color=INK2, ha="center", va="top")
+    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.62) / h))
+    tt = np.linspace(3, 9, 50)
+    Lp = 30.0
+    for qd, col in ((90, "#bdbdbb"), (120, "#8c8c8a"), (150, "#4d4d4b")):
+        kept = np.clip(100 * (1 - tt * np.tan(np.radians(qd) / 2) / Lp), 0, 100)
+        cax.plot(tt, kept, color=col, lw=1.1)
+        cax.text(9.15, kept[-1], f"{qd}$^\\circ$", fontsize=5.6, color=col, va="center")
+    cax.plot(tt, np.full_like(tt, 100), color=BLUE, lw=1.4)
+    cax.text(3.1, 103, "pole at the contact face, any $q$", fontsize=5.6, color=BLUE, va="bottom")
+    cax.text(3.1, 8, "pin joint", fontsize=5.6, color=GREY, va="bottom")
+    cax.set_xlim(3, 10.2); cax.set_ylim(0, 118); cax.set_xticks([3, 5, 7, 9]); cax.set_yticks([0, 50, 100])
+    cax.set_xlabel("pad thickness $t$ (mm)", labelpad=1); cax.set_ylabel("pad length kept (%)", labelpad=1)
+    clean(cax)
     # (b) pole placement: the optimized designs' pole depth against their contact-face depth
     label(fig, 2.30, head, "(b) Pole placement", h)
     fig.text(3.65 / W, (head - 0.20) / h, "$q=120^\\circ$; optimized designs, 3–9 mm pads", fontsize=6.4,
              ha="center", va="top")
-    pax = fig.add_axes((2.75 / W, 0.55 / h, 1.85 / W, (head - 0.85) / h))
+    pax = fig.add_axes((2.75 / W, 0.62 / h, 1.85 / W, (head - 0.95) / h))
     pts = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pole_depths.json").read_text())
     tt = np.array([0, 19.5])
     pax.fill_between(tt, tt, 16, color="#eef3fa", lw=0, zorder=0)
