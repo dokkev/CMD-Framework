@@ -6,8 +6,7 @@ cad/usd_finger_<H>_q<q>.png). The dark viewer background is blended to white her
 
     conda run -n cmd python paper/figures/fig_cad.py [dest_dir]
 
-Contact-surface paths: design/output/paper/fig1_paths_ORU.json (paper/figures/fig1_paths.py); the reported interface
-effects: report/study3/data/isaac_conclusion_study3.json.
+(c) is a qualitative schematic (no data): the same joint command and gain on R and U, O's distal contact surface dashed.
 """
 import sys
 from pathlib import Path
@@ -76,6 +75,47 @@ def crop_white(im, pad=6):
     return im[max(rows.min() - pad, 0):rows.max() + pad, max(cols.min() - pad, 0):cols.max() + pad]
 
 
+def schematic(ax, colour, deep):
+    """Qualitative two-phalanx finger on an object under an impedance setpoint (not to scale). Dashed: where O's
+    distal contact surface lies. deep > 0 puts this hand's distal contact surface past O's, into the object, so the
+    same setpoint presses harder (extra preload); deep = 0 puts it on O's."""
+    from matplotlib.patches import Polygon, Circle, FancyArrowPatch
+    from matplotlib.transforms import Affine2D
+    ax.set_xlim(-0.6, 9.2); ax.set_ylim(-5.6, 1.2); ax.set_aspect("equal"); ax.axis("off")
+    pad_t = 0.75
+    joint = np.array([5.4, 0.4])
+    th = np.radians(-100.0)
+    rot = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+    to_w = lambda pts: (rot @ np.asarray(pts, float).T).T + joint  # distal frame: x along the link, y up (dorsal)
+    # proximal phalanx and pad
+    ax.add_patch(Polygon([(0, 0), (5.2, 0), (5.2, 0.8), (0, 0.8)], fc="#c9cdd2", ec=INK2, lw=0.5))
+    ax.add_patch(Polygon([(0.3, -pad_t), (4.6, -pad_t), (4.6, 0), (0.3, 0)], fc="#5b8fe0", ec=PAD, lw=0.5))
+    # distal phalanx and pad (this hand's contact surface at y = -pad_t - deep)
+    ax.add_patch(Polygon(to_w([(0.4, -0.4), (3.6, -0.4), (3.6, 0.4), (0.4, 0.4)]), fc="#c9cdd2", ec=INK2, lw=0.5))
+    face = -0.4 - pad_t - deep
+    ax.add_patch(Polygon(to_w([(0.7, face), (3.4, face), (3.4, -0.4), (0.7, -0.4)]), fc="#5b8fe0", ec=PAD, lw=0.5))
+    ax.add_patch(Circle(joint, 0.28, fc="white", ec=INK2, lw=0.6))
+    # O's distal contact surface (dashed) and the object resting on O's two contact surfaces
+    o_face = to_w([(0.4, -0.4 - pad_t), (3.7, -0.4 - pad_t)])
+    ax.plot(o_face[:, 0], o_face[:, 1], ls=(0, (2, 1.4)), color=INK, lw=0.7)
+    r = 1.45
+    n = rot @ np.array([0.0, -1.0])  # inward normal of the distal face
+    cy = -pad_t - r
+    # centre on y = cy at distance r from O's distal face line
+    p0 = o_face[0]
+    cx = p0[0] + ((r - (cy - p0[1]) * n[1]) / n[0])
+    ax.add_patch(Circle((cx, cy), r, fc="#f1e3cf", ec="#9a7a52", lw=0.6, zorder=0))
+    # contact force on the object from the distal pad: O's (grey) and this hand's
+    cpt = np.array([cx, cy]) - n * r  # where the object touches O's distal contact surface
+    side = np.array([-n[1], n[0]]) * 0.45  # O's arrow drawn beside this hand's
+    for start, length, col, lw in ((cpt + side, 1.0, "#9a9a9a", 1.0), (cpt, 1.0 + 2.6 * deep, colour, 1.3)):
+        ax.add_patch(FancyArrowPatch(start, start + n * length, arrowstyle="-|>", mutation_scale=7,
+                                     color=col, lw=lw, zorder=5))
+    if deep > 0:
+        ax.text(7.0, -2.2, "pad face\npast O's", fontsize=5.6, color=colour, ha="left", va="center", linespacing=1.0)
+    # the setpoint spring at the joint
+
+
 def main() -> int:
     """Fig. 1 (money figure, 2026-11-24): keeping the contact-surface motion lets an interface be evaluated without a
     bias from the reused controller. (a) the hand (Isaac Lab USD); (b) O and two 7 mm redesigns at the same joint
@@ -85,21 +125,21 @@ def main() -> int:
     from PIL import Image
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    width, height = 3.45, 2.40
+    width, height = 3.45, 2.50
     fig = plt.figure(figsize=(width, height))
     lab = dict(fontsize=7, fontweight="bold", va="top")
     # (a) the hand
     iso = usd_render(CAD / "hand_usd_palm_up.png")
     aw = 0.88
     ah = aw * iso.shape[0] / iso.shape[1]
-    a = fig.add_axes((0.02 / width, (2.27 - ah) / height, aw / width, ah / height))
+    a = fig.add_axes((0.02 / width, (2.37 - ah) / height, aw / width, ah / height))
     a.imshow(iso); a.axis("off")
     fig.text(0.005, 0.995, "(a)", **lab)
-    fig.text(0.46 / width, (2.27 - ah - 0.03) / height, "CoDe hand\n(pads: blue)", fontsize=6, color=INK2,
+    fig.text(0.46 / width, (2.37 - ah - 0.03) / height, "CoDe hand\n(pads: blue)", fontsize=6, color=INK2,
              ha="center", va="top", linespacing=1.0)
     # (b) O, U, R at the same joint command
     fig.text(0.98 / width, 0.995, "(b)", **lab)
-    fig.text(2.2 / width, 2.37 / height, "same joint command, $q=120^\\circ$", fontsize=6.5, ha="center", va="top")
+    fig.text(2.2 / width, 2.47 / height, "same joint command, $q=120^\\circ$", fontsize=6.5, ha="center", va="top")
     names = (("O", "O: 3 mm pads"), ("U", "U: 7 mm,\ncoverage only"), ("R", "R: 7 mm, keeps\ncontact motion"))
     keyed = [usd_white(CAD / f"usd_finger_{h}_q120.png") for h, _ in names]
     ims = [k[0] for k in keyed]
@@ -112,49 +152,24 @@ def main() -> int:
     fh = fw * ims[0].shape[0] / ims[0].shape[1]
     for i, ((h, name), im) in enumerate(zip(names, ims)):
         x0 = 1.0 + i * (fw + 0.03)
-        ax = fig.add_axes((x0 / width, (2.21 - fh) / height, fw / width, fh / height))
+        ax = fig.add_axes((x0 / width, (2.31 - fh) / height, fw / width, fh / height))
         ax.imshow(im); ax.axis("off")
-        fig.text((x0 + fw / 2) / width, (2.21 - fh - 0.02) / height, name, fontsize=6, color=HAND_C[h],
+        fig.text((x0 + fw / 2) / width, (2.31 - fh - 0.02) / height, name, fontsize=6, color=HAND_C[h],
                  ha="center", va="top", linespacing=1.0, fontweight="bold" if h != "O" else "normal")
-    # (c) contact-surface deviation from O
-    paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
-    ref = np.array(paths["O"]["contact"])
-    q = np.linspace(0, 120, len(ref))
-    ax = fig.add_axes((0.36 / width, 0.30 / height, 1.25 / width, 0.80 / height))
-    ax.axhspan(0, 1.0, color="#1f6fd1", alpha=0.08, lw=0)
-    for h in "UR":
-        dev = np.linalg.norm(np.array(paths[h]["contact"]) - ref, axis=1)
-        ax.plot(q, dev, color=HAND_C[h], lw=1.4)
-        ax.text(122, dev[-1], h, color=HAND_C[h], fontsize=6.5, fontweight="bold", va="center")
-    ax.set_xlim(0, 120); ax.set_ylim(0, 4.5); ax.set_xticks([0, 60, 120]); ax.set_yticks([0, 2, 4])
-    ax.set_xlabel("flexion $q$ (deg)", labelpad=1)
-    ax.set_ylabel("contact surface\noff O's path (mm)", labelpad=1, linespacing=1.0)
-    ax.text(64, 1.22, "kept: $<1$ mm", fontsize=5.8, color="#1f6fd1", va="bottom")
-    for sp in ("top", "right"):
-        ax.spines[sp].set_visible(False)
-    ax.tick_params(length=2, pad=1, labelsize=6)
-    fig.text(0.005, 1.22 / height, "(c)", **lab)
-    # (d) the interface effect each hand reports under the same impedance setpoint
-    d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["hands"]
-    vals = (("true\n(on O)", d["R"]["true_change_pct"], "#9a9a9a"),
-            ("on R", d["R"]["measured_change_pct"], HAND_C["R"]),
-            ("on U", d["U"]["measured_change_pct"], HAND_C["U"]))
-    bx = fig.add_axes((2.30 / width, 0.30 / height, 1.10 / width, 0.66 / height))
-    for i, (name, v, col) in enumerate(vals):
-        bx.bar(i, v, width=0.62, color=col, edgecolor="none")
-        bx.text(i, v + (5 if v > 0 else -5), f"{v:+.0f}%".replace("-", "\u2212"), ha="center", va="bottom" if v > 0 else "top",
-                fontsize=6.2, color=INK)
-    bx.axhline(0, color=INK, lw=0.6)
-    bx.set_xticks(range(3)); bx.set_xticklabels([v[0] for v in vals], fontsize=6, linespacing=1.0)
-    bx.set_ylim(-82, 66); bx.set_yticks([-50, 0, 50]); bx.set_yticklabels(["$-50$", "0", "$+50$"])
-    bx.set_ylabel("pull-out load change (%)", labelpad=1, fontsize=6)
-    bx.text(2.0, -8, "sign\nreversed", ha="center", va="top", fontsize=6, color=HAND_C["U"], style="italic", linespacing=1.0)
-    for sp in ("top", "right", "bottom"):
-        bx.spines[sp].set_visible(False)
-    bx.tick_params(length=2, pad=1, labelsize=6)
-    bx.tick_params(axis="x", length=0)
-    fig.text(1.80 / width, 1.22 / height, "(d)", **lab)
-    fig.text(2.80 / width, 1.22 / height, "stiff 3 mm $\\to$ soft 7 mm pad,\nsame setpoint", fontsize=6.3, ha="center", va="top", linespacing=1.0)
+    # (c) qualitative: the same joint command and gain on a redesign that keeps the contact-surface motion (R) and on
+    # one that does not (U); no data
+    fig.text(0.005, 1.30 / height, "(c)", **lab)
+    fig.text(1.80 / width, 1.30 / height, "thicker pad, same joint command and gain (grey arrow: O's contact force)",
+             fontsize=6.2, ha="center", va="top")
+    for i, (h, title, verdict, deep) in enumerate((
+            ("R", "keeps contact-surface motion", "same contact force:\ninterface effect read correctly", 0.0),
+            ("U", "coverage only", "extra preload:\ninterface effect biased", 0.55))):
+        x0 = 0.10 + i * 1.72
+        ax = fig.add_axes((x0 / width, 0.02 / height, 1.60 / width, 1.05 / height))
+        schematic(ax, HAND_C[h], deep)
+        ax.set_title(f"{h}: {title}", fontsize=6.3, color=HAND_C[h], fontweight="bold", pad=1)
+        ax.text(0.5, 0.0, verdict, transform=ax.transAxes, fontsize=6, ha="center", va="bottom", color=INK,
+                linespacing=1.0)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
