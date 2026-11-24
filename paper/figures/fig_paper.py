@@ -239,7 +239,7 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "servo at the pin (2R-DD)", 3.0, True), ("cfl", "CoDe (CFL)", 7.0, False))
+    panels = (("2r_dd", "servo at the pin (2R-DD)", 3.0, False), ("cfl", "CoDe (CFL)", 7.0, False))
     for i, (key, name, base_h, servo_up) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
@@ -247,7 +247,7 @@ def fig2():
         nm = list(mech_of(base.mechanism).variable_names)
         if servo_up:
             x[nm.index("servo_tilt_deg")] = 0.0
-        else:
+        if key == "cfl":
             for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
                 x[nm.index(k_)] = 0.0
         ax = fig.add_axes(((0.08 + i * 1.20) / W, (head - 1.40) / h, 1.16 / W, 1.12 / h))
