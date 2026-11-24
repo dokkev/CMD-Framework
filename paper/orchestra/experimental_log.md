@@ -338,7 +338,7 @@ Drake (SAP) replica of the two-pad measurement on one planar finger, condition A
 - Point contact: ρ(E, Δ_contact) = 0.67 (p 0.003, 16 hands); R 19%, U 72%.
 - Hydroelastic pads, 0.1 MPa over 3 mm on every hand: ρ 0.86 (p < 10⁻⁴), Δ_skel 0.09; R 17%, U 254%.
 - Pads as soft as they are thick (0.1 MPa over each pad's own thickness), against O carrying the same pad (experiment 25): ρ(E′, Δ_contact) = 0.78 (p 0.0003, 15 hands; three hands with Δ_contact ≥ 4.4 mm cannot hold), Δ_skel −0.10. R 5.9, 16.3, 104.2%; U 109.4, 347.2, 370.4% at 5, 7, 9 mm. Below 1 mm of Δ_contact the errors match point contact; above it they are two to three times larger.
-- Tasks under the same open-loop commands (point contact): grasp pull-out (the load ramp above), grasp acquisition (closing from open to draw a cylinder in against a load; ρ 0.87, Δ_skel 0.11, 18 hands), turning a sprung dial by 15–42° in one closing (experiment 26: ρ 0.81, p 0.0001, Δ_skel 0.09; R 31%, U 88%; noise floor 0.7%). In-hand rolling by a flexion sweep fails (ρ 0.28).
+- Tasks under the same open-loop commands (point contact): grasp pull-out (the load ramp above), grasp acquisition (closing from open to draw a cylinder in against a load; ρ 0.87, Δ_skel 0.11, 18 hands), turning a disk with the fingertip alone (experiment 28z, replacing experiment 26: the distal pad drags the top face of a disk whose axis is normal to the proximal face, 12–38° against a torsional spring, the proximal pad never touching; ρ 0.78, p 0.0001, Δ_skel 0.20; R 17%, U 47%; noise floor 0.9%; pad pressed ≤ 1.5 mm). In-hand rolling by a flexion sweep fails (ρ 0.28).
 - Figure: `fig_study3.png` (a) task frames rendered in Drake at simulated states, (b) Isaac Lab, (c) contact models, (d) tasks.
 
 ## Study 3: contact-referenced joint setpoint (experiment 27, pre-registered d34be24; 2026-11-24; `sim/drake/`)
@@ -352,4 +352,15 @@ runtime contact; joint impedance control kept).
 - Reading: re-referencing one point removes that point's preload difference; the other contact points' path
   difference remains, so the contact-surface motion must still be kept. Only sensed touch (condition E) moves the
   residual to the skeleton. Data: `report/study3/data/drake_e27_point.json`, `drake_e27m_point.json`.
+
+## Study 3: the dial task replaced (2026-11-24; experiment 28, pre-registered 1b166a5; results 77b0c9d)
+
+For the manuscript session: Fig. 4 and the text must change wherever experiment 26's dial is used.
+- Why: in experiment 26 the dial was pressed between both pads and O's distal pad was pressed 2.0–11.0 mm (median 6.5 mm; 22 of 26 placements deeper than the 3 mm pad). The result lies outside the pad model. It also looked like the other grasp tasks.
+- New dial task (28z): only the distal pad touches. It drags the top face of a 15 mm disk whose axis is normal to the proximal face, offset 8–12 mm sideways, against a torsional spring, as the finger sweeps 40° open-loop from O's touch angle. The proximal pad never touches (clearance ≥ 14.9 mm). Max pad press is 0.78–1.47 mm on every hand.
+- Results, 18 hands: ρ(E, Δ_contact) 0.78 (p 0.0001), ρ(E, Δ_skel) 0.20; R 17.0%, U 46.8%; E 5.6–54.6%; noise floor median 0.9%.
+- Auxiliary 28y (a y-axis dial pushed at its rim by the fingertip): ρ 0.55 (p 0.0095); R 6.5%, U 24.1%; E range near its noise floor (75th percentile 6.9%). Not the headline.
+- Reading: the claim now covers a single-contact fingertip task, not only two-pad grasps.
+- Data: report/study3/data/drake_e28z_point.json, drake_e28y_point.json. Log: report/study3/experiments.md, experiment 28. The renders for the new task are being made (sim/drake, render_tipdial*.png).
+- Wording: the permutation p for 18 hands uses 20,000 random permutations, not exact enumeration. Say "permutation p", not "exact".
 

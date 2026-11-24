@@ -37,7 +37,9 @@ DRAKE_SETS = {
     ("dk", "point", "e27m"): ("27", "pull-out", "auxiliary: the same with the distal pad's midpoint matched"),
     ("dkpullin", "point", "e23-a3"): ("23", "grasp acquisition", "cylinder starts 3 mm past O's contact"),
     ("dkpullin", "point", "e23-a6"): ("23", "grasp acquisition", "cylinder starts 6 mm past O's contact"),
-    ("dkdial", "point", "e26-s45"): ("26", "dial", "sprung dial, 45 deg sweep"),
+    ("dkdial", "point", "e26-s45"): ("26", "dial", "superseded by experiment 28z (distal pad pressed 2-11 mm, beyond the pad model): sprung dial, 45 deg sweep"),
+    ("dktipdial", "point", "e28z"): ("28", "fingertip dial", "z-axis disk turned by the distal pad on its top face (Study 3's dial task)"),
+    ("dktipdial", "point", "e28y"): ("28", "fingertip dial", "auxiliary: y-axis dial driven tangentially by the distal pad"),
     ("dkdial", "point", "e24-s8"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 8 deg sweep"),
     ("dkdial", "point", "e24-s15"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 15 deg sweep"),
     ("dkroll", "point", "e22-s8"): ("22", "in-hand rolling", "flexion sweep of 8 deg"),
@@ -169,10 +171,15 @@ def drake_rows() -> tuple[list[dict], list[str]]:
             elif task == "grasp acquisition":
                 x = e.get("pullin") or {}
                 row.update(measure=r4(x.get("drawn_mm")), measure_unit="mm (drawn in toward the MCP)", held_at_end=x.get("held"))
-            elif task == "dial":
+            elif task in ("dial", "fingertip dial"):
                 x = e.get("dial") or {}
                 row.update(measure=r4(x.get("rotation_deg")), measure_unit="deg (dial rotation)", held_at_end=x.get("held"),
                            event=None if x.get("touched", True) else "not touched")
+                if "distal_force_max_n" in x:
+                    row["distal_force_max_n"] = r4(x.get("distal_force_max_n"))
+                    row["proximal_force_max_n"] = r4(x.get("proximal_force_max_n"))
+                elif "distal_normal_end_n" in x:
+                    row["distal_force_end_n"] = r4(x.get("distal_normal_end_n"))
             elif task == "in-hand rolling":
                 x = e.get("roll") or {}
                 row.update(measure=r4(x.get("rotation_deg")), measure_unit="deg (cylinder rotation)", held_at_end=x.get("held"),
@@ -210,10 +217,12 @@ def study3() -> None:
     files = {}
     keys = ["engine", "experiment", "task", "setting", "tag", "contact_model", "hand", "mu", "cylinder_radius_mm", "q0_deg",
             "x_c_mm", "load_direction", "gate0_pass", "measure", "measure_unit", "event", "held_at_end",
+            "distal_force_max_n", "proximal_force_max_n", "distal_force_end_n",
             "setpoint_o_deg", "setpoint_deg", "setpoint_residual_mm"]
     groups = {}
     for r in drows + irows:
-        name = {"pull-out": "pullout", "grasp acquisition": "acquisition", "dial": "dial", "in-hand rolling": "rolling"}[r["task"]]
+        name = {"pull-out": "pullout", "grasp acquisition": "acquisition", "dial": "dial", "fingertip dial": "tipdial",
+                "in-hand rolling": "rolling"}[r["task"]]
         eng = "isaac" if r["engine"] == "Isaac Lab" else "drake"
         groups.setdefault(f"runs_{eng}_{name}.csv", []).append({k: r.get(k) for k in keys})
     for fname, rows in sorted(groups.items()):
@@ -233,7 +242,9 @@ def study3() -> None:
             ("drake_e27_point.json", "Drake", "pull-out", "contact-referenced joint setpoint"),
             ("drake_e27m_point.json", "Drake", "pull-out", "contact-referenced setpoint, pad midpoint (auxiliary)"),
             ("drake_e23_point.json", "Drake", "grasp acquisition", "point contact"),
-            ("drake_e26_point.json", "Drake", "dial", "point contact"),
+            ("drake_e26_point.json", "Drake", "dial", "superseded by experiment 28z (pad pressed beyond the model)"),
+            ("drake_e28z_point.json", "Drake", "fingertip dial", "z-axis disk (Study 3's dial task)"),
+            ("drake_e28y_point.json", "Drake", "fingertip dial", "auxiliary: y-axis fingertip dial"),
             ("drake_e24_point.json", "Drake", "dial", "superseded by experiment 26: dial turned 5-10 deg"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
@@ -269,7 +280,10 @@ def study3() -> None:
                         "+x-z diagonal) rises until the grasp gives way; measure = that load",
             "grasp acquisition": "from the open finger, closing to O's setpoint draws the cylinder in against a load; "
                                  "measure = distance drawn in",
-            "dial": "one closing turns a sprung dial; measure = rotation",
+            "dial": "one closing turns a sprung dial pressed between both pads; measure = rotation (experiments 24, 26; superseded)",
+            "fingertip dial": "the distal pad alone drives a dial against a torsional spring as the finger sweeps open-loop "
+                              "from O's touch angle; z: a disk whose top face the pad drags, y: a rim pushed tangentially; "
+                              "the proximal pad never touches; measure = rotation (experiment 28)",
             "in-hand rolling": "after the grasp, an open-loop flexion sweep of 8 or 15 deg rolls the cylinder; "
                                "measure = rotation",
         },

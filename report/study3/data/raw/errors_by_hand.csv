@@ -160,24 +160,60 @@ Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_hu,9.0,3.89,7.17,0.7392,25
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.3246,25
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.9253,25
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,R,7.0,0.86,7.67,0.3106,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.3923,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.5752,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.6456,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d3_minDs_s0,7.0,3.09,3.83,0.7324,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,U,7.0,3.91,3.38,0.8797,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d4p5_s0,7.0,4.41,11.33,0.9879,25
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d5p5_s0,7.0,5.4,12.17,1.0,22
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.1618,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.3417,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to5_hr,5.0,0.35,3.55,0.0865,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to5_hu,5.0,1.58,2.02,0.2433,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.6569,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.9243,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_hr,9.0,2.32,9.37,0.1319,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_hu,9.0,3.89,7.17,0.2811,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.7483,26
-Drake,dial,point contact,report/study3/data/drake_e26_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.9502,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,R,7.0,0.86,7.67,0.3106,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.3923,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.5752,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.6456,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d3_minDs_s0,7.0,3.09,3.83,0.7324,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,U,7.0,3.91,3.38,0.8797,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d4p5_s0,7.0,4.41,11.33,0.9879,25
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d5p5_s0,7.0,5.4,12.17,1.0,22
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.1618,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.3417,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to5_hr,5.0,0.35,3.55,0.0865,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to5_hu,5.0,1.58,2.02,0.2433,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.6569,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.9243,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to9_hr,9.0,2.32,9.37,0.1319,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to9_hu,9.0,3.89,7.17,0.2811,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.7483,26
+Drake,dial,superseded by experiment 28z (pad pressed beyond the model),report/study3/data/drake_e26_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.9502,26
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,R,7.0,0.86,7.67,0.1696,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1897,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.2505,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.2664,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d3_minDs_s0,7.0,3.09,3.83,0.2787,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,U,7.0,3.91,3.38,0.4676,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d4p5_s0,7.0,4.41,11.33,0.3075,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d5p5_s0,7.0,5.4,12.17,0.2999,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.185,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.264,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to5_hr,5.0,0.35,3.55,0.0814,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to5_hu,5.0,1.58,2.02,0.2082,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.0564,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.2652,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to9_hr,9.0,2.32,9.37,0.3646,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to9_hu,9.0,3.89,7.17,0.5351,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.4683,12
+Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.5458,12
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,R,7.0,0.86,7.67,0.0647,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1288,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1338,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0819,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d3_minDs_s0,7.0,3.09,3.83,0.1647,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,U,7.0,3.91,3.38,0.2412,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d4p5_s0,7.0,4.41,11.33,0.1015,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d5p5_s0,7.0,5.4,12.17,0.0788,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0834,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.1418,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to5_hr,5.0,0.35,3.55,0.0282,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to5_hu,5.0,1.58,2.02,0.1081,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.1024,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1801,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_hr,9.0,2.32,9.37,0.1153,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_hu,9.0,3.89,7.17,0.2393,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1466,16
+Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2109,16
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,R,7.0,0.86,7.67,0.2712,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0628,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3368,20
