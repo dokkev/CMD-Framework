@@ -1,0 +1,373 @@
+         Same Motion, Different Contact: Design of a
+               Contact-Centric Robot Hand
+                                     Author Names Omitted for Anonymous Review
+
+
+   Abstract—Research hands for dexterous manipulation are
+built as chains of servos, one at each joint. Such hands leave
+room for a contact interface only at the fingertip, and a finger
+redesigned to carry a thicker interface changes with it, so the
+effect of the interface itself cannot be measured. This paper
+proposes contact-centric design, which moves the servo off the
+joint and redesigns the finger for a new interface by preserving
+the motion of its contact surfaces, dispensing with the skeleton
+as the redesign target. An analysis of the pole of the joint shows
+that a fixed axis above the pad’s mount cannot preserve this
+motion, whereas a crossed four-bar can. Design studies show
+that the resulting finger keeps more contact surface than a
+servo-at-joint finger at every pad thickness and required flexion,
+and that its redesigns stay at a fraction of the fixed-axis bound.
+In simulation, under the impedance setpoints that servo hands
+run, the error a redesign adds to a measured interface effect
+follows the change in contact-surface motion, not that of the
+skeleton, across two simulators, two contact models and three        Fig. 1. The CoDe Hand. (a) The hand (CAD). (b) One finger: the
+                                                                     PIP servo sits on the proximal phalanx and drives a crossed four-
+tasks. A redesign that ignores it reports that a softer, thicker
+                                                                     bar, so the proximal and distal contact modules (dashed) can be
+pad holds 48% more, when it holds 41% less.                          thick and are exchanged without disassembling the joint. (c) Kinds
+                                                                     of contact interface the modules are meant to carry; illustrative, not
+                        I. Introduction                              yet integrated.
+
+   Recent advances in robotic hands have made learning-
+based dexterous manipulation more accessible [22, 1, 8],
+but experimenting with their contact interfaces remains              what should be preserved in the finger’s kinematics when
+diﬀicult. Contact interfaces shape both how forces are               the contact interface changes?
+transmitted between the hand and the object and how                     Our intuition is that the motion of the contact surfaces,
+these interactions are sensed. Despite decades of research           rather than that of the underlying skeleton, should serve
+on compliant structures, contact mechanics and tactile               as the reference for finger design. Learned manipulation
+sensing [9, 23, 14, 26], integrating these advances into             policies commonly command joint position targets exe-
+accessible hand platforms remains costly. Adapting the               cuted through low-level impedance control [22, 21]. When
+interface to the hand requires custom development for                a thicker interface is mounted, preserving the skeleton
+each pairing [27, 4]. Conversely, adapting the hand to               motion does not preserve the contact-surface motion, so
+the interface changes the robot’s embodiment, making it              identical joint commands and gains produce different
+diﬀicult to isolate the effects of the interface itself.             contact forces. The key observation is that both the
+   The diﬀiculty arises from both actuator packaging                 clearance between adjacent contact interfaces and their
+and joint kinematics. Commercial smart servos mounted                relative motion depend on where the pole, the point about
+at the finger joints occupy space that could otherwise               which the distal phalanx rotates relative to the proximal
+accommodate contact interfaces. Fingertip modules swap               one, lies relative to the contact surfaces. Decoupling the
+readily, since the distal phalanx has a joint on one side            pole from the physical joint hardware therefore provides
+only [18, 5], but many grasps rest on the phalanges and the          the design freedom to accommodate different contact
+joints between them [6, 11]. Relocating the actuators frees          interfaces while preserving their relative motion.
+this space, but within anthropomorphic finger dimensions,               To study how contact interfaces affect manipulation
+fixed-axis articulation still imposes a trade-off between            independently of changes in finger morphology, we intro-
+contact coverage, interface thickness and range of motion.           duce the CoDe (contact-centric design) Hand (Fig. 1). It
+Prior work has addressed this geometric constraint with              uses commercial smart servos to retain the accessibility of
+remote-center-of-motion mechanisms that allow contin-                existing hand platforms, and planar rigid-link mechanisms
+uous skin across finger joints [13, 15]. These studies,              to keep it easy to model and simulate. Remote actuation
+however, address the accommodation of contact interfaces             frees space for contact interfaces, and a crossed four-
+rather than a question central to contact experimentation:           bar linkage (CFL) at the PIP joint places the pole by
+Fig. 2. (a) Kinematic model of the CFL at 120◦ : pivots A, A′ , B, B ′ , fingertip C and frame F1 ; above it, the finger model at q = 0 (dashed:
+link line). (b) The four PIP joints compared, to one scale (grey: servos; red, blue: proximal, distal phalanx and pad; purple: instantaneous
+center over 0–120◦ ). (c) Poles each joint can reach over its design space at 60–150◦ (light to dark): a pin stays on the link line, rollers reach
+a narrow band, and the crossed four-bar (outline: 95% of closing designs) reaches the contact faces of thick pads.
+
+
+
+design relative to the contact surfaces. The finger can                                                III. Design
+thus be redesigned for different contact interfaces while
+                                                                            Two questions guide our finger design. How can con-
+the relative motion of its contact surfaces changes little.
+                                                                          tact interfaces of different dimensions be accommodated
+  Our main contributions are:                                             without sacrificing contact coverage or range of motion?
+  • Contact-centric kinematic analysis: the relations be-                 How can the relative motion between contact surfaces be
+    tween the pole, interface clearance and relative                      preserved when the finger is redesigned for a different
+    contact-surface motion, which show why preserving                     interface? We address both through a common kinematic
+    the skeleton motion fails across interface changes.                   analysis and use the resulting insights to guide the
+  • Contact-centric finger design: a servo-driven link-                   mechanism design.
+    age architecture and an optimization formulation
+    that jointly maximize contact coverage and preserve                   A. Pole
+    contact-surface motion. Design studies show that the                     Both design questions can be addressed by examining
+    CoDe finger accommodates thicker interfaces than a                    the location of the pole relative to the contact surfaces.
+    servo-at-joint finger while changing its contact-surface              Consider the planar displacement of the distal phalanx
+    motion far less across redesigns.                                     relative to the proximal phalanx from its extended configu-
+  • Evaluation of contact interface effects: preliminary                  ration. Expressed in C, the displacement y 7→ eiq y +b(q) is
+    simulations across contact models and manipulation                    equivalent to a rotation by q about the finite-displacement
+    tasks show that preserving contact-surface motion,                    pole
+    rather than skeleton motion, reduces the influence of                                                 b(q)
+    redesign on the evaluation of contact interfaces under                                      P (q) =         ,                 (1)
+                                                                                                        1 − eiq
+    shared impedance commands.
+                                                                          where q is the relative flexion angle between the two
+                                                                          phalanges [7, 20]. While the pole of a revolute joint
+                        II. Related Work                                  coincides with its physical axis, that of a linkage can lie
+                                                                          outside the physical structure and vary throughout flexion.
+  Tendon-driven hands free the joints of actuators [8],                     Interface thickness alone does not determine the clear-
+rolling contact joints [16, 24], crossed four-bar joints [3, 2]           ance required between adjacent contact interfaces. What
+and linkage-driven hands [17] give compact or polycentric                 matters is the distance between the contact surfaces and
+articulation, and remote-center-of-motion fingers carry                   the pole. Consider two contact surfaces at an equal depth
+thick skin across their joints [13, 15]. None has been                    t below the link line, with the pole at depth z(q) and
+analyzed for whether its contact-surface motion survives                  midway along the finger between the joint-side corners of
+a change of interface. Co-design lets the morphology                      the interfaces. Under these conditions, the minimum gap
+change freely for a task [25, 12], whereas contact-centric                required for collision-free flexion between the interfaces is
+design holds the contact-surface motion fixed, so that the                                                               q
+                                                                                         Gsym =      max 2[t − z(q)]+ tan ,                   (2)
+interface remains the variable.                                                                    0<q≤qreq              2
+where [x]+ = max(x, 0). For a revolute joint whose                motivates the choice of the CFL as the PIP articulation
+axis lies on the link line (z = 0), every millimeter of           of the CoDe Hand.
+additional contact-surface depth requires an additional
+gap of 3.46 mm at qreq = 120◦ . Within a prescribed finger        B. Finger Architecture
+length, this gap comes at the expense of contact coverage.           The MCP joint is directly actuated, while the PIP
+Moving the pole toward the contact surfaces throughout            servo is mounted on the proximal phalanx and drives the
+flexion reduces the required gap.                                 CFL, leaving the space beneath the PIP joint for contact
+   The location of the pole is equally important when a           interfaces. Fig. 2(a) illustrates the kinematic structure
+finger is redesigned for a different contact interface. Let Fp    of the finger. Let F1 be a frame fixed to the proximal
+be a frame whose origin is the projection of the MCP axis         phalanx, with its origin at the MCP axis O and its x-axis
+onto the proximal contact surface and whose x-axis runs           along the link line. The distal phalanx frame F2 coincides
+along that surface. Let c(q) denote the point on the distal       with F1 at q = 0. Pivots A and A′ are fixed in F1 , and
+contact surface directly below the fingertip, and let p(q)        B and B ′ in F2 . Two crossed links connect A′ to B and
+denote the pole expressed in Fp . The contact point moves         A to B ′ , and the PIP servo drives link A′ B about A′ .
+as c(q) = p(q) + Rq (c0 − p(q)), where c0 is its initial          The pose of the distal phalanx in F1 , T (q) = (Rq , b(q)),
+position and Rq is the planar rotation. For two finger            follows from the loop closure of the linkage on its crossed
+designs with the same initial contact-point position, the         branch [19].
+difference in contact-point position is                              The proximal (i = 1) and distal (i = 2) contact
+                                   q                              interfaces are mechanically independent modules that can
+                 k∆c(q)k = 2 sin k∆p(q)k.                   (3)
+                                   2                              be exchanged without disassembling the articulation. Each
+Thus, for a preserved initial contact geometry, preserving        module has a length ℓi , a thickness hi and a contact surface
+the contact-surface motion is equivalent to preserving the        at depth ti ≥ hi below the link line, and is supported along
+pole relative to the contact surfaces.                            its length. The module thickness is a requirement, while its
+   Preserving the pole relative to the contact surfaces is        length and mounting position are design variables. Each
+not equivalent to preserving it relative to the skeleton          module is mounted at the shallowest depth permitted by
+when the contact-surface depth changes. Let ∆contact and          the structure, without spacers.
+∆skel denote the maximum deviations of the contact-point             The finger is planar with two actuated degrees of
+and fingertip trajectories, respectively, over the required       freedom, and the MCP joint is held at zero to isolate
+flexion range. For an equal change ∆t in contact-surface          the PIP articulation. For an articulation architecture K,
+depth on both phalanges, with the initial positions of both       a finger design M comprises the mechanism geometry, the
+trajectory points preserved, these deviations satisfy             servo orientation, and the lengths and mounting positions
+                                         qreq                     of the contact interfaces. For the CFL, the mechanism
+              ∆contact + ∆skel ≥ 2 sin        |∆t|.         (4)   geometry is parameterized by the pivot locations A, A′ ,
+                                          2
+A redesign therefore cannot preserve both motions when            B, B ′ and the fingertip C. The finger contour length is
+the contact-surface depth changes. For a fixed-axis joint
+                                                                   Lf (M, q) = L1 (M )+kr2,s (M, q)−r1,e (M )k+L2 (M ), (6)
+whose axis remains at the same depth and whose initial
+contact-point position is preserved, the contact-surface          where L1 and L2 are the proximal and distal phalanx
+motion deviation is bounded by                                    lengths and the middle term is the distance between the
+                                    qreq                          adjacent phalanx ends r1,e and r2,s . The design is carried
+                  ∆contact ≥ 2 sin       |∆t|.              (5)
+                                     2                            out within a prescribed extended finger length Lf (M, 0).
+Rather than constraining the skeleton motion, we allow
+the skeleton to change so as to minimize the change in            C. Design Optimization
+contact-surface motion.                                              Rather than prescribing a desired pole trajectory, we
+   Both design objectives thus benefit from the freedom to        exploit the design freedom of the mechanism by directly
+place the pole relative to the contact surfaces. In a revolute    optimizing contact coverage and contact-surface motion
+joint, the pole is constrained by the physical location of        deviation. Coverage measures how much of the contact
+the axis. In a rolling contact joint (RCJ), the pole is           surfaces can be used together during flexion, rather than
+determined by the geometry of the rolling surfaces: for           the total pad length. At a configuration q, the extended
+two equal circular rollers of radius r, its depth relative        contact surfaces intersect at X, and a cylinder inscribed
+to their initial contact point is limited to r tan(q/4). A        between them touches both at an equal distance s from X.
+crossed four-bar linkage (CFL), in contrast, allows the           Let Ti (M, q) denote the set of distances s ≥ 0 along the
+pole to be shaped through the locations of its pivots and         unoccluded contact surface of pad i. The contact coverage
+the lengths of its links. As shown in Fig. 2(c), the CFL          is
+offers a broader range of achievable pole locations than the                               2|T1 (M, q) ∩ T2 (M, q)|
+                                                                            Cpad (M, q) =                           .    (7)
+revolute and rolling contact joints. This design freedom                                          Lf (M, q)
+Fig. 3. Comparative design studies. (a–c) Best coverage per pad thickness and required flexion; dashed: upper bounds without the joint
+actuator’s body; triangles on the floor: 2R-remote designs that hold no cylinder. (d–f) ∆contact after redesign from the 3 mm finger, at the
+highest-coverage end of each Pareto front; dotted: fixed-axis bound (Eq. (5)); 2R-remote reaches 14 and 23 mm in (f). (g) Pareto fronts
+at 120◦ , 3 → 7 mm (filled: highest-coverage end; hollow: the coverage-only design of Eq. (9)). (h) Contact-point paths c(q) in Fp of the
+reference and the redesign. (i) ∥∆c(q)∥ over flexion.
+
+
+
+Only the portion of a contact surface that can be                         When a finger is redesigned for a different contact
+used together with the other surface contributes. To                    interface, maximizing coverage alone does not preserve
+characterize the contact surfaces available during deep                 the contact-surface motion. We therefore formulate the
+flexion, the mean coverage C̄pad (M ) averages Cpad over                redesign as a multi-objective problem:
+q ∈ {90◦ , 12 (90◦ + qreq ), qreq }.                                                      (                               )
+   To quantify the preservation of contact-surface motion,                        min       ∆contact (M, M0 ), −C̄pad (M ) . (10)
+                                                                             M ∈F (K,h,qreq )
+we measure the maximum deviation of the distal contact-
+point trajectory from that of a reference design M0 , and,              Neither the skeleton motion nor the pole trajectory is
+for comparison, that of the fingertip trajectory:                       constrained, and no minimum coverage is imposed. The
+                                                                        resulting Pareto front characterizes the trade-off between
+ ∆contact (M, M0 ) =      max kc(M, q) − c(M0 , q)k,
+                        0≤q≤qreq                                        accommodating the new interface and preserving its rela-
+                                                                  (8)   tive motion.
+     ∆skel (M, M0 ) =     max krC (M, q) − rC (M0 , q)k.
+                        0≤q≤qreq
+
+Here c is expressed in Fp and rC in F1 . Both metrics                   D. Comparative Design Studies
+include the initial configuration, since a change in the                   We examine whether the pole design freedom of the
+initial contact geometry affects the interaction with an                CFL translates into greater contact coverage and smaller
+object.                                                                 contact-surface motion deviations. Four PIP articulations
+   All designs are subject to a prescribed extended fin-                are considered (Fig. 2(b)): a revolute joint with the servo
+ger length, actuator specifications, interface thickness                at the joint (2R-DD), a belt-driven revolute joint with
+and required flexion angle. The mechanism must remain                   the servo on the proximal phalanx (2R-remote), a rolling
+collision-free over q ∈ [0, qreq ] and satisfy the interface            contact joint with two equal rollers (RCJ) [16], and the
+mounting conditions of Sec. III-B; for four-bar mecha-                  CFL [3]. 2R-remote separates the benefit of relocating the
+nisms, the transmission angle is kept in [30◦ , 150◦ ]. Me-             actuator from that of the articulation. All architectures
+chanical advantage is evaluated for the resulting designs               share an extended finger length of 90 mm and identical
+but not imposed as a constraint.                                        actuator specifications. Interface thicknesses of 3, 5, 7 and
+   We first examine the interface accommodation of each                 9 mm and required flexion angles qreq ∈ {90◦ , 120◦ , 150◦ }
+architecture by maximizing contact coverage for a pre-                  are considered. Eq. (9) is solved with a genetic algorithm
+scribed interface thickness h1 = h2 = h and required                    and NSGA-II [10], three seeds each, and Eq. (10) with
+flexion qreq :                                                          NSGA-II.
+           ⋆
+         C̄pad (K, h, qreq ) =        max           C̄pad (M ),   (9)      1) Contact interface accommodation: The clearance
+                                 M ∈F (K,h,qreq )                       analysis predicts that articulations able to bring the pole
+where F(K, h, qreq ) is the set of feasible designs, so                 closer to the contact surfaces retain more coverage as
+that each architecture is evaluated at its own optimized                interface thickness and required flexion increase. The CFL
+geometry.                                                               achieves greater coverage than 2R-DD in all 10 conditions
+Fig. 4. Scientific validation, Isaac Lab, reused impedance setpoint. (a) The protocol on O (Drake renders; red: load). (b) The effect of
+swapping O’s stiff 3 mm pads for a softer 7 mm pad, measured on each 7 mm redesign at O’s placements, against its true effect on O (black).
+(c, d) The error E a redesign adds to a measured interface effect against ∆contact and against ∆skel , one marker per redesign (colour: pad
+thickness, 5, 7, 9 mm, light to dark); ρ: Spearman, one-sided permutation p; dashed: E = 20%.
+
+
+
+where both architectures have feasible designs, by 2.4–14.6            four architectures, the CFL achieves the smallest deviation
+percentage points (Fig. 3(a–c)). Remote actuation alone                in all nine redesign conditions, and in seven of nine
+provides comparable or greater coverage at 90◦ and for                 when differences in the initial contact-point position are
+interfaces up to 5 mm at 120◦ . Its limits appear at deeper            excluded.
+flexion: at 150◦ , the 7 and 9 mm designs of 2R-remote                    The pole design freedom of the CFL thus accommodates
+cannot hold a cylinder in contact with both interfaces.                different contact interfaces while reducing changes in their
+The optimized CFL designs behave as the pole analysis                  relative motion. Whether this also reduces the influence
+predicts: at 120◦ , the pole depth increases from 2.4 to               of redesign on interface evaluation is tested next.
+7.4 mm as the contact-surface depth increases from 6 to
+12 mm. Their worst-case mechanical advantage is 0.41–                                          IV. Experiment
+0.58, against 0.5 for the RCJ. The benefit of the CFL                    This section measures what preserving the contact-
+thus extends beyond the space gained through remote                    surface motion gains. When the impedance setpoint of a
+actuation.                                                             servo hand, a target flexion at a stiffness K0 , is reused
+   2) Contact-preserving redesign: Providing room for a                across redesigns, the error that a redesign adds to a
+new contact interface does not by itself preserve its                  measured interface effect should follow ∆contact , and no
+motion. Starting from the highest-coverage 3 mm design                 other design quantity should predict it as consistently.
+of each architecture, Eq. (10) is solved for interface
+thicknesses of 5, 7 and 9 mm. At the highest-coverage                  A. Setup
+end of each Pareto front, the CFL changes its contact-                    1) Hands: In a model of the CoDe hand, the three
+surface motion by 0.35–4.31 mm, 10–51% of the fixed-axis               fingers share each design (qreq = 120◦ , MCP held) and
+bound of Eq. (5), with coverage within 0.2 percentage                  hold one cylinder between their proximal and distal pads
+points of the best for that thickness (Fig. 3(d–i)). At 120◦ ,         (Isaac Lab 3 with Newton and MuJoCo-Warp, point
+3 → 7 mm, the whole CFL front lies at smaller ∆contact                 contact, K0 = 5 N m/rad). The reference hand O carries
+and higher coverage than every other front (Fig. 3(g)):                3 mm pads, and 18 redesigns for 5, 7 and 9 mm are tested
+the reduction is not bought with coverage, and the paths               against it. For each thickness, R is the CFL redesign of
+of its reference and redesign nearly coincide (Fig. 3(h)).             Sec. III-D2, U is the CFL designed for coverage alone
+2R-remote reaches the bound at 90◦ and 120◦ , whereas                  (Sec. III-D1), and the remaining redesigns are optimized
+the RCJ can fall below it by enlarging its rollers. The                to a prescribed ∆contact with the smallest or the largest
+bound assumes a preserved initial contact-point position;              ∆skel , so that the two quantities vary independently. A
+allowing this position to change lets a fixed axis fall below          redesign enters a setting only if it holds the cylinder there
+the bound, but the CFL still deviates less. Among the                  (Table I lists the count). The stiffness K0 acts on flexion,
+                           TABLE I
+Robustness across simulators, contact models, tasks and protocols            2) Other simulators and tasks: The result depends
+                                                                          neither on the simulator nor on point contact (Table I). In
+   Setting                      ∆contact   ∆skel   ∆contact |∆skel   n    Drake, the error follows ∆contact and not ∆skel with point
+   Isaac Lab, point: friction     0.83     −0.40        0.88         15   contact, with hydroelastic pads, and with pads as soft as
+     stiffness                    0.80     −0.51        0.91         14   they are thick. Soft pads amplify it: above about 1 mm of
+     friction, grid               0.86     0.22         0.86         45
+   Drake: point                   0.67     −0.37         —           16   ∆contact they double or triple the error. Grasp acquisition
+     hydroelastic, 3 mm           0.86     0.09          —           16   and dial turning repeat the result.
+     hydroelastic, own h          0.78     −0.10         —           15
+   Grasp acquisition              0.87     0.11          —           18      3) A reversed conclusion: Swapping the stiff 3 mm pads
+   Dial turning                   0.81     0.09          —           18   of O for a softer 7 mm pad changes the pull-out load by
+   Reused torque                  0.69     0.71         0.78         27   −37% on O over the grid (−41% at O’s own placements).
+   Re-zeroed at touch             0.44     0.88         0.57         18
+                                                                          Measured on the 27 grid redesigns that carry it, the error
+  Spearman ρ of E with each change; reused setpoint above the line.
+                 ∆contact |∆skel : partial, ∆skel held.                   follows ∆contact (ρ = 0.94, pre-registered); a face that
+                                                                          advances hides the loss and can reverse its sign (Fig. 4(b)):
+                                                                          U reports that the softer pad holds 48% more, when it
+so that the gain of each servo is K0 /(dθ/dq)2 through its                holds 41% less, and redesigns that keep the skeleton but
+own transmission.                                                         not the contact surfaces reverse it too, whereas R reports
+   2) Task and measure: The cylinder (15 or 20 mm) sits                   55% less.
+where O touches it with both pads at a setpoint q0 (O’s                      4) Other protocols: Matching the contact force leaves
+placements), or at 4 positions × 7 setpoints shared by                    3–7%, but it requires force sensing at both pads. Re-
+all hands (the grid), which adds 27 more 7 mm redesigns.                  zeroing each finger at touch leaves 6–61%, which follows
+The PIP closes to q0 + 5◦ , the cylinder is released, and a               the skeleton. An ideal torque leaves 9–53%, which follows
+load rises in one of four directions until the grasp gives                both (Table I).
+way (grasp pull-out). With ∆(H) the change of this limit                                        V. Conclusion
+load when the pad friction (1.3 → 2.0) or stiffness (2.5 →
+1.0 kN/m) changes, E(H) = |∆(H) − ∆(O)|/|∆(O)|, the                         Remote actuation and a crossed four-bar PIP joint
+median over placements and directions where both hands                    provide room for thick pads beyond the fingertip, and a
+hold.                                                                     redesign that preserves the contact-surface motion keeps
+                                                                          the error it adds to an interface measurement near 20%
+   3) Replications: To test whether the result depends on
+                                                                          up to 7 mm under a reused impedance setpoint. The
+the simulator or the task, the measurement is rebuilt for
+                                                                          evidence is computational; a hardware test with three
+one planar finger in Drake, with point contact and with
+                                                                          7 mm redesigns, for which simulation predicts errors of
+hydroelastic pads (0.1 MPa over 3 mm, or over each pad’s
+                                                                          21, 72 and 124%, comes next.
+own thickness), and two further open-loop tasks are run
+under the same command: grasp acquisition and turning                                             References
+a sprung dial.
+                                                                           [1] Michael Ahn et al. ROBEL: Robotics benchmarks
+                                                                               for learning with low-cost robots. In Conference on
+B. Results
+                                                                               Robot Learning (CoRL), 2019.
+  1) Where the faces sit: The error enters through the                     [2] Guochao Bai and Nicolas Rojas. Self-adaptive mono-
+preload, since a face that moves changes how hard the                          lithic anthropomorphic finger with teeth-guided com-
+reused setpoint presses. With the same 7 mm pad, the                           pliant cross-four-bar joints for underactuated hands.
+distal pad of R presses 0.75× as hard as that of O at                          In IEEE-RAS International Conference on Humanoid
+the settled grasp, and that of U 3.3×. Since a limit load                      Robots (Humanoids), 2018.
+scales with the preload, E ≈ |NH /NO − 1| to first order.                  [3] Guochao Bai et al. A two-fingered anthropomorphic
+The error follows ∆contact and not ∆skel (Fig. 4(c, d)).                       robotic hand with contact-aided cross four-bar mech-
+At the reused setpoint every ∆contact correlation has a                        anisms as finger joints. In Biomimetic and Biohybrid
+one-sided permutation p ≤ 0.003 and none of the ∆skel                          Systems (Living Machines 2016), 2016.
+correlations does, and ∆contact remains predictive with                    [4] Raunaq Bhirangi et al. All the feels: A dexterous
+∆skel held fixed (Table I); its setpoint p-values (≤ 0.0005)                   hand with large-area tactile sensing. arXiv preprint
+survive Holm correction. Coverage, pad thickness and                           arXiv:2210.15658, 2022.
+transmission predict none of the settings (|ρ| ≤ 0.26).                    [5] Raunaq Bhirangi et al. AnySkin: Plug-and-play skin
+With the face’s offset at the grasp or the force deviation                     sensing for robotic touch. arXiv:2409.08276, 2024.
+held fixed, ∆contact keeps a partial ρ of 0.69 or 0.64 on                  [6] Lionel Birglen and Clément M. Gosselin. Kinetostatic
+the grid. A revolute PIP with one axis for every pad                           analysis of underactuated fingers. IEEE Transactions
+(∆skel = 0) errs by 95–228%. Keeping ∆contact below                            on Robotics and Automation, 2004.
+about 1 mm, in contrast, keeps the error near 20%. R errs                  [7] Oene Bottema and Bernard Roth. Theoretical Kine-
+by 3, 21 and 41% at 5, 7 and 9 mm, and U by 124–173%.                          matics. 1979.
+ [8] Clemens C. Christoph et al. ORCA: An open-source,         [24] Yasunori Toshimitsu et al. Getting the ball rolling:
+     reliable, cost-effective, anthropomorphic robotic hand         Learning a dexterous policy for a biomimetic tendon-
+     for uninterrupted dexterous task learning. arXiv               driven hand with rolling contact joints. In IEEE-
+     preprint arXiv:2504.04259, 2025.                               RAS International Conference on Humanoid Robots
+ [9] Mark R. Cutkosky et al. Skin materials for robotic fin-        (Humanoids), 2023.
+     gers. In IEEE International Conference on Robotics        [25] Jie Xu et al. An end-to-end differentiable framework
+     and Automation (ICRA), 1987.                                   for contact-aware robot design. In Robotics: Science
+[10] Kalyanmoy Deb et al. A fast and elitist multiobjective         and Systems (RSS), 2021.
+     genetic algorithm: NSGA-II. IEEE Transactions on          [26] Wenzhen Yuan et al. GelSight: High-resolution robot
+     Evolutionary Computation, 2002.                                tactile sensors for estimating geometry and force.
+[11] Aaron M. Dollar and Robert D. Howe. The highly                 Sensors, 2017.
+     adaptive SDM hand: Design and performance evalua-         [27] Jialiang Zhao and Edward H. Adelson. GelSight
+     tion. The International Journal of Robotics Research,          Svelte: A human finger-shaped single-camera tactile
+     2010.                                                          robot finger with large sensing coverage and propri-
+[12] Kehlani Fay et al. Cross-embodied co-design for                oceptive sensing. In IEEE/RSJ International Con-
+     dexterous hands. In International Conference on                ference on Intelligent Robots and Systems (IROS),
+     Learning Representations (ICLR), 2026.                         2023.
+[13] Chincheng Hsu, Alexander Schmitz, Kosuke
+     Kusayanagi, and Shigeki Sugano.          Robot finger
+     with remote center of motion mechanism for
+     covering joints with thick skin.       In IEEE/RSJ
+     International Conference on Intelligent Robots and
+     Systems (IROS), pages 3172–3178, 2019.
+[14] Imin Kao et al. Contact modeling and manipulation.
+     In Springer Handbook of Robotics. 2nd edition, 2016.
+[15] Gagan Khullar et al. A multi-fingered robot hand
+     with remote center of motion mechanisms for cov-
+     ering joints with soft skin. In IEEE International
+     Conference on Robotics and Biomimetics (ROBIO),
+     pages 564–570, 2021.
+[16] Sang-hun Kim et al. Force characteristics of rolling
+     contact joint for compact structure. In IEEE In-
+     ternational Conference on Biomedical Robotics and
+     Biomechatronics (BioRob), 2016.
+[17] Uikyum Kim et al. Integrated linkage-driven dexter-
+     ous anthropomorphic robotic hand. Nature Commu-
+     nications, 2021.
+[18] Mike Lambeta et al. DIGIT: A novel design for a
+     low-cost compact high-resolution tactile sensor with
+     application to in-hand manipulation. IEEE Robotics
+     and Automation Letters, 2020.
+[19] J. Michael McCarthy and Gim Song Soh. Geometric
+     Design of Linkages. 2nd edition, 2011.
+[20] Richard M. Murray et al. A Mathematical Introduc-
+     tion to Robotic Manipulation. 1994.
+[21] Haozhi Qi et al. In-hand object rotation via rapid
+     motor adaptation. In Conference on Robot Learning
+     (CoRL), 2022.
+[22] Kenneth Shaw et al. LEAP Hand: Low-cost, eﬀicient,
+     and anthropomorphic hand for robot learning. In
+     Robotics: Science and Systems (RSS), 2023.
+[23] Karun B. Shimoga and Andrew A. Goldenberg. Soft
+     robotic fingertips. Part I: A comparison of construc-
+     tion materials; Part II: Modeling and impedance
+     regulation. The International Journal of Robotics
+     Research, 1996.
+

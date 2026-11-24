@@ -247,3 +247,15 @@ torque column, 0.69 vs 0.71 (r3); the 48% vs -41% number comes from U, not from 
 (r3); the costs of the CFL (mechanical advantage, backlash, part count) are barely discussed (all three);
 related work too brief (all three). Repeats: simulation only, preload, protocol-specific, pre-registration
 unverifiable, seed variance.
+
+v34: 6, 6, 6, all Accept (manuscript f352f30, seven pages; the author's introduction and Design, title "Same
+Motion, Different Contact", all four figures rebuilt to the figure plan, robustness Table I). Sub-scores:
+r1 O3 Q3 C3 Si2 So3 P3 Co3; r2 O3 Q3 C2 Si3 So3 P2 Co3; r3 O3 Q3 C3 Si3 So3 P3 Co3. Clarity and Presentation
+rise to 3 for r1 and r3 (2 in v33), Significance to 3 for r2 and r3 (2 in v33). Strengths now include the
+figures, Fig. 2(c) and Fig. 3(g-i) by name. Remaining, all three: the reused-setpoint result is close to
+implied (preload); simulation only, CAD only; R still errs 21% at 7 mm and 41% at 9 mm; optimization details
+(population, budget, bounds, seed spread); Section IV dense with shorthand (O's placements, the grid, faces, own
+h), Table I mixed and its n column and blank partials unexplained; related work brief. New: no software baseline
+(recomputing the setpoint per redesign from the known geometry, r1); the fixed-axis bound assumes the axis keeps
+its depth without arguing why (r3); the CFL has more design parameters than 2R or RCJ (r3); Delta_contact uses
+one point on the distal pad (r1); Eq. 4 and r tan(q/4) not derived (r1).
