@@ -30,7 +30,9 @@ Environment switches, read when the config is built (before the hand asset is ma
 - ``CODE_ROTATE_CUBE_HORA=1``: Hora's stage-1 package (:func:`apply_hora`);
 - ``CODE_ROTATE_CUBE_GEN_GRASPS=1``: the grasp-generation variant (set by ``gen_grasps.py``);
 - ``CODE_ROTATE_CUBE_RESET_POOL``: a reset-pool directory holding ``<hand>.pt`` (``harvest_reset_pool.py``); half the
-  resets then start from its mid-rotation states (:class:`~.rotate_cube_mdp.GraspCacheReset`; unset: none).
+  resets then start from its mid-rotation states (:class:`~.rotate_cube_mdp.GraspCacheReset`; unset: none);
+- ``CODE_ROTATE_CUBE_POSE_DIFF``: weight of a joint-target penalty toward the grasp cache's mean pose
+  (:class:`~.rotate_cube_mdp.TargetPoseDiff`, e.g. -0.1; unset or 0: none, as in s15).
 
 Changing the crown, the clock or the goal observation changes the asset or the observation size; a checkpoint and its
 grasp cache must match them.
@@ -83,6 +85,7 @@ GEN_GRASPS = os.environ.get("CODE_ROTATE_CUBE_GEN_GRASPS", "0") == "1"
 HORA = os.environ.get("CODE_ROTATE_CUBE_HORA", "0") == "1"
 RESET_POOL_DIR = os.environ.get("CODE_ROTATE_CUBE_RESET_POOL")
 RESET_POOL_FRACTION = 0.5
+POSE_DIFF_WEIGHT = float(os.environ.get("CODE_ROTATE_CUBE_POSE_DIFF", "0"))
 
 EPISODE_STEPS = 600
 TAU_MAX_NM = 1.03
@@ -318,6 +321,8 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
             "lift_m": GRASP_LIFT_M,
             "cache": None if self.gen_grasps else str(GRASP_DIR / f"{self.hand_key}.pt"),
         }
+        if POSE_DIFF_WEIGHT and not self.gen_grasps:
+            self.rewards.pose_diff = RewTerm(func=mdp.TargetPoseDiff, weight=POSE_DIFF_WEIGHT)
         if RESET_POOL_DIR and not self.gen_grasps:
             self.events.reset_grasp.params["pool"] = str(Path(RESET_POOL_DIR) / f"{self.hand_key}.pt")
             self.events.reset_grasp.params["pool_fraction"] = RESET_POOL_FRACTION

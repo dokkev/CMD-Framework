@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -266,6 +268,34 @@ class GraspCacheReset(ManagerTermBase):
 
 def grasp_term(env) -> GraspCacheReset:
     return env.event_manager.get_term_cfg("reset_grasp").func
+
+
+class TargetPoseDiff(ManagerTermBase):
+    """Reward term: ``sum (target - target_canonical)^2`` over the relative action's joint targets (PIP in flexion), the
+    canonical pose fixed as the mean commanded target of the grasp cache (LEAP Hand Isaac Lab's ``pose_diff_penalty``
+    toward its default pose; Hora's and PenSpin's toward the start grasp). A fixed anchor, not the episode's start:
+    reset-pool starts are often stalled near the joint limits. With ``CODE_ROTATE_CUBE_LOG_DIR`` set (``train.py``), the
+    canonical pose is written there as ``canonical_pose.json``."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        reset = grasp_term(env)
+        if reset.cache is None:
+            raise ValueError("TargetPoseDiff needs a grasp cache for its canonical pose")
+        self.canonical = reset._to_flexion(reset.cache["target"][:, reset._actuated]).mean(dim=0)
+        log_dir = os.environ.get("CODE_ROTATE_CUBE_LOG_DIR")
+        if log_dir:
+            out = Path(log_dir) / "canonical_pose.json"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps({
+                "joints": list(reset.cfg.params["actuated"]), "target_flexion_rad": self.canonical.tolist(),
+                "source": "mean commanded target of the grasp cache, PIP in flexion",
+                "grasp_cache": reset.cfg.params["cache"], "grasps": int(reset.cache["target"].shape[0]),
+            }, indent=2) + "\n")  # fmt: skip
+
+    def __call__(self, env) -> torch.Tensor:
+        targets = env.action_manager.get_term("joint_pos").targets
+        return ((targets - self.canonical) ** 2).sum(dim=1)
 
 
 # --- object motion ------------------------------------------------------------------------------------------------

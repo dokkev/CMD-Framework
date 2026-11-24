@@ -48,7 +48,7 @@ PROJECT = "code-hand-inhand"
 TASK_ENV_KEYS = (
     "CODE_ROTATE_CUBE_GRASPS", "CODE_ROTATE_CUBE_CROWN_MM", "CODE_ROTATE_CUBE_CROWN_LAYOUT",
     "CODE_ROTATE_CUBE_PHASE_PERIOD_S", "CODE_ROTATE_CUBE_GOAL_OBS", "CODE_ROTATE_CUBE_HORA",
-    "CODE_ROTATE_CUBE_GRU", "CODE_ROTATE_CUBE_RESET_POOL",
+    "CODE_ROTATE_CUBE_GRU", "CODE_ROTATE_CUBE_RESET_POOL", "CODE_ROTATE_CUBE_POSE_DIFF",
 )
 """Recorded in the manifest when set (unset: the task's defaults, see ``tasks/rotate_cube/env_cfg.py``)."""
 
@@ -98,7 +98,9 @@ def main(argv=None) -> int:
     # Isaac Lab pins the run id with wandb.util.generate_id() unless WANDB_RUN_ID is set; wandb 0.31 removed it, so the
     # id is drawn here (the same alphabet and length: 8 lowercase letters and digits)
     run_id = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-    env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", WANDB_RUN_ID=run_id)
+    # CODE_ROTATE_CUBE_LOG_DIR: where task terms record run-specific data (the pose penalty's canonical pose)
+    env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", WANDB_RUN_ID=run_id,
+               CODE_ROTATE_CUBE_LOG_DIR=str(log_dir))
     # The recording viewer is offscreen (headless): pyglet picks its X11 path whenever a display is set and then rejects
     # its own headless canvas, so the child runs without one and uses offscreen EGL.
     for var in ("DISPLAY", "WAYLAND_DISPLAY"):
