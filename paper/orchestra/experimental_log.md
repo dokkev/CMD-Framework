@@ -364,4 +364,5 @@ For the manuscript session: Fig. 4 and the text must change wherever experiment 
 - `report/study3/data/renders/render_tipdial{0,1,2}.png`: the fingertip disk (experiment 28z), seen from above at 40° off its axis. Only the index finger turns the disk; middle and ring are curled away. t = 1.0 s (just before touch), 2.5 s (30°), 5.0 s (25° after the hold).
 - `report/study3/figures/task_frames.png`: pull-out, acquisition and the fingertip disk at three times each, a candidate overview panel.
 - Regenerate them with `sim/drake/render_tasks.py`, `render3d.py` and `render_task_times.py`. The acquisition task is being redone (object rolled from the palm), so its frames will change.
+- `report/study3/figures/power_grasp_hold_iso.png` (frames in `report/study3/data/renders/render_hold_iso{0,1,2}.png`): the grasp pull-out as a three-finger power grasp on hand O, isometric from above the palm (palm up). Left to right: placed with the fingers open, held, and the cylinder leaving under the load away from the palm. The user likes this one; it is a candidate for Fig. 4(a). Regenerate it with `sim/drake/render3d.py` (`render_hold_iso`).
 
