@@ -569,7 +569,7 @@ def _run_env(task):
     DIAL_Z_STIFFNESS = opts.get("dial_k", 0.0)
     if opts.get("task") == "tipdial":
         TIP_MODE, TIP_THICK_MM = opts["tip_mode"], opts["tip_thick_mm"]
-        TIP_KR, TIP_DR = opts["tip_kr"], opts["tip_dr"]
+        TIP_KR, TIP_DR = g.get("tip_kr", opts["tip_kr"]), opts["tip_dr"]  # experiment 29: a spring per draw
         TIP_AXIS_DEG, TIP_Y_MM = g.get("axis_deg", 0.0), g.get("y_mm", 0.0)
     geom = finger_geometry(hand)
     qs, th = servo_table(geom)
@@ -707,10 +707,12 @@ def main() -> int:
     p.add_argument("--tip_dr", type=float, default=1.0e-4, help="tipdial: torsional damping [N m s/rad]")
     p.add_argument("--tip_thick_mm", type=float, default=4.0, help="tipdial z: the disk's thickness")
     p.add_argument("--approach_s", type=float, default=1.0, help="tipdial: 0 -> touch angle over this time")
+    p.add_argument("--any_radius", action="store_true",
+                   help="every placement at its own rho_mm (experiment 29's random draws); the file is named _rany")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads((args.grasps or GRASPS).read_text())["grasps"]
-              if g["rho_mm"] == args.radius_mm][: args.only]
+              if args.any_radius or g["rho_mm"] == args.radius_mm][: args.only]
     opts = {"task": args.task, "sweep_deg": args.sweep_deg, "sweep_s": args.sweep_s, "hold_s": args.hold_s,
             "spin_damping": args.spin_damping, "offset_mm": args.offset_mm, "tip_load_n": args.tip_load_n,
             "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
@@ -730,17 +732,18 @@ def main() -> int:
         if args.map_only:
             return 0
     directions = ["none"] if args.task in ("roll", "pullin", "dial", "tipdial") else args.directions
-    tasks = [(args.hand, args.mu, args.radius_mm, args.contact, args.time_step, g, d, args.delta_deg, args.modulus, opts)
-             for g in grasps for d in directions]
+    tasks = [(args.hand, args.mu, g["rho_mm"] if args.any_radius else args.radius_mm, args.contact, args.time_step, g,
+              d, args.delta_deg, args.modulus, opts) for g in grasps for d in directions]
     t0 = time.time()
     with Pool(args.workers) as pool:
         envs = pool.map(run_env, tasks)
     ok = [e for e in envs if e["gate0"]["pass"]]
-    print(f"{args.hand} mu {args.mu} r {args.radius_mm} {args.contact}: Gate 0 passed {len(ok)}/{len(envs)} "
-          f"in {time.time() - t0:.0f} s")
+    r_name = "any" if args.any_radius else f"{args.radius_mm:g}"
+    print(f"{args.hand} mu {args.mu} r {'any' if args.any_radius else args.radius_mm} {args.contact}: Gate 0 passed "
+          f"{len(ok)}/{len(envs)} in {time.time() - t0:.0f} s")
     OUT.mkdir(exist_ok=True)
     stem = "dk" if args.task == "limit" else f"dk{args.task}"
-    name = f"{stem}_{args.hand}_mu{args.mu:g}_{args.contact}{('-' + args.tag) if args.tag else ''}_r{args.radius_mm:g}.json"
+    name = f"{stem}_{args.hand}_mu{args.mu:g}_{args.contact}{('-' + args.tag) if args.tag else ''}_r{r_name}.json"
     (OUT / name).write_text(json.dumps({"hand": args.hand, "mu": args.mu, "contact": args.contact,
                                         "time_step": args.time_step, "delta_deg": args.delta_deg,
                                         "modulus_pa": args.modulus if args.contact == "hydro" else None, "opts": opts,

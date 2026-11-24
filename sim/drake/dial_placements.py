@@ -15,6 +15,13 @@ proximal-face frame (x along the face, z dorsal; the same coordinates on every h
 
     uv run python dial_placements.py --tip y --radius_mm 8 12 --q_touch 20 35 50 --back_mm 3 8 [--out file]
     uv run python dial_placements.py --tip z --radius_mm 12 --q_touch 20 35 50 --x_back_mm 6 --y_mm 9 [--thick_mm 4]
+
+--random N --seed S: experiment 29's randomized start conditions instead of a grid: N draws from the fixed
+distributions RANDOM (independent uniforms; y: q_t, rho, back, k_r; z: q_t, rho, x_back, y_off, k_r, each drawn as a
+vector of N in that order from numpy.random.default_rng([S, 1]) for y, [S, 2] for z). Each draw also carries its
+torsional spring tip_kr (N m/rad) and its index 'draw'.
+
+    uv run python dial_placements.py --tip y --random 64 --seed 29 --out logs/tipdial_y_e29.json
 """
 import argparse
 import json
@@ -51,6 +58,35 @@ def x_contact(geom, qs, th, q0_deg, rho):
     return min(roots) if roots else None
 
 
+# experiment 29's distributions (fixed before any data; docs/experimental/drake_dial_random.md): (low, high), uniform
+RANDOM = {
+    "y": {"q0_deg": (15.0, 70.0), "rho_mm": (9.0, 13.0), "back_mm": (9.0, 14.0), "tip_kr": (0.01, 0.03)},
+    "z": {"q0_deg": (12.0, 40.0), "rho_mm": (13.0, 17.0), "x_back_mm": (8.0, 16.0), "y_mm": (6.0, 14.0),
+          "tip_kr": (0.005, 0.015)},
+}
+
+
+def random_placements(tip: str, n: int, seed: int, thick_mm: float = 4.0) -> list[dict]:
+    rng = np.random.default_rng([seed, 1 if tip == "y" else 2])
+    cols = {k: rng.uniform(lo, hi, n) for k, (lo, hi) in RANDOM[tip].items()}
+    geom = T.finger_geometry("O")
+    qs, th = T.servo_table(geom)
+    end = geom["pads"]["distal_end_mm"]
+    out = []
+    for i in range(n):
+        d = {k: float(v[i]) for k, v in cols.items()}
+        q = math.radians(d["q0_deg"])
+        if tip == "y":
+            nrm = T.rot(q) @ np.array([0.0, -1.0])
+            c = T.reference_point(geom, qs, th, q, end - d["back_mm"]) + d["rho_mm"] * nrm
+            out.append({"draw": i, **d, "x_c_mm": float(c[0]), "z_c_mm": float(c[1]), "axis_deg": d["q0_deg"]})
+        else:
+            tp = T.reference_point(geom, qs, th, q, "tip")
+            out.append({"draw": i, **d, "x_c_mm": float(tp[0] - d["x_back_mm"]), "z_c_mm": float(tp[1] - thick_mm / 2),
+                        "thick_mm": thick_mm})
+    return out
+
+
 def tip_placements(a) -> list[dict]:
     geom = T.finger_geometry("O")
     qs, th = T.servo_table(geom)
@@ -85,12 +121,15 @@ def main() -> int:
     p.add_argument("--x_back_mm", type=float, nargs="+", default=[6.0])
     p.add_argument("--y_mm", type=float, nargs="+", default=[9.0])
     p.add_argument("--thick_mm", type=float, default=4.0)
+    p.add_argument("--random", type=int, default=None, help="--tip: this many random draws (experiment 29)")
+    p.add_argument("--seed", type=int, default=29)
     p.add_argument("--out", type=Path, default=None)
     a = p.parse_args()
     if a.tip:
-        out = tip_placements(a)
+        out = random_placements(a.tip, a.random, a.seed, a.thick_mm) if a.random else tip_placements(a)
         path = a.out or T.OUT / f"tipdial_{a.tip}.json"
-        path.write_text(json.dumps({"grasps": out}, indent=1))
+        meta = {"seed": a.seed, "n": a.random, "ranges": RANDOM[a.tip]} if a.random else {}
+        path.write_text(json.dumps({**meta, "grasps": out}, indent=1))
         print(path, len(out))
         for g in out:
             print("  ", {k: round(v, 2) if isinstance(v, float) else v for k, v in g.items()})

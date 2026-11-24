@@ -11,6 +11,12 @@ penetration (largest distal force / 2.5 kN/m) is <= 1.5 mm at both mu and O's pr
 H not touching at both mu: lost (counted apart); H over 1.5 mm at either mu: over-pressed (counted apart, not scored).
 
     uv run python analyze_roll.py --task tipdial_y --tag e28y --noise_tag e28yn [--out file.json]
+
+Experiment 29 (--random): the same rules on the randomized draws (one file per hand and mu, named _rany; a placement
+is keyed by its draw index). O's exclusions are counted by reason, and the hands' E interquartile range over the noise
+floor's 75th percentile is reported (the pre-registered rule for the representative configuration).
+
+    uv run python analyze_roll.py --task tipdial_z --random --tag e29z --noise_tag e29zn [--out file.json]
 """
 from __future__ import annotations
 
@@ -34,6 +40,7 @@ TASK_RADII = {"dial30": (10.0, 12.0), "tipdial_y": (10.0, 12.0), "tipdial_z": (1
 TIP_PEN_MM, POINT_K = 1.5, 2.5  # experiment 28's penetration gate (mm) and the pad's point stiffness (N/mm)
 PROX_TOUCH_N = 1e-3
 TASK = "roll"
+RANDOM = False  # experiment 29: the randomized draws (files _rany, keyed by draw)
 
 
 def load(hand, mu, contact, tag, s, r):
@@ -69,18 +76,22 @@ def error(hand, contact, tag):
 
 
 def tip_load(hand, mu, contact, tag, r):
-    p = HERE / "logs" / f"dktipdial_{hand}_mu{mu:g}_{contact}-{tag}_r{r:g}.json"
+    p = HERE / "logs" / f"dktipdial_{hand}_mu{mu:g}_{contact}-{tag}_r{r if isinstance(r, str) else f'{r:g}'}.json"
     if not p.exists():
         return None
+    envs = json.loads(p.read_text())["envs"]
+    if RANDOM:
+        return {("draw", e["placement"]["draw"]): e["dial"] for e in envs}
     return {(e["rho_mm"], e["q0_deg"], round(e["x_c_mm"], 3), e["placement"].get("y_mm", 0.0)): e["dial"]
-            for e in json.loads(p.read_text())["envs"]}
+            for e in envs}
 
 
 def tip_error(hand, contact, tag):
     """Experiment 28: E(H) and the validity record. hand may be 'O@tag' (O under another tag: the noise floor)."""
     h, _, htag = hand.partition("@")
     rel, lost, over, n, prox_touch, pen_h, clear_h, pen_o = [], 0, 0, 0, 0, [], [], []
-    for r in TASK_RADII[TASK]:
+    excl = {"untouched": 0, "o_pen": 0, "o_proximal": 0, "small_d": 0}  # O's exclusions, by the first reason
+    for r in (("any",) if RANDOM else TASK_RADII[TASK]):
         o = {m: tip_load("O", m, contact, tag, r) for m in MU}
         hh = {m: tip_load(h, m, contact, htag or tag, r) for m in MU}
         if any(v is None for v in (*o.values(), *hh.values())):
@@ -88,12 +99,16 @@ def tip_error(hand, contact, tag):
         for k in o[MU[0]]:
             os_ = [o[m][k] for m in MU]
             if not all(d["touched"] for d in os_):
+                excl["untouched"] += 1
                 continue
             if any(d["distal_force_max_n"] / POINT_K > TIP_PEN_MM or d["proximal_force_max_n"] > PROX_TOUCH_N
                    for d in os_):
+                excl["o_pen" if any(d["distal_force_max_n"] / POINT_K > TIP_PEN_MM for d in os_)
+                     else "o_proximal"] += 1
                 continue
             d_o = os_[1]["rotation_deg"] - os_[0]["rotation_deg"]
             if abs(d_o) < 0.3:
+                excl["small_d"] += 1
                 continue
             n += 1
             pen_o.append(max(d["distal_force_max_n"] for d in os_) / POINT_K)
@@ -115,7 +130,7 @@ def tip_error(hand, contact, tag):
             "proximal_touched": prox_touch, "pen_max_mm": float(max(pen_h)) if pen_h else None,
             "pen_median_mm": float(np.median(pen_h)) if pen_h else None,
             "proximal_clearance_min_mm": float(min(clear_h)) if clear_h else None,
-            "o_pen_max_mm": float(max(pen_o)) if pen_o else None}
+            "o_pen_max_mm": float(max(pen_o)) if pen_o else None, **({"o_excluded": excl} if RANDOM else {})}
 
 
 def main() -> int:
@@ -124,10 +139,11 @@ def main() -> int:
     p.add_argument("--contact", default="point")
     p.add_argument("--tag", default="e22")
     p.add_argument("--noise_tag", default=None, help="tipdial: O's run with a +0.05 deg command under this tag")
+    p.add_argument("--random", action="store_true", help="tipdial: experiment 29's randomized draws")
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args()
-    global TASK
-    TASK = args.task
+    global TASK, RANDOM
+    TASK, RANDOM = args.task, args.random
     if TASK.startswith("tipdial"):
         return tip_main(args)
     rows = []
@@ -172,6 +188,14 @@ def tip_main(args) -> int:
         out.update(rho_contact=rho, p_contact=pv, rho_skel=rho_s, p_skel=pv_s)
         print(f"rho(E, D_contact) {rho:.2f} (one-sided p {pv:.4f}); rho(E, D_skel) {rho_s:.2f} (p {pv_s:.4f}); "
               f"hands {len(red)}")
+    if RANDOM:
+        if out["O"]:
+            print(f"O: {out['O']['candidates']} draws survive; excluded {out['O']['o_excluded']}")
+        if len(red) >= 2 and args.noise_tag and out["noise_floor"]["E_p75"]:
+            q1, q3 = np.percentile([x["E"] for x in red], [25, 75])
+            out.update(e_iqr=float(q3 - q1), iqr_over_noise_p75=float((q3 - q1) / out["noise_floor"]["E_p75"]))
+            print(f"hands' E IQR {100 * (q3 - q1):.1f}%p / noise p75 {100 * out['noise_floor']['E_p75']:.2f}% = "
+                  f"{out['iqr_over_noise_p75']:.2f}")
     if args.out:
         args.out.write_text(json.dumps(out, indent=1))
     return 0
