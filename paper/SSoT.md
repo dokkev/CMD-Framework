@@ -44,7 +44,7 @@ The story is north-star's "How the paper tells it". The manuscript places it as 
 | Introduction ¶1 | context: contact uncertainty compensated with the rest of the hand, hence servo hands; the interface is fitted to the room left |
 | Introduction ¶2 | the interface matters, its own effect is hard to know; first obstacle, room (P1) |
 | Introduction ¶3 | second obstacle, the finger changes (P2); a fixed axis cannot keep the contact surfaces' motion |
-| Introduction ¶4 | the contact-centric design principle, embodied in the CoDe hand; the two contributions as a list |
+| Introduction ¶4 | "In this work we propose CoDe"; the two contributions as a list |
 | III Design: Model, Pole, Optimization | the pole answers both problems; the two optimization problems |
 | III Design: Coverage across joints | evidence for C1 |
 | III Design: Redesign for thicker pads | C2.1, C2.2 (what keeping the contact Jacobian costs) |
