@@ -4,16 +4,19 @@
 """Generate the grasp cache of ``CoDe-Rotate-Cube-<hand>`` (Hora's / LEAP Hand's procedure).
 
     env -u DISPLAY -u WAYLAND_DISPLAY PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run python scripts/rotate_cube/gen_grasps.py \
-        --hand O [--target 4096] [--num_envs 2048] [--noise 0.25] [--hold_s 3] [--render] physics=newton_mjwarp
+        --hand O --out_dir logs/rotate_cube/<name> [--target 4096] [--num_envs 2048] [--noise 0.25] [--hold_s 3] \
+        [--seed_start 0] [--render] physics=newton_mjwarp
 
 Each round resets every environment to the cradle grasp with U(-noise, noise) rad on every actuated joint (PIP in
 flexion, the four-bar closed) and the cube 3 mm above its rest, turned about world z by a random yaw; the relative
 action is held at zero for ``--hold_s``. A grasp is kept if the cube touches at least 2 pad-carrying bodies (a finger's
 proximal or distal segment, or the thumb's distal; contact force > 0.05 N), lies within 15 mm of its rest, keeps its up
 axis (cos >= 0.95) and has settled (speed < 5 mm/s). Kept: every joint's measured position and commanded target, plus
-the cube's env-frame position and quaternion. Rounds repeat until ``--target`` grasps; writes
-``logs/rotate_cube/grasps/<hand>.pt`` and prints the acceptance rate (and, with ``--render``, a PNG of four accepted
-grasps).
+the cube's env-frame position and quaternion. Rounds repeat until ``--target`` grasps; writes ``<out_dir>/<hand>.pt``
+(refusing to overwrite) and ``<hand>.json``, and prints the acceptance rate (and, with ``--render``, a PNG of four
+accepted grasps). The pads are the task's (``CODE_ROTATE_CUBE_CROWN_MM``, default 1 mm); a held-out evaluation cache
+uses a seed range disjoint from the training cache's (s15's: ``heldout_crown1_final4``, ``--target 1024
+--seed_start 76000``). Train or evaluate on it with ``CODE_ROTATE_CUBE_GRASPS=<out_dir>``.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ import math
 import os
 import sys
 import time
+from pathlib import Path
 
 os.environ["CODE_ROTATE_CUBE_GEN_GRASPS"] = "1"
 
@@ -42,6 +46,7 @@ def main(argv=None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hand", default="O", choices=("O", "R", "U"))
+    parser.add_argument("--out_dir", type=Path, required=True, help="cache directory (gets <hand>.pt)")
     parser.add_argument("--target", type=int, default=4096)
     parser.add_argument("--num_envs", type=int, default=2048)
     parser.add_argument("--noise", type=float, default=0.25)
@@ -62,9 +67,11 @@ def main(argv=None) -> int:
 
     import code_isaaclab.tasks  # noqa: F401
     from code_isaaclab.assets.description import Description
-    from code_isaaclab.tasks.reorient.o_env_cfg import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
-    from code_isaaclab.tasks.rotate.env_cfg import HANDS
-    from code_isaaclab.tasks.rotate_cube.env_cfg import GRASP_DIR
+    from code_isaaclab.tasks.rotate_cube.grasp import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG, HANDS
+
+    out = args.out_dir / f"{args.hand}.pt"
+    if out.exists():
+        parser.error(f"destination already exists: {out}")
 
     task = f"CoDe-Rotate-Cube-{args.hand}"
     env_cfg, _ = resolve_task_config(task, "rsl_rl_cfg_entry_point")
@@ -120,7 +127,7 @@ def main(argv=None) -> int:
             if total >= args.target:
                 break
         if args.render:
-            render(u, ok, env_cfg)
+            render(u, ok, args.out_dir / f"{args.hand}_samples.png")
     data = {k: torch.cat(v)[: max(args.target, 0)] for k, v in kept.items()}
     accepted = sum(len(x) for x in kept["q"])
     data.update({"joint_names": list(robot.joint_names), "hand": args.hand, "noise_rad": args.noise,
@@ -129,10 +136,10 @@ def main(argv=None) -> int:
                  "pad_crown_layout": env_cfg.pad_crown_layout,
                  "hold_s": args.hold_s, "seed_start": args.seed_start, "tried": tried, "accepted": accepted,
                  "acceptance": accepted / max(tried, 1)})
-    GRASP_DIR.mkdir(parents=True, exist_ok=True)
-    out = GRASP_DIR / f"{args.hand}.pt"
-    torch.save(data, out)
-    (GRASP_DIR / f"{args.hand}.json").write_text(json.dumps(
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    with out.open("xb") as stream:
+        torch.save(data, stream)
+    (args.out_dir / f"{args.hand}.json").write_text(json.dumps(
         {k: v for k, v in data.items() if not isinstance(v, torch.Tensor)} | {"stored": int(data["q"].shape[0]),
                                                                                "wall_s": time.time() - started},
         indent=1) + "\n")
@@ -140,7 +147,7 @@ def main(argv=None) -> int:
     return 0
 
 
-def render(u, ok, env_cfg) -> None:
+def render(u, ok, path) -> None:
     """Four accepted grasps of the last round, drawn with Newton's GL viewer offscreen."""
     import pyglet
 
@@ -150,7 +157,7 @@ def render(u, ok, env_cfg) -> None:
     import warp as wp
     from PIL import Image
 
-    from code_isaaclab.tasks.reorient.camera import CAMERA_EYE_ENV, CAMERA_LOOKAT_ENV
+    from code_isaaclab.tasks.rotate_cube.camera import CAMERA_EYE_ENV, CAMERA_LOOKAT_ENV
 
     model = u.sim.physics_manager.get_model()
     viewer = newton.viewer.ViewerGL(width=960, height=540, headless=True)
@@ -173,10 +180,8 @@ def render(u, ok, env_cfg) -> None:
     if frames:
         import numpy as np
 
-        from code_isaaclab.tasks.rotate_cube.env_cfg import GRASP_DIR
-
         grid = np.concatenate([np.concatenate(frames[i:i + 2], axis=1) for i in range(0, len(frames) - 1, 2)], axis=0)
-        path = GRASP_DIR / f"{env_cfg.hand_key}_samples.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(grid).save(path)
         print(path)
 

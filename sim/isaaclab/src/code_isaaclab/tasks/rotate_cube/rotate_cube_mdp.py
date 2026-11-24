@@ -1,18 +1,15 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""MDP terms of in-hand cube rotation about world z, after Hora (Qi et al. 2022) and LEAP Hand's Isaac Lab task.
+"""MDP terms of in-hand cube rotation about world z (:mod:`.env_cfg`). Sources: Hora (Qi et al. 2022,
+``haozhiqi/hora``), LEAP Hand's Isaac Lab task, RotateIt (Qi et al. 2023), PenSpin (Wang et al. 2024); terms marked
+"project" are this task's own.
 
-- :class:`RelativeFlexionAction`: ``target = clamp(prev_target + (1/24) clip(a, -1, 1), q_lo, q_hi)``, the PIP in
-  flexion (each hand's own theta(q) and gain schedule, :class:`~code_isaaclab.flexion_control.FlexionEMAAction`);
-  ``prev_target`` restarts at the joints' pose after each reset (the grasp drawn from the cache).
-- :class:`GraspCacheReset`: the reset draws a grasp ``[q, target, cube pose]`` uniformly from a cache
-  (``gen_grasps.py``), or,
-  in generation mode, the cradle grasp with joint noise and the cube a few mm above its rest with a random yaw.
-- :class:`ObjectMotion`: the cube's yaw rate about world z from the quaternion finite difference over one control step,
-  its linear velocity from the position finite difference (Hora), and the episode's net yaw, logged at reset.
-- Rewards (Hora / LEAP Sim): the clipped yaw rate, the L1 linear velocity, the pose difference from the episode's grasp,
-  the normalised servo torque squared; terminations: the cube off its grasp position, or tilted.
+- action: :class:`RelativeFlexionAction` (Hora's relative targets, the PIP in flexion);
+- reset: :class:`GraspCacheReset` (Hora / LEAP: a grasp drawn from a cache of stable grasps);
+- motion: :class:`ObjectMotion` computes the cube's finite-difference motion once per step for the rotation reward and
+  the terms that read it (it runs first);
+- rewards, terminations, observations and Hora's stage-1 extras (work penalty, random force, privileged physics).
 """
 
 from __future__ import annotations
@@ -132,7 +129,7 @@ class GraspCacheReset(ManagerTermBase):
             data = torch.load(path, map_location="cpu", weights_only=True)
             if data.get("hand", env.cfg.hand_key) != env.cfg.hand_key:
                 raise ValueError(f"Grasp cache {path} is for hand {data['hand']}, expected {env.cfg.hand_key}")
-            from code_isaaclab.tasks.reorient.o_env_cfg import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
+            from .grasp import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
 
             for key, expected in (
                 ("cube_size_m", CUBE_SIZE_M),
@@ -309,26 +306,9 @@ def off_axis_ang_vel_l1(env) -> torch.Tensor:
     return w[:, 0].abs() + w[:, 1].abs()
 
 
-def ramp_reward_weight(env, env_ids, term_name: str, weight: float, num_steps: int) -> float:
-    """Curriculum: the reward term's weight ramped linearly from 0 to ``weight`` over ``num_steps`` environment steps
-    of this run (RotateIt applies its rotation penalty gradually: from the start it makes the policy only hold)."""
-    w = weight * min(1.0, env.common_step_counter / max(num_steps, 1))
-    cfg = env.reward_manager.get_term_cfg(term_name)
-    cfg.weight = w
-    env.reward_manager.set_term_cfg(term_name, cfg)
-    return w
-
-
 def object_lin_vel_fd_l1(env) -> torch.Tensor:
     """``|dp/dt|_1`` of the cube over the last control step (computed by the rotation term, which runs first)."""
     return env.reward_manager.get_term_cfg("rotation").func.lin_vel.abs().sum(dim=1)
-
-
-def pose_diff_l2(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """``sum (q - q_grasp)^2`` over the actuated joints (PIP in flexion), ``q_grasp`` the episode's grasp."""
-    term = env.action_manager.get_term("joint_pos")
-    q = term._to_flexion(_t(env.scene[asset_cfg.name].data.joint_pos)[:, term._joint_ids])
-    return ((q - grasp_term(env).grasp_q) ** 2).sum(dim=1)
 
 
 def servo_torque_l2(env, tau_max: float, asset_cfg: SceneEntityCfg) -> torch.Tensor:
@@ -442,13 +422,18 @@ class ObjectTilted(ManagerTermBase):
 
 
 def tilt_deviation(env, free_tilt_dot: float) -> torch.Tensor:
-    """Penalize sustained tilt beyond the allowed angle from reset, as a cosine deficit."""
+    """``max(free_tilt_dot - up_z, 0)``: tilt beyond the free angle from the reset pose, as a cosine deficit (project
+    term)."""
     tilted = env.termination_manager.get_term_cfg("object_tilted").func
     return (free_tilt_dot - tilted.up_dot()).clamp_min(0.0)
 
 
 class RotationMilestones(ManagerTermBase):
-    """Pay once per completed heading increment while the cube is inside the grasp envelope."""
+    """Project term: 1 for each new ``angle_step_rad`` of progress, paid once, while the cube is inside the envelope
+    (``max_distance`` from the grasp, up axis ``z >= min_dot``). Progress is the smaller of the projected heading of the
+    cube's reset x axis and the integrated world-z rotation (:class:`ObjectMotion`); re-crossing pays nothing. Disabled
+    (no state) at weight 0. Also tracks whether the episode left the envelope and the halfway values for
+    :func:`retained_turns_at_timeout`."""
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
@@ -504,7 +489,8 @@ class RotationMilestones(ManagerTermBase):
 
 
 def retained_turns_at_timeout(env, second_half_weight: float = 0.0) -> torch.Tensor:
-    """Reward retained net turns at timeout, with optional extra credit for sustained late rotation."""
+    """Project term: progress in turns at a clean timeout (no termination, never left the milestone envelope), plus
+    ``second_half_weight`` x the forward progress made in the episode's second half (capped by the total)."""
     milestones = env.reward_manager.get_term_cfg("milestones").func
     if not milestones.enabled:
         raise ValueError("retained_turns_at_timeout requires the milestones reward to be enabled")
@@ -526,13 +512,15 @@ def retained_turns_at_timeout(env, second_half_weight: float = 0.0) -> torch.Ten
 
 
 def gait_phase(env, period_s: float) -> torch.Tensor:
-    """A circular timing input for repeating the release and regrasp motions."""
+    """``(sin, cos)`` of the episode clock with period ``period_s``: a timing input for repeating release and regrasp
+    (project observation)."""
     angle = env.episode_length_buf * (2.0 * torch.pi * env.step_dt / period_s)
     return torch.stack((angle.sin(), angle.cos()), dim=-1)
 
 
 def next_rotation_goal(env) -> torch.Tensor:
-    """Distance to the next uncredited heading goal in units of one milestone."""
+    """The next uncredited milestone minus the progress, in milestones, from the projected heading and from the
+    integrated rotation, clipped to [-2, 4] (project observation)."""
     if not hasattr(env, "reward_manager"):  # observation manager shape inference during startup
         return torch.ones(env.num_envs, 2, device=env.device)
     cfg = env.reward_manager.get_term_cfg("milestones")
@@ -554,17 +542,16 @@ def actuated_targets_normalized(env) -> torch.Tensor:
 
 def joint_target_limit_cost(
     env,
-    lower_joint: str | None = None,
-    upper_joint: str | None = None,
-    lower_joints: Sequence[str] | None = None,
-    upper_joints: Sequence[str] | None = None,
+    lower_joints: Sequence[str] = (),
+    upper_joints: Sequence[str] = (),
     free_fraction: float = 0.85,
     min_progress_rad: float = 0.0,
     ramp_progress_rad: float = 0.0,
     max_distance_m: float = 0.0,
     min_up_dot: float = -1.0,
 ) -> torch.Tensor:
-    """Softly discourage saturated targets, optionally after rotation progress while the cube stays retained.
+    """Saturated joint targets (project term): the mean over ``lower_joints`` (targets near their lower limit) and
+    ``upper_joints`` (near the upper) of ``(max(|t| - free_fraction, 0) / (1 - free_fraction))^2``, ``t`` normalised.
 
     The progress gate can leave the initial grasp and first rotation unpenalized. ``ramp_progress_rad`` smooths its
     onset after ``min_progress_rad``; progress is the minimum of projected heading and integrated world-z rotation.
@@ -578,12 +565,7 @@ def joint_target_limit_cost(
         raise ValueError("min_up_dot must lie in [-1, 1]")
     names = env.action_manager.get_term("joint_pos")._joint_names
     targets = actuated_targets_normalized(env)
-    lower_names = list(lower_joints or ())
-    upper_names = list(upper_joints or ())
-    if lower_joint is not None:
-        lower_names.append(lower_joint)
-    if upper_joint is not None:
-        upper_names.append(upper_joint)
+    lower_names, upper_names = list(lower_joints), list(upper_joints)
     if not lower_names and not upper_names:
         raise ValueError("at least one lower or upper joint must be configured")
     costs = [(-targets[:, names.index(joint)] - free_fraction).clamp_min(0.0).square() for joint in lower_names]
@@ -605,38 +587,52 @@ def joint_target_limit_cost(
     return cost
 
 
+def _face(env) -> tuple[torch.Tensor, torch.Tensor]:
+    """The proximal pad-face frame (``env.cfg.face_origin``, ``face_rot``; :func:`.grasp.face_frame`) as tensors."""
+    cache = getattr(env, "_rotate_face_cache", None)
+    if cache is None:
+        cache = (
+            torch.tensor(env.cfg.face_origin, device=env.device, dtype=torch.float32),
+            torch.tensor(env.cfg.face_rot, device=env.device, dtype=torch.float32).reshape(3, 3),
+        )
+        env._rotate_face_cache = cache
+    return cache
+
+
 def object_pos_from_grasp_face(env) -> torch.Tensor:
     """The cube's position relative to its grasp position, in the proximal pad-face frame's axes [m]."""
-    from code_isaaclab.tasks.rotate.rotate_mdp import _face
-
     pos = _t(env.scene["object"].data.root_pos_w) - env.scene.env_origins
     return (pos - grasp_term(env).grasp_pos) @ _face(env)[1]
 
 
-def object_omega_fd(env) -> torch.Tensor:
-    """The cube's angular velocity [rad/s] (world), as the simulator reports it."""
+def object_ang_vel_w(env) -> torch.Tensor:
+    """The cube's angular velocity [rad/s] (world), as the simulator reports it (privileged, Hora)."""
     return _t(env.scene["object"].data.root_ang_vel_w)
 
 
 __all__ = [
     "GraspCacheReset",
     "ObjectMotion",
+    "ObjectRandomForce",
     "ObjectTilted",
     "RelativeFlexionAction",
     "RelativeFlexionActionCfg",
+    "RotationMilestones",
     "actuated_targets_normalized",
+    "gait_phase",
     "grasp_term",
+    "joint_target_limit_cost",
+    "next_rotation_goal",
+    "object_ang_vel_w",
+    "object_grasp_distance",
     "object_lin_vel_fd_l1",
     "object_off_grasp",
-    "ObjectRandomForce",
-    "object_grasp_distance",
     "object_physics_priv",
-    "work_l2",
-    "off_axis_ang_vel_l1",
-    "ramp_reward_weight",
-    "object_omega_fd",
     "object_pos_from_grasp_face",
+    "off_axis_ang_vel_l1",
+    "retained_turns_at_timeout",
     "rotate_over_speed",
-    "pose_diff_l2",
     "servo_torque_l2",
+    "tilt_deviation",
+    "work_l2",
 ]

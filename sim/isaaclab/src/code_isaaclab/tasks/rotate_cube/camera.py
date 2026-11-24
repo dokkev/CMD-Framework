@@ -1,8 +1,8 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Video camera for the hand-O reorientation task (:mod:`.o_env_cfg`); no Isaac Lab imports, so the training wrapper
-can load it by path without starting the simulator."""
+"""Video camera for cube rotation; no Isaac Lab imports at module level, so the training launcher
+(``scripts/rotate_cube/train.py``) can load it by path without starting the simulator."""
 
 from __future__ import annotations
 
@@ -26,3 +26,25 @@ def env0_camera(num_envs: int, spacing: float = 0.5) -> tuple[tuple[float, ...],
     o = env0_origin(num_envs, spacing)
     return (tuple(round(o[i] + CAMERA_EYE_ENV[i], 4) for i in range(3)),
             tuple(round(o[i] + CAMERA_LOOKAT_ENV[i], 4) for i in range(3)))
+
+
+def recording_visualizer_cfg(num_envs: int = 128, spacing: float = 0.5):
+    """The Newton GL visualizer settings for video clips, as cheap as possible: offscreen (``headless``: it renders only
+    when the video recorder grabs a frame, never on a plain step), the first 4 worlds only, 960 x 540, no live plots or
+    picking. A hint (``sim.default_visualizer_cfg``): it adds no visualizer unless one is selected
+    (``--viz newton_gl``)."""
+    from isaaclab_visualizers.newton.newton_visualizer_cfg import NewtonGLVisualizerCfg
+
+    eye, lookat = env0_camera(num_envs, spacing)
+    return NewtonGLVisualizerCfg(
+        headless=True,
+        max_visible_envs=4,
+        randomly_sample_visible_envs=False,
+        window_width=960,
+        window_height=540,
+        enable_live_plots=False,
+        enable_picking=False,
+        enable_markers=True,
+        eye=eye,
+        lookat=lookat,
+    )

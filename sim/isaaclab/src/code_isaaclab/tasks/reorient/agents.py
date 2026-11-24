@@ -21,12 +21,3 @@ class CoDeReorientPPORunnerCfg(AllegroHandManagerPPORunnerCfg):
 
     experiment_name = "study3_code_reorient"
     save_interval = 25
-
-
-@configclass
-class CoDeReorientOPPORunnerCfg(AllegroHandManagerPPORunnerCfg):
-    """Cube reorientation by hand O with a thumb pad: upstream's Allegro manager-based PPO settings, unchanged (gamma
-    0.998, [512, 256, 128] ELU MLPs, 24 steps per environment); only the experiment name and checkpoint interval."""
-
-    experiment_name = "code_reorient_cube_o"
-    save_interval = 50

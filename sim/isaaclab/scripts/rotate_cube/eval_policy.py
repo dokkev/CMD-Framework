@@ -4,8 +4,17 @@
 """Evaluate deterministic cube rotation on the first episode of each seeded grasp.
 
 Run from sim/isaaclab with `uv run --extra rsl-rl python scripts/rotate_cube/eval_policy.py
---checkpoint <model.pt>`. Pass Isaac Lab overrides for departures from the standard O actor
-or evaluation environment. Use the same overrides and seed when comparing checkpoints.
+--checkpoint <model.pt>`. Pass Isaac Lab overrides for departures from the task's defaults (the s15
+settings). Use the same overrides and seed when comparing checkpoints. The s15 held-out evaluation
+(``report/study4/in-hand.md``)::
+
+    CODE_ROTATE_CUBE_GRASPS=$PWD/logs/rotate_cube/heldout_crown1_final4 uv run --extra rsl-rl python \\
+        scripts/rotate_cube/eval_policy.py --checkpoint <model.pt> --num_envs 1024 --eval_seed 94000 \\
+        --contact_metrics physics=newton_mjwarp env.observations.policy.enable_corruption=false \\
+        env.terminations.object_off_grasp.params.max_distance=0.07 env.terminations.object_tilted.params.min_dot=0.0
+
+Writes ``<checkpoint dir>/eval/<checkpoint>_rotation_seed<seed>_<settings hash>.json`` (or ``--output``) and refuses to
+overwrite an existing file.
 """
 
 from __future__ import annotations
@@ -213,7 +222,7 @@ class CubeRotationMetrics(RecorderTerm):
         return summary
 
     def save_grasps(self, path: Path, checkpoint: Path, cache: Path, seed: int):
-        from code_isaaclab.tasks.reorient.o_env_cfg import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
+        from code_isaaclab.tasks.rotate_cube.grasp import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
 
         keep = self.grasp_valid
         if not keep.any():
@@ -328,7 +337,8 @@ def main(argv=None):
             out = args.output or checkpoint.parent / "eval" / name
             out.parent.mkdir(parents=True, exist_ok=True)
             report = json.dumps(result, indent=2, allow_nan=False)
-            out.write_text(report + "\n")
+            with out.open("x") as stream:  # never overwrite an earlier evaluation
+                stream.write(report + "\n")
             print(report)
             print(out)
             if args.export_grasps:

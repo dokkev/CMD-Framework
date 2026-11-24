@@ -2,8 +2,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """RSL-RL PPO for cube rotation, after Hora's and LEAP Hand's working settings: [512, 256, 128] ELU MLPs with
-observation normalisation, initial std 1.0, no entropy bonus, 16 steps per environment, 5 epochs of 4 mini-batches,
-learning rate 5e-3 adaptive at KL 0.02, value loss x2 clipped, gamma 0.99, lambda 0.95, gradient norm 1."""
+observation normalisation, initial std 1.0, no entropy bonus, 5 epochs of 4 mini-batches, value loss x2 clipped,
+lambda 0.95, gradient norm 1.
+
+The defaults are s15's fine-tuning settings (learning rate 2.5e-5 fixed, gamma 0.997, 32 steps per environment, a
+checkpoint every 40 iterations), for continuing from its checkpoint. Earlier stages of its lineage trained from scratch
+with Hora's: ``agent.algorithm.learning_rate=0.005 agent.algorithm.schedule=adaptive agent.algorithm.gamma=0.99
+agent.num_steps_per_env=16`` (KL target 0.02)."""
 
 import os
 
@@ -14,20 +19,20 @@ from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPp
 
 @configclass
 class CoDeRotateCubePPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    num_steps_per_env = 16
+    num_steps_per_env = 32
     max_iterations = 3000
-    save_interval = 100
+    save_interval = 40
     experiment_name = "code_rotate_cube"
     actor = RslRlMLPModelCfg(
         hidden_dims=[512, 256, 128], activation="elu", obs_normalization=True,
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(init_std=1.0),
-    )
+    )  # fmt: skip
     critic = RslRlMLPModelCfg(hidden_dims=[512, 256, 128], activation="elu", obs_normalization=True)
     algorithm = RslRlPpoAlgorithmCfg(
         value_loss_coef=2.0, use_clipped_value_loss=True, clip_param=0.2, entropy_coef=0.0, num_learning_epochs=5,
-        num_mini_batches=4, learning_rate=5.0e-3, schedule="adaptive", gamma=0.99, lam=0.95, desired_kl=0.02,
+        num_mini_batches=4, learning_rate=2.5e-5, schedule="fixed", gamma=0.997, lam=0.95, desired_kl=0.02,
         max_grad_norm=1.0,
-    )
+    )  # fmt: skip
 
     def __post_init__(self):
         super().__post_init__()

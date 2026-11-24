@@ -1,23 +1,22 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Train cube reorientation by hand O with a thumb pad (``CoDe-Reorient-Cube-O``), logged to Weights & Biases with
-periodic videos.
+"""Train cube rotation (``CoDe-Rotate-Cube-O`` by default), logged to Weights & Biases, with a manifest per run.
 
-    uv run python scripts/reorient_o/train.py --seed 0 --iterations 1000 --num_envs 4096 [--label first]
+    uv run python scripts/rotate_cube/train.py --iterations 200 --num_envs 1024 --seed 16 --no_video \\
+        --checkpoint <model.pt> --fresh_optimizer [--label <name>] [--override <hydra override> ...]
 
-Runs ``isaaclab train --rl_library rsl_rl`` unchanged (MuJoCo-Warp, the task's runner config: upstream's Allegro PPO) in
-a child process with ``--logger wandb --log_project_name code-hand-inhand`` and ``--video --viz newton_gl``: the Newton
-GL viewer records a ``--video_length`` step clip every ``--video_interval`` environment steps into the run's
-``videos/train``, and rsl_rl's W&B writer uploads each new mp4 under the run's log directory as ``video`` at the next
-logged iteration. The visualizer is offscreen and draws 4 worlds at 960 x 540 (``o_env_cfg.recording_visualizer_cfg``):
-it renders only while a clip is recorded. The camera frames environment 0's hand (world coordinates, from the
-environment count: ``o_env_cfg.env0_camera``).
+(Formerly ``scripts/reorient_o/train.py``; manifests of runs up to s15 name that path.) Runs ``isaaclab train
+--rl_library rsl_rl`` in a child process with ``--logger wandb --log_project_name code-hand-inhand`` and, unless
+``--no_video``, ``--video --viz newton_gl``: the Newton GL viewer records a ``--video_length`` step clip every
+``--video_interval`` environment steps into the run's ``videos/train`` (offscreen, 4 worlds at 960 x 540,
+``rotate_cube.camera``). The child blocks this process; launch it detached (``nohup ... &``) for long runs.
 
-The run is named ``<stamp>_<task>_s<seed>[_<label>]`` (rsl_rl names the W&B run after the log directory). Writes the
-console log to ``logs/train_<stamp>_<run>.log`` and ``reorient_manifest.json`` next to the checkpoints
-(``logs/rsl_rl/code_reorient_cube_o/<stamp>_<run>/``), with the W&B run URL. W&B credentials come from ``~/.netrc``;
-nothing here reads or prints them.
+The run is named ``<stamp>_<prefix>_<hand>_s<seed>[_<label>]`` (rsl_rl names the W&B run after the log directory).
+Writes the console log to ``logs/train_<stamp>_<run>.log`` and ``reorient_manifest.json`` next to the checkpoints
+(``logs/rsl_rl/<experiment>/<stamp>_<run>/``): git state, versions, the command, the overrides, the task's environment
+switches (``CODE_ROTATE_CUBE_*``), the W&B run URL and the checkpoints. W&B credentials come from ``~/.netrc``; nothing
+here reads or prints them.
 """
 
 from __future__ import annotations
@@ -38,28 +37,25 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "study3_measurement"))
 import common  # noqa: E402  (run records: git state, versions, immutable result files)
 
-_spec = importlib.util.spec_from_file_location("reorient_camera", HERE.parents[1] / "src" / "code_isaaclab" / "tasks" /
-                                               "reorient" / "camera.py")  # by path: the package would start Isaac Lab
+CAMERA_PY = HERE.parents[1] / "src" / "code_isaaclab" / "tasks" / "rotate_cube" / "camera.py"
+_spec = importlib.util.spec_from_file_location("rotate_cube_camera", CAMERA_PY)  # by path: the package starts Isaac Lab
 _camera = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_camera)
 env0_camera = _camera.env0_camera
 
-EXPERIMENT = "code_reorient_cube_o"
+EXPERIMENT = "code_rotate_cube"
 PROJECT = "code-hand-inhand"
 TASK_ENV_KEYS = (
-    "CODE_REORIENT_O_AXIS", "CODE_REORIENT_O_CUBE_MM", "CODE_REORIENT_O_MAX_DEG", "CODE_REORIENT_O_MCP_DEG",
-    "CODE_REORIENT_O_PIP_DEG", "CODE_REORIENT_O_VISUALS", "CODE_ROTATE_CUBE_GRASPS", "CODE_ROTATE_CUBE_HORA",
-    "CODE_ROTATE_CUBE_OFF_AXIS_RAMP", "CODE_ROTATE_CUBE_CROWN_MM", "CODE_ROTATE_CUBE_CROWN_LAYOUT",
-    "CODE_ROTATE_CUBE_PHASE_PERIOD_S", "CODE_ROTATE_CUBE_GOAL_OBS",
+    "CODE_ROTATE_CUBE_GRASPS", "CODE_ROTATE_CUBE_CROWN_MM", "CODE_ROTATE_CUBE_CROWN_LAYOUT",
+    "CODE_ROTATE_CUBE_PHASE_PERIOD_S", "CODE_ROTATE_CUBE_GOAL_OBS", "CODE_ROTATE_CUBE_HORA",
 )
+"""Recorded in the manifest when set (unset: the task's defaults, see ``tasks/rotate_cube/env_cfg.py``)."""
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--task", default="CoDe-Reorient-Cube-O")
-    parser.add_argument("--experiment", default=None,
-                        help="the runner config's experiment_name (default: code_rotate_cube for CoDe-Rotate-Cube-*, "
-                             "else code_reorient_cube_o)")
+    parser.add_argument("--task", default="CoDe-Rotate-Cube-O")
+    parser.add_argument("--experiment", default=EXPERIMENT, help="the runner config's experiment_name")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--iterations", type=int, required=True, help="PPO updates to run, including after a restart")
     parser.add_argument("--num_envs", type=int, default=4096)
@@ -75,9 +71,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     checkpoint = ["--checkpoint", str(args.checkpoint.resolve(strict=True))] if args.checkpoint else []
     optimizer = ["--no-resume_optimizer_state"] if args.fresh_optimizer else []
-    hand = "_".join(args.task.split("-")[3:])  # O, O_Spin, ...
-    prefix = "_".join(args.task.split("-")[1:3]).lower()  # reorient_cube, rotate_cube
-    experiment = args.experiment or ("code_rotate_cube" if prefix == "rotate_cube" else EXPERIMENT)
+    hand = "_".join(args.task.split("-")[3:])  # O, R, U
+    prefix = "_".join(args.task.split("-")[1:3]).lower()  # rotate_cube
+    experiment = args.experiment
     run_name = f"{prefix}_{hand}_s{args.seed}" + (f"_{args.label}" if args.label else "")
     stamp = time.strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = common.SIM_ROOT / "logs" / "rsl_rl" / experiment / f"{stamp}_{run_name}"

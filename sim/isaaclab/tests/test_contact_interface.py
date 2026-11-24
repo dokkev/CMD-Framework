@@ -107,7 +107,7 @@ def test_variant_assets_differ_only_in_the_pad_surfaces():
 
 def test_distal_width_crown_changes_only_the_selected_colliders(tmp_path):
     from code_isaaclab.hands.description_hands import description_asset
-    from code_isaaclab.tasks.rotate.env_cfg import HANDS
+    from code_isaaclab.tasks.rotate_cube.grasp import HANDS
 
     distal = ("index_distal_pad", "middle_distal_pad", "ring_distal_pad")
     profile = PadProfile("distal_width", crown_mm=0.5, across_width=True, pads=distal)

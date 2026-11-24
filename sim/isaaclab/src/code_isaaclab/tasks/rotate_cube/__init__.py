@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """In-hand rotation of a cube about world z by the CoDe hand, after Hora and LEAP Hand (:mod:`.env_cfg`); hands O, R, U.
+The defaults are the s15 policy's settings (``report/study4/in-hand.md``).
 
-    uv run python scripts/rotate_cube/gen_grasps.py --hand O        # the grasp cache, first
-    uv run python scripts/reorient_o/train.py --task CoDe-Rotate-Cube-O --experiment code_rotate_cube ...
+    uv run python scripts/rotate_cube/gen_grasps.py --hand O --out_dir <dir>   # a grasp cache, if none exists
+    uv run python scripts/rotate_cube/train.py --iterations 200 --num_envs 1024 --checkpoint <model.pt>
 """
 
 import gymnasium as gym

@@ -54,7 +54,7 @@ def main(argv=None) -> int:
 
     import code_isaaclab.tasks  # noqa: F401
     from code_isaaclab.assets.description import Description
-    from code_isaaclab.tasks.rotate.env_cfg import HANDS
+    from code_isaaclab.tasks.rotate_cube.grasp import HANDS
     from code_isaaclab.tasks.rotate_cube.rotate_cube_mdp import grasp_term
 
     env_cfg, agent_cfg = resolve_task_config(args.task, "rsl_rl_cfg_entry_point")
