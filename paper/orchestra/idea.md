@@ -29,6 +29,11 @@ problems, C contributions, H a study's hypotheses, R its safe claims (research-o
   Framing (2026-11-22): the paper's question is whether an interface can be studied independently of the
   finger that carries it; Study 3's table is grouped by what a protocol reuses (setpoint: Δ_contact alone;
   ideal torque: Δ_contact at fixed force and Δ_skel through the force; touch: Δ_skel).
+  Framing (2026-11-24, north star): the question the paper asks is "when a hand's morphology (skeleton plus the
+  contact surfaces it carries) must change, what must be kept first so that the same commands still handle the
+  object the same way?" Answer: for contact-unaware joint commands, the contact-surface motion, not the skeleton;
+  for commands re-referenced at sensed touch, the skeleton. Define morphology at first use. Do not claim that
+  embodiment differences in manipulation in general come from contact surfaces.
 - Hardware (Stage 2) checks both: exchange cost (C1); tracked Δ_contact and R vs U on the bench (C2).
 - Paper order: Introduction (context, P1, P2, C1, C2; no pole) → Design (the pole answers both: room → C1,
   motion → C2) → C1 evidence (Study 1) → C2 evidence (Study 2, Study 3) → Conclusion (Stage 2, big-picture

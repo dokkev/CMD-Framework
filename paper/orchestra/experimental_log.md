@@ -340,3 +340,16 @@ Drake (SAP) replica of the two-pad measurement on one planar finger, condition A
 - Pads as soft as they are thick (0.1 MPa over each pad's own thickness), against O carrying the same pad (experiment 25): ρ(E′, Δ_contact) = 0.78 (p 0.0003, 15 hands; three hands with Δ_contact ≥ 4.4 mm cannot hold), Δ_skel −0.10. R 5.9, 16.3, 104.2%; U 109.4, 347.2, 370.4% at 5, 7, 9 mm. Below 1 mm of Δ_contact the errors match point contact; above it they are two to three times larger.
 - Tasks under the same open-loop commands (point contact): grasp pull-out (the load ramp above), grasp acquisition (closing from open to draw a cylinder in against a load; ρ 0.87, Δ_skel 0.11, 18 hands), turning a sprung dial by 15–42° in one closing (experiment 26: ρ 0.81, p 0.0001, Δ_skel 0.09; R 31%, U 88%; noise floor 0.7%). In-hand rolling by a flexion sweep fails (ρ 0.28).
 - Figure: `fig_study3.png` (a) task frames rendered in Drake at simulated states, (b) Isaac Lab, (c) contact models, (d) tasks.
+
+## Study 3: contact-referenced joint setpoint (experiment 27, pre-registered d34be24; 2026-11-24; `sim/drake/`)
+
+Drake, point contact, condition A except the setpoint: each hand's flexion setpoint is the one at which the fingertip
+point of its distal face, in its proximal-face frame, comes nearest to O's at O's setpoint (kinematics only, no
+runtime contact; joint impedance control kept).
+- Error falls on 15 of 16 hands scored under both (median 41.7% → 14.0%); R 13.8%, U 25.9%; noise floor median 0%, p75 3.7%.
+- What remains follows Δ_contact (ρ 0.73, one-sided p 0.0007, 18 hands), not Δ_skel (0.18).
+- Pad-midpoint reference instead: median 35.6%, ρ(Δ_contact) 0.81.
+- Reading: re-referencing one point removes that point's preload difference; the other contact points' path
+  difference remains, so the contact-surface motion must still be kept. Only sensed touch (condition E) moves the
+  residual to the skeleton. Data: `report/study3/data/drake_e27_point.json`, `drake_e27m_point.json`.
+
