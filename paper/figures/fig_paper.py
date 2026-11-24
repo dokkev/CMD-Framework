@@ -211,6 +211,45 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
     ax.set_xlim(-Lp - 2, 18); ax.set_ylim(-Lp - 8, 10); ax.set_aspect("equal"); ax.axis("off")
 
 
+def common_pad_extension(view_of, mech, configs, x, qd=150.0, step=0.25, margin=0.3):
+    """One lengthening (ep proximal, ed distal, toward the joint) for every pad thickness in ``configs``: as long as
+    every pair stays ``margin`` clear over 0..qd. Returns (ep, ed, gap at qd of the thickest pads)."""
+    from shapely.geometry import Polygon as SPoly
+    data = []
+    for cf in configs:
+        v = view_of(mech, cf, x)
+        d0 = v.distal_pad(0.0)
+        poses = []
+        for qq in np.linspace(0.0, qd, 61):
+            dq = v.distal_pad(qq)
+            ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
+            poses.append((np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]), dq[1]))
+        data.append((v.proximal_pad().copy(), d0, poses))
+
+    def padded(pp0, d0, ep, ed):
+        pp = pp0.copy(); pp[[1, 2], 0] += ep
+        dd = d0.copy(); dd[[0, 3], 0] -= ed
+        return pp, dd
+
+    def clear(ep, ed):
+        for pp0, d0, poses in data:
+            pp, dd = padded(pp0, d0, ep, ed)
+            sp = SPoly(pp).buffer(margin)
+            if any(sp.intersection(SPoly((dd - d0[1]) @ R.T + t)).area > 1e-4 for R, t in poses):
+                return False
+        return True
+    ep = ed = 0.0
+    for _ in range(3):
+        while ep < 30 and clear(ep + step, ed):
+            ep += step
+        while ed < 30 and clear(ep, ed + step):
+            ed += step
+    pp0, d0, poses = data[0]
+    pp, dd = padded(pp0, d0, ep, ed)
+    R, t = poses[-1]
+    return ep, ed, SPoly(pp).distance(SPoly((dd - d0[1]) @ R.T + t))
+
+
 def faint_extended(ax, v, pads, pins):
     """The finger extended (q = 0), faint, under the flexed drawing."""
     from matplotlib.patches import Circle as _C
@@ -265,10 +304,21 @@ def fig2():
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
         x = list(base.x)
-        if key == "cfl":  # the candidate whose lengthened pads come closest at 150 deg (fig2_pad_search.py)
-            best = json.loads((ROOT / "report" / "study0" / "data" / "fig2_cfl_pad_gap150.json").read_text())[0]
-            base = one_finger.study1_designs(key, cfg["architectures"][key], best["cfg"][0], cfg)[best["cfg"][1]]
-            x = list(best["x"])
+        if key == "cfl":  # of the searched candidates, the one whose common-length pads come closest at 150 deg
+            cands = json.loads((ROOT / "report" / "study0" / "data" / "fig2_cfl_pad_gap150.json").read_text())
+            choice = None
+            for cnd in cands:
+                b_ = one_finger.study1_designs(key, cfg["architectures"][key], cnd["cfg"][0], cfg)[cnd["cfg"][1]]
+                xx = list(cnd["x"])
+                nm_ = list(mech_of(b_.mechanism).variable_names)
+                for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
+                    xx[nm_.index(k_)] = 0.0
+                ep_, ed_, gap_ = common_pad_extension(view_of, b_.mechanism,
+                                                      [with_pads(b_.config, t_) for t_ in (7.0, 5.0, 3.0)], xx)
+                print("candidate", cnd["source"], "common ext", ep_, ed_, "gap", round(gap_, 2))
+                if choice is None or gap_ < choice[0]:
+                    choice = (gap_, b_, list(cnd["x"]), (ep_, ed_))
+            _, base, x, cfl_ext = choice
         nm = list(mech_of(base.mechanism).variable_names)
         if servo_up:
             x[nm.index("servo_tilt_deg")] = 0.0
@@ -339,12 +389,7 @@ def fig2():
                     pp, dext = padded(ep, ed)
                     return all(SPoly(pp).buffer(0.3).intersection(SPoly((dext - d0[1]) @ Rm.T + t1)).area < 1e-4
                                for Rm, t1 in poses)
-                ep = ed = 0.0
-                for _ in range(3):  # alternate: each pad as long as it stays clear of the other over 0..qd
-                    while clear(ep + 0.25, ed):
-                        ep += 0.25
-                    while clear(ep, ed + 0.25):
-                        ed += 0.25
+                ep, ed = cfl_ext  # one length for every thickness
                 pp, dext = padded(ep, ed)
                 ext = (ep, ed)
                 Rm, t1 = poses[-1]
