@@ -467,13 +467,11 @@ def fig2():
     gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
     rings = cached_outlines({d: None for d in shown}, gx, gy)
     pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
-    pax.fill(rings[120][:, 0], rings[120][:, 1], fc="#e4edf9", ec="none", zorder=0.5)
-    for deg, col in shown.items():
-        pax.plot(rings[deg][:, 0], rings[deg][:, 1], color=col, lw=0.9, zorder=2)
+    pax.fill(rings[120][:, 0], rings[120][:, 1], fc="#dbe7f7", ec=BLUE, lw=0.9, zorder=0.5)
     radii = np.linspace(9.5, 20.0, 60)
     lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
     teal = {90: "#a7ddd4", 120: TEAL, 150: "#0e5c50"}
-    for deg in shown:
+    for deg in (120,):
         tq = np.radians(deg)
         edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
                                roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
@@ -484,11 +482,10 @@ def fig2():
     pax.text(54, 1.2, "fixed axis", fontsize=5.6, color=GREY, va="bottom", ha="right", path_effects=halo, zorder=6)
     pax.text(-31, -18.5, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-24, 30, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
-    pax.text(24, -16.5, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
-    pax.text(54, 36, "light to dark:\n$90^\\circ$, $120^\\circ$, $150^\\circ$", fontsize=5.6, color=INK2,
-             ha="right", va="top", linespacing=1.0)
-    pax.set_xlim(-32, 55); pax.set_ylim(-27, 38); pax.set_aspect("equal")
+    pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(21, -13.5, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(54, 29, "$q=120^\\circ$", fontsize=6.2, color=INK2, ha="right", va="top")
+    pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
     clean(pax)
     # (c) the CFL's kinematic model (the CoDe prototype at 120 deg): pivots, fingertip, frame
