@@ -75,45 +75,56 @@ def crop_white(im, pad=6):
     return im[max(rows.min() - pad, 0):rows.max() + pad, max(cols.min() - pad, 0):cols.max() + pad]
 
 
-def schematic(ax, colour, deep):
-    """Qualitative two-phalanx finger on an object under an impedance setpoint (not to scale). Dashed: where O's
-    distal contact surface lies. deep > 0 puts this hand's distal contact surface past O's, into the object, so the
-    same setpoint presses harder (extra preload); deep = 0 puts it on O's."""
+def schematic(ax, colour, keep):
+    """Qualitative two-phalanx finger on an object (not to scale), the pads thicker than O's by DT. keep="skeleton":
+    O's links and joint, so both contact surfaces move past O's into the object and the same setpoint presses
+    harder; keep="contact": the links and joint offset so that the contact surfaces lie on O's, at the price of a
+    different skeleton. Dashed grey: O's skeleton (link lines, joint); dashed black: O's contact surfaces."""
     from matplotlib.patches import Polygon, Circle, FancyArrowPatch
-    from matplotlib.transforms import Affine2D
-    ax.set_xlim(-0.6, 9.2); ax.set_ylim(-5.6, 1.2); ax.set_aspect("equal"); ax.axis("off")
-    pad_t = 0.75
-    joint = np.array([5.4, 0.4])
+    ax.set_xlim(-0.6, 9.4); ax.set_ylim(-5.6, 2.0); ax.set_aspect("equal"); ax.axis("off")
+    t0, dt = 0.45, 0.65
+    j0 = np.array([5.4, 0.4])
     th = np.radians(-100.0)
     rot = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
-    to_w = lambda pts: (rot @ np.asarray(pts, float).T).T + joint  # distal frame: x along the link, y up (dorsal)
-    # proximal phalanx and pad
-    ax.add_patch(Polygon([(0, 0), (5.2, 0), (5.2, 0.8), (0, 0.8)], fc="#c9cdd2", ec=INK2, lw=0.5))
-    ax.add_patch(Polygon([(0.3, -pad_t), (4.6, -pad_t), (4.6, 0), (0.3, 0)], fc="#5b8fe0", ec=PAD, lw=0.5))
-    # distal phalanx and pad (this hand's contact surface at y = -pad_t - deep)
-    ax.add_patch(Polygon(to_w([(0.4, -0.4), (3.6, -0.4), (3.6, 0.4), (0.4, 0.4)]), fc="#c9cdd2", ec=INK2, lw=0.5))
-    face = -0.4 - pad_t - deep
-    ax.add_patch(Polygon(to_w([(0.7, face), (3.4, face), (3.4, -0.4), (0.7, -0.4)]), fc="#5b8fe0", ec=PAD, lw=0.5))
-    ax.add_patch(Circle(joint, 0.28, fc="white", ec=INK2, lw=0.6))
-    # O's distal contact surface (dashed) and the object resting on O's two contact surfaces
-    o_face = to_w([(0.4, -0.4 - pad_t), (3.7, -0.4 - pad_t)])
-    ax.plot(o_face[:, 0], o_face[:, 1], ls=(0, (2, 1.4)), color=INK, lw=0.7)
+    n = rot @ np.array([0.0, -1.0])  # inward normal of the distal face (toward the object)
+    if keep == "skeleton":
+        up, joint, t = 0.0, j0, t0 + dt
+    else:  # offset both phalanges outward by dt: proximal up, distal along -n; the joint moves to suit both
+        m = np.linalg.solve(np.array([[0.0, 1.0], [-n[0], -n[1]]]), np.array([1.0, 1.0]))
+        up, joint, t = dt, j0 + dt * m, t0 + dt
+    dist = lambda pts, J: (rot @ np.asarray(pts, float).T).T + J
+    # proximal phalanx and pad (face at -t0 + up - ... : bottom of the pad)
+    face_p = up - t
+    ax.add_patch(Polygon([(0, up), (joint[0] - 0.2, up), (joint[0] - 0.2, up + 0.8), (0, up + 0.8)],
+                         fc="#c9cdd2", ec=INK2, lw=0.5))
+    ax.add_patch(Polygon([(0.3, face_p), (4.5, face_p), (4.5, up), (0.3, up)], fc="#5b8fe0", ec=PAD, lw=0.5))
+    # distal phalanx and pad
+    ax.add_patch(Polygon(dist([(0.4, -0.4), (3.6, -0.4), (3.6, 0.4), (0.4, 0.4)], joint), fc="#c9cdd2", ec=INK2,
+                         lw=0.5))
+    ax.add_patch(Polygon(dist([(0.7, -0.4 - t), (3.4, -0.4 - t), (3.4, -0.4), (0.7, -0.4)], joint), fc="#5b8fe0",
+                         ec=PAD, lw=0.5))
+    # this hand's skeleton (link lines through the joint)
+    sk = np.array([(0.0, up + 0.4), tuple(joint), tuple(dist([(3.9, 0.0)], joint)[0])])
+    ax.plot(sk[:, 0], sk[:, 1], color=colour, lw=1.0, zorder=6)
+    ax.add_patch(Circle(joint, 0.26, fc="white", ec=colour, lw=0.9, zorder=7))
+    # O's skeleton and O's contact surfaces, dashed
+    osk = np.array([(0.0, 0.4), tuple(j0), tuple(dist([(3.9, 0.0)], j0)[0])])
+    ax.plot(osk[:, 0], osk[:, 1], ls=(0, (2, 1.4)), color="#8a8a8a", lw=0.8, zorder=8)
+    o_dist = dist([(0.4, -0.4 - t0), (3.7, -0.4 - t0)], j0)
+    for seg in (np.array([(0.0, -t0), (4.7, -t0)]), o_dist):
+        ax.plot(seg[:, 0], seg[:, 1], ls=(0, (2, 1.4)), color=INK, lw=0.7, zorder=8)
+    # the object, resting on O's two contact surfaces
     r = 1.45
-    n = rot @ np.array([0.0, -1.0])  # inward normal of the distal face
-    cy = -pad_t - r
-    # centre on y = cy at distance r from O's distal face line
-    p0 = o_face[0]
-    cx = p0[0] + ((r - (cy - p0[1]) * n[1]) / n[0])
+    cy = -t0 - r
+    p0 = o_dist[0]
+    cx = p0[0] + (r - (cy - p0[1]) * n[1]) / n[0]
     ax.add_patch(Circle((cx, cy), r, fc="#f1e3cf", ec="#9a7a52", lw=0.6, zorder=0))
-    # contact force on the object from the distal pad: O's (grey) and this hand's
-    cpt = np.array([cx, cy]) - n * r  # where the object touches O's distal contact surface
-    side = np.array([-n[1], n[0]]) * 0.45  # O's arrow drawn beside this hand's
-    for start, length, col, lw in ((cpt + side, 1.0, "#9a9a9a", 1.0), (cpt, 1.0 + 2.6 * deep, colour, 1.3)):
-        ax.add_patch(FancyArrowPatch(start, start + n * length, arrowstyle="-|>", mutation_scale=7,
-                                     color=col, lw=lw, zorder=5))
-    if deep > 0:
-        ax.text(7.0, -2.2, "pad face\npast O's", fontsize=5.6, color=colour, ha="left", va="center", linespacing=1.0)
-    # the setpoint spring at the joint
+    cpt = np.array([cx, cy]) - n * r
+    side = np.array([-n[1], n[0]]) * 0.45
+    extra = 2.4 * dt if keep == "skeleton" else 0.0
+    for start, length, col, lw in ((cpt + side, 1.0, "#9a9a9a", 1.0), (cpt, 1.0 + extra, colour, 1.3)):
+        ax.add_patch(FancyArrowPatch(start, start + n * length, arrowstyle="-|>", mutation_scale=7, color=col,
+                                     lw=lw, zorder=9))
 
 
 def main() -> int:
@@ -159,15 +170,15 @@ def main() -> int:
     # (c) qualitative: the same joint command and gain on a redesign that keeps the contact-surface motion (R) and on
     # one that does not (U); no data
     fig.text(0.005, 1.30 / height, "(c)", **lab)
-    fig.text(1.80 / width, 1.30 / height, "thicker pad, same joint command and gain (grey arrow: O's contact force)",
+    fig.text(1.80 / width, 1.30 / height, "thicker pad, same command: keep the skeleton or the contact surfaces, not both",
              fontsize=6.2, ha="center", va="top")
-    for i, (h, title, verdict, deep) in enumerate((
-            ("R", "keeps contact-surface motion", "same contact force:\ninterface effect read correctly", 0.0),
-            ("U", "coverage only", "extra preload:\ninterface effect biased", 0.55))):
-        x0 = 0.10 + i * 1.72
-        ax = fig.add_axes((x0 / width, 0.02 / height, 1.60 / width, 1.05 / height))
-        schematic(ax, HAND_C[h], deep)
-        ax.set_title(f"{h}: {title}", fontsize=6.3, color=HAND_C[h], fontweight="bold", pad=1)
+    for i, (keep, col, title, verdict) in enumerate((
+            ("skeleton", HAND_C["U"], "keep the skeleton (toward U)", "contact surfaces moved:\ninterface effect biased"),
+            ("contact", HAND_C["R"], "keep the contact surfaces (R)", "skeleton moved:\ninterface effect read correctly"))):
+        x0 = 0.08 + i * 1.72
+        ax = fig.add_axes((x0 / width, 0.02 / height, 1.62 / width, 1.02 / height))
+        schematic(ax, col, keep)
+        ax.set_title(title, fontsize=6.3, color=col, fontweight="bold", pad=1)
         ax.text(0.5, 0.0, verdict, transform=ax.transAxes, fontsize=6, ha="center", va="bottom", color=INK,
                 linespacing=1.0)
     DEST.mkdir(parents=True, exist_ok=True)
