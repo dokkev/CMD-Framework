@@ -6,7 +6,8 @@
 - :class:`RelativeFlexionAction`: ``target = clamp(prev_target + (1/24) clip(a, -1, 1), q_lo, q_hi)``, the PIP in
   flexion (each hand's own theta(q) and gain schedule, :class:`~code_isaaclab.flexion_control.FlexionEMAAction`);
   ``prev_target`` restarts at the joints' pose after each reset (the grasp drawn from the cache).
-- :class:`GraspCacheReset`: the reset draws a grasp ``[q, cube pose]`` uniformly from a cache (``gen_grasps.py``), or,
+- :class:`GraspCacheReset`: the reset draws a grasp ``[q, target, cube pose]`` uniformly from a cache
+  (``gen_grasps.py``), or,
   in generation mode, the cradle grasp with joint noise and the cube a few mm above its rest with a random yaw.
 - :class:`ObjectMotion`: the cube's yaw rate about world z from the quaternion finite difference over one control step,
   its linear velocity from the position finite difference (Hora), and the episode's net yaw, logged at reset.
@@ -53,26 +54,36 @@ class RelativeFlexionAction(FlexionEMAAction):
 
     def reset(self, env_ids=None) -> None:
         super().reset(env_ids)
+        ids = slice(None) if env_ids is None else env_ids
+        reset = grasp_term(self._env)
+        self._prev_applied_actions[ids] = reset.grasp_target[ids]
+        self._flexion_cmd[ids] = reset.grasp_target[ids][:, self._pip_cols]
         if self.cfg.gain_noise > 0.0:
             if not hasattr(self, "_gain_scale"):
                 self._gain_scale = torch.ones(self.num_envs, len(self._pip), 2, device=self.device)
-            ids = slice(None) if env_ids is None else env_ids
             g = self.cfg.gain_noise
             self._gain_scale[ids] = 1.0 + (2.0 * torch.rand_like(self._gain_scale[ids]) - 1.0) * g
 
     def _schedule_gains(self) -> None:
         theta = self._asset.data.joint_pos.torch[:, self._pip_joint_ids]
-        ratio_sq = torch.stack([self._tables.ratio(n, self._tables.flexion(n, theta[:, i])) for i, (_, n) in
-                                enumerate(self._pip)], dim=1) ** 2
+        ratio_sq = (
+            torch.stack(
+                [self._tables.ratio(n, self._tables.flexion(n, theta[:, i])) for i, (_, n) in enumerate(self._pip)],
+                dim=1,
+            )
+            ** 2
+        )
         scale = getattr(self, "_gain_scale", None)
         ks = 1.0 if scale is None else scale[..., 0]
         ds = 1.0 if scale is None else scale[..., 1]
         if self.cfg.flexion_stiffness is not None:
             self._asset.write_joint_stiffness_to_sim_index(
-                stiffness=(ks * self.cfg.flexion_stiffness / ratio_sq).contiguous(), joint_ids=self._pip_joint_ids)
+                stiffness=(ks * self.cfg.flexion_stiffness / ratio_sq).contiguous(), joint_ids=self._pip_joint_ids
+            )
         if self.cfg.flexion_damping is not None:
             self._asset.write_joint_damping_to_sim_index(
-                damping=(ds * self.cfg.flexion_damping / ratio_sq).contiguous(), joint_ids=self._pip_joint_ids)
+                damping=(ds * self.cfg.flexion_damping / ratio_sq).contiguous(), joint_ids=self._pip_joint_ids
+            )
 
     @property
     def targets(self) -> torch.Tensor:
@@ -94,10 +105,11 @@ class RelativeFlexionActionCfg(FlexionEMAActionCfg):
 
 
 class GraspCacheReset(ManagerTermBase):
-    """Reset event: a grasp drawn uniformly from ``cache`` (``q`` for every joint, the cube's env-frame position and
-    quaternion), or, with ``cache`` None (generation), the default (cradle) pose with ``joint_noise`` rad of uniform
-    noise on every actuated joint (PIP in flexion, the four-bar closed from the tables) and the cube ``lift_m`` above its
-    rest, turned about world z by a uniform random yaw. Records each environment's grasp (``grasp_q`` actuated, PIP in
+    """Reset event: a grasp drawn uniformly from ``cache`` (``q`` and optional commanded ``target`` for every joint,
+    plus the cube's env-frame position and quaternion), or, with ``cache`` None (generation), the default (cradle) pose
+    with ``joint_noise`` rad of uniform noise on every actuated joint (PIP in flexion, the four-bar closed from the
+    tables) and the cube ``lift_m`` above
+    its rest, turned about world z by a uniform random yaw. Records each grasp (``grasp_q`` actuated, PIP in
     flexion; ``grasp_pos`` env frame) for the rewards and terminations."""
 
     def __init__(self, cfg, env):
@@ -106,19 +118,26 @@ class GraspCacheReset(ManagerTermBase):
         self.robot, self.obj = env.scene[p.get("robot", "robot")], env.scene[p.get("object", "object")]
         n, dev = env.num_envs, env.device
         self.grasp_q = torch.zeros(n, len(p["actuated"]), device=dev)
+        self.grasp_target = torch.zeros_like(self.grasp_q)
+        self.grasp_cache_index = torch.full((n,), -1, dtype=torch.long, device=dev)
         self.grasp_pos = _t(self.obj.data.default_root_pose)[:, :3].clone()
         self.cache = None
+        self._actuated = [self.robot.joint_names.index(j) for j in p["actuated"]]
         if p.get("cache"):
             path = Path(p["cache"])
             if not path.is_file():
-                raise FileNotFoundError(f"No grasp cache at {path}. Generate it with scripts/rotate_cube/gen_grasps.py.")
+                raise FileNotFoundError(
+                    f"No grasp cache at {path}. Generate it with scripts/rotate_cube/gen_grasps.py."
+                )
             data = torch.load(path, map_location="cpu", weights_only=True)
             if data.get("hand", env.cfg.hand_key) != env.cfg.hand_key:
                 raise ValueError(f"Grasp cache {path} is for hand {data['hand']}, expected {env.cfg.hand_key}")
             from code_isaaclab.tasks.reorient.o_env_cfg import CUBE_SIZE_M, GRASP_MCP_DEG, GRASP_PIP_DEG
 
             for key, expected in (
-                ("cube_size_m", CUBE_SIZE_M), ("grasp_mcp_deg", GRASP_MCP_DEG), ("grasp_pip_deg", GRASP_PIP_DEG),
+                ("cube_size_m", CUBE_SIZE_M),
+                ("grasp_mcp_deg", GRASP_MCP_DEG),
+                ("grasp_pip_deg", GRASP_PIP_DEG),
             ):
                 if data.get(key, expected) != expected:
                     raise ValueError(f"Grasp cache {path} has {key}={data[key]}, expected {expected}")
@@ -126,15 +145,24 @@ class GraspCacheReset(ManagerTermBase):
                 raise ValueError(f"Grasp cache {path} joints differ from the robot's")
             q, pos, quat = (data[k] for k in ("q", "pos", "quat"))
             n_grasps = len(q)
-            if (n_grasps == 0 or q.shape != (n_grasps, len(self.robot.joint_names))
-                    or pos.shape != (n_grasps, 3) or quat.shape != (n_grasps, 4)):
+            if (
+                n_grasps == 0
+                or q.shape != (n_grasps, len(self.robot.joint_names))
+                or pos.shape != (n_grasps, 3)
+                or quat.shape != (n_grasps, 4)
+            ):
                 raise ValueError(f"Grasp cache {path} must contain matching nonempty q, pos and quat arrays")
             if not all(torch.isfinite(values).all() for values in (q, pos, quat)):
                 raise ValueError(f"Grasp cache {path} contains non-finite states")
-            self.cache = {k: data[k].to(device=dev, dtype=torch.float32) for k in ("q", "pos", "quat")}
-        self._actuated = [self.robot.joint_names.index(j) for j in p["actuated"]]
-        from code_isaaclab.loops import FourBarTables
+            target = data.get("target", q)
+            if target.shape != q.shape or not torch.isfinite(target).all():
+                raise ValueError(f"Grasp cache {path} target must match q and contain only finite values")
+            self.cache = {
+                k: values.to(device=dev, dtype=torch.float32)
+                for k, values in (("q", q), ("pos", pos), ("quat", quat), ("target", target))
+            }
         from code_isaaclab.flexion_control import FlexionTables
+        from code_isaaclab.loops import FourBarTables
 
         self._four_bar = FourBarTables(p["four_bar_tables"], self.robot.joint_names, device=dev)
         self._flex = FlexionTables(p["four_bar_tables"], device=dev)
@@ -146,8 +174,9 @@ class GraspCacheReset(ManagerTermBase):
                 out[:, k] = self._flex.flexion(name, q_act[:, k])
         return out
 
-    def __call__(self, env, env_ids, actuated: list, four_bar_tables: dict, joint_noise: float, lift_m: float,
-                 cache: str | None):
+    def __call__(
+        self, env, env_ids, actuated: list, four_bar_tables: dict, joint_noise: float, lift_m: float, cache: str | None
+    ):
         if env_ids is None or isinstance(env_ids, slice):
             ids = torch.arange(env.num_envs, device=env.device)[env_ids if isinstance(env_ids, slice) else slice(None)]
         else:
@@ -156,9 +185,12 @@ class GraspCacheReset(ManagerTermBase):
         origins = env.scene.env_origins[ids]
         if self.cache is not None:
             pick = torch.randint(0, self.cache["q"].shape[0], (k,), device=env.device)
+            self.grasp_cache_index[ids] = pick
             q = self.cache["q"][pick]
+            target = self.cache["target"][pick][:, self._actuated]
             pose = torch.cat((self.cache["pos"][pick] + origins, self.cache["quat"][pick]), dim=1)
         else:
+            self.grasp_cache_index[ids] = -1
             p = self.cfg.params
             q = _t(self.robot.data.default_joint_pos)[ids].clone()
             noise = (2.0 * torch.rand(k, len(self._actuated), device=env.device) - 1.0) * p["joint_noise"]
@@ -178,12 +210,14 @@ class GraspCacheReset(ManagerTermBase):
             z = torch.zeros(k, 3, device=env.device)
             z[:, 2] = 1.0
             pose[:, 3:7] = math_utils.quat_mul(math_utils.quat_from_angle_axis(yaw, z), pose[:, 3:7])
+            target = q[:, self._actuated]
         self.robot.write_joint_position_to_sim_index(position=q, env_ids=ids)
         self.robot.write_joint_velocity_to_sim_index(velocity=torch.zeros_like(q), env_ids=ids)
         self.robot.set_joint_position_target_index(target=q, env_ids=ids)
         self.obj.write_root_pose_to_sim_index(root_pose=pose, env_ids=ids)
         self.obj.write_root_velocity_to_sim_index(root_velocity=torch.zeros(k, 6, device=env.device), env_ids=ids)
         self.grasp_q[ids] = self._to_flexion(q[:, self._actuated])
+        self.grasp_target[ids] = self._to_flexion(target)
         self.grasp_pos[ids] = pose[:, :3] - origins
 
 
@@ -231,7 +265,12 @@ class ObjectMotion(ManagerTermBase):
         self.lin_vel[ids] = 0.0
 
     def __call__(
-        self, env, clip_min: float, clip_max: float, full_credit_m: float = 0.0, zero_credit_m: float = 0.0,
+        self,
+        env,
+        clip_min: float,
+        clip_max: float,
+        full_credit_m: float = 0.0,
+        zero_credit_m: float = 0.0,
     ) -> torch.Tensor:
         quat, pos = _t(self.obj.data.root_quat_w), _t(self.obj.data.root_pos_w)
         dq = math_utils.axis_angle_from_quat(math_utils.quat_mul(quat, math_utils.quat_conjugate(self.prev_quat)))
@@ -264,8 +303,8 @@ def object_grasp_distance(env) -> torch.Tensor:
 
 
 def off_axis_ang_vel_l1(env) -> torch.Tensor:
-    """``|omega x k|_1`` with ``k`` world z, i.e. ``|omega_x| + |omega_y|`` (RotateIt's rotation penalty: the turning off
-    the rotation axis, here the tilting), from the rotation term's finite-difference angular velocity."""
+    """``|omega x k|_1`` with ``k`` world z, i.e. ``|omega_x| + |omega_y|`` (RotateIt's rotation penalty: turning off
+    the rotation axis, here tilting), from the rotation term's finite-difference angular velocity."""
     w = env.reward_manager.get_term_cfg("rotation").func.omega
     return w[:, 0].abs() + w[:, 1].abs()
 
@@ -299,7 +338,10 @@ def servo_torque_l2(env, tau_max: float, asset_cfg: SceneEntityCfg) -> torch.Ten
     robot = env.scene[asset_cfg.name]
     ids = asset_cfg.joint_ids
     k, d = _t(robot.data.joint_stiffness)[:, ids], _t(robot.data.joint_damping)[:, ids]
-    tau = k * (_t(robot.data.joint_pos_target)[:, ids] - _t(robot.data.joint_pos)[:, ids]) - d * _t(robot.data.joint_vel)[:, ids]
+    tau = (
+        k * (_t(robot.data.joint_pos_target)[:, ids] - _t(robot.data.joint_pos)[:, ids])
+        - d * _t(robot.data.joint_vel)[:, ids]
+    )
     return ((0.5 * tau.clamp(-tau_max, tau_max) / tau_max) ** 2).sum(dim=1)
 
 
@@ -334,8 +376,12 @@ class ObjectRandomForce(ManagerTermBase):
         if ids.numel() == 0:
             return
         self.obj.permanent_wrench_composer.set_forces_and_torques_index(
-            forces=self.forces[ids][:, None], torques=torch.zeros_like(self.forces[ids])[:, None], body_ids=[0],
-            env_ids=ids, is_global=True)
+            forces=self.forces[ids][:, None],
+            torques=torch.zeros_like(self.forces[ids])[:, None],
+            body_ids=[0],
+            env_ids=ids,
+            is_global=True,
+        )
 
     def __call__(self, env, env_ids, scale: float, prob: float, decay: float, decay_interval: float):
         if env_ids is None or isinstance(env_ids, slice):
@@ -450,7 +496,9 @@ class RotationMilestones(ManagerTermBase):
         tilted = env.termination_manager.get_term_cfg("object_tilted").func
         retained = (object_grasp_distance(env) <= max_distance) & (tilted.up_dot() >= min_dot)
         self.within_envelope &= retained
-        earned = torch.where(retained & ~env.termination_manager.terminated, (reached - self.credited).clamp_min(0), 0.)
+        earned = torch.where(
+            retained & ~env.termination_manager.terminated, (reached - self.credited).clamp_min(0), 0.0
+        )
         self.credited += earned
         return earned
 
@@ -466,7 +514,8 @@ def retained_turns_at_timeout(env, second_half_weight: float = 0.0) -> torch.Ten
     if second_half_weight:
         motion = env.reward_manager.get_term_cfg("rotation").func
         late = torch.minimum(
-            milestones.heading - milestones.halfway_heading, motion.net_yaw - milestones.halfway_yaw,
+            milestones.heading - milestones.halfway_heading,
+            motion.net_yaw - milestones.halfway_yaw,
         ).clamp_min(0.0)
         late = torch.where(motion.steps > env.max_episode_length // 2, late, 0.0)
         progress = progress + second_half_weight * torch.minimum(late, progress)
@@ -569,6 +618,25 @@ def object_omega_fd(env) -> torch.Tensor:
     return _t(env.scene["object"].data.root_ang_vel_w)
 
 
-__all__ = ["GraspCacheReset", "ObjectMotion", "ObjectTilted", "RelativeFlexionAction", "RelativeFlexionActionCfg",
-           "actuated_targets_normalized", "grasp_term", "object_lin_vel_fd_l1", "object_off_grasp",
-           "ObjectRandomForce", "object_grasp_distance", "object_physics_priv", "work_l2", "off_axis_ang_vel_l1", "ramp_reward_weight", "object_omega_fd", "object_pos_from_grasp_face", "rotate_over_speed", "pose_diff_l2", "servo_torque_l2"]
+__all__ = [
+    "GraspCacheReset",
+    "ObjectMotion",
+    "ObjectTilted",
+    "RelativeFlexionAction",
+    "RelativeFlexionActionCfg",
+    "actuated_targets_normalized",
+    "grasp_term",
+    "object_lin_vel_fd_l1",
+    "object_off_grasp",
+    "ObjectRandomForce",
+    "object_grasp_distance",
+    "object_physics_priv",
+    "work_l2",
+    "off_axis_ang_vel_l1",
+    "ramp_reward_weight",
+    "object_omega_fd",
+    "object_pos_from_grasp_face",
+    "rotate_over_speed",
+    "pose_diff_l2",
+    "servo_torque_l2",
+]

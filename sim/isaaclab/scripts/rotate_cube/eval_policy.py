@@ -57,6 +57,14 @@ class CubeRotationMetrics(RecorderTerm):
             touch = forces > 0.05
             self.thumb_finger_steps += self.active & touch[:, self.thumb_column] & (touch.sum(dim=1) >= 2)
             self.no_contact_steps += self.active & ~touch.any(dim=1)
+            digit_touch = torch.stack([touch[:, cols].any(dim=1) for cols in self.digit_columns], dim=1)
+            self.digit_contact_steps += self.active[:, None] & digit_touch
+            if self.prev_digit_touch is None:
+                self.prev_digit_touch = digit_touch.clone()
+            else:
+                self.finger_release_events += self.active[:, None] & self.prev_digit_touch & ~digit_touch
+                self.finger_recontact_events += self.active[:, None] & ~self.prev_digit_touch & digit_touch
+                self.prev_digit_touch = torch.where(self.active[:, None], digit_touch, self.prev_digit_touch)
         self.off_axis += torch.where(self.active, dq[:, :2].norm(dim=1), 0.0)
         self.max_displacement = torch.where(
             self.active, torch.maximum(self.max_displacement, displacement.norm(dim=1)), self.max_displacement
@@ -93,6 +101,7 @@ class CubeRotationMetrics(RecorderTerm):
             )
             robot = env.scene["robot"]
             self.grasp_q[keep] = _t(robot.data.joint_pos)[keep]
+            self.grasp_target[keep] = _t(robot.data.joint_pos_target)[keep]
             self.grasp_pos[keep] = (_t(obj.data.root_pos_w) - env.scene.env_origins)[keep]
             self.grasp_quat[keep] = quat[keep]
             self.grasp_valid |= keep
@@ -105,6 +114,7 @@ class CubeRotationMetrics(RecorderTerm):
         if capture_grasps:
             robot = self._env.scene["robot"]
             self.grasp_q = torch.zeros_like(_t(robot.data.joint_pos))
+            self.grasp_target = torch.zeros_like(self.grasp_q)
             self.grasp_pos = torch.zeros(n, 3, device=device)
             self.grasp_quat = torch.zeros(n, 4, device=device)
             self.grasp_valid = torch.zeros(n, dtype=torch.bool, device=device)
@@ -120,9 +130,18 @@ class CubeRotationMetrics(RecorderTerm):
         self.late_yaw = torch.zeros_like(self.yaw)
         self.contacts = self._env.scene.sensors.get("object_pad_contacts")
         if self.contacts is not None:
-            self.thumb_column = self.contacts.filter_object_names.index("thumb_distal")
+            columns = {name: k for k, name in enumerate(self.contacts.filter_object_names)}
+            self.digit_columns = [
+                [columns[f"{finger}_proximal"], columns[f"{finger}_distal"]]
+                for finger in ("index", "middle", "ring")
+            ]
+            self.thumb_column = columns["thumb_distal"]
             self.thumb_finger_steps = torch.zeros_like(self.yaw)
             self.no_contact_steps = torch.zeros_like(self.yaw)
+            self.digit_contact_steps = torch.zeros(n, 3, device=device)
+            self.finger_release_events = torch.zeros(n, 3, dtype=torch.long, device=device)
+            self.finger_recontact_events = torch.zeros(n, 3, dtype=torch.long, device=device)
+            self.prev_digit_touch = None
         self.off_grasp, self.tilted, self.timeout = torch.zeros(3, n, dtype=torch.bool, device=device)
         up = self.yaw.new_tensor((0., 0., 1.)).expand(n, 3)
         quat = _t(self._env.scene["object"].data.root_quat_w)
@@ -166,6 +185,29 @@ class CubeRotationMetrics(RecorderTerm):
         if self.contacts is not None:
             summary["thumb_and_finger_link_contact_fraction"] = float((self.thumb_finger_steps / self.length).mean())
             summary["no_pad_link_contact_fraction"] = float((self.no_contact_steps / self.length).mean())
+            summary["distinct_finger_contact_count_mean"] = float(
+                (self.digit_contact_steps.sum(dim=1) / self.length.clamp_min(1)).mean()
+            )
+            summary["per_finger_contact_fraction"] = {
+                finger: float((self.digit_contact_steps[:, k] / self.length.clamp_min(1)).mean())
+                for k, finger in enumerate(("index", "middle", "ring"))
+            }
+            summary["finger_contact_release_events_mean"] = {
+                finger: float(self.finger_release_events[:, k].float().mean())
+                for k, finger in enumerate(("index", "middle", "ring"))
+            }
+            summary["finger_contact_recontact_events_mean"] = {
+                finger: float(self.finger_recontact_events[:, k].float().mean())
+                for k, finger in enumerate(("index", "middle", "ring"))
+            }
+            summary["episodes_with_finger_release_rate"] = {
+                finger: float((self.finger_release_events[:, k] > 0).float().mean())
+                for k, finger in enumerate(("index", "middle", "ring"))
+            }
+            summary["episodes_with_finger_recontact_rate"] = {
+                finger: float((self.finger_recontact_events[:, k] > 0).float().mean())
+                for k, finger in enumerate(("index", "middle", "ring"))
+            }
         if self.capture_grasps:
             summary["export_grasp_count"] = int(self.grasp_valid.sum())
         return summary
@@ -180,6 +222,7 @@ class CubeRotationMetrics(RecorderTerm):
         with path.open("xb") as output:
             torch.save({
                 "q": self.grasp_q[keep].cpu(),
+                "target": self.grasp_target[keep].cpu(),
                 "pos": self.grasp_pos[keep].cpu(),
                 "quat": self.grasp_quat[keep].cpu(),
                 "joint_names": list(self._env.scene["robot"].joint_names),

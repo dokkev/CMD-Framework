@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """In-hand rotation of a cube about world z by the CoDe hand (O; R and U as config switches), after the working
-recipes of Hora (Qi et al. 2022, ``haozhiqi/hora``) and LEAP Hand's Isaac Lab task (``leap-hand/LEAP_Hand_Isaac_Lab``):
+recipes of Hora (Qi et al. 2022, ``haozhiqi/hora``) and LEAP Hand's Isaac Lab task
+(``leap-hand/LEAP_Hand_Isaac_Lab``):
 
 - hand and grasp as :mod:`code_isaaclab.tasks.reorient.o_env_cfg` (palm up, the thumb pad pressing a 40 mm cube onto
-  the tilted proximal pads against the distal pads at 90 deg), with the visual asset (physics identical to the plain one);
+  the tilted proximal pads against the distal pads at 90 deg); the visual asset has physics identical to the plain one;
 - actions: relative joint targets, ``target = clamp(prev + (1/24) clip(a), q_lo, q_hi)``, PIP in flexion (K_q schedule);
 - reset: a grasp drawn from a cache made by ``scripts/rotate_cube/gen_grasps.py`` (the cradle grasp with joint noise,
   the cube dropped a few mm with a random yaw, kept if it held for 3 s);
@@ -26,11 +27,10 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs import mdp as base_mdp
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import SimulationCfg
@@ -43,13 +43,17 @@ from code_isaaclab.contact_interface import FLAT, PadProfile
 from code_isaaclab.flexion_control import flexion_joint_pos_normalized
 from code_isaaclab.hands import get_hand
 from code_isaaclab.hands.description_hands import register_description_hand
-from code_isaaclab.loops import stiffen_env_mujoco_loops, sync_four_bar_joints_on_reset
+from code_isaaclab.loops import stiffen_env_mujoco_loops
 from code_isaaclab.physics import HandPhysicsCfg, apply_hand_buffers
 from code_isaaclab.tasks.reorient.o_env_cfg import (
-    CUBE_MASS_KG, CUBE_SIZE_M, FLEXION_DAMPING, FLEXION_STIFFNESS, PAD_POINT_BODIES, grasp_joint_pos, pad_points,
+    CUBE_MASS_KG,
+    CUBE_SIZE_M,
+    FLEXION_DAMPING,
+    FLEXION_STIFFNESS,
+    grasp_joint_pos,
+    pad_points,
     pinch_grasp,
 )
-from code_isaaclab.tasks.reorient.camera import env0_camera
 from code_isaaclab.tasks.rotate.env_cfg import HANDS
 
 from . import rotate_cube_mdp as mdp
@@ -82,26 +86,38 @@ class SceneCfg(InteractiveSceneCfg):
     robot = None
     object = None
     ground = AssetBaseCfg(prim_path="/World/ground", spawn=sim_utils.GroundPlaneCfg())
-    light = AssetBaseCfg(prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75)))
+    light = AssetBaseCfg(
+        prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
+    )
 
 
 @configclass
 class ActionsCfg:
-    joint_pos = mdp.RelativeFlexionActionCfg(asset_name="robot", joint_names=[], four_bar_tables={},
-                                             flexion_limits_deg=(0.0, 120.0), flexion_stiffness=FLEXION_STIFFNESS,
-                                             flexion_damping=FLEXION_DAMPING)
+    joint_pos = mdp.RelativeFlexionActionCfg(
+        asset_name="robot",
+        joint_names=[],
+        four_bar_tables={},
+        flexion_limits_deg=(0.0, 120.0),
+        flexion_stiffness=FLEXION_STIFFNESS,
+        flexion_damping=FLEXION_DAMPING,
+    )
 
 
 @configclass
 class ObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
-        joint_pos = ObsTerm(func=flexion_joint_pos_normalized, noise=Unoise(n_min=-0.02, n_max=0.02), history_length=3,
-                            params={"asset_cfg": SceneEntityCfg("robot"), "four_bar_tables": {}})
+        joint_pos = ObsTerm(
+            func=flexion_joint_pos_normalized,
+            noise=Unoise(n_min=-0.02, n_max=0.02),
+            history_length=3,
+            params={"asset_cfg": SceneEntityCfg("robot"), "four_bar_tables": {}},
+        )
         joint_targets = ObsTerm(func=mdp.actuated_targets_normalized, history_length=3)
         object_pos = ObsTerm(func=mdp.object_pos_from_grasp_face, scale=10.0)
-        object_quat = ObsTerm(func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("object"),
-                                                                 "make_quat_unique": True})
+        object_quat = ObsTerm(
+            func=base_mdp.root_quat_w, params={"asset_cfg": SceneEntityCfg("object"), "make_quat_unique": True}
+        )
         object_ang_vel = ObsTerm(func=mdp.object_omega_fd, scale=0.2)
         gait_phase: ObsTerm | None = None
         next_rotation_goal: ObsTerm | None = None
@@ -115,15 +131,21 @@ class ObservationsCfg:
 
 @configclass
 class RewardsCfg:
-    rotation = RewTerm(func=mdp.ObjectMotion, weight=REWARD_WEIGHTS["rotation"],
-                       params={"clip_min": OMEGA_CLIP[0], "clip_max": OMEGA_CLIP[1],
-                               "full_credit_m": 0.0, "zero_credit_m": 0.0})
+    rotation = RewTerm(
+        func=mdp.ObjectMotion,
+        weight=REWARD_WEIGHTS["rotation"],
+        params={"clip_min": OMEGA_CLIP[0], "clip_max": OMEGA_CLIP[1], "full_credit_m": 0.0, "zero_credit_m": 0.0},
+    )
     """Positive rotation credit can fade linearly with displacement. Zero for both distances disables the fade."""
     object_lin_vel = RewTerm(func=mdp.object_lin_vel_fd_l1, weight=REWARD_WEIGHTS["object_lin_vel"])
-    pose_diff = RewTerm(func=mdp.pose_diff_l2, weight=REWARD_WEIGHTS["pose_diff"],
-                        params={"asset_cfg": SceneEntityCfg("robot")})
-    torque = RewTerm(func=mdp.servo_torque_l2, weight=REWARD_WEIGHTS["torque"],
-                     params={"tau_max": TAU_MAX_NM, "asset_cfg": SceneEntityCfg("robot")})
+    pose_diff = RewTerm(
+        func=mdp.pose_diff_l2, weight=REWARD_WEIGHTS["pose_diff"], params={"asset_cfg": SceneEntityCfg("robot")}
+    )
+    torque = RewTerm(
+        func=mdp.servo_torque_l2,
+        weight=REWARD_WEIGHTS["torque"],
+        params={"tau_max": TAU_MAX_NM, "asset_cfg": SceneEntityCfg("robot")},
+    )
     off_axis = RewTerm(func=mdp.off_axis_ang_vel_l1, weight=-1.0e-9)
     """RotateIt's rotation penalty, weight set by the ``off_axis_ramp`` curriculum (a nonzero placeholder keeps the term
     registered: the manager drops zero-weight terms)."""
@@ -136,19 +158,23 @@ class RewardsCfg:
     """One penalty on off-grasp or tilt termination. Isaac Lab scales the weight by the control timestep."""
     tilt_deviation = RewTerm(func=mdp.tilt_deviation, weight=0.0, params={"free_tilt_dot": 0.94})
     """Absolute tilt penalty beyond about 20 degrees from the reset pose."""
-    milestones = RewTerm(func=mdp.RotationMilestones, weight=0.0,
-                         params={"angle_step_rad": 0.5235987756, "max_distance": 0.04, "min_dot": 0.5})
+    milestones = RewTerm(
+        func=mdp.RotationMilestones,
+        weight=0.0,
+        params={"angle_step_rad": 0.5235987756, "max_distance": 0.04, "min_dot": 0.5},
+    )
     """Credit each 30-degree progress milestone once, while the cube is within the grasp envelope."""
-    timeout_progress = RewTerm(func=mdp.retained_turns_at_timeout, weight=0.0,
-                               params={"second_half_weight": 0.0})
+    timeout_progress = RewTerm(func=mdp.retained_turns_at_timeout, weight=0.0, params={"second_half_weight": 0.0})
     """Credit net turns at a clean timeout if all steps stayed within the milestone bounds."""
     joint_target_limit = RewTerm(
-        func=mdp.joint_target_limit_cost, weight=0.0,
+        func=mdp.joint_target_limit_cost,
+        weight=0.0,
         params={"lower_joint": "middle_aa", "upper_joint": "middle_pip_servo", "free_fraction": 0.85},
     )
     """Preserve command travel in the two directions most often saturated during stalls."""
     joint_target_limit_regrasp = RewTerm(
-        func=mdp.joint_target_limit_cost, weight=0.0,
+        func=mdp.joint_target_limit_cost,
+        weight=0.0,
         params={
             "lower_joints": ["index_aa", "middle_aa", "thumb_ro"],
             "upper_joints": ["middle_pip_servo"],
@@ -211,8 +237,9 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
     events: EventCfg = EventCfg()
     curriculum: CurriculumCfg = CurriculumCfg()
     commands = None
-    sim: SimulationCfg = SimulationCfg(dt=1 / 120, physics_material=RigidBodyMaterialBaseCfg(static_friction=1.0,
-                                                                                             dynamic_friction=1.0))
+    sim: SimulationCfg = SimulationCfg(
+        dt=1 / 120, physics_material=RigidBodyMaterialBaseCfg(static_friction=1.0, dynamic_friction=1.0)
+    )
 
     def __post_init__(self):
         desc_path = HANDS[self.hand_key]
@@ -227,26 +254,46 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
         self.pad_crown_layout = layout if crown_mm else "flat"
         distal_width = layout == "distal_width"
         distal_pads = ("index_distal_pad", "middle_distal_pad", "ring_distal_pad")
-        profile = FLAT if crown_mm == 0.0 else PadProfile(
-            f"crown{crown_mm:g}_{layout}", crown_mm=crown_mm, across_width=distal_width,
-            pads=distal_pads if distal_width else (),
+        profile = (
+            FLAT
+            if crown_mm == 0.0
+            else PadProfile(
+                f"crown{crown_mm:g}_{layout}",
+                crown_mm=crown_mm,
+                across_width=distal_width,
+                pads=distal_pads if distal_width else (),
+            )
         )
         g = pinch_grasp(desc)
         self.grasp = {k: v for k, v in g.items() if k in ("thumb_mcp_deg", "thumb_ip_deg", "rest_face", "rest_env")}
         name = register_description_hand(
-            f"rotate_cube_{self.hand_key}" + (f"_{profile.key()}" if crown_mm else "")
-            + ("_vis" if self.visuals else ""), desc_path,
+            f"rotate_cube_{self.hand_key}"
+            + (f"_{profile.key()}" if crown_mm else "")
+            + ("_vis" if self.visuals else ""),
+            desc_path,
             RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/object",
                 spawn=sim_utils.CuboidCfg(
-                    size=(CUBE_SIZE_M,) * 3, rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(),
-                    mass_props=sim_utils.MassCfg(mass=CUBE_MASS_KG), collision_props=sim_utils.UsdPhysicsCollisionCfg(),
-                    activate_contact_sensors=True, visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.5, 0.2))),
-                init_state=RigidObjectCfg.InitialStateCfg(pos=g["rest_env"], rot=g["rest_quat_xyzw"])),
-            servo_saturation=(True, True), profile=profile, thumb_pad=True, visuals=self.visuals)
+                    size=(CUBE_SIZE_M,) * 3,
+                    rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(),
+                    mass_props=sim_utils.MassCfg(mass=CUBE_MASS_KG),
+                    collision_props=sim_utils.UsdPhysicsCollisionCfg(),
+                    activate_contact_sensors=True,
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.5, 0.2)),
+                ),
+                init_state=RigidObjectCfg.InitialStateCfg(pos=g["rest_env"], rot=g["rest_quat_xyzw"]),
+            ),
+            servo_saturation=(True, True),
+            profile=profile,
+            thumb_pad=True,
+            visuals=self.visuals,
+        )
         spec = get_hand(name)
-        self.scene.robot = spec.robot_cfg.replace(init_state=spec.robot_cfg.init_state.replace(
-            joint_pos=grasp_joint_pos(desc, g["thumb_mcp_deg"], g["thumb_ip_deg"])))
+        self.scene.robot = spec.robot_cfg.replace(
+            init_state=spec.robot_cfg.init_state.replace(
+                joint_pos=grasp_joint_pos(desc, g["thumb_mcp_deg"], g["thumb_ip_deg"])
+            )
+        )
         self.scene.object = spec.object_cfg
         self.decimation = spec.decimation
         self.sim.render_interval = self.decimation
@@ -263,7 +310,8 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
             raise ValueError("CODE_ROTATE_CUBE_PHASE_PERIOD_S must be finite and nonnegative")
         if self.phase_period_s > 0.0:
             self.observations.policy.gait_phase = ObsTerm(
-                func=mdp.gait_phase, params={"period_s": self.phase_period_s},
+                func=mdp.gait_phase,
+                params={"period_s": self.phase_period_s},
             )
         self.observe_rotation_goal = os.environ.get("CODE_ROTATE_CUBE_GOAL_OBS", "0") == "1"
         if self.observe_rotation_goal:
@@ -273,8 +321,12 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
         self.rewards.torque.params["asset_cfg"] = joints
         cache = GRASP_DIR / f"{self.hand_key}.pt"
         self.events.reset_grasp.params = {
-            "actuated": actuated, "four_bar_tables": tables, "joint_noise": GRASP_JOINT_NOISE, "lift_m": GRASP_LIFT_M,
-            "cache": None if self.gen_grasps else str(cache)}
+            "actuated": actuated,
+            "four_bar_tables": tables,
+            "joint_noise": GRASP_JOINT_NOISE,
+            "lift_m": GRASP_LIFT_M,
+            "cache": None if self.gen_grasps else str(cache),
+        }
         if self.gen_grasps:
             self.terminations.object_off_grasp = None
             self.terminations.object_tilted = None
@@ -286,7 +338,9 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
 
             w, steps = ramp.split(",")
             self.curriculum.off_axis_ramp = CurriculumTermCfg(
-                func=mdp.ramp_reward_weight, params={"term_name": "off_axis", "weight": float(w), "num_steps": int(steps)})
+                func=mdp.ramp_reward_weight,
+                params={"term_name": "off_axis", "weight": float(w), "num_steps": int(steps)},
+            )
         self.sim.physics = HandPhysicsCfg()
         apply_hand_buffers(self.sim.physics, spec.mjwarp_buffers)
         if spec.stiffen_mjwarp_loops:
@@ -297,34 +351,62 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
 
 
 def _apply_hora(self, actuated: list[str], joints: SceneEntityCfg) -> None:
-    """Hora's stage 1 (``haozhiqi/hora`` ``configs/task/AllegroHandHora.yaml`` and ``allegro_hand_hora.py``): work penalty
-    -2.0; at reset, cube mass U(0.01, 0.25) kg, friction U(0.3, 3.0) on the cube's and every hand shape, cube centre of
-    mass +-1 cm per axis, servo PD gains x U(0.97, 1.03) (PIP: the scheduled flexion gains, in the action term); a random
-    force on the cube every step (scale 2 x mass, probability 0.25, decay 0.9 per 0.08 s); the cube's mass, friction,
-    centre-of-mass offset and scale as privileged observations."""
+    """Hora's stage 1 (``haozhiqi/hora`` ``configs/task/AllegroHandHora.yaml`` and ``allegro_hand_hora.py``):
+    work penalty -2.0; at reset, cube mass U(0.01, 0.25) kg, friction U(0.3, 3.0) on the cube's and every hand shape,
+    cube centre of mass +-1 cm per axis, servo PD gains x U(0.97, 1.03) (PIP: the scheduled flexion gains, in the action
+    term); a random force on the cube every step (scale 2 x mass, probability 0.25, decay 0.9 per 0.08 s); the cube's
+    mass, friction, centre-of-mass offset and scale as privileged observations."""
     from isaaclab.managers import EventTermCfg as Ev
 
-    self.rewards.work = RewTerm(func=mdp.work_l2, weight=HORA_WORK_WEIGHT, params={"tau_max": TAU_MAX_NM, "asset_cfg": joints})
+    self.rewards.work = RewTerm(
+        func=mdp.work_l2, weight=HORA_WORK_WEIGHT, params={"tau_max": TAU_MAX_NM, "asset_cfg": joints}
+    )
     obj, hand = SceneEntityCfg("object"), SceneEntityCfg("robot", body_names=".*")
-    self.events.cube_mass = Ev(func=base_mdp.randomize_rigid_body_mass, mode="reset", params={
-        "asset_cfg": obj, "mass_distribution_params": HORA_DR["mass_kg"], "operation": "abs"})
+    self.events.cube_mass = Ev(
+        func=base_mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={"asset_cfg": obj, "mass_distribution_params": HORA_DR["mass_kg"], "operation": "abs"},
+    )
     for name, asset in (("cube_friction", obj), ("hand_friction", hand)):
-        setattr(self.events, name, Ev(func=base_mdp.randomize_rigid_body_material, mode="reset", params={
-            "asset_cfg": asset, "static_friction_range": HORA_DR["friction"], "dynamic_friction_range": HORA_DR["friction"],
-            "restitution_range": (0.0, 0.0), "num_buckets": 250}))
+        setattr(
+            self.events,
+            name,
+            Ev(
+                func=base_mdp.randomize_rigid_body_material,
+                mode="reset",
+                params={
+                    "asset_cfg": asset,
+                    "static_friction_range": HORA_DR["friction"],
+                    "dynamic_friction_range": HORA_DR["friction"],
+                    "restitution_range": (0.0, 0.0),
+                    "num_buckets": 250,
+                },
+            ),
+        )
     c = HORA_DR["com_m"]
-    self.events.cube_com = Ev(func=base_mdp.randomize_rigid_body_com, mode="reset", params={
-        "asset_cfg": obj, "com_range": {"x": (-c, c), "y": (-c, c), "z": (-c, c)}})
+    self.events.cube_com = Ev(
+        func=base_mdp.randomize_rigid_body_com,
+        mode="reset",
+        params={"asset_cfg": obj, "com_range": {"x": (-c, c), "y": (-c, c), "z": (-c, c)}},
+    )
     g = HORA_DR["gain_scale"]
-    self.events.servo_gains = Ev(func=base_mdp.randomize_actuator_gains, mode="reset", params={
-        "asset_cfg": SceneEntityCfg("robot", joint_names=[j for j in actuated if not j.endswith("_pip_servo")],
-                                    preserve_order=True),
-        "stiffness_distribution_params": (1.0 - g, 1.0 + g), "damping_distribution_params": (1.0 - g, 1.0 + g),
-        "operation": "scale"})
+    self.events.servo_gains = Ev(
+        func=base_mdp.randomize_actuator_gains,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot", joint_names=[j for j in actuated if not j.endswith("_pip_servo")], preserve_order=True
+            ),
+            "stiffness_distribution_params": (1.0 - g, 1.0 + g),
+            "damping_distribution_params": (1.0 - g, 1.0 + g),
+            "operation": "scale",
+        },
+    )
     self.actions.joint_pos.gain_noise = g
     dt = self.sim.dt * self.decimation
-    self.events.random_force = Ev(func=mdp.ObjectRandomForce, mode="interval", interval_range_s=(dt, dt),
-                                  params=dict(HORA_FORCE))
+    self.events.random_force = Ev(
+        func=mdp.ObjectRandomForce, mode="interval", interval_range_s=(dt, dt), params=dict(HORA_FORCE)
+    )
     self.observations.policy.object_priv = ObsTerm(func=mdp.object_physics_priv)
 
 
@@ -346,5 +428,10 @@ class CoDeRotateCubeUEnvCfg(CoDeRotateCubeEnvCfg):
     hand_key = "U"
 
 
-__all__ = ["CoDeRotateCubeEnvCfg", "CoDeRotateCubeOEnvCfg", "CoDeRotateCubeREnvCfg", "CoDeRotateCubeUEnvCfg",
-           "GRASP_DIR"]
+__all__ = [
+    "CoDeRotateCubeEnvCfg",
+    "CoDeRotateCubeOEnvCfg",
+    "CoDeRotateCubeREnvCfg",
+    "CoDeRotateCubeUEnvCfg",
+    "GRASP_DIR",
+]

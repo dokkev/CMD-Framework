@@ -10,9 +10,10 @@ Each round resets every environment to the cradle grasp with U(-noise, noise) ra
 flexion, the four-bar closed) and the cube 3 mm above its rest, turned about world z by a random yaw; the relative
 action is held at zero for ``--hold_s``. A grasp is kept if the cube touches at least 2 pad-carrying bodies (a finger's
 proximal or distal segment, or the thumb's distal; contact force > 0.05 N), lies within 15 mm of its rest, keeps its up
-axis (cos >= 0.95) and has settled (speed < 5 mm/s). Kept: every joint's position, the cube's env-frame position and
-quaternion. Rounds repeat until ``--target`` grasps; writes ``logs/rotate_cube/grasps/<hand>.pt`` and prints the
-acceptance rate (and, with ``--render``, a PNG of four accepted grasps).
+axis (cos >= 0.95) and has settled (speed < 5 mm/s). Kept: every joint's measured position and commanded target, plus
+the cube's env-frame position and quaternion. Rounds repeat until ``--target`` grasps; writes
+``logs/rotate_cube/grasps/<hand>.pt`` and prints the acceptance rate (and, with ``--render``, a PNG of four accepted
+grasps).
 """
 
 from __future__ import annotations
@@ -77,7 +78,7 @@ def main(argv=None) -> int:
     args.device = env_cfg.sim.device
     rest = torch.tensor(env_cfg.grasp["rest_env"])
 
-    kept = {"q": [], "pos": [], "quat": []}
+    kept = {"q": [], "pos": [], "quat": [], "target": []}
     tried = 0
     started = time.time()
     with launch_simulation(env_cfg, args), contextlib.ExitStack() as cleanup:
@@ -105,7 +106,12 @@ def main(argv=None) -> int:
             speed = tq(obj.data.root_lin_vel_w).norm(dim=1)
             ok = (touching >= 2) & ((pos - rest_d).norm(dim=1) < 0.015) & (up >= 0.95) & (speed < 0.005)
             tried += n
-            for key, val in (("q", tq(robot.data.joint_pos)), ("pos", pos), ("quat", quat)):
+            for key, val in (
+                ("q", tq(robot.data.joint_pos)),
+                ("pos", pos),
+                ("quat", quat),
+                ("target", tq(robot.data.joint_pos_target)),
+            ):
                 kept[key].append(val[ok].cpu())
             total = sum(len(x) for x in kept["q"])
             print(f"round {rnd}: kept {int(ok.sum())}/{n} (pads touching: mean {float(touching.float().mean()):.2f}; "
