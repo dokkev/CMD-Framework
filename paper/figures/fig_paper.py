@@ -211,6 +211,27 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
     ax.set_xlim(-Lp - 2, 18); ax.set_ylim(-Lp - 8, 10); ax.set_aspect("equal"); ax.axis("off")
 
 
+def faint_extended(ax, v, pads, pins):
+    """The finger extended (q = 0), faint, under the flexed drawing."""
+    from matplotlib.patches import Circle as _C
+    n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
+    v.draw(ax, 0.0, hit=set(), style="sketch")
+    for p_ in ax.patches[n0p:]:
+        p_.set_facecolor("#f3f3f2"); p_.set_edgecolor("#b5b5b3"); p_.set_alpha(0.5); p_.set_linewidth(0.4)
+        p_.set_zorder(0.5)
+    for ln in ax.lines[n0l:]:
+        ln.set_color("#c4c4c2"); ln.set_linewidth(min(ln.get_linewidth(), 1.0)); ln.set_markersize(0)
+        ln.set_zorder(0.6)
+    for c in list(ax.collections[n0c:]):
+        c.remove()
+    if not pins:
+        for p_ in list(ax.patches[n0p:]):
+            if isinstance(p_, _C):
+                p_.remove()
+    for pad in pads:
+        ax.add_patch(Polygon(pad, fc="#dbe6f6", ec="#9db6dd", lw=0.4, ls=(0, (2, 1)), zorder=0.8))
+
+
 def fig2():
     h = 2.15
     fig = plt.figure(figsize=(W, h))
@@ -251,7 +272,7 @@ def fig2():
             for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
                 x[nm.index(k_)] = 0.0
         ax = fig.add_axes(((0.08 + i * 1.20) / W, (head - 1.40) / h, 1.16 / W, 1.12 / h))
-        ax.set_xlim(-6, 70); ax.set_ylim(-48, 30); ax.set_aspect("equal"); ax.axis("off")
+        ax.set_xlim(-6, 96); ax.set_ylim(-48, 30); ax.set_aspect("equal"); ax.axis("off")
         fig.text((0.08 + i * 1.20 + 0.58) / W, (head - 0.20) / h, name, fontsize=6.4, color=ARCH[key][1],
                  ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
@@ -287,6 +308,8 @@ def fig2():
                 dpose = (dext - d0[1]) @ Rm.T + dq[1]
                 for pad in (pp, dpose):
                     ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+                if hh == 3.0:
+                    faint_extended(ax, v, (pp, dext), pins=True)
                 ov = SPoly(pp).intersection(SPoly(dpose))
                 if not ov.is_empty and ov.geom_type == "Polygon":
                     ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
@@ -296,28 +319,35 @@ def fig2():
                 from shapely.geometry import Polygon as SPoly
                 d0 = v.distal_pad(0.0)
                 poses = []
-                for qq in np.linspace(0.0, qd, 31):
+                for qq in np.linspace(0.0, qd, 61):
                     dq = v.distal_pad(qq)
                     ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
                     poses.append((np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]), dq[1]))
 
-                def padded(e):
+                def padded(ep, ed):
                     pp = v.proximal_pad().copy()
-                    pp[[1, 2], 0] += e
+                    pp[[1, 2], 0] += ep
                     dext = d0.copy()
-                    dext[[0, 3], 0] -= e
+                    dext[[0, 3], 0] -= ed
                     return pp, dext
-                ext = 0.0
-                for e in np.arange(0.25, 15.0, 0.25):
-                    pp, dext = padded(e)
-                    if any(SPoly(pp).intersection(SPoly((dext - d0[1]) @ Rm.T + t1)).area > 1e-3
-                           for Rm, t1 in poses):
-                        break
-                    ext = e
-                pp, dext = padded(ext)
+
+                def clear(ep, ed):
+                    pp, dext = padded(ep, ed)
+                    return all(SPoly(pp).buffer(0.3).intersection(SPoly((dext - d0[1]) @ Rm.T + t1)).area < 1e-4
+                               for Rm, t1 in poses)
+                ep = ed = 0.0
+                for _ in range(3):  # alternate: each pad as long as it stays clear of the other over 0..qd
+                    while clear(ep + 0.25, ed):
+                        ep += 0.25
+                    while clear(ep, ed + 0.25):
+                        ed += 0.25
+                pp, dext = padded(ep, ed)
+                ext = (ep, ed)
                 Rm, t1 = poses[-1]
                 for pad in (pp, (dext - d0[1]) @ Rm.T + t1):
                     ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+                if hh == 3.0:
+                    faint_extended(ax, v, (pp, dext), pins=False)
                 if hh == 3.0:  # the remote centre of rotation over 0..qd
                     from fig_mechanisms import icr_path
                     path = icr_path(v, qd)
