@@ -164,7 +164,14 @@ def clearance_row(ax, z, t=7.0, q=np.radians(120), L=16.0):
 SERVO_DEPTH = 5.3  # mm below the link line: the 2R-DD pad mount (its 3 mm pad's face is 8.3 mm deep, Study 1, 120 deg)
 
 
-def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=False, remote=False):
+def line_cross(p1, p2, p3, p4):
+    """Intersection of the lines p1-p2 and p3-p4."""
+    d1, d2 = np.subtract(p2, p1), np.subtract(p4, p3)
+    t = np.cross(np.subtract(p3, p1), d2) / np.cross(d1, d2)
+    return np.asarray(p1) + t * d1
+
+
+def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=False, remote=False, linkage=False):
     """Both phalanges' pads at flexion q about a pole z below the link line, the phalanx (link) length Lp fixed on
     each side of the joint: each pad keeps Lp - (t - z)_+ tan(q/2); the part lost to the joint is hatched."""
     m = SERVO_DEPTH if servo else 0.0  # pads mount below the servo body
@@ -178,9 +185,9 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
         ax.text(-8, 2.5, "servo", fontsize=5.0, color="white", ha="center", va="center", zorder=6)
     if remote:  # the servo on the proximal phalanx, clear of the joint and the pads
         from matplotlib.patches import FancyBboxPatch
-        ax.add_patch(FancyBboxPatch((-28, 0.6), 16, 8, boxstyle="round,pad=0,rounding_size=2.0", fc="#bdbdbb",
+        ax.add_patch(FancyBboxPatch((-31, 0.6), 15, 8, boxstyle="round,pad=0,rounding_size=2.0", fc="#bdbdbb",
                                     ec="#6b6b69", lw=0.6, zorder=5))
-        ax.text(-20, 4.6, "servo", fontsize=5.0, color="white", ha="center", va="center", zorder=6)
+        ax.text(-23.5, 4.6, "servo", fontsize=5.0, color="white", ha="center", va="center", zorder=6)
     ax.add_patch(Polygon([[-Lp, -m], [-s, -m], [-s, -m - t], [-Lp, -m - t]], fc="#d6e4f5", ec=colour, lw=0.7,
                          zorder=2))
     dist_pad = [[s, -m], [Lp, -m], [Lp, -m - t], [s, -m - t]]
@@ -190,7 +197,17 @@ def flexed_pair(ax, z, t=7.0, q=np.radians(120), Lp=30.0, colour=BLUE, servo=Fal
         for poly in ([[-s, -m], [0, -m], [0, -m - t], [-s, -m - t]],
                      rot([[0, -m], [s, -m], [s, -m - t], [0, -m - t]], q, P)):
             ax.add_patch(Polygon(poly, fc="none", ec="#c0392b", lw=0.4, hatch="//////", zorder=4))
-    ax.plot(*P, marker="o", ms=3.8, color=PURPLE, mec="white", mew=0.4, zorder=6)
+    if linkage:  # crossed four-bar: proximal pivots on the link, distal pivots on the distal link, crossing at P
+        A1, A2 = np.array([-12.0, 5.0]), np.array([-3.0, 5.0])
+        ax.add_patch(Polygon([[-14, 0], [-1, 0], [-3, 6], [-12, 6]], fc="#e3e3e1", ec="#8c8c8c", lw=0.5, zorder=4))
+        d0, d1 = rot([[0, 0], [Lp, 0]], q, P)
+        B1, B2 = line_cross(A1, P, d0, d1), line_cross(A2, P, d0, d1)
+        for A, B in ((A1, B1), (A2, B2)):
+            ax.plot(*np.array([A, B]).T, color="#6b6b69", lw=1.1, solid_capstyle="round", zorder=7)
+            for pt in (A, B):
+                ax.plot(*pt, marker="o", ms=2.6, mfc="white", mec="#6b6b69", mew=0.6, zorder=8)
+        ax.plot([-21, A1[0]], [4.6, A1[1]], color="#6b6b69", lw=0.8, zorder=6)  # servo horn to the driver link
+    ax.plot(*P, marker="o", ms=3.8, color=PURPLE, mec="white", mew=0.4, zorder=9)
     ax.set_xlim(-Lp - 2, 18); ax.set_ylim(-Lp - 8, 10); ax.set_aspect("equal"); ax.axis("off")
 
 
@@ -201,10 +218,11 @@ def fig2():
     # (a) room: pad thickness, pad length and flexion together, pin joint against a pole at the contact face
     label(fig, 0.10, head, "(a) Interface clearance", h)
     cases = ((0.0, True, "servo at the pin", GREY), (0.0, False, "remote pin", GREY),
-             (7.0, False, "pole at the face", BLUE))
+             (7.0, False, "CoDe: crossed four-bar", BLUE))
     for i, (z, servo, name, col) in enumerate(cases):
         ax = fig.add_axes(((0.06 + i * 0.72) / W, (head - 1.08) / h, 0.70 / W, 0.80 / h))
-        flexed_pair(ax, z, colour=BLUE if col == BLUE else GREY, servo=servo, remote=not servo)
+        flexed_pair(ax, z, colour=BLUE if col == BLUE else GREY, servo=servo, remote=not servo,
+                    linkage=col == BLUE)
         fig.text((0.06 + i * 0.72 + 0.30) / W, (head - 0.20) / h, name, fontsize=6.0, color=col, ha="center",
                  va="top")
     fig.text(1.12 / W, (head - 1.12) / h, "$t=7$ mm, $q=120^\\circ$; hatched: pad lost to the joint",
