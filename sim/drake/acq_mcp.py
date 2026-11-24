@@ -49,9 +49,11 @@ PLACEMENTS = {"A": {"rho": (15.0, 20.0), "q0": (60.0, 70.0, 80.0, 90.0, 100.0), 
 # variant C (palm rolling): the palm slab spans x in [PALM_X0, PALM_X1] (mm, MCP at 0)
 PALM_X0_MM, PALM_X1_MM = -90.0, -0.5
 PALM = {"mcp_end_deg": 90.0, "q_mid_deg": -1.0, "sweep_s": 2.0, "sweep2_s": 0.0, "hold_s": 1.0,
-        "spin_damping": 0.0, "q_end_deg": 0.0}
+        "spin_damping": 0.0, "q_end_deg": 0.0, "sphere": 1.0}
 PALM_QX = {15.0: 0.0, 20.0: 5.0}  # O's PIP command: its touch flexion of the corner-seated cylinder + this (deg)
-PALM_PLACEMENTS = {15.0: (6.0, 7.0, 8.0, 9.0, 10.0), 20.0: (8.0, 9.0, 10.0, 11.0, 12.0)}  # rho: d (mm)
+# rho: d (mm), the sphere (O calibration). The cylinder side note (--sphere 0, tag acqmcp-C) used
+# {15: (6, 7, 8, 9, 10), 20: (8, 9, 10, 11, 12)}
+PALM_PLACEMENTS = {15.0: (7.0, 8.0, 9.0, 10.0), 20.0: (6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0)}
 THRESHOLD = {"capture_deg": 2.0, "x_end_mm": 0.3, "roll_deg": 2.0}  # |D(O)| for a pair (O only)
 PEN_GATE_MM = 1.5
 
@@ -134,8 +136,8 @@ def start_state(hand: str, rho_mm: float, q0: float, a_mm: float, var: str, p: d
             "on_pad": bool(pads["distal_start_mm"] <= loc_d[0] <= pads["distal_end_mm"])}
 
 
-def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: bool = False):
-    from pydrake.geometry import AddContactMaterial, Box, Cylinder, ProximityProperties
+def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: bool = False, sphere: bool = False):
+    from pydrake.geometry import AddContactMaterial, Box, Cylinder, ProximityProperties, Sphere
     from pydrake.math import RigidTransform, RotationMatrix
     from pydrake.multibody.plant import AddMultibodyPlantSceneGraph, CoulombFriction, DiscreteContactApproximation
     from pydrake.multibody.tree import (FixedOffsetFrame, PdControllerGains, PrismaticJoint, RevoluteJoint,
@@ -167,8 +169,8 @@ def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: boo
     cx = plant.AddRigidBody("carriage_x", rod(0.002, 0.01))
     cz = plant.AddRigidBody("carriage_z", rod(0.002, 0.01))
     rho = rho_mm * MM
-    roller = plant.AddRigidBody("roller", SpatialInertia(T.MASS_KG, np.zeros(3),
-                                                         UnitInertia.SolidCylinder(rho, T.LENGTH_M, y)))
+    unit = UnitInertia.SolidSphere(rho) if sphere else UnitInertia.SolidCylinder(rho, T.LENGTH_M, y)
+    roller = plant.AddRigidBody("roller", SpatialInertia(T.MASS_KG, np.zeros(3), unit))
     plant.AddJoint(PrismaticJoint("slide_x", world.body_frame(), cx.body_frame(), [1.0, 0.0, 0.0]))
     plant.AddJoint(PrismaticJoint("slide_z", cx.body_frame(), cz.body_frame(), [0.0, 0.0, 1.0]))
     spin = plant.AddJoint(RevoluteJoint("spin", cz.body_frame(), roller.body_frame(), y))
@@ -188,8 +190,11 @@ def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: boo
     t0, t1 = pads["distal_start_mm"] * MM, pads["distal_end_mm"] * MM
     plant.RegisterCollisionGeometry(distal, RigidTransform(at(((t0 + t1) / 2, -(m + h / 2)))), Box(t1 - t0, w, h),
                                     "distal_pad", props("pad"))
-    plant.RegisterCollisionGeometry(roller, RigidTransform(RotationMatrix.MakeXRotation(math.pi / 2)),
-                                    Cylinder(rho, T.LENGTH_M), "roller", props("roller"))
+    if sphere:  # variant C's ball: y held by the slide (x, z only); it spins about y (contacts stay in the plane)
+        plant.RegisterCollisionGeometry(roller, RigidTransform(), Sphere(rho), "roller", props("roller"))
+    else:
+        plant.RegisterCollisionGeometry(roller, RigidTransform(RotationMatrix.MakeXRotation(math.pi / 2)),
+                                        Cylinder(rho, T.LENGTH_M), "roller", props("roller"))
     bodies = {"proximal": proximal, "distal": distal, "roller": roller}
     if palm:  # variant C: the palm, a slab proximal of the MCP whose top is flush with the proximal pad face's plane
         from pydrake.geometry import CollisionFilterDeclaration, GeometrySet
@@ -209,11 +214,11 @@ def build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm: boo
 
 
 class Sim:
-    def __init__(self, hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm=False):
+    def __init__(self, hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm=False, sphere=False):
         from pydrake.systems.analysis import Simulator
         from pydrake.systems.framework import LeafSystem
 
-        builder, plant, sg, bodies = build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm)
+        builder, plant, sg, bodies = build(hand, mu, rho_mm, time_step, spin_damping, k_theta, d_theta, palm, sphere)
         self.plant, self.bodies = plant, bodies
         self.cmd = np.zeros(2)  # mcp, theta (actuator order)
         self.mcp_rate = 0.0  # the spin damper's velocity target
@@ -427,7 +432,8 @@ def _run_palm(task, time_step=None, frames_at=None):
     x_corner_o = corner_centre(go, rho_mm, mcp_end)[0]
     x_start = -d_mm  # the centre d mm proximal of the MCP: the same palm-frame x on every hand
     ratio = float(np.interp(q_end, qs, np.gradient(th, qs)))
-    s = Sim(hand, mu, rho_mm, time_step, p["spin_damping"], T.K_Q / ratio ** 2, T.D_Q / ratio ** 2, palm=True)
+    s = Sim(hand, mu, rho_mm, time_step, p["spin_damping"], T.K_Q / ratio ** 2, T.D_Q / ratio ** 2, palm=True,
+            sphere=bool(p.get("sphere", 0.0)))
     pl, pctx = s.plant, s.pctx
     pl.GetJointByName("slide_x").set_translation(pctx, x_start * MM)
     pl.GetJointByName("slide_z").set_translation(pctx, -(face + rho_mm) * MM)
@@ -539,6 +545,8 @@ def cmd_run_palm(args):
         v = getattr(args, k, None)
         if v is not None:
             p[k] = v
+    if args.q_extra_deg is not None:
+        p["q_extra_deg"] = args.q_extra_deg
     pl = [(r, d) for r in (args.rho or PALM_PLACEMENTS) for d in (args.d or PALM_PLACEMENTS[r])]
     tasks = [(args.hand, args.mu, r, d, args.time_step, p, args.delta_deg) for r, d in pl]
     t0 = time.time()
@@ -683,15 +691,18 @@ def frames_palm(args):
     pads = g["pads"]
     m_, h = pads["mount_offset_mm"], pads["thickness_mm"]
     face = m_ + h
-    snap = {"hand": "O", "mu": 1.3, "rho_mm": r, "d_mm": d, "variant": "C", "params": p,
+    snap = {"hand": "O", "mu": 1.3, "rho_mm": r, "d_mm": d, "variant": "C",
+            "object": "sphere" if p.get("sphere") else "cylinder", "params": p,
             "palm": {"x0_mm": PALM_X0_MM, "x1_mm": PALM_X1_MM, "top_z_mm": -face,
                      "note": "flush with the proximal pad face's plane (MCP 0); world frame: MCP at the origin, x along "
                              "the proximal phalanx at MCP 0, z dorsal, gravity +z (palm up)"},
             "pads": pads, "b_mm": g["b"].tolist(),
             "frames": [{"label": lab, **fr} for lab, fr in zip(("start", "rolling", "captured"), out["frames"])],
-            "frame_keys": "t_s; mcp_rad (flexion +); q_rad (PIP flexion); distal [x_mm, z_mm, angle_rad] of the distal "
-                          "body frame (at B) in the world; centre_mm [x, z]; spin_rad (about +y); normal_n per "
-                          "surface [proximal, distal, palm]"}
+            "frame_keys": "t_s (from the start of the run; the motion starts at 0.5 s); mcp_rad (flexion +); q_rad (PIP "
+                          "flexion); distal [x_mm, z_mm, angle_rad] of the distal body frame (at B) in the world; "
+                          "centre_mm [x, z] (y = 0: the ball is held in the finger's plane); spin_rad (about +y); "
+                          "normal_n per surface [proximal, distal, palm]",
+            "render_intent": "the index finger alone rolling the ball on the palm, middle and ring curled away"}
     (OUT / "acq_palm_snapshots.json").write_text(json.dumps(snap, indent=1))
     fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.8))
     for ax, fr, ttl in zip(axes, snap["frames"], ("start (on the palm)", "rolling", "captured")):
@@ -718,13 +729,14 @@ def frames_palm(args):
         ax.plot([c[0], c[0] + r * math.cos(-fr["spin_rad"])], [c[1], c[1] + r * math.sin(-fr["spin_rad"])], color="#222")
         ax.plot(0, 0, "ko", ms=5)
         ax.set_title(f"{ttl}, t {fr['t_s'] - SETTLE_S:.2f} s\nMCP {math.degrees(mcp):.0f} deg, PIP "
-                     f"{math.degrees(fr['q_rad']):.0f} deg, cylinder turned {-math.degrees(fr['spin_rad']):+.0f} deg",
+                     f"{math.degrees(fr['q_rad']):.0f} deg, {'ball' if p.get('sphere') else 'cylinder'} turned "
+                     f"{-math.degrees(fr['spin_rad']):+.0f} deg",
                      fontsize=10)
         ax.set_aspect("equal")
         ax.set_xlim(-60, 85)
         ax.set_ylim(15, -75)  # palm at the bottom (z dorsal points down the page: palm up)
         ax.grid(alpha=0.2)
-    fig.suptitle(f"Variant C: palm rolling; hand O, rho {r:g} mm, start {d:g} mm proximal of the MCP, mu 1.3 "
+    fig.suptitle(f"Variant C: palm rolling ({snap['object']}); hand O, rho {r:g} mm, start {d:g} mm proximal of the MCP, mu 1.3 "
                  f"(tan: palm, blue: proximal pad, orange: distal pad; gravity toward the palm)", fontsize=10)
     fig.tight_layout()
     path = OUT / "acqmcp_frames_C.png"
