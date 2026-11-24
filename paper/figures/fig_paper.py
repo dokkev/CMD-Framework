@@ -292,8 +292,38 @@ def fig2():
                     ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
                                          alpha=0.9, zorder=26 + j))
             else:
-                for pad in (v.proximal_pad(), v.distal_pad(qd)):
+                # pads lengthened toward the joint as far as they stay clear of each other over 0..qd
+                from shapely.geometry import Polygon as SPoly
+                d0 = v.distal_pad(0.0)
+                poses = []
+                for qq in np.linspace(0.0, qd, 31):
+                    dq = v.distal_pad(qq)
+                    ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
+                    poses.append((np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]), dq[1]))
+
+                def padded(e):
+                    pp = v.proximal_pad().copy()
+                    pp[[1, 2], 0] += e
+                    dext = d0.copy()
+                    dext[[0, 3], 0] -= e
+                    return pp, dext
+                ext = 0.0
+                for e in np.arange(0.25, 15.0, 0.25):
+                    pp, dext = padded(e)
+                    if any(SPoly(pp).intersection(SPoly((dext - d0[1]) @ Rm.T + t1)).area > 1e-3
+                           for Rm, t1 in poses):
+                        break
+                    ext = e
+                pp, dext = padded(ext)
+                Rm, t1 = poses[-1]
+                for pad in (pp, (dext - d0[1]) @ Rm.T + t1):
                     ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+                if hh == 3.0:  # the remote centre of rotation over 0..qd
+                    from fig_mechanisms import icr_path
+                    path = icr_path(v, qd)
+                    ax.plot(*path.T, color=PURPLE, lw=1.0, zorder=40, solid_capstyle="round")
+                    ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
+                print("CFL pad extension", hh, ext)
         if key == "2r_dd":
             fig.text((0.08 + 0.58) / W, (head - 1.44) / h, "35 mm pads collide at $120^\\circ$ (red)",
                      fontsize=5.6, color="#c0392b", ha="center", va="top")
