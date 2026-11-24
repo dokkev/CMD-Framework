@@ -224,26 +224,37 @@ def fig2():
     cfg = read_config_file(one_finger.DEFAULT_CONFIG)
     label(fig, 0.10, head, "(a) Interface clearance", h)
     s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    cases = (("2r_dd", "servo at the pin (2R-DD)"), ("cfl", "CoDe (CFL)"))
+    cases = (("2r_dd", "servo at the pin (2R-DD)"), ("cfl", "CoDe prototype (CFL)"))
     from core.optimization.mechanism import mechanism as mech_of
     for i, (key, name) in enumerate(cases):
-        ds = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)
-        x = list(ds[7.0].x)
-        if key == "2r_dd":  # drawn with the servo upright (the optimized design tilts it by 45 deg)
+        if key == "cfl":  # the CoDe prototype's finger, flexed to its 180 deg
+            from visualize.finger.view import load_run
+            from visualize.fronts import read_rows, with_role
+            proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
+            row = with_role(read_rows(proto), "balanced")
+            run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
+            v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
+            qd = 180.0
+        else:
+            ds = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)
+            x = list(ds[7.0].x)  # drawn with the servo upright (the optimized design tilts it by 45 deg)
             x[list(mech_of(ds[7.0].mechanism).variable_names).index("servo_tilt_deg")] = 0.0
-        v = view_of(ds[7.0].mechanism, ds[7.0].config, x)
+            v = view_of(ds[7.0].mechanism, ds[7.0].config, x)
+            qd = 120.0
         ax = fig.add_axes(((0.10 + i * 1.06) / W, (head - 1.08) / h, 0.98 / W, 0.82 / h))
-        ax.set_xlim(-6, 62); ax.set_ylim(-52, 34); ax.set_aspect("equal"); ax.axis("off")
-        draw_geometry(ax, v, ARCH[key][1], 120.0, faint=False)
-        ell = next(float(r["proximal_pad_mm"]) for r in s1 if r["architecture"] == S1NAME[key]
-                   and float(r["required_flexion_deg"]) == 120.0 and float(r["thickness_mm"]) == 7.0)
+        ax.set_xlim(-6, 66); ax.set_ylim(-52, 34); ax.set_aspect("equal"); ax.axis("off")
+        draw_geometry(ax, v, ARCH[key][1], qd, faint=False)
+        pad = v.proximal_pad()
+        ell = float(pad[:, 0].max() - pad[:, 0].min())
+        hpad = float(pad[:, 1].max() - pad[:, 1].min())
+        fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 1.20) / h, f"$h={hpad:.0f}$ mm, $q={qd:.0f}^\\circ$",
+                 fontsize=5.6, color=INK2, ha="center", va="top")
         fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 0.20) / h, name, fontsize=6.0, color=ARCH[key][1],
                  ha="center", va="top", fontweight="bold" if key == "cfl" else "normal")
         fig.text((0.10 + i * 1.06 + 0.49) / W, (head - 1.08) / h, f"$\\ell_1={ell:.0f}$ mm", fontsize=6.0,
                  color=ARCH[key][1], ha="center", va="top")
-    fig.text(1.12 / W, (head - 1.22) / h, "optimized designs, $h=7$ mm, $q_{req}=120^\\circ$ (one scale)",
-             fontsize=5.6, color=INK2, ha="center", va="top")
-    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.70) / h))
+    fig.text(1.12 / W, (head - 1.32) / h, "one scale", fontsize=5.6, color=INK2, ha="center", va="top")
+    cax = fig.add_axes((0.45 / W, 0.28 / h, 1.60 / W, (head - 1.78) / h))
     for key in ("2r_dd", "cfl"):
         for qd, ls in ((120.0, "-"), (150.0, (0, (3, 1.6)))):
             pts = sorted((float(r["thickness_mm"]), float(r["proximal_pad_mm"]), float(r["c_pad_mean"]))
