@@ -321,7 +321,7 @@ def fig2():
                 xx[nm_.index(k_)] = 0.0
             ep_, ed_, gap_ = common_pad_extension(view_of, base.mechanism,
                                                   [with_pads(base.config, t_) for t_ in (7.0, 5.0, 3.0)], xx,
-                                                  qd=150.0)
+                                                  qd=143.0 if hand == "proto" else 150.0)
             cfl_ext = (ep_, ed_)
             print(hand, "ext", cfl_ext, "gap", round(gap_, 2))
         elif key == "cfl":  # of the searched candidates, the one whose common-length pads come closest at 150 deg
@@ -353,7 +353,8 @@ def fig2():
                  ha="center", va="top", fontweight="bold" if hand in ("hr", "proto") else "normal", linespacing=1.0)
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
             v = view_of(base.mechanism, with_pads(base.config, hh), x)
-            qd = 120.0 if key == "2r_dd" else (150.0 if hand else min(150.0, first_hit(v)))
+            qd = 120.0 if key == "2r_dd" else (143.0 if hand == "proto" else 150.0 if hand
+                                               else min(150.0, first_hit(v)))
             n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
             v.draw(ax, qd, hit=set(), style="sketch")
             alpha = 1.0 if hh == 7.0 else 0.30
@@ -430,9 +431,9 @@ def fig2():
                     ax.plot(*path.T, color=PURPLE, lw=1.0, zorder=40, solid_capstyle="round")
                     ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
                 print("CFL pad extension", hh, ext)
-        foot = {None: ("35 mm pads collide (red)", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
+        foot = {None: ("pads collide (red)", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
                 "hr": ("clear at $150^\\circ$", BLUE),
-                "proto": ("3, 5 mm clear at $150^\\circ$; 7 mm meet at $143^\\circ$", BLUE)}[hand]
+                "proto": ("larger RoM with every pad", BLUE)}[hand]
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
                  ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
