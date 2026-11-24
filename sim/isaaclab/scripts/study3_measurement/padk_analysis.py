@@ -10,7 +10,7 @@ mechanics on every hand (sixteenth). For R and U at each thickness (the same pad
 the error E against O per placement and direction over the pairs where O, R and U all hold; the pre-registered
 one-sided paired Wilcoxon test of E_R < E_U; and, as an exploratory reading, the signed effect differences
 Delta(H) - Delta(O), whose common pad offset cancels in R - U. Writes
-``logs/experimental/two_pad/pairs_<condition>.json`` (``padk.json`` for A-padk, as first written).
+``logs/study3/two_pad/pairs_<condition>.json`` (``padk.json`` for A-padk, as first written).
 """
 
 from __future__ import annotations

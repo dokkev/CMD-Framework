@@ -1,6 +1,6 @@
 """Study 3's two-pad grasp measurement (condition A) replicated in Drake, with point or hydroelastic contact.
 
-Isaac Lab's hydroelastic path could not be used (docs/experimental/separability.md, sixteenth experiment, review): its
+Isaac Lab's hydroelastic path could not be used (report/study3/experiments.md, sixteenth experiment, review): its
 runs are not repeatable (E between identical runs 30%, against 2% for point contact under a 0.05 deg command change).
 Drake's hydroelastic contact is the second contact model; its point contact first checks that this replica reproduces
 the Isaac Lab measurement.

@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-ISAAC = HERE.parent / "isaaclab" / "logs" / "experimental" / "two_pad"
+ISAAC = HERE.parent / "isaaclab" / "logs" / "study3" / "two_pad"
 # D_contact, D_skel (mm) of the hands, from dose_analysis.py
 DESIGN = {"R": (0.86, 7.67), "d1p5_minDs_s0": (1.60, 5.37), "d2p25_minDs_s0": (2.33, 4.62),
           "d2p25_maxDs_s0": (2.30, 9.17), "d3_minDs_s0": (3.09, 3.83), "U": (3.91, 3.38), "d4p5_s0": (4.41, 11.33),

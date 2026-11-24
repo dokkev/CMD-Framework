@@ -4,7 +4,7 @@
 """Experimental: the separability measures from ``separability_quasistatic.py`` runs (latest run per hand, shape,
 radius).
 
-    python3 scripts/experimental/separability_analysis.py
+    python3 scripts/study3_measurement/separability_analysis.py
 
 Per condition (cylinder radius x O's contact flexion q0) and hand, from the fingers' mean distal-pad force:
 - J1: commanded flexion at first distal contact (force > 0.05 N) [deg];
@@ -14,7 +14,7 @@ Per condition (cylinder radius x O's contact flexion q0) and hand, from the fing
 Then, per measure: the interface effect E(hand) = J(crowned) - J(flat); the thickness artefact
 T(hand) = J(hand, flat) - J(O, flat) for R and U (zero if the thicker pads changed nothing the object meets: the
 contact faces are the same); the separability S(hand) = E(hand) - E(O) (zero if the interface effect measured after
-the redesign equals the one measured on O). Prints a table and writes ``logs/experimental/separability/summary.json``.
+the redesign equals the one measured on O). Prints a table and writes ``logs/study3/separability/summary.json``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2] / "logs" / "experimental" / "separability"
+ROOT = Path(__file__).resolve().parents[2] / "logs" / "study3" / "separability"
 THRESHOLD_N = 0.05
 
 

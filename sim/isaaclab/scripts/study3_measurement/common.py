@@ -20,7 +20,7 @@ from typing import Any
 
 SIM_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = SIM_ROOT.parents[1]
-LOG_ROOT = SIM_ROOT / "logs" / "experimental" / "two_pad"
+LOG_ROOT = SIM_ROOT / "logs" / "study3" / "two_pad"
 """Where every Study 3 run and analysis is written (kept where the first runs were written)."""
 HAND_DIR = REPO_ROOT / "design" / "output" / "sim" / "study3" / "hands"
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered measures from ``two_pad_wrench.py`` runs (latest
-run per hand, mu, condition, radius). See ``docs/experimental/separability.md`` (third experiment, Stage B).
+run per hand, mu, condition, radius). See ``report/study3/experiments.md`` (third experiment, Stage B).
 
     python3 scripts/study3_measurement/two_pad_analysis.py --mu 1.3 2.0 [--condition B] [--validate]
 
@@ -13,7 +13,7 @@ Otherwise, for the condition: Gate 0 failure fractions per hand and mu; the comm
 direction passing Gate 0 on all three hands at both mu, with a load limit at both); per direction the effect
 D(H, d) = F_limit(H, mu_hi, d) - F_limit(H, mu_lo, d), E(H, d) = |D(H, d) - D(O, d)| (median of E / |D(O)|, and the
 share of pairs with E_R < E_U); the measured grasp flexion change q*(H) - q*(O) against e16's prediction; the
-normals' angle against q*; N_p / N_d; the limiting events. Writes ``logs/experimental/two_pad/summary_<cond>.json``.
+normals' angle against q*; N_p / N_d; the limiting events. Writes ``logs/study3/two_pad/summary_<cond>.json``.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2] / "logs" / "experimental" / "two_pad"
+ROOT = Path(__file__).resolve().parents[2] / "logs" / "study3" / "two_pad"
 HANDS = ("O", "R", "U")
 DIRECTIONS = ("+x", "+x-z", "-z", "-x")
 

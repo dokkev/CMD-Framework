@@ -412,7 +412,7 @@ def fig_concept():
 
 
 # ---------------------------------------------------------------- Study 3 and Figure 1
-TWO_PAD = ROOT / "sim" / "isaaclab" / "logs" / "experimental" / "two_pad"
+TWO_PAD = ROOT / "sim" / "isaaclab" / "logs" / "study3" / "two_pad"
 HANDS3 = ROOT / "design" / "output" / "sim" / "study3" / "hands"
 GREY, ORANGE, BLUE = "#8a8984", ARCH["2R-remote"][1], ARCH["CFL"][1]
 THICK = {5: "#93bde9", 7: "#2a78d6", 9: "#0d3c78"}  # one hue, light to dark: pad thickness

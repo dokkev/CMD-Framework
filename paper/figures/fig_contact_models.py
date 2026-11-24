@@ -7,7 +7,7 @@
 hydroelastic pads (E = 0.1 MPa over 3 mm). (b) The same measure in two open-loop tasks beyond holding (Drake, point):
 in-hand rolling by a flexion sweep, grasp acquisition under a load and turning a sprung dial. Each panel states Spearman rho(E, D_contact)
 and its one-sided p. Inputs: sim/drake/logs/e21_point.json, e21_hydro.json (analyze.py --out), e22_point.json,
-e23_point.json, e24_point.json (analyze_roll.py --out); experiments 21-24 in docs/experimental/separability.md.
+e23_point.json, e24_point.json (analyze_roll.py --out); experiments 21-24 in report/study3/experiments.md.
 """
 import json
 import sys

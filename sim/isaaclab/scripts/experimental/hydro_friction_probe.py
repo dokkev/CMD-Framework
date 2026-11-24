@@ -1,6 +1,6 @@
 """Where does hydroelastic contact lose friction? A minimal probe outside the hand (Newton + MuJoCo-Warp only).
 
-Experiment 16 (docs/experimental/separability.md) stopped because, on the hydroelastic path, the slipping pad's
+Experiment 16 (report/study3/experiments.md) stopped because, on the hydroelastic path, the slipping pad's
 |f_t|/|f_n| read 0.77 at mu 1.3 and 1.80 at mu 2.0 (point contact: 1.30, 2.00). This probe asks whether the engine
 itself applies the set friction, without the hand, the grasp or Isaac Lab's contact sensor.
 

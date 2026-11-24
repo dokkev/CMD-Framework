@@ -5,7 +5,7 @@
 
     python3 scripts/study3_measurement/figure_grasp_render.py [--rho 15] [--q0 105] [--condition A] [--mu 1.3]
 
-Reads the renders ``two_pad_wrench.py --render logs/experimental/two_pad/render --render_only`` wrote (one
+Reads the renders ``two_pad_wrench.py --render logs/study3/two_pad/render --render_only`` wrote (one
 placement: the cylinder where O's pads touch it at q0, all hands under the same command) and annotates each with the
 grasp the logged run measured (q*, total distal force, how far the cylinder moved from O's). Writes
 ``report/study3/figures/study3_two_pad_grasp_render.png``.
@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 SIM = Path(__file__).resolve().parents[2]
-RENDERS = SIM / "logs" / "experimental" / "two_pad" / "render"
+RENDERS = SIM / "logs" / "study3" / "two_pad" / "render"
 OUT = SIM.parents[1] / "report" / "study3" / "figures" / "study3_two_pad_grasp_render.png"
 TITLES = {"O": "O: reference, 3 mm pads", "R": "R: 7 mm, contact trajectory kept\nD_c 0.86 mm, D_s 7.67 mm",
           "U": "U: 7 mm, coverage only\nD_c 3.91 mm, D_s 3.38 mm"}
@@ -29,7 +29,7 @@ TITLES = {"O": "O: reference, 3 mm pads", "R": "R: 7 mm, contact trajectory kept
 
 def state(hand: str, mu: float, cond: str, rho: float, q0: float) -> dict:
     found = None
-    for f in sorted(glob.glob(str(SIM / "logs" / "experimental" / "two_pad" / f"tp_{hand}_mu{mu:g}_{cond}_r{rho:g}_*.json"))):
+    for f in sorted(glob.glob(str(SIM / "logs" / "study3" / "two_pad" / f"tp_{hand}_mu{mu:g}_{cond}_r{rho:g}_*.json"))):
         d = json.loads(Path(f).read_text())
         if d.get("impratio") == 1000.0:
             found = d

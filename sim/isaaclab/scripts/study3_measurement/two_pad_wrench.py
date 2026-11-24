@@ -7,7 +7,7 @@ matched?
 
     uv run python scripts/study3_measurement/two_pad_wrench.py --hand O|R|U --mu MU --condition A|B [--radius_mm 15|20]
 
-Pre-registered in ``docs/experimental/separability.md`` (third experiment, Stage B). Hands O, R, U (CFL, 120 deg,
+Pre-registered in ``report/study3/experiments.md`` (third experiment, Stage B). Hands O, R, U (CFL, 120 deg,
 3 -> 7 mm, flat pads with friction ``mu``; the cylinder's own coefficient is 0.01). Placements from e17
 (``design/output/sim/study3/two_pad_grasps.json``): a cylinder where O's two pads touch it at q0, at the same height
 above each hand's own proximal face; one environment per placement and load direction. Gravity off.
@@ -27,7 +27,7 @@ above each hand's own proximal face; one environment per placement and load dire
 Records per environment: q* (each finger's measured flexion), each pad's normal force vector (its direction is the
 contact normal), friction force and contact point (proximal-face frame, and relative to the cylinder's centre), the
 cylinder's pose, the Gate 0 checks, F_limit by event, and the slipping pad's |f_t|/|f_n| at slip. Writes
-``logs/experimental/two_pad/<run>.json``.
+``logs/study3/two_pad/<run>.json``.
 """
 
 from __future__ import annotations

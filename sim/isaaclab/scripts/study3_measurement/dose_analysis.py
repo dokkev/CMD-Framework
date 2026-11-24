@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered dose-response measures
-(``docs/experimental/separability.md``, fourth experiment).
+(``report/study3/experiments.md``, fourth experiment).
 
     python3 scripts/study3_measurement/dose_analysis.py [--condition A] [--mu 1.3 2.0]
 
@@ -12,7 +12,7 @@ F_limit(mu_lo), the relative error |D(H, d) - D(O, d)| / |D(O, d)| and its media
 radii; per direction too). Then over the redesigned hands: Spearman rho(E, D_c) with an exact one-sided permutation
 p, rho(E, D_s), rho(E, C_pad), and the standardized least-squares fit E ~ D_c + D_s (descriptive). Also each hand's
 Gate 0 failure share and its median distal force against O's (the same-command loading). Writes
-``logs/experimental/two_pad/dose_<condition>.json``.
+``logs/study3/two_pad/dose_<condition>.json``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2] / "logs" / "experimental" / "two_pad"
+ROOT = Path(__file__).resolve().parents[2] / "logs" / "study3" / "two_pad"
 DIRECTIONS = ("+x", "+x-z", "-z", "-x")
 # design metrics of the pre-registered hands (e18; separability.md, fourth experiment, reselection)
 HANDS = {"R": (0.86, 7.67, 0.725), "d1p5_minDs_s0": (1.60, 5.37, 0.706), "d2p25_minDs_s0": (2.33, 4.62, 0.700),

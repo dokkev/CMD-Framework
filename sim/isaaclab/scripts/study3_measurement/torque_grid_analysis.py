@@ -10,7 +10,7 @@ experiment, which were never run under torque reuse. Per hand: E = median |Delta
 the placements and directions where both hold, and the force deviation |N_d(H)/N_d(O) - 1| (median over the same
 pairs, at mu 1.3). Pre-registered tests: the partial rank correlation of E with Delta_contact given the force
 deviation, with a hand-bootstrap 95% interval (above zero?); rho(E, Delta_contact) > 0 by a one-sided permutation
-test; the five candidates' rho with intervals. Writes ``logs/experimental/two_pad/torque_grid.json``.
+test; the five candidates' rho with intervals. Writes ``logs/study3/two_pad/torque_grid.json``.
 """
 
 from __future__ import annotations

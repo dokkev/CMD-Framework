@@ -4,7 +4,7 @@
 """Experimental (not in the SSoT): can an interface effect be measured apart from the morphology change a thicker
 interface forces? A quasi-static flexion sweep against a held cylinder, no learning.
 
-    uv run python scripts/experimental/separability_quasistatic.py --hand O|R|U --shape flat|crowned --radius_mm 15
+    uv run python scripts/study3_measurement/separability_quasistatic.py --hand O|R|U --shape flat|crowned --radius_mm 15
 
 Hands (Study 3's, CFL, 120 deg): O = H0 (3 mm pads), R = H_R (7 mm, redesigned keeping the relative contact
 trajectory), U = H_U (7 mm, redesigned for coverage alone). Shape: the pads' contact face flat or crowned (2 mm
@@ -17,7 +17,7 @@ stated limitation) is left out, so only the finger-internal relative contact tra
 The PIPs are commanded in flexion (``FlexionEMAAction``, alpha 1, flexion stiffness and damping matched across hands,
 servo effort unlimited) from 60 to 120 deg in 0.5 deg steps, three env steps each; MCP and abduction at 0.
 
-Writes ``logs/experimental/separability/<run>.json``: per environment and step, commanded and measured flexion and
+Writes ``logs/study3/separability/<run>.json``: per environment and step, commanded and measured flexion and
 each pad's contact force.
 """
 
@@ -40,7 +40,7 @@ import common  # noqa: E402
 
 HANDS = {k: common.REPO_ROOT / "design" / "output" / "sim" / "study3" / "hands" / f"cfl_q120_h3to7_{v}.json"
          for k, v in (("O", "h0"), ("R", "hr"), ("U", "hu"))}
-OUT = common.SIM_ROOT / "logs" / "experimental" / "separability"
+OUT = common.SIM_ROOT / "logs" / "study3" / "separability"
 # x_c [mm from the MCP axis along the proximal face] where O's two pads touch a cylinder of radius rho at q0
 # (design kinematics, e16's construction; 2026-11-21)
 GRASPS = {12: {95: 30.9, 105: 28.5, 115: 25.7}, 15: {95: 27.6, 105: 24.6, 115: 21.0}, 18: {95: 24.4, 105: 20.7, 115: 16.3}}

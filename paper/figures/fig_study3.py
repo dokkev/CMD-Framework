@@ -7,7 +7,7 @@ its change of the contact Jacobian, Delta_contact, one marker per redesigned han
 (condition A, open loop).
 (b) Isaac Lab 3 (Newton, MuJoCo-Warp), point contact: pad friction at O's contacts (filled, colour by thickness),
     pad stiffness (squares), friction on the hand-independent grid (grey rings); dotted: the CFL redesigns of Study 2;
-    dashed: E = 20%. Inputs: sim/isaaclab/logs/experimental/two_pad/dose_A_all.json, comp.json,
+    dashed: E = 20%. Inputs: sim/isaaclab/logs/study3/two_pad/dose_A_all.json, comp.json,
     dose_A-grid_expanded.json (as make_figures.fig_study3 before 2026-11-23).
 (c) Contact model, pad friction, grasp pull-out: Isaac Lab point (as (b), filled), the Drake replica with point contact, and
     Drake with hydroelastic pads (E = 0.1 MPa over 3 mm on every hand). Inputs: sim/drake/logs/e21_point.json,
@@ -22,7 +22,7 @@ Panels (b)-(d) below were (a), (b), (d) before 2026-11-23.
     degrees, replaced experiment 24's 5-10 degree dial on 2026-11-23). In-hand rolling (experiment 22, which
     failed its test) is left out of the figure; the paper states it as a limitation.
 Legends give Spearman rho(E, Delta_contact) and its exact or Monte Carlo one-sided permutation p (sim/drake/analyze.py).
-Experiments 21-26: docs/experimental/separability.md.
+Experiments 21-26: report/study3/experiments.md.
 """
 import json
 import sys

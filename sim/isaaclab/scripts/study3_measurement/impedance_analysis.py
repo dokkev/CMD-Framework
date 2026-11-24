@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered impedance-sweep measures
-(``docs/experimental/separability.md``, seventh experiment).
+(``report/study3/experiments.md``, seventh experiment).
 
     python3 scripts/study3_measurement/impedance_analysis.py [--hands R U] [--scales 0.1 0.3 1 3 10]
 
@@ -11,7 +11,7 @@ impratio 1000) and hand H: over the placement-direction pairs where O and H pass
 stiffness), the relative error |D(H) - D(O)| / |D(O)| and the symmetric |ln(D(H)/D(O))|, their medians; R against U
 pair by pair (one-sided Wilcoxon, E_R < E_U); the gap E_U - E_R and Spearman rho(K, gap) over the stiffnesses
 (descriptive); each hand's servo torque over the XM335 stall torque (median of the per-environment maxima, and the
-share of environments above 1). Prints a table, writes ``logs/experimental/two_pad/impedance.json`` and the figure
+share of environments above 1). Prints a table, writes ``logs/study3/two_pad/impedance.json`` and the figure
 ``report/study3/figures/study3_impedance_sweep.png`` (error against stiffness, conditions C and A marked).
 """
 

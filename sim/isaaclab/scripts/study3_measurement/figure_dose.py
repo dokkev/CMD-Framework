@@ -6,7 +6,7 @@ redesign at 3 -> 5, 7 and 9 mm, position reuse (condition A) and joint-torque re
 
     python3 scripts/study3_measurement/figure_dose.py
 
-Reads ``logs/experimental/two_pad/dose_A_all.json`` and ``dose_C_all.json`` (``dose_analysis.py --set all``). Hands
+Reads ``logs/study3/two_pad/dose_A_all.json`` and ``dose_C_all.json`` (``dose_analysis.py --set all``). Hands
 that could not hold the cylinder under the command are drawn at the top as crosses. Writes
 ``report/study3/figures/study3_dose_response.png``.
 """

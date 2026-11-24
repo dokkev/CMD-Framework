@@ -4,8 +4,8 @@ Written 2026-11-23 from the experiment records; no manuscript file was changed. 
 
 ## R and U under touch re-zeroing (r2: "The paper does not report what R and U score under re-zeroing")
 
-Source: ninth experiment, condition E (`docs/experimental/separability.md`, "9차 결과";
-`sim/isaaclab/logs/experimental/two_pad/dose_E_all.json`).
+Source: ninth experiment, condition E (`report/study3/experiments.md`, "9차 결과";
+`sim/isaaclab/logs/study3/two_pad/dose_E_all.json`).
 
 | Pad | R, reused setpoint (A) | R, re-zeroed at touch (E) | U, reused setpoint (A) | U, re-zeroed at touch (E) |
 |---|---|---|---|---|
@@ -30,7 +30,7 @@ Under re-zeroing (E) all 18 hold. Possible caption clause:
 
 ## Pre-registration (r2: "cannot be checked")
 
-Each experiment's plan was committed to `docs/experimental/separability.md` before its data. Examples:
+Each experiment's plan was committed to `report/study3/experiments.md` before its data. Examples:
 - experiment 25: plan commit a280bef, then the small sample, then the full run;
 - experiment 26: plan commit eb615e4, made before any hand other than O was run.
 The repository history therefore dates every plan. If the paper can point to a public log or a supplement, this is the

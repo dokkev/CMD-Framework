@@ -3,12 +3,12 @@
 
     python scripts/study/study3_trajectory/figure_two_pad_grasp.py [--rho 15] [--q0 105] [--condition A] [--mu 1.3]
 
-One placement of the third experiment (``docs/experimental/separability.md``): the cylinder put where O's two pads
+One placement of the third experiment (``report/study3/experiments.md``): the cylinder put where O's two pads
 touch it at q0, each hand closed by the same flexion command (condition A), the grasp settled with the cylinder free
 in the plane. Drawn in the proximal contact face's frame (x along the face from the MCP axis, palm up): the pads from
 each design's own kinematics at the grasp flexion q* the simulation measured (the distal face turns by q* against the
 proximal one on every design), the cylinder, contact points and the contact forces on it from the simulation
-(``sim/isaaclab/logs/experimental/two_pad``, latest impratio-1000 run), O's cylinder dashed on R and U, and the four
+(``sim/isaaclab/logs/study3/two_pad``, latest impratio-1000 run), O's cylinder dashed on R and U, and the four
 load directions. Writes ``report/study3/figures/study3_two_pad_grasp.png``.
 """
 
@@ -33,7 +33,7 @@ import e16_cylinder_regrasp as e16  # noqa: E402
 from core.optimization.analysis.contact_kinematics import paths  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 
-LOGS = ROOT.parent / "sim" / "isaaclab" / "logs" / "experimental" / "two_pad"
+LOGS = ROOT.parent / "sim" / "isaaclab" / "logs" / "study3" / "two_pad"
 HANDS = ROOT / "output" / "sim" / "study3" / "hands"
 OUT = ROOT.parent / "report" / "study3" / "figures" / "study3_two_pad_grasp.png"
 LABELS = {"O": ("O", "reference, 3 mm pads"), "R": ("R", "7 mm, contact trajectory kept"),

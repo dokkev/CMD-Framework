@@ -8,7 +8,7 @@
 For every Study 3 setting, the error E against Delta_contact over the redesigns that hold the cylinder, fitted by an
 increasing (isotonic) regression. The tolerance at a level L is the largest Delta_contact whose fitted error stays at
 or below L; its 95% interval resamples hands. Levels: 20% and 50%. Writes
-``logs/experimental/two_pad/tolerance.json``.
+``logs/study3/two_pad/tolerance.json``.
 """
 
 from __future__ import annotations

@@ -196,8 +196,8 @@ Readings:
 
 ## Study 3: does an interface measurement follow the contact-surface motion? (simulation, 2026-11-21/22)
 
-Source: `docs/experimental/separability.md` (experiments 3–8, pre-registration and amendments),
-logs `sim/isaaclab/logs/experimental/two_pad/` (dose_{A,B,C}_*.json, impedance.json), scripts
+Source: `report/study3/experiments.md` (experiments 3–8, pre-registration and amendments),
+logs `sim/isaaclab/logs/study3/two_pad/` (dose_{A,B,C}_*.json, impedance.json), scripts
 `sim/isaaclab/scripts/study3_measurement/two_pad_wrench.py`, `dose_analysis.py`, `impedance_analysis.py`.
 
 Setup. Isaac Lab 3 + Newton 1.6.1 / MuJoCo-Warp (implicitfast, elliptic cone, impratio 1000, 2 substeps,

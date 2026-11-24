@@ -10,7 +10,7 @@ deviation |N_d(H)/N_d(O) - 1| (median distal force ratio over the valid pairs) a
 with the error, rho(Delta_contact, force ratio), and the partial rank correlations E-Delta_contact given the force
 deviation and E-force deviation given Delta_contact, each with a hand-bootstrap 95% interval. Also the Spearman
 correlations among the five candidates over the 45 hands of invariants.json. Writes
-``logs/experimental/two_pad/mediation.json``.
+``logs/study3/two_pad/mediation.json``.
 """
 
 from __future__ import annotations

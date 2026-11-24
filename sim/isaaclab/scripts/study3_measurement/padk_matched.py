@@ -10,7 +10,7 @@ compared with O at the same pad stiffness (``A-padk-ref<h>``): the counterfactua
 redesign. Per hand, E' = median |Delta(H) - Delta(O_h)| / |Delta(O_h)| over the placements and directions where both
 hold. Pre-registered tests: rho(E', Delta_contact) > 0 (one-sided permutation), E'_R < E'_U at each thickness
 (one-sided paired Wilcoxon), and the five candidates' rho with hand-bootstrap intervals. Also the reference's
-validity: valid pairs and the effective friction at slip. Writes ``logs/experimental/two_pad/padk_matched.json``.
+validity: valid pairs and the effective friction at slip. Writes ``logs/study3/two_pad/padk_matched.json``.
 """
 
 from __future__ import annotations

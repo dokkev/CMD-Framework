@@ -20,7 +20,7 @@ q90, 3 → 5 mm 조건(D_c 1.22 대 5.84 mm)도 `make_hands.py --flexion 90 --to
 
 ## 1차: pad 형상 (flat 대 crowned), 준정적, 2026-11-21
 
-- 코드는 `sim/isaaclab/scripts/experimental/separability_quasistatic.py`와 `separability_analysis.py`이다. 결과는 `sim/isaaclab/logs/experimental/separability/`에 있다.
+- 코드는 `sim/isaaclab/scripts/study3_measurement/separability_quasistatic.py`와 `separability_analysis.py`이다. 결과는 `sim/isaaclab/logs/study3/separability/`에 있다.
 - 원기둥을 kinematic으로 고정한다. 손마다 자기 proximal 접촉면 위 같은 높이에 둔다. 반지름은 12, 15, 18 mm이고, 위치는 O가 95, 105, 115°에서 두 pad로 닿는 곳이다.
 - PIP 굽힘각을 60°에서 120°까지 0.5°씩 지령한다. 굽힘 강성과 감쇠는 세 손에서 같게 맞추고, 토크 포화는 끈다.
 - 검증: O에서 distal pad의 첫 접촉각이 설계 예측과 같았다(0.5° 해상도). loop 오차는 0.18 mm 이하였다.
@@ -133,7 +133,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 3차 Stage B 결과 (2026-11-21)
 
-- 실행: μ 1.3/2.0, ρ 15/20 mm, impratio 1000. 세 손 × 조건 A·B. 결과는 `sim/isaaclab/logs/experimental/two_pad/`(`summary_A.json`, `summary_B.json`), 분석은 `scripts/study3_measurement/two_pad_analysis.py`.
+- 실행: μ 1.3/2.0, ρ 15/20 mm, impratio 1000. 세 손 × 조건 A·B. 결과는 `sim/isaaclab/logs/study3/two_pad/`(`summary_A.json`, `summary_B.json`), 분석은 `scripts/study3_measurement/two_pad_analysis.py`.
 - 공통 유효 조건: 조건 A에서 48쌍(배치 12개), 조건 B에서 44쌍(배치 11개). Gate 0 실패는 손·μ마다 132개 중 75–88개이고 세 손에서 비슷하다. 대부분 q0 ≤ 80°에서 해제할 때 빠져나간 경우다. 조건 B에서 힘 맞춤 실패는 O 3–4개, R 8개, U 0개다.
 - 검증: 법선 사이 각 = q*(최대 오차 0.25°). 모든 손에서 N_p/N_d = 1.00. 조건 B의 distal 힘은 목표의 ±0.5% 안에 맞았다.
 - 분해능: 외력 한 step이 0.067 N이다(Δμ(O)의 2.5–5.6%).
@@ -220,7 +220,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 4차 결과 (2026-11-21)
 
-- 실행: 새 손 6개 × μ 1.3/2.0 × ρ 15/20 mm, 조건 A(24개)와 조건 B(d2.25 쌍, 8개). O, R, U는 3차 실행을 재사용. 분석은 `sim/isaaclab/scripts/study3_measurement/dose_analysis.py`, 결과는 `logs/experimental/two_pad/dose_A.json`, `dose_B.json`.
+- 실행: 새 손 6개 × μ 1.3/2.0 × ρ 15/20 mm, 조건 A(24개)와 조건 B(d2.25 쌍, 8개). O, R, U는 3차 실행을 재사용. 분석은 `sim/isaaclab/scripts/study3_measurement/dose_analysis.py`, 결과는 `logs/study3/two_pad/dose_A.json`, `dose_B.json`.
 - naive swap: 기계적 불가능(pad가 47°에서 충돌). 측정하지 않음.
 
 **조건 A (같은 지령, 주 판정)**
@@ -362,7 +362,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 6차 결과: 세 두께, 조건 A와 C (2026-11-21)
 
-- 그림: `report/study3/figures/study3_dose_response.png` (`sim/isaaclab/scripts/study3_measurement/figure_dose.py`). 결과는 `logs/experimental/two_pad/dose_{A,C}_{all,balanced}.json`.
+- 그림: `report/study3/figures/study3_dose_response.png` (`sim/isaaclab/scripts/study3_measurement/figure_dose.py`). 결과는 `logs/study3/two_pad/dose_{A,C}_{all,balanced}.json`.
 - 5 mm와 9 mm의 R, U, Ē (조건 A): R5 3.4%(D_c 0.35), U5 52%(1.58), R9 41%(2.32), U9 106%(3.89). 9 mm의 d5-minDs(5.08)는 157%. 5 mm의 d3(D_c 2.92, D_s 6.38)는 조건 A에서 grasp 실패, 조건 C에서는 25%.
 
 **조건 A (위치 명령 재사용, 주 판정)**
@@ -393,7 +393,7 @@ Stage A의 수치에 Newton을 맞추지 않는다. 아래 기준은 Newton 실�
 
 ### 7차 결과: 조건 D, 임피던스 sweep pilot (O, R, U, 7 mm, 2026-11-21)
 
-- 그림: `report/study3/figures/study3_impedance_sweep.png`. 분석은 `sim/isaaclab/scripts/study3_measurement/impedance_analysis.py`, 결과는 `logs/experimental/two_pad/impedance.json`.
+- 그림: `report/study3/figures/study3_impedance_sweep.png`. 분석은 `sim/isaaclab/scripts/study3_measurement/impedance_analysis.py`, 결과는 `logs/study3/two_pad/impedance.json`.
 - 검증(사전 기록): K₀의 D가 조건 A를 재현했다(distal 힘 1.6% 이내, 한계 하중 외력 한 step 이내).
 
 | K/K₀ | E_R | E_U | 대칭 배율 R / U | R < U (쌍), p | 격차 E_U − E_R |
@@ -627,7 +627,7 @@ O의 run 4개(μ 1.3/2.0 × ρ 15/20)만으로 3차 Stage B의 마찰 검증을 
 
 ### 분석 수정: 격자 배치의 키 (2026-11-22; 12·13차 재분석)
 
-격자 run은 한 q0에 배치 4곳(x_c)을 둔다(run당 env 112개). 분석이 env를 (q0, 방향)으로만 구분해 112개가 28개로 겹쳤고, 같은 q0의 네 배치 중 마지막 하나(x_c 30 mm 또는 26 mm)만 남았다. 사전 기록은 "4 places × 7 commands"였으므로, 보고한 격자 결과는 격자의 1/4만 쓴 것이었다. 키를 (q0, x_c, 방향)으로 고쳤다(`dose_analysis.env_key`, 모든 분석에 적용). 격자가 아닌 조건은 q0마다 배치가 하나라 결과가 같다(재실행으로 확인; bootstrap 구간의 마지막 자리만 수치 잡음 수준으로 다르다). 수정 전 분석 파일은 `logs/experimental/two_pad/pre_keyfix/`에 남긴다.
+격자 run은 한 q0에 배치 4곳(x_c)을 둔다(run당 env 112개). 분석이 env를 (q0, 방향)으로만 구분해 112개가 28개로 겹쳤고, 같은 q0의 네 배치 중 마지막 하나(x_c 30 mm 또는 26 mm)만 남았다. 사전 기록은 "4 places × 7 commands"였으므로, 보고한 격자 결과는 격자의 1/4만 쓴 것이었다. 키를 (q0, x_c, 방향)으로 고쳤다(`dose_analysis.env_key`, 모든 분석에 적용). 격자가 아닌 조건은 q0마다 배치가 하나라 결과가 같다(재실행으로 확인; bootstrap 구간의 마지막 자리만 수치 잡음 수준으로 다르다). 수정 전 분석 파일은 `logs/study3/two_pad/pre_keyfix/`에 남긴다.
 
 | 격자 | 수정 전 | 수정 후 |
 |---|---|---|

@@ -7,7 +7,7 @@
 
 Delta_contact split into the distal face's offset along its normal and the slide of the same face point along it
 (``design/output/study/exploratory/e20_face_offset/summary.csv``). Spearman rho of each with the error, with a
-hand-bootstrap interval, in every Study 3 setting. Writes ``logs/experimental/two_pad/face_offset.json``.
+hand-bootstrap interval, in every Study 3 setting. Writes ``logs/study3/two_pad/face_offset.json``.
 """
 
 from __future__ import annotations

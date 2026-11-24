@@ -9,7 +9,7 @@ experiment).
 The error of each fixed-axis redesign (5, 7, 9 mm pads, the 3 mm finger's skeleton kept exactly) against the 3 mm
 fixed-axis finger, under the reused flexion command (runs tagged ``fa``), computed as in ``dose_analysis.py``: the
 median over placements and directions of |Delta(H) - Delta(O)| / |Delta(O)|, Delta the change of the limit load from
-mu 1.3 to 2.0, over placements where all four runs pass Gate 0. Writes ``logs/experimental/two_pad/fa.json``.
+mu 1.3 to 2.0, over placements where all four runs pass Gate 0. Writes ``logs/study3/two_pad/fa.json``.
 """
 
 from __future__ import annotations

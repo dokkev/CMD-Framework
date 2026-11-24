@@ -11,7 +11,7 @@ coverage, the pad-thickness change and the transmission change (max over q in [0
 r = dtheta/dq of the index finger's PIP). Spearman rho of each with the error under the reused flexion command for
 pad friction (dose_A_all.json) and pad stiffness (comp.json), with a hand bootstrap 95% interval, and the interval of
 rho(E, contact) - |rho(E, candidate)| (thirteenth experiment, 45 hands on the grid: dose_A-grid_expanded.json). Writes
-``logs/experimental/two_pad/invariants.json``.
+``logs/study3/two_pad/invariants.json``.
 """
 
 from __future__ import annotations

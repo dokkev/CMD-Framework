@@ -12,7 +12,7 @@ to carry the pad (``A-padk``). Per hand: the median measured and true change rel
 error of the measured change, and the share of placements and directions where its sign differs from the true one
 (a reversed conclusion). ``--set study3``: the fifteenth and seventeenth experiments' runs (post hoc reading);
 ``--set grid``: the nineteenth experiment (grid placements, tags ``grid-padk`` and ``grid-padk-ref7``). Writes
-``logs/experimental/two_pad/conclusion_<set>.json``.
+``logs/study3/two_pad/conclusion_<set>.json``.
 """
 
 from __future__ import annotations

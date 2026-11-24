@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered robustness and shape-interface measures
-(``docs/experimental/separability.md``, eighth experiment).
+(``report/study3/experiments.md``, eighth experiment).
 
     python3 scripts/study3_measurement/robust_analysis.py robust      # condition A under each robustness setting
     python3 scripts/study3_measurement/robust_analysis.py shape-gate  # O: crowned minus flat, per direction
@@ -14,7 +14,7 @@ distal force against O's. Verdict per setting: "kept" if p < 0.05 and median E_R
 shape-gate: O's effect F_limit(crowned) - F_limit(flat) at mu 1.3 per direction (radii 15 and 20); passes if the
 median is at least 0.2 N (3 load steps) in two or more directions.
 shape: E_shape(H) = |D(H) - D(O)| / |D(O)| per hand (D = crowned minus flat at mu 1.3), rho(E, D_c), R vs U.
-Writes ``logs/experimental/two_pad/robust.json`` / ``shape.json``.
+Writes ``logs/study3/two_pad/robust.json`` / ``shape.json``.
 """
 
 from __future__ import annotations

@@ -616,7 +616,7 @@ $$
 
 ### A.6.4. Study 3: 재설계한 손에서도 interface 효과가 같게 측정되는가 (시뮬레이션)
 
-Study 3의 질문은 하나이다(H3, research-objective §6, §8). 기준 손가락을 더 두꺼운 pad에 맞춰 다시 설계한 손들에서 같은 interface 변화를 재면, 측정의 오차는 어느 설계 변화를 따르는가. 사전 기록과 그 수정은 `docs/experimental/separability.md`(3–14차)에 있다.
+Study 3의 질문은 하나이다(H3, research-objective §6, §8). 기준 손가락을 더 두꺼운 pad에 맞춰 다시 설계한 손들에서 같은 interface 변화를 재면, 측정의 오차는 어느 설계 변화를 따르는가. 사전 기록과 그 수정은 `report/study3/experiments.md`(3–14차)에 있다.
 
 **손.** CoDe hand 모델(MCP 고정, $q_{\mathrm{req}}=120^\circ$)의 세 손가락이 같은 설계를 쓰고 같은 원기둥을 잡는다.
 - 기준 $O$: Study 1의 3 mm 설계 $M_0$.

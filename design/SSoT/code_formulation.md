@@ -70,7 +70,7 @@
 | `scripts/study/study3_trajectory/check_flexion_map.py` | 시뮬레이터의 굽힘→servo 맵을 설계 기구학과 대조한다 | A.6.4 구동 |
 | `scripts/study/exploratory/e17_two_pad_wrench.py` (`--export`) | 기준 배치(`output/sim/study3/two_pad_grasps.json`): $O$가 $q_0$에서 두 pad로 닿는 원기둥 자리 | A.6.4 배치 |
 | `src/code_isaaclab/joint_map.py`, `flexion_control.py` | 각 손의 $\theta(q)$ 표, 굽힘 공간 강성 $K_\theta=K_0/(d\theta/dq)^2$ | A.6.4 구동 |
-| `scripts/study3_measurement/common.py` | 측정 코드 공용: run id와 manifest, 결과를 덮어쓰지 않는 기록, 손 body 순서, 손과 가운데 손가락의 자리, 로그 경로(`logs/experimental/two_pad/`, 첫 run들이 쓰인 곳 그대로) | A.6.4 |
+| `scripts/study3_measurement/common.py` | 측정 코드 공용: run id와 manifest, 결과를 덮어쓰지 않는 기록, 손 body 순서, 손과 가운데 손가락의 자리, 로그 경로(`logs/study3/two_pad/`, 첫 run들이 쓰인 곳 그대로) | A.6.4 |
 | `scripts/study3_measurement/fixed_axis_hands.py` | Fixed-axis 대조 계열(`fa_q120_h{3,5,7,9}.json`)과 그 배치(`fa_grasps.json`) | A.6.4 손, 배치 |
 | `scripts/study3_measurement/two_pad_wrench.py` | 한 실행: 배치, 닫기, 놓기, Gate 0, 하중 증가, $F_{\lim}$와 사건 종류. `--condition A/B/C/D/E` | A.6.4 절차, 프로토콜 |
 | `scripts/study3_measurement/dose_analysis.py` | 손별 $E(H)$와 유효 쌍, Spearman, 단측 순열 검정, 손 bootstrap, partial 상관 | A.6.4 오차, 통계 |
