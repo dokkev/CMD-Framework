@@ -131,22 +131,28 @@ def main() -> int:
 
     def inch(x, y):
         return x / width, y / height
-    # top: the CFL finger, room across the joint
+    # top: the whole hand manipulating a cube (Isaac Lab visual USD, render_grasp.py) and one finger from the CAD
+    hand = usd_render(CAD / "usd_hand_cube.png")
+    hw = 1.30
+    hh = hw * hand.shape[0] / hand.shape[1]
+    fig.text(*inch(0.02, height - 0.02), "CoDe Hand", fontsize=6.8, fontweight="bold", va="top")
+    ha = fig.add_axes((*inch(0.02, height - 0.16 - hh), hw / width, hh / height))
+    ha.imshow(hand); ha.axis("off")
     fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))
-    fw = 3.05
+    fw = 2.05
     fh = fw * fin.shape[0] / fin.shape[1]
-    fy = height - 0.12 - fh
-    f = fig.add_axes((*inch(0.20, fy), fw / width, fh / height))
+    fy = height - 0.30 - fh
+    f = fig.add_axes((*inch(1.38, fy), fw / width, fh / height))
     f.imshow(fin); f.axis("off")
-    fig.text(*inch(0.02, height - 0.02), "CoDe finger (crossed four-bar PIP, remote servo)", fontsize=6.6,
-             fontweight="bold", va="top")
-    # bracket under the pads, which run on both sides of the PIP joint
-    x0, x1, yb = 880, 2000, 680
-    f.plot([x0, x0, x1, x1], [yb - 40, yb, yb, yb - 40], color=PAD, lw=0.8, clip_on=False)
-    f.text((x0 + x1) / 2, yb + 25, "room for thick contact interfaces on both phalanges", color=PAD, fontsize=6.2,
-           ha="center", va="top", clip_on=False)
+    fig.text(*inch(1.38, height - 0.02), "one finger (CAD): crossed four-bar PIP,\nremote PIP servo", fontsize=6.3,
+             fontweight="bold", va="top", linespacing=1.0)
+    x0, x1, yb = 880, 2000, 690
+    f.plot([x0, x0, x1, x1], [yb - 50, yb, yb, yb - 50], color=PAD, lw=0.8, clip_on=False)
+    f.text((x0 + x1) / 2, yb + 30, "room for thick interfaces\non both phalanges", color=PAD, fontsize=6.0,
+           ha="center", va="top", clip_on=False, linespacing=1.0)
+    fy = min(fy - 0.30, height - 0.16 - hh)
     # two arrows into the two redesigns
-    top = fy - 0.28
+    top = fy - 0.12
     for xe, col in ((0.95, HAND_C["R"]), (2.50, HAND_C["U"])):
         fig.patches.append(FancyArrowPatch(inch(1.73, top), inch(xe, top - 0.30), transform=fig.transFigure,
                                            arrowstyle="-|>", mutation_scale=8, lw=1.2, color=col,
