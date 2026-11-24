@@ -214,6 +214,42 @@ Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e
 Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_hu,9.0,3.89,7.17,0.2393,16
 Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1466,16
 Drake,fingertip dial,auxiliary: y-axis fingertip dial,report/study3/data/drake_e28y_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2109,16
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,R,7.0,0.86,7.67,0.1935,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.258,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3418,58
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.2485,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d3_minDs_s0,7.0,3.09,3.83,0.3767,58
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,U,7.0,3.91,3.38,0.5473,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d4p5_s0,7.0,4.41,11.33,0.2735,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d5p5_s0,7.0,5.4,12.17,0.2697,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.2325,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.3168,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to5_hr,5.0,0.35,3.55,0.1095,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to5_hu,5.0,1.58,2.02,0.25,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.0715,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.3025,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_hr,9.0,2.32,9.37,0.4593,58
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_hu,9.0,3.89,7.17,0.6178,58
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.534,59
+Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.651,58
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,R,7.0,0.86,7.67,0.0931,63
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1131,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1303,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.1058,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d3_minDs_s0,7.0,3.09,3.83,0.175,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,U,7.0,3.91,3.38,0.2649,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d4p5_s0,7.0,4.41,11.33,0.0952,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d5p5_s0,7.0,5.4,12.17,0.102,63
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0736,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.0797,63
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to5_hr,5.0,0.35,3.55,0.0316,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to5_hu,5.0,1.58,2.02,0.1062,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to5_d3_s0,5.0,2.92,6.38,0.097,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1877,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_hr,9.0,2.32,9.37,0.1481,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_hu,9.0,3.89,7.17,0.2361,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1549,64
+Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2978,64
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,R,7.0,0.86,7.67,0.2712,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0628,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3368,20

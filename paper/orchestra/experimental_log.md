@@ -366,3 +366,11 @@ For the manuscript session: Fig. 4 and the text must change wherever experiment 
 - Regenerate them with `sim/drake/render_tasks.py`, `render3d.py` and `render_task_times.py`. The acquisition task is being redone (object rolled from the palm), so its frames will change.
 - `report/study3/figures/power_grasp_hold_iso.png` (frames in `report/study3/data/renders/render_hold_iso{0,1,2}.png`): the grasp pull-out as a three-finger power grasp on hand O, isometric from above the palm (palm up). Left to right: placed with the fingers open, held, and the cylinder leaving under the load away from the palm. The user likes this one; it is a candidate for Fig. 4(a). Regenerate it with `sim/drake/render3d.py` (`render_hold_iso`).
 
+## Study 3: fingertip dial with randomized starts (experiment 29, pre-registered 01af200; results 90f2556)
+
+- 64 start conditions per configuration, drawn from distributions fixed in advance (seed 29), the same draws for every hand, applied in each hand's proximal-face frame. O-only exclusions: y 0/64, z 5/64 (O pressed past 1.5 mm).
+- z disk: ρ(E, Δ_contact) 0.68 (permutation p 0.0009), Δ_skel 0.00; R 19.3%, U 54.7%; noise floor median 1.2%.
+- y rim dial: 0.56 (p 0.009), Δ_skel −0.37; R 9.3%, U 26.5%; every hand's E now above the noise 75th percentile.
+- The pre-registered rule picks the z disk (E IQR / noise p75: 7.6 vs 3.7). This answers "chosen after seeing the data": the hand-picked placements of experiment 28 are not what make the result.
+- Data: report/study3/data/drake_e29{z,y}_point.json. Raw runs: report/study3/data/raw/runs_drake_tipdial.csv, tags e29z and e29y.
+

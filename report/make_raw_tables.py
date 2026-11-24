@@ -22,7 +22,7 @@ DRAKE = ROOT / "sim/drake/logs"
 ISAAC = ROOT / "sim/isaaclab/logs/study3/two_pad"
 L_F_MM = 90.0
 
-DRAKE_NAME = re.compile(r"^(dk[a-z]*)_(.+)_mu([0-9.]+)_(point|hydro)-(.+)_r([0-9.]+)\.json$")
+DRAKE_NAME = re.compile(r"^(dk[a-z]*)_(.+)_mu([0-9.]+)_(point|hydro)-(.+)_r([0-9.]+|any)\.json$")
 ISAAC_NAME = re.compile(r"^tp_(.+)_mu([0-9.]+)_(A|A-grid)_r([0-9.]+)_\d{8}-\d{6}_\d+\.json$")
 
 # Drake run sets kept (tag -> experiment, what it is); calibration, noise-floor and replaced runs are left out
@@ -40,6 +40,8 @@ DRAKE_SETS = {
     ("dkdial", "point", "e26-s45"): ("26", "dial", "superseded by experiment 28z (distal pad pressed 2-11 mm, beyond the pad model): sprung dial, 45 deg sweep"),
     ("dktipdial", "point", "e28z"): ("28", "fingertip dial", "z-axis disk turned by the distal pad on its top face (Study 3's dial task)"),
     ("dktipdial", "point", "e28y"): ("28", "fingertip dial", "auxiliary: y-axis dial driven tangentially by the distal pad"),
+    ("dktipdial", "point", "e29z"): ("29", "fingertip dial", "z-axis disk, 64 randomized starts (seed 29), common to all hands"),
+    ("dktipdial", "point", "e29y"): ("29", "fingertip dial", "y-axis dial, 64 randomized starts (seed 29), common to all hands"),
     ("dkdial", "point", "e24-s8"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 8 deg sweep"),
     ("dkdial", "point", "e24-s15"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 15 deg sweep"),
     ("dkroll", "point", "e22-s8"): ("22", "in-hand rolling", "flexion sweep of 8 deg"),
@@ -157,7 +159,9 @@ def drake_rows() -> tuple[list[dict], list[str]]:
         for e in d["envs"]:
             g = e.get("gate0") or {}
             row = {"engine": "Drake", "experiment": exp, "task": task, "setting": setting, "tag": tag,
-                   "contact_model": contact, "hand": hand, "mu": float(mu), "cylinder_radius_mm": float(rho),
+                   "contact_model": contact, "hand": hand, "mu": float(mu), "cylinder_radius_mm": float(e.get("rho_mm", rho)),
+                   "draw": (e.get("placement") or {}).get("draw"), "tip_spring_nm_rad": r4((e.get("placement") or {}).get("tip_kr")),
+                   "sideways_offset_mm": r4((e.get("placement") or {}).get("y_mm")),
                    "q0_deg": e["q0_deg"], "x_c_mm": r4(e["x_c_mm"]), "load_direction": e["direction"],
                    "gate0_pass": g.get("pass"), "measure": None, "measure_unit": None, "event": None, "held_at_end": None}
             lim = e.get("limit") or {}
@@ -218,6 +222,7 @@ def study3() -> None:
     keys = ["engine", "experiment", "task", "setting", "tag", "contact_model", "hand", "mu", "cylinder_radius_mm", "q0_deg",
             "x_c_mm", "load_direction", "gate0_pass", "measure", "measure_unit", "event", "held_at_end",
             "distal_force_max_n", "proximal_force_max_n", "distal_force_end_n",
+            "draw", "tip_spring_nm_rad", "sideways_offset_mm",
             "setpoint_o_deg", "setpoint_deg", "setpoint_residual_mm"]
     groups = {}
     for r in drows + irows:
@@ -245,6 +250,8 @@ def study3() -> None:
             ("drake_e26_point.json", "Drake", "dial", "superseded by experiment 28z (pad pressed beyond the model)"),
             ("drake_e28z_point.json", "Drake", "fingertip dial", "z-axis disk (Study 3's dial task)"),
             ("drake_e28y_point.json", "Drake", "fingertip dial", "auxiliary: y-axis fingertip dial"),
+            ("drake_e29z_point.json", "Drake", "fingertip dial", "z-axis disk, randomized starts (confirmation)"),
+            ("drake_e29y_point.json", "Drake", "fingertip dial", "y-axis dial, randomized starts (confirmation)"),
             ("drake_e24_point.json", "Drake", "dial", "superseded by experiment 26: dial turned 5-10 deg"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
