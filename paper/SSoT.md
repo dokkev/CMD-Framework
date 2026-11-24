@@ -44,7 +44,7 @@ The story is north-star's "How the paper tells it". The manuscript places it as 
 | Introduction ¶1 | context: contact uncertainty compensated with the rest of the hand, hence servo hands; the interface is fitted to the room left |
 | Introduction ¶2 | the interface matters, its own effect is hard to know; first obstacle, room (P1) |
 | Introduction ¶3 | second obstacle, the finger changes (P2); a fixed axis cannot keep the contact surfaces' motion |
-| Introduction ¶4 | "In this work we propose CoDe"; the two contributions as a list |
+| Introduction ¶4 | the contact-centric design principle, embodied in the CoDe hand; the two contributions as a list |
 | III Design: Model, Pole, Optimization | the pole answers both problems; the two optimization problems |
 | III Design: Coverage across joints | evidence for C1 |
 | III Design: Redesign for thicker pads | C2.1, C2.2 (what keeping the contact Jacobian costs) |
@@ -120,6 +120,10 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
   each with its next step. Never make a claim that is true only with a caveat; narrow the claim instead.
 - Headings: `\subsection` and `\subsubsection`, never bold run-in paragraph heads. Short titles that say
   what the part shows.
+- The paper is a design-principle paper. The principle (place the pole by the contact surfaces; redesign by
+  preserving contact-surface motion, not skeleton motion) and what follows from it (the fixed-axis bound, the
+  CFL finger, the simulated test) are the contributions. Pole kinematics and the clearance relations are
+  classical: cite them and state the final result, never list them as a contribution or an "analysis" of ours.
 - Respect north-star's Not claimed, for example: interfaces gather at the fingertip is an observation, not a
   consequence of the lack of room; interface design exists and is not denied.
 
