@@ -300,17 +300,21 @@ def fig2():
                 return qq - 1.0
         return 180.0
     panels = (("2r_dd", "servo at the pin\n(2R-DD)", 3.0, False, None),
-              ("cfl", "CoDe (CFL), the R hand", 7.0, False, "hr"))
+              ("cfl", "CoDe prototype (CFL)", 7.0, False, "proto"))
     for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
         base = ds[base_h]
         x = list(base.x)
-        if hand:  # the Study 3 hand's design vector (design/output/sim/study3/hands/<hand>.yaml)
-            import yaml
-            ydoc = yaml.safe_load(open(ROOT / "design" / "output" / "sim" / "study3" / "hands" /
-                                       f"cfl_q120_h3to7_{hand}.yaml"))
-            base = one_finger.study1_designs(key, cfg["architectures"][key], 120.0, cfg)[7.0]
-            x = [float(vv) for vv in ydoc["source"]["design"]]
+        if hand == "proto":  # the CoDe prototype's finger (report/study0/data/prototype_seeds.csv, balanced)
+            from types import SimpleNamespace
+            from visualize.finger.view import load_run
+            from visualize.fronts import read_rows, with_role
+            proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
+            row = with_role(read_rows(proto), "balanced")
+            run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
+            base = SimpleNamespace(mechanism=run.mechanism.name, config=run.config)
+            x = list(run.mechanism.read_design(row))
+        if hand:
             xx = list(x)
             nm_ = list(mech_of(base.mechanism).variable_names)
             for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
@@ -344,9 +348,9 @@ def fig2():
         pw = 1.15
         ax = fig.add_axes(((0.04 + i * (pw + 0.02)) / W, (head - 1.36) / h, pw / W, 1.02 / h))
         ax.set_xlim(-6, 96); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
-        col_ = {None: GREY, "hu": AMBER, "hr": BLUE}[hand]
+        col_ = {None: GREY, "hu": AMBER, "hr": BLUE, "proto": BLUE}[hand]
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 0.20) / h, name, fontsize=6.0, color=col_,
-                 ha="center", va="top", fontweight="bold" if hand == "hr" else "normal", linespacing=1.0)
+                 ha="center", va="top", fontweight="bold" if hand in ("hr", "proto") else "normal", linespacing=1.0)
         for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
             v = view_of(base.mechanism, with_pads(base.config, hh), x)
             qd = 120.0 if key == "2r_dd" else (150.0 if hand else min(150.0, first_hit(v)))
@@ -411,8 +415,13 @@ def fig2():
                 pp, dext = padded(ep, ed)
                 ext = (ep, ed)
                 Rm, t1 = poses[-1]
-                for pad in (pp, (dext - d0[1]) @ Rm.T + t1):
+                dposed = (dext - d0[1]) @ Rm.T + t1
+                for pad in (pp, dposed):
                     ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
+                ov = SPoly(pp).intersection(SPoly(dposed))
+                if not ov.is_empty and ov.area > 1e-3 and ov.geom_type == "Polygon":
+                    ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
+                                         alpha=0.9, zorder=26 + j))
                 if hh == 3.0:
                     faint_extended(ax, v, (pp, dext), pins=False)
                 if hh == 3.0:  # the remote centre of rotation over 0..qd
@@ -422,7 +431,8 @@ def fig2():
                     ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
                 print("CFL pad extension", hh, ext)
         foot = {None: ("35 mm pads collide (red)", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
-                "hr": ("clear at $150^\\circ$", BLUE)}[hand]
+                "hr": ("clear at $150^\\circ$", BLUE),
+                "proto": ("3, 5 mm clear at $150^\\circ$; 7 mm meet at $143^\\circ$", BLUE)}[hand]
         fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
                  ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
