@@ -266,7 +266,7 @@ def fig2():
         base = ds[base_h]
         x = list(base.x)
         if key == "cfl":  # the candidate whose lengthened pads come closest at 150 deg (fig2_pad_search.py)
-            best = json.loads((ROOT / "design" / "output" / "paper" / "fig2_pad_search.json").read_text())[0]
+            best = json.loads((ROOT / "report" / "study0" / "data" / "fig2_cfl_pad_gap150.json").read_text())[0]
             base = one_finger.study1_designs(key, cfg["architectures"][key], best["cfg"][0], cfg)[best["cfg"][1]]
             x = list(best["x"])
         nm = list(mech_of(base.mechanism).variable_names)

@@ -70,25 +70,30 @@ def evaluate(mech, config, x, h=7.0):
     return {"gap150_mm": gap, "ext": [ep, ed], "len": [lp, ld]}
 
 
-out = []
-for q_req in (150.0, 120.0):
-    ds = one_finger.study1_designs("cfl", spec, q_req, cfg)
-    for h, d in ds.items():
-        r = evaluate(d.mechanism, d.config, d.x)
-        if r:
-            out.append({"source": f"study1 q{q_req:g} h{h:g}", "x": list(map(float, d.x)), "cfg": [q_req, h], **r})
-    for row in csv.DictReader(open(ROOT / "design/output/study/study2_redesign_2026-11-21/front.csv")):
-        if row["architecture"] != "cfl" or float(row["required_flexion_deg"]) != q_req:
-            continue
-        hh = float(row["to_mm"])
-        if hh not in ds:
-            continue
-        x = [float(v) for v in row["x"].split(";")]
-        r = evaluate(ds[hh].mechanism, ds[hh].config, x)
-        if r:
-            out.append({"source": f"study2 q{q_req:g} to{hh:g}", "x": x, "cfg": [q_req, hh], **r})
-out.sort(key=lambda r: r["gap150_mm"])
-for r in out[:10]:
-    print(round(r["gap150_mm"], 2), r["source"], r["ext"], [round(v, 1) for v in r["len"]])
-print(len(out), "candidates")
-(ROOT / "design/output/paper/fig2_pad_search.json").write_text(json.dumps(out[:20], indent=1))
+def main():
+    out = []
+    for q_req in (150.0, 120.0):
+        ds = one_finger.study1_designs("cfl", spec, q_req, cfg)
+        for h, d in ds.items():
+            r = evaluate(d.mechanism, d.config, d.x)
+            if r:
+                out.append({"source": f"study1 q{q_req:g} h{h:g}", "x": list(map(float, d.x)), "cfg": [q_req, h], **r})
+        for row in csv.DictReader(open(ROOT / "design/output/study/study2_redesign_2026-11-21/front.csv")):
+            if row["architecture"] != "cfl" or float(row["required_flexion_deg"]) != q_req:
+                continue
+            hh = float(row["to_mm"])
+            if hh not in ds:
+                continue
+            x = [float(v) for v in row["x"].split(";")]
+            r = evaluate(ds[hh].mechanism, ds[hh].config, x)
+            if r:
+                out.append({"source": f"study2 q{q_req:g} to{hh:g}", "x": x, "cfg": [q_req, hh], **r})
+    out.sort(key=lambda r: r["gap150_mm"])
+    for r in out[:10]:
+        print(round(r["gap150_mm"], 2), r["source"], r["ext"], [round(v, 1) for v in r["len"]])
+    print(len(out), "candidates")
+    (ROOT / "design/output/paper/fig2_pad_search.json").write_text(json.dumps(out[:20], indent=1))
+
+
+if __name__ == "__main__":
+    main()
