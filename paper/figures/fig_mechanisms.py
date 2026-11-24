@@ -226,37 +226,39 @@ def main() -> int:
     box = probe.dataLim
     plt.close(probe_fig)
     xlim, ylim = (box.x0 - 3.0, box.x1 + 3.0), (box.y0 - 2.0, box.y1 + 2.0)
-    # (a) the CFL enlarged with its pivots and frame labelled, the other three small and stacked beside it (one scale
-    # among the three); (b) the poles; (c) a third panel. Positions in inches.
+    # Layout (2026-11-24 brief): (a) the CFL's kinematic model and variables; (b) the four PIP joints compared;
+    # (c) the achievable pole locations, given the most room. The coverage surface is dropped (Fig. 3 shows coverage).
     aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
     head, cap = 0.17, 0.115  # panel-label row; a sketch's title row
-    sw_small = 0.68  # in, per small sketch
-    sh_small = sw_small * aspect
-    height = head + 3 * (cap + sh_small)
-    sw_big = 1.55
-    sh_big = sw_big * aspect
+    height = 2.45
     fig = plt.figure(figsize=(WIDTH, height))
 
     def box(x, y, w, h):
         return fig.add_axes((x / WIDTH, y / height, w / WIDTH, h / height))
 
-    def panel(key, x0, y0, w, h, fontsize):
-        _, title, colour, _, ours = next(a for a in ARCH if a[0] == key)
+    def panel(key, x0, y0, w, h, fontsize, title=True):
+        _, name, colour, _, ours = next(a for a in ARCH if a[0] == key)
         ax = box(x0, y0, w, h)
         sketch.frame(ax, xlim, ylim)
         view = views[key]
         view.draw(ax, FLEXION, hit=set(), style="sketch")
         if key in ("rcj", "cfl"):  # the moving instantaneous centre over 0-120 deg, now at 120 deg
             path = icr_path(view, FLEXION)
-            ax.plot(*path.T, color=ICR, lw=1.1, zorder=20, solid_capstyle="round")
-            ax.plot(*path[-1], marker="*", ms=5.5, color=ICR, mec="white", mew=0.3, zorder=21)
-        fig.text((x0 + w / 2) / WIDTH, (y0 + h + cap - 0.01) / height, title, ha="center", va="top",
-                 fontsize=fontsize, color=colour, fontweight="bold" if ours else "normal")
+            ax.plot(*path.T, color=ICR, lw=1.0, zorder=20, solid_capstyle="round")
+            ax.plot(*path[-1], marker="*", ms=5.0, color=ICR, mec="white", mew=0.3, zorder=21)
+        if title:
+            fig.text((x0 + w / 2) / WIDTH, (y0 + h + cap - 0.01) / height, name, ha="center", va="top",
+                     fontsize=fontsize, color=colour, fontweight="bold" if ours else "normal")
         return ax
 
-    # the CFL, enlarged, its pivots and the proximal frame named as in the text (Sec. III-A)
-    big_y = 0.07
-    cax_ = panel("cfl", 0.02, big_y, sw_big, sh_big, 7.5)
+    label = dict(ha="left", va="top", fontsize=7.5, fontweight="bold")
+
+    # (a) the CFL's kinematic model: pivots, frame, and the finger model (lengths, one pad) above it
+    sw_big = 1.5
+    sh_big = sw_big * aspect
+    big_y = 0.04
+    fig.text(0.02 / WIDTH, 1 - 0.02 / height, "(a) CFL model", **label)
+    cax_ = panel("cfl", 0.02, big_y, sw_big, sh_big, 7.0, title=False)
     four = views["cfl"].joint
     st = four.sweep([FLEXION])
     pts = {"A": four.finger.joint.a.array, "A'": four.finger.joint.ap.array, "B": st.b[0], "B'": st.bp[0],
@@ -274,10 +276,8 @@ def main() -> int:
                   va="center", color=INK, zorder=31)
     cax_.annotate("$\\mathcal{F}_1$", xy=(0, 14), xytext=(-5, -7), textcoords="offset points", fontsize=6.5,
                   ha="right", va="center", color=INK, zorder=31)
-    # the finger model as a legend above the CFL, extended (q = 0): phalanx lengths L_1, L_vp, L_2 along the link line,
-    # and one pad's length, thickness and face depth t, measured palmar (Sec. III-A)
-    ly = big_y + sh_big + cap + 0.03
-    lax = box(0.04, ly, 1.62, height - head - ly)
+    ly = big_y + sh_big + 0.02
+    lax = box(0.04, ly, 1.5, height - head - ly)
     lax.set_xlim(-19, 94); lax.set_ylim(-17, 13); lax.set_aspect("equal"); lax.axis("off")
     L1, Lvp, L2 = 40.0, 8.0, 42.0
     lax.plot([-4, 94], [0, 0], color=INK2, lw=0.5, ls=(0, (3, 2)), zorder=1)
@@ -287,41 +287,41 @@ def main() -> int:
     lax.add_patch(plt.Rectangle((4, -d_ - h_), L1 - 6, h_, fc="#f6b8c2", ec="#d7263d", lw=0.7, zorder=2))
     lax.add_patch(plt.Rectangle((L1 + Lvp + 2, -d_ - h_), L2 - 8, h_, fc="#bcc8f2", ec="#1f3fbf", lw=0.7, zorder=2))
     dl = dict(arrowstyle="<|-|>", lw=0.45, color=INK2, mutation_scale=3.5, shrinkA=0, shrinkB=0)
-    top = 4.0
     for x0_, x1_, name in ((0, L1, "$L_1$"), (L1, L1 + Lvp, "$L_{vp}$"), (L1 + Lvp, L1 + Lvp + L2, "$L_2$")):
-        lax.annotate("", xy=(x1_, top), xytext=(x0_, top), arrowprops=dl)
-        lax.text((x0_ + x1_) / 2, top + 1.0, name, fontsize=6.5, ha="center", va="bottom")
+        lax.annotate("", xy=(x1_, 4.0), xytext=(x0_, 4.0), arrowprops=dl)
+        lax.text((x0_ + x1_) / 2, 5.0, name, fontsize=6.5, ha="center", va="bottom")
     lax.annotate("", xy=(L1 - 2, -d_ - h_ - 2.5), xytext=(4, -d_ - h_ - 2.5), arrowprops=dl)
     lax.text((L1 + 2) / 2, -d_ - h_ - 3.2, "$\\ell_1$", fontsize=6.5, ha="center", va="top")
     lax.annotate("", xy=(L1 + 1.0, -d_), xytext=(L1 + 1.0, -d_ - h_), arrowprops=dl)
     lax.text(L1 + 1.8, -d_ - h_ / 2, "$h_1$", fontsize=6.5, ha="left", va="center")
     lax.annotate("", xy=(-11, 0), xytext=(-11, -d_ - h_), arrowprops=dl)
     lax.text(-11.8, -(d_ + h_) / 2, "$t_1$", fontsize=6.5, ha="right", va="center")
-    for i, key in enumerate(("2r_dd", "2r_remote", "rcj")):
-        y0 = (2 - i) * (cap + sh_small)
-        panel(key, 0.02 + sw_big + 0.08, y0, sw_small, sh_small, 6.5)
-    label = dict(ha="left", va="top", fontsize=7.5, fontweight="bold")
-    fig.text(0.02 / WIDTH, 1 - 0.02 / height, "(a) the four PIP joints at $120^\\circ$", **label)
-    # (b) the finite pole P(q_req) in the complex plane (Lemma 1, P = b / (1 - e^{iq})), by joint type, from
-    # Study 0's analysis rather than any optimization run: a fixed axis's P is the pin (a point); equal rollers'
-    # P = (a + r) - i r tan(q/4) lies on one segment (Study 0, Eq. 14); a four-bar's P follows from the closure of
-    # its two links (circle intersection, report/study0/feasible_space.md, F1) and covers an area.
-    bx = 2.55
-    fig.text(bx / WIDTH, 1 - 0.02 / height, "(b) pole $P$ over flexion", **label)
-    pax = box(bx + 0.32, 0.3, 2.0, height - head - 0.36)
+
+    # (b) the four PIP joints at 120 deg, one scale, 2 x 2
+    bx0, sw = 1.66, 0.68
+    sh = sw * aspect
+    fig.text(bx0 / WIDTH, 1 - 0.02 / height, "(b) PIP joints at $120^\\circ$", **label)
+    top_y = height - head - cap - sh - 0.02
+    for i, key in enumerate(("2r_dd", "2r_remote", "rcj", "cfl")):
+        col, row = i % 2, i // 2
+        panel(key, bx0 + col * (sw + 0.06), top_y - row * (cap + sh + 0.02), sw, sh, 6.3)
+
+    # (c) the poles each joint can reach over the study's design space, at 60-150 deg (light to dark), with the
+    # proximal contact faces of 3-9 mm pads (CFL mount) for reference
+    cx0 = 3.28
+    fig.text(cx0 / WIDTH, 1 - 0.02 / height, "(c) achievable pole locations", **label)
+    pax = box(cx0 + 0.36, 0.30, WIDTH - cx0 - 0.42, height - head - 0.38)
     blue, yellow = ARCH[3][2], ARCH[2][2]
-    qr = np.radians(FLEXION)
-    # at 60, 90, 120 and 150 deg, light to dark: the four-bars' 95% regions as outlines, the rollers' as fills
     shown = {60: ("#a9cbef", "#f7dc95"), 90: ("#6aa3e3", "#f2c25a"), 120: ("#2a78d6", "#eda100"),
              150: ("#0d3c78", "#a87000")}
     gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
     rings = cached_outlines(shown, gx, gy)
     radii = np.linspace(9.5, 20.0, 60)
     lo_r, hi_r = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
+    pax.axhspan(-12, -6, color="#e8e6e1", zorder=0, lw=0)
     for deg, (c_four, c_roll) in shown.items():
         ring = rings[deg]
-        pax.plot(ring[:, 0], ring[:, 1], color=c_four, lw=0.9, zorder=1 + deg / 1000)
-        # rollers, the proximal one centred at the phalanx end, radii each in the study's 9.5-20 mm, equal or not
+        pax.plot(ring[:, 0], ring[:, 1], color=c_four, lw=1.0, zorder=1 + deg / 1000)
         t = np.radians(deg)
         edge = np.concatenate([roller_pole(radii, lo_r, t), roller_pole(hi_r, radii, t),
                                roller_pole(radii[::-1], hi_r, t), roller_pole(lo_r, radii[::-1], t)])
@@ -329,59 +329,22 @@ def main() -> int:
     pax.plot(0, 0, marker="o", ms=4.5, color=INK, zorder=4)  # a pin at the phalanx end
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
-    pax.legend(handles=[Line2D([], [], marker="o", ms=4.0, color=INK, lw=0, label="2R"),
-                        Patch(fc=yellow, ec="none", label="RCJ"),
-                        Line2D([], [], color=blue, lw=1.0, label="CFL")],
-               loc="upper right", fontsize=6.5, frameon=False, handlelength=1.4, handletextpad=0.5,
-               borderaxespad=0.1, labelspacing=0.3)
+    handles = [Line2D([], [], marker="o", ms=4.0, color=INK, lw=0, label="pin (2R)"),
+               Patch(fc=yellow, ec="none", label="rollers (RCJ)"),
+               Line2D([], [], color=blue, lw=1.0, label="crossed four-bar (CFL)"),
+               Patch(fc="#e8e6e1", ec="none", label="contact faces, 3–9 mm pads")]
+    handles += [Line2D([], [], color=shown[d][0], lw=1.2, label=f"${d}^\\circ$") for d in shown]
+    pax.legend(handles=handles, loc="upper right", fontsize=6.0, frameon=False, handlelength=1.3,
+               handletextpad=0.4, borderaxespad=0.1, labelspacing=0.25, ncol=1)
     pax.axhline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
     pax.axvline(0, color=INK2, lw=0.4, ls=(0, (2, 2)), zorder=0)
-    pax.set_xlim(-32, 52); pax.set_ylim(-20, 38); pax.set_aspect("equal")
-    pax.set_xlabel("from the proximal phalanx's end (mm)", fontsize=7, labelpad=1)
-    pax.set_ylabel("above its axis (mm)", fontsize=7, labelpad=1)
-    pax.tick_params(labelsize=6.5, length=2)
+    pax.set_xlim(-32, 62); pax.set_ylim(-20, 38); pax.set_aspect("equal")
+    pax.set_xlabel("along the finger from the proximal phalanx's end (mm)", fontsize=6.8, labelpad=1)
+    pax.set_ylabel("above the link line (mm)", fontsize=6.8, labelpad=1)
+    pax.tick_params(labelsize=6.3, length=2)
     for side in ("top", "right"):
         pax.spines[side].set_visible(False)
     pax.grid(False)
-    # (c) how coverage falls with pad thickness h and required flexion q_req, per joint type, from Study 0 alone:
-    # the coverage law (Eq. 10) with faces at depth t = h (mount depth 0), a pole at constant depth z, gap
-    # G = 2 [t - z]_+ tan(q_req / 2), the finger of the paper's former Fig. 3 (L_f = 90 mm, pads of 40.7 mm each at
-    # G = 0, so x0 = 8.6 mm), averaged over Q_eval = {90, (90 + q_req) / 2, q_req} deg. A pin sits on the link line
-    # (z = 0); the largest roller inside the face (r = t) puts its pole r tan(q_req / 4) deep; a virtual pole sits on
-    # the face (z = t). On the floor: where each surface crosses 0.8.
-    cx = 4.92
-    fig.text(cx / WIDTH, 1 - 0.02 / height, "(c) coverage over pad and flexion", **label)
-    cax = fig.add_axes(((cx - 0.05) / WIDTH, 0.0, (WIDTH - cx + 0.05) / WIDTH, (height - head) / height),
-                       projection="3d")
-    cax.set_box_aspect((1.0, 1.0, 0.95), zoom=0.92)
-    Lf, x0 = 90.0, 90.0 - 2 * 40.7
-    hh, qd = np.meshgrid(np.linspace(1, 9, 60), np.linspace(90, 150, 60))
-    qq = np.radians(qd)
-    depth = {"2r": 0.0 * hh, "rcj": hh * np.tan(qq / 4), "cfl": hh}
-
-    def coverage(z, t, qreq):
-        g = 2 * np.maximum(t - z, 0.0) * np.tan(qreq / 2)
-        evals = [np.radians(90.0) + 0 * qreq, (np.radians(90.0) + qreq) / 2, qreq]
-        return np.mean([(Lf - x0 - g) / (Lf - g * (1 - np.cos(q / 2)) + 2 * z * np.sin(q / 2)) for q in evals],
-                       axis=0)
-
-    floor = 0.3
-    sheet = {"2r": "#6f6e6a", "rcj": yellow, "cfl": blue}
-    for key, colour in sheet.items():
-        c = np.clip(coverage(depth[key], hh, qq), floor, 1.0)
-        cax.plot_surface(hh, qd, c, color=colour, alpha=0.5, lw=0, antialiased=True, shade=True, rstride=2, cstride=2)
-        cax.plot_wireframe(hh, qd, c, color=colour, lw=0.3, rstride=12, cstride=12, alpha=0.9)
-        cax.contour(hh, qd, c, levels=[0.8], zdir="z", offset=floor, colors=[colour], linewidths=1.0)
-    cax.set_xlim(1, 9); cax.set_ylim(90, 150); cax.set_zlim(floor, 0.9)
-    cax.set_xticks([2, 5, 8]); cax.set_yticks([90, 120, 150]); cax.set_zticks([0.3, 0.5, 0.7, 0.9])
-    cax.set_xlabel("pad $h$ (mm)", labelpad=-9, fontsize=6.5)
-    cax.set_ylabel("flexion $q_{\\mathrm{req}}$ (deg)", labelpad=-8, fontsize=6.5)
-    cax.set_zlabel(r"$\bar C_{\mathrm{pad}}$", labelpad=-9, fontsize=6.5)
-    cax.tick_params(labelsize=5.5, pad=-3)
-    for axis in (cax.xaxis, cax.yaxis, cax.zaxis):
-        axis.pane.set_facecolor((1, 1, 1, 0)); axis.pane.set_edgecolor("#bdbcb8")
-        axis._axinfo["grid"]["color"] = (0.85, 0.85, 0.85, 1); axis._axinfo["grid"]["linewidth"] = 0.3
-    cax.view_init(elev=16, azim=60)
     DEST.mkdir(parents=True, exist_ok=True)
     path = DEST / "fig_mechanisms.png"
     save_rgb(fig, path, dpi=400)
