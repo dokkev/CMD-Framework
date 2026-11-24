@@ -1,0 +1,210 @@
+<title>CoDe Hand 연구 진행 보고</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of a lab report; summary table first, then one section per study with a status chip; tables only, no figures. */
+:root{
+  --bg:#f7f8f6; --paper:#ffffff; --fg:#1d2321; --muted:#5b6662; --rule:#d9dfdc;
+  --accent:#1f6f8b; --accent-soft:#e3eff3;
+  --ok:#2e7d4f; --ok-soft:#e4f2ea; --part:#9a6a12; --part-soft:#f6eedc; --prog:#5a55a6; --prog-soft:#ebeaf7; --no:#a13d2d; --no-soft:#f6e3df;
+  --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131817; --paper:#1a201f; --fg:#e4e9e7; --muted:#9aa6a2; --rule:#2e3735;
+  --accent:#6bb7d2; --accent-soft:#1c3038;
+  --ok:#7cc79b; --ok-soft:#1b3125; --part:#e0b45e; --part-soft:#352b17; --prog:#a9a5ea; --prog-soft:#26254a; --no:#e7887a; --no-soft:#3a201b;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#131817; --paper:#1a201f; --fg:#e4e9e7; --muted:#9aa6a2; --rule:#2e3735;
+  --accent:#6bb7d2; --accent-soft:#1c3038;
+  --ok:#7cc79b; --ok-soft:#1b3125; --part:#e0b45e; --part-soft:#352b17; --prog:#a9a5ea; --prog-soft:#26254a; --no:#e7887a; --no-soft:#3a201b;
+  color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15.5px;line-height:1.72;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:860px;margin:0 auto;padding-block:40px 72px;display:grid;gap:44px}
+header{display:grid;gap:10px;border-bottom:2px solid var(--fg);padding-bottom:22px}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.02em;display:flex;flex-wrap:wrap;gap:6px 18px}
+h1{font-size:clamp(26px,4.4vw,34px);line-height:1.25;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:21px;margin:0;line-height:1.35;text-wrap:balance}
+h3{font-size:16px;margin:0;font-weight:600}
+p{margin:0}
+section{display:grid;gap:16px;min-width:0}
+.lead{font-size:16.5px}
+.question{background:var(--accent-soft);border-left:4px solid var(--accent);padding:16px 18px;display:grid;gap:8px}
+.question strong{color:var(--accent)}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px}
+.tag{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.chip{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.chip.ok{color:var(--ok);background:var(--ok-soft)}
+.chip.part{color:var(--part);background:var(--part-soft)}
+.chip.prog{color:var(--prog);background:var(--prog-soft)}
+.chip.no{color:var(--no);background:var(--no-soft)}
+ul{margin:0;padding-left:1.2em;display:grid;gap:6px}
+.tbl{overflow-x:auto;border:1px solid var(--rule);background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12.5px;letter-spacing:.03em;background:var(--bg)}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;white-space:nowrap}
+figcaption{font-size:13px;color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.box{border:1px solid var(--rule);background:var(--paper);padding:14px 16px;display:grid;gap:6px;min-width:0}
+.box h3{font-size:14.5px}
+.box p{font-size:14px}
+code{font-family:var(--mono);font-size:.88em}
+.def{font-size:14px;display:grid;gap:4px;border-top:1px solid var(--rule);padding-top:12px}
+td.hl{font-weight:600}
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500}}
+:root[data-theme="dark"]{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500}
+.tbl{overflow-x:auto}
+table.small{font-size:12.5px}
+table.small th,table.small td{padding:6px 8px}
+h3{margin-top:6px}
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  body{font-size:11pt;background:#fff;color:#000;padding:0}
+  main{max-width:none;padding:0;gap:22px}
+  .tbl{overflow:visible;border-color:#bbb}
+  table{font-size:9pt}
+  table.small{font-size:8pt}
+  th,td{padding:4px 6px}
+  tr{break-inside:avoid}
+  thead{display:table-header-group}
+  h2,h3{break-after:avoid}
+  .chip{border:1px solid currentColor}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+
+<main>
+<header>
+  <div class="meta"><span>CoDe Hand · 연구 진행 보고</span><span>2026-11-24</span><span>대상: PI</span></div>
+  <h1>Contact-centric 손가락 설계: Study 0–4 결과 보고</h1>
+  <p class="lead">Study 0–3은 시뮬레이션과 해석 결과가 정리되었고, 논문(RSS 2027 extended abstract, 12/4 마감)에 반영 중입니다. Study 4(학습된 in-hand 회전 정책)는 진행 중입니다.</p>
+</header>
+
+<section>
+  <h2>연구 질문</h2>
+  <div class="question">
+    <p><strong>손의 morphology를 바꿔야 할 때, 같은 명령이 물체를 같은 방식으로 다루려면 무엇을 가장 먼저 지켜야 하는가?</strong></p>
+    <p>여기서 morphology는 skeleton(링크와 관절)과 그 위에 올라간 접촉면을 함께 가리킵니다. 두꺼운 proximal pad 같은 새 접촉 인터페이스를 달면 손가락 재설계는 피할 수 없습니다. 이때 재설계가 측정에 섞여 들어가는 것을 어떻게 막는지가 문제입니다.</p>
+    <p><strong>답:</strong> 접촉을 감지하지 않는 관절 명령에서는 <em>접촉면의 움직임</em>(proximal pad 기준 contact Jacobian)을 지켜야 합니다. skeleton은 기준이 되지 않습니다. 반대로 명령이 접촉 순간을 감지해 기준을 다시 잡으면, 남는 차이는 skeleton에서 옵니다.</p>
+  </div>
+  <div class="cols">
+    <div class="box"><h3>P1. 손끝 너머에 자리가 없다</h3><p>관절에 서보가 있으면 서보와 관절이 pad 자리를 차지합니다. proximal pad는 얇거나, 아니면 가동 범위를 잃습니다.</p></div>
+    <div class="box"><h3>P2. 재설계가 두 번째 변수가 된다</h3><p>인터페이스에 맞춰 손가락을 바꾸면, 측정된 차이에 인터페이스 효과와 손가락 기구학 변화가 섞입니다.</p></div>
+    <div class="box"><h3>C1. 두꺼운 pad를 위한 공간</h3><p>원격 구동 CFL(crossed four-bar) 손가락. 필요한 굽힘을 만족하면서 접촉면을 더 많이 남깁니다.</p></div>
+    <div class="box"><h3>C2. contact Jacobian을 지키는 재설계</h3><p>skeleton 대신 접촉면의 상대 운동을 지키도록 재설계하면, 인터페이스를 손가락과 분리해 연구할 수 있습니다.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>한눈에 보기</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Study</th><th>질문</th><th>핵심 결과</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>0 해석</td><td>공간과 운동을 정하는 것은 무엇인가</td><td>pole(원위 마디가 도는 점) 하나가 둘 다 정함. fixed axis에는 운동 변화의 하한이 있음</td><td><span class="chip ok">유도 완료</span></td></tr>
+      <tr><td>1 공간</td><td>구조별 최대 pad coverage</td><td>CFL이 2R-DD보다 10개 조건 모두에서 2.4–14.6%p 높음</td><td><span class="chip ok">완료</span></td></tr>
+      <tr><td>2 재설계</td><td>두꺼운 pad로 재설계할 때 접촉면 운동 변화</td><td>CFL이 9개 조건 모두에서 최소이며, fixed-axis 하한의 10–51%</td><td><span class="chip ok">완료</span></td></tr>
+      <tr><td>3 측정</td><td>재설계가 측정에 얹는 오차는 무엇을 따르는가</td><td>R(접촉면 유지) 오차 14–31%, U(coverage만) 26–347%. skeleton을 그대로 둔 fixed-axis 손가락은 95–228%</td><td><span class="chip ok">완료 (시뮬레이션)</span></td></tr>
+      <tr><td>3 계속</td><td>재설계가 연구 결론을 왜곡하는가</td><td>진짜 효과 −37%를 재설계 손들은 −4%에서 −75%로 측정. 왜곡 크기는 Δ<sub>contact</sub>와 함께 커지나, 결론 역전 여부는 distal 면이 움직인 방향이 정함</td><td><span class="chip part">부분 성립</span></td></tr>
+      <tr><td>4 in-hand</td><td>학습된 정책에서도 같은가 (O → R, U transfer)</td><td>O에서 큐브 회전 학습. 20 s 유지 81%, 반 바퀴 이상 24%, 한 바퀴 1.2%</td><td><span class="chip prog">진행 중</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="def note">
+    <p><b>Δ<sub>contact</sub></b>: 재설계 전후, proximal 접촉면 좌표계에서 본 distal 접촉점 경로의 변화(mm). contact Jacobian PIP 열의 변화입니다.</p>
+    <p><b>Δ<sub>skel</sub></b>: 같은 재설계에서 손끝(링크선 기준) 경로의 변화(mm). skeleton 운동의 변화입니다.</p>
+    <p><b>O / R / U</b>: O는 3 mm pad 기준 손가락. R은 7 mm pad로 재설계하되 접촉면 운동을 지킨 것(Δ<sub>contact</sub> 0.86 mm, Δ<sub>skel</sub> 7.67 mm). U는 7 mm pad로 coverage만 최적화한 것(3.91 mm, 3.38 mm).</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Study 0. 해석</h2><span class="chip ok">유도 완료</span><span class="tag">→ C1, C2.1</span></div>
+  <ul>
+    <li><b>공간 (R0.1):</b> 평면 PIP 관절의 clearance law와 coverage law를 유도했습니다. 최적 관절은 접촉면 위의 한 점을 중심으로 돕니다. 물리적인 핀은 pad 장착면보다 위에 있어야 하므로, 그 점은 virtual pole이어야 합니다. 그래서 CFL(crossed four-bar)을 씁니다.</li>
+    <li><b>운동 (R0.2):</b> 접촉 운동 법칙 ‖Δc‖ = 2 sin(q/2)‖Δp‖와 합 규칙 Δ<sub>contact</sub> + Δ<sub>skel</sub> ≥ 2 sin(q<sub>req</sub>/2)|Δt|를 유도했습니다. 이로부터 fixed-axis 하한이 나옵니다. 관절 축이 고정된 손가락은 pad 두께가 바뀌면 접촉면 운동이 최소 이만큼 바뀝니다(120°에서 2 mm 두께 변화당 3.46 mm). 고정 반경 rolling joint에도 같은 하한이 적용됩니다.</li>
+    <li><b>검증:</b> Study 1 설계 51개에서 coverage 계산이 evaluator와 10⁻¹³ 이내로 일치했습니다. 51개 중 47개는 pad끼리의 접촉이 실제 제약입니다(최소 간격 0.1 mm 이내). Study 2의 2R-remote 재설계는 하한 위에 정확히 놓였습니다.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Study 1. 두꺼운 pad를 위한 공간</h2><span class="chip ok">완료</span><span class="tag">→ C1</span></div>
+  <p>구조(CFL, 2R-DD, 2R-remote, RCJ)마다 자기 최적 설계를 찾고, pad 두께 3–9 mm × 필요 굽힘 90/120/150°에서 pad coverage C̄<sub>pad</sub>를 비교했습니다. 2D 측면 모델이고 손가락 길이는 90 mm입니다.</p>
+  <ul>
+    <li><b>가설 H1 성립:</b> 둘 다 설계가 존재하는 10개 조건 모두에서 CFL이 2R-DD(관절 직접 구동)보다 2.4–14.6%p 높습니다. 2R-DD는 150°에서 7, 9 mm 설계가 없습니다.</li>
+    <li><b>2R-remote(벨트 구동 고정축)와의 비교는 조건에 따라 다릅니다.</b> 90°에서는 2R-remote가 높고, 120°에서는 5–7 mm 사이에서 순위가 바뀌며, 150°에서는 CFL이 높습니다. 공간 이득의 상당 부분은 원격 구동 자체에서 나오고, virtual pole은 굽힘이 깊어질 때 그 이득을 유지합니다.</li>
+    <li>검색 편차보다 차이가 큽니다. CFL의 6회 실행 중 최악이 2R-DD 최고보다 10개 중 9개 조건에서 높습니다.</li>
+  </ul>
+  {{S1}}
+</section>
+
+<section>
+  <div class="sec-head"><h2>Study 2. 두꺼운 pad로의 재설계</h2><span class="chip ok">완료</span><span class="tag">→ C2.2</span></div>
+  <p>3 mm 설계에서 출발해 5, 7, 9 mm pad로 다시 최적화하고, 접촉면 운동 변화 Δ<sub>contact</sub>와 coverage를 동시에 봤습니다.</p>
+  <ul>
+    <li>CFL은 front의 coverage 끝에서 Δ<sub>contact</sub>가 0.35–4.31 mm로, fixed-axis 하한의 10–51%입니다. coverage는 Study 1 최적값의 0.2%p 이내입니다.</li>
+    <li>네 가지 물리 구조 중 9개 조건 모두에서 CFL이 가장 작습니다. 2R-DD와 RCJ는 coverage를 2%p 내줘도 CFL보다 위에 있습니다.</li>
+    <li>spacer로 pad 깊이를 맞추는 방법은 요구사항 단계에서 제외했습니다. 얇은 인터페이스가 깊은 설계의 coverage를 잃습니다(120°, CFL 기준 8.6%p).</li>
+  </ul>
+  {{S2}}
+</section>
+
+<section>
+  <div class="sec-head"><h2>Study 3. 재설계가 측정에 얹는 오차</h2><span class="chip ok">완료 (시뮬레이션)</span><span class="tag">→ C2.3</span></div>
+  <p><b>설계:</b> proximal pad와 distal pad로 원기둥을 쥐고, 네 방향 하중을 grasp가 풀릴 때까지 올립니다. 인터페이스 속성(마찰 μ 1.3 → 2.0 등)을 바꿨을 때의 효과 Δ(H)를 기준 손 O와 재설계 손 H에서 각각 잽니다. 오차는 E(H) = |Δ(H) − Δ(O)| / |Δ(O)|입니다. 모든 실험은 데이터 전에 계획을 커밋해 사전 등록했습니다.</p>
+  <h3>표 3-1. 같은 명령에서 잰 pull-out 하중 (R과 U, 배치별 원본)</h3>
+  <p class="note">Drake point contact, 21차. 각 손에 O의 관절 setpoint를 그대로 주고, 원기둥(반지름 ρ)을 q₀에서 쥔 뒤 한 방향으로 하중을 올려 grasp가 풀리는 하중 F(N)를 쟀습니다. 마찰 μ 1.3과 2.0에서 각각 잽니다. Δ = F(2.0) − F(1.3)이 마찰 변화의 효과이고, 오차 = |Δ(손) − Δ(O)| / |Δ(O)|입니다. 행 하나가 배치와 방향 하나입니다. O의 Δ가 작은 배치에서는 오차가 수십 배까지 튀므로(예: 3300%), 손을 대표하는 값은 중앙값을 씁니다.</p>
+  {{PAIRS}}
+  
+  <h3>표 3-2. 재설계 손별 오차 (설정별 원본)</h3>
+  <p class="note">한 행이 재설계 손 하나이고, Δ<sub>contact</sub> 순으로 정렬했습니다. 칸은 그 설정에서의 오차 E(배치별 오차의 중앙값)이고, 진할수록 큽니다. 표 3-1의 오차 열을 손마다 중앙값으로 줄인 값이어서, R과 U의 Drake point 칸이 표 3-1의 중앙값(19%, 72%)과 같습니다. 빈칸은 그 설정에서 O와 함께 쥘 수 있는 배치가 없던 손입니다. 손 이름의 d 뒤 숫자는 설계 시 목표 Δ<sub>contact</sub>(mm, p는 소수점), h3toN은 3 → N mm 재설계, maxDs/minDs는 skeleton 변화를 최대/최소로 고른 것입니다.</p>
+  {{HANDS}}
+  <ul>
+    <li><b>skeleton을 그대로 지키는 손가락은 오히려 가장 크게 틀립니다.</b> Δ<sub>skel</sub> = 0인 fixed-axis 손가락은 95, 179, 228%(5, 7, 9 mm)입니다. 접촉면 운동을 지킨 CFL 재설계는 3, 21, 41%입니다.</li>
+    <li><b>허용 범위:</b> Δ<sub>contact</sub> 약 1 mm 이하에서 E ≲ 20%입니다. CFL은 7 mm pad까지 이 범위 안에 있습니다.</li>
+    <li><b>후보 다섯 개(Δ<sub>contact</sub>, Δ<sub>skel</sub>, coverage, pad 두께, 전달비 변화) 중 모든 설정에서 오차를 예측하는 것은 Δ<sub>contact</sub>뿐입니다.</b></li>
+    <li><b>27차(오늘 완료):</b> 관절 임피던스 제어는 그대로 두고, setpoint만 기구학으로 다시 잡았습니다. 손끝 접촉점이 O와 같은 자리에 오도록 했고, 런타임 접촉 정보는 쓰지 않았습니다. 16개 손 중 15개에서 오차가 줄었습니다(중앙값 41.7% → 14.0%). 그래도 남은 오차는 여전히 Δ<sub>contact</sub>를 따릅니다. 한 점을 맞춰도 나머지 접촉점의 경로 차이는 남기 때문입니다.</li>
+  </ul>
+  <div class="tbl"><table>
+    <thead><tr><th>명령 방식</th><th>남는 오차가 따르는 것</th></tr></thead>
+    <tbody>
+      <tr><td>관절 setpoint 재사용 / 기구학으로 다시 잡은 setpoint</td><td>Δ<sub>contact</sub></td></tr>
+      <tr><td>이상적인 토크 재사용</td><td>둘 다 (Δ<sub>skel</sub>은 힘을 통해, Δ<sub>contact</sub>는 같은 힘에서도)</td></tr>
+      <tr><td>접촉 감지 후 재영점 (런타임 접촉)</td><td>Δ<sub>skel</sub> (오차 6–61%)</td></tr>
+      <tr><td>접촉력 맞춤 (힘 센싱)</td><td>오차 거의 없음 (3–7%)</td></tr>
+      <tr><td>in-hand rolling (굽힘 sweep)</td><td>어느 쪽도 순서를 정하지 못함 (재설계가 10–35% 추가)</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Study 3 계속, 결론 왜곡 (19차, 사전 등록, 7 mm 손 27개):</b> 부드럽고 두꺼운 pad의 진짜 효과는 pull-out 하중 −37%입니다. 재설계한 손에서 측정한 효과는 −4%부터 −75%까지 퍼집니다. 상대 오차는 Δ<sub>contact</sub>가 클수록 커지므로 가설의 (1)은 성립합니다. 결론이 역전되는 비율은 Δ<sub>contact</sub>를 따르지 않으므로 (2)는 성립하지 않습니다. 사후 분석에서 역전 여부는 distal 면이 물체 쪽으로 나왔는지(역전 가능) 물러났는지(과장)로 정해졌습니다.</p>
+  <p class="note">범위: 시뮬레이션 결과입니다. CFL 한 가지 메커니즘, 필요 굽힘 120°, 열린 루프 과제 3개, 인터페이스 속성 3개(마찰, 강성, 형상)입니다. MCP 열은 지키지 않습니다(MCP는 고정축이므로 같은 하한이 적용됨). 하드웨어 검증 계획(Stage 2)은 R, M, U 세 손으로 pull-out을 측정하고, Page trend test로 Δ<sub>contact</sub> 순서를 검정합니다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Study 4. 학습된 정책: in-hand 큐브 회전</h2><span class="chip prog">진행 중</span><span class="tag">아직 기여의 근거 아님</span></div>
+  <p><b>목적:</b> Study 3의 질문을 학습된 정책 수준에서 확인합니다. O에서 학습한 정책을 R과 U에 그대로 옮겼을 때(zero-shot), 접촉면 운동을 지킨 R이 U보다 잘 되는지를 봅니다.</p>
+  <p><b>설정:</b> Isaac Lab 3(Newton MuJoCo-Warp), 손가락 4개 손(엄지 포함, 손가락마다 MCP AA/FE와 PIP), 40 mm 큐브를 수직축으로 돌립니다. PPO와 MLP를 썼고, reward는 Hora, LEAP Hand, PenSpin, RotateIt의 구성을 따랐습니다(회전 속도 보상 clip, 과속 패널티, 축 이탈 패널티, delta action). 손 모델은 Drake와 같은 parametric 설계 JSON에서 URDF와 USD로 생성합니다.</p>
+  {{S4}}
+  <p class="note">평가 JSON 원본 값입니다. 평가 설정은 모두 같습니다(설정 해시 17699c520a / 823fbc8f87). 회전 비율은 변위 40 mm, 기울기 60° 이내에서 센 값이고, 한 바퀴는 끝까지 유지한 경우만 셉니다.</p>
+  <ul>
+    <li>회전 동작은 학습됐지만, 연속 회전(한 바퀴 이상)은 아직 드뭅니다.</li>
+    <li>학습량을 늘리자 정책이 쥐고 있는 쪽으로만 수렴했습니다. 탐색 노이즈가 줄어든 것이 원인으로 보입니다.</li>
+    <li><b>현재:</b> LEAP Hand 방식의 GRU 정책을 처음부터 학습 중입니다(4096 env, 약 3,800 iteration, 7시간). 500 iteration마다 평가합니다.</li>
+    <li><b>다음:</b> R, U의 grasp cache를 만들고, O 정책을 그대로 옮기는 baseline을 사전 등록합니다. 이어서 접촉면 기준 관절 action을 시험합니다. 학습 곡선과 영상은 W&amp;B 프로젝트 <code>code-hand-inhand</code>에 있습니다.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>남은 일</h2>
+  <ul>
+    <li><b>논문:</b> RSS 2027 extended abstract는 12월 4일 마감입니다. 내부 리뷰는 6/6/6에서 정체되어 있고, 오늘 SSoT의 질문을 위의 morphology 형태로 다시 썼습니다.</li>
+    <li><b>하드웨어 (Stage 2):</b> O, R, U 시제품을 제작합니다. 필요 굽힘 120° 기준 C̄<sub>pad</sub>는 각각 0.781 / 0.725 / 0.711입니다. 확인할 것은 인터페이스를 한 손에서 실제로 교체할 수 있는지(C1), 그리고 벤치에서 R &lt; U가 재현되는지(C2)입니다. 설계상 확인된 문제가 두 가지 있습니다. proximal pad가 MCP-FE 서보 캡과 6.4 mm 겹치고, 25 mm 손가락 간격에서 서보 사이 여유가 3 mm입니다.</li>
+    <li><b>Study 4:</b> GRU 결과에 따라 transfer 실험으로 넘어갑니다.</li>
+  </ul>
+</section>
+</main>
+
+

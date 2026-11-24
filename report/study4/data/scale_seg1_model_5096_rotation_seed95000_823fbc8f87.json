@@ -1,0 +1,75 @@
+{
+  "checkpoint": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rsl_rl/code_rotate_cube/2026-11-24_11-34-27_rotate_cube_O_s16_scale_seg1/model_5096.pt",
+  "task": "CoDe-Rotate-Cube-O",
+  "eval_seed": 95000,
+  "num_envs": 1024,
+  "overrides": [
+    "physics=newton_mjwarp",
+    "env.observations.policy.enable_corruption=false",
+    "env.terminations.object_off_grasp.params.max_distance=0.07",
+    "env.terminations.object_tilted.params.min_dot=0.0"
+  ],
+  "episode_s_max": 20.0,
+  "policy_observation_noise": false,
+  "grasp_cache": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rotate_cube/heldout_crown1_final4/O.pt",
+  "grasp_cache_sha256": "8e042c8b0cb83032122f7f230c3d79f2ab177393db8d656fb43fe0409078eac1",
+  "pad_crown_mm": 1.0,
+  "pad_crown_layout": "length_all",
+  "phase_period_s": 4.5,
+  "observe_rotation_goal": true,
+  "contact_metrics": true,
+  "export_grasps": false,
+  "off_grasp_distance_m": 0.07,
+  "tilt_min_dot": 0.0,
+  "clean_timeout_rate": 0.8388671875,
+  "off_grasp_rate": 0.099609375,
+  "tilted_rate": 0.09375,
+  "duration_s_mean": 18.353939056396484,
+  "signed_rotation_deg_mean": 147.03909301757812,
+  "projected_heading_change_deg_mean": 151.06353759765625,
+  "signed_rotation_deg_p10_p50_p90": [
+    28.65817642211914,
+    157.6354217529297,
+    266.0643615722656
+  ],
+  "clean_timeout_rotation_deg_mean": 154.3128662109375,
+  "clean_timeout_second_half_rotation_deg_mean": 23.200328826904297,
+  "signed_rate_rad_s_mean": 0.1282990425825119,
+  "off_axis_rate_rad_s_mean": 0.3561510741710663,
+  "max_displacement_mm_mean": 35.17708969116211,
+  "peak_tilt_deg_median": 47.83087158203125,
+  "quarter_turn_within_40mm_and_60deg_rate": 0.5244140625,
+  "half_turn_within_40mm_and_60deg_rate": 0.2509765625,
+  "three_quarter_turn_within_40mm_and_60deg_rate": 0.068359375,
+  "full_turn_and_clean_timeout_rate": 0.01171875,
+  "full_turn_within_40mm_and_60deg_rate": 0.0107421875,
+  "max_retained_rotation_deg": 399.69146728515625,
+  "thumb_and_finger_link_contact_fraction": 0.555587112903595,
+  "no_pad_link_contact_fraction": 0.06777605414390564,
+  "distinct_finger_contact_count_mean": 1.4751451015472412,
+  "per_finger_contact_fraction": {
+    "index": 0.6313432455062866,
+    "middle": 0.6945350766181946,
+    "ring": 0.14926677942276
+  },
+  "finger_contact_release_events_mean": {
+    "index": 6.0908203125,
+    "middle": 3.75,
+    "ring": 1.71875
+  },
+  "finger_contact_recontact_events_mean": {
+    "index": 6.1015625,
+    "middle": 3.2978515625,
+    "ring": 1.31640625
+  },
+  "episodes_with_finger_release_rate": {
+    "index": 0.92578125,
+    "middle": 0.8671875,
+    "ring": 0.74609375
+  },
+  "episodes_with_finger_recontact_rate": {
+    "index": 0.9091796875,
+    "middle": 0.759765625,
+    "ring": 0.4794921875
+  }
+}

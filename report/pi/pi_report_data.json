@@ -1,0 +1,3432 @@
+{
+ "metadata": {
+  "title": "CoDe Hand Study 0-4 PI report: data",
+  "created": "2026-11-24",
+  "git_commit": "a1217923b66e9501cadc25e2728085b914119dfd",
+  "generator": "report/pi/make_report.py",
+  "sources": [
+   "report/study1/data/thickness_coverage_summary.csv",
+   "report/study2/data/redesign_summary.csv",
+   "report/study3/data/drake_e21_hydro.json",
+   "report/study3/data/drake_e21_point.json",
+   "report/study3/data/drake_e21_point_pairs_RU.json",
+   "report/study3/data/drake_e22_point.json",
+   "report/study3/data/drake_e23_point.json",
+   "report/study3/data/drake_e25_hydro_own.json",
+   "report/study3/data/drake_e26_point.json",
+   "report/study3/data/drake_e27_point.json",
+   "report/study3/data/isaac_dose_A-grid_expanded.json",
+   "report/study3/data/isaac_dose_A_all.json",
+   "report/study4/data/s15_model_4597_rotation_seed94000_17699c520a.json",
+   "report/study4/data/s15_model_4597_rotation_seed95000_823fbc8f87.json",
+   "report/study4/data/scale_seg1_model_5096_rotation_seed94000_17699c520a.json",
+   "report/study4/data/scale_seg1_model_5096_rotation_seed95000_823fbc8f87.json",
+   "report/study4/data/scale_seg2_model_5595_rotation_seed94000_17699c520a.json",
+   "report/study4/data/scale_seg2_model_5595_rotation_seed95000_823fbc8f87.json",
+   "report/study4/data/scale_seg3_model_6094_rotation_seed94000_17699c520a.json",
+   "report/study4/data/scale_seg3_model_6094_rotation_seed95000_823fbc8f87.json"
+  ],
+  "definitions": {
+   "c_pad": "pad coverage C̄_pad: mean share of the finger length covered by the proximal and distal pads (fraction, 0-1), best design found by the search (GA and NSGA-II, 3 seeds each)",
+   "c_pad_worst_run": "worst of the search runs for that cell",
+   "required_flexion_deg": "q_req, the PIP flexion the design must reach without collision",
+   "d_contact_mm": "Δ_contact: change of the distal contact point's path, seen from the proximal pad face (the PIP column of the contact Jacobian), between the 3 mm reference and the redesign; max over flexion (Study 2) or the hand's value (Study 3)",
+   "d_skel_mm": "Δ_skel: change of the fingertip path seen from the link line (skeleton motion)",
+   "fixed_axis_bound_mm": "lowest Δ_contact any fixed-axis joint can reach for that thickness change: 2 sin(q_req/2) Δh",
+   "F": "pull-out limit load (N): the load at which the two-pad grasp of the cylinder gives way",
+   "D": "effect of the friction change: F(mu 2.0) - F(mu 1.3), N",
+   "E": "error a redesign adds to the measured effect: |D(hand) - D(O)| / |D(O)|; per hand, the median over the placements and directions scored on both hands",
+   "O, R, U": "O: 3 mm reference finger; R: 7 mm redesign keeping the contact-surface motion (Δ_contact 0.86 mm); U: 7 mm redesign for coverage only (Δ_contact 3.91 mm)",
+   "clean_timeout_rate": "share of episodes in which the cube was still held at 20 s",
+   "turn rates": "share of episodes whose cube turned at least 1/4, 1/2, 3/4 of a turn about the vertical axis while within 40 mm and 60 deg tilt; the full turn also requires a clean timeout"
+  },
+  "units": {
+   "lengths": "mm",
+   "loads": "N",
+   "rates and c_pad": "fraction (0-1)",
+   "angles": "deg"
+  },
+  "scope": "Simulation only. Studies 1-2: 2D side model, finger length 90 mm. Study 3: CFL, q_req 120 deg, joint impedance control with O's joint setpoint reused unless stated. Study 4: Isaac Lab 3, hand O, 1,024 held-out grasps."
+ },
+ "study1_coverage": [
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.80223278264939,
+   "c_pad_worst_run": 0.7761723324152993,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7779397665053639,
+   "c_pad_worst_run": 0.7615771780520342,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7495842932499206,
+   "c_pad_worst_run": 0.733867887395407,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.7171445328845918,
+   "c_pad_worst_run": 0.6871854764068965,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7807222910763457,
+   "c_pad_worst_run": 0.7753493095056606,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7527626809394125,
+   "c_pad_worst_run": 0.7424837092533828,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7252844044893538,
+   "c_pad_worst_run": 0.7208446864927133,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.695413008825757,
+   "c_pad_worst_run": 0.6874155988509977,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7697216942005839,
+   "c_pad_worst_run": 0.7640699262049919,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7386063772216255,
+   "c_pad_worst_run": 0.7292603398253368,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7067407902164695,
+   "c_pad_worst_run": 0.7013743658022205,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6739807219965618,
+   "c_pad_worst_run": 0.6719325621050203,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.8431298000679583,
+   "c_pad_worst_run": 0.8431298000679583,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.8085349332353727,
+   "c_pad_worst_run": 0.8085349332353727,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7729963959508482,
+   "c_pad_worst_run": 0.7729963959508482,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.7364750424872937,
+   "c_pad_worst_run": 0.7364750424872937,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.8150339379469003,
+   "c_pad_worst_run": 0.8150339379469003,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7580685056302455,
+   "c_pad_worst_run": 0.7580685056302455,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.6972462434829422,
+   "c_pad_worst_run": 0.6972462434829422,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6327294173680174,
+   "c_pad_worst_run": 0.6327294173680174,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7404582495783015,
+   "c_pad_worst_run": 0.7404582495783015,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.593036926986709,
+   "c_pad_worst_run": 0.5930369269867088,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.20869212882652424,
+   "c_pad_worst_run": 0.20869212882652424,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.0,
+   "c_pad_worst_run": 0.0,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7485719211903024,
+   "c_pad_worst_run": 0.7485719211903024,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7262420324762414,
+   "c_pad_worst_run": 0.7262420324762414,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.70832477070127,
+   "c_pad_worst_run": 0.70832477070127,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6927442620786823,
+   "c_pad_worst_run": 0.6927442620786823,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.716535811965262,
+   "c_pad_worst_run": 0.716535811965262,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7000508441879151,
+   "c_pad_worst_run": 0.7000508441879151,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.6822042660895674,
+   "c_pad_worst_run": 0.6822042660895674,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6327294173680174,
+   "c_pad_worst_run": 0.6327294173680174,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7102541477986843,
+   "c_pad_worst_run": 0.7102541477986843,
+   "runs": 6
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.593036926986709,
+   "c_pad_worst_run": 0.593036926986709,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.6981326558078548,
+   "c_pad_worst_run": 0.6981326558078548,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.66252117232363,
+   "c_pad_worst_run": 0.66252117232363,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.6335615912992651,
+   "c_pad_worst_run": 0.6335615912992651,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6056415561352123,
+   "c_pad_worst_run": 0.6056415561352123,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.6441136773503348,
+   "c_pad_worst_run": 0.6439084311176824,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.6079509377314763,
+   "c_pad_worst_run": 0.6079509377314763,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.5788045014527947,
+   "c_pad_worst_run": 0.5788045014527947,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.5551736988064357,
+   "c_pad_worst_run": 0.5551736988064357,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.6068600011138569,
+   "c_pad_worst_run": 0.6068600011138569,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.5598285928873538,
+   "c_pad_worst_run": 0.5598285928873538,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.5139341467021046,
+   "c_pad_worst_run": 0.5054234516236876,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.8031726611788045,
+   "c_pad_worst_run": 0.7847325469538909,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7787769340629851,
+   "c_pad_worst_run": 0.7732942161831695,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7557735980295125,
+   "c_pad_worst_run": 0.7508740474682636,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.732995730531031,
+   "c_pad_worst_run": 0.7148678961956052,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7883353603263803,
+   "c_pad_worst_run": 0.7839487796816288,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7610454442742453,
+   "c_pad_worst_run": 0.7574336008107349,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7334282508793436,
+   "c_pad_worst_run": 0.7200258174039353,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.7038760948204624,
+   "c_pad_worst_run": 0.6912294962898734,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7793039826501742,
+   "c_pad_worst_run": 0.7509353972976709,
+   "runs": 6
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7461659706688519,
+   "c_pad_worst_run": 0.7416767515123498,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.712852979514999,
+   "c_pad_worst_run": 0.7059562089034738,
+   "runs": 9
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6791325887930916,
+   "c_pad_worst_run": 0.6758066634941512,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.8031324841452838,
+   "c_pad_worst_run": 0.8031324841452838,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7873291697712256,
+   "c_pad_worst_run": 0.7873291697712255,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7751354613528069,
+   "c_pad_worst_run": 0.7751354613528069,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.7450952605990722,
+   "c_pad_worst_run": 0.7450952605990722,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7899798094289315,
+   "c_pad_worst_run": 0.7897315130436796,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7805653290520933,
+   "c_pad_worst_run": 0.7805653290520933,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.7383598390762548,
+   "c_pad_worst_run": 0.7383598390762548,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6939431814519321,
+   "c_pad_worst_run": 0.6939431814519321,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 3.0,
+   "c_pad": 0.7883142241336477,
+   "c_pad_worst_run": 0.7883142241336477,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 5.0,
+   "c_pad": 0.7545052661339894,
+   "c_pad_worst_run": 0.7545052661339894,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 7.0,
+   "c_pad": 0.696427616663704,
+   "c_pad_worst_run": 0.696427616663704,
+   "runs": 6
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "pad_thickness_mm": 9.0,
+   "c_pad": 0.6355625793994134,
+   "c_pad_worst_run": 0.6355625793994134,
+   "runs": 6
+  }
+ ],
+ "study2_redesign": [
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 1.2233763681175902,
+   "fixed_axis_bound_mm": 2.829710385057438,
+   "c_pad": 0.7761451726125019
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 1.8390761935613806,
+   "fixed_axis_bound_mm": 5.659420770114876,
+   "c_pad": 0.7490332983503557
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 4.31086737727602,
+   "fixed_axis_bound_mm": 8.489131155172315,
+   "c_pad": 0.7167921369672045
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 0.3508150969328221,
+   "fixed_axis_bound_mm": 3.464302218868807,
+   "c_pad": 0.7525722872510526
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 0.8645964596498249,
+   "fixed_axis_bound_mm": 6.928604437737614,
+   "c_pad": 0.7251298029699486
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 2.3214326256275233,
+   "fixed_axis_bound_mm": 10.392906656606423,
+   "c_pad": 0.695413008825757
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 0.7680790164487871,
+   "fixed_axis_bound_mm": 3.8633506745789576,
+   "c_pad": 0.7381039869830658
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 1.7111462823322385,
+   "fixed_axis_bound_mm": 7.726701349157915,
+   "c_pad": 0.7067407902164695
+  },
+  {
+   "architecture": "CFL",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 3.6479422584871695,
+   "fixed_axis_bound_mm": 11.590052023736872,
+   "c_pad": 0.6731521995892041
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.1213203435596424,
+   "fixed_axis_bound_mm": 2.82842712474619,
+   "c_pad": 0.7262420324762414
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 3.8183766184073558,
+   "fixed_axis_bound_mm": 5.65685424949238,
+   "c_pad": 0.70832477070127
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 5.23259018078045,
+   "fixed_axis_bound_mm": 8.48528137423857,
+   "c_pad": 0.6927442620786823
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.0,
+   "fixed_axis_bound_mm": 3.4641016151377544,
+   "c_pad": 0.7000508441879151
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 4.4,
+   "fixed_axis_bound_mm": 6.928203230275509,
+   "c_pad": 0.6822042660895674
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 5.859203140339979,
+   "fixed_axis_bound_mm": 10.392304845413264,
+   "c_pad": 0.6327294173680174
+  },
+  {
+   "architecture": "2R-DD",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.9982984856338595,
+   "fixed_axis_bound_mm": 3.8637033051562732,
+   "c_pad": 0.5930369269867088
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.8284271247461903,
+   "fixed_axis_bound_mm": 2.82842712474619,
+   "c_pad": 0.8085349332353727
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 5.656854249492381,
+   "fixed_axis_bound_mm": 5.65685424949238,
+   "c_pad": 0.7729963959508482
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 8.48528137423857,
+   "fixed_axis_bound_mm": 8.48528137423857,
+   "c_pad": 0.7364750424872937
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 3.4641016151377553,
+   "fixed_axis_bound_mm": 3.4641016151377544,
+   "c_pad": 0.7580685056302455
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 6.928203230275509,
+   "fixed_axis_bound_mm": 6.928203230275509,
+   "c_pad": 0.6972462434829422
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 10.392304845413264,
+   "fixed_axis_bound_mm": 10.392304845413264,
+   "c_pad": 0.6327294173680174
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 3.863703305156274,
+   "fixed_axis_bound_mm": 3.8637033051562732,
+   "c_pad": 0.593036926986709
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 13.770457564386703,
+   "fixed_axis_bound_mm": 7.7274066103125465,
+   "c_pad": 0.20869212882652424
+  },
+  {
+   "architecture": "2R-remote",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 22.861242203606214,
+   "fixed_axis_bound_mm": 11.59110991546882,
+   "c_pad": 0.0
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.8284271247461903,
+   "fixed_axis_bound_mm": 2.82842712474619,
+   "c_pad": 0.66252117232363
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 5.162363799656118,
+   "fixed_axis_bound_mm": 5.65685424949238,
+   "c_pad": 0.6335615912992651
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 7.142128534267634,
+   "fixed_axis_bound_mm": 8.48528137423857,
+   "c_pad": 0.6056415561352122
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.0797497406776353,
+   "fixed_axis_bound_mm": 3.4641016151377544,
+   "c_pad": 0.6079509377314763
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 3.7239109665700143,
+   "fixed_axis_bound_mm": 6.928203230275509,
+   "c_pad": 0.5788045014527947
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 9.299999999999999,
+   "fixed_axis_bound_mm": 10.392304845413264,
+   "c_pad": 0.5551736988064357
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 1.8999999999999986,
+   "fixed_axis_bound_mm": 3.8637033051562732,
+   "c_pad": 0.5598285928873538
+  },
+  {
+   "architecture": "RCJ",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 7.1,
+   "fixed_axis_bound_mm": 7.7274066103125465,
+   "c_pad": 0.5139341467021046
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 0.46131149685724,
+   "fixed_axis_bound_mm": 2.827307223998919,
+   "c_pad": 0.7785177911444036
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 5.701538932357674,
+   "fixed_axis_bound_mm": 5.654614447997838,
+   "c_pad": 0.7557735980295125
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 3.100834699144333,
+   "fixed_axis_bound_mm": 8.481921671996759,
+   "c_pad": 0.7307985758899773
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 0.5181149039349302,
+   "fixed_axis_bound_mm": 3.4630091881096985,
+   "c_pad": 0.7602141143866019
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 1.535695824097755,
+   "fixed_axis_bound_mm": 6.926018376219397,
+   "c_pad": 0.7332566784005726
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 2.197392723342527,
+   "fixed_axis_bound_mm": 10.389027564329096,
+   "c_pad": 0.7032552359382659
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 1.3963995456394893,
+   "fixed_axis_bound_mm": 3.865264204831005,
+   "c_pad": 0.7414793581711852
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 2.2296140346972932,
+   "fixed_axis_bound_mm": 7.73052840966201,
+   "c_pad": 0.7124825661326294
+  },
+  {
+   "architecture": "CFL ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 4.764106134476717,
+   "fixed_axis_bound_mm": 11.595792614493016,
+   "c_pad": 0.679100954104197
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 2.8,
+   "fixed_axis_bound_mm": 2.82842712474619,
+   "c_pad": 0.7873291697712256
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 1.9104973174542765,
+   "fixed_axis_bound_mm": 5.65685424949238,
+   "c_pad": 0.7751354613528069
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 90,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 4.328142581141367,
+   "fixed_axis_bound_mm": 8.48528137423857,
+   "c_pad": 0.7450952605990722
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 0.34641016151377735,
+   "fixed_axis_bound_mm": 3.4641016151377544,
+   "c_pad": 0.7805653290520933
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 2.81051177665153,
+   "fixed_axis_bound_mm": 6.928203230275509,
+   "c_pad": 0.7383598390762547
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 120,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 5.074613391789285,
+   "fixed_axis_bound_mm": 10.392304845413264,
+   "c_pad": 0.6939431814519321
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 5.0,
+   "d_contact_mm": 1.284439442357476,
+   "fixed_axis_bound_mm": 3.8637033051562732,
+   "c_pad": 0.7545052661339894
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 7.0,
+   "d_contact_mm": 3.1995317794570997,
+   "fixed_axis_bound_mm": 7.7274066103125465,
+   "c_pad": 0.696427616663704
+  },
+  {
+   "architecture": "RCJ ideal",
+   "required_flexion_deg": 150,
+   "from_mm": 3.0,
+   "to_mm": 9.0,
+   "d_contact_mm": 5.199239141617771,
+   "fixed_axis_bound_mm": 11.59110991546882,
+   "c_pad": 0.6355625793994134
+  }
+ ],
+ "study3_pairs_drake_point": {
+  "description": "Experiment 21, Drake point contact, condition A (O's joint setpoint reused). F = pull-out limit load (N) at friction mu 1.3 and 2.0; D = F(2.0) - F(1.3); E = |D(H) - D(O)| / |D(O)|.",
+  "source": "sim/drake/logs/dk_{O,R,U}_mu{1.3,2}_point-e21_r{15,20}.json; pairing as sim/drake/analyze.py error()",
+  "hands": {
+   "R": [
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.2,
+     "O_mu2": 2.0,
+     "H_mu1.3": 1.067,
+     "H_mu2": 1.8,
+     "D_O": 0.8,
+     "D_H": 0.733,
+     "E": 0.0833
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "-x",
+     "O_mu1.3": 1.067,
+     "O_mu2": 2.2,
+     "H_mu1.3": 1.0,
+     "H_mu2": 2.067,
+     "D_O": 1.133,
+     "D_H": 1.067,
+     "E": 0.0588
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "-z",
+     "O_mu1.3": 1.0,
+     "O_mu2": 1.933,
+     "H_mu1.3": 0.867,
+     "H_mu2": 1.667,
+     "D_O": 0.933,
+     "D_H": 0.8,
+     "E": 0.1429
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "+x",
+     "O_mu1.3": 38.133,
+     "O_mu2": 7.667,
+     "H_mu1.3": 34.0,
+     "H_mu2": 7.0,
+     "D_O": -30.467,
+     "D_H": -27.0,
+     "E": 0.1138
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.733,
+     "O_mu2": 2.6,
+     "H_mu1.3": 1.467,
+     "H_mu2": 2.133,
+     "D_O": 0.867,
+     "D_H": 0.667,
+     "E": 0.2308
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "-x",
+     "O_mu1.3": 1.467,
+     "O_mu2": 2.733,
+     "H_mu1.3": 1.333,
+     "H_mu2": 2.533,
+     "D_O": 1.267,
+     "D_H": 1.2,
+     "E": 0.0526
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "-z",
+     "O_mu1.3": 1.4,
+     "O_mu2": 2.4,
+     "H_mu1.3": 1.2,
+     "H_mu2": 2.0,
+     "D_O": 1.0,
+     "D_H": 0.8,
+     "E": 0.2
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "+x",
+     "O_mu1.3": 40.533,
+     "O_mu2": 41.467,
+     "H_mu1.3": 35.467,
+     "H_mu2": 5.6,
+     "D_O": 0.933,
+     "D_H": -29.867,
+     "E": 33.0
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "+x-z",
+     "O_mu1.3": 2.467,
+     "O_mu2": 3.333,
+     "H_mu1.3": 1.867,
+     "H_mu2": 2.533,
+     "D_O": 0.867,
+     "D_H": 0.667,
+     "E": 0.2308
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "-x",
+     "O_mu1.3": 2.0,
+     "O_mu2": 3.467,
+     "H_mu1.3": 1.667,
+     "H_mu2": 2.933,
+     "D_O": 1.467,
+     "D_H": 1.267,
+     "E": 0.1364
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "-z",
+     "O_mu1.3": 1.867,
+     "O_mu2": 3.0,
+     "H_mu1.3": 1.467,
+     "H_mu2": 2.333,
+     "D_O": 1.133,
+     "D_H": 0.867,
+     "E": 0.2353
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "+x",
+     "O_mu1.3": 41.267,
+     "O_mu2": 42.8,
+     "H_mu1.3": 36.267,
+     "H_mu2": 37.8,
+     "D_O": 1.533,
+     "D_H": 1.533,
+     "E": 0.0
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.267,
+     "O_mu2": 4.133,
+     "H_mu1.3": 2.267,
+     "H_mu2": 2.867,
+     "D_O": 0.867,
+     "D_H": 0.6,
+     "E": 0.3077
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "-x",
+     "O_mu1.3": 2.667,
+     "O_mu2": 4.267,
+     "H_mu1.3": 2.067,
+     "H_mu2": 3.333,
+     "D_O": 1.6,
+     "D_H": 1.267,
+     "E": 0.2083
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "-z",
+     "O_mu1.3": 2.4,
+     "O_mu2": 3.6,
+     "H_mu1.3": 1.733,
+     "H_mu2": 2.533,
+     "D_O": 1.2,
+     "D_H": 0.8,
+     "E": 0.3333
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "+x",
+     "O_mu1.3": 41.667,
+     "O_mu2": 43.8,
+     "H_mu1.3": 36.333,
+     "H_mu2": 38.333,
+     "D_O": 2.133,
+     "D_H": 2.0,
+     "E": 0.0625
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "+x-z",
+     "O_mu1.3": 4.2,
+     "O_mu2": 5.067,
+     "H_mu1.3": 2.667,
+     "H_mu2": 3.2,
+     "D_O": 0.867,
+     "D_H": 0.533,
+     "E": 0.3846
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "-x",
+     "O_mu1.3": 3.333,
+     "O_mu2": 5.133,
+     "H_mu1.3": 2.4,
+     "H_mu2": 3.733,
+     "D_O": 1.8,
+     "D_H": 1.333,
+     "E": 0.2593
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "-z",
+     "O_mu1.3": 3.0,
+     "O_mu2": 4.267,
+     "H_mu1.3": 2.0,
+     "H_mu2": 2.8,
+     "D_O": 1.267,
+     "D_H": 0.8,
+     "E": 0.3684
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "+x",
+     "O_mu1.3": 41.6,
+     "O_mu2": 44.267,
+     "H_mu1.3": 35.6,
+     "H_mu2": 38.0,
+     "D_O": 2.667,
+     "D_H": 2.4,
+     "E": 0.1
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "+x-z",
+     "O_mu1.3": 5.333,
+     "O_mu2": 6.067,
+     "H_mu1.3": 3.067,
+     "H_mu2": 3.467,
+     "D_O": 0.733,
+     "D_H": 0.4,
+     "E": 0.4545
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "-x",
+     "O_mu1.3": 4.133,
+     "O_mu2": 6.133,
+     "H_mu1.3": 2.667,
+     "H_mu2": 4.133,
+     "D_O": 2.0,
+     "D_H": 1.467,
+     "E": 0.2667
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "-z",
+     "O_mu1.3": 3.667,
+     "O_mu2": 4.933,
+     "H_mu1.3": 2.2,
+     "H_mu2": 2.867,
+     "D_O": 1.267,
+     "D_H": 0.667,
+     "E": 0.4737
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.6,
+     "O_mu2": 2.667,
+     "H_mu1.3": 1.4,
+     "H_mu2": 2.267,
+     "D_O": 1.067,
+     "D_H": 0.867,
+     "E": 0.1875
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "-x",
+     "O_mu1.3": 1.333,
+     "O_mu2": 2.733,
+     "H_mu1.3": 1.267,
+     "H_mu2": 2.6,
+     "D_O": 1.4,
+     "D_H": 1.333,
+     "E": 0.0476
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "-z",
+     "O_mu1.3": 1.267,
+     "O_mu2": 2.467,
+     "H_mu1.3": 1.133,
+     "H_mu2": 2.2,
+     "D_O": 1.2,
+     "D_H": 1.067,
+     "E": 0.1111
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "+x",
+     "O_mu1.3": 37.133,
+     "O_mu2": 37.533,
+     "H_mu1.3": 35.0,
+     "H_mu2": 9.067,
+     "D_O": 0.4,
+     "D_H": -25.933,
+     "E": 65.8333
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "+x-z",
+     "O_mu1.3": 2.267,
+     "O_mu2": 3.333,
+     "H_mu1.3": 1.867,
+     "H_mu2": 2.8,
+     "D_O": 1.067,
+     "D_H": 0.933,
+     "E": 0.125
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "-x",
+     "O_mu1.3": 1.933,
+     "O_mu2": 3.467,
+     "H_mu1.3": 1.733,
+     "H_mu2": 3.2,
+     "D_O": 1.533,
+     "D_H": 1.467,
+     "E": 0.0435
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "-z",
+     "O_mu1.3": 1.8,
+     "O_mu2": 3.067,
+     "H_mu1.3": 1.533,
+     "H_mu2": 2.6,
+     "D_O": 1.267,
+     "D_H": 1.067,
+     "E": 0.1579
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "+x",
+     "O_mu1.3": 38.333,
+     "O_mu2": 39.2,
+     "H_mu1.3": 35.733,
+     "H_mu2": 36.533,
+     "D_O": 0.867,
+     "D_H": 0.8,
+     "E": 0.0769
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.0,
+     "O_mu2": 4.067,
+     "H_mu1.3": 2.4,
+     "H_mu2": 3.267,
+     "D_O": 1.067,
+     "D_H": 0.867,
+     "E": 0.1875
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "-x",
+     "O_mu1.3": 2.533,
+     "O_mu2": 4.267,
+     "H_mu1.3": 2.2,
+     "H_mu2": 3.733,
+     "D_O": 1.733,
+     "D_H": 1.533,
+     "E": 0.1154
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "-z",
+     "O_mu1.3": 2.333,
+     "O_mu2": 3.667,
+     "H_mu1.3": 1.867,
+     "H_mu2": 2.933,
+     "D_O": 1.333,
+     "D_H": 1.067,
+     "E": 0.2
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "+x",
+     "O_mu1.3": 39.2,
+     "O_mu2": 40.6,
+     "H_mu1.3": 35.467,
+     "H_mu2": 36.733,
+     "D_O": 1.4,
+     "D_H": 1.267,
+     "E": 0.0952
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.8,
+     "O_mu2": 4.8,
+     "H_mu1.3": 2.933,
+     "H_mu2": 3.667,
+     "D_O": 1.0,
+     "D_H": 0.733,
+     "E": 0.2667
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "-x",
+     "O_mu1.3": 3.267,
+     "O_mu2": 5.2,
+     "H_mu1.3": 2.667,
+     "H_mu2": 4.333,
+     "D_O": 1.933,
+     "D_H": 1.667,
+     "E": 0.1379
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "-z",
+     "O_mu1.3": 2.867,
+     "O_mu2": 4.2,
+     "H_mu1.3": 2.2,
+     "H_mu2": 3.267,
+     "D_O": 1.333,
+     "D_H": 1.067,
+     "E": 0.2
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "+x",
+     "O_mu1.3": 39.667,
+     "O_mu2": 41.467,
+     "H_mu1.3": 34.2,
+     "H_mu2": 35.867,
+     "D_O": 1.8,
+     "D_H": 1.667,
+     "E": 0.0741
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "+x-z",
+     "O_mu1.3": 4.6,
+     "O_mu2": 5.4,
+     "H_mu1.3": 3.333,
+     "H_mu2": 3.933,
+     "D_O": 0.8,
+     "D_H": 0.6,
+     "E": 0.25
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "-x",
+     "O_mu1.3": 4.0,
+     "O_mu2": 6.133,
+     "H_mu1.3": 3.133,
+     "H_mu2": 4.867,
+     "D_O": 2.133,
+     "D_H": 1.733,
+     "E": 0.1875
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "-z",
+     "O_mu1.3": 3.333,
+     "O_mu2": 4.6,
+     "H_mu1.3": 2.467,
+     "H_mu2": 3.4,
+     "D_O": 1.267,
+     "D_H": 0.933,
+     "E": 0.2632
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 115.0,
+     "direction": "+x",
+     "O_mu1.3": 37.267,
+     "O_mu2": 39.267,
+     "H_mu1.3": 31.733,
+     "H_mu2": 33.733,
+     "D_O": 2.0,
+     "D_H": 2.0,
+     "E": 0.0
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 115.0,
+     "direction": "+x-z",
+     "O_mu1.3": 5.2,
+     "O_mu2": 5.867,
+     "H_mu1.3": 3.6,
+     "H_mu2": 4.067,
+     "D_O": 0.667,
+     "D_H": 0.467,
+     "E": 0.3
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 115.0,
+     "direction": "-x",
+     "O_mu1.3": 4.733,
+     "O_mu2": 7.067,
+     "H_mu1.3": 3.533,
+     "H_mu2": 5.4,
+     "D_O": 2.333,
+     "D_H": 1.867,
+     "E": 0.2
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 115.0,
+     "direction": "-z",
+     "O_mu1.3": 3.733,
+     "O_mu2": 4.933,
+     "H_mu1.3": 2.6,
+     "H_mu2": 3.467,
+     "D_O": 1.2,
+     "D_H": 0.867,
+     "E": 0.2778
+    }
+   ],
+   "U": [
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 85.0,
+     "direction": "+x-z",
+     "O_mu1.3": 0.733,
+     "O_mu2": 1.467,
+     "H_mu1.3": 1.8,
+     "H_mu2": 3.4,
+     "D_O": 0.733,
+     "D_H": 1.6,
+     "E": 1.1818
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 85.0,
+     "direction": "-x",
+     "O_mu1.3": 0.667,
+     "O_mu2": 1.667,
+     "H_mu1.3": 1.467,
+     "H_mu2": 3.6,
+     "D_O": 1.0,
+     "D_H": 2.133,
+     "E": 1.1333
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 85.0,
+     "direction": "-z",
+     "O_mu1.3": 0.667,
+     "O_mu2": 1.467,
+     "H_mu1.3": 1.533,
+     "H_mu2": 3.267,
+     "D_O": 0.8,
+     "D_H": 1.733,
+     "E": 1.1667
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.2,
+     "O_mu2": 2.0,
+     "H_mu1.3": 2.8,
+     "H_mu2": 4.467,
+     "D_O": 0.8,
+     "D_H": 1.667,
+     "E": 1.0833
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "-x",
+     "O_mu1.3": 1.067,
+     "O_mu2": 2.2,
+     "H_mu1.3": 2.333,
+     "H_mu2": 4.667,
+     "D_O": 1.133,
+     "D_H": 2.333,
+     "E": 1.0588
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 90.0,
+     "direction": "-z",
+     "O_mu1.3": 1.0,
+     "O_mu2": 1.933,
+     "H_mu1.3": 2.333,
+     "H_mu2": 4.133,
+     "D_O": 0.933,
+     "D_H": 1.8,
+     "E": 0.9286
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "+x",
+     "O_mu1.3": 38.133,
+     "O_mu2": 7.667,
+     "H_mu1.3": 44.0,
+     "H_mu2": 44.533,
+     "D_O": -30.467,
+     "D_H": 0.533,
+     "E": 1.0175
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.733,
+     "O_mu2": 2.6,
+     "H_mu1.3": 4.0,
+     "H_mu2": 5.733,
+     "D_O": 0.867,
+     "D_H": 1.733,
+     "E": 1.0
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "-x",
+     "O_mu1.3": 1.467,
+     "O_mu2": 2.733,
+     "H_mu1.3": 3.267,
+     "H_mu2": 5.8,
+     "D_O": 1.267,
+     "D_H": 2.533,
+     "E": 1.0
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 95.0,
+     "direction": "-z",
+     "O_mu1.3": 1.4,
+     "O_mu2": 2.4,
+     "H_mu1.3": 3.2,
+     "H_mu2": 5.133,
+     "D_O": 1.0,
+     "D_H": 1.933,
+     "E": 0.9333
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "+x",
+     "O_mu1.3": 40.533,
+     "O_mu2": 41.467,
+     "H_mu1.3": 47.733,
+     "H_mu2": 48.733,
+     "D_O": 0.933,
+     "D_H": 1.0,
+     "E": 0.0714
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "+x-z",
+     "O_mu1.3": 2.467,
+     "O_mu2": 3.333,
+     "H_mu1.3": 5.4,
+     "H_mu2": 7.133,
+     "D_O": 0.867,
+     "D_H": 1.733,
+     "E": 1.0
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "-x",
+     "O_mu1.3": 2.0,
+     "O_mu2": 3.467,
+     "H_mu1.3": 4.4,
+     "H_mu2": 7.133,
+     "D_O": 1.467,
+     "D_H": 2.733,
+     "E": 0.8636
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 100.0,
+     "direction": "-z",
+     "O_mu1.3": 1.867,
+     "O_mu2": 3.0,
+     "H_mu1.3": 4.133,
+     "H_mu2": 6.2,
+     "D_O": 1.133,
+     "D_H": 2.067,
+     "E": 0.8235
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "+x",
+     "O_mu1.3": 41.267,
+     "O_mu2": 42.8,
+     "H_mu1.3": 50.733,
+     "H_mu2": 51.733,
+     "D_O": 1.533,
+     "D_H": 1.0,
+     "E": 0.3478
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.267,
+     "O_mu2": 4.133,
+     "H_mu1.3": 6.933,
+     "H_mu2": 8.6,
+     "D_O": 0.867,
+     "D_H": 1.667,
+     "E": 0.9231
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "-x",
+     "O_mu1.3": 2.667,
+     "O_mu2": 4.267,
+     "H_mu1.3": 5.6,
+     "H_mu2": 8.467,
+     "D_O": 1.6,
+     "D_H": 2.867,
+     "E": 0.7917
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 105.0,
+     "direction": "-z",
+     "O_mu1.3": 2.4,
+     "O_mu2": 3.6,
+     "H_mu1.3": 5.2,
+     "H_mu2": 7.333,
+     "D_O": 1.2,
+     "D_H": 2.133,
+     "E": 0.7778
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "+x",
+     "O_mu1.3": 41.667,
+     "O_mu2": 43.8,
+     "H_mu1.3": 52.4,
+     "H_mu2": 53.333,
+     "D_O": 2.133,
+     "D_H": 0.933,
+     "E": 0.5625
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "+x-z",
+     "O_mu1.3": 4.2,
+     "O_mu2": 5.067,
+     "H_mu1.3": 8.733,
+     "H_mu2": 10.267,
+     "D_O": 0.867,
+     "D_H": 1.533,
+     "E": 0.7692
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "-x",
+     "O_mu1.3": 3.333,
+     "O_mu2": 5.133,
+     "H_mu1.3": 6.867,
+     "H_mu2": 10.0,
+     "D_O": 1.8,
+     "D_H": 3.133,
+     "E": 0.7407
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 110.0,
+     "direction": "-z",
+     "O_mu1.3": 3.0,
+     "O_mu2": 4.267,
+     "H_mu1.3": 6.267,
+     "H_mu2": 8.4,
+     "D_O": 1.267,
+     "D_H": 2.133,
+     "E": 0.6842
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "+x",
+     "O_mu1.3": 41.6,
+     "O_mu2": 44.267,
+     "H_mu1.3": 52.933,
+     "H_mu2": 53.933,
+     "D_O": 2.667,
+     "D_H": 1.0,
+     "E": 0.625
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "+x-z",
+     "O_mu1.3": 5.333,
+     "O_mu2": 6.067,
+     "H_mu1.3": 10.533,
+     "H_mu2": 11.867,
+     "D_O": 0.733,
+     "D_H": 1.333,
+     "E": 0.8182
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "-x",
+     "O_mu1.3": 4.133,
+     "O_mu2": 6.133,
+     "H_mu1.3": 8.133,
+     "H_mu2": 11.533,
+     "D_O": 2.0,
+     "D_H": 3.4,
+     "E": 0.7
+    },
+    {
+     "rho_mm": 15.0,
+     "q0_deg": 115.0,
+     "direction": "-z",
+     "O_mu1.3": 3.667,
+     "O_mu2": 4.933,
+     "H_mu1.3": 7.333,
+     "H_mu2": 9.467,
+     "D_O": 1.267,
+     "D_H": 2.133,
+     "E": 0.6842
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 85.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.0,
+     "O_mu2": 2.0,
+     "H_mu1.3": 2.0,
+     "H_mu2": 3.733,
+     "D_O": 1.0,
+     "D_H": 1.733,
+     "E": 0.7333
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 85.0,
+     "direction": "-x",
+     "O_mu1.3": 0.867,
+     "O_mu2": 2.133,
+     "H_mu1.3": 1.667,
+     "H_mu2": 3.933,
+     "D_O": 1.267,
+     "D_H": 2.267,
+     "E": 0.7895
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 85.0,
+     "direction": "-z",
+     "O_mu1.3": 0.867,
+     "O_mu2": 1.933,
+     "H_mu1.3": 1.667,
+     "H_mu2": 3.6,
+     "D_O": 1.067,
+     "D_H": 1.933,
+     "E": 0.8125
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "+x-z",
+     "O_mu1.3": 1.6,
+     "O_mu2": 2.667,
+     "H_mu1.3": 3.0,
+     "H_mu2": 4.8,
+     "D_O": 1.067,
+     "D_H": 1.8,
+     "E": 0.6875
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "-x",
+     "O_mu1.3": 1.333,
+     "O_mu2": 2.733,
+     "H_mu1.3": 2.533,
+     "H_mu2": 5.0,
+     "D_O": 1.4,
+     "D_H": 2.467,
+     "E": 0.7619
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 90.0,
+     "direction": "-z",
+     "O_mu1.3": 1.267,
+     "O_mu2": 2.467,
+     "H_mu1.3": 2.467,
+     "H_mu2": 4.467,
+     "D_O": 1.2,
+     "D_H": 2.0,
+     "E": 0.6667
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "+x",
+     "O_mu1.3": 37.133,
+     "O_mu2": 37.533,
+     "H_mu1.3": 41.4,
+     "H_mu2": 41.733,
+     "D_O": 0.4,
+     "D_H": 0.333,
+     "E": 0.1667
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "+x-z",
+     "O_mu1.3": 2.267,
+     "O_mu2": 3.333,
+     "H_mu1.3": 4.133,
+     "H_mu2": 5.867,
+     "D_O": 1.067,
+     "D_H": 1.733,
+     "E": 0.625
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "-x",
+     "O_mu1.3": 1.933,
+     "O_mu2": 3.467,
+     "H_mu1.3": 3.533,
+     "H_mu2": 6.2,
+     "D_O": 1.533,
+     "D_H": 2.667,
+     "E": 0.7391
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 95.0,
+     "direction": "-z",
+     "O_mu1.3": 1.8,
+     "O_mu2": 3.067,
+     "H_mu1.3": 3.333,
+     "H_mu2": 5.333,
+     "D_O": 1.267,
+     "D_H": 2.0,
+     "E": 0.5789
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "+x",
+     "O_mu1.3": 38.333,
+     "O_mu2": 39.2,
+     "H_mu1.3": 43.467,
+     "H_mu2": 44.133,
+     "D_O": 0.867,
+     "D_H": 0.667,
+     "E": 0.2308
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.0,
+     "O_mu2": 4.067,
+     "H_mu1.3": 5.4,
+     "H_mu2": 7.0,
+     "D_O": 1.067,
+     "D_H": 1.6,
+     "E": 0.5
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "-x",
+     "O_mu1.3": 2.533,
+     "O_mu2": 4.267,
+     "H_mu1.3": 4.533,
+     "H_mu2": 7.467,
+     "D_O": 1.733,
+     "D_H": 2.933,
+     "E": 0.6923
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 100.0,
+     "direction": "-z",
+     "O_mu1.3": 2.333,
+     "O_mu2": 3.667,
+     "H_mu1.3": 4.2,
+     "H_mu2": 6.2,
+     "D_O": 1.333,
+     "D_H": 2.0,
+     "E": 0.5
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "+x",
+     "O_mu1.3": 39.2,
+     "O_mu2": 40.6,
+     "H_mu1.3": 44.467,
+     "H_mu2": 45.6,
+     "D_O": 1.4,
+     "D_H": 1.133,
+     "E": 0.1905
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "+x-z",
+     "O_mu1.3": 3.8,
+     "O_mu2": 4.8,
+     "H_mu1.3": 6.6,
+     "H_mu2": 8.067,
+     "D_O": 1.0,
+     "D_H": 1.467,
+     "E": 0.4667
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "-x",
+     "O_mu1.3": 3.267,
+     "O_mu2": 5.2,
+     "H_mu1.3": 5.6,
+     "H_mu2": 8.733,
+     "D_O": 1.933,
+     "D_H": 3.133,
+     "E": 0.6207
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 105.0,
+     "direction": "-z",
+     "O_mu1.3": 2.867,
+     "O_mu2": 4.2,
+     "H_mu1.3": 5.0,
+     "H_mu2": 7.0,
+     "D_O": 1.333,
+     "D_H": 2.0,
+     "E": 0.5
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "+x",
+     "O_mu1.3": 39.667,
+     "O_mu2": 41.467,
+     "H_mu1.3": 44.2,
+     "H_mu2": 45.267,
+     "D_O": 1.8,
+     "D_H": 1.067,
+     "E": 0.4074
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "+x-z",
+     "O_mu1.3": 4.6,
+     "O_mu2": 5.4,
+     "H_mu1.3": 7.667,
+     "H_mu2": 8.933,
+     "D_O": 0.8,
+     "D_H": 1.267,
+     "E": 0.5833
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "-x",
+     "O_mu1.3": 4.0,
+     "O_mu2": 6.133,
+     "H_mu1.3": 6.6,
+     "H_mu2": 9.933,
+     "D_O": 2.133,
+     "D_H": 3.333,
+     "E": 0.5625
+    },
+    {
+     "rho_mm": 20.0,
+     "q0_deg": 110.0,
+     "direction": "-z",
+     "O_mu1.3": 3.333,
+     "O_mu2": 4.6,
+     "H_mu1.3": 5.733,
+     "H_mu2": 7.533,
+     "D_O": 1.267,
+     "D_H": 1.8,
+     "E": 0.4211
+    }
+   ]
+  }
+ },
+ "study3_errors_by_hand": {
+  "isaac_A": {
+   "label": "Isaac Lab",
+   "description": "Isaac Lab 3 (Newton MuJoCo-Warp), point contact; O's placements; friction mu 1.3 -> 2.0; pull-out",
+   "source": "report/study3/data/isaac_dose_A_all.json",
+   "hands": [
+    {
+     "hand": "R",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.21000556712359353,
+     "pairs": 48
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.516598537388296,
+     "pairs": 52
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.7173389089009923,
+     "pairs": 52
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.7001634064269773,
+     "pairs": 12
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.9155174052566575,
+     "pairs": 52
+    },
+    {
+     "hand": "U",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 1.2358544228555846,
+     "pairs": 52
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.31306707091425223,
+     "pairs": 48
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "thickness_mm": 7.0,
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.5277777032719674,
+     "pairs": 23
+    },
+    {
+     "hand": "h3to5_hr",
+     "thickness_mm": 5.0,
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.034210433262640366,
+     "pairs": 54
+    },
+    {
+     "hand": "h3to5_hu",
+     "thickness_mm": 5.0,
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.5188042129683051,
+     "pairs": 52
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "thickness_mm": 5.0,
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 1.031947354631476,
+     "pairs": 52
+    },
+    {
+     "hand": "h3to9_hr",
+     "thickness_mm": 9.0,
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.4066725547030302,
+     "pairs": 48
+    },
+    {
+     "hand": "h3to9_hu",
+     "thickness_mm": 9.0,
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 1.0600358870284057,
+     "pairs": 52
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "thickness_mm": 9.0,
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.3967213149482035,
+     "pairs": 24
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "thickness_mm": 9.0,
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 1.5659420152242318,
+     "pairs": 52
+    }
+   ]
+  },
+  "drake_point": {
+   "label": "Drake point",
+   "description": "Drake (SAP), point contact 2.5 kN/m; experiment 21; pull-out",
+   "source": "report/study3/data/drake_e21_point.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.19375000000000012,
+     "pairs": 46,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.28991596638655437,
+     "pairs": 48,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.4641025641025635,
+     "pairs": 48,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.660919540229885,
+     "pairs": 22,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.5108695652173912,
+     "pairs": 48,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 0.7166666666666659,
+     "pairs": 48,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.1863425925925922,
+     "pairs": 52,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.23529411764705876,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.04166666666666626,
+     "pairs": 49,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.36939571150097456,
+     "pairs": 48,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.7368421052631579,
+     "pairs": 11,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 0.6043478260869566,
+     "pairs": 48,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.14835164835164844,
+     "pairs": 46,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 0.5517241379310346,
+     "pairs": 45,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.2592592592592591,
+     "pairs": 49,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 0.8377192982456142,
+     "pairs": 44,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "drake_hydro": {
+   "label": "Drake hydro",
+   "description": "Drake, hydroelastic pads 0.1 MPa over 3 mm on every hand; experiment 21; pull-out",
+   "source": "report/study3/data/drake_e21_hydro.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.1666666666666661,
+     "pairs": 53,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.8593750000000001,
+     "pairs": 53,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 1.309017595307918,
+     "pairs": 50,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.7450336071695296,
+     "pairs": 16,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 1.5263157894736845,
+     "pairs": 53,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 2.538164251207731,
+     "pairs": 54,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 1.5000000000000007,
+     "pairs": 58,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 2.0851063829787244,
+     "pairs": 55,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.042553191489362124,
+     "pairs": 59,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.9111111111111102,
+     "pairs": 63,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.8705603038936371,
+     "pairs": 12,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 1.460227272727273,
+     "pairs": 60,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 1.0000000000000004,
+     "pairs": 53,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 2.6506024096385543,
+     "pairs": 51,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 1.5905127310777818,
+     "pairs": 54,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 2.9879192409532207,
+     "pairs": 48,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "soft_pad": {
+   "label": "두께만큼 부드러운 pad",
+   "description": "Drake, hydroelastic pads 0.1 MPa over each pad's own thickness, against O carrying the same pad; experiment 25",
+   "source": "report/study3/data/drake_e25_hydro_own.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.16349085365853647,
+     "pairs": 44,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 1.074482758620689,
+     "pairs": 48,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 1.577441077441077,
+     "pairs": 38,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.75,
+     "pairs": 15,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 2.103448275862069,
+     "pairs": 35,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 3.472222222222221,
+     "pairs": 22,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 1.482304900181488,
+     "pairs": 42,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 2.2121212121212115,
+     "pairs": 35,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.058823529411764705,
+     "pairs": 46,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 1.0940170940170941,
+     "pairs": 50,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.8533128415300546,
+     "pairs": 4,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 1.847826086956523,
+     "pairs": 37,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 1.0416666666666672,
+     "pairs": 39,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 3.704260651629073,
+     "pairs": 6,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 1.2449869224062775,
+     "pairs": 38,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "acquire": {
+   "label": "grasp 획득",
+   "description": "Drake point; closing from open to draw a cylinder in against a load; experiment 23",
+   "source": "report/study3/data/drake_e23_point.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.21252425912634382,
+     "pairs": 22,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.25639670621144234,
+     "pairs": 24,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.37585309182466875,
+     "pairs": 24,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.6730246652867886,
+     "pairs": 16,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.45996790059708575,
+     "pairs": 25,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 0.741115167337823,
+     "pairs": 25,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d4p5_s0",
+     "d_contact_mm": 4.41,
+     "d_skel_mm": 11.33,
+     "E": 0.9897336293567924,
+     "pairs": 10,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d5p5_s0",
+     "d_contact_mm": 5.4,
+     "d_skel_mm": 12.17,
+     "E": 1.016442607935978,
+     "pairs": 9,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.26139577174947476,
+     "pairs": 23,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.4542258895924363,
+     "pairs": 25,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.03165984315908095,
+     "pairs": 24,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.28953640780778145,
+     "pairs": 25,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.6480759076489614,
+     "pairs": 17,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 0.4939086412645557,
+     "pairs": 25,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.24773997246813256,
+     "pairs": 22,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 0.7392334494267253,
+     "pairs": 25,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.32459904902873776,
+     "pairs": 25,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 0.9252674745715487,
+     "pairs": 25,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "dial": {
+   "label": "다이얼",
+   "description": "Drake point; turning a sprung dial by 15-42 deg in one closing; experiment 26",
+   "source": "report/study3/data/drake_e26_point.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.3105789237701285,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.3923330316180378,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.5751553146017864,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.6456384177744456,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.7323711840891209,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 0.879698491747341,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d4p5_s0",
+     "d_contact_mm": 4.41,
+     "d_skel_mm": 11.33,
+     "E": 0.9879120638188567,
+     "pairs": 25,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d5p5_s0",
+     "d_contact_mm": 5.4,
+     "d_skel_mm": 12.17,
+     "E": 0.9999984029145212,
+     "pairs": 22,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.1618406881060128,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.3416606169389208,
+     "pairs": 26,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.08654629209005296,
+     "pairs": 26,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.2433432860764529,
+     "pairs": 26,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.6569369471362103,
+     "pairs": 26,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 0.924302057403257,
+     "pairs": 26,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.1319425099751118,
+     "pairs": 26,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 0.2811213506846917,
+     "pairs": 26,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.748335559481039,
+     "pairs": 26,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 0.9502328008489243,
+     "pairs": 26,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "contact_setpoint": {
+   "label": "접촉 기준 setpoint",
+   "description": "Drake point; each hand's joint setpoint re-chosen from the kinematics so its distal fingertip contact point matches O's (no runtime contact); experiment 27; pull-out",
+   "source": "report/study3/data/drake_e27_point.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.13809523809523813,
+     "pairs": 46,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.12500000000000036,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.1333333333333333,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.31578947368421045,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.20370370370370394,
+     "pairs": 52,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 0.25925925925925936,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d4p5_s0",
+     "d_contact_mm": 4.41,
+     "d_skel_mm": 11.33,
+     "E": 0.55,
+     "pairs": 23,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d5p5_s0",
+     "d_contact_mm": 5.4,
+     "d_skel_mm": 12.17,
+     "E": 0.6,
+     "pairs": 22,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.08695652173913057,
+     "pairs": 49,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.09166666666666666,
+     "pairs": 46,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.05263157894736894,
+     "pairs": 49,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.1052631578947369,
+     "pairs": 52,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_s0",
+     "d_contact_mm": 2.92,
+     "d_skel_mm": 6.38,
+     "E": 0.39999999999999986,
+     "pairs": 49,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 0.23863636363636315,
+     "pairs": 52,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.08712121212121227,
+     "pairs": 46,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 0.14285714285714318,
+     "pairs": 49,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.24999999999999997,
+     "pairs": 42,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 0.27777777777777796,
+     "pairs": 49,
+     "thickness_mm": 9.0
+    }
+   ]
+  },
+  "rolling": {
+   "label": "in-hand rolling",
+   "description": "Drake point; rolling a cylinder in hand by a flexion sweep; experiment 22",
+   "source": "report/study3/data/drake_e22_point.json",
+   "hands": [
+    {
+     "hand": "R",
+     "d_contact_mm": 0.86,
+     "d_skel_mm": 7.67,
+     "E": 0.2684620791191628,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_minDs_s0",
+     "d_contact_mm": 1.6,
+     "d_skel_mm": 5.37,
+     "E": 0.1742001723468682,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_minDs_s0",
+     "d_contact_mm": 2.33,
+     "d_skel_mm": 4.62,
+     "E": 0.1350035645023894,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d2p25_maxDs_s0",
+     "d_contact_mm": 2.3,
+     "d_skel_mm": 9.17,
+     "E": 0.9442067580702076,
+     "pairs": 3,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 3.83,
+     "E": 0.16176599723183807,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "U",
+     "d_contact_mm": 3.91,
+     "d_skel_mm": 3.38,
+     "E": 0.34818447498110794,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d1p5_maxDs_s0",
+     "d_contact_mm": 1.46,
+     "d_skel_mm": 9.67,
+     "E": 0.1367749401145693,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "d3_maxDs_s0",
+     "d_contact_mm": 3.04,
+     "d_skel_mm": 11.55,
+     "E": 0.11607852741095569,
+     "pairs": 11,
+     "thickness_mm": 7.0
+    },
+    {
+     "hand": "h3to5_hr",
+     "d_contact_mm": 0.35,
+     "d_skel_mm": 3.55,
+     "E": 0.09665772961861994,
+     "pairs": 11,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_hu",
+     "d_contact_mm": 1.58,
+     "d_skel_mm": 2.02,
+     "E": 0.1812535755064435,
+     "pairs": 11,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to5_d3_minDs_s0",
+     "d_contact_mm": 3.09,
+     "d_skel_mm": 0.38,
+     "E": 0.3308384617499286,
+     "pairs": 11,
+     "thickness_mm": 5.0
+    },
+    {
+     "hand": "h3to9_hr",
+     "d_contact_mm": 2.32,
+     "d_skel_mm": 9.37,
+     "E": 0.23195534461721493,
+     "pairs": 11,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_hu",
+     "d_contact_mm": 3.89,
+     "d_skel_mm": 7.17,
+     "E": 0.18052413199967662,
+     "pairs": 11,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d3p5_maxDs_s0",
+     "d_contact_mm": 3.52,
+     "d_skel_mm": 12.72,
+     "E": 0.14906523991410522,
+     "pairs": 11,
+     "thickness_mm": 9.0
+    },
+    {
+     "hand": "h3to9_d5_minDs_s0",
+     "d_contact_mm": 5.08,
+     "d_skel_mm": 5.32,
+     "E": 0.26321737516751215,
+     "pairs": 11,
+     "thickness_mm": 9.0
+    }
+   ]
+  }
+ },
+ "study4_in_hand_rotation": [
+  {
+   "checkpoint": "s15 (현재 최고)",
+   "iteration": 4597,
+   "eval_seed": 94000,
+   "settings_hash": "17699c520a",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/s15_model_4597_rotation_seed94000_17699c520a.json",
+   "clean_timeout_rate": 0.80859375,
+   "signed_rotation_deg_mean": 154.38803100585938,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.525390625,
+   "half_turn_within_40mm_and_60deg_rate": 0.2431640625,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.072265625,
+   "full_turn_and_clean_timeout_rate": 0.01171875
+  },
+  {
+   "checkpoint": "s15 (현재 최고)",
+   "iteration": 4597,
+   "eval_seed": 95000,
+   "settings_hash": "823fbc8f87",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/s15_model_4597_rotation_seed95000_823fbc8f87.json",
+   "clean_timeout_rate": 0.8212890625,
+   "signed_rotation_deg_mean": 156.78863525390625,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.541015625,
+   "half_turn_within_40mm_and_60deg_rate": 0.2333984375,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.078125,
+   "full_turn_and_clean_timeout_rate": 0.015625
+  },
+  {
+   "checkpoint": "MLP 확장 +500 iter",
+   "iteration": 5096,
+   "eval_seed": 94000,
+   "settings_hash": "17699c520a",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg1_model_5096_rotation_seed94000_17699c520a.json",
+   "clean_timeout_rate": 0.8466796875,
+   "signed_rotation_deg_mean": 142.26194763183594,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.5263671875,
+   "half_turn_within_40mm_and_60deg_rate": 0.2265625,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.0634765625,
+   "full_turn_and_clean_timeout_rate": 0.0087890625
+  },
+  {
+   "checkpoint": "MLP 확장 +500 iter",
+   "iteration": 5096,
+   "eval_seed": 95000,
+   "settings_hash": "823fbc8f87",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg1_model_5096_rotation_seed95000_823fbc8f87.json",
+   "clean_timeout_rate": 0.8388671875,
+   "signed_rotation_deg_mean": 147.03909301757812,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.5244140625,
+   "half_turn_within_40mm_and_60deg_rate": 0.2509765625,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.068359375,
+   "full_turn_and_clean_timeout_rate": 0.01171875
+  },
+  {
+   "checkpoint": "MLP 확장 +1,000 iter",
+   "iteration": 5595,
+   "eval_seed": 94000,
+   "settings_hash": "17699c520a",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg2_model_5595_rotation_seed94000_17699c520a.json",
+   "clean_timeout_rate": 0.8408203125,
+   "signed_rotation_deg_mean": 129.6356201171875,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.494140625,
+   "half_turn_within_40mm_and_60deg_rate": 0.17578125,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.03125,
+   "full_turn_and_clean_timeout_rate": 0.001953125
+  },
+  {
+   "checkpoint": "MLP 확장 +1,000 iter",
+   "iteration": 5595,
+   "eval_seed": 95000,
+   "settings_hash": "823fbc8f87",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg2_model_5595_rotation_seed95000_823fbc8f87.json",
+   "clean_timeout_rate": 0.84375,
+   "signed_rotation_deg_mean": 137.72610473632812,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.5341796875,
+   "half_turn_within_40mm_and_60deg_rate": 0.2138671875,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.0458984375,
+   "full_turn_and_clean_timeout_rate": 0.0048828125
+  },
+  {
+   "checkpoint": "MLP 확장 +1,500 iter",
+   "iteration": 6094,
+   "eval_seed": 94000,
+   "settings_hash": "17699c520a",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg3_model_6094_rotation_seed94000_17699c520a.json",
+   "clean_timeout_rate": 0.84375,
+   "signed_rotation_deg_mean": 128.16928100585938,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.5068359375,
+   "half_turn_within_40mm_and_60deg_rate": 0.1767578125,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.0302734375,
+   "full_turn_and_clean_timeout_rate": 0.001953125
+  },
+  {
+   "checkpoint": "MLP 확장 +1,500 iter",
+   "iteration": 6094,
+   "eval_seed": 95000,
+   "settings_hash": "823fbc8f87",
+   "num_grasps": 1024,
+   "episode_s": 20.0,
+   "source": "report/study4/data/scale_seg3_model_6094_rotation_seed95000_823fbc8f87.json",
+   "clean_timeout_rate": 0.8408203125,
+   "signed_rotation_deg_mean": 134.07080078125,
+   "quarter_turn_within_40mm_and_60deg_rate": 0.5380859375,
+   "half_turn_within_40mm_and_60deg_rate": 0.19921875,
+   "three_quarter_turn_within_40mm_and_60deg_rate": 0.029296875,
+   "full_turn_and_clean_timeout_rate": 0.001953125
+  }
+ ]
+}
