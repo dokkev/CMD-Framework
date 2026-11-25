@@ -810,24 +810,25 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    """Study 3A: four Drake tasks under O's reused command. Per task: three frames, and R and U minus O over every
-    placement (median, quartiles; friction 1.3 solid, 2.0 dashed). Data: report/study3/data/fig4_sync.json
-    (paper/figures/fig4_sync.py)."""
+    """Study 3A: four Drake tasks under O's reused command. Per task: three frames; O, R and U's object response over
+    every placement (median, quartiles; friction 1.3 solid, 2.0 dashed); and each hand's friction effect, the same
+    hand at 2.0 minus at 1.3 (O's is the reference). Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
-    T, DV = d["tasks"], d["deviation"]
-    # (title, task key, image, response axis labels)
-    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
-             "load deviation (N)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"),
-            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)"))
+    DV = d["deviation"]
+    # (title, task key, image, x label, response label, effect label)
+    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)", "load held (N)",
+             "extra load held (N)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation (deg)", "extra rotation (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel (mm)", "extra travel (mm)"),
+            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "sphere rotation (deg)",
+             "extra rotation (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
-    h = 2.15
+    h = 3.20
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.30, 0.10
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
-    for i, (name, key, img, xl, yl) in enumerate(cols):
+    for i, (name, key, img, xl, yl, el) in enumerate(cols):
         x0 = left + i * (cw + gapc)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         ia = fig.add_axes((x0 / W, (h - 0.70) / h, cw / W, 0.52 / h))
@@ -842,32 +843,38 @@ def fig4():
         gap = np.full((frames[0].shape[0], 12, 3), 255, np.uint8)
         ia.imshow(np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1))
         ia.axis("off"); ia.set_aspect("equal", anchor="C")
-        # R and U minus O over every placement: median line, quartile band
-        ra = fig.add_axes(((x0 + 0.30) / W, 0.52 / h, (cw - 0.34) / W, 0.80 / h))
         dv = DV[key]
         x = np.asarray(dv["x"])
-        ra.axhline(0, color=INK, lw=0.9, zorder=4)
-        oe = dv["O_effect"]  # the friction effect on O itself, the scale the deviations are read against
-        ra.fill_between(x, oe["q25"], oe["q75"], color="#8c8c8c", alpha=0.18, lw=0, zorder=0)
-        ra.plot(x, oe["median"], color="#8c8c8c", lw=1.3, ls=(0, (4, 1.5, 1, 1.5)), zorder=2)
-        for hh in ("R", "U"):
+        # O, R, U's object response at each friction, over every placement
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.62) / h, (cw - 0.34) / W, 0.74 / h))
+        for hh in ("U", "R", "O"):
             for mu, ls in (("1.3", "-"), ("2", "--")):
-                bd = dv[f"{hh}_{mu}"]
-                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
-                ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.0, zorder=3)
-        ra.set_xlabel(xl, labelpad=1, fontsize=6.3); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
+                bd = dv[f"{hh}_{mu}_abs"]
+                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.07, lw=0, zorder=1)
+                ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.1 if hh == "O" else 1.0, zorder=3)
+        ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
+        ra.tick_params(labelbottom=False)
         clean(ra)
-    fig.text(0.02 / W, 0.92 / h, "deviation from O\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
+        # each hand's friction effect: the same hand at 2.0 minus at 1.3
+        ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.34) / W, 0.74 / h), sharex=ra)
+        for hh in ("U", "R", "O"):
+            bd = dv[f"{hh}_effect"]
+            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
+            ea.plot(x, bd["median"], color=HC[hh], lw=1.2 if hh == "O" else 1.0, zorder=3)
+        ea.set_xlabel(xl, labelpad=1, fontsize=6.3); ea.set_ylabel(el, labelpad=1, fontsize=5.6)
+        clean(ea)
+    fig.text(0.02 / W, (h - 1.25) / h, "object response\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
+    fig.text(0.02 / W, 0.87 / h, "friction effect\n(2.0 minus 1.3)", fontsize=6.0, color=INK2, rotation=90,
+             ha="left", va="center", linespacing=1.0)
+    handles = [plt.Line2D([], [], color=INK, lw=1.1, label="O (reference)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
                plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0"),
-               plt.Line2D([], [], color="#8c8c8c", lw=1.3, ls=(0, (4, 1.5, 1, 1.5)), label="friction effect on O"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.25, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
-               handletextpad=0.4, columnspacing=1.0, handlelength=1.8)
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
+               handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)

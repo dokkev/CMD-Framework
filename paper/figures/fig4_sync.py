@@ -143,26 +143,42 @@ def deviation():
             n_p = min(map(len, ys))
             dev["pinch"][f"{h}_{m:g}"] = _band([y[:n_p] for y in ys])
     dev["pinch"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
-    # O's own friction effect, the reference: O at 2.0 minus O at 1.3, over the same placements
-    def pe_o(m):
+    # each hand's friction effect (below); O's is the reference
+    def pe_o(m, h="O"):
         o_ = {}
         for r in A.RADII:
-            for e in json.load(open(LOG / f"dk_O_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
+            for e in json.load(open(LOG / f"dk_{h}_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
                 if e["gate0"]["pass"] and e.get("curve"):
                     o_[A.key(e)] = np.array([x[:3] for x in e["curve"]])
         return o_
-    p1, p2 = pe_o(1.3), pe_o(2.0)
-    dev["pull"]["O_effect"] = _band([held(p2[k]) - held(p1[k]) for k in p1 if k in p2])
-    d1, d2 = (json.load(open(LOG / f"dktipdial_O_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
-    dev["dial"]["O_effect"] = _band([np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1]
-                                     for a, b in zip(d1, d2)])
-    c1, c2 = (json.load(open(LOG / f"dkcoin_O_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
-    dev["coin"]["O_effect"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
-                                     for a, b in zip(c1, c2)
-                                     if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
-    o_ = PR._load("O", "e33")
-    ys = [np.array(o_[k]["2"]["trace"])[:, 0] - np.array(o_[k]["1.3"]["trace"])[:, 0] for k in pinch_pairs("R")]
-    dev["pinch"]["O_effect"] = _band([y[:n_p] for y in ys])
+    # each hand's own friction effect, 2.0 minus 1.3 on that hand, over the same placements: O (the reference), R, U
+    pk = sorted(set(pinch_pairs("R")) & set(pinch_pairs("U")), key=str)
+    keys_p = None
+    for h in ("O", "R", "U"):
+        p1, p2 = pe_o(1.3, h), pe_o(2.0, h)
+        keys_p = set(p1) & set(p2) if keys_p is None else keys_p & set(p1) & set(p2)
+    for h in ("O", "R", "U"):
+        p1, p2 = pe_o(1.3, h), pe_o(2.0, h)
+        dev["pull"][f"{h}_effect"] = _band([held(p2[k]) - held(p1[k]) for k in sorted(keys_p)])
+        for m_, pp in ((1.3, p1), (2.0, p2)):  # the absolute response, same placements
+            dev["pull"][f"{h}_{m_:g}_abs"] = _band([held(pp[k]) for k in sorted(keys_p)])
+        d1, d2 = (json.load(open(LOG / f"dktipdial_{h}_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
+        dev["dial"][f"{h}_effect"] = _band([np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1]
+                                            for a, b in zip(d1, d2)])
+        for m_, dd in ((1.3, d1), (2.0, d2)):
+            dev["dial"][f"{h}_{m_:g}_abs"] = _band([np.array(a["dial"]["trace"])[:, 1] for a in dd])
+        c1, c2 = (json.load(open(LOG / f"dkcoin_{h}_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
+        dev["coin"][f"{h}_effect"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
+                                            for a, b in zip(c1, c2)
+                                            if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
+        for m_, cc in ((1.3, c1), (2.0, c2)):
+            dev["coin"][f"{h}_{m_:g}_abs"] = _band([np.array(a["drag"]["trace"])[:, 2] for a in cc
+                                                    if len(a["drag"]["trace"]) == 30])
+        o_ = PR._load(h, "e33")
+        ys = [np.array(o_[k]["2"]["trace"])[:, 0] - np.array(o_[k]["1.3"]["trace"])[:, 0] for k in pk]
+        dev["pinch"][f"{h}_effect"] = _band([y[:n_p] for y in ys])
+        for m_ in ("1.3", "2"):
+            dev["pinch"][f"{h}_{m_}_abs"] = _band([np.array(o_[k][m_]["trace"])[:n_p, 0] for k in pk])
     dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
     dev["coin"]["x"] = [round(0.2 * (i + 1), 3) for i in range(30)]
     return dev
