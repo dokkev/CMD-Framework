@@ -74,6 +74,8 @@ CROWN_LEN_MM = float(os.environ.get("CODE_OMNIRESET_CROWN_LEN_MM", "1"))
 CROWN_WID_MM = float(os.environ.get("CODE_OMNIRESET_CROWN_WID_MM", "1"))
 ASYM_CRITIC = os.environ.get("CODE_OMNIRESET_ASYM_CRITIC", "0") == "1"
 ABNORMAL_FACTOR = float(os.environ.get("CODE_OMNIRESET_ABNORMAL_FACTOR", "2"))
+GOAL_BONUS = float(os.environ.get("CODE_OMNIRESET_GOAL_BONUS", "0"))
+"""A one-time reward per goal reached (``mdp.goal_advance_bonus``; 0: none, as OmniReset). v2c: 5.0."""
 """The abnormal-speed termination's multiple of the servo velocity limit (5.55 rad/s): OmniReset's 2 by default. The
 implicit servo model's velocity limit is not enforced by MuJoCo-Warp, so 2x (11 rad/s) ends episodes on ordinary fast
 moves; ``CODE_OMNIRESET_ABNORMAL_FACTOR=10`` (55 rad/s) keeps it to divergence (the from-scratch run, segment 3 on,
@@ -242,6 +244,7 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     observe_targets: bool = False
     """Add the commanded joint targets (PIP in flexion, normalised) to the actor input (v2)."""
     abnormal_factor: float = ABNORMAL_FACTOR
+    goal_bonus: float = GOAL_BONUS
     reset_probs: dict | None = None
     """``{reset type: probability}`` (None: OmniReset's four types at 0.25)."""
     goal_offsets: dict | None = None
@@ -326,6 +329,8 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         self.rewards.goal_context.params = {"rest_pos": rest, "goal_step": self.goal_step_rad,
                                             **(self.success or SUCCESS)}  # fmt: skip
         self.terminations.abnormal_robot.params["factor"] = self.abnormal_factor
+        if self.goal_bonus > 0.0:
+            self.rewards.goal_advance_bonus = RewTerm(func=mdp.goal_advance_bonus, weight=self.goal_bonus)
         self.rewards.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
         self.rewards.reach.params["asset_cfg"] = tips
         self.terminations.cube_out_of_reach.params["rest_pos"] = rest

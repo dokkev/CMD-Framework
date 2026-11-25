@@ -426,6 +426,7 @@ class GoalContext(ManagerTermBase):
         self.hold = torch.zeros(n, dtype=torch.long, device=dev)
         self.goals_reached = torch.zeros(n, dtype=torch.long, device=dev)
         self.steps = torch.zeros(n, dtype=torch.long, device=dev)
+        self.advanced = torch.zeros(n, dtype=torch.bool, device=dev)
 
     def reset(self, env_ids: Sequence[int] | None = None):
         ids = slice(None) if env_ids is None else env_ids
@@ -460,6 +461,7 @@ class GoalContext(ManagerTermBase):
         self.success[:] = (self.distance < success_distance_m) & (self.orientation_distance < success_orientation_rad)
         self.hold[:] = torch.where(self.success, self.hold + 1, 0)
         advance = self.hold >= hold_steps
+        self.advanced[:] = advance
         self.goal += torch.where(advance, goal_step, 0.0)
         self.goals_reached += advance.long()
         self.hold[advance] = 0
@@ -472,6 +474,14 @@ class GoalContext(ManagerTermBase):
 def success_reward(env) -> torch.Tensor:
     """1 while the cube is at the goal (OmniReset's ``success_reward``)."""
     return goal_context(env).success.float()
+
+
+def goal_advance_bonus(env) -> torch.Tensor:
+    """``1 / step_dt`` on the step a goal is reached and the goal advances, else 0: with weight ``w`` the reward manager
+    pays ``w`` once per goal (it scales every term by the step duration). Dactyl's goal bonus (+5, Andrychowicz et al.
+    2018, section 4.3) and AnyRotate's (10, Yang et al. 2024, section 3.1); OmniReset has none because its success
+    persists while the object stays assembled, where a chained goal pays success only for its hold."""
+    return goal_context(env).advanced.float() / env.step_dt
 
 
 def dense_success_reward(env, std: float) -> torch.Tensor:
@@ -606,6 +616,7 @@ __all__ = [
     "cube_tilt",
     "dense_success_reward",
     "fingertip_cube_distance_tanh",
+    "goal_advance_bonus",
     "goal_context",
     "joint_vel_l2_clamped",
     "load_reset_dataset",

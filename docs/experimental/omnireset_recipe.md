@@ -272,3 +272,33 @@ segment 1–2와 그 held-out eval은 2배 기준으로 돌렸고, segment 3부�
 - std < 1.0
 
 v2 segment 3는 iteration 약 1036에서 멈췄다. `model_1000`은 기록용으로 남긴다.
+
+### 6.2 v2c (2026-11-25): goal 도달 보너스
+
+**무엇이 바뀌었나:** v2 segment 1의 `model_499`에서 다시 이어서 학습한다.
+- v2b의 두 변경(entropy 0.001, std 상한 1.0)은 그대로 둔다.
+- goal이 다음으로 넘어가는 step에 한 번만 보너스 5.0을 준다 (`mdp.goal_advance_bonus`, `CODE_OMNIRESET_GOAL_BONUS=5`). reward manager가 dt를 곱한 뒤의 값이다.
+- 나머지 reward 항은 바꾸지 않았다.
+
+**왜 바꿨나:** v2b segment 1에서 std는 0.88에서 0.78로 내려갔는데도, 학습 goals/episode는 0.29에서 0.21로 떨어졌다. 같은 기간 mean reward는 7.9에서 10.6으로 올랐다. 이 모습은 v1과 v2에서도 같았다.
+
+계산으로 보면 다음과 같다.
+- success 항: 1.0 × dt. goal 하나가 6 step 유지되면 약 0.2를 번다.
+- reach + dense-success 항: 쥐고만 있어도 매 초 약 0.1–0.2를 받는다.
+- 그래서 돌리지 않고 조심해서 쥐고 있는 쪽이 보상이 더 크다.
+- OmniReset에서는 조립이 성공한 뒤 그 상태가 유지되는 동안 success를 계속 받는다. 우리는 goal을 이어 붙이므로, success를 유지 시간 동안만 받는다.
+
+보너스 5.0은 다음과 같은 크기다.
+- 지금 goal 하나의 가치(약 0.2)의 약 25배
+- dense 보상 약 50 s 분량
+
+**근거:**
+- Dactyl (arXiv 1808.00177 §4.3): goal 보너스 +5
+- AnyRotate (arXiv 2405.07391 §3.1): goal 보너스 10
+- IsaacGymEnvs / Isaac Lab Allegro: `reach_goal_bonus` 250 (dense 항 1/(d+0.1)와 함께)
+
+**판단 기준:** 2 segment 뒤에 아래를 둘 다 만족하면 계속한다. goal이 줄면서 reward만 오르면 다음은 potential 기반 dense 항(Dactyl d_t − d_{t+1})이다.
+- 학습 goals/episode가 run 동안 오른다 (떨어지지 않는다).
+- held-out goals/episode > 0.13
+
+v2b segment 2는 iteration 약 1026에서 멈췄다. `model_1000`은 남긴다.
