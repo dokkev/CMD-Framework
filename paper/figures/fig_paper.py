@@ -724,26 +724,23 @@ def fig3():
         pf = vq.proximal_pad()[[0, 1]]
         df = vq.distal_pad(qe)[[1, 0]]
         got = common_interval(pf, df)
+        GREEN = "#1f9a4a"
         if got:
             X, rays, lo, hi = got
             alpha = 0.5 * np.arccos(np.clip(rays[0] @ rays[1], -1, 1))
             bis = (rays[0] + rays[1]) / np.linalg.norm(rays[0] + rays[1])
-            for r_ in rays:  # the faces' extensions to X
-                ax.plot(*np.array([X, X + hi * r_]).T, color=INK2, lw=0.5, ls=(0, (1.5, 1.2)), zorder=21)
-                ax.plot(*np.array([X + lo * r_, X + hi * r_]).T, color=BLUE, lw=2.4, solid_capstyle="butt",
+            for r_ in rays:  # each face's line, dashed, across the panel
+                ax.plot(*np.array([X - 120 * r_, X + 120 * r_]).T, color=GREEN, lw=0.5, ls=(0, (3, 2)), zorder=21)
+                ax.plot(*np.array([X + lo * r_, X + hi * r_]).T, color=GREEN, lw=2.2, solid_capstyle="butt",
                         zorder=25)
-            for tt, ls in ((lo, (0, (2, 1.2))), (hi, "-")):
-                if tt <= 0.2:
-                    continue
+            for tt in np.linspace(max(lo, 0.35 * hi), hi, 4):  # inscribed cylinders over T
                 ctr = X + bis * tt / np.cos(alpha)
-                ax.add_patch(Circle(ctr, tt * np.tan(alpha), fc="#f2e2cc" if ls == "-" else "none",
-                                    ec="#9a7a52", lw=0.6, ls=ls, alpha=0.9, zorder=22))
-            ax.plot(*X, marker="o", ms=2.4, color=INK, zorder=26)
-            ax.text(X[0] + 1.5, X[1] + 1.5, "$X$", fontsize=6.2, zorder=27)
-        ax.autoscale_view()
-        x0_, x1_ = ax.get_xlim(); y0_, y1_ = ax.get_ylim()
+                ax.add_patch(Circle(ctr, tt * np.tan(alpha), fc="none", ec=GREEN, lw=0.6, zorder=22))
+            ax.plot(*X, marker="x", ms=4.0, mew=1.0, color=INK, zorder=26)
+            ax.text(X[0] + 2, X[1] + 2, "$X$", fontsize=6.2, zorder=27)
+        ax.set_xlim(-42, 96); ax.set_ylim(-82, 20)
         ax.set_title(f"$q={qe:.0f}^\\circ$", fontsize=6.4, pad=1)
-    fig.text(2.1 / W, 0.02 / h, "dark: $T=T_1\\cap T_2$, where both pads hold the cylinder;  "
+    fig.text(2.1 / W, 0.02 / h, "green: $T=T_1\\cap T_2$, where both pads hold a cylinder;  "
              "$\\bar C_{pad}$ averages $2|T|/L_f$ over $Q_{eval}$", fontsize=5.6, color=INK2, ha="center",
              va="bottom")
     label(fig, 4.05, row_b + 0.02, "(c) Preservation, $3\\to5,7,9$ mm", h)
