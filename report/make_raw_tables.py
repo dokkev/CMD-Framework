@@ -34,17 +34,11 @@ DRAKE_SETS = {
     ("dk", "hydro", "e25-ref7"): ("25", "pull-out", "reference: O carrying the soft 7 mm pad"),
     ("dk", "hydro", "e25-ref9"): ("25", "pull-out", "reference: O carrying the soft 9 mm pad"),
     ("dk", "point", "e27"): ("27", "pull-out", "joint setpoint re-chosen per hand so the fingertip contact point matches O's"),
-    ("dk", "point", "e27m"): ("27", "pull-out", "auxiliary: the same with the distal pad's midpoint matched"),
     ("dkpullin", "point", "e23-a3"): ("23", "grasp acquisition", "cylinder starts 3 mm past O's contact"),
     ("dkpullin", "point", "e23-a6"): ("23", "grasp acquisition", "cylinder starts 6 mm past O's contact"),
-    ("dkdial", "point", "e26-s45"): ("26", "dial", "superseded by experiment 28z (distal pad pressed 2-11 mm, beyond the pad model): sprung dial, 45 deg sweep"),
     ("dktipdial", "point", "e28z"): ("28", "fingertip dial", "z-axis disk turned by the distal pad on its top face (Study 3's dial task)"),
-    ("dktipdial", "point", "e28y"): ("28", "fingertip dial", "auxiliary: y-axis dial driven tangentially by the distal pad"),
     ("dktipdial", "point", "e29z"): ("29", "fingertip dial", "z-axis disk, 64 randomized starts (seed 29), common to all hands"),
     ("dkcoin", "point", "e30b"): ("30b", "fingertip coin drag", "the distal pad alone drags a tethered coin toward the palm on a sprung table, 64 randomized starts (seed 31)"),
-    ("dktipdial", "point", "e29y"): ("29", "fingertip dial", "y-axis dial, 64 randomized starts (seed 29), common to all hands"),
-    ("dkdial", "point", "e24-s8"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 8 deg sweep"),
-    ("dkdial", "point", "e24-s15"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 15 deg sweep"),
     ("dkroll", "point", "e22-s8"): ("22", "in-hand rolling", "flexion sweep of 8 deg"),
     ("dkroll", "point", "e22-s15"): ("22", "in-hand rolling", "flexion sweep of 15 deg"),
 }
@@ -256,15 +250,10 @@ def study3() -> None:
             ("drake_e21_hydro.json", "Drake", "pull-out", "hydroelastic 3 mm"),
             ("drake_e25_hydro_own.json", "Drake", "pull-out", "hydroelastic, each pad as soft as it is thick"),
             ("drake_e27_point.json", "Drake", "pull-out", "contact-referenced joint setpoint"),
-            ("drake_e27m_point.json", "Drake", "pull-out", "contact-referenced setpoint, pad midpoint (auxiliary)"),
             ("drake_e23_point.json", "Drake", "grasp acquisition", "point contact"),
-            ("drake_e26_point.json", "Drake", "dial", "superseded by experiment 28z (pad pressed beyond the model)"),
             ("drake_e28z_point.json", "Drake", "fingertip dial", "z-axis disk (Study 3's dial task)"),
-            ("drake_e28y_point.json", "Drake", "fingertip dial", "auxiliary: y-axis fingertip dial"),
             ("drake_e29z_point.json", "Drake", "fingertip dial", "z-axis disk, randomized starts (confirmation)"),
-            ("drake_e29y_point.json", "Drake", "fingertip dial", "y-axis dial, randomized starts (confirmation)"),
             ("drake_e30b_coin.json", "Drake", "fingertip coin drag", "long drag, randomized starts"),
-            ("drake_e24_point.json", "Drake", "dial", "superseded by experiment 26: dial turned 5-10 deg"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
         d = json.loads((REP / "study3/data" / fname).read_text())
@@ -299,7 +288,6 @@ def study3() -> None:
                         "+x-z diagonal) rises until the grasp gives way; measure = that load",
             "grasp acquisition": "from the open finger, closing to O's setpoint draws the cylinder in against a load; "
                                  "measure = distance drawn in",
-            "dial": "one closing turns a sprung dial pressed between both pads; measure = rotation (experiments 24, 26; superseded)",
             "fingertip dial": "the distal pad alone drives a dial against a torsional spring as the finger sweeps open-loop "
                               "from O's touch angle; z: a disk whose top face the pad drags, y: a rim pushed tangentially; "
                               "the proximal pad never touches; measure = rotation (experiment 28)",
