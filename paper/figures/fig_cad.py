@@ -367,17 +367,14 @@ def main() -> int:
                                    ec="none"))
         fig.text(*inch(x, r2t - 0.18), str(n), fontsize=7.5, color="white", ha="center", va="center", **BOLD)
         fig.text(*inch(x + 0.15, r2t - 0.18), text, fontsize=8, ha="left", va="center", **BOLD)
-    step(0.30, 1, "Add contact interface")
+    step(0.30, 1, "Change contact interface")
     step(2.55, 2, "Re-optimize mechanism")
-    for k_, (hh_, lab_, fc_) in enumerate(((0.55, "thin pad", "#c7d8f0"), (1.30, "thicker pad", "#6f9fe0"))):
-        pa_ = fig.add_axes((*inch(0.32 + k_ * 0.82, r2t - r2h + 0.20), 0.62 / W_, 0.42 / H_))
-        iso_pad(pa_, hh_, fc_, "#5a8bd4", "#4677c4", PAD)
-        pa_.set_xlim(-6.5 * 0.866 - 0.4, 4.5 * 0.866 + 0.4); pa_.set_ylim(-0.6, 7.4)
-        pa_.set_aspect("equal"); pa_.axis("off")
-        fig.text(*inch(0.63 + k_ * 0.82, r2t - r2h + 0.14), lab_, fontsize=6.6, ha="center", va="top")
-    fig.patches.append(FancyArrowPatch(inch(0.98, r2t - r2h + 0.42), inch(1.12, r2t - r2h + 0.42),
-                                       transform=fig.transFigure, arrowstyle="-|>", mutation_scale=7, lw=0.9,
-                                       color=INK2))
+    # the distal phalanx with a thicker pad (CAD, cad/distal_pad_change.png)
+    chg = np.asarray(Image.open(CAD / "distal_pad_change.png").convert("RGB")).copy()
+    chg[chg.min(axis=2) > 248] = (242, 246, 252)
+    cw_ = 1.15
+    ch_ = cw_ * chg.shape[0] / chg.shape[1]
+    ca = fig.add_axes((*inch(0.55, r2t - r2h + 0.04), cw_ / W_, ch_ / H_)); ca.imshow(chg); ca.axis("off")
     fig.patches.append(FancyArrowPatch(inch(1.95, r2t - 0.55), inch(2.35, r2t - 0.55), transform=fig.transFigure,
                                        arrowstyle="simple,head_width=0.6,head_length=0.5,tail_width=0.25",
                                        mutation_scale=14, fc="#5b7fb8", ec="none"))
