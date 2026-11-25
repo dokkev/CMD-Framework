@@ -311,7 +311,7 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "Servo at Joint", 3.0, False, None),
+    panels = (("2r_dd", "Pivot Joint", 3.0, False, None),
               ("cfl", "CoDe Mechanism", 7.0, False, "proto"))
     for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
@@ -489,13 +489,17 @@ def fig2():
     pts_ = pts_[np.isfinite(pts_).all(1)]
     hull = pts_[ConvexHull(pts_).vertices]
     pax.fill(hull[:, 0], hull[:, 1], fc=TEAL, ec="none", alpha=0.8, zorder=3)
-    pax.plot([-32, 60], [0, 0], color=GREY, lw=1.6, zorder=4)
+    pax.plot([-32, 60], [0, 0], color=GREY, lw=2.0, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
-    pax.text(-31, 1.2, "fixed axis", fontsize=5.6, color=GREY, va="bottom", ha="left", path_effects=halo, zorder=6)
+    pax.text(-31, 1.2, "Pivot Joint", fontsize=6.2, color=GREY, va="bottom", ha="left", path_effects=halo,
+             zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(32, -6.0, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
+             path_effects=halo, zorder=6)
+    pax.text(32, -6.0, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
+             path_effects=halo, zorder=6)
     pax.text(54, 29, "$q\\in[0, 120^\\circ]$", fontsize=6.0, color=INK2, ha="right", va="top")
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
