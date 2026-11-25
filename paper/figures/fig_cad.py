@@ -338,37 +338,13 @@ def main() -> int:
     fig.lines.append(plt.Line2D([1.72 / W_] * 2, [(top - 1.18) / H_, (top - 0.10) / H_], transform=fig.transFigure,
                                 color="#cfcfcf", lw=0.6))
     CROP = 705
-    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]  # zoom in the middle row
-    # concept: a measured change after a redesign holds the interface's effect and the redesign's own; the
-    # redesign-induced part drawn to scale with E of R and U (Isaac Lab), the interface effect as 1
-    cx0, cw = 1.82, 2.40
-    fig.text(*inch(cx0 + cw / 2, top), "New contact interface", fontsize=8, va="top", ha="center", **BOLD)
-    ia = fig.add_axes((*inch(cx0 + cw / 2 - 0.18, top - 0.42), 0.36 / W_, 0.22 / H_))
-    fit_icon(ia, "thin_block")
-    yb = top - 0.47
-    fig.lines.append(plt.Line2D([(cx0 + cw / 2) / W_] * 2, [(top - 0.42) / H_, yb / H_], transform=fig.transFigure,
-                                color=INK2, lw=0.8))
-    fig.lines.append(plt.Line2D([(cx0 + 0.60) / W_, (cx0 + cw - 0.60) / W_], [yb / H_] * 2, transform=fig.transFigure,
-                                color=INK2, lw=0.8))
-    for k, (kind, col, title, verdict) in enumerate((("R", BLUE_, "Contact-centric", "Reduced confounding"),
-                                                    ("U", ORANGE_, "Coverage-only", "Confounded effects"))):
-        xc = cx0 + 0.60 + k * (cw - 1.20)
-        fig.patches.append(FancyArrowPatch(inch(xc, yb), inch(xc, yb - 0.09), transform=fig.transFigure,
-                                           arrowstyle="-|>", mutation_scale=6, lw=0.8, color=INK2))
-        fig.text(*inch(xc, yb - 0.11), title, fontsize=7, color=col, ha="center", va="top", **BOLD)
-        e = d[kind]["E_rel_median"]
-        unit = 0.42
-        x0b = xc - (unit * (1 + e)) / 2
-        y0b = yb - 0.46
-        box(x0b, y0b, unit, 0.20, LBLUE, BLUE_, r=0.02, lw=0.6, z=1)
-        box(x0b + unit, y0b, unit * e, 0.20, LORANGE, ORANGE_, r=0.02, lw=0.6, z=1)
-        fig.text(*inch(x0b + unit / 2, y0b + 0.10), "interface", fontsize=5.4, color=BLUE_, ha="center", va="center")
-        if e > 0.5:
-            fig.text(*inch(x0b + unit + unit * e / 2, y0b + 0.10), "redesign", fontsize=5.4, color=ORANGE_,
-                     ha="center", va="center")
-        fig.text(*inch(xc, y0b - 0.02), f"redesign adds {100 * e:.0f}%", fontsize=5.6,
-                 color=INK2, ha="center", va="top")
-        fig.text(*inch(xc, y0b - 0.15), verdict, fontsize=6.8, color=col, ha="center", va="top", **BOLD)
+    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]
+    fw = 2.35
+    fh = fw * fin.shape[0] / fin.shape[1]
+    fig.text(*inch(1.82 + fw / 2, top), "Crossed Four-bar Joint", fontsize=8, va="top", ha="center", **BOLD)
+    f = fig.add_axes((*inch(1.82, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
+    for cx, cy, ew, eh in ((1250 - CROP, 530, 450, 190), (2215 - CROP, 485, 340, 220)):
+        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=1.0, ls=(0, (3, 2)), clip_on=False, zorder=5))
     bx0, bw_ = 4.32, 2.80
     box(bx0, top - 1.18, bw_, 1.16, "white", PAD, lw=0.9)
     fig.text(*inch(bx0 + bw_ / 2, top - 0.06), "Contact Interfaces ($h$)", fontsize=8, va="top", ha="center", **BOLD)
@@ -433,15 +409,24 @@ def main() -> int:
         box(x0, r3t - ph, pw, ph, "white", col, lw=0.9)
         box(x0, r3t - 0.26, pw, 0.26, lc, "none", lw=0, r=0.06)
         fig.text(*inch(x0 + pw / 2, r3t - 0.13), title, fontsize=8, color=col, ha="center", va="center", **BOLD)
-        im_, _ = usd_white(CAD / f"usd_contact_{kind}.png", paper=255.0)
-        ink_ = im_.min(axis=2) < 235
-        ink_ &= ink_.sum(axis=1, keepdims=True) > 30
-        rows_, cols_ = np.where(ink_)
-        im_ = im_[rows_.min():rows_.max() + 4, cols_.min():cols_.max() + 4]
-        im_ = im_[int(0.07 * im_.shape[0]):]  # a stray light row at the top of the viewer frame
-        ih_ = 0.74
-        iw_ = ih_ * im_.shape[1] / im_.shape[0]
-        ax = fig.add_axes((*inch(x0 + 0.15, r3t - ph + 0.36), iw_ / W_, ih_ / H_)); ax.imshow(im_); ax.axis("off")
+        # what the measured interface effect holds: the interface's own (1) and the part the redesign adds (E)
+        e = d[kind]["E_rel_median"]
+        unit = 0.56
+        xb = x0 + 0.12
+        yb_ = r3t - 0.78
+        box(xb, yb_, unit, 0.24, LBLUE, BLUE_, r=0.02, lw=0.6, z=1)
+        box(xb + unit, yb_, max(unit * e, 0.02), 0.24, LORANGE, ORANGE_, r=0.02, lw=0.6, z=1)
+        fig.text(*inch(xb + unit / 2, yb_ + 0.12), "interface", fontsize=6.0, color=BLUE_, ha="center", va="center")
+        if e > 0.5:
+            fig.text(*inch(xb + unit + unit * e / 2, yb_ + 0.12), "redesign", fontsize=6.0, color=ORANGE_,
+                     ha="center", va="center")
+        span = unit * (1 + e)
+        fig.lines.append(plt.Line2D([xb / W_, xb / W_, (xb + span) / W_, (xb + span) / W_],
+                                    [(yb_ - 0.04) / H_, (yb_ - 0.07) / H_, (yb_ - 0.07) / H_, (yb_ - 0.04) / H_],
+                                    transform=fig.transFigure, color=INK2, lw=0.6))
+        fig.text(*inch(xb + span / 2, yb_ - 0.10), "measured effect", fontsize=6.0, color=INK2, ha="center", va="top")
+        fig.text(*inch(x0 + 0.78, r3t - 0.42), "Reduced confounding" if kind == "R" else "Confounded effects",
+                 fontsize=7.4, color=col, ha="center", va="center", **BOLD)
         # inset: the distal contact point's path, reference (3 mm, dashed) against this redesign (7 mm)
         box(x0 + 1.55, r3t - 1.08, 1.85, 0.76, "white", "#9aa4b1", r=0.06, lw=0.6)
         pa = fig.add_axes((*inch(x0 + 1.62, r3t - 1.05), 1.70 / W_, 0.56 / H_))
