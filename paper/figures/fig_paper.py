@@ -817,15 +817,14 @@ def fig4():
     coin = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]}
     # (title, engine, task image under report/study3/figures or None for the drawn icon, frame, one-line task, data)
     cols = (("Power-grasp hold", "Isaac Lab", "power_grasp_hold_iso.png", 2, "pull-out load", isaac_f),
-            ("Grasp acquisition", "Drake", None, 0, "cylinder drawn in", acq),
             ("Fingertip dial", "Drake", "fingertip_disk.png", 1, "dial turned", tip),
             ("Coin drag", "Drake", "fingertip_coin.png", 2, "coin dragged", coin))
     h = 2.95
     fig = plt.figure(figsize=(W, h))
-    cw = 1.60
+    cw = 2.15
     from PIL import Image
     for i, (name, sim, img, frame, what, data) in enumerate(cols):
-        x0 = 0.34 + i * (cw + 0.10)
+        x0 = 0.34 + i * (cw + 0.12)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
         ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.52 / h))
