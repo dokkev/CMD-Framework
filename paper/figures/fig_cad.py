@@ -344,7 +344,7 @@ def main() -> int:
         f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=1.0, ls=(0, (3, 2)), clip_on=False, zorder=5))
     bx0, bw_ = 4.32, 2.80
     box(bx0, top - 1.30, bw_, 1.28, "white", PAD, lw=0.9)
-    fig.text(*inch(bx0 + bw_ / 2, top - 0.06), "Contact Interfaces ($t$)", fontsize=8, va="top", ha="center", **BOLD)
+    fig.text(*inch(bx0 + bw_ / 2, top - 0.06), "Contact Interfaces ($h$)", fontsize=8, va="top", ha="center", **BOLD)
     names = (("nari", "NARI-Touch\nTactile"), ("honeycomb", "Compliant\nStructure"), ("traction", "Traction\nPad"),
              ("soft", "Solid\nSoft Pad"))
     iw = 0.62
@@ -372,16 +372,18 @@ def main() -> int:
     za.annotate("", xy=(zoom.shape[1] * 0.80, zoom.shape[0] * 0.98), xytext=(zoom.shape[1] * 0.80, zoom.shape[0] * 0.55),
                 arrowprops=dict(arrowstyle="<|-|>", color=INK, lw=0.7, mutation_scale=5, shrinkA=0, shrinkB=0),
                 annotation_clip=False)
-    fig.text(*inch(0.45 + zw * 0.86, r2t - r2h + 0.08 + zh * 0.22), "$t'$ (e.g. 7 mm)", fontsize=6.6, ha="left",
+    fig.text(*inch(0.45 + zw * 0.86, r2t - r2h + 0.08 + zh * 0.22), "$h$ (e.g. 7 mm)", fontsize=6.6, ha="left",
              va="center")
     fig.patches.append(FancyArrowPatch(inch(1.95, r2t - 0.62), inch(2.35, r2t - 0.62), transform=fig.transFigure,
                                        arrowstyle="simple,head_width=0.6,head_length=0.5,tail_width=0.25",
                                        mutation_scale=14, fc="#5b7fb8", ec="none"))
     box(2.45, r2t - r2h + 0.14, 2.30, 0.66, "white", PAD, lw=0.8)
-    fig.text(*inch(3.60, r2t - 0.47), r"$\min_{H}\;(\Delta_{contact}(H),\;-\bar{C}_{pad}(H))$",
-             fontsize=8, ha="center", va="center")
-    fig.text(*inch(3.60, r2t - 0.74), r"s.t.  $H\in\mathcal{F}(t', q_{req})$", fontsize=7.4, ha="center",
-             va="center", math_fontfamily="stixsans")
+    fig.text(*inch(2.58, r2t - 0.46), "R", fontsize=7.6, color=BLUE_, ha="left", va="center", **BOLD)
+    fig.text(*inch(3.66, r2t - 0.46), r"$\min_{M\in\mathcal{F}(K,h,q_{req})}\;(\Delta_{contact}(M,M_0),\,-\bar{C}_{pad}(M))$",
+             fontsize=7.6, ha="center", va="center", math_fontfamily="stixsans")
+    fig.text(*inch(2.58, r2t - 0.76), "U", fontsize=7.6, color=ORANGE_, ha="left", va="center", **BOLD)
+    fig.text(*inch(3.66, r2t - 0.76), r"$\max_{M\in\mathcal{F}(K,h,q_{req})}\;\bar{C}_{pad}(M)$",
+             fontsize=7.6, ha="center", va="center", math_fontfamily="stixsans")
     for yb, col, lc, title, sub in ((r2t - 0.33, BLUE_, LBLUE, "Contact-preserving (R)", r"keeps $\Delta_{contact}$ small"),
                                     (r2t - 0.83, ORANGE_, LORANGE, "Coverage-only (U)", r"maximizes $\bar{C}_{pad}$ only")):
         box(5.20, yb - 0.17, 1.82, 0.40, lc, col, r=0.12, lw=0.9)
@@ -439,11 +441,11 @@ def main() -> int:
     ly = r3t - ph - 0.18
     fig.lines.append(plt.Line2D([2.35 / W_, 2.65 / W_], [ly / H_] * 2, transform=fig.transFigure, color="#8a8a8a",
                                 lw=1.0, ls=(0, (3, 2))))
-    fig.text(*inch(2.72, ly), "Reference ($t$ = 3 mm)", fontsize=7, va="center")
+    fig.text(*inch(2.72, ly), "Reference ($h$ = 3 mm)", fontsize=7, va="center")
     for k, c_ in enumerate((BLUE_, ORANGE_)):
         fig.lines.append(plt.Line2D([(3.95 + k * 0.32) / W_, (4.22 + k * 0.32) / W_], [ly / H_] * 2,
                                     transform=fig.transFigure, color=c_, lw=1.4))
-    fig.text(*inch(4.62, ly), "Redesign ($t$ = 7 mm)", fontsize=7, va="center")
+    fig.text(*inch(4.62, ly), "Redesign ($h$ = 7 mm)", fontsize=7, va="center")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
