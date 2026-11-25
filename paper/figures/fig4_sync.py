@@ -179,6 +179,36 @@ def deviation():
         dev["pinch"][f"{h}_effect"] = _band([y[:n_p] for y in ys])
         for m_ in ("1.3", "2"):
             dev["pinch"][f"{h}_{m_}_abs"] = _band([np.array(o_[k][m_]["trace"])[:n_p, 0] for k in pk])
+    # the bias in the friction effect: H's effect minus O's on the same placement, as a share of O's median final
+    # effect (0: the friction effect measured as on O)
+    p1o, p2o = pe_o(1.3, "O"), pe_o(2.0, "O")
+    eff_o_p = {k: held(p2o[k]) - held(p1o[k]) for k in keys_p}
+    d1o, d2o = (json.load(open(LOG / f"dktipdial_O_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
+    eff_o_d = [np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1] for a, b in zip(d1o, d2o)]
+    c1o, c2o = (json.load(open(LOG / f"dkcoin_O_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
+    oo = PR._load("O", "e33")
+    eff_o_n = {k: (np.array(oo[k]["2"]["trace"])[:, 0] - np.array(oo[k]["1.3"]["trace"])[:, 0])[:n_p] for k in pk}
+    for h in ("R", "U"):
+        p1, p2 = pe_o(1.3, h), pe_o(2.0, h)
+        sc = dev["pull"]["O_effect"]["median"][-1]
+        dev["pull"][f"{h}_bias"] = _band([100 * (held(p2[k]) - held(p1[k]) - eff_o_p[k]) / sc for k in sorted(keys_p)])
+        d1, d2 = (json.load(open(LOG / f"dktipdial_{h}_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
+        sc = dev["dial"]["O_effect"]["median"][-1]
+        dev["dial"][f"{h}_bias"] = _band([100 * (np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1]
+                                                 - eo) / sc for a, b, eo in zip(d1, d2, eff_o_d)])
+        c1, c2 = (json.load(open(LOG / f"dkcoin_{h}_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
+        sc = dev["coin"]["O_effect"]["median"][-1]
+        ys = []
+        for a, b, ao, bo in zip(c1, c2, c1o, c2o):
+            tr = [np.array(z["drag"]["trace"]) for z in (a, b, ao, bo)]
+            if all(len(t_) == 30 for t_ in tr):
+                ys.append(100 * ((tr[1][:, 2] - tr[0][:, 2]) - (tr[3][:, 2] - tr[2][:, 2])) / sc)
+        dev["coin"][f"{h}_bias"] = _band(ys)
+        hh_ = PR._load(h, "e33")
+        sc = dev["pinch"]["O_effect"]["median"][-1]
+        dev["pinch"][f"{h}_bias"] = _band([100 * ((np.array(hh_[k]["2"]["trace"])[:, 0]
+                                                   - np.array(hh_[k]["1.3"]["trace"])[:, 0])[:n_p] - eff_o_n[k]) / sc
+                                           for k in pk])
     dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
     dev["coin"]["x"] = [round(0.2 * (i + 1), 3) for i in range(30)]
     return dev

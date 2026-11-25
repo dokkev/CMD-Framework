@@ -847,38 +847,39 @@ def fig4():
         x = np.asarray(dv["x"])
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
+        # the bias in the friction effect each hand measures: its effect (same hand, 2.0 minus 1.3) minus O's on the
+        # same placement, as a share of O's effect; 0 is the friction effect measured without bias
         ea = fig.add_axes(((x0 + 0.30) / W, 0.52 / h, (cw - 0.58) / W, 1.02 / h))
-        o_m = np.asarray(dv["O_effect"]["median"])
-        ea.plot(x, o_m, color="#9a9a9a", lw=2.6, solid_capstyle="round", zorder=2)
-        labs = [(o_m[-1], "100%", "#7a7a7a")]
+        ea.axhline(0, color=INK, lw=0.9, zorder=2)
+        labs = []
         for hh in ("U", "R"):
-            m_ = np.asarray(dv[f"{hh}_effect"]["median"])
-            ea.fill_between(x, o_m, m_, color=HC[hh], alpha=0.22 if hh == "U" else 0.30, lw=0, zorder=1)
-            ea.plot(x, m_, color=HC[hh], lw=1.1, zorder=3)
-            labs.append((m_[-1], f"{100 * m_[-1] / o_m[-1]:.0f}%", HC[hh]))
-        # end labels, nudged apart in axes height so they never overlap
+            bd = dv[f"{hh}_bias"]
+            m_ = np.asarray(bd["median"])
+            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.18, lw=0, zorder=1)
+            ea.plot(x, m_, color=HC[hh], lw=1.2, zorder=3)
+            labs.append((m_[-1], f"{m_[-1]:+.0f}%", HC[hh]))
+        lim = max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"] + dv[f"{b_}_bias"]["q25"]))
+        ea.set_ylim(-lim, lim)
         y0, y1 = ea.get_ylim()
         fr = sorted(((v - y0) / (y1 - y0), t, c) for v, t, c in labs)
         for k in range(1, len(fr)):
             if fr[k][0] - fr[k - 1][0] < 0.11:
                 fr[k] = (fr[k - 1][0] + 0.11, fr[k][1], fr[k][2])
-        over = fr[-1][0] - 0.97  # keep the stack inside the axes: shift it down as a whole
-        if over > 0:
-            fr = [(f_ - over, t, c) for f_, t, c in fr]
         for f_, t, c in fr:
             ea.text(1.02, f_, t, transform=ea.transAxes, fontsize=5.8, va="center", ha="left", color=c,
-                    fontweight="bold" if c != "#7a7a7a" else "normal")
-        ea.set_xlabel(xl, labelpad=1, fontsize=6.3); ea.set_ylabel(el, labelpad=1, fontsize=5.6)
+                    fontweight="bold")
+        ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
+        if i == 0:
+            ea.set_ylabel("bias (% of O's effect)", labelpad=1, fontsize=5.8)
         clean(ea)
-    fig.text(0.02 / W, 1.03 / h, "effect of raising\npad friction 1.3 to 2.0", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, 1.03 / h, "bias in the friction\neffect (1.3 to 2.0)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color="#9a9a9a", lw=2.6, label="O: friction alone (reference)"),
-               plt.Line2D([], [], color=BLUE, lw=1.1, label="R: contact-preserving"),
-               plt.Line2D([], [], color=AMBER, lw=1.1, label="U: coverage-only"),
-               plt.Rectangle((0, 0), 1, 1, fc=AMBER, alpha=0.22, label="added by the changed finger"),
-               plt.Line2D([], [], ls="none", label="%: share of O's effect at the end")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=5, frameon=False, fontsize=6.0,
-               handletextpad=0.4, columnspacing=1.4, handlelength=1.8)
+    handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: measured as on O (no bias)"),
+               plt.Line2D([], [], color=BLUE, lw=1.2, label="R: contact-preserving"),
+               plt.Line2D([], [], color=AMBER, lw=1.2, label="U: coverage-only"),
+               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=4, frameon=False, fontsize=6.0,
+               handletextpad=0.4, columnspacing=1.6, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)
