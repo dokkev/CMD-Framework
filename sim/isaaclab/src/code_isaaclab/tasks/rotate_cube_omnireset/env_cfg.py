@@ -33,6 +33,8 @@ import math
 import os
 from pathlib import Path
 
+import numpy as np
+
 import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
@@ -43,6 +45,7 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import ContactSensorCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 from isaaclab.utils import configclass
@@ -249,6 +252,12 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     goal_bonus: float = GOAL_BONUS
     tilt_penalty: float = TILT_PENALTY
     joint_map: bool = False
+    object_kind: str = "cube"
+    """``cube`` (40 mm, turned about world z) or ``cylinder`` (lying across the fingers, turned about its own axis)."""
+    object_diameter_m: float = 0.035
+    object_length_m: float = 0.055
+    held_out_dir: str = ""
+    """The evaluation's grasp caches (``<hand>.pt``); empty: ``CODE_ROTATE_CUBE_GRASPS`` or heldout_omnireset_v1."""
     """Run an O-trained policy through the contact-referenced joint maps (``joint_transfer.joint_maps``)."""
     reset_probs: dict | None = None
     """``{reset type: probability}`` (None: OmniReset's four types at 0.25)."""
@@ -277,21 +286,26 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         desc_path = HANDS[self.hand_key]
         desc = Description.load(desc_path)
         profile = self.pad_profile()
-        g = pinch_grasp(desc)
+        cylinder = self.object_kind == "cylinder"
+        g = pinch_grasp(desc, size_m=self.object_diameter_m if cylinder else CUBE_SIZE_M)
         self.grasp = {k: v for k, v in g.items() if k in ("thumb_mcp_deg", "thumb_ip_deg", "rest_face", "rest_env")}
+        common = dict(rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(),
+                      collision_props=sim_utils.UsdPhysicsCollisionCfg(), activate_contact_sensors=True,
+                      visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.5, 0.2)))  # fmt: skip
+        if cylinder:  # the cube's density (400 kg/m^3); its axis along body y, across the fingers at rest
+            r, length = self.object_diameter_m / 2, self.object_length_m
+            spawn = sim_utils.CylinderCfg(radius=r, height=length, axis="Y",
+                                          mass_props=sim_utils.MassCfg(mass=400.0 * math.pi * r * r * length),
+                                          **common)  # fmt: skip
+        else:
+            spawn = sim_utils.CuboidCfg(size=(CUBE_SIZE_M,) * 3, mass_props=sim_utils.MassCfg(mass=CUBE_MASS_KG),
+                                        **common)  # fmt: skip
         name = register_description_hand(
-            f"rotate_cube_omnireset_{self.hand_key}_{profile.key()}" + ("_vis" if self.visuals else ""),
+            f"rotate_{self.object_kind}_omnireset_{self.hand_key}_{profile.key()}" + ("_vis" if self.visuals else ""),
             desc_path,
             RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/object",
-                spawn=sim_utils.CuboidCfg(
-                    size=(CUBE_SIZE_M,) * 3,
-                    rigid_props=sim_utils.UsdPhysicsRigidBodyCfg(),
-                    mass_props=sim_utils.MassCfg(mass=CUBE_MASS_KG),
-                    collision_props=sim_utils.UsdPhysicsCollisionCfg(),
-                    activate_contact_sensors=True,
-                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.5, 0.2)),
-                ),
+                spawn=spawn,
                 init_state=RigidObjectCfg.InitialStateCfg(pos=g["rest_env"], rot=g["rest_quat_xyzw"]),
             ),
             servo_saturation=(True, True),
@@ -341,8 +355,17 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
             if self.observe_targets:
                 obs.critic.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
             obs.critic.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
+        rest_axis = tuple(float(v) for v in np.asarray(g["face_rot"]).reshape(3, 3)[:, 1])  # across the fingers
         self.rewards.goal_context.params = {"rest_pos": rest, "goal_step": self.goal_step_rad,
                                             **(self.success or SUCCESS)}  # fmt: skip
+        if cylinder:
+            self.rewards.goal_context.params.update(mode="body_y", rest_axis=rest_axis)
+            # the only contact rule: the cylinder must not touch the palm (the episode ends; nothing else is penalised)
+            self.scene.palm_contact = ContactSensorCfg(
+                prim_path="{ENV_REGEX_NS}/object", filter_prim_paths_expr=["{ENV_REGEX_NS}/Robot/palm"]
+            )
+            self.terminations.object_palm_contact = DoneTerm(func=mdp.object_palm_contact,
+                                                             params={"threshold_n": 0.05})  # fmt: skip
         self.terminations.abnormal_robot.params["factor"] = self.abnormal_factor
         if self.goal_bonus > 0.0:
             self.rewards.goal_advance_bonus = RewTerm(func=mdp.goal_advance_bonus, weight=self.goal_bonus)
@@ -357,20 +380,23 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         open_sign = [OPEN_SIGN.get(j, OPEN_SIGN.get(j.split("_", 1)[1], 0.0)) for j in actuated]
         reset = {
             "actuated": actuated, "four_bar_tables": tables, "goal_step": self.goal_step_rad, "rest_pos": rest,
-            "rest_quat": tuple(float(v) for v in g["rest_quat_xyzw"]), "gen": {**GEN, "open_sign": open_sign},
+            "rest_quat": tuple(float(v) for v in g["rest_quat_xyzw"]),
+            "gen": {**GEN, "open_sign": open_sign, "spin_axis": rest_axis if cylinder else None},
         }  # fmt: skip
         if self.evaluation:
             self.episode_length_s = EVAL_EPISODE_STEPS * self.sim.dt * self.decimation
-            reset["cache"] = str(HELD_OUT / f"{self.hand_key}.pt")
+            reset["cache"] = str(Path(self.held_out_dir or HELD_OUT) / f"{self.hand_key}.pt")
             for term in ("cube_mass", "servo_gains"):
                 setattr(self.events, term, None)
             self.actions.joint_pos.gain_log_range = (1.0, 1.0)
             self.terminations.cube_out_of_reach = None
             self.terminations.object_off_grasp = DoneTerm(func=rc_mdp.object_off_grasp, params={"max_distance": 0.055})
             self.terminations.object_tilted = DoneTerm(func=rc_mdp.ObjectTilted, params={"min_dot": 0.35})
+            if cylinder:  # a cylinder turned about its own axis tilts its reset up axis by design
+                self.terminations.object_tilted.params["min_dot"] = -2.0
         else:
             self.episode_length_s = TRAIN_EPISODE_S
-            directory = dataset_dir(self.hand_key, profile)
+            directory = dataset_dir(self.hand_key if not cylinder else f"cylinder_{self.hand_key}", profile)
             self.reset_datasets = str(directory)
             probs = self.reset_probs or {t: 0.25 for t in mdp.OMNIRESET_TYPES}
             reset["datasets"] = {t: str(directory / f"resets_{t}.pt") for t in probs}
@@ -450,6 +476,41 @@ for _key in ("O", *TRANSFER_HANDS):  # the "mapped" condition (O: the maps are i
         type(f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,),
              {"hand_key": _key, "joint_map": True})
     )
+
+CYLINDER_HELD_OUT = SIM_ROOT / "logs" / "rotate_cube" / "heldout_cylinder_v1"
+
+
+@configclass
+class CoDeRotateCylinderOFingertipEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
+    """A 35 mm x 55 mm cylinder lying across the fingers of the palm-up hand, turned about its own axis by chained 45
+    deg goals (``docs/experimental/rl_cylinder.md``): v2's framework and v2c's recipe (goal bonus 5; entropy 0.001 and
+    std cap 1.0 in the agent config), OmniReset's four reset types (a mid-turn type once a policy exists), rounded pads
+    (2 mm crown along the length, 0.5 mm across), and one contact rule: the cylinder must not touch the palm (the
+    episode ends)."""
+
+    object_kind = "cylinder"
+    pad_crown_mm = 2.0
+    pad_crown_wid_mm = 0.5
+    goal_bonus = 5.0
+    reset_probs = None
+    goal_offsets = {
+        "ObjectAnywhereHandAnywhere": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectRestingHandNear": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectAnywhereHandGrasped": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectNearGoalHandGrasped": ["near", 1.5 * V2_SUCCESS["success_orientation_rad"], V2_GOAL_STEP_RAD],
+    }
+    held_out_dir = str(CYLINDER_HELD_OUT)
+
+
+@configclass
+class CoDeRotateCylinderOFingertipEvalEnvCfg(CoDeRotateCylinderOFingertipEnvCfg):
+    evaluation = True
+
+
+for _key in ("O", *TRANSFER_HANDS):
+    for _suffix, _extra in (("", {}), ("Mapped", {"joint_map": True})):
+        _n = f"CoDeRotateCylinder{_key}FingertipEval{_suffix}EnvCfg"
+        globals()[_n] = configclass(type(_n, (CoDeRotateCylinderOFingertipEvalEnvCfg,), {"hand_key": _key, **_extra}))
 
 __all__ = ["CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOOmniResetEvalEnvCfg", "CoDeRotateCubeOOmniResetV2EnvCfg",
            "CoDeRotateCubeOOmniResetV2EvalEnvCfg", "dataset_dir"]

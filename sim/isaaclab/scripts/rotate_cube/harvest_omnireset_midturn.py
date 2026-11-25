@@ -62,7 +62,7 @@ def main() -> int:
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper, create_rsl_rl_runner, handle_deprecated_rsl_rl_cfg
 
     import code_isaaclab.tasks  # noqa: F401
-    from code_isaaclab.tasks.rotate_cube_omnireset.mdp import cube_tilt, goal_context, reset_term
+    from code_isaaclab.tasks.rotate_cube_omnireset.mdp import goal_context, object_tilt, reset_term
 
     cfg, agent = resolve_task_config(args.task, "rsl_rl_cfg_entry_point")
     cfg.scene.num_envs = args.num_envs
@@ -101,7 +101,8 @@ def main() -> int:
             quat = obj.data.root_quat_w.torch
             touch = sensor.data.force_matrix_w.torch[:, 0].norm(dim=-1) > 0.05
             held = touch[:, -1] & touch[:, :-1].any(dim=1) & ((cube_pos - rest_d).norm(dim=1) < 0.03) & (
-                cube_tilt(quat) < math.radians(20)) & ~dones.bool() & (u.episode_length_buf >= args.every)  # fmt: skip
+                object_tilt(u, quat) < math.radians(20)) & ~dones.bool() & (
+                u.episode_length_buf >= args.every)  # fmt: skip
             turn = (ctx.progress >= math.radians(30)) & (ctx.progress <= math.radians(80))
             spaced = step - last >= args.every
             want_turn = held & turn & spaced & (counts["turn"] < args.turn_count)

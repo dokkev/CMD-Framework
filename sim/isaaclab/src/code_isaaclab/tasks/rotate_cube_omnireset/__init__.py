@@ -51,3 +51,27 @@ for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):  # the same, through the co
             "default_agent": "rsl_rl",
         },
     )
+
+# the fingertip-region cylinder task (docs/experimental/rl_cylinder.md): training on O, evaluation on every hand
+gym.register(
+    id="CoDe-Rotate-Cylinder-O-Fingertip",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCylinderOFingertipEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCylinderFingertipPPORunnerCfg",
+        "default_agent": "rsl_rl",
+    },
+)
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
+    for _suffix in ("", "Mapped"):
+        gym.register(
+            id=f"CoDe-Rotate-Cylinder-{_key}-Fingertip-Eval" + (f"-{_suffix}" if _suffix else ""),
+            entry_point="isaaclab.envs:ManagerBasedRLEnv",
+            disable_env_checker=True,
+            kwargs={
+                "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCylinder{_key}FingertipEval{_suffix}EnvCfg",
+                "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCylinderFingertipPPORunnerCfg",
+                "default_agent": "rsl_rl",
+            },
+        )

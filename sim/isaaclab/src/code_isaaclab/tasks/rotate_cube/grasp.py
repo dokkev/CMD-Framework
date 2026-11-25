@@ -140,17 +140,18 @@ def distal_wall_along(desc: Description, mcp_deg: float = GRASP_MCP_DEG, pip_deg
     return float(x0 + (x1 - x0) * (0.0 - z0) / (z1 - z0))  # the face line at height 0
 
 
-def pinch_grasp(desc: Description, mcp_deg: float = GRASP_MCP_DEG) -> dict:
+def pinch_grasp(desc: Description, mcp_deg: float = GRASP_MCP_DEG, size_m: float = CUBE_SIZE_M) -> dict:
     """The grasp: the face frame (env frame); the cube's rest centre (face frame ``(wall - WALL_GAP_M - size/2, 0,
     size/2)``: a face on the proximal pads, its far face short of the distal pads' wall) and its rest pose in the env
     frame; the thumb's MCP and IP angles (0.25 deg grid) that put the thumb pad's face centre on the cube's top face,
     ``CUBE_SIZE_M - PINCH_SQUEEZE_M`` above the proximal pad face, as close above the cube's centre as the thumb
-    reaches, its normal within 20 deg of straight down."""
+    reaches, its normal within 20 deg of straight down. ``size_m``: the object's height above the pads and its depth
+    along them (the cube's edge, or a cylinder's diameter lying across the fingers)."""
     origin, rot9 = face_frame(desc, mcp_deg)
     origin, rot = np.asarray(origin), np.asarray(rot9).reshape(3, 3)  # columns: face axes in the env frame
     root = np.diag([1.0, -1.0, -1.0])  # palm up (hand -> env frame)
-    height = CUBE_SIZE_M - PINCH_SQUEEZE_M
-    rest_along = distal_wall_along(desc, mcp_deg) - WALL_GAP_M - CUBE_SIZE_M / 2
+    height = size_m - PINCH_SQUEEZE_M
+    rest_along = distal_wall_along(desc, mcp_deg) - WALL_GAP_M - size_m / 2
     best = None
     for tm in np.arange(0.0, 100.0, 0.25):
         for ti in np.arange(-10.0, 100.0, 0.25):
@@ -162,10 +163,10 @@ def pinch_grasp(desc: Description, mcp_deg: float = GRASP_MCP_DEG) -> dict:
             score = abs(cf[0] - rest_along)
             if best is None or score < best[0]:
                 best = (score, float(tm), float(ti), cf, nf)
-    if best is None or best[0] > CUBE_SIZE_M / 2 - 0.004:
+    if best is None or best[0] > size_m / 2 - 0.004:
         raise ValueError("the thumb pad cannot press the cube's top face in this grasp")
     _, tm, ti, cf, nf = best
-    rest_face = (rest_along, 0.0, CUBE_SIZE_M / 2)
+    rest_face = (rest_along, 0.0, size_m / 2)
     rest_env = origin + rot @ np.asarray(rest_face)
     return {
         "thumb_mcp_deg": tm,

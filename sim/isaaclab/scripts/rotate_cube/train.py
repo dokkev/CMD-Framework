@@ -58,6 +58,8 @@ TASK_ENV_KEYS = (
 
 def default_group(experiment: str) -> str | None:
     """``omnireset_v1`` / ``omnireset_v2`` (and ``..._smoke`` etc.) for the OmniReset experiments; None otherwise."""
+    if experiment.startswith("code_rotate_cylinder_fingertip"):
+        return "omnireset_fingertip" + experiment[len("code_rotate_cylinder_fingertip"):]
     prefix = "code_rotate_cube_omnireset"
     if not experiment.startswith(prefix):
         return None

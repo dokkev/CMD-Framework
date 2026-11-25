@@ -51,6 +51,7 @@ import gymnasium as gym  # noqa: E402
 import torch  # noqa: E402
 
 TASK = "CoDe-Rotate-Cube-O-OmniReset"
+"""The default task (the cube); ``--task CoDe-Rotate-Cylinder-O-Fingertip`` makes the cylinder's datasets."""
 ORDER = ("ObjectAnywhereHandAnywhere", "ObjectAnywhereHandGrasped", "ObjectRestingHandNear",
          "ObjectNearGoalHandGrasped")
 MAX_DEVIATION_M = {"ObjectAnywhereHandAnywhere": math.inf, "ObjectRestingHandNear": 0.01,
@@ -66,6 +67,7 @@ def main(argv=None) -> int:
     from isaaclab_tasks.utils import setup_preset_cli
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--task", default=TASK)
     parser.add_argument("--type", default="all", choices=("all", *ORDER, MIDTURN),
                         help="all: OmniReset's four types; ObjectMidTurnHandWound (v2) needs --source_rows")
     parser.add_argument("--source_rows", type=Path, help="harvested states (harvest_omnireset_midturn.py)")
@@ -90,9 +92,9 @@ def main(argv=None) -> int:
     from isaaclab_tasks.utils import resolve_task_config
 
     import code_isaaclab.tasks  # noqa: F401
-    from code_isaaclab.tasks.rotate_cube_omnireset.mdp import cube_tilt, reset_term
+    from code_isaaclab.tasks.rotate_cube_omnireset.mdp import object_tilt, reset_term
 
-    env_cfg, _ = resolve_task_config(TASK, "rsl_rl_cfg_entry_point")
+    env_cfg, _ = resolve_task_config(args.task, "rsl_rl_cfg_entry_point")
     out_dir = args.out_dir or Path(env_cfg.reset_datasets)
     types = ORDER if args.type == "all" else (args.type,)
     for t in types:
@@ -132,7 +134,7 @@ def main(argv=None) -> int:
     rest = torch.tensor(env_cfg.grasp["rest_env"])
     started = time.time()
     with launch_simulation(env_cfg, args), contextlib.ExitStack() as cleanup:
-        env = gym.make(TASK, cfg=env_cfg)
+        env = gym.make(args.task, cfg=env_cfg)
         cleanup.callback(env.close)
         u = env.unwrapped
         n, dev = u.num_envs, u.device
@@ -151,7 +153,8 @@ def main(argv=None) -> int:
 
                 rows = load_reset_dataset(grasp_path, robot.joint_names, params["goal_step"])
                 if kind == "ObjectNearGoalHandGrasped":  # near the goal pose: on the rest position, lying flat
-                    near = ((rows["pos"] - rest).norm(dim=1) < 0.015) & (cube_tilt(rows["quat"]) < math.radians(10))
+                    tilt = object_tilt(u, rows["quat"].to(dev)).cpu()
+                    near = ((rows["pos"] - rest).norm(dim=1) < 0.015) & (tilt < math.radians(10))
                     rows = {k: v[near] for k, v in rows.items()}
                     if not len(rows["q"]):
                         raise RuntimeError("no stable grasp near the goal pose to start near-goal states from")
@@ -182,13 +185,16 @@ def main(argv=None) -> int:
                     "off_hand": ((pos - rest_d).norm(dim=1) < 0.08) & (pos[:, 2] > rest_d[2] - 0.03),
                     "finite": torch.isfinite(pos).all(dim=1) & torch.isfinite(tq(robot.data.joint_pos)).all(dim=1),
                 }
+                if "palm_contact" in u.scene.sensors:  # the cylinder task: never on the palm
+                    palm = u.scene.sensors["palm_contact"].data.force_matrix_w.torch.reshape(n, -1, 3).norm(dim=-1)
+                    tests["on_palm"] = palm.max(dim=1).values <= 0.05
                 if kind == "ObjectAnywhereHandGrasped":
                     tests["not_held"] = touch[:, -1] & touch[:, :-1].any(dim=1)
                 if kind == MIDTURN:  # still held near the pads, lying near flat
                     tests["not_held"] = touch[:, -1] & touch[:, :-1].any(dim=1)
-                    tests["off_pads"] = ((pos - rest_d).norm(dim=1) < 0.03) & (cube_tilt(quat) < math.radians(20))
+                    tests["off_pads"] = ((pos - rest_d).norm(dim=1) < 0.03) & (object_tilt(u, quat) < math.radians(20))
                 if kind == "ObjectNearGoalHandGrasped":
-                    tests["off_goal"] = ((pos - rest_d).norm(dim=1) < 0.015) & (cube_tilt(quat) < math.radians(10))
+                    tests["off_goal"] = ((pos - rest_d).norm(dim=1) < 0.015) & (object_tilt(u, quat) < math.radians(10))
                 keep = torch.ones(n, dtype=torch.bool, device=dev)
                 for name, passed in tests.items():
                     reasons[name] = reasons.get(name, 0) + int((keep & ~passed).sum())
@@ -215,7 +221,7 @@ def main(argv=None) -> int:
                 render(u, keep, out_dir / f"resets_{kind}_samples.png")
             accepted = sum(len(x) for x in kept["q"])
             meta = {
-                "type": kind, "task": TASK, "joint_names": list(robot.joint_names), "hand": env_cfg.hand_key,
+                "type": kind, "task": args.task, "joint_names": list(robot.joint_names), "hand": env_cfg.hand_key,
                 "pad_profile": env_cfg.pad_profile().__dict__ | {"key": env_cfg.pad_profile().key()},
                 "servo_colliders": "pip", "hold_s": args.hold_s, "seed_start": args.seed_start, "tried": tried,
                 "accepted": accepted, "acceptance": accepted / max(tried, 1), "rejected_first_failing_test": reasons,

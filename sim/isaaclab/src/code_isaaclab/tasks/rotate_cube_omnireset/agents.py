@@ -50,3 +50,15 @@ class CoDeRotateCubeOmniResetV2PPORunnerCfg(CoDeRotateCubeOmniResetPPORunnerCfg)
     def __post_init__(self):
         super().__post_init__()
         self.obs_groups = {"actor": ["policy"], "critic": ["critic"]}
+
+
+@configclass
+class CoDeRotateCylinderFingertipPPORunnerCfg(CoDeRotateCubeOmniResetV2PPORunnerCfg):
+    """The cylinder task: v2's PPO with v2c's entropy 0.001 and std capped at 1.0."""
+
+    experiment_name = "code_rotate_cylinder_fingertip"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.algorithm.entropy_coef = 0.001
+        self.actor.distribution_cfg.std_range = (0.001, 1.0)

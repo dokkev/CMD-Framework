@@ -51,6 +51,13 @@ class CubeRotationMetrics(RecorderTerm):
 
     def record_pre_step(self):
         self.previous_quat = _t(self._env.scene["object"].data.root_quat_w).clone()
+        if getattr(self, "goal_context", None) is not None:  # the task's own progress (its turn axis) and tilt
+            c = self.goal_context
+            self.goal_progress = torch.where(self.active, c.progress, self.goal_progress)
+            peak = torch.maximum(self.goal_tilt_peak, c.tilt)
+            self.goal_tilt_peak = torch.where(self.active, peak, self.goal_tilt_peak)
+            self.goal_tilt_20 += self.active & (c.tilt <= math.radians(20.0))
+            self.goal_steps += self.active
         return None, None
 
     def record_post_step(self):
@@ -171,6 +178,10 @@ class CubeRotationMetrics(RecorderTerm):
         has_goals = "goal_context" in rewards.active_terms
         self.goal_context = rewards.get_term_cfg("goal_context").func if has_goals else None
         self.goals = torch.zeros(n, dtype=torch.long, device=device)
+        self.goal_progress = torch.zeros(n, device=device)
+        self.goal_tilt_peak = torch.zeros(n, device=device)
+        self.goal_tilt_20 = torch.zeros(n, device=device)
+        self.goal_steps = torch.zeros(n, device=device)
         up = self.yaw.new_tensor((0., 0., 1.)).expand(n, 3)
         quat = _t(self._env.scene["object"].data.root_quat_w)
         self.initial_up_body = math_utils.quat_apply_inverse(quat, up)
@@ -234,6 +245,18 @@ class CubeRotationMetrics(RecorderTerm):
                 summary[f"{name}_turn_within_40mm_and_upright{gate}deg_rate"] = float(
                     ((turn >= frac * math.tau) & kept).float().mean())
         if self.goal_context is not None:
+            # the task's own turn (``GoalContext.progress``: world z for the cube, the axis for a cylinder), to the
+            # step before each first episode ended
+            prog = torch.rad2deg(self.goal_progress)
+            summary["task_progress_deg_mean"] = float(prog.mean())
+            summary["task_progress_deg_p10_p50_p90"] = prog.quantile(prog.new_tensor([0.1, 0.5, 0.9])).tolist()
+            for name, frac in (("quarter", 0.25), ("half", 0.5), ("three_quarter", 0.75), ("full", 1.0)):
+                summary[f"task_{name}_turn_and_clean_timeout_rate"] = float(
+                    ((self.goal_progress >= frac * math.tau) & clean_timeout).float().mean())
+            summary["task_tilt_peak_deg_p50_p90"] = torch.rad2deg(self.goal_tilt_peak).quantile(
+                self.yaw.new_tensor([0.5, 0.9])).tolist()
+            share = self.goal_tilt_20 / self.goal_steps.clamp_min(1)
+            summary["task_tilt_within_20deg_time_share"] = float(share.mean())
             summary["goals_per_episode_mean"] = float(self.goals.float().mean())
             summary["goals_per_episode_p50_p90"] = self.goals.float().quantile(self.goals.new_tensor(
                 [0.5, 0.9], dtype=torch.float)).tolist()

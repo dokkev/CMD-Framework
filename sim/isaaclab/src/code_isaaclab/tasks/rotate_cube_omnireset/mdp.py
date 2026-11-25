@@ -462,11 +462,14 @@ class OmniResetStates(ManagerTermBase):
                 "goal_offset": goal}  # fmt: skip
 
     def _yaw_tilt(self, k: int, tilt_rad: float) -> torch.Tensor:
-        """The rest orientation turned about world z by a uniform yaw and tilted about a random horizontal axis by up
-        to ``tilt_rad``."""
+        """The rest orientation turned by a uniform angle about world z (the cube) or about the object's own rest axis
+        (``gen['spin_axis']``: a cylinder), and tilted about a random horizontal axis by up to ``tilt_rad``."""
         dev = self._env.device
         z = torch.zeros(k, 3, device=dev)
         z[:, 2] = 1.0
+        spin = self.cfg.params["gen"].get("spin_axis")
+        if spin is not None:
+            z[:] = torch.tensor(spin, device=dev, dtype=torch.float32)
         yaw = math_utils.quat_from_angle_axis((2 * torch.rand(k, device=dev) - 1) * math.pi, z)
         phi = 2 * math.pi * torch.rand(k, device=dev)
         axis = torch.stack((phi.cos(), phi.sin(), torch.zeros_like(phi)), dim=1)
@@ -481,6 +484,17 @@ def cube_tilt(quat_xyzw: torch.Tensor) -> torch.Tensor:
     """The angle between world z and the cube's body axis nearest to it [rad] (0: lying on a face; symmetric)."""
     r = math_utils.matrix_from_quat(quat_xyzw)  # Isaac Lab 3: xyzw throughout
     return r[:, 2, :].abs().max(dim=1).values.clamp(max=1.0).acos()
+
+
+def axis_tilt(quat_xyzw: torch.Tensor, rest_axis: torch.Tensor) -> torch.Tensor:
+    """The angle between the object's body y axis (a cylinder's axis) and ``rest_axis``, sign-free [rad]."""
+    a = math_utils.matrix_from_quat(quat_xyzw)[:, :, 1]
+    return (a * rest_axis).sum(dim=1).abs().clamp(max=1.0).acos()
+
+
+def object_tilt(env, quat_xyzw: torch.Tensor) -> torch.Tensor:
+    """The task's tilt (``GoalContext.tilt_of``): the cube's most upright face, or the cylinder axis' deviation."""
+    return goal_context(env).tilt_of(quat_xyzw)
 
 
 class GoalContext(ManagerTermBase):
@@ -500,6 +514,10 @@ class GoalContext(ManagerTermBase):
         self.obj = env.scene["object"]
         n, dev = env.num_envs, env.device
         self.rest_pos = torch.tensor(p["rest_pos"], device=dev, dtype=torch.float32)
+        self.mode = p.get("mode", "world_z")
+        """``world_z`` (the cube: progress about world z, tilt of the most upright face) or ``body_y`` (a cylinder lying
+        across the fingers: progress about its own axis, its body y; tilt of that axis from ``rest_axis``)."""
+        self.rest_axis = torch.tensor(p.get("rest_axis", (0.0, 1.0, 0.0)), device=dev, dtype=torch.float32)
         self.prev_quat = _t(self.obj.data.root_quat_w).clone()
         z = torch.zeros(n, device=dev)
         self.progress, self.goal, self.yaw_error, self.tilt, self.distance = (z.clone() for _ in range(5))
@@ -528,16 +546,29 @@ class GoalContext(ManagerTermBase):
         quat = _t(self.obj.data.root_quat_w)
         pos = _t(self.obj.data.root_pos_w) - self._env.scene.env_origins
         self.yaw_error[:] = self.goal - self.progress
-        self.tilt[:] = cube_tilt(quat)
+        self.tilt[:] = self.tilt_of(quat)
         self.orientation_distance[:] = self.yaw_error.abs() + self.tilt
         self.distance[:] = (pos - self.rest_pos).norm(dim=1)
 
+    def tilt_of(self, quat: torch.Tensor) -> torch.Tensor:
+        if self.mode == "body_y":
+            return axis_tilt(quat, self.rest_axis)
+        return cube_tilt(quat)
+
+    def turn_axis(self, quat: torch.Tensor) -> torch.Tensor:
+        """The world direction the progress is measured about, ``(n, 3)``."""
+        if self.mode == "body_y":
+            return math_utils.matrix_from_quat(quat)[:, :, 1]
+        z = torch.zeros(len(quat), 3, device=quat.device)
+        z[:, 2] = 1.0
+        return z
+
     def __call__(self, env, rest_pos, goal_step: float, success_distance_m: float, success_orientation_rad: float,
-                 hold_steps: int) -> torch.Tensor:  # fmt: skip
+                 hold_steps: int, mode: str = "world_z", rest_axis=(0.0, 1.0, 0.0)) -> torch.Tensor:  # fmt: skip
         quat = _t(self.obj.data.root_quat_w)
         dq = math_utils.axis_angle_from_quat(math_utils.quat_mul(quat, math_utils.quat_conjugate(self.prev_quat)))
         self.prev_quat[:] = quat
-        self.progress += dq[:, 2]
+        self.progress += (dq * self.turn_axis(quat)).sum(dim=1)
         self.steps += 1
         self._measure()
         self.success[:] = (self.distance < success_distance_m) & (self.orientation_distance < success_orientation_rad)
@@ -745,6 +776,12 @@ def _finite(x: torch.Tensor) -> torch.Tensor:
 # --- terminations -------------------------------------------------------------------------------------------------
 
 
+def object_palm_contact(env, threshold_n: float = 0.05) -> torch.Tensor:
+    """The object touching the palm (the ``palm_contact`` sensor: the object filtered against the palm body)."""
+    f = _t(env.scene.sensors["palm_contact"].data.force_matrix_w)
+    return f.reshape(env.num_envs, -1, 3).norm(dim=-1).max(dim=1).values > threshold_n
+
+
 def cube_out_of_reach(env, rest_pos, max_distance: float) -> torch.Tensor:
     """The cube more than ``max_distance`` from its rest position on the pads: off the hand, beyond any regrasp (the
     hand cannot reach it, where OmniReset's arm can always reach the table)."""
@@ -773,6 +810,13 @@ def cube_goal_error(env, rest_pos) -> torch.Tensor:
     obj = env.scene["object"]
     pos = _t(obj.data.root_pos_w) - env.scene.env_origins - c.rest_pos
     r = math_utils.matrix_from_quat(_t(obj.data.root_quat_w))
+    if c.mode == "body_y":  # the axis' deviation from its rest direction, in two directions across it
+        a = r[:, :, 1]
+        a = torch.where(((a * c.rest_axis).sum(1, keepdim=True)) < 0, -a, a)
+        dev = a - c.rest_axis
+        perp = torch.linalg.svd(c.rest_axis[None, :] * torch.ones(1, 1, device=a.device)).Vh[0, 1:]  # (2, 3)
+        tilt2 = dev @ perp.T
+        return _finite(torch.cat((pos, tilt2, c.yaw_error.clamp(-math.pi, math.pi)[:, None]), dim=1))
     k = r[:, 2, :].abs().argmax(dim=1)
     up = r.gather(2, k[:, None, None].expand(-1, 3, 1))[..., 0]  # the body axis nearest world z
     up = torch.where(up[:, 2:3] < 0, -up, up)
@@ -801,7 +845,10 @@ __all__ = [
     "cube_goal_error",
     "cube_out_of_reach",
     "cube_pose",
+    "axis_tilt",
     "cube_tilt",
+    "object_palm_contact",
+    "object_tilt",
     "dense_success_reward",
     "fingertip_cube_distance_tanh",
     "goal_advance_bonus",
