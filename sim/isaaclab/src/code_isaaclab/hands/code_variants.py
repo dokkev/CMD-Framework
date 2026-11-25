@@ -104,7 +104,7 @@ def mesh_collision_asset(variant: str, description: Path = STUDY3_DESCRIPTION, o
         stage = Usd.Stage.Open(str(base))
         edited = 0
         for prim in stage.Traverse():
-            if prim.HasAPI(UsdPhysics.MeshCollisionAPI):
+            if prim.HasAPI(UsdPhysics.MeshCollisionAPI) and prim.GetName().endswith("_pad"):  # not servo colliders
                 prim.RemoveProperty("physics:approximation")
                 prim.RemoveAPI(UsdPhysics.MeshCollisionAPI)
                 edited += 1

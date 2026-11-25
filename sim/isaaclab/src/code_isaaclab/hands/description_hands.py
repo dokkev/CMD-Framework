@@ -22,7 +22,7 @@ import numpy as np
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
 
-from code_isaaclab.assets.builders import write_usd
+from code_isaaclab.assets.builders import SERVO_COLLIDERS, write_usd
 from code_isaaclab.assets.description import Description
 from code_isaaclab.contact_interface import FLAT, PadProfile
 
@@ -126,12 +126,14 @@ def with_thumb_pad(desc: Description) -> Description:
 
 def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: PadProfile = FLAT,
                       pad_friction: float | None = None, pad_hydroelastic: float | None = None,
-                      thumb_pad: bool = False, visuals: bool = False) -> Path:
+                      thumb_pad: bool = False, visuals: bool = False,
+                      servo_colliders: tuple[str, ...] = SERVO_COLLIDERS) -> Path:
     """The USD of ``description`` with ``profile`` convex-mesh pads (written if missing); ``pad_friction``: the pads'
     friction coefficient (None: the backend default); ``pad_hydroelastic``: the pads' hydroelastic stiffness
     [N/m^3] (None: point-contact pads, :func:`bind_pad_hydroelastic`); ``thumb_pad``: add :func:`thumb_pad_box`;
     ``visuals``: add the description's drawing-only meshes and display colours (rendering only: the same bodies,
-    colliders, masses and joints; ``write_usd``)."""
+    colliders, masses and joints; ``write_usd``); ``servo_colliders``: the servo bodies that collide (default the PIP
+    servos; ``()`` reproduces the assets of the runs before them, s15 and model_5595)."""
     digest = hashlib.sha256(Path(description).read_bytes())
     if thumb_pad:
         digest.update(repr(("thumb_pad", thumb_pad_box(Description.load(description)))).encode())
@@ -148,6 +150,9 @@ def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: Pad
         tag += f"_kh{pad_hydroelastic:.3g}"
     if thumb_pad:
         tag += "_thumbpad"
+    digest.update(repr(("servo_colliders", tuple(servo_colliders))).encode())
+    if not servo_colliders:
+        tag += "_noservocol"
     if visuals:  # the geometry comes from the description (hashed above) and assets/visuals.py
         tag += "_vis"
         digest.update(b"visuals")
@@ -158,7 +163,7 @@ def description_asset(description: Path, out_dir: Path = ASSET_DIR, profile: Pad
         tmp = path.with_suffix(f".{os.getpid()}.tmp.usda")
         desc = Description.load(description)
         write_usd(with_thumb_pad(desc) if thumb_pad else desc, tmp, loop="ball", colliders=True, pad_profile=profile,
-                  visuals=visuals)
+                  visuals=visuals, servo_colliders=tuple(servo_colliders))
         pads = 6 + int(thumb_pad)
         if pad_friction is not None and bind_pad_friction(tmp, pad_friction) != pads:
             raise RuntimeError(f"expected {pads} pad colliders in {tmp}")
@@ -207,7 +212,8 @@ def bar_cfg(size_m: tuple[float, float, float], mass_kg: float, pos_w: tuple[flo
 def register_description_hand(name: str, description: Path, object_cfg: RigidObjectCfg,
                               servo_saturation: tuple[bool, bool] = (False, True), profile: PadProfile = FLAT,
                               pad_friction: float | None = None, pad_hydroelastic: float | None = None,
-                              thumb_pad: bool = False, visuals: bool = False) -> str:
+                              thumb_pad: bool = False, visuals: bool = False,
+                              servo_colliders: tuple[str, ...] = SERVO_COLLIDERS) -> str:
     """Register ``name`` (idempotent) from ``description`` with ``object_cfg``; the servo effort limit is off by
     default (simulation comparisons, ``code_isaaclab.actuators``)."""
     if name in HANDS:
@@ -215,7 +221,8 @@ def register_description_hand(name: str, description: Path, object_cfg: RigidObj
     desc = Description.load(description)
     register_hand(make_code_hand_spec(
         desc, description_asset(description, profile=profile, pad_friction=pad_friction,
-                                                    pad_hydroelastic=pad_hydroelastic, thumb_pad=thumb_pad, visuals=visuals), name=name,
+                                                    pad_hydroelastic=pad_hydroelastic, thumb_pad=thumb_pad,
+                                                    visuals=visuals, servo_colliders=servo_colliders), name=name,
         object_cfg=object_cfg,
         goal_marker_cfg=_goal_marker_cfg(), goal_marker_offset=(0.0, -0.12, 0.0), activate_contact_sensors=True,
         servo_saturation=servo_saturation, **SHARED))

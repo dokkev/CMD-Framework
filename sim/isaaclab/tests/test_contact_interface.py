@@ -156,3 +156,38 @@ def test_code_tasks_share_everything_but_the_hand_asset():
     assert r_flat == r_crowned  # actuators, gains, armature, initial state: identical
     assert flat.events.to_dict() == crowned.events.to_dict()
     assert math.isclose(flat.commands.object_pose.max_angle, math.radians(30.0))
+
+
+DOME = PadProfile("dome", crown_mm=1.0, crown_wid_mm=1.0)
+
+
+def test_dome_keeps_the_middle_and_lowers_sides_and_corners():
+    from code_isaaclab.contact_interface import dome_face_height, surface_report
+
+    hx, hy, hz = HALF
+    assert dome_face_height(0.0, 0.0, HALF, DOME) == pytest.approx(hy)  # the middle is the flat face
+    assert dome_face_height(hx, 0.0, HALF, DOME) == pytest.approx(hy - 1e-3)
+    assert dome_face_height(0.0, hz, HALF, DOME) == pytest.approx(hy - 1e-3)
+    assert dome_face_height(hx, hz, HALF, DOME) == pytest.approx(hy - 2e-3)
+    points, _, _ = pad_mesh(HALF, DOME)
+    assert len(points) <= 64  # Newton's convex-hull vertex limit
+    assert points[:, 1].max() == pytest.approx(hy) and points[:, 1].min() == pytest.approx(-hy)
+    assert np.allclose(np.abs(points[:, [0, 2]]).max(axis=0), (hx, hz))
+    body = {"boxes": [{"name": "p_pad", "half_extents": list(HALF)}]}
+    row = surface_report([body], DOME)[0]
+    assert row["thickness_middle_mm"] == pytest.approx(3.0)
+    assert row["thickness_ends_mm"] == pytest.approx(2.0) and row["thickness_sides_mm"] == pytest.approx(2.0)
+    assert row["thickness_corners_mm"] == pytest.approx(1.0)
+
+
+def test_dome_mesh_is_convex_and_closed():
+    test_crowned_mesh_is_convex_and_closed(DOME)
+
+
+def test_dome_refuses_bad_settings():
+    with pytest.raises(ValueError):
+        pad_mesh(HALF, PadProfile("too_deep", crown_mm=1.5, crown_wid_mm=1.5))
+    with pytest.raises(ValueError):
+        PadProfile("both", crown_mm=1.0, crown_wid_mm=1.0, across_width=True)
+    with pytest.raises(ValueError):
+        PadProfile("even", crown_mm=1.0, crown_wid_mm=1.0, dome_grid=(10, 5))

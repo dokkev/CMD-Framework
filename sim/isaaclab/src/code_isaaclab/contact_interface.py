@@ -11,7 +11,11 @@ face, length and width and the same thickness at its middle. The contact face ca
 - ``flat`` (M0): the box itself, authored as a convex mesh (8 vertices), so that both variants go through the
   same mesh-collision path of the solver (a box primitive would use another collision routine);
 - ``crowned`` (M1): the contact face a circular arc along the segment whose middle is the flat face and whose
-  ends lie ``crown_mm`` lower (the sagitta), the arc sampled at ``segments`` chords.
+  ends lie ``crown_mm`` lower (the sagitta), the arc sampled at ``segments`` chords;
+- dome (``crown_wid_mm > 0``): the contact face curved along both axes, the sum of a circular crown of ``crown_mm``
+  along the length and one of ``crown_wid_mm`` across the width (each concave in its own variable, so the sum is
+  convex), sampled on a ``dome_grid`` of vertices. The middle keeps the full thickness; the side midpoints lie one
+  crown lower and the corners both crowns lower.
 
 The crowned pad is therefore contained in the flat one (same envelope, same mounting datum). Masses are the
 export's body masses either way (the pads carry no mass of their own in the asset). Nothing here imports
@@ -42,12 +46,27 @@ class PadProfile:
     """Curve along local z (pad width) instead of local x (length)."""
     pads: tuple[str, ...] = ()
     """Pad names to curve. An empty selection applies the profile to every pad."""
+    crown_wid_mm: float = 0.0
+    """Sagitta across the width [mm]; positive makes the face a dome together with ``crown_mm`` along the length."""
+    dome_grid: tuple[int, int] = (11, 5)
+    """Dome face vertices along the length and across the width; both odd (a vertex at the middle), and with the four
+    mounting corners at most 64 points, Newton's convex-hull limit (``Mesh.MAX_HULL_VERTICES``)."""
 
     def __post_init__(self) -> None:
-        if self.crown_mm < 0.0:
-            raise ValueError("crown_mm must be >= 0")
+        if self.crown_mm < 0.0 or self.crown_wid_mm < 0.0:
+            raise ValueError("crown_mm and crown_wid_mm must be >= 0")
         if self.crown_mm > 0.0 and self.segments < 2:
             raise ValueError("a crowned face needs at least 2 segments")
+        if self.crown_wid_mm > 0.0:
+            nx, nz = self.dome_grid
+            if self.across_width:
+                raise ValueError("a dome sets both crowns; across_width selects the axis of a single crown")
+            if nx < 3 or nz < 3 or nx % 2 == 0 or nz % 2 == 0 or nx * nz + 4 > 64:
+                raise ValueError("dome_grid must be odd, at least 3 x 3 and at most 60 face vertices")
+
+    @property
+    def dome(self) -> bool:
+        return self.crown_wid_mm > 0.0
 
     def key(self) -> str:
         """A short content hash of the profile's parameters."""
@@ -87,9 +106,60 @@ def pad_profile_polygon(half_extents, profile: PadProfile) -> np.ndarray:
     return np.vstack([[[-half_span, -hy], [half_span, -hy]], top])
 
 
+def dome_face_height(x, z, half_extents, profile: PadProfile) -> np.ndarray:
+    """Height of a dome's contact face above the pad's mid-plane at ``(x, z)`` (length, width) [m]: the full face
+    height minus the two crowns' depths."""
+    hx, hy, hz = (float(v) for v in half_extents)
+    along = hy - contact_face_height(x, hx, hy, profile.crown_mm * 1e-3)
+    across = hy - contact_face_height(z, hz, hy, profile.crown_wid_mm * 1e-3)
+    return hy - along - across
+
+
+def _dome_mesh(half_extents, profile: PadProfile) -> tuple[np.ndarray, list[int], list[int]]:
+    hx, hy, hz = (float(v) for v in half_extents)
+    if (profile.crown_mm + profile.crown_wid_mm) * 1e-3 >= 2.0 * hy:
+        raise ValueError(
+            f"crowns {profile.crown_mm} + {profile.crown_wid_mm} mm leave no pad at its corners "
+            f"(thickness {2e3 * hy:.2f} mm)"
+        )
+    nx, nz = profile.dome_grid
+    xs, zs = np.linspace(-hx, hx, nx), np.linspace(-hz, hz, nz)
+    gx, gz = np.meshgrid(xs, zs, indexing="ij")
+    top = np.column_stack([gx.ravel(), dome_face_height(gx, gz, half_extents, profile).ravel(), gz.ravel()])
+    base = len(top)
+    bottom = np.array([[sx * hx, -hy, sz * hz] for sx in (-1.0, 1.0) for sz in (-1.0, 1.0)])
+    points = np.vstack([top, bottom])
+
+    def t(i, k):
+        return i * nz + k
+
+    def b(sx, sz):
+        return base + 2 * int(sx > 0) + int(sz > 0)
+
+    faces = []
+    for i in range(nx - 1):
+        for k in range(nz - 1):
+            faces += [[t(i, k), t(i, k + 1), t(i + 1, k)], [t(i + 1, k), t(i, k + 1), t(i + 1, k + 1)]]
+    faces.append([b(-1, -1), b(1, -1), b(1, 1), b(-1, 1)])  # mounting face
+    faces.append([b(1, -1), b(1, 1)] + [t(nx - 1, k) for k in range(nz - 1, -1, -1)])  # +x end
+    faces.append([b(-1, 1), b(-1, -1)] + [t(0, k) for k in range(nz)])  # -x end
+    faces.append([b(-1, -1), b(1, -1)] + [t(i, 0) for i in range(nx - 1, -1, -1)])  # -z side
+    faces.append([b(1, 1), b(-1, 1)] + [t(i, nz - 1) for i in range(nx)])  # +z side
+    centre = points.mean(axis=0)
+    for f in faces:  # outward, counter-clockwise seen from outside
+        p = points[f]
+        normal = np.cross(p[1] - p[0], p[2] - p[0])
+        if normal @ (p.mean(axis=0) - centre) < 0:
+            f.reverse()
+    return points, [len(f) for f in faces], [i for f in faces for i in f]
+
+
 def pad_mesh(half_extents, profile: PadProfile) -> tuple[np.ndarray, list[int], list[int]]:
     """The pad as a closed convex prism in its local frame: points ``(2n, 3)``, face vertex counts and
-    indices (outward, counter-clockwise). The extrusion is orthogonal to the curved axis and contact normal."""
+    indices (outward, counter-clockwise). The extrusion is orthogonal to the curved axis and contact normal.
+    A dome (``profile.crown_wid_mm > 0``) is a grid of triangles over the mounting face's four corners instead."""
+    if profile.dome:
+        return _dome_mesh(half_extents, profile)
     half_extrusion = float(half_extents[0 if profile.across_width else 2])
     outline = pad_profile_polygon(half_extents, profile)
     n = len(outline)
@@ -112,7 +182,8 @@ def is_pad(box: dict) -> bool:
 
 
 def surface_report(desc_bodies: list[dict], profile: PadProfile) -> list[dict]:
-    """Per pad: its length, width, thickness at the middle and at the ends, crown, and arc radius [mm]."""
+    """Per pad: its length, width, thickness at the middle and at the ends, crown, and arc radius [mm]; a dome adds
+    the width crown and the thickness at the side midpoints and at the corners."""
     rows = []
     for body in desc_bodies:
         for box in body.get("boxes", []):
@@ -134,6 +205,14 @@ def surface_report(desc_bodies: list[dict], profile: PadProfile) -> list[dict]:
                     "arc_radius_mm": math.inf if crown <= 0 else 1e3 * (half_span**2 / (2 * crown) + crown / 2),
                 }
             )
+            if pad.dome:
+                h = (hx, hy, hz)
+                rows[-1].update({
+                    "crown_wid_mm": pad.crown_wid_mm,
+                    "thickness_ends_mm": 1e3 * (float(dome_face_height(hx, 0.0, h, pad)) + hy),
+                    "thickness_sides_mm": 1e3 * (float(dome_face_height(0.0, hz, h, pad)) + hy),
+                    "thickness_corners_mm": 1e3 * (float(dome_face_height(hx, hz, h, pad)) + hy),
+                })
     return rows
 
 
@@ -143,6 +222,7 @@ __all__ = [
     "VARIANTS",
     "PadProfile",
     "contact_face_height",
+    "dome_face_height",
     "is_pad",
     "pad_mesh",
     "pad_profile_polygon",

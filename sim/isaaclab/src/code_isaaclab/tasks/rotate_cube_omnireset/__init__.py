@@ -1,0 +1,24 @@
+# Copyright (c) 2026, CoDe Hand.
+# SPDX-License-Identifier: BSD-3-Clause
+
+"""Cube rotation by hand O with OmniReset's recipe (:mod:`.env_cfg`, ``docs/experimental/omnireset_recipe.md``).
+
+    uv run python scripts/rotate_cube/gen_omnireset_resets.py --type all          # the four reset datasets
+    uv run python scripts/rotate_cube/train.py --task CoDe-Rotate-Cube-O-OmniReset --experiment \\
+        code_rotate_cube_omnireset --iterations 500 --num_envs 4096 --seed 20
+    uv run --extra rsl-rl python scripts/rotate_cube/eval_policy.py --task CoDe-Rotate-Cube-O-OmniReset-Eval ...
+"""
+
+import gymnasium as gym
+
+for _suffix, _cfg in (("", "CoDeRotateCubeOOmniResetEnvCfg"), ("-Eval", "CoDeRotateCubeOOmniResetEvalEnvCfg")):
+    gym.register(
+        id=f"CoDe-Rotate-Cube-O-OmniReset{_suffix}",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:{_cfg}",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetPPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )

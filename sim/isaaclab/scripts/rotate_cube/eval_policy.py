@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from contextlib import ExitStack
 from hashlib import sha256
 from importlib.metadata import version
@@ -86,6 +87,9 @@ class CubeRotationMetrics(RecorderTerm):
         dot_xy = (old_heading[:, :2] * new_heading[:, :2]).sum(dim=1)
         self.heading += torch.where(self.active, torch.atan2(cross_z, dot_xy), 0.0)
         self.length += self.active
+        if self.goal_context is not None:  # the OmniReset task's goals reached (kept as a running maximum)
+            reached = torch.maximum(self.goals, self.goal_context.goals_reached)
+            self.goals = torch.where(self.active, reached, self.goals)
         tm = env.termination_manager
         self.off_grasp |= self.active & tm.get_term("object_off_grasp")
         self.tilted |= self.active & tm.get_term("object_tilted")
@@ -152,6 +156,9 @@ class CubeRotationMetrics(RecorderTerm):
             self.finger_recontact_events = torch.zeros(n, 3, dtype=torch.long, device=device)
             self.prev_digit_touch = None
         self.off_grasp, self.tilted, self.timeout = torch.zeros(3, n, dtype=torch.bool, device=device)
+        rewards = self._env.reward_manager
+        self.goal_context = rewards.get_term_cfg("goal_context").func if "goal_context" in rewards.active_terms else None
+        self.goals = torch.zeros(n, dtype=torch.long, device=device)
         up = self.yaw.new_tensor((0., 0., 1.)).expand(n, 3)
         quat = _t(self._env.scene["object"].data.root_quat_w)
         self.initial_up_body = math_utils.quat_apply_inverse(quat, up)
@@ -191,6 +198,10 @@ class CubeRotationMetrics(RecorderTerm):
             "full_turn_within_40mm_and_60deg_rate": float(((turn >= math.tau) & retained).float().mean()),
             "max_retained_rotation_deg": float(torch.rad2deg(turn[retained].max())) if retained.any() else None,
         }
+        if self.goal_context is not None:
+            summary["goals_per_episode_mean"] = float(self.goals.float().mean())
+            summary["goals_per_episode_p50_p90"] = self.goals.float().quantile(self.goals.new_tensor(
+                [0.5, 0.9], dtype=torch.float)).tolist()
         if self.contacts is not None:
             summary["thumb_and_finger_link_contact_fraction"] = float((self.thumb_finger_steps / self.length).mean())
             summary["no_pad_link_contact_fraction"] = float((self.no_contact_steps / self.length).mean())
@@ -298,6 +309,9 @@ def main(argv=None):
         "grasp_cache_sha256": sha256(cache.read_bytes()).hexdigest(),
         "pad_crown_mm": env_cfg.pad_crown_mm,
         "pad_crown_layout": env_cfg.pad_crown_layout,
+        "contact_model": (getattr(env_cfg, "contact_model", None) or {}).get(
+            "name", os.environ.get("CODE_ROTATE_CUBE_CONTACT", "default")),
+        "servo_colliders": os.environ.get("CODE_ROTATE_CUBE_SERVO_COLLIDERS", "1"),
         "phase_period_s": env_cfg.phase_period_s,
         "observe_rotation_goal": env_cfg.observe_rotation_goal,
         "contact_metrics": contact_metrics,

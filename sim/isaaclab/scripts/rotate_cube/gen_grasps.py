@@ -134,6 +134,8 @@ def main(argv=None) -> int:
                  "cube_size_m": CUBE_SIZE_M, "grasp_mcp_deg": GRASP_MCP_DEG, "grasp_pip_deg": GRASP_PIP_DEG,
                  "pad_crown_mm": env_cfg.pad_crown_mm,
                  "pad_crown_layout": env_cfg.pad_crown_layout,
+                 "contact_model": os.environ.get("CODE_ROTATE_CUBE_CONTACT", "default"),
+                 "servo_colliders": os.environ.get("CODE_ROTATE_CUBE_SERVO_COLLIDERS", "1"),
                  "hold_s": args.hold_s, "seed_start": args.seed_start, "tried": tried, "accepted": accepted,
                  "acceptance": accepted / max(tried, 1)})
     args.out_dir.mkdir(parents=True, exist_ok=True)

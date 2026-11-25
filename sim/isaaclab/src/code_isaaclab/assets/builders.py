@@ -35,6 +35,14 @@ PAD_RGB = (0.30, 0.52, 0.93)
 LINK_RGB = (0.78, 0.78, 0.80)
 """Display colours (sRGB) of the ``geometry`` URDF's shape visuals and the USD colliders' ``displayColor``."""
 CAP_SEGMENTS = 16
+SERVO_COLLIDERS: tuple[str, ...] = ("pip",)
+"""The servo bodies :func:`write_usd` makes colliders for by default (servo joint names: ``pip``; ``()`` for none)."""
+SERVO_COLLIDER_FILTERS: tuple[str, ...] = ()
+"""Links of its own finger a PIP servo collider does not collide with, beyond the description's body pairs. Those
+already filter its carrier, ``<finger>_proximal``, against the finger's mcp, servo link and driver link (the servo
+body overlaps both links, by up to 2.4 mm, over the joint range) and against the palm; the distal segment stays at
+least about 2 mm away over MCP -10..100 deg and PIP 0..120 deg (``scripts/rotate_cube/check_servo_colliders.py``), so
+nothing more is filtered."""
 HOUSING_SEGMENTS = 2
 """Steps per quarter circle of a palm housing box's collider hull (56 vertices: within convex-hull vertex limits)."""
 
@@ -279,6 +287,7 @@ def write_usd(
     passive_limit_margin_deg: float = 0.0,
     pad_profile=None,
     visuals: bool = False,
+    servo_colliders: tuple[str, ...] = SERVO_COLLIDERS,
 ) -> Path:
     """Write the hand as a ``UsdPhysics`` stage (``ke``/``kd`` in N m/rad, authored in per-degree USD units).
 
@@ -294,6 +303,13 @@ def write_usd(
     ``UsdPreviewSurface``, both linear, which Newton's importer turns back into the display colour), and gives the
     colliders ``purpose = guide`` so viewports draw the visuals instead (Newton keeps them as colliders and hides
     them unless ``show_collision``). Without it the stage is exactly as before.
+
+    ``servo_colliders`` (with ``colliders``): the servo joints whose servo bodies collide, default ``("pip",)``: each
+    finger's PIP servo (``<finger>_pip_servo_body`` of the description's ``visuals``, riding on ``<finger>_proximal``)
+    as a convex hull of :func:`servo_mesh` at the visual's pose, ``<body>/<servo body>_collider``. It has no mass of
+    its own (the servo's mass is in the link's authored inertial). It is filtered against its own finger's links by
+    the description's body pairs plus :data:`SERVO_COLLIDER_FILTERS` (shape-level pairs). ``()`` reproduces the
+    assets from before the servo colliders. The stage's root records the list as ``code:servo_colliders``.
     """
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
@@ -387,6 +403,40 @@ def write_usd(
             if visuals:
                 cube.CreateDisplayColorAttr([Gf.Vec3f(*srgb_to_linear(PAD_RGB if is_pad(box) else LINK_RGB))])
                 cube.CreatePurposeAttr(UsdGeom.Tokens.guide)
+
+    added = []
+    shape = (desc.data.get("servo") or {}).get("shape")
+    if colliders and servo_colliders and shape:  # exports without servo shapes (the pilot's) get none
+        sv, sf = servo_mesh(shape)
+        for item in desc.data.get("visuals") or []:
+            if item.get("shape") != "servo" or item["servo"].split("/")[-1] not in servo_colliders:
+                continue
+            w, x, y, z = item["quat_wxyz"]
+            rot = np.array([
+                [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+            ])  # fmt: skip
+            pts = np.asarray(item["position"], dtype=float) + sv @ rot.T - origin[item["body"]]
+            path = f"/code_hand/{item['body']}/{item['name']}_collider"
+            mesh = UsdGeom.Mesh.Define(stage, path)
+            mesh.CreatePointsAttr([Gf.Vec3f(*p) for p in pts])
+            mesh.CreateFaceVertexCountsAttr([3] * len(sf))
+            mesh.CreateFaceVertexIndicesAttr(sf.reshape(-1).tolist())
+            mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+            UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+            UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).CreateApproximationAttr(UsdPhysics.Tokens.convexHull)
+            mesh.GetPrim().SetCustomDataByKey("code:servo_collider", item["servo"])
+            if visuals:
+                mesh.CreateDisplayColorAttr([Gf.Vec3f(*srgb_to_linear(LINK_RGB))])
+                mesh.CreatePurposeAttr(UsdGeom.Tokens.guide)
+            digit = item["servo"].split("/")[0]
+            for other in SERVO_COLLIDER_FILTERS:
+                target = stage.GetPrimAtPath(f"/code_hand/{digit}_{other}")
+                if target.IsValid():
+                    UsdPhysics.FilteredPairsAPI.Apply(mesh.GetPrim()).CreateFilteredPairsRel().AddTarget(target.GetPath())
+            added.append(item["name"])
+    root.GetPrim().SetCustomDataByKey("code:servo_colliders", ",".join(added) if added else "none")
 
     if visuals:  # drawing only: plain Mesh prims, no CollisionAPI, no MassAPI
         from pxr import UsdShade

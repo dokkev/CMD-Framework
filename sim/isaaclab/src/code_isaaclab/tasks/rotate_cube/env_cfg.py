@@ -23,14 +23,19 @@ The defaults are the settings of the current best policy, the s15 run
 Environment switches, read when the config is built (before the hand asset is made, so Hydra cannot set them):
 
 - ``CODE_ROTATE_CUBE_GRASPS``: grasp-cache directory holding ``<hand>.pt`` (default :data:`DEFAULT_GRASP_DIR`);
-- ``CODE_ROTATE_CUBE_CROWN_MM`` (default 1; 0 is flat) and ``CODE_ROTATE_CUBE_CROWN_LAYOUT`` (``length_all``, or
-  ``distal_width``: across the width of the distal pads only);
+- ``CODE_ROTATE_CUBE_CROWN_MM`` (default 1; 0 is flat) and ``CODE_ROTATE_CUBE_CROWN_LAYOUT`` (``length_all``,
+  ``distal_width``: across the width of the distal pads only, or ``dome``: that crown along the length and across the
+  width of every pad, the OmniReset task's pads);
+- ``CODE_ROTATE_CUBE_CONTACT``: ``default`` (unset), or ``pad13_condim4_v1`` (``code_isaaclab.contact_model``, the
+  OmniReset task's contact model; for grasp caches and evaluations on its asset);
 - ``CODE_ROTATE_CUBE_PHASE_PERIOD_S``: gait clock period (default 4.5; 0 drops the observation);
 - ``CODE_ROTATE_CUBE_GOAL_OBS``: next-milestone observation (default 1);
 - ``CODE_ROTATE_CUBE_HORA=1``: Hora's stage-1 package (:func:`apply_hora`);
 - ``CODE_ROTATE_CUBE_GEN_GRASPS=1``: the grasp-generation variant (set by ``gen_grasps.py``);
 - ``CODE_ROTATE_CUBE_RESET_POOL``: a reset-pool directory holding ``<hand>.pt`` (``harvest_reset_pool.py``); half the
   resets then start from its mid-rotation states (:class:`~.rotate_cube_mdp.GraspCacheReset`; unset: none);
+- ``CODE_ROTATE_CUBE_SERVO_COLLIDERS``: ``1`` (default) gives the PIP servo bodies convex colliders
+  (``assets.builders.write_usd``); ``0`` reproduces the asset of the runs before them (s15, model_5595);
 - ``CODE_ROTATE_CUBE_POSE_DIFF``: weight of a joint-target penalty toward the grasp cache's mean pose
   (:class:`~.rotate_cube_mdp.TargetPoseDiff`, e.g. -0.1; unset or 0: none, as in s15).
 
@@ -86,6 +91,8 @@ HORA = os.environ.get("CODE_ROTATE_CUBE_HORA", "0") == "1"
 RESET_POOL_DIR = os.environ.get("CODE_ROTATE_CUBE_RESET_POOL")
 RESET_POOL_FRACTION = 0.5
 POSE_DIFF_WEIGHT = float(os.environ.get("CODE_ROTATE_CUBE_POSE_DIFF", "0"))
+SERVO_COLLIDERS = os.environ.get("CODE_ROTATE_CUBE_SERVO_COLLIDERS", "1") == "1"
+CONTACT = os.environ.get("CODE_ROTATE_CUBE_CONTACT", "default")
 
 EPISODE_STEPS = 600
 TAU_MAX_NM = 1.03
@@ -253,8 +260,10 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         if not math.isfinite(self.pad_crown_mm) or self.pad_crown_mm < 0.0:
             raise ValueError("CODE_ROTATE_CUBE_CROWN_MM must be finite and nonnegative")
-        if self.pad_crown_layout not in ("length_all", "distal_width"):
-            raise ValueError("CODE_ROTATE_CUBE_CROWN_LAYOUT must be length_all or distal_width")
+        if self.pad_crown_layout not in ("length_all", "distal_width", "dome"):
+            raise ValueError("CODE_ROTATE_CUBE_CROWN_LAYOUT must be length_all, distal_width or dome")
+        if CONTACT not in ("default", "pad13_condim4_v1"):
+            raise ValueError("CODE_ROTATE_CUBE_CONTACT must be default or pad13_condim4_v1")
         if not math.isfinite(self.phase_period_s) or self.phase_period_s < 0.0:
             raise ValueError("CODE_ROTATE_CUBE_PHASE_PERIOD_S must be finite and nonnegative")
         desc_path = HANDS[self.hand_key]
@@ -262,7 +271,9 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
         crown, layout = self.pad_crown_mm, self.pad_crown_layout
         distal_width = layout == "distal_width"
         profile = FLAT
-        if crown:
+        if crown and layout == "dome":  # the same profile as the OmniReset task's (same asset)
+            profile = PadProfile(f"dome{crown:g}x{crown:g}", crown_mm=crown, crown_wid_mm=crown)
+        elif crown:
             distal_pads = ("index_distal_pad", "middle_distal_pad", "ring_distal_pad")
             profile = PadProfile(
                 f"crown{crown:g}_{layout}", crown_mm=crown, across_width=distal_width,
@@ -273,7 +284,8 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
         g = pinch_grasp(desc)
         self.grasp = {k: v for k, v in g.items() if k in ("thumb_mcp_deg", "thumb_ip_deg", "rest_face", "rest_env")}
         name = register_description_hand(
-            f"rotate_cube_{self.hand_key}" + (f"_{profile.key()}" if crown else "") + ("_vis" if self.visuals else ""),
+            f"rotate_cube_{self.hand_key}" + (f"_{profile.key()}" if crown else "") + ("_vis" if self.visuals else "")
+            + ("" if SERVO_COLLIDERS else "_noservocol"),
             desc_path,
             RigidObjectCfg(
                 prim_path="{ENV_REGEX_NS}/object",
@@ -291,6 +303,7 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
             profile=profile,
             thumb_pad=True,
             visuals=self.visuals,
+            servo_colliders=("pip",) if SERVO_COLLIDERS else (),
         )
         spec = get_hand(name)
         self.scene.robot = spec.robot_cfg.replace(
@@ -336,6 +349,10 @@ class CoDeRotateCubeEnvCfg(ManagerBasedRLEnvCfg):
             apply_hora(self, actuated, joints)
         self.sim.physics = HandPhysicsCfg()
         apply_hand_buffers(self.sim.physics, spec.mjwarp_buffers)
+        if CONTACT != "default":
+            from code_isaaclab import contact_model
+
+            contact_model.apply(self.sim.physics)
         if spec.stiffen_mjwarp_loops:
             self.events.stiffen_loops = EventTermCfg(func=stiffen_env_mujoco_loops, mode="startup")
         self.sim.default_visualizer_cfg = recording_visualizer_cfg(self.scene.num_envs, self.scene.env_spacing)
