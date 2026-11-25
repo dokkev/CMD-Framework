@@ -26,6 +26,14 @@ from code_isaaclab.hands.description_hands import thumb_pad_box
 HAND_DIR = Path(os.environ.get("CODE_ROTATE_HAND_DIR", REPO_ROOT / "design" / "output" / "sim" / "study3" / "hands"))
 HANDS = {k: HAND_DIR / f"cfl_q120_h3to7_{v}.json" for k, v in (("O", "h0"), ("R", "hr"), ("U", "hu"))}
 """Exports of O, R and U (``design/scripts/export/code_hand_sim.py --params <hand>.yaml``)."""
+_TRANSFER_DEFAULT = Path(__file__).resolve().parents[4] / "logs" / "rotate_cube" / "transfer" / "hands"
+TRANSFER_HAND_DIR = Path(os.environ.get("CODE_ROTATE_TRANSFER_HAND_DIR", _TRANSFER_DEFAULT))
+HANDS.update({
+    f"{k}{t}": TRANSFER_HAND_DIR / f"cfl_q120_h3to{t}_{v}.json" for t in (5, 9) for k, v in (("R", "hr"), ("U", "hu"))
+})
+"""R and U of the 5 and 9 mm pairs (R5, U5, R9, U9), re-exported with the current exporter (servo shapes and visuals,
+which the committed ``design/output`` exports of these pairs predate; kinematics identical) by
+``scripts/rotate_cube/export_transfer_hands.sh``."""
 
 FINGERS = ("index", "middle", "ring")
 THUMB = ("thumb_ro", "thumb_raa", "thumb_mcp", "thumb_ip")

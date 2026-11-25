@@ -24,13 +24,16 @@ Isaac Lab and Newton are unchanged: :class:`NewtonMJWarpContactManager` is selec
 from __future__ import annotations
 
 import logging
+import os
 
 from isaaclab_newton.physics.mjwarp_manager import NewtonMJWarpManager
 
 logger = logging.getLogger(__name__)
 
 NAME = "pad13_condim4_v1"
-PAD_MU, CUBE_MU, HAND_MU = 1.3, 0.5, 0.5
+PAD_MU = float(os.environ.get("CODE_CONTACT_PAD_MU", "1.3"))
+"""Pad friction (1.3; ``CODE_CONTACT_PAD_MU`` overrides, for the interface-swap test of the transfer study)."""
+CUBE_MU, HAND_MU = 0.5, 0.5
 TORSIONAL_M = 0.003
 CONDIM = 4
 IMPRATIO = 1000.0

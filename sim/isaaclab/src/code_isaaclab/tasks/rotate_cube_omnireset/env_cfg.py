@@ -427,5 +427,12 @@ class CoDeRotateCubeOOmniResetV2EvalEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
     evaluation = True
 
 
+TRANSFER_HANDS = ("R", "U", "R5", "U5", "R9", "U9")
+"""Hands the O-trained v2 policy is evaluated on zero-shot (``docs/experimental/rl_transfer.md``)."""
+for _key in TRANSFER_HANDS:
+    globals()[f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg"] = configclass(
+        type(f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,), {"hand_key": _key})
+    )
+
 __all__ = ["CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOOmniResetEvalEnvCfg", "CoDeRotateCubeOOmniResetV2EnvCfg",
            "CoDeRotateCubeOOmniResetV2EvalEnvCfg", "dataset_dir"]

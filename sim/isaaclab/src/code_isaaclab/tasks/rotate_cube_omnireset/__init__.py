@@ -27,3 +27,15 @@ for _suffix, _cfg, _agent in (
             "default_agent": "rsl_rl",
         },
     )
+
+for _key in ("R", "U", "R5", "U5", "R9", "U9"):  # zero-shot transfer of the O-trained v2 policy
+    gym.register(
+        id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCube{_key}OmniResetV2EvalEnvCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetV2PPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )
