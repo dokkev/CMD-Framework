@@ -207,3 +207,38 @@ Yin et al., "Emergent Dexterity via Diverse Resets and Large-Scale Reinforcement
 segment 1–2와 그 held-out eval은 2배 기준으로 돌렸고, segment 3부터의 eval은 10배 기준이다.
 
 **남은 일:** `dc_motor` servo 모델(속도가 오르면 토크가 떨어져 5.55 rad/s에서 0이 됨)로 바꾸는 검사. MJWarp의 닫힌 링크가 안정적인지와 dataset을 다시 만들어야 하는지를 확인해야 한다.
+
+## 6. v2 (2026-11-25): OmniReset 틀은 유지하고 4가지를 바꿈
+
+배경:
+- v1은 segment 1–3 (약 200M transition)에서 회전이 약 60°에 머물렀다. held-out에서 도달한 goal은 0이었다.
+- 문헌 검토: `scratchpad/inhand_rotation_research.md` §2–4.
+
+| 변경 | 내용 | 근거 |
+|---|---|---|
+| mid-turn reset | 새 type `ObjectMidTurnHandWound`이 near-goal 몫의 절반을 맡는다 (확률: 0.25, 0.25, 0.25, near-goal 0.125, mid-turn 0.125) | Khandate et al., RSS 2023 (arXiv 2303.03486) §V-B: 고정된 시작 상태에서는 쥔 채로 하는 회전만 배우고 finger gaiting은 배우지 못했다. gait 안쪽에서 시작하는 reset 상태가 필요했다. ICRA 2022 (arXiv 2109.12720) §III-C, OmniReset Fig. 9 (grasp 다양성) |
+| actor 입력 | 명령된 관절 target 13개 추가, 5-step history, 비대칭 critic | OmniReset 논문 §3.3, A.3.9. UWLab v1.2.0 `rl_state_cfg.py`: `history_length = 5`, `critic = CriticCfg()`. 우리가 옮긴 main@2b40afb에는 history와 critic이 꺼져 있다. target 관측은 AnyRotate §3.1과 HORA/LEAP |
+| goal | 45° 단위로 이어지는 goal. 성공 기준 0.3 rad (위치 20 mm는 그대로), 유지 0.2 s (6 step) | AnyRotate (arXiv 2405.07391) Table 11: 작은 단위일수록 연속 goal 수가 많다. 참고문헌의 성공 기준은 0.1–0.4 rad에서 즉시 판정이고, 0.5 s 유지를 요구하는 곳은 없다 |
+| 규모 | GPU 메모리가 허용하면 8192 env. 약 300M transition 전에는 판단하지 않음 | OmniReset Fig. 8 (env 수), UWLab의 학습 곡선 (Leg Twisting은 약 180–210M transition 동안 평평했음) |
+
+**mid-turn 상태 만드는 법:**
+1. v1 segment 3 최종 checkpoint를 v1 학습 reset에서 rollout한다 (`harvest_omnireset_midturn.py`).
+2. 아래 중 하나이면서 큐브를 쥐고 있는 상태를 모은다. 쥐고 있음 = thumb와 손가락 링크 1개 이상이 닿음, 쉬는 위치에서 30 mm 이내, tilt < 20°.
+   - 이번 episode에서 큐브가 30–80° 돌아간 상태
+   - servo 하나가 한계에서 0.15 rad 이내인 상태 (episode 0.5 s 이후)
+3. `gen_omnireset_resets.py --type ObjectMidTurnHandWound`로 가공한다:
+   - ±1°로 흔든다.
+   - 절반은 손가락 하나 또는 thumb를 0–20° 연다.
+   - 0.5 s 동안 그대로 둔 뒤 검사한다: 폭주 없음, 안정, 이동 2.5 cm 이하, 쥐고 있음, pad 위.
+   - 남은 goal은 10–60° 앞으로 둔다.
+   - 학습 마찰 그대로 둔다. 상태가 학습 정책에서 나왔기 때문이다.
+
+**reset 때 goal offset:**
+- 다른 type: 45° 앞.
+- near-goal: 절반은 ±0.45 rad 안 (성공 기준의 1.5배), 절반은 0.45–0.785 rad 앞.
+
+**그대로인 것:** reward weight, 10× joint-speed 검사, NaN guard, 접촉 모델, 자산.
+
+**하지 않은 것** (보고서 6–7번, 다음 대안으로 남김): dense yaw-progress 항, pose/energy penalty.
+
+**Eval:** `CoDe-Rotate-Cube-O-OmniResetV2-Eval`, `heldout_omnireset_v1`. 회전, quarter-turn 비율, goal/episode를 보고하고, 90°는 goal 2개 연속으로 본다.
