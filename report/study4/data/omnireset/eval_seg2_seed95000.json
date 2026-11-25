@@ -1,0 +1,102 @@
+{
+  "checkpoint": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rsl_rl/code_rotate_cube_omnireset_v2/2026-11-25_07-41-53_rotate_cube_O_OmniResetV2_s20_v2c_seg2/model_1497.pt",
+  "task": "CoDe-Rotate-Cube-O-OmniResetV2-Eval",
+  "eval_seed": 95000,
+  "num_envs": 1024,
+  "overrides": [
+    "physics=newton_mjwarp",
+    "env.observations.policy.enable_corruption=false",
+    "env.terminations.object_off_grasp.params.max_distance=0.07",
+    "env.terminations.object_tilted.params.min_dot=0.0"
+  ],
+  "episode_s_max": 20.0,
+  "policy_observation_noise": false,
+  "grasp_cache": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rotate_cube/heldout_omnireset_v1/O.pt",
+  "grasp_cache_sha256": "65ca40c9b220c82a4ff1ea4633341c61346491db2e71404068d1e8e8e5a0adae",
+  "pad_crown_mm": 1.0,
+  "pad_crown_layout": "dome",
+  "contact_model": "pad13_condim4_v1",
+  "servo_colliders": "1",
+  "phase_period_s": 0.0,
+  "observe_rotation_goal": true,
+  "contact_metrics": true,
+  "export_grasps": false,
+  "off_grasp_distance_m": 0.07,
+  "tilt_min_dot": 0.0,
+  "clean_timeout_rate": 0.9306640625,
+  "off_grasp_rate": 0.025390625,
+  "tilted_rate": 0.048828125,
+  "duration_s_mean": 18.869565963745117,
+  "signed_rotation_deg_mean": 880.009521484375,
+  "projected_heading_change_deg_mean": 873.0072631835938,
+  "signed_rotation_deg_p10_p50_p90": [
+    1.1012665033340454,
+    1132.1602783203125,
+    1301.5552978515625
+  ],
+  "clean_timeout_rotation_deg_mean": 945.8058471679688,
+  "clean_timeout_second_half_rotation_deg_mean": 544.539794921875,
+  "signed_rate_rad_s_mean": 0.7631285190582275,
+  "off_axis_rate_rad_s_mean": 1.0131511688232422,
+  "max_displacement_mm_mean": 26.44038963317871,
+  "peak_tilt_deg_median": 58.28984069824219,
+  "quarter_turn_within_40mm_and_60deg_rate": 0.4150390625,
+  "half_turn_within_40mm_and_60deg_rate": 0.4140625,
+  "three_quarter_turn_within_40mm_and_60deg_rate": 0.4140625,
+  "full_turn_and_clean_timeout_rate": 0.75,
+  "full_turn_within_40mm_and_60deg_rate": 0.412109375,
+  "max_retained_rotation_deg": 1396.9490966796875,
+  "tilt_note": "peak_tilt_deg_median and the *_within_40mm_and_60deg_* rates gate on the reset-direction tilt (world up as seen by the cube at reset), which precesses when a cube resting on the inclined pads is levelled and turned; the *_upright<g>deg_* rates gate on the most upright face's tilt from world z, its peak counted from the first step the cube is within 20 deg of level (the grasps start on the inclined pads at ~40 deg; never levelled: not retained)",
+  "reset_direction_peak_tilt_deg_median": 58.28984069824219,
+  "upright_peak_tilt_deg_p50_p90": [
+    43.465476989746094,
+    49.05036163330078
+  ],
+  "upright_peak_tilt_after_level_deg_p50_p90": [
+    24.930484771728516,
+    44.44420623779297
+  ],
+  "levelled_rate": 0.8818359375,
+  "upright_within_20deg_time_share": 0.7112136483192444,
+  "quarter_turn_within_40mm_and_upright30deg_rate": 0.6396484375,
+  "half_turn_within_40mm_and_upright30deg_rate": 0.6396484375,
+  "three_quarter_turn_within_40mm_and_upright30deg_rate": 0.6396484375,
+  "full_turn_within_40mm_and_upright30deg_rate": 0.6376953125,
+  "quarter_turn_within_40mm_and_upright45deg_rate": 0.708984375,
+  "half_turn_within_40mm_and_upright45deg_rate": 0.708984375,
+  "three_quarter_turn_within_40mm_and_upright45deg_rate": 0.708984375,
+  "full_turn_within_40mm_and_upright45deg_rate": 0.70703125,
+  "goals_per_episode_mean": 19.26171875,
+  "goals_per_episode_p50_p90": [
+    25.0,
+    28.0
+  ],
+  "thumb_and_finger_link_contact_fraction": 0.8370770215988159,
+  "no_pad_link_contact_fraction": 0.06007930636405945,
+  "distinct_finger_contact_count_mean": 1.1715413331985474,
+  "per_finger_contact_fraction": {
+    "index": 0.21111316978931427,
+    "middle": 0.7432095408439636,
+    "ring": 0.21721860766410828
+  },
+  "finger_contact_release_events_mean": {
+    "index": 10.826171875,
+    "middle": 19.2646484375,
+    "ring": 12.853515625
+  },
+  "finger_contact_recontact_events_mean": {
+    "index": 10.70703125,
+    "middle": 19.1591796875,
+    "ring": 12.5185546875
+  },
+  "episodes_with_finger_release_rate": {
+    "index": 0.88671875,
+    "middle": 0.9150390625,
+    "ring": 0.9169921875
+  },
+  "episodes_with_finger_recontact_rate": {
+    "index": 0.8466796875,
+    "middle": 0.8818359375,
+    "ring": 0.85546875
+  }
+}

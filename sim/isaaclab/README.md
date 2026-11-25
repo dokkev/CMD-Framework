@@ -120,7 +120,7 @@ uv run python scripts/rollout_metrics.py --compare logs/verify/*.json
 `CoDe-Rotate-Cube-O` (R and U: the same task on the redesigned fingers) turns a
 40 mm cube about world +z from cached stable grasps with relative joint
 targets (Hora, LEAP Hand). Its defaults are the settings of the current best
-policy, s15 (`report/study4/in-hand.md`): 1 mm pad crown, a 4.5 s gait clock and
+policy, s15 (`report/study4/study4.md`, §6): 1 mm pad crown, a 4.5 s gait clock and
 the next-milestone error in the observation, s15's reward weights and
 terminations, its training grasp cache
 (`logs/rotate_cube/goal2720_curriculum20_preload_train`) and its fine-tuning PPO

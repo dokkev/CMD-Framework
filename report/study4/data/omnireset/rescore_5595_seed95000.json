@@ -1,0 +1,97 @@
+{
+  "checkpoint": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rsl_rl/code_rotate_cube/2026-11-24_17-13-11_rotate_cube_O_s18_posediff_seg2/model_5595.pt",
+  "task": "CoDe-Rotate-Cube-O",
+  "eval_seed": 95000,
+  "num_envs": 256,
+  "overrides": [
+    "physics=newton_mjwarp",
+    "env.observations.policy.enable_corruption=false",
+    "env.terminations.object_off_grasp.params.max_distance=0.07",
+    "env.terminations.object_tilted.params.min_dot=0.0"
+  ],
+  "episode_s_max": 20.0,
+  "policy_observation_noise": false,
+  "grasp_cache": "/home/dk/workspace/cmd_framework/sim/isaaclab/logs/rotate_cube/heldout_omnireset_v1/O.pt",
+  "grasp_cache_sha256": "65ca40c9b220c82a4ff1ea4633341c61346491db2e71404068d1e8e8e5a0adae",
+  "pad_crown_mm": 1.0,
+  "pad_crown_layout": "dome",
+  "contact_model": "pad13_condim4_v1",
+  "servo_colliders": "1",
+  "phase_period_s": 4.5,
+  "observe_rotation_goal": true,
+  "contact_metrics": true,
+  "export_grasps": false,
+  "off_grasp_distance_m": 0.07,
+  "tilt_min_dot": 0.0,
+  "clean_timeout_rate": 0.83203125,
+  "off_grasp_rate": 0.109375,
+  "tilted_rate": 0.06640625,
+  "duration_s_mean": 18.09895896911621,
+  "signed_rotation_deg_mean": 65.18013000488281,
+  "projected_heading_change_deg_mean": 71.99388885498047,
+  "signed_rotation_deg_p10_p50_p90": [
+    3.3464126586914062,
+    58.365718841552734,
+    136.74005126953125
+  ],
+  "clean_timeout_rotation_deg_mean": 65.36093139648438,
+  "clean_timeout_second_half_rotation_deg_mean": 5.341567516326904,
+  "signed_rate_rad_s_mean": 0.07028075307607651,
+  "off_axis_rate_rad_s_mean": 0.23239031434059143,
+  "max_displacement_mm_mean": 33.92898178100586,
+  "peak_tilt_deg_median": 41.383609771728516,
+  "quarter_turn_within_40mm_and_60deg_rate": 0.18359375,
+  "half_turn_within_40mm_and_60deg_rate": 0.00390625,
+  "three_quarter_turn_within_40mm_and_60deg_rate": 0.0,
+  "full_turn_and_clean_timeout_rate": 0.0,
+  "full_turn_within_40mm_and_60deg_rate": 0.0,
+  "max_retained_rotation_deg": 242.13589477539062,
+  "tilt_note": "peak_tilt_deg_median and the *_within_40mm_and_60deg_* rates gate on the reset-direction tilt (world up as seen by the cube at reset), which precesses when a cube resting on the inclined pads is levelled and turned; the *_upright<g>deg_* rates gate on the most upright face's tilt from world z, its peak counted from the first step the cube is within 20 deg of level (the grasps start on the inclined pads at ~40 deg; never levelled: not retained)",
+  "reset_direction_peak_tilt_deg_median": 41.383609771728516,
+  "upright_peak_tilt_deg_p50_p90": [
+    46.550987243652344,
+    52.38465118408203
+  ],
+  "upright_peak_tilt_after_level_deg_p50_p90": [
+    42.98041534423828,
+    49.90814208984375
+  ],
+  "levelled_rate": 0.5,
+  "upright_within_20deg_time_share": 0.122830331325531,
+  "quarter_turn_within_40mm_and_upright30deg_rate": 0.0078125,
+  "half_turn_within_40mm_and_upright30deg_rate": 0.0,
+  "three_quarter_turn_within_40mm_and_upright30deg_rate": 0.0,
+  "full_turn_within_40mm_and_upright30deg_rate": 0.0,
+  "quarter_turn_within_40mm_and_upright45deg_rate": 0.04296875,
+  "half_turn_within_40mm_and_upright45deg_rate": 0.0,
+  "three_quarter_turn_within_40mm_and_upright45deg_rate": 0.0,
+  "full_turn_within_40mm_and_upright45deg_rate": 0.0,
+  "thumb_and_finger_link_contact_fraction": 0.811397910118103,
+  "no_pad_link_contact_fraction": 0.056661058217287064,
+  "distinct_finger_contact_count_mean": 1.3288698196411133,
+  "per_finger_contact_fraction": {
+    "index": 0.4355093240737915,
+    "middle": 0.7080286741256714,
+    "ring": 0.18533186614513397
+  },
+  "finger_contact_release_events_mean": {
+    "index": 2.97265625,
+    "middle": 2.96484375,
+    "ring": 1.5625
+  },
+  "finger_contact_recontact_events_mean": {
+    "index": 2.93359375,
+    "middle": 2.6484375,
+    "ring": 1.125
+  },
+  "episodes_with_finger_release_rate": {
+    "index": 0.69921875,
+    "middle": 0.7421875,
+    "ring": 0.60546875
+  },
+  "episodes_with_finger_recontact_rate": {
+    "index": 0.6796875,
+    "middle": 0.62890625,
+    "ring": 0.3671875
+  }
+}
