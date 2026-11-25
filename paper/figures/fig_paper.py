@@ -927,17 +927,31 @@ def fig4():
 
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
-    rowsd = (("Isaac Lab, point contact", json.load(open(S3 / "isaac_dose_A_all.json"))["hands"], "E_rel_median"),
-             ("Drake, point contact", {r["hand"]: r for r in json.load(open(S3 / "drake_e21_point.json"))}, "E"),
-             ("Drake, hydroelastic", {r["hand"]: r for r in json.load(open(S3 / "drake_e21_hydro.json"))}, "E"),
-             ("Drake, hydroelastic, thickness-dependent",
-              {r["hand"]: r for r in json.load(open(S3 / "drake_e25_hydro_own.json"))}, "E"))
+    """Table I (Study 3B): the error in the measured pad effect, CoDe against Conventional, as the pad change, the
+    simulator and the contact model vary (pull-out, 7 mm, condition A). E: median over placements and load
+    directions of |D(H) - D(O)| / |D(O)|; data in report/study3/data."""
+    def iso(name, key="E_median"):
+        return {h: v[key] for h, v in json.load(open(S3 / name))["hands"].items() if h in ("R", "U")}
+
+    def drake(name):
+        rows = json.load(open(S3 / name))
+        rows = rows["rows"] if isinstance(rows, dict) else rows
+        return {r["hand"]: r["E"] for r in rows if r["hand"] in ("R", "U")}
+    rowsd = (("friction $1.3\\to2.0$", "Isaac Lab, point", iso("isaac_dose_A_all.json", "E_rel_median")),
+             ("stiffness $2.5\\to1.0$\\,kN/m", "Isaac Lab, point", iso("isaac_comp.json")),
+             ("flat $\\to$ crowned$^{a}$", "Isaac Lab, point", iso("isaac_shape.json")),
+             ("friction, softer pad$^{b}$", "Isaac Lab, point", iso("isaac_padk_matched.json")),
+             ("friction $1.3\\to2.0$", "Drake, point", drake("drake_e21_point.json")),
+             ("friction $1.3\\to2.0$", "Drake, hydroelastic", drake("drake_e21_hydro.json")),
+             ("friction, softer pad$^{b}$", "Drake, hydroelastic", drake("drake_e25_hydro_own.json")))
     lines = [r"\begin{table}[t]", r"  \centering",
-             r"  \caption{Error of \ourmethod{} and Conventional by contact model (pull-out, pad friction change)}",
-             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    Contact model & \ourmethod{} & Conventional \\", r"    \midrule"]
-    for name, d, key in rowsd:
-        lines.append(f"    {name} & ${100 * d['R'][key]:.0f}\\%$ & ${100 * d['U'][key]:.0f}\\%$ \\\\")
+             r"  \caption{Error in the measured pad effect as the pad change and the contact model vary (pull-out, "
+             r"$7$\,mm pads). $^{a}$Six $7$\,mm redesigns. $^{b}$Pads soften with thickness "
+             r"(stiffness $\propto 1/h$); the reference is $O$ carrying the same pad.}",
+             r"  \label{tab:robust}", r"  \begin{tabular}{llrr}", r"    \toprule",
+             r"    Pad change & Simulator, contact & \ourmethod{} & Conventional \\", r"    \midrule"]
+    for name, sim, d in rowsd:
+        lines.append(f"    {name} & {sim} & ${100 * d['R']:.0f}\\%$ & ${100 * d['U']:.0f}\\%$ \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
