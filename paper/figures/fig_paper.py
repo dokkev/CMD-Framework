@@ -818,9 +818,9 @@ def fig4():
     T, DV = d["tasks"], d["deviation"]
     # (title, task key, image, response axis labels)
     cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
-             "held load $-$ O's (N)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation $-$ O's (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel $-$ O's (mm)"))
+             "load held, vs. O (N)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial turned, vs. O (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin dragged, vs. O (mm)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.05
     fig = plt.figure(figsize=(W, h))
@@ -866,11 +866,11 @@ def fig4():
                         fontsize=5.6, va="center", color=INK)
         sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
         sa.set_xlim(0, 5.8)
-        sa.set_xlabel("$\\Delta_{contact}$ (mm)", labelpad=1)
+        sa.set_xlabel("contact-surface motion change (mm)", labelpad=1)
         if i == 0:
-            sa.set_ylabel("agreement with O (%)", labelpad=1, fontsize=5.6)
+            sa.set_ylabel("matching O (%)", labelpad=1, fontsize=5.6)
         clean(sa)
-    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference, 0)"),
+    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, marker="o", ms=3.5, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.0, marker="o", ms=3.5, label="U: coverage-only"),
                plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns"),
