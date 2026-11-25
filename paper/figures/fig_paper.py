@@ -815,11 +815,12 @@ def fig4():
     O's (100% = in sync). Data: report/study3/data/fig4_sync.json (paper/figures/fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
-    T, CV = d["tasks"], d["curves"]
+    T, DV = d["tasks"], d["deviation"]
     # (title, task key, image, response axis labels)
-    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "load (N)", "cylinder displacement (mm)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel (mm)"))
+    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
+             "held load $-$ O's (N)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation $-$ O's (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel $-$ O's (mm)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.05
     fig = plt.figure(figsize=(W, h))
@@ -839,22 +840,16 @@ def fig4():
         gap = np.full((frames[0].shape[0], 12, 3), 255, np.uint8)
         ia.imshow(np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1))
         ia.axis("off"); ia.set_aspect("equal", anchor="C")
-        # object response of O, R, U at the representative placement
+        # R and U minus O over every placement: median line, quartile band
         ra = fig.add_axes(((x0 + 0.25) / W, (h - 1.62) / h, (cw - 0.30) / W, 0.70 / h))
-        for hh in "ORU":
+        dv = DV[key]
+        x = np.asarray(dv["x"])
+        ra.axhline(0, color=INK, lw=0.9, zorder=4)
+        for hh in ("R", "U"):
             for mu, ls in (("1.3", "-"), ("2", "--")):
-                c = CV[f"{key}_{hh}_{mu}"]
-                if key == "pull":
-                    x, y = np.asarray(c["load_n"]), np.asarray(c["disp_mm"])
-                    ra.plot(x, y, ls, color=HC[hh], lw=1.0, zorder=3 if hh == "O" else 2)
-                    if y[-1] <= 1.5:  # a slip that ends the grasp before the cylinder runs off
-                        ra.plot(x[-1], y[-1], marker="x", ms=3.5, mew=0.9, color=HC[hh], zorder=4)
-                else:
-                    x = np.asarray(c["t_s"])
-                    y = np.asarray(c["rotation_deg" if key == "dial" else "travel_mm"])
-                    ra.plot(x, y, ls, color=HC[hh], lw=1.0, zorder=3 if hh == "O" else 2)
-        if key == "pull":
-            ra.set_ylim(0, 1.5)
+                bd = dv[f"{hh}_{mu}"]
+                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
+                ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.0, zorder=3)
         ra.set_xlabel(xl, labelpad=1); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         clean(ra)
         # every redesign: measured effect as a share of O's
@@ -875,7 +870,7 @@ def fig4():
         if i == 0:
             sa.set_ylabel("agreement with O (%)", labelpad=1, fontsize=5.6)
         clean(sa)
-    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
+    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference, 0)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, marker="o", ms=3.5, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.0, marker="o", ms=3.5, label="U: coverage-only"),
                plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns"),
@@ -883,7 +878,7 @@ def fig4():
                plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="2.0")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
                handletextpad=0.3, columnspacing=1.0, handlelength=1.6)
-    fig.text(0.02 / W, (h - 1.27) / h, "object response\n(one placement)", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, (h - 1.27) / h, "deviation from O\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     fig.text(0.02 / W, 0.83 / h, "friction effect\n(every redesign)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)

@@ -78,6 +78,49 @@ def coin_pairs(hand):
     return out
 
 
+def _band(ys):
+    y = np.asarray(ys)
+    return {"median": np.nanmedian(y, 0).round(4).tolist(), "q25": np.nanpercentile(y, 25, 0).round(4).tolist(),
+            "q75": np.nanpercentile(y, 75, 0).round(4).tolist(), "n": int(len(y))}
+
+
+def deviation():
+    """R and U minus O over every placement both run: pull-out held load (max load sustained up to each cylinder
+    displacement; the limit once the grasp gives way) on a displacement grid, dial rotation and coin travel in
+    time; median and quartiles."""
+    dgrid = np.linspace(0.0, 5.0, 101)
+    dev = {"pull": {"x": dgrid.round(3).tolist()}, "dial": {}, "coin": {}}
+
+    def held(c):
+        d = np.maximum.accumulate(c[:, 2])
+        return np.interp(dgrid, d, c[:, 0], right=c[-1, 0])
+
+    for m in MU:
+        def pe(h):
+            o_ = {}
+            for r in A.RADII:
+                for e in json.load(open(LOG / f"dk_{h}_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
+                    if e["gate0"]["pass"] and e.get("curve"):
+                        o_[A.key(e)] = np.array([x[:3] for x in e["curve"]])
+            return o_
+        po = pe("O")
+        do = json.load(open(LOG / f"dktipdial_O_mu{m:g}_point-e28zc_r15.json"))["envs"]
+        co = json.load(open(LOG / f"dkcoin_O_mu{m:g}_point-e30b.json"))["envs"]
+        for h in ("R", "U"):
+            ph = pe(h)
+            dev["pull"][f"{h}_{m:g}"] = _band([held(ph[k]) - held(po[k]) for k in po if k in ph])
+            dh = json.load(open(LOG / f"dktipdial_{h}_mu{m:g}_point-e28zc_r15.json"))["envs"]
+            dev["dial"][f"{h}_{m:g}"] = _band([np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1]
+                                               for a, b in zip(do, dh)])
+            ch = json.load(open(LOG / f"dkcoin_{h}_mu{m:g}_point-e30b.json"))["envs"]
+            dev["coin"][f"{h}_{m:g}"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
+                                               for a, b in zip(co, ch)
+                                               if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
+    dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
+    dev["coin"]["x"] = [round(0.2 * (i + 1), 3) for i in range(30)]
+    return dev
+
+
 def main():
     S3 = ROOT / "report" / "study3" / "data"
     ref = {"pull": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e21_point.json"))},
@@ -138,6 +181,7 @@ def main():
             tr = np.array(d["trace"])
             curves[f"coin_{h}_{m:g}"] = {"t_s": tr[:, 0].tolist(), "travel_mm": tr[:, 2].tolist()}
     out["curves"] = curves
+    out["deviation"] = deviation()
     (S3 / "fig4_sync.json").write_text(json.dumps(out, indent=1))
     print(S3 / "fig4_sync.json")
 
