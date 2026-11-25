@@ -382,3 +382,15 @@ v2c segment 3은 시작 직후 멈췄다.
 - **버린 row는 0개다.** 큐브 접촉력 p99는 type별로 1.96–2.52 N이고, 최대는 14 N (reaching)이다.
 - 따라서 v2d에서 episode step 1에 생긴 onset 2건은 dataset 상태 자체 때문이 아니다. reset 때의 gain DR(×0.5–2)과 첫 policy action이 겹쳤을 가능성이 크지만 확인하지 않았다.
 - dataset은 원본을 그대로 쓴다 (`O_40f4fc6626_filtered`는 원본과 같다).
+
+**v2e 결과 (segment 1, model_1997):**
+
+| 지표 | seed 94000 | seed 95000 | 기준 |
+|---|---|---|---|
+| 20° 안 시간 | 72.6% | 69.0% | > 75% |
+| 30° 상한 full turn | 62.7% | 59.2% | ≥ 60% |
+| goals/episode | 19.85 | 18.90 | ≥ 18 |
+
+- 20° 안 시간이 기준에 못 미쳤고, 30° 상한 full turn은 seed 95000에서 미달이다. 기준을 통과하지 못했다.
+- tilt 항은 episode당 −0.04로 v2d의 10배였지만 수평 유지 시간은 움직이지 않았다.
+- 그래서 수평 유지는 더 밀지 않는다. **release policy는 v2c segment 2 `model_1497`이다.**
