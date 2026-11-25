@@ -21,7 +21,8 @@ agemoea]``): each runs every seed. One run per algorithm and seed is saved
 to ``output/<mechanism>/<config name>/run_NNN``
 (``run.json``, ``pareto.csv``). The runs are then verified on the fine grid
 and merged into ``portfolio_NNN`` (``seeds.csv``, the representative seeds
-first, and ``portfolio.json``). Every CPU evaluates.
+first, and ``portfolio.json``). Every CPU evaluates (``OPTIMIZE_WORKERS=n``:
+n processes).
 
 ``--set key.subkey=value`` (repeatable) changes one entry of the file for
 this run, and ``--tag name`` sends the run to ``<config name>_<name>`` instead
@@ -103,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{root} already holds {', '.join(earlier[:4])}{', ...' if len(earlier) > 4 else ''}: not run "
               "(move them, or run with --append to add to them)", file=sys.stderr)
         return 3
-    workers = os.cpu_count() or 1
+    workers = int(os.environ.get("OPTIMIZE_WORKERS") or os.cpu_count() or 1)  # a cap on a shared machine
     print(f"{found.name}: {path}{f' (preset {preset})' if preset else ''} -> {root}; "
           f"seeds {', '.join(map(str, seeds))}"
           + (f"; warm start from {len(initial)} designs" if initial else "") + "\n")

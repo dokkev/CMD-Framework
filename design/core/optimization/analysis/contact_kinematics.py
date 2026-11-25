@@ -68,6 +68,16 @@ def path_change(path, reference, scale_mm: float) -> float:
     return float(np.max(np.linalg.norm(np.asarray(path) - np.asarray(reference), axis=1)) / scale_mm)
 
 
+def anchored(path, reference):
+    """``path`` moved so that it starts where ``reference`` does: what is left of the difference of two contact paths
+    is the change of the contact Jacobian (the integral term of Delta_contact, problem_formulation.md), for fingers
+    whose extended poses differ (another finger length)."""
+
+    if path is None or reference is None or len(path) == 0:
+        return path
+    return np.asarray(path, dtype=float) - (np.asarray(path, dtype=float)[0] - np.asarray(reference, dtype=float)[0])
+
+
 def paths(base: Mechanism, x: Sequence[float], config, evaluation=None, samples: int = PATH_SAMPLES):
     """A design's skeleton path (the fingertip's) and contact path over ``[0, q_req]``
     (``None``: it has no evaluation or does not pose them all)."""
@@ -121,8 +131,9 @@ class ContactMechanism(Mechanism):
     contact path from ``reference`` (``(samples, 2)``, per ``scale_mm``) and
     the most pad coverage."""
 
-    def __init__(self, base: Mechanism, reference: np.ndarray, scale_mm: float) -> None:
+    def __init__(self, base: Mechanism, reference: np.ndarray, scale_mm: float, anchor: bool = False) -> None:
         self.base, self.reference, self.scale_mm = base, np.asarray(reference, dtype=float), float(scale_mm)
+        self.anchor = bool(anchor)  # compare the paths from a common start (:func:`anchored`)
         self.variable_names = base.variable_names
         self.name, self.formulation = f"contact:{base.name}", f"{base.formulation}+contact-v1"
         self.constraint_names = tuple(base.constraint_names)
@@ -172,7 +183,9 @@ class ContactMechanism(Mechanism):
         change, coverage = INVALID, 0.0
         if base.feasible:
             found = paths(self.base, x, config, base, len(self.reference))
-            change = INVALID if found is None else path_change(found["contact"], self.reference, self.scale_mm)
+            own = None if found is None else (anchored(found["contact"], self.reference) if self.anchor
+                                              else found["contact"])
+            change = INVALID if own is None else path_change(own, self.reference, self.scale_mm)
             value = self.base.report(base).get("c_pad_mean")
             coverage = float(value) if value not in (None, "") and math.isfinite(float(value)) else 0.0
         return Redesigned(base, change, coverage, dict(base.constraints))
@@ -194,14 +207,15 @@ def front(points: Sequence[tuple[float, float]]) -> list[int]:
 
 
 def redesign(base: Mechanism, config, reference: np.ndarray, scale_mm: float, settings: OptimizerSettings,
-             warm: Sequence[Sequence[float] | None] = (), workers: int = 1):
+             warm: Sequence[Sequence[float] | None] = (), workers: int = 1, anchor: bool = False):
     """The front of the redesigns of ``config``'s interface: ``[(x, Redesigned)]``
     by rising change of the contact path, and the evaluations it took. The
-    starts (``warm``) that are designs compete too."""
+    starts (``warm``) that are designs compete too. ``anchor``: the change of
+    the path from a common start (:func:`anchored`)."""
 
     from core.optimization.study import run_study
 
-    mechanism = ContactMechanism(base, reference, scale_mm)
+    mechanism = ContactMechanism(base, reference, scale_mm, anchor)
     starts = []
     for x in warm:
         if x is None:
@@ -223,5 +237,5 @@ def redesign(base: Mechanism, config, reference: np.ndarray, scale_mm: float, se
     return [found[i] for i in keep], result.evaluation_count
 
 
-__all__ = ["INVALID", "PATH_SAMPLES", "ContactMechanism", "Redesigned", "contact_path", "front", "path_change",
+__all__ = ["INVALID", "PATH_SAMPLES", "ContactMechanism", "Redesigned", "anchored", "contact_path", "front", "path_change",
            "paths", "redesign", "tip_path"]

@@ -1,0 +1,20 @@
+# The transfer study's long fingers: the studies' CFL (cfl.yaml, its goal and
+# solver unchanged) with the finger length searched in [120, 150] mm instead
+# of fixed at 90, and 7 mm pads (the thickness of the 7 mm R/U pair).
+#
+#   OPTIMIZE_WORKERS=3 python scripts/optimize/run.py \
+#       scripts/study/study3_trajectory/cfl_long.yaml --tag q120_h7
+#
+# runs UL (coverage alone, Study 1's objective) to
+# output/study/linkage/cfl_long_q120_h7/; long_fingers.py searches RL
+# (Study 2's redesign against O) under the same goal.
+base: ../cfl.yaml
+output: output/study
+goal:
+  link:
+    finger_length_mm: [120, 150]   # a search coordinate: free in the range
+  pads:
+    proximal:
+      height_mm: 7
+    distal:
+      height_mm: 7
