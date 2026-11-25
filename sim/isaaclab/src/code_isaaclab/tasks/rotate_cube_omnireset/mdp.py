@@ -462,10 +462,13 @@ def joint_vel_l2_clamped(env, asset_cfg: SceneEntityCfg, four_bar_tables: dict) 
     return _finite(torch.clamp(flexion_joint_vel(env, asset_cfg, four_bar_tables).square().sum(dim=1), 0, 1e4))
 
 
-def joint_speed_abnormal(env) -> torch.Tensor:
-    """Any joint faster than twice its velocity limit (``uwlab/envs/mdp/terminations.py`` ``abnormal_robot_state``)."""
+def joint_speed_abnormal(env, factor: float = 2.0) -> torch.Tensor:
+    """Any joint faster than ``factor`` times its velocity limit (``uwlab/envs/mdp/terminations.py``
+    ``abnormal_robot_state``: 2). PhysX enforces the limit, so there 2x means a diverged simulation; MuJoCo-Warp
+    ignores the implicit servo model's velocity limit, so here 2x is reached by ordinary fast moves and a larger factor
+    keeps the test to divergence."""
     robot = env.scene["robot"]
-    return (_t(robot.data.joint_vel).abs() > 2.0 * _t(robot.data.joint_vel_limits)).any(dim=1)
+    return (_t(robot.data.joint_vel).abs() > factor * _t(robot.data.joint_vel_limits)).any(dim=1)
 
 
 class NonFiniteState(ManagerTermBase):

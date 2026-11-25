@@ -73,6 +73,11 @@ SIM_ROOT = Path(__file__).resolve().parents[4]
 CROWN_LEN_MM = float(os.environ.get("CODE_OMNIRESET_CROWN_LEN_MM", "1"))
 CROWN_WID_MM = float(os.environ.get("CODE_OMNIRESET_CROWN_WID_MM", "1"))
 ASYM_CRITIC = os.environ.get("CODE_OMNIRESET_ASYM_CRITIC", "0") == "1"
+ABNORMAL_FACTOR = float(os.environ.get("CODE_OMNIRESET_ABNORMAL_FACTOR", "2"))
+"""The abnormal-speed termination's multiple of the servo velocity limit (5.55 rad/s): OmniReset's 2 by default. The
+implicit servo model's velocity limit is not enforced by MuJoCo-Warp, so 2x (11 rad/s) ends episodes on ordinary fast
+moves; ``CODE_OMNIRESET_ABNORMAL_FACTOR=10`` (55 rad/s) keeps it to divergence (the from-scratch run, segment 3 on,
+``docs/experimental/omnireset_recipe.md``)."""
 HELD_OUT = Path(os.environ.get("CODE_ROTATE_CUBE_GRASPS", SIM_ROOT / "logs" / "rotate_cube" / "heldout_omnireset_v1"))
 
 GOAL_STEP_RAD = math.pi / 2
@@ -181,7 +186,7 @@ class RewardsCfg:
 @configclass
 class TerminationsCfg:
     time_out = DoneTerm(func=base_mdp.time_out, time_out=True)
-    abnormal_robot = DoneTerm(func=mdp.joint_speed_abnormal)
+    abnormal_robot = DoneTerm(func=mdp.joint_speed_abnormal, params={"factor": ABNORMAL_FACTOR})
     non_finite_state = DoneTerm(func=mdp.NonFiniteState)
     cube_out_of_reach = DoneTerm(func=mdp.cube_out_of_reach, params={"max_distance": OUT_OF_REACH_M})
 

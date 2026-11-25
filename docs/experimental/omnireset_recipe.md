@@ -188,3 +188,22 @@ Yin et al., "Emergent Dexterity via Diverse Resets and Large-Scale Reinforcement
   - 옛 `heldout_crown1_final4`는 그대로 둔다.
   - model_5595는 옛 자산과 접촉 모델로 학습했다. 새 cache에서의 수치는 참고용이다.
 - **γ** = 0.997: OmniReset의 10 s horizon을 30 Hz에 맞춘 값이다.
+
+## 5. 학습 중 변경 기록 (from-scratch run, seed 20)
+
+| 시점 | 변경 | 이유 |
+|---|---|---|
+| segment 1, iteration 173 (첫 시도) | NaN guard 추가 (`non_finite_state` 종료, −100). reward와 obs 항은 해당 world에서 0 (commit `c621328`, `bf3998d`) | 한 world가 발산해 NaN 관측이 나왔고 rsl_rl이 멈춤. segment 1을 처음부터 다시 시작 |
+| **iteration 1000 (segment 3)부터** | joint-speed 종료 기준을 servo 속도 한계의 2배에서 **10배**로 올림 (`CODE_OMNIRESET_ABNORMAL_FACTOR=10`, 약 55 rad/s). −100 penalty와 종료는 유지. NaN guard와 joint-velocity penalty (−1e-2)는 그대로 | 아래 참고 |
+
+**10배로 올린 이유:**
+- MuJoCo-Warp는 implicit servo 모델의 속도 한계 (`velocity_limit_sim` 5.55 rad/s)를 적용하지 않는다. 그래서 2배 기준(11 rad/s)이 평범한 빠른 동작에도 걸렸다.
+- segment 1 정책을 rollout하면, servo 속도 sample 중 2배를 넘는 것은 0.002%뿐인데 이것이 episode의 약 9%를 끝냈다.
+  - 해당 sample은 thumb raa/mcp와 외전 관절에서 11–20 rad/s였다.
+  - 그 순간 target과 관절 위치는 0.1–1.2 rad 떨어져 있었다.
+  - 대조 실험: gain 랜덤화를 끄거나 접촉 모델을 기본값으로 돌려도 비율은 같았다.
+- PhysX는 속도 한계를 강제하므로 OmniReset에서 2배 기준은 발산할 때만 걸린다. 10배는 그 의도(발산 감지)를 되살린다.
+
+segment 1–2와 그 held-out eval은 2배 기준으로 돌렸고, segment 3부터의 eval은 10배 기준이다.
+
+**남은 일:** `dc_motor` servo 모델(속도가 오르면 토크가 떨어져 5.55 rad/s에서 0이 됨)로 바꾸는 검사. MJWarp의 닫힌 링크가 안정적인지와 dataset을 다시 만들어야 하는지를 확인해야 한다.
