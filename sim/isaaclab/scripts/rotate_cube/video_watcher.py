@@ -90,6 +90,8 @@ def main() -> int:
     p.add_argument("--min_free_mib", type=int, default=2500)
     p.add_argument("--until_file", default="", help="<path>:<marker>: exit once the file contains the marker")
     p.add_argument("--poll_s", type=float, default=60.0)
+    p.add_argument("--group", default=None,
+                   help="W&B group of the training and video runs (default: the training run's directory name)")
     a = p.parse_args()
 
     import wandb
@@ -120,7 +122,7 @@ def main() -> int:
                     state["done"].append(it)  # do not retry forever
                     state_path.write_text(json.dumps(state, indent=1))
                     continue
-                group = run_dir.name
+                group = a.group or run_dir.name
                 try:  # group the training run with its video run
                     tr = api.run(f"{entity}/{project}/{run_id}")
                     if tr.group != group:

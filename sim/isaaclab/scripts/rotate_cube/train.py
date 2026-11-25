@@ -56,6 +56,17 @@ TASK_ENV_KEYS = (
 """Recorded in the manifest when set (unset: the task's defaults, see ``tasks/rotate_cube/env_cfg.py``)."""
 
 
+def default_group(experiment: str) -> str | None:
+    """``omnireset_v1`` / ``omnireset_v2`` (and ``..._smoke`` etc.) for the OmniReset experiments; None otherwise."""
+    prefix = "code_rotate_cube_omnireset"
+    if not experiment.startswith(prefix):
+        return None
+    rest = experiment[len(prefix):].lstrip("_")
+    if not rest.startswith("v2"):
+        rest = "v1" + (f"_{rest}" if rest else "")
+    return f"omnireset_{rest}"
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--task", default="CoDe-Rotate-Cube-O")
@@ -71,6 +82,9 @@ def main(argv=None) -> int:
     parser.add_argument("--checkpoint", type=Path, help="local checkpoint to continue training from")
     parser.add_argument("--fresh_optimizer", action="store_true", help="restart the PPO optimizer at the checkpoint")
     parser.add_argument("--logger", choices=("wandb", "tensorboard"), default="wandb")
+    parser.add_argument("--wandb_group", default=None,
+                        help="W&B group of the run (WANDB_RUN_GROUP; default for the OmniReset experiments: "
+                             "omnireset_v1 / omnireset_v2, shared with their video runs)")
     parser.add_argument("--override", action="append", default=[], help="Hydra override (repeatable)")
     args = parser.parse_args(argv)
     checkpoint = ["--checkpoint", str(args.checkpoint.resolve(strict=True))] if args.checkpoint else []
@@ -104,6 +118,9 @@ def main(argv=None) -> int:
     # CODE_ROTATE_CUBE_LOG_DIR: where task terms record run-specific data (the pose penalty's canonical pose)
     env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", WANDB_RUN_ID=run_id,
                CODE_ROTATE_CUBE_LOG_DIR=str(log_dir))
+    group = args.wandb_group or default_group(experiment)
+    if group:  # rsl_rl's W&B logger passes no group, so wandb.init reads it from the environment
+        env["WANDB_RUN_GROUP"] = group
     # The recording viewer is offscreen (headless): pyglet picks its X11 path whenever a display is set and then rejects
     # its own headless canvas, so the child runs without one and uses offscreen EGL.
     for var in ("DISPLAY", "WAYLAND_DISPLAY"):
@@ -132,6 +149,7 @@ def main(argv=None) -> int:
         overrides=args.override, command=command, log=str(log_path), log_dir=str(log_dir),
         task_settings={key: env[key] for key in TASK_ENV_KEYS if key in env},
         wandb_run_id=run_id if args.logger == "wandb" else None,
+        wandb_group=group if args.logger == "wandb" else None,
         wandb_run_urls=urls,
         videos=videos, checkpoints=[p.name for p in checkpoints], wall_s=wall, exit_status=status,
         solver_overflow_messages=text.count("overflow"),
