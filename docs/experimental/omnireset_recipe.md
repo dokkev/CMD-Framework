@@ -325,3 +325,25 @@ v2b segment 2는 iteration 약 1026에서 멈췄다. `model_1000`은 남긴다.
 - 20° 안에 있던 시간 비율, 수평이 된 episode 비율.
 
 기존 필드는 비교를 위해 그대로 남겼고, `tilt_note`에 reset 방향 기울기라고 표시했다.
+
+### 6.4 발산한 world 복구 (2026-11-25, v2c segment 3부터 적용)
+
+**무엇이 문제였나:**
+- v2c segment 1에서 4096개 world 중 하나가 iteration 764에 non-finite가 됐다.
+- 그 뒤 매 step 감지되고 reset됐지만, 다음 step에 다시 non-finite가 됐다. iteration 999까지 약 7,500회 반복됐다. 학습 로그의 1.15 per 10k env-step은 전부 이 world 하나에서 나왔다.
+- 원인: Isaac Lab의 reset은 solver의 warm-start와 외부 입력만 지운다 (`NewtonMJWarpManager._reset_solver_internals`, newton#1266). 나머지 MuJoCo-Warp 버퍼는 NaN으로 남는다.
+- 재현: 한 world의 `qpos/qvel/qacc_warmstart`를 NaN으로 만들면, 매 step 다시 감지되고 reset돼도 계속 같다 (12 step에 stuck 11).
+
+**무엇을 바꿨나** (`mdp.recover_worlds`, `NonFiniteState`; Newton, Isaac Lab, rsl_rl 코드는 건드리지 않음):
+1. **복구:** 감지된 world는 reset 전에 세 가지를 한다.
+   - 그 world의 MuJoCo-Warp data 행에서 non-finite 값을 0으로 바꾼다.
+   - Newton state 배열에서도 non-finite 값을 0으로 바꾼다.
+   - `SolverMuJoCo.reset(state_0, world_mask, JOINT_Q|JOINT_QD)`를 부른다.
+
+   그다음 reset term이 episode 상태를 쓴다.
+2. **onset과 stuck을 따로 센다:**
+   - `Metrics/non_finite_onsets_per_10k_env_steps`: 직전 step이 finite였던 world가 감지된 경우
+   - `Metrics/non_finite_stuck_steps`: reset 바로 다음 step에 또 감지된 경우
+3. **onset 기록:** onset이 생기면 그 world에서 non-finite인 MuJoCo-Warp와 Newton 배열 목록을 run 폴더의 `nan_onsets.jsonl`에 남긴다.
+
+**검증:** 같은 NaN을 주입했을 때 복구가 있으면 1 step 뒤 정상이 된다 (stuck 0). 다른 world는 영향받지 않았다.

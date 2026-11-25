@@ -231,6 +231,9 @@ class OmniResetStates(ManagerTermBase):
         else:
             ids = torch.as_tensor(env_ids, device=env.device, dtype=torch.long)
         self._log(env, ids)
+        if hasattr(env, "termination_manager") and "non_finite_state" in env.termination_manager.active_terms:
+            bad = env.termination_manager.get_term_cfg("non_finite_state").func.last_bad[ids]
+            recover_worlds(env, ids[bad])
         self.phase_offset[ids] = 0
         if self.generate:
             self.task_id[ids] = 0
@@ -525,24 +528,122 @@ def joint_speed_abnormal(env, factor: float = 2.0) -> torch.Tensor:
     return (_t(robot.data.joint_vel).abs() > factor * _t(robot.data.joint_vel_limits)).any(dim=1)
 
 
+def _world_rows(n: int):
+    """The MuJoCo-Warp data arrays with one row per world, as torch views, with their names."""
+    import warp as wp
+
+    from isaaclab_newton.physics import NewtonManager
+
+    data = NewtonManager._solver.mjw_data
+    for name in sorted(vars(data)):
+        arr = getattr(data, name, None)
+        if isinstance(arr, wp.array) and arr.ndim >= 1 and arr.shape[0] == n:
+            try:
+                t = wp.to_torch(arr)
+            except Exception:  # noqa: BLE001 (types without a torch view)
+                continue
+            if torch.is_floating_point(t):
+                yield name, t
+
+
+def _newton_state_arrays():
+    import warp as wp
+
+    from isaaclab_newton.physics import NewtonManager
+
+    backend = NewtonManager.backend
+    for state_name in ("state_0", "state_1"):
+        state = getattr(backend, state_name, None)
+        if state is None:
+            continue
+        for name in ("joint_q", "joint_qd", "body_q", "body_qd", "body_f", "joint_f"):
+            arr = getattr(state, name, None)
+            if isinstance(arr, wp.array) and arr.shape[0] > 0:
+                yield f"{state_name}.{name}", wp.to_torch(arr)
+
+
+def recover_worlds(env, ids: torch.Tensor) -> None:
+    """Make diverged worlds finite again before their reset state is written: zero the non-finite entries of their
+    MuJoCo-Warp data rows and of Newton's state arrays, then reset the solver for those worlds with the joint state
+    (``SolverMuJoCo.reset``, mask-aware, ``JOINT_Q | JOINT_QD``: model defaults pushed into ``qpos``/``qvel`` at once,
+    which matters with ``update_data_interval`` 2). Isaac Lab's own reset clears only the warm-start and applied inputs;
+    a world was seen to stay non-finite through every later reset (v2c segment 1). The reset term then writes the
+    episode's state as usual."""
+    if len(ids) == 0:
+        return
+    import newton
+    import warp as wp
+
+    from isaaclab_newton.physics import NewtonManager
+
+    for _, t in _world_rows(env.num_envs):
+        t[ids] = torch.nan_to_num(t[ids], nan=0.0, posinf=0.0, neginf=0.0)
+    for _, t in _newton_state_arrays():
+        torch.nan_to_num_(t, nan=0.0, posinf=0.0, neginf=0.0)
+    mask = torch.zeros(NewtonManager.backend.model.world_count + 1, dtype=torch.bool, device=env.device)
+    mask[ids] = True
+    NewtonManager._solver.reset(NewtonManager.backend.state_0, world_mask=wp.from_torch(mask),
+                                flags=int(newton.StateFlags.JOINT_Q) | int(newton.StateFlags.JOINT_QD))
+
+
 class NonFiniteState(ManagerTermBase):
     """Termination: a non-finite joint or cube state (a diverged world; NaN compares false, so the speed test misses
-    it). Logs ``Metrics/non_finite_per_10k_env_steps`` since the start of the run."""
+    it). Logs, since the start of the run, ``Metrics/non_finite_per_10k_env_steps`` (every flagged step),
+    ``Metrics/non_finite_onsets_per_10k_env_steps`` (a world flagged after a finite step) and
+    ``Metrics/non_finite_stuck_steps`` (flagged again on the step after its reset: recovery failed). On an onset it
+    appends which MuJoCo-Warp and Newton arrays are non-finite for that world to ``nan_onsets.jsonl`` in
+    ``CODE_ROTATE_CUBE_LOG_DIR`` (or prints it). The reset term calls :func:`recover_worlds` for flagged worlds."""
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
         self.events = 0
+        self.onsets = 0
+        self.stuck = 0
         self.env_steps = 0
+        self.last_bad = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
     def __call__(self, env) -> torch.Tensor:
         robot, obj = env.scene["robot"], env.scene["object"]
         states = (_t(robot.data.joint_pos), _t(robot.data.joint_vel), _t(obj.data.root_pose_w),
                   _t(obj.data.root_vel_w))  # fmt: skip
         bad = ~torch.stack([torch.isfinite(x).all(dim=1) for x in states], dim=1).all(dim=1)
+        onset = bad & ~self.last_bad
         self.events += int(bad.sum())
+        self.onsets += int(onset.sum())
+        self.stuck += int((bad & self.last_bad).sum())
         self.env_steps += env.num_envs
-        env.extras.setdefault("log", {})["Metrics/non_finite_per_10k_env_steps"] = 1e4 * self.events / self.env_steps
+        if onset.any():
+            self._dump(env, onset.nonzero().flatten())
+        self.last_bad = bad.clone()
+        log = env.extras.setdefault("log", {})
+        log["Metrics/non_finite_per_10k_env_steps"] = 1e4 * self.events / self.env_steps
+        log["Metrics/non_finite_onsets_per_10k_env_steps"] = 1e4 * self.onsets / self.env_steps
+        log["Metrics/non_finite_stuck_steps"] = float(self.stuck)
         return bad
+
+    def _dump(self, env, ids: torch.Tensor) -> None:
+        import json
+        import os
+
+        rows = {name: [int(e) for e in ids.tolist() if not torch.isfinite(t[e]).all()]
+                for name, t in _world_rows(env.num_envs)}  # fmt: skip
+        record = {
+            "env_steps": self.env_steps, "worlds": ids.tolist(),
+            "episode_step": env.episode_length_buf[ids].tolist(),
+            "reset_type": [reset_term(env).names[int(k)] for k in reset_term(env).task_id[ids].tolist()],
+            "mjw_data_nonfinite": {k: v for k, v in rows.items() if v},
+            "newton_state_nonfinite_entries": {
+                name: int((~torch.isfinite(t)).sum())
+                for name, t in _newton_state_arrays()
+                if not torch.isfinite(t).all()
+            },
+        }  # fmt: skip
+        log_dir = os.environ.get("CODE_ROTATE_CUBE_LOG_DIR")
+        line = json.dumps(record)
+        if log_dir:
+            with open(os.path.join(log_dir, "nan_onsets.jsonl"), "a") as f:
+                f.write(line + "\n")
+        print(f"non-finite onset: {line}", flush=True)
 
 
 def abnormal_robot_state(env) -> torch.Tensor:
@@ -620,6 +721,7 @@ __all__ = [
     "goal_context",
     "joint_vel_l2_clamped",
     "load_reset_dataset",
+    "recover_worlds",
     "reset_term",
     "success_reward",
     "time_left",
