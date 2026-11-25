@@ -385,16 +385,29 @@ def main() -> int:
     tasks = (("task_hold", "hold (pull-out)"), ("task_dial", "dial turning"), ("task_coin", "coin drag"),
              ("task_inhand", "in-hand rotation (RL)"))
     tw, th_ = 0.80, 0.62
+    BG = np.array([236, 237, 239], float)  # one light-grey backdrop for every task image
     for k, (fn, nm) in enumerate(tasks):
-        im_ = np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB"))
-        ink = im_.min(axis=2) < 240
-        if fn == "task_inhand":
-            ink = np.ones(ink.shape, bool)
-        rr, cc_ = np.nonzero(ink)
-        im_ = im_[rr.min():rr.max() + 1, cc_.min():cc_.max() + 1]
+        im_ = np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")).astype(float)
+        if fn != "task_inhand":
+            ink = im_.min(axis=2) < 240
+            rr, cc_ = np.nonzero(ink)
+            im_ = im_[rr.min():rr.max() + 1, cc_.min():cc_.max() + 1]
+            a_ = np.clip((250 - im_.min(axis=2)) / 15.0, 0, 1)[..., None]  # white -> backdrop
+            im_ = a_ * im_ + (1 - a_) * BG
+        im_ = im_.astype(np.uint8)
+        # pad to the cell's aspect with the backdrop, so every cell is the same grey rectangle
+        H0, W0 = im_.shape[:2]
+        want = tw / th_
+        if W0 / H0 < want:
+            padw = int(round(H0 * want)) - W0
+            im_ = np.pad(im_, ((0, 0), (padw // 2, padw - padw // 2), (0, 0)), constant_values=0)
+            im_[:, :padw // 2] = BG; im_[:, W0 + padw // 2:] = BG
+        else:
+            padh = int(round(W0 / want)) - H0
+            im_ = np.pad(im_, ((padh // 2, padh - padh // 2), (0, 0), (0, 0)), constant_values=0)
+            im_[:padh // 2] = BG; im_[H0 + padh // 2:] = BG
         x = 0.04 + k * (tw + 0.05)
-        ta = fig.add_axes((*inch(x, y - 0.20 - th_), tw / W_, th_ / H_)); ta.imshow(im_); ta.axis("off")
-        ta.set_aspect("equal", anchor="C")
+        ta = fig.add_axes((*inch(x, y - 0.20 - th_), tw / W_, th_ / H_)); ta.imshow(im_, aspect="auto"); ta.axis("off")
         fig.text(*inch(x + tw / 2, y - 0.23 - th_), nm, fontsize=5.8, ha="center", va="top")
     sh_ = th_ + 0.10
     # (f, g) the two redesigns: measured pad effect against O's, and the contact surface's offset from O
