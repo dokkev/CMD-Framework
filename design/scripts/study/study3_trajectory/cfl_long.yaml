@@ -7,7 +7,8 @@
 #
 # runs UL (coverage alone, Study 1's objective) to
 # output/study/linkage/cfl_long_q120_h7/; long_fingers.py searches RL
-# (Study 2's redesign against O) under the same goal.
+# (Study 2's redesign against O) under the same goal. UL120, the same search
+# at RL's length:  ... --set "goal.link.finger_length_mm=[119.95, 120.05]" --tag q120_h7_L120
 base: ../cfl.yaml
 output: output/study
 goal:

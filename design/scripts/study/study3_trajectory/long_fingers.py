@@ -9,6 +9,8 @@ carry 7 mm pads under the studies' CFL goal with the finger length searched in [
 
 - UL: Study 1's objective (Eq. opt1, the most C_pad), the balanced design of the first portfolio of ``cfl_long_q120_h7``
   (as U was chosen from ``cfl_q120_h7``);
+- UL120: UL's search with L_f held at 120 mm (``cfl_long_q120_h7_L120``), RL's coverage-only partner at its length
+  (UL at 150 mm is kept as a secondary hand);
 - RL: Study 2's redesign (Eq. opt2) against O, NSGA-II for the least change and the most C_pad, Study 2's search
   (one_finger.yaml ``redesign.search``), warm-started from O and UL; the least change with C_pad at least O's.
 
@@ -51,6 +53,9 @@ from core.optimization.study import load_config  # noqa: E402
 ROOT = make_hands.ROOT
 e15 = make_hands.e15
 UL_FOLDER = ROOT / "output" / "study" / "linkage" / "cfl_long_q120_h7"
+UL120_FOLDER = ROOT / "output" / "study" / "linkage" / "cfl_long_q120_h7_L120"
+"""UL120: UL's search with L_f held at 120 mm (``--set "goal.link.finger_length_mm=[119.95, 120.05]" --tag
+q120_h7_L120``), the coverage-only partner of RL at RL's length."""
 OUT = ROOT / "output" / "study" / "study3_long_fingers"
 FLEXION, THIN, THICK = 120.0, 3.0, 7.0
 
@@ -130,6 +135,10 @@ def main(argv=None) -> int:
     ul_portfolio = sorted(UL_FOLDER.glob("portfolio_*"))[0]
     ul_config = load_config(sorted(UL_FOLDER.glob("run_*"))[0])
     x_ul = e15.balanced_x(ul_portfolio)
+    ul120 = None
+    if sorted(UL120_FOLDER.glob("portfolio_*")):
+        ul120 = (e15.balanced_x(sorted(UL120_FOLDER.glob("portfolio_*"))[0]),
+                 load_config(sorted(UL120_FOLDER.glob("run_*"))[0]))
 
     OUT.mkdir(parents=True, exist_ok=True)
     search = study["redesign"]["search"]
@@ -171,7 +180,8 @@ def main(argv=None) -> int:
 
     table = []
     for name, x, cfg in (("O", o.x, o.config), ("R7", x_r7, goal7.config), ("U7", x_u7, goal7.config),
-                         ("RL", x_rl, ul_config), ("UL", x_ul, ul_config)):
+                         ("RL", x_rl, ul_config), ("UL", x_ul, ul_config),
+                         *((("UL120", *ul120),) if ul120 else ())):
         table.append({"hand": name, **measures(base, x, cfg, reference, scale)})
     write_rows(OUT / "designs.csv", table)
     print(f"\nRL front ({args.objective}): {len(merged)} points, change {float(merged[0]['contact_change_mm']):.2f}.."
@@ -191,9 +201,10 @@ def main(argv=None) -> int:
     # The hands, as make_hands.py writes them (decoded, then checked against the study's kinematics).
     o_base = mechanism(o.mechanism)
     ok = True
-    for suffix, label, x in (("hu", "UL", x_ul), ("hr", "RL", x_rl)):
-        finger_params, pads = make_hands.hand_parameters(x, ul_config, THICK)
-        tip_err, contact_err = make_hands.check(o_base, x, ul_config, finger_params, pads, math.radians(FLEXION))
+    for suffix, label, x, cfg in (("hu", "UL", x_ul, ul_config), ("hr", "RL", x_rl, ul_config),
+                                  *((("hu", "UL120", *ul120),) if ul120 else ())):
+        finger_params, pads = make_hands.hand_parameters(x, cfg, THICK)
+        tip_err, contact_err = make_hands.check(o_base, x, cfg, finger_params, pads, math.radians(FLEXION))
         length = next(r["L_f_mm"] for r in table if r["hand"] == label)
         name = f"cfl_q120_L{round(length):d}_h3to7_{suffix}"
         print(f"{label} -> {name}: tip {tip_err:.2e} mm, contact {contact_err:.2e} mm from the study's")
