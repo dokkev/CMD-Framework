@@ -810,9 +810,9 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    """Study 3A: four Drake tasks under O's reused command. Rows: the task (three frames), O, R and U's object
-    response at friction 1.3 (solid) and 2.0 (dashed), and every redesign's measured friction effect as a share of
-    O's (100% = in sync). Data: report/study3/data/fig4_sync.json (paper/figures/fig4_sync.py)."""
+    """Study 3A: four Drake tasks under O's reused command. Per task: three frames, and R and U minus O over every
+    placement (friction 1.3 solid, 2.0 dashed). Below, all tasks together: every redesign's friction effect matching
+    O, 100(1 - E), by the contact surface's motion change. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
     T, DV = d["tasks"], d["deviation"]
@@ -821,9 +821,9 @@ def fig4():
              "load deviation (N)"),
             ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)"),
             ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"),
-            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "sphere turned, vs. O (deg)"))
+            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
-    h = 3.05
+    h = 3.25
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.30, 0.10
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -854,36 +854,47 @@ def fig4():
                 ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.0, zorder=3)
         ra.set_xlabel(xl, labelpad=1, fontsize=6.3); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         clean(ra)
-        # every redesign: measured effect as a share of O's
-        sa = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.34) / W, 0.66 / h))
-        hd = T[key]["hands"]
-        agree = {k: 100 * (1 - v["E"]) for k, v in hd.items()}  # 100%: the same effect as O's
-        for k, v in hd.items():
-            if k in ("R", "U"):
-                continue
-            sa.plot(v["d_contact"], agree[k], ls="none", marker="o", ms=2.8, color="#b5b5b2", mec="none", zorder=2)
-        for k in ("R", "U"):
-            sa.plot(hd[k]["d_contact"], agree[k], ls="none", marker="o", ms=4.0, color=HC[k], zorder=3)
-            sa.annotate(f"{agree[k]:.0f}%", (hd[k]["d_contact"], agree[k]), xytext=(4, 0), textcoords="offset points",
-                        fontsize=5.6, va="center", color=INK)
-        sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
-        sa.set_xlim(0, 5.8)
-        sa.set_xlabel("contact-surface motion change (mm)", labelpad=1, fontsize=5.8)
-        if i == 0:
-            sa.set_ylabel("matching O (%)", labelpad=1, fontsize=5.6)
-        clean(sa)
-    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
-               plt.Line2D([], [], color=BLUE, lw=1.0, marker="o", ms=3.5, label="R: contact-preserving"),
-               plt.Line2D([], [], color=AMBER, lw=1.0, marker="o", ms=3.5, label="U: coverage-only"),
-               plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns"),
-               plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
-               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="2.0")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
-               handletextpad=0.3, columnspacing=1.0, handlelength=1.6)
     fig.text(0.02 / W, (h - 1.27) / h, "deviation from O\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.83 / h, "friction effect\n(every redesign)", fontsize=6.0, color=INK2, rotation=90,
-             ha="left", va="center", linespacing=1.0)
+    # every redesign, all tasks: friction effect matching O against two morphology indices that the redesigns vary
+    # independently, the contact surface's motion change and the fingertip (skeleton) path change; three bands each
+    # (contact: the redesigns' targets 1.5 and 3 mm), dots: hands, line: band median
+    mk = {"pull": "o", "dial": "s", "coin": "^", "pinch": "D"}
+    panels = (("d_contact", ((0.0, 1.5, "< 1.5"), (1.5, 3.0, "1.5 to 3"), (3.0, 99.0, "> 3")),
+               "contact-surface motion change (mm)"),
+              ("d_skel", ((0.0, 5.0, "< 5"), (5.0, 9.0, "5 to 9"), (9.0, 99.0, "> 9")),
+               "fingertip path change (mm)"))
+    for pi, (field, bands, xlab) in enumerate(panels):
+        sa = fig.add_axes(((left + pi * (cw + gapc) + 0.30) / W, 0.36 / h, (cw - 0.34) / W, 0.80 / h))
+        for j, (name, key, *_r) in enumerate(cols):
+            hd = T[key]["hands"]
+            off = (j - (len(cols) - 1) / 2) * 0.10
+            med = []
+            for b_, (lo, hi, _) in enumerate(bands):
+                ag = [100 * (1 - v["E"]) for v in hd.values() if lo <= v[field] < hi]
+                sa.plot([b_ + off] * len(ag), ag, ls="none", marker=mk[key], ms=2.0, color="#c4c4c1", mec="none",
+                        zorder=1)
+                med.append(np.median(ag))
+            sa.plot(np.arange(3) + off, med, color=INK, lw=0.9, marker=mk[key], ms=3.4, mfc="white", mew=0.8, zorder=3)
+        sa.set_xticks(range(3)); sa.set_xticklabels([b[2] for b in bands]); sa.set_xlim(-0.4, 2.4)
+        sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
+        sa.set_xlabel(xlab, labelpad=1, fontsize=6.0)
+        if pi == 0:
+            sa.set_ylabel("friction effect\nmatching O (%)", labelpad=1, fontsize=5.6, linespacing=1.0)
+        clean(sa)
+    fig.text(0.02 / W, 0.76 / h, "every redesign\n(18 hands)", fontsize=6.0, color=INK2, rotation=90, ha="left",
+             va="center", linespacing=1.0)
+    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
+               plt.Line2D([], [], color=BLUE, lw=1.0, label="R: contact-preserving"),
+               plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
+               plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
+               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0")]
+    handles += [plt.Line2D([], [], color=INK, lw=0.9, marker=mk[key], ms=3.4, mfc="white", mew=0.8,
+                           label=f"{name} (median)") for name, key, *_r in cols]
+    handles += [plt.Line2D([], [], ls="none", marker="o", ms=2.4, color="#c4c4c1", label="one redesign")]
+    fig.legend(handles=handles, loc="center left", bbox_to_anchor=((left + 2 * (cw + gapc) + 0.15) / W, 0.74 / h),
+               ncol=2, frameon=False, fontsize=5.8, handletextpad=0.4, columnspacing=1.2, handlelength=1.8,
+               labelspacing=0.35)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)
