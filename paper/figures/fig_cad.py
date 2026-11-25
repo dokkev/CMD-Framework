@@ -314,7 +314,7 @@ def main() -> int:
                          "font.weight": "light", "mathtext.fontset": "custom", "mathtext.rm": "Helvetica Light",
                          "mathtext.it": "Nimbus Sans:italic", "mathtext.bf": "Nimbus Sans:bold", "font.size": 7})
     BOLD = dict(fontweight="bold", family="Nimbus Sans")
-    W_, H_ = 7.16, 4.15
+    W_, H_ = 3.45, 6.30
     fig = plt.figure(figsize=(W_, H_))
     d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
     paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
@@ -329,142 +329,102 @@ def main() -> int:
         fig.patches.append(FancyBboxPatch(inch(x, y), w / W_, h / H_, boxstyle=f"round,pad=0,rounding_size={r / W_}",
                                           transform=fig.transFigure, fc=fc, ec=ec, lw=lw, zorder=z))
 
-    # ---------------- row 1: hand, finger, interfaces
-    top = H_ - 0.04
+    # plain matplotlib look: panel letters, thin black lines, no filled boxes
+    def plabel(x, y, letter, title):
+        fig.text(*inch(x, y), f"({letter})", fontsize=7.5, va="top", ha="left", **BOLD)
+        fig.text(*inch(x + 0.22, y), title, fontsize=7.5, va="top", ha="left")
+
+    # ---------------- single column, top to bottom
+    top = H_ - 0.03
     hand = usd_render(CAD / "usd_hand_cube.png")
-    hw = 1.55
+    hw = 1.30
     hh = hw * hand.shape[0] / hand.shape[1]
-    fig.text(*inch(0.05 + hw / 2, top), "CoDe Hand", fontsize=8, va="top", ha="center", **BOLD)
-    ax = fig.add_axes((*inch(0.05, top - 0.22 - hh), hw / W_, hh / H_)); ax.imshow(hand); ax.axis("off")
-    fig.lines.append(plt.Line2D([1.72 / W_] * 2, [(top - 1.18) / H_, (top - 0.10) / H_], transform=fig.transFigure,
-                                color="#cfcfcf", lw=0.6))
+    plabel(0.02, top, "a", "CoDe Hand")
+    ax = fig.add_axes((*inch(0.02, top - 0.17 - hh), hw / W_, hh / H_)); ax.imshow(hand); ax.axis("off")
     CROP = 705
     fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]
-    fw = 2.35
+    fw = 1.98
     fh = fw * fin.shape[0] / fin.shape[1]
-    fig.text(*inch(1.82 + fw / 2, top), "Crossed Four-bar Joint", fontsize=8, va="top", ha="center", **BOLD)
-    f = fig.add_axes((*inch(1.82, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
+    plabel(1.40, top, "b", "crossed four-bar joint")
+    f = fig.add_axes((*inch(1.44, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
     for cx, cy, ew, eh in ((1250 - CROP, 530, 450, 190), (2215 - CROP, 485, 340, 220)):
-        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=1.0, ls=(0, (3, 2)), clip_on=False, zorder=5))
-    bx0, bw_ = 4.32, 2.80
-    box(bx0, top - 1.18, bw_, 1.16, "white", PAD, lw=0.9)
-    fig.text(*inch(bx0 + bw_ / 2, top - 0.06), "Contact Interfaces ($h$)", fontsize=8, va="top", ha="center", **BOLD)
-    names = (("nari", "NARI-Touch\nTactile"), ("honeycomb", "Compliant\nStructure"), ("traction", "Traction\nPad"),
-             ("soft", "Solid\nSoft Pad"))
-    iw = 0.62
+        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec="k", lw=0.7, ls="--", clip_on=False, zorder=5))
+    fig.text(*inch(1.44 + fw / 2, top - 0.34 - fh), "dashed: pad seats", fontsize=6.0, ha="center", va="top")
+    y = top - 0.20 - max(hh, fh + 0.25)
+    plabel(0.02, y, "c", "contact interfaces")
+    names = (("nari", "tactile\n(NARI-Touch)"), ("honeycomb", "compliant\nstructure"), ("traction", "traction\npad"),
+             ("soft", "solid\nsoft pad"))
+    iw = 0.70
     for k, (kk, nm) in enumerate(names):
-        x = bx0 + 0.10 + k * (iw + 0.06)
-        ax = fig.add_axes((*inch(x, top - 0.86), iw / W_, 0.60 / H_))
+        x = 0.12 + k * (iw + 0.15)
+        ax = fig.add_axes((*inch(x, y - 0.68), iw / W_, 0.50 / H_))
         fit_icon(ax, kk)
-        fig.text(*inch(x + iw / 2, top - 0.90), nm, fontsize=6.6, ha="center", va="top", linespacing=1.05)
-
-    # ---------------- row 2: the redesign problem
-    r2t, r2h = top - 1.26, 0.92
-    box(0.04, r2t - r2h, W_ - 0.08, r2h, "#f2f6fc", "#b9cbe8", lw=0.8)
-
-    def step(x, n, text):
-        fig.patches.append(Ellipse(inch(x, r2t - 0.18), 0.17 / W_, 0.17 / H_, transform=fig.transFigure, fc="#8fb0dc",
-                                   ec="none"))
-        fig.text(*inch(x, r2t - 0.18), str(n), fontsize=7.5, color="white", ha="center", va="center", **BOLD)
-        fig.text(*inch(x + 0.15, r2t - 0.18), text, fontsize=8, ha="left", va="center", **BOLD)
-    step(0.30, 1, "Change contact interface")
-    step(2.55, 2, "Re-optimize mechanism")
-    # the distal phalanx with a thicker pad (CAD, cad/distal_pad_change.png)
-    chg = np.asarray(Image.open(CAD / "distal_pad_change.png").convert("RGB")).copy()
-    chg[chg.min(axis=2) > 248] = (242, 246, 252)
-    cw_ = 1.15
+        fig.text(*inch(x + iw / 2, y - 0.71), nm, fontsize=6.0, ha="center", va="top", linespacing=1.0)
+    # (d) the redesign problem
+    y -= 1.05
+    fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
+                                color="0.6", lw=0.5))
+    plabel(0.02, y, "d", "thicker pad, re-optimized finger")
+    chg = np.asarray(Image.open(CAD / "distal_pad_change.png").convert("RGB"))
+    cw_ = 0.80
     ch_ = cw_ * chg.shape[0] / chg.shape[1]
-    ca = fig.add_axes((*inch(0.55, r2t - r2h + 0.04), cw_ / W_, ch_ / H_)); ca.imshow(chg); ca.axis("off")
-    fig.patches.append(FancyArrowPatch(inch(1.95, r2t - 0.55), inch(2.35, r2t - 0.55), transform=fig.transFigure,
-                                       arrowstyle="simple,head_width=0.6,head_length=0.5,tail_width=0.25",
-                                       mutation_scale=14, fc="#5b7fb8", ec="none"))
-    box(2.45, r2t - r2h + 0.07, 2.30, 0.58, "white", PAD, lw=0.8)
-    fig.text(*inch(2.58, r2t - 0.44), "R", fontsize=7.6, color=BLUE_, ha="left", va="center", **BOLD)
-    fig.text(*inch(3.66, r2t - 0.44), r"$\min_{M\in\mathcal{F}(K,h,q_\mathrm{req})}\;(\Delta_\mathrm{contact}(M,M_0),\,-\bar{C}_\mathrm{pad}(M))$",
-             fontsize=7.6, ha="center", va="center", math_fontfamily="stixsans")
-    fig.text(*inch(2.58, r2t - 0.70), "U", fontsize=7.6, color=ORANGE_, ha="left", va="center", **BOLD)
-    fig.text(*inch(3.66, r2t - 0.70), r"$\max_{M\in\mathcal{F}(K,h,q_\mathrm{req})}\;\bar{C}_\mathrm{pad}(M)$",
-             fontsize=7.6, ha="center", va="center", math_fontfamily="stixsans")
-    for yb, col, lc, title, sub in ((r2t - 0.26, BLUE_, LBLUE, "Contact-preserving (R)", r"keeps $\Delta_\mathrm{contact}$ small"),
-                                    (r2t - 0.70, ORANGE_, LORANGE, "Coverage-only (U)", r"maximizes $\bar{C}_\mathrm{pad}$ only")):
-        box(5.20, yb - 0.16, 1.82, 0.36, lc, col, r=0.12, lw=0.9)
-        fig.text(*inch(6.11, yb + 0.09), title, fontsize=7.6, color=col, ha="center", va="center", **BOLD)
-        fig.text(*inch(6.11, yb - 0.07), sub, fontsize=6.6, ha="center", va="center")
-        fig.patches.append(FancyArrowPatch(inch(4.98, r2t - 0.50), inch(5.18, yb + 0.03), transform=fig.transFigure,
-                                           arrowstyle="-|>", mutation_scale=7, lw=1.0, color=INK2,
-                                           connectionstyle="angle,angleA=90,angleB=0,rad=0"))
-    fig.lines.append(plt.Line2D([4.77 / W_, 4.98 / W_], [(r2t - 0.50) / H_] * 2, transform=fig.transFigure, color=INK2,
-                                lw=1.0))
-
-    # ---------------- row 3: R and U
-    r3t = r2t - r2h - 0.06
-    pw, ph = 3.50, 1.60
+    ca = fig.add_axes((*inch(0.05, y - 0.20 - ch_), cw_ / W_, ch_ / H_)); ca.imshow(chg); ca.axis("off")
+    fig.patches.append(FancyArrowPatch(inch(0.90, y - 0.42), inch(1.10, y - 0.42), transform=fig.transFigure,
+                                       arrowstyle="->", mutation_scale=8, lw=0.8, color="k"))
+    eqR = r"$\min_{M\in\mathcal{F}}\;(\Delta_\mathrm{contact}(M,M_0),\,-\bar{C}_\mathrm{pad}(M))$"
+    eqU = r"$\max_{M\in\mathcal{F}}\;\bar{C}_\mathrm{pad}(M)$"
+    for k, (lab, col, eq) in enumerate((("R", BLUE_, eqR), ("U", ORANGE_, eqU))):
+        yy = y - 0.30 - k * 0.24
+        fig.text(*inch(1.15, yy), f"{lab}:", fontsize=7, color=col, ha="left", va="center", **BOLD)
+        fig.text(*inch(1.35, yy), eq, fontsize=6.8, ha="left", va="center", math_fontfamily="stixsans")
+    # (e) the task: a fingertip turns a sprung dial (report/study3/figures/fingertip_disk.png)
+    y -= 0.82
+    fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
+                                color="0.6", lw=0.5))
+    plabel(0.02, y, "e", "example task: turning a sprung dial")
+    strip = np.asarray(Image.open(CAD / "task_dial_strip.png").convert("RGB"))
+    ink = strip.min(axis=2) < 245
+    cols_ = np.nonzero(ink.any(axis=0))[0]
+    rows_ = np.nonzero(ink.any(axis=1))[0]
+    strip = strip[rows_.min():rows_.max() + 1]
+    sw_ = W_ - 0.10
+    sh_ = sw_ * strip.shape[0] / strip.shape[1]
+    sa = fig.add_axes((*inch(0.05, y - 0.20 - sh_), sw_ / W_, sh_ / H_)); sa.imshow(strip); sa.axis("off")
+    # (f, g) the two redesigns: measured pad effect against O's, and the contact surface's offset from O
+    y -= 0.30 + sh_
     ref = np.array(paths["O"]["contact"])
-    for i, (kind, col, lc, title) in enumerate((("R", BLUE_, LBLUE, "Contact-preserving redesign (R)"),
-                                                ("U", ORANGE_, LORANGE, "Coverage-only redesign (U)"))):
-        x0 = 0.04 + i * (pw + 0.08)
-        box(x0, r3t - ph, pw, ph, "white", col, lw=0.9)
-        box(x0, r3t - 0.26, pw, 0.26, lc, "none", lw=0, r=0.06)
-        fig.text(*inch(x0 + pw / 2, r3t - 0.13), title, fontsize=8, color=col, ha="center", va="center", **BOLD)
-        # 0. an example task, dial turning, from the hand's visual USD; the two touch points (red) circled
-        im_, _ = usd_white(CAD / f"usd_dial_{kind}.png", paper=255.0)
-        im_ = im_[440:880, 380:980]
-        red_ = (im_[..., 0] > 180) & (im_[..., 1] < 90) & (im_[..., 2] < 90)
-        ry, rx = np.nonzero(red_)
-        dh = 0.68
-        dw = dh * im_.shape[1] / im_.shape[0]
-        xa = fig.add_axes((*inch(x0 + 0.10, r3t - ph + 0.40), dw / W_, dh / H_)); xa.imshow(im_); xa.axis("off")
-        if len(rx):
-            xa.add_patch(Ellipse(((rx.min() + rx.max()) / 2, (ry.min() + ry.max()) / 2),
-                                 (rx.max() - rx.min()) * 1.6 + 60, (ry.max() - ry.min()) * 1.5 + 60, fc="none", ec=col,
-                                 lw=1.0, ls=(0, (3, 2)), zorder=5))
-        fig.text(*inch(x0 + 0.10 + dw / 2, r3t - 0.40), "dial turning (example)", fontsize=6.2, color=INK2, ha="center",
-                 va="center")
-        # 1. the effect of a softer, thicker pad on the pull-out load: true (on O) against what this redesign measures
+    for i, (kind, col, letter, title) in enumerate((("R", BLUE_, "f", "contact-preserving redesign (R)"),
+                                                    ("U", ORANGE_, "g", "coverage-only redesign (U)"))):
+        y0 = y - i * 0.98
+        fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y0 + 0.05) / H_] * 2, transform=fig.transFigure,
+                                    color="0.6", lw=0.5))
+        plabel(0.02, y0, letter, title)
         cc = conc[kind]
-        bx_ = x0 + 0.10 + dw + 0.10
-        ba = fig.add_axes((*inch(bx_, r3t - 1.04), 1.05 / W_, 0.48 / H_))
-        vals = ((cc["true_change_pct"], "true (O)", "#9a9a9a"), (cc["measured_change_pct"], f"measured ({kind})", col))
-        for j, (v, lab, c_) in enumerate(vals):
-            ba.barh(1 - j, v, height=0.62, color=c_, edgecolor="none")
-            ba.text(5 if v < 0 else -5, 1 - j, lab, va="center", ha="left" if v < 0 else "right", fontsize=5.8,
-                    color=c_ if j else INK2)
-        ba.axvline(0, color=INK, lw=0.6)
-        ba.set_xlim(-95, 95); ba.set_ylim(-0.6, 1.6); ba.axis("off")
-        fig.text(*inch(bx_ + 0.52, r3t - 0.40), "softer pad: pull-out load", fontsize=6.2, color=INK2,
-                 ha="center", va="center")
-        fig.text(*inch(bx_ + 0.52, r3t - 1.12), "Reduced confounding" if kind == "R" else "Confounded effects",
-                 fontsize=7.2, color=col, ha="center", va="center", **BOLD)
-        # 2. how far the distal contact surface strays from O's over flexion
-        da = fig.add_axes((*inch(x0 + 2.55, r3t - 1.02), 0.85 / W_, 0.52 / H_))
+        ba = fig.add_axes((*inch(0.32, y0 - 0.70), 1.15 / W_, 0.42 / H_))
+        ba.barh([1, 0], [cc["true_change_pct"], cc["measured_change_pct"]], height=0.6, color=["0.6", col])
+        ba.axvline(0, color="k", lw=0.6)
+        ba.set_yticks([1, 0]); ba.set_yticklabels(["O", kind], fontsize=5.8)
+        ba.set_xlim(-80, 80); ba.set_xticks([]); ba.set_ylim(-0.6, 1.6)
+        ba.set_xlabel("pull-out change, softer pad", fontsize=5.6, labelpad=2)
+        ba.tick_params(length=0, pad=2)
+        for sp in ("top", "right"):
+            ba.spines[sp].set_visible(False)
+        ba.set_title("same sign" if kind == "R" else "sign reversed", fontsize=6.0, color=col, pad=2)
+        da = fig.add_axes((*inch(2.05, y0 - 0.70), 1.30 / W_, 0.42 / H_))
         red = np.array(paths[kind]["contact"])
         dev = np.linalg.norm(red - ref, axis=1)
         qd = np.linspace(0, 120, len(dev))
-        da.axhspan(0, 1.0, color=LBLUE, lw=0, zorder=0)
-        da.plot(qd, dev, color=col, lw=1.4)
+        da.plot(qd, dev, color=col, lw=1.1)
+        da.axhline(1.0, color="0.5", lw=0.6, ls=":")
         da.set_xlim(0, 120); da.set_ylim(0, 4.5); da.set_xticks([]); da.set_yticks([])
         for sp in ("top", "right"):
             da.spines[sp].set_visible(False)
-        da.set_xlabel("flexion", fontsize=5.8, labelpad=1)
-        da.set_ylabel("offset from O", fontsize=5.8, labelpad=1)
-        fig.text(*inch(x0 + 2.97, r3t - 0.40), "contact surface", fontsize=6.2, color=INK2, ha="center",
-                 va="center")
-        # 3. what each redesign kept: skeleton change against contact-surface change, and coverage
-        box(x0 + 0.10, r3t - ph + 0.06, pw - 0.20, 0.24, lc, col, r=0.05, lw=0.6)
-        words = {"R": ("skeleton: changed more", "contact surfaces: kept", "coverage: same"),
-                 "U": ("skeleton: changed less", "contact surfaces: moved", "coverage: same")}[kind]
-        for xx, w_, bb in zip((0.70, 1.80, 2.90), words, (kind == "R", True, False)):
-            fig.text(*inch(x0 + xx, r3t - ph + 0.18), w_, fontsize=6.4, ha="center", va="center",
-                     color=col if bb and xx > 1 else INK, **(BOLD if bb else {}))
-    # legend
-    ly = r3t - ph - 0.12
-    fig.patches.append(FancyBboxPatch(inch(2.40, ly - 0.04), 0.25 / W_, 0.08 / H_, boxstyle="square,pad=0",
-                                      transform=fig.transFigure, fc="#9a9a9a", ec="none"))
-    fig.text(*inch(2.72, ly), "O (reference, thin pads)", fontsize=7, va="center")
-    for k, c_ in enumerate((BLUE_, ORANGE_)):
-        fig.lines.append(plt.Line2D([(3.95 + k * 0.32) / W_, (4.22 + k * 0.32) / W_], [ly / H_] * 2,
-                                    transform=fig.transFigure, color=c_, lw=1.4))
-    fig.text(*inch(4.62, ly), "redesigns for a thicker pad; shaded: close to O", fontsize=7, va="center")
+        da.set_xlabel("flexion", fontsize=5.6, labelpad=2)
+        da.set_ylabel("offset\nfrom O", fontsize=5.6, labelpad=2, linespacing=1.0)
+        da.set_title("contact surface", fontsize=6.0, pad=2)
+        words = {"R": "skeleton changed more, contact kept: reduced confounding",
+                 "U": "skeleton changed less, contact moved: confounded"}[kind]
+        fig.text(*inch(W_ / 2, y0 - 0.92), words, fontsize=6.0, ha="center", va="bottom", color=col)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)

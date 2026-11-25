@@ -512,10 +512,9 @@ def fig2():
     row = with_role(read_rows(proto), "balanced")
     run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
     v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
-    qk = 120.0
+    qk = 0.0  # the extended pose only
     kax = fig.add_axes((4.80 / W, 0.10 / h, 2.32 / W, (head - 0.30) / h))
-    kax.set_xlim(-12, 98); kax.set_ylim(-52, 30); kax.set_aspect("equal"); kax.axis("off")
-    faint_extended(kax, v, (v.proximal_pad(), v.distal_pad(0.0)), pins=True)
+    kax.set_xlim(-12, 112); kax.set_ylim(-22, 30); kax.set_aspect("equal"); kax.axis("off")
     # bodies only (servos, palm) from the sketch; the links are drawn here in grey shades
     n0p, n0l, n0c = len(kax.patches), len(kax.lines), len(kax.collections)
     v.draw(kax, qk, hit=set(), style="sketch")
@@ -562,7 +561,7 @@ def fig2():
     for pad in (v.proximal_pad(), v.distal_pad(qk)):
         kax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
     pts = {"A": A, "A'": Ap, "B": B, "B'": Bp, "C": C, "O": O}
-    offs = {"A": (-4, -7), "A'": (7, 7), "B": (8, -2), "B'": (7, -6), "C": (5, -5), "O": (-6, -8)}
+    offs = {"A": (-4, -7), "A'": (-6, 6), "B": (5, -7), "B'": (7, 6), "C": (6, -5), "O": (-6, -8)}
     for nm_, at in pts.items():
         kax.annotate(f"${nm_}$", xy=at, xytext=offs[nm_], textcoords="offset points", fontsize=7, ha="center",
                      va="center", color=INK, zorder=31)
@@ -574,10 +573,7 @@ def fig2():
     kax.text(15.5, -2.0, "$x$", fontsize=6.5, va="top", zorder=36, path_effects=halo)
     kax.text(-1.5, 15.5, "$z$", fontsize=6.5, ha="right", zorder=36)
     kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
-    path = __import__("fig_mechanisms").icr_path(v, qk)
-    kax.plot(*path.T, color=PURPLE, lw=1.0, zorder=25)
-    kax.plot(*path[-1], marker="o", ms=3.4, color=PURPLE, mec="white", mew=0.3, zorder=26)
-    fig.text(5.96 / W, 0.04 / h, "$q=120^\\circ$ (faint: $q=0$); dashed: pivot clearance;\npurple: instantaneous centre; filled: fixed pivots", fontsize=5.4, linespacing=1.0,
+    fig.text(5.96 / W, 0.04 / h, "extended ($q=0$); dashed: pivot clearance; filled: fixed pivots", fontsize=5.4,
              color=INK2, ha="center", va="bottom")
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
