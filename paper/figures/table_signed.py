@@ -66,6 +66,28 @@ def drake(hand, contact, tag, ref_tag=None):
     return out
 
 
+def drake_shape(hand):
+    """Experiment 34 (sim/drake/pad_shape.py): D = F_limit(crowned) - F_limit(flat) per (radius, q0, direction),
+    each shape placed by O's own contact; O's kept pairs and the hand's gates as pad_shape.hand_error."""
+    import pad_shape as ps
+    keep, _ = ps.o_pairs("e34")
+    h = ps._runs(hand, "e34")
+    out = {}
+    for k, (d_o, _, _) in keep.items():
+        rf, rc = h.get(k[:2] + ("flat",)), h.get(k[:2] + ("crowned",))
+        if any(r is None or r.get("solver_fail") for r in (rf, rc)):
+            continue
+        if not (rf["gate0"]["pass"] and rc["gate0"]["pass"]):
+            continue
+        if max(rf["pre"]["pen_mm"], rc["pre"]["pen_mm"]) > ps.PEN_MM:
+            continue
+        ff, fc = ps._flim(rf, k[2]), ps._flim(rc, k[2])
+        if ff is None or fc is None:
+            continue
+        out[k] = (fc - ff, d_o)
+    return out
+
+
 def ref_e(name, key):
     d = json.load(open(S3 / name))
     if isinstance(d, dict) and "hands" in d:
@@ -83,6 +105,7 @@ SETTINGS = (
     ("friction softer pad, Isaac point",
      lambda h: pairs_from(effects(h, "A-padk"), effects("O", f"A-padk-ref{int(da.thickness(h))}")),
      ("isaac_padk_matched.json", "E_median")),
+    ("crowned, Drake point", drake_shape, ("drake_e34_shape.json", "E")),
     ("friction, Drake point", lambda h: drake(h, "point", "e21"), ("drake_e21_point.json", "E")),
     ("friction, Drake hydro", lambda h: drake(h, "hydro", "e21"), ("drake_e21_hydro.json", "E")),
     ("friction softer pad, Drake hydro", lambda h: drake(h, "hydro", "e25", "e25-ref7"),

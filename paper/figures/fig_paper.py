@@ -664,7 +664,7 @@ def fig4():
             ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
              "effect bias (deg)"),
             ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)", "effect bias (mm)"),
-            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)",
+            ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",
              "effect bias (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.25
@@ -706,7 +706,8 @@ def fig4():
             for mu, mk_ in (("1.3", "o"), ("2", "D")):
                 dev_end = dv[f"{hh}_{mu}"]["median"][-1]
                 ref_end = dv[f"O_{mu}_abs"]["median"][-1]
-                labs_r.append((dev_end, f"{100 * dev_end / ref_end:+.0f}%", HC[hh], mk_))
+                pct = 100 * dev_end / ref_end
+                labs_r.append((dev_end, "0%" if round(pct) == 0 else f"{pct:+.0f}%", HC[hh], mk_))
         y0, y1 = ra.get_ylim()
         fr = sorted(((v - y0) / (y1 - y0), t, c, m) for v, t, c, m in labs_r)
         for k in range(1, len(fr)):
@@ -736,7 +737,7 @@ def fig4():
             ea.fill_between(x, sc * np.asarray(bd["q25"]), sc * np.asarray(bd["q75"]), color=HC[hh], alpha=0.12, lw=0,
                             zorder=1)
             ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
-            labs.append((m_[-1], f"{bd['median'][-1]:+.0f}%", HC[hh]))
+            labs.append((m_[-1], "0%" if round(bd["median"][-1]) == 0 else f"{bd['median'][-1]:+.0f}%", HC[hh]))
         lim = sc * max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"]
                                         + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
@@ -809,7 +810,8 @@ def fig_protocols():
 def table():
     """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe and
     Conventional (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
-    O's effect, in three sections: the pad change (Isaac Lab, point contact, reused setpoint), the contact model
+    O's effect, in three sections: the pad change (Isaac Lab, point contact, reused setpoint; the pad shape in Drake,
+    each shape placed by O's own contact, experiment 34), the contact model
     (Drake, friction change) and the reused command (friction change). Data: report/study3/data/table_signed.json
     (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
     t = json.load(open(S3 / "table_signed.json"))
@@ -817,7 +819,8 @@ def table():
     sections = (("Pad change (Isaac Lab, point contact)",
                  (("friction $1.3\\to2.0$", st["friction, Isaac point"]),
                   ("stiffness $2.5\\to1.0$\\,kN/m", st["stiffness, Isaac point"]),
-                  ("friction, softer pad$^{a}$", st["friction softer pad, Isaac point"]))),
+                  ("friction, softer pad$^{a}$", st["friction softer pad, Isaac point"]),
+                  ("shape, flat $\\to$ 2\\,mm crown$^{d}$", st["crowned, Drake point"]))),
                 ("Contact model (Drake, friction $1.3\\to2.0$)",
                  (("point", st["friction, Drake point"]),
                   ("hydroelastic", st["friction, Drake hydro"]),
@@ -832,7 +835,8 @@ def table():
              r"  \caption{Error in the measured pad effect, median over placements ($+$: overstated). Pull-out, "
              r"$7$\,mm pads, joint setpoint reused unless noted. $^{a}$Stiffness $\propto 1/h$ (upper bound); "
              r"reference: $O$ with the same pad. $^{b}$Drake; setpoint matched at the fingertip contact point. "
-             r"$^{c}$Oracle distal force. Conventional under joint torque: "
+             r"$^{c}$Oracle distal force. $^{d}$Drake; each shape placed where $O$'s pads of that shape touch. "
+             r"Conventional under joint torque: "
              f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$ (quartiles).}}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
              r"    & \ourmethod{} & Conventional \\"]

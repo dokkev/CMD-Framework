@@ -1,6 +1,6 @@
-"""Fig. 4 data: for the four Drake tasks (pull-out e21 point, fingertip dial e28z, coin drag e30b, pinch rotate e33), the per-hand
+"""Fig. 4 data: for the four Drake tasks (pull-out e21 point, fingertip dial e28z, coin drag e30b, box pivot e35), the per-hand
 measured friction effect as a share of O's, D(H)/D(O) (100% = in sync with O), over the same pairs and gates as the
-tasks' error E (sim/drake/analyze.py, analyze_roll.py tip_error, coin_drag.py hand_error, pinch_rotate.py hand_error;
+tasks' error E (sim/drake/analyze.py, analyze_roll.py tip_error, coin_drag.py hand_error, box_pivot.py hand_error;
 median |D(H)/D(O) - 1| is
 E exactly, checked here), and O, R, U's object response for one representative placement per task: the placement
 whose R and U ratios are nearest their medians. Pull-out curves come from the --curve rerun (tag e21c, the same
@@ -20,7 +20,7 @@ sys.path.insert(0, str(DRAKE))
 import analyze as A  # noqa: E402
 import analyze_roll as AR  # noqa: E402
 import coin_drag as CD  # noqa: E402
-import pinch_rotate as PR  # noqa: E402
+import box_pivot as BP  # noqa: E402
 
 MU = (1.3, 2.0)
 LOG = DRAKE / "logs"
@@ -80,19 +80,19 @@ def coin_pairs(hand):
     return out
 
 
-def pinch_pairs(hand):
-    """Experiment 33 over E's gates (pinch_rotate.hand_error): O's kept draws; the hand's solver failures, lost and
-    over-pressed draws dropped."""
-    keep, _ = PR.o_keep("e33")
-    h = PR._load(hand, "e33")
+def pivot_pairs(hand):
+    """Experiment 35 over E's gates (box_pivot.hand_error): O's kept draws; the hand's solver failures, lost and
+    over-pressed draws dropped; the end tilt."""
+    keep, _ = BP.o_keep("e35")
+    h = BP._load(hand, "e35")
     out = {}
     for k, o in keep.items():
-        runs = [h[k][f"{m:g}"] for m in PR.MU]
-        if any("solver_fail" in x for x in runs) or any(PR.is_lost(x) for x in runs):
+        runs = [h[k][f"{m:g}"] for m in BP.MU]
+        if any("solver_fail" in x for x in runs) or any(BP.lost(x) for x in runs):
             continue
-        if max(x["pen_mm"] for x in runs) > PR.PEN_MM:
+        if max(x["pen_mm"] for x in runs) > BP.PEN_MM:
             continue
-        out[k] = (runs[1]["rotation_deg"] - runs[0]["rotation_deg"]) / (o[1]["rotation_deg"] - o[0]["rotation_deg"])
+        out[k] = (runs[1]["tilt_deg"] - runs[0]["tilt_deg"]) / (o[1]["tilt_deg"] - o[0]["tilt_deg"])
     return out
 
 
@@ -107,7 +107,7 @@ def deviation():
     displacement; the limit once the grasp gives way) on a displacement grid, dial rotation and coin travel in
     time; median and quartiles."""
     dgrid = np.linspace(0.0, 5.0, 101)
-    dev = {"pull": {"x": dgrid.round(3).tolist()}, "dial": {}, "coin": {}, "pinch": {}}
+    dev = {"pull": {"x": dgrid.round(3).tolist()}, "dial": {}, "coin": {}, "pivot": {}}
 
     def held(c):
         d = np.maximum.accumulate(c[:, 2])
@@ -134,15 +134,15 @@ def deviation():
             dev["coin"][f"{h}_{m:g}"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
                                                for a, b in zip(co, ch)
                                                if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
-    # pinch: the sphere's rotation from the sweep's start, every step over the sweep and hold, on E's draws
+    # pivot: the block's tilt from the sweep's start, every step over the sweep and hold, on E's draws
     for h in ("R", "U"):
-        pr = pinch_pairs(h)
-        o_, h_ = PR._load("O", "e33"), PR._load(h, "e33")
+        pr = pivot_pairs(h)
+        o_, h_ = BP._load("O", "e35"), BP._load(h, "e35")
         for m in MU:
             ys = [np.array(h_[k][f"{m:g}"]["trace"])[:, 0] - np.array(o_[k][f"{m:g}"]["trace"])[:, 0] for k in pr]
             n_p = min(map(len, ys))
-            dev["pinch"][f"{h}_{m:g}"] = _band([y[:n_p] for y in ys])
-    dev["pinch"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
+            dev["pivot"][f"{h}_{m:g}"] = _band([y[:n_p] for y in ys])
+    dev["pivot"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
     # each hand's friction effect (below); O's is the reference
     def pe_o(m, h="O"):
         o_ = {}
@@ -152,7 +152,7 @@ def deviation():
                     o_[A.key(e)] = np.array([x[:3] for x in e["curve"]])
         return o_
     # each hand's own friction effect, 2.0 minus 1.3 on that hand, over the same placements: O (the reference), R, U
-    pk = sorted(set(pinch_pairs("R")) & set(pinch_pairs("U")), key=str)
+    pk = sorted(set(pivot_pairs("R")) & set(pivot_pairs("U")), key=str)
     keys_p = None
     for h in ("O", "R", "U"):
         p1, p2 = pe_o(1.3, h), pe_o(2.0, h)
@@ -174,11 +174,11 @@ def deviation():
         for m_, cc in ((1.3, c1), (2.0, c2)):
             dev["coin"][f"{h}_{m_:g}_abs"] = _band([np.array(a["drag"]["trace"])[:, 2] for a in cc
                                                     if len(a["drag"]["trace"]) == 30])
-        o_ = PR._load(h, "e33")
+        o_ = BP._load(h, "e35")
         ys = [np.array(o_[k]["2"]["trace"])[:, 0] - np.array(o_[k]["1.3"]["trace"])[:, 0] for k in pk]
-        dev["pinch"][f"{h}_effect"] = _band([y[:n_p] for y in ys])
+        dev["pivot"][f"{h}_effect"] = _band([y[:n_p] for y in ys])
         for m_ in ("1.3", "2"):
-            dev["pinch"][f"{h}_{m_}_abs"] = _band([np.array(o_[k][m_]["trace"])[:n_p, 0] for k in pk])
+            dev["pivot"][f"{h}_{m_}_abs"] = _band([np.array(o_[k][m_]["trace"])[:n_p, 0] for k in pk])
     # the bias in the friction effect: H's effect minus O's on the same placement, as a share of O's median final
     # effect (0: the friction effect measured as on O)
     p1o, p2o = pe_o(1.3, "O"), pe_o(2.0, "O")
@@ -186,7 +186,7 @@ def deviation():
     d1o, d2o = (json.load(open(LOG / f"dktipdial_O_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
     eff_o_d = [np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1] for a, b in zip(d1o, d2o)]
     c1o, c2o = (json.load(open(LOG / f"dkcoin_O_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
-    oo = PR._load("O", "e33")
+    oo = BP._load("O", "e35")
     eff_o_n = {k: (np.array(oo[k]["2"]["trace"])[:, 0] - np.array(oo[k]["1.3"]["trace"])[:, 0])[:n_p] for k in pk}
     for h in ("R", "U"):
         p1, p2 = pe_o(1.3, h), pe_o(2.0, h)
@@ -204,9 +204,9 @@ def deviation():
             if all(len(t_) == 30 for t_ in tr):
                 ys.append(100 * ((tr[1][:, 2] - tr[0][:, 2]) - (tr[3][:, 2] - tr[2][:, 2])) / sc)
         dev["coin"][f"{h}_bias"] = _band(ys)
-        hh_ = PR._load(h, "e33")
-        sc = dev["pinch"]["O_effect"]["median"][-1]
-        dev["pinch"][f"{h}_bias"] = _band([100 * ((np.array(hh_[k]["2"]["trace"])[:, 0]
+        hh_ = BP._load(h, "e35")
+        sc = dev["pivot"]["O_effect"]["median"][-1]
+        dev["pivot"][f"{h}_bias"] = _band([100 * ((np.array(hh_[k]["2"]["trace"])[:, 0]
                                                    - np.array(hh_[k]["1.3"]["trace"])[:, 0])[:n_p] - eff_o_n[k]) / sc
                                            for k in pk])
     dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
@@ -219,8 +219,8 @@ def main():
     ref = {"pull": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e21_point.json"))},
            "dial": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e28z_point.json"))["rows"]},
            "coin": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]},
-           "pinch": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e33_pinch.json"))["rows"]}}
-    fns = {"pull": pull_pairs, "dial": dial_pairs, "coin": coin_pairs, "pinch": pinch_pairs}
+           "pivot": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e35_pivot.json"))["rows"]}}
+    fns = {"pull": pull_pairs, "dial": dial_pairs, "coin": coin_pairs, "pivot": pivot_pairs}
     out = {"note": __doc__.splitlines()[0], "tasks": {}}
     for task, fn in fns.items():
         hands, per = {}, {}
@@ -274,13 +274,13 @@ def main():
             d = CD.load(h, m, "e30b")[rc]
             tr = np.array(d["trace"])
             curves[f"coin_{h}_{m:g}"] = {"t_s": tr[:, 0].tolist(), "travel_mm": tr[:, 2].tolist()}
-    rk = t["pinch"]["representative"]
+    rk = t["pivot"]["representative"]
     for h in "ORU":
-        d = PR._load(h, "e33")[rk]
+        d = BP._load(h, "e35")[rk]
         for m in MU:
             tr = np.array(d[f"{m:g}"]["trace"])
-            curves[f"pinch_{h}_{m:g}"] = {"t_s": (np.arange(1, len(tr) + 1) / 30).round(4).tolist(),
-                                          "rotation_deg": tr[:, 0].tolist()}
+            curves[f"pivot_{h}_{m:g}"] = {"t_s": (np.arange(1, len(tr) + 1) / 30).round(4).tolist(),
+                                          "tilt_deg": tr[:, 0].tolist()}
     out["curves"] = curves
     out["deviation"] = deviation()
     (S3 / "fig4_sync.json").write_text(json.dumps(out, indent=1))
