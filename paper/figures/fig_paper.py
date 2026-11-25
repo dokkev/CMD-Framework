@@ -818,10 +818,12 @@ def fig4():
     DV = d["deviation"]
     # (title, task key, image, x label, response label, effect label)
     cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
-             "load deviation (N)", ""),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)", ""),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)", ""),
-            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)", ""))
+             "load deviation (N)", "effect bias (N)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
+             "effect bias (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)", "effect bias (mm)"),
+            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)",
+             "effect bias (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.25
     fig = plt.figure(figsize=(W, h))
@@ -860,17 +862,21 @@ def fig4():
         ra.tick_params(labelbottom=False)
         clean(ra)
         # the bias in the friction effect each hand measures: its effect (same hand, 2.0 minus 1.3) minus O's on the
-        # same placement, as a share of O's effect; 0 is the friction effect measured without bias
+        # same placement, in the task's unit (the stored share of O's final effect times that effect); end labels:
+        # the share of O's effect. 0 is the friction effect measured without bias
+        sc = dv["O_effect"]["median"][-1] / 100.0
         ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.58) / W, 0.78 / h), sharex=ra)
         ea.axhline(0, color=INK, lw=0.6, zorder=2)
         labs = []
         for hh in ("U", "R"):
             bd = dv[f"{hh}_bias"]
-            m_ = np.asarray(bd["median"])
-            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.12, lw=0, zorder=1)
+            m_ = sc * np.asarray(bd["median"])
+            ea.fill_between(x, sc * np.asarray(bd["q25"]), sc * np.asarray(bd["q75"]), color=HC[hh], alpha=0.12, lw=0,
+                            zorder=1)
             ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
-            labs.append((m_[-1], f"{m_[-1]:+.0f}%", HC[hh]))
-        lim = max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"] + dv[f"{b_}_bias"]["q25"]))
+            labs.append((m_[-1], f"{bd['median'][-1]:+.0f}%", HC[hh]))
+        lim = sc * max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"]
+                                        + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
         y0, y1 = ea.get_ylim()
         fr = sorted(((v - y0) / (y1 - y0), t, c) for v, t, c in labs)
@@ -881,21 +887,22 @@ def fig4():
             ea.text(1.02, f_, t, transform=ea.transAxes, fontsize=5.8, va="center", ha="left", color=c,
                     fontweight="bold")
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
-        ea.set_ylabel("bias in friction effect (%)", labelpad=1, fontsize=5.6)
+        ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
     fig.text(0.02 / W, (h - 1.19) / h, "deviation from O\n(0: as O)", fontsize=6.0, color=INK2,
              rotation=90, ha="left", va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.89 / h, "friction effect\n(0: no bias)", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, 0.89 / h, "bias in the friction\neffect (0: none)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
-               plt.Line2D([], [], color=AMBER, lw=1.1, label="conventional"),
+               plt.Line2D([], [], color=AMBER, lw=1.1, label="Conventional"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
                           label="pad friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
                           label="pad friction 2.0"),
-               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
+               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements"),
+               plt.Line2D([], [], ls="none", label="%: share of O's friction effect")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
