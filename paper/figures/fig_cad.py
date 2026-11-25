@@ -88,13 +88,13 @@ def iso_pad(ax, H, top, side1, side2, edge, L=6.5, Wd=4.5, decorate=None):
     c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
 
     def iso(u, v, w=H):
-        return np.array([(u - v) * c30, (u + v) * s30 + w])
+        return np.array([(v - u) * c30, (u + v) * s30 + w])
     ax.add_patch(Pg([iso(0, 0, 0), iso(L, 0, 0), iso(L, 0, H), iso(0, 0, H)], fc=side1, ec=edge, lw=0.3, zorder=1))
     ax.add_patch(Pg([iso(0, 0, 0), iso(0, Wd, 0), iso(0, Wd, H), iso(0, 0, H)], fc=side2, ec=edge, lw=0.3, zorder=1))
     ax.add_patch(Pg([iso(0, 0), iso(L, 0), iso(L, Wd), iso(0, Wd)], fc=top, ec=edge, lw=0.3, zorder=1))
     if decorate:
         decorate(iso, L, Wd)
-    ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.0)
+    ax.set_xlim(-L * c30 - 0.4, Wd * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.6)
 
 
 def icon(ax, kind):
@@ -103,19 +103,34 @@ def icon(ax, kind):
     ax.set_xlim(0, 10); ax.set_ylim(-5.2, 1.6); ax.set_aspect("equal"); ax.axis("off")
     ax.add_patch(Rectangle((0.5, 0.0), 9.0, 1.0, fc="#c9cdd2", ec=INK2, lw=0.5))  # module base on the phalanx
     from matplotlib.patches import Polygon as Pg
-    if kind == "honeycomb":  # compliant pad: hexagonal cells open on the contact face
+    if kind == "honeycomb":  # compliant structure: hexagonal cells whose walls take the load on the contact face
+        H = 2.6
+
         def cells(iso, L, Wd):
-            r, wall = 0.62, 0.09
-            w_, h_ = 1.5 * r, np.sqrt(3) * r
-            ang = np.radians(np.arange(0, 360, 60))
-            for i in range(int(L / w_) + 1):
-                for j in range(int(Wd / h_) + 1):
-                    cu, cv = 0.62 + i * w_, 0.56 + j * h_ + (h_ / 2 if i % 2 else 0)
-                    hu, hv = cu + (r - wall) * np.cos(ang), cv + (r - wall) * np.sin(ang)
-                    if hu.min() < 0.08 or hv.min() < 0.08 or hu.max() > L - 0.08 or hv.max() > Wd - 0.08:
+            r, wall = 0.6, 0.11
+            w_, h_ = np.sqrt(3) * r, 1.5 * r  # pointy-top hexagons in the side face (u along, w up)
+            ang = np.radians(np.arange(30, 390, 60))
+            for i in range(int(L / w_) + 2):
+                for j in range(int(H / h_) + 2):
+                    cu, cw = 0.55 + i * w_ + (w_ / 2 if j % 2 else 0), 0.68 + j * h_
+                    hu, hw = cu + (r - wall) * np.cos(ang), cw + (r - wall) * np.sin(ang)
+                    if hu.min() < 0.1 or hw.min() < 0.1 or hu.max() > L - 0.1 or hw.max() > H - 0.2:
                         continue
-                    ax.add_patch(Pg([iso(u, v) for u, v in zip(hu, hv)], fc="#2f5fa8", ec="none", zorder=2))
-        iso_pad(ax, 1.6, "#7aa6e3", "#5a8bd4", "#4677c4", PAD, decorate=cells)
+                    ax.add_patch(Pg([iso(u, 0, w) for u, w in zip(hu, hw)], fc="#2f5fa8", ec="none", zorder=2))
+            for i in range(int(Wd / w_) + 2):  # and on the near end face (u = 0)
+                for j in range(int(H / h_) + 2):
+                    cv, cw = 0.55 + i * w_ + (w_ / 2 if j % 2 else 0), 0.68 + j * h_
+                    hv, hw = cv + (r - wall) * np.cos(ang), cw + (r - wall) * np.sin(ang)
+                    if hv.min() < 0.1 or hw.min() < 0.1 or hv.max() > Wd - 0.1 or hw.max() > H - 0.2:
+                        continue
+                    ax.add_patch(Pg([iso(0, v, w) for v, w in zip(hv, hw)], fc="#2a55a0", ec="none", zorder=2))
+        iso_pad(ax, H, "#7aa6e3", "#5a8bd4", "#4677c4", PAD, decorate=cells)
+        c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
+        tc = np.array([(4.5 / 2 - 6.5 / 2) * c30, (6.5 / 2 + 4.5 / 2) * s30 + H])
+        for art in ax.patches:
+            art.set_clip_on(False)
+        ax.annotate("", xy=tc + np.array([0, 0.1]), xytext=tc + np.array([0, 4.2]), annotation_clip=False,
+                    arrowprops=dict(arrowstyle="-|>", color=INK, lw=0.8, mutation_scale=5, shrinkA=0, shrinkB=0, clip_on=False), zorder=5)
         return
     if kind == "traction":  # black traction pad with a tyre-like chevron tread
         def tread(iso, L, Wd):
@@ -129,40 +144,47 @@ def icon(ax, kind):
     if kind == "thin":
         iso_pad(ax, 0.35, "#5b7fc7", "#4a6db5", "#3f60a6", PAD)
         return
-    if kind == "soft":  # solid soft pad: an elastomer block with a domed contact face and rounded edges
-        from scipy.spatial import ConvexHull
+    if kind == "soft":  # solid soft pad, a moulded silicone fingertip (as the PLATO hand's): a rounded loaf, shaded
         for p_ in list(ax.patches):
             p_.remove()
-        L, Wd, H, bump, rr = 6.5, 4.5, 1.2, 0.8, 0.9
+        L, a_, b_, R = 6.5, 2.25, 1.9, 1.8  # length, half width, height, end-cap radius
         c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
+        light = np.array([-0.35, -0.55, 0.76]); light /= np.linalg.norm(light)
+        nu, nph = 46, 28
+        us = np.linspace(0, L, nu)
+        phs = np.linspace(0, np.pi, nph)
 
-        def iso(u, v, w):
-            return np.array([(u - v) * c30, (u + v) * s30 + w])
-
-        def height(u, v):  # dome, flattened toward the rounded rim
-            return H + bump * np.sin(np.pi * u / L) ** 0.8 * np.sin(np.pi * v / Wd) ** 0.8
-
-        # rounded-rectangle footprint
-        t = np.linspace(0, np.pi / 2, 10)
-        corners = [(L - rr, Wd - rr, 0), (rr, Wd - rr, np.pi / 2), (rr, rr, np.pi), (L - rr, rr, 1.5 * np.pi)]
-        rim = np.concatenate([np.c_[cu + rr * np.cos(t + a0), cv + rr * np.sin(t + a0)] for cu, cv, a0 in corners])
-        # body silhouette: rim at the floor and at the top
-        body = np.array([iso(u, v, 0) for u, v in rim] + [iso(u, v, H) for u, v in rim])
-        hull = body[ConvexHull(body).vertices]
-        ax.add_patch(Pg(hull, fc="#a9c0e8", ec=PAD, lw=0.4, zorder=1))
-        # domed face: the top silhouette and contour lines of equal height
-        uu, vv = np.meshgrid(np.linspace(0.05, L - 0.05, 40), np.linspace(0.05, Wd - 0.05, 30))
-        from matplotlib.path import Path as MPath
-        inside = MPath(rim).contains_points(np.c_[uu.ravel(), vv.ravel()])
-        pts = np.array([iso(u, v, height(u, v)) for u, v in zip(uu.ravel()[inside], vv.ravel()[inside])])
-        top = np.vstack([pts, [iso(u, v, H) for u, v in rim]])
-        ax.add_patch(Pg(top[ConvexHull(top).vertices], fc="#d3e0f5", ec=PAD, lw=0.4, zorder=2))
-        for f in (0.35, 0.65, 0.9):
-            th = np.linspace(0, 2 * np.pi, 60)
-            cu, cv = L / 2 + (L / 2 - 0.4) * (1 - f) ** 0.7 * np.cos(th), Wd / 2 + (Wd / 2 - 0.4) * (1 - f) ** 0.7 * np.sin(th)
-            ring = np.array([iso(u, v, height(u, v)) for u, v in zip(cu, cv)])
-            ax.plot(*ring.T, color="#eef3fb", lw=0.5, zorder=3)
-        ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.0)
+        def surf(u, ph):
+            d = min(u, L - u)
+            sc = np.sqrt(max(1 - ((R - d) / R) ** 2, 0.0)) if d < R else 1.0
+            return np.array([u, a_ + a_ * sc * np.cos(ph), b_ * sc * np.sin(ph)])
+        P = np.array([[surf(u, ph) for ph in phs] for u in us])  # (nu, nph, 3)
+        quads = []
+        for i in range(nu - 1):
+            for j in range(nph - 1):
+                q = np.array([P[i, j], P[i + 1, j], P[i + 1, j + 1], P[i, j + 1]])
+                n = np.cross(q[1] - q[0], q[3] - q[0])
+                if np.linalg.norm(n) < 1e-9:
+                    n = np.cross(q[2] - q[0], q[3] - q[1])
+                n = n / (np.linalg.norm(n) + 1e-12)
+                if n[2] < 0 and q[:, 2].mean() < 1e-6:
+                    continue
+                if n @ np.array([-0.5, -0.5, 0.7]) < 0:  # facing away from the viewer (u, v toward it, z up)
+                    n = -n
+                c = q.mean(axis=0)
+                depth = c[0] + c[1] - 1.6 * c[2]
+                shade = 0.55 + 0.45 * max(n @ light, 0.0)
+                quads.append((depth, q, shade))
+        base = np.array([0.80, 0.85, 0.93])
+        for depth, q, sh in sorted(quads, key=lambda t: -t[0]):
+            xy = np.array([[(v - u) * c30, (u + v) * s30 + w] for u, v, w in q])
+            col = np.clip(base * sh + (1 - sh) * 0.05, 0, 1)
+            ax.add_patch(Pg(xy, fc=col, ec=col, lw=0.15, zorder=1))
+        from scipy.spatial import ConvexHull
+        allxy = np.array([[(v - u) * c30, (u + v) * s30 + w] for u, v, w in P.reshape(-1, 3)])
+        hull = allxy[ConvexHull(allxy).vertices]
+        ax.add_patch(Pg(hull, fc="none", ec="#7f93b8", lw=0.4, zorder=3))
+        ax.set_xlim(-L * c30 - 0.4, 2 * a_ * c30 + 0.4); ax.set_ylim(-0.6, (L + 2 * a_) * s30 + 2.6)
         return
     if kind == "thick":
         ax.add_patch(FancyBboxPatch((0.7, -3.6), 8.6, 3.5, boxstyle="round,pad=0.1,rounding_size=1.2",
