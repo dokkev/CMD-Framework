@@ -153,6 +153,7 @@ evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-d
 | Fig. 2 | kinematic principle (double column, 45–50 mm) | (a) clearance set by the pole, (b) achievable poles (CFL, RCJ, fixed axis), (c) motion seen from the skeleton frame and the contact frame; no mechanism detail |
 | Fig. 3 | design validation (double column, 65–75 mm) | (a) optimized geometry at 120°, 7 mm (evaluator: pads light, cylinder-holding surface dark, mechanism grey, extended + flexed) and coverage dots; (b) reference–redesign paths at 120°, 3→7 mm, and Δ_contact dots with the fixed-axis value dashed |
 | Fig. 4 | scientific validation (double column, 70–80 mm) | one column per task: the task, R's and U's error, every redesign's error against Δ_contact |
+| Fig. 2(b) bounds | every joint's achievable-pole region uses the same size rule as the CFL's design space (pivots on the link line within the finger; RCJ 2r <= 90 mm); no extra cap on any joint |
 | Table I | contact-model robustness | R and U errors per contact model (medians per design's valid conditions, not matched condition by condition) |
 
 ## 7. Numbers and their sources
