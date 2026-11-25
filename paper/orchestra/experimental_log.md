@@ -394,3 +394,19 @@ Please check the manuscript for these:
 - Honesty note: the short-drag version (experiment 30, 1.8–4.3 mm) was run first and failed judgement 2 (ρ 0.36, p 0.073). The long drag was a new configuration, pre-registered after it. Report both if the coin task is used.
 - Data: report/study3/data/drake_e30b_coin.json. Raw runs: report/study3/data/raw/runs_drake_coin.csv. Render (in progress): report/study3/figures/fingertip_coin.png.
 
+## Study 3 trimmed (2026-11-24, user decision)
+
+Removed from Study 3 (report, raw tables and SSoT; still in git history):
+- the 3A/3B RL pilot tables;
+- the two-pad dial (experiments 24, 26);
+- the pad-midpoint variant of experiment 27 (27m);
+- the y-axis fingertip dial (28y, 29y);
+- the rolling post-hoc analysis;
+- the old render snapshot.
+
+The manuscript should not cite these any more:
+- The fingertip dial is now the z-axis disk only (28z; 29z with randomized starts).
+- Drop the "rim dial agrees more weakly" sentence and the 27m "pad midpoint" sentence if they are in the text.
+
+Fig. 4(a): `report/study3/data/renders/render_hold{0,1,2}.png` are now the isometric power-grasp frames (palm up, seen from above), with the same file names. Re-run fig_study3.py and check the crop.
+
