@@ -706,7 +706,7 @@ def fig3():
     # (b) left: reference and redesign paths, 120 deg, 3 -> 7 mm
     label(fig, 0.02, row_b + 0.02, "(b) Preservation: redesign from 3 to 7 mm at $q_{req}=120^\\circ$", h)
     axc = fig.add_axes((0.42 / W, 0.30 / h, 1.68 / W, (row_b - 0.48) / h))
-    axs = fig.add_axes((2.50 / W, 0.30 / h, 1.60 / W, (row_b - 0.48) / h))
+    axs = fig.add_axes((2.45 / W, 0.30 / h, 1.48 / W, (row_b - 0.48) / h))
     for key in ("2r_remote", "cfl"):  # the fixed axis and the CFL; the others are in the dots
         t = traj[key]
         col = ARCH[key][1]
@@ -725,30 +725,31 @@ def fig3():
     axs.text(0.02, 0.95, "2R-remote keeps it", transform=axs.transAxes, fontsize=5.8, color=AMBER, ha="left",
              va="top")
     axc.legend(fontsize=5.6, frameon=False, loc="upper left", handlelength=1.8, borderaxespad=0.1)
-    # (b) right: contact deviation dots, every condition, fixed-axis value dashed
+    # (b) right: contact motion kept, 100 (1 - Delta_contact / Delta_fixed), every condition; 0: a fixed axis
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
+        ax.axhline(0, color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=1)
         for k, key in enumerate(ARCH):
             for hh in (5.0, 7.0, 9.0):
                 r = [x for x in s2 if x["architecture"] == key and float(x["required_flexion_deg"]) == q
                      and float(x["to_mm"]) == hh]
                 x = hh + (k - 1.5) * 0.32
+                fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
                 if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
-                    ax.plot(x, LF * float(r[0]["change_at_most_c_pad"]), ls="none", marker=ARCH[key][2], ms=3.0,
-                            color=ARCH[key][1], mec="white", mew=0.3, zorder=3)
+                    kept = 100 * (1 - LF * float(r[0]["change_at_most_c_pad"]) / fa)
+                    ax.plot(x, max(kept, -38), ls="none", marker=ARCH[key][2], ms=3.0, color=ARCH[key][1],
+                            mec="white", mew=0.3, zorder=3, clip_on=False)
                 else:
-                    ax.plot(x, 0.0, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
-        for hh in (5.0, 7.0, 9.0):
-            fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
-            ax.plot([hh - 0.75, hh + 0.75], [fa, fa], color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=2)
-        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(0, 12.5)
+                    ax.plot(x, -40, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
+        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(-40, 100); ax.set_yticks([0, 50, 100])
         ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
         if j == 0:
-            ax.set_ylabel("$\\Delta_{contact}$ (mm)", labelpad=1)
+            ax.set_ylabel("contact motion\nkept (%)", labelpad=1, linespacing=1.0)
+            ax.text(4.2, 3, "fixed axis", fontsize=5.4, color=INK2, va="bottom")
         else:
             ax.set_yticklabels([])
         if j == 1:
-            ax.set_xlabel("redesigned for (mm);  dashed: fixed axis", labelpad=1, fontsize=6.2)
+            ax.set_xlabel("redesigned for (mm)", labelpad=1, fontsize=6.2)
         clean(ax)
     handles = [plt.Line2D([], [], ls="none", marker=ARCH[k][2], ms=3.4, color=ARCH[k][1], label=ARCH[k][0])
                for k in ARCH]
