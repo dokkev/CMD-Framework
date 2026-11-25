@@ -79,62 +79,60 @@ def honeycomb_section(x0, x1, y0, y1, cell=1.15, wall=0.22):
     return outer.difference(unary_union(holes)).intersection(outer)
 
 
+def iso_pad(ax, H, top, side1, side2, edge, L=6.5, Wd=4.5, decorate=None):
+    """A pad block in 30 deg isometric view, contact face up: the face, the two near sides, and ``decorate(iso)``
+    drawn on the face (iso maps face coordinates u along, v across to the page)."""
+    from matplotlib.patches import Polygon as Pg
+    for p_ in list(ax.patches):
+        p_.remove()
+    c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
+
+    def iso(u, v, w=H):
+        return np.array([(u - v) * c30, (u + v) * s30 + w])
+    ax.add_patch(Pg([iso(0, 0, 0), iso(L, 0, 0), iso(L, 0, H), iso(0, 0, H)], fc=side1, ec=edge, lw=0.3, zorder=1))
+    ax.add_patch(Pg([iso(0, 0, 0), iso(0, Wd, 0), iso(0, Wd, H), iso(0, 0, H)], fc=side2, ec=edge, lw=0.3, zorder=1))
+    ax.add_patch(Pg([iso(0, 0), iso(L, 0), iso(L, Wd), iso(0, Wd)], fc=top, ec=edge, lw=0.3, zorder=1))
+    if decorate:
+        decorate(iso, L, Wd)
+    ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.0)
+
+
 def icon(ax, kind):
     """A cross-section sketch of one contact interface on its module base (illustrative, not to scale)."""
     from matplotlib.patches import Rectangle, Polygon, FancyBboxPatch
     ax.set_xlim(0, 10); ax.set_ylim(-5.2, 1.6); ax.set_aspect("equal"); ax.axis("off")
     ax.add_patch(Rectangle((0.5, 0.0), 9.0, 1.0, fc="#c9cdd2", ec=INK2, lw=0.5))  # module base on the phalanx
-    if kind == "honeycomb":  # compliant pad: hexagonal lattice, front face with its cells, extruded (oblique)
-        from matplotlib.patches import Polygon as Pg
-        x0, x1, y0, y1, r, wall = 0.7, 9.3, -3.6, -0.05, 0.55, 0.16
-        d = np.array([0.8, 0.55])
-        oblique(ax, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], depth=d, fc="#6f9fe0", ec=PAD, top="#a9c4ee",
-                side="#4f7fc4", lw=0.3, z=1)
-        w_, h_ = 1.5 * r, np.sqrt(3) * r
-        ang = np.radians(np.arange(0, 360, 60))
-        from shapely.geometry import Polygon as SP, box
-        frame = box(x0 + wall, y0 + wall, x1 - wall, y1 - wall)
-        for i in range(int((x1 - x0) / w_) + 2):
-            for j in range(int((y1 - y0) / h_) + 2):
-                cx = x0 + i * w_
-                cy = y0 + j * h_ + (h_ / 2 if i % 2 else 0)
-                cellp = SP(np.c_[cx + (r - wall / 2) * np.cos(ang), cy + (r - wall / 2) * np.sin(ang)])
-                hole = cellp.intersection(frame)
-                if hole.is_empty or hole.area < 0.05:
-                    continue
-                xy = np.array(hole.exterior.coords)
-                ax.add_patch(Pg(xy, fc="#2f5fa8", ec="none", zorder=1.2))           # cell interior (shadow)
-                inner = SP(xy + d * 0.55).intersection(hole)                          # far end of the cell, lit
-                if not inner.is_empty and inner.geom_type == "Polygon":
-                    ax.add_patch(Pg(np.array(inner.exterior.coords), fc="#dbe6f6", ec="none", zorder=1.3))
+    from matplotlib.patches import Polygon as Pg
+    if kind == "honeycomb":  # compliant pad: hexagonal cells open on the contact face
+        def cells(iso, L, Wd):
+            r, wall = 0.62, 0.09
+            w_, h_ = 1.5 * r, np.sqrt(3) * r
+            ang = np.radians(np.arange(0, 360, 60))
+            for i in range(int(L / w_) + 1):
+                for j in range(int(Wd / h_) + 1):
+                    cu, cv = 0.62 + i * w_, 0.56 + j * h_ + (h_ / 2 if i % 2 else 0)
+                    hu, hv = cu + (r - wall) * np.cos(ang), cv + (r - wall) * np.sin(ang)
+                    if hu.min() < 0.08 or hv.min() < 0.08 or hu.max() > L - 0.08 or hv.max() > Wd - 0.08:
+                        continue
+                    ax.add_patch(Pg([iso(u, v) for u, v in zip(hu, hv)], fc="#2f5fa8", ec="none", zorder=2))
+        iso_pad(ax, 1.6, "#7aa6e3", "#5a8bd4", "#4677c4", PAD, decorate=cells)
         return
-    if kind == "traction":  # black traction pad in isometric view, its contact face up, with a tyre-like tread
-        from matplotlib.patches import Polygon as Pg
-        for p_ in list(ax.patches):  # no module base under the isometric pad
-            p_.remove()
-        L, Wd, H = 6.5, 4.5, 0.9
-        c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
-
-        def iso(u, v, w):
-            return np.array([(u - v) * c30, (u + v) * s30 + w])
-        top = [iso(0, 0, H), iso(L, 0, H), iso(L, Wd, H), iso(0, Wd, H)]
-        front = [iso(0, 0, 0), iso(L, 0, 0), iso(L, 0, H), iso(0, 0, H)]
-        right = [iso(0, 0, 0), iso(0, Wd, 0), iso(0, Wd, H), iso(0, 0, H)]  # the near end (u = 0), visible
-        ax.add_patch(Pg(front, fc="#262626", ec="#000000", lw=0.3, zorder=1))
-        ax.add_patch(Pg(right, fc="#1a1a1a", ec="#000000", lw=0.3, zorder=1))
-        ax.add_patch(Pg(top, fc="#151515", ec="#000000", lw=0.3, zorder=1))
-        # tread: chevron grooves across the face, and a centre rib
-        for u0 in np.arange(0.5, L - 0.6, 0.75):
-            for side in (0, 1):
-                v_a, v_b = (0.25, Wd / 2 - 0.2) if side == 0 else (Wd - 0.25, Wd / 2 + 0.2)
-                p1, p2 = iso(u0, v_a, H), iso(u0 + 0.45, v_b, H)
-                ax.plot(*np.array([p1, p2]).T, color="#5a5a5a", lw=0.9, solid_capstyle="round", zorder=2)
-        ax.plot(*np.array([iso(0.3, Wd / 2, H), iso(L - 0.3, Wd / 2, H)]).T, color="#3a3a3a", lw=0.6, zorder=2)
-        ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + H + 0.4)
+    if kind == "traction":  # black traction pad with a tyre-like chevron tread
+        def tread(iso, L, Wd):
+            for u0 in np.arange(0.5, L - 0.6, 0.75):
+                for v_a, v_b in ((0.25, Wd / 2 - 0.2), (Wd - 0.25, Wd / 2 + 0.2)):
+                    ax.plot(*np.array([iso(u0, v_a), iso(u0 + 0.45, v_b)]).T, color="#5a5a5a", lw=0.9,
+                            solid_capstyle="round", zorder=2)
+            ax.plot(*np.array([iso(0.3, Wd / 2), iso(L - 0.3, Wd / 2)]).T, color="#3a3a3a", lw=0.6, zorder=2)
+        iso_pad(ax, 0.9, "#151515", "#262626", "#1a1a1a", "#000000", decorate=tread)
         return
     if kind == "thin":
-        ax.add_patch(Rectangle((0.5, -0.8), 9.0, 0.8, fc="#5b7fc7", ec=PAD, lw=0.5))
-    elif kind == "thick":
+        iso_pad(ax, 0.35, "#5b7fc7", "#4a6db5", "#3f60a6", PAD)
+        return
+    if kind == "soft":  # solid soft pad: a uniform elastomer block
+        iso_pad(ax, 1.6, "#cfdcf3", "#b3c8ec", "#a2bbe5", PAD)
+        return
+    if kind == "thick":
         ax.add_patch(FancyBboxPatch((0.7, -3.6), 8.6, 3.5, boxstyle="round,pad=0.1,rounding_size=1.2",
                                     fc="#b9c9ee", ec=PAD, lw=0.5))
     elif kind == "textured":
@@ -266,8 +264,8 @@ def main() -> int:
     nh = nw * nari.shape[0] / nari.shape[1]
     ax = fig.add_axes((*inch(0.08, by + 0.10), nw / width, nh / height))
     ax.imshow(nari); ax.axis("off")
-    fig.text(*inch(0.08 + nw / 2, by + 0.08), "NARI-Touch tactile", fontsize=5.8, ha="center", va="top")
-    kinds = (("honeycomb", "honeycomb compliant"), ("traction", "traction pad"), ("thin", "thin rigid"))
+    fig.text(*inch(0.08 + nw / 2, by + 0.08), "NARI-Touch Tactile", fontsize=5.8, ha="center", va="top")
+    kinds = (("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"), ("soft", "Solid Soft Pad"))
     iw, ih = 0.68, 0.30
     for k, (kk, nm) in enumerate(kinds):
         x = 0.95 + k * (iw + 0.15)
