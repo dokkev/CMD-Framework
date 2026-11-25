@@ -386,3 +386,11 @@ Please check the manuscript for these:
    - Task noise floors are 0.2–0.8% only for experiments 22–26; they are 0.9–2.4% for the disk, the rim dial and the soft pads.
    - For the three hands that cannot hold, the "face retreats 1.5–2.6 mm" cause is not in the log. The log says only that the cylinder is pushed 4–9 mm on release, cause unconfirmed.
 
+## Study 3: fingertip coin drag (experiment 30b, pre-registered 1d59c5e; results b73f616)
+
+- The distal pad alone drags a 2 mm coin toward the MCP. The coin is tethered at 45 N/m, coin–table μ 0.2, on a table sprung at 30 N/m. The finger sweeps 45–55° open-loop from O's touch angle.
+- 64 randomized starts (seed 31), the same for every hand. O drags the coin 8.5–13 mm. Pad pressed at most 1.14 mm; nothing lost or over-pressed; the proximal pad never touches.
+- Result: ρ(E, Δ_contact) 0.55, permutation p 0.0098; ρ(E, Δ_skel) −0.48; R 2.2%, U 16.3%; noise floor 0.6%.
+- Honesty note: the short-drag version (experiment 30, 1.8–4.3 mm) was run first and failed judgement 2 (ρ 0.36, p 0.073). The long drag was a new configuration, pre-registered after it. Report both if the coin task is used.
+- Data: report/study3/data/drake_e30b_coin.json. Raw runs: report/study3/data/raw/runs_drake_coin.csv. Render (in progress): report/study3/figures/fingertip_coin.png.
+

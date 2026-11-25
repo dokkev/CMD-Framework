@@ -119,12 +119,14 @@ morphology는 skeleton(링크와 관절)과 그것이 싣는 접촉면을 함께
 | 손끝 원판 z, 무작위 시작 64개 | 29z | 18 | 0.68, 0.0009 | −0.00 (0.51) | 19.3 / 54.7% | 1.24 / 2.49% | 통과 |
 | 손끝 다이얼 y(테두리 구동, 보조) | 28y | 18 | 0.55, 0.0095 | −0.31 (0.90) | 6.5 / 24.1% | 2.3 / 6.9% | 통과 |
 | 손끝 다이얼 y, 무작위 시작 64개 | 29y | 18 | 0.56, 0.0089 | −0.37 (0.94) | 9.3 / 26.5% | 0.35 / 2.04% | 통과 |
+| 손끝 동전 끌기(긴 끌기, 무작위 시작 64개) | 30b | 18 | 0.55, 0.0098 | −0.48 (0.98) | 2.2 / 16.3% | 0.60 / 1.05% | 통과 |
 | in-hand 굴리기(굽힘 sweep) | 22 | 15 | 0.28, 0.16 | −0.25 | 26.8 / 34.8% | 0.8 / 1.7% | **실패** |
 | 두 pad 다이얼, 5–10° | 24 | 18 | 0.82, < 10⁻⁴ | 0.18 (0.24) | 27.1 / 65.8% | 0.2 / 1.1% | 통과, **대체됨** |
 | 두 pad 다이얼, 30° | 26 | 18 | 0.81, 0.0001 | 0.09 (0.36) | 31.1 / 88.0% | 0.7 / 1.6% | 통과, **대체됨** |
 
 - **획득 (23차).** q = 0에서 시작, 원기둥은 O의 접촉 위치보다 손끝 쪽 a = 3, 6 mm, 하중 face 쪽 1.5 N + 손끝 방향 1.5 N(세 손가락 기준), 2 s에 O의 명령까지 닫고 2 s 유지, 회전 감쇠 2.0 N·m·s/rad. 지표는 MCP 쪽으로 끌려온 거리. E 3.2%(`h3to5_hr`)–101.6%(`d5p5_s0`). 끝에 못 쥔 쌍은 Δ_contact가 큰 손에 몰린다(`d4p5_s0` 15/25, `d5p5_s0` 16/25).
 - **손끝 원판 (28z).** 반지름 15 mm, 두께 4 mm 원판. 축은 proximal face에 수직(z), 손가락 평면에서 y_off 옆. distal pad가 윗면을 누르며 MCP 쪽으로 끌어 비틀림 스프링(0.01 N·m/rad)을 거슬러 돌린다. proximal pad는 닿지 않는다(최소 간격 14.9 mm). 축은 z 방향 60 N/m 스프링. 명령 0 → q_t(1 s) → q_t + 40°(3 s) → 유지 1 s. 배치 12개(q_t 15/25/35°, x_b 10/14 mm, y_off 8/12 mm), O의 회전 12.1–38.4°(12–38°). 손별 최대 관통 0.78–1.47 mm, lost·over-pressed 없음.
+- **손끝 동전 끌기 (30b차).** distal pad 하나가 탁자 위 동전(두께 2 mm, 3 g, 지름 28–32 mm)을 눌러 MCP 쪽으로 끈다. 동전은 시작 위치에 끈(45 N/m)으로 매여 있고(끈이 없으면 pad 마찰이 늘 탁자 마찰을 이겨 μ 효과가 0), 탁자는 30 N/m 스프링 위에 있어 누름이 순응으로 제한된다. 동전–탁자 μ 0.2. 동전은 y 이동을 막았다. 명령 0 → q_t(1 s) → q_t + s(4 s, s 45–55°) → 유지 1 s. 지표는 끝 이동, D = 이동(μ 2.0) − 이동(μ 1.3). 무작위 시작 64개(seed 31: q_t U(25, 38°), 손끝이 닿는 점 edge U(2, 5) mm, 탁자 높이 ±0.5 mm, 지름 U(28, 32) mm, sweep U(45, 55°)), 모든 손에 같은 뽑기. O는 64개 모두 남고 8.5–13.1 mm를 끈다(μ 2.0에서 13.9–21.3 mm, D(O) 5.3–8.2 mm, 모두 양수). 관통 최대 O 0.89 mm, 재설계 손 0.86–1.14 mm, lost·over-pressed·proximal 접촉 없음. time step 0.25 ms(1 ms에서는 미끄럼 접촉이 떨려 잡음 바닥 4.6%). 사후 관찰(판정에 쓰지 않음): 순서를 거스르는 손은 다이얼과 같은 `d4p5_s0`, `d5p5_s0`, `h3to5_d3_s0`이다. 끌린 거리는 누름, 즉 손끝 경로의 수직 성분을 따르는데 Δ_contact는 방향 없이 경로 변화를 잰다. 같은 과제의 짧은 끌기(30차, O 1.8–4.3 mm)는 판정 2가 성립하지 않았다(ρ 0.36, p 0.073; E_R 7.2%, E_U 22.5%). 그 기록은 `docs/experimental/drake_coin.md`에 남긴다.
 - **무작위 시작 (29차).** 구성마다 미리 정한 균등 분포에서 64개(seed 29, `dial_placements.py --random 64 --seed 29`), 모든 손에 같은 뽑기. z: q_t U(12, 40°), ρ U(13, 17) mm, x_b U(8, 16), y_off U(6, 14), k_r U(0.005, 0.015). y: q_t U(15, 70°), ρ U(9, 13), b U(9, 14), k_r U(0.01, 0.03). O만으로 정한 제외 뒤 y 64, z 59개(z 5개는 O의 관통 > 1.5 mm). 미리 정한 대표 구성 규칙(재설계 손 E의 IQR / 잡음 75분위)은 z 7.61, y 3.65로 z를 골랐다. 결과를 본 뒤 고른 28차 처리와 같다. 결론: 손끝 다이얼 결과는 손으로 고른 배치에 의존하지 않는다.
 - **잡음 바닥.** SSoT는 과제별 잡음 바닥을 0.2–0.8%로 쓰는데, 이는 획득·굴리기·두 pad 다이얼(22–24, 26차) 값이다. 손끝 원판은 0.9%(29z 1.24%), y 다이얼은 2.3%(29y 0.35%), 25차 hydro는 2.4%다.
 - **y 다이얼은 약하다.** E 범위가 2.8–24.1%로 좁고 28차에서 가장 작은 두 손은 잡음 75분위 안이었다. 순서를 거스르는 손(y의 `d4p5_s0`, `d5p5_s0`; z의 `h3to5_d3_s0`)은 28·29차에서 같다.
@@ -240,6 +242,8 @@ morphology는 skeleton(링크와 관절)과 그것이 싣는 접촉면을 함께
 | 27 | 접촉 기준 관절 setpoint (손끝 점, 보조 pad 가운데) | 통과 | d34be24 | 18be958 |
 | 28 | 손끝 다이얼 y, 손끝 원판 z | 통과; z가 Study 3 다이얼 과제 | 1b166a5 (fa177e0에서 이동) | 77b0c9d; 채택 a2707db |
 | 29 | 28차를 미리 정한 무작위 시작 64개로 확인 | 통과; 규칙이 z를 고름 | 01af200 (O만의 결과 포함) | 90f2556; 이동 5c1a1ff |
+| 30 | 손끝 동전 끌기, 짧은 끌기 (experimental) | 판정 2 실패 (ρ 0.36), `docs/experimental/drake_coin.md`에 남김 | 695d360 | 5fcf277 |
+| 30b | 손끝 동전 끌기, 긴 끌기 | 통과 | 1d59c5e (O만의 결과 포함) | b73f616 |
 
 설계 쪽 탐색 스크립트 e16–e20(`design/scripts/study/exploratory/`)은 실험 번호와 별개다: e16 원기둥 재파지 기하(아래 regrasp 노트), e17 두 pad wrench 예측(3차 Stage A), e18 Δ_contact 목표 재설계(4·6·13차의 손), e19 Study 2 Δ_contact의 시작 오프셋 분리(R2에 반영), e20 face 오프셋·미끄러짐 분해.
 
@@ -262,7 +266,7 @@ morphology는 skeleton(링크와 관절)과 그것이 싣는 접촉면을 함께
 
 ## 7. 데이터와 스크립트
 
-- **요약 데이터 `report/study3/data/`.** Isaac: `isaac_dose_A_all.json`(마찰, 6차), `isaac_comp.json`(강성, 10차), `isaac_dose_A-grid_expanded.json`(격자 45, 13차), `isaac_conclusion_study3.json`(H4 예비). Drake: `drake_e21_point.json`, `drake_e21_point_pairs_RU.json`, `drake_e21_hydro.json`, `drake_e22_point.json`(굴리기), `drake_e23_point.json`(획득), `drake_e24_point.json`, `drake_e26_point.json`(대체된 다이얼), `drake_e25_hydro_own.json`, `drake_e27_point.json`(사상 전체 `mapping_all`), `drake_e27m_point.json`, `drake_e28y_point.json`, `drake_e28z_point.json`, `drake_e29y_point.json`, `drake_e29z_point.json`, `drake_task_snapshots.json`(그림용 자세).
+- **요약 데이터 `report/study3/data/`.** Isaac: `isaac_dose_A_all.json`(마찰, 6차), `isaac_comp.json`(강성, 10차), `isaac_dose_A-grid_expanded.json`(격자 45, 13차), `isaac_conclusion_study3.json`(H4 예비). Drake: `drake_e21_point.json`, `drake_e21_point_pairs_RU.json`, `drake_e21_hydro.json`, `drake_e22_point.json`(굴리기), `drake_e23_point.json`(획득), `drake_e24_point.json`, `drake_e26_point.json`(대체된 다이얼), `drake_e25_hydro_own.json`, `drake_e27_point.json`(사상 전체 `mapping_all`), `drake_e27m_point.json`, `drake_e28y_point.json`, `drake_e28z_point.json`, `drake_e29y_point.json`, `drake_e29z_point.json`, `drake_e30b_coin.json`(동전 끌기), `drake_task_snapshots.json`(그림용 자세).
 - **raw 표 `report/study3/data/raw/`** (`report/make_raw_tables.py`, `metadata.json`에 열·사건·오차 정의, git commit 90f2556). run 단위: `runs_isaac_pullout.csv`(25,624), `runs_drake_pullout.csv`(25,608), `runs_drake_acquisition.csv`(2,508), `runs_drake_rolling.csv`(2,508), `runs_drake_dial.csv`(3,800), `runs_drake_tipdial.csv`(5,928). 손 단위 E: `errors_by_hand.csv`(284 행).
 - **렌더 `report/study3/data/renders/`.** `render_hold{0,1,2}.png`, `render_hold_iso{0,1,2}.png`, `render_tipdial{0,1,2}.png`.
 - **Drake `sim/drake/`.** `two_pad_drake.py`(모든 과제, `--task pullin|roll|dial|tipdial`), `analyze.py`(pull-out, `spearman_perm`), `analyze_roll.py`(굴리기, 다이얼, 손끝 다이얼, `--random`), `analyze_roll_posthoc.py`(22차 사후 분석), `analyze_e25.py`, `dial_placements.py`, `friction_probe.py`, `load_hand.py`, `run_e21.sh`, `run_roll.sh`, `run_pullin.sh`, `run_dial.sh`, `run_dial30.sh`, `run_e25.sh`, `run_e27.sh`, `run_e28.sh`, `run_e29.sh`, 렌더 `render_*.py`. 로그 `sim/drake/logs/`.

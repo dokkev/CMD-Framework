@@ -250,6 +250,24 @@ Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/stud
 Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_hu,9.0,3.89,7.17,0.2361,64
 Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1549,64
 Drake,fingertip dial,"y-axis dial, randomized starts (confirmation)",report/study3/data/drake_e29y_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2978,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,R,7.0,0.86,7.67,0.0217,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d1p5_minDs_s0,7.0,1.6,5.37,0.081,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d2p25_minDs_s0,7.0,2.33,4.62,0.105,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0188,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d3_minDs_s0,7.0,3.09,3.83,0.1283,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,U,7.0,3.91,3.38,0.1634,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d4p5_s0,7.0,4.41,11.33,0.049,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d5p5_s0,7.0,5.4,12.17,0.0423,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0285,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d3_maxDs_s0,7.0,3.04,11.55,0.0325,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_hr,5.0,0.35,3.55,0.0112,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_hu,5.0,1.58,2.02,0.0712,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_d3_s0,5.0,2.92,6.38,0.0507,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1151,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_hr,9.0,2.32,9.37,0.097,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_hu,9.0,3.89,7.17,0.1634,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.0295,64
+Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1973,64
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,R,7.0,0.86,7.67,0.2712,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0628,20
 Drake,dial,superseded by experiment 26: dial turned 5-10 deg,report/study3/data/drake_e24_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3368,20

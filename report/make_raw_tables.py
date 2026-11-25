@@ -22,7 +22,7 @@ DRAKE = ROOT / "sim/drake/logs"
 ISAAC = ROOT / "sim/isaaclab/logs/study3/two_pad"
 L_F_MM = 90.0
 
-DRAKE_NAME = re.compile(r"^(dk[a-z]*)_(.+)_mu([0-9.]+)_(point|hydro)-(.+)_r([0-9.]+|any)\.json$")
+DRAKE_NAME = re.compile(r"^(dk[a-z]*)_(.+)_mu([0-9.]+)_(point|hydro)-(.+?)(?:_r([0-9.]+|any))?\.json$")
 ISAAC_NAME = re.compile(r"^tp_(.+)_mu([0-9.]+)_(A|A-grid)_r([0-9.]+)_\d{8}-\d{6}_\d+\.json$")
 
 # Drake run sets kept (tag -> experiment, what it is); calibration, noise-floor and replaced runs are left out
@@ -41,6 +41,7 @@ DRAKE_SETS = {
     ("dktipdial", "point", "e28z"): ("28", "fingertip dial", "z-axis disk turned by the distal pad on its top face (Study 3's dial task)"),
     ("dktipdial", "point", "e28y"): ("28", "fingertip dial", "auxiliary: y-axis dial driven tangentially by the distal pad"),
     ("dktipdial", "point", "e29z"): ("29", "fingertip dial", "z-axis disk, 64 randomized starts (seed 29), common to all hands"),
+    ("dkcoin", "point", "e30b"): ("30b", "fingertip coin drag", "the distal pad alone drags a tethered coin toward the palm on a sprung table, 64 randomized starts (seed 31)"),
     ("dktipdial", "point", "e29y"): ("29", "fingertip dial", "y-axis dial, 64 randomized starts (seed 29), common to all hands"),
     ("dkdial", "point", "e24-s8"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 8 deg sweep"),
     ("dkdial", "point", "e24-s15"): ("24", "dial", "superseded by experiment 26: dial turned 5-10 deg, 15 deg sweep"),
@@ -158,8 +159,12 @@ def drake_rows() -> tuple[list[dict], list[str]]:
         d = json.loads(p.read_text())
         for e in d["envs"]:
             g = e.get("gate0") or {}
+            pl = e.get("placement") or {}
+            e = {"q0_deg": pl.get("q_t_deg", pl.get("q0_deg")), "x_c_mm": pl.get("x_c_mm"), "direction": "none", **e}
+            radius = float(e["rho_mm"]) if "rho_mm" in e else (float(rho) if rho not in (None, "any") else
+                                                                (pl["diam_mm"] / 2 if "diam_mm" in pl else None))
             row = {"engine": "Drake", "experiment": exp, "task": task, "setting": setting, "tag": tag,
-                   "contact_model": contact, "hand": hand, "mu": float(mu), "cylinder_radius_mm": float(e.get("rho_mm", rho)),
+                   "contact_model": contact, "hand": hand, "mu": float(mu), "cylinder_radius_mm": r4(radius),
                    "draw": (e.get("placement") or {}).get("draw"), "tip_spring_nm_rad": r4((e.get("placement") or {}).get("tip_kr")),
                    "sideways_offset_mm": r4((e.get("placement") or {}).get("y_mm")),
                    "q0_deg": e["q0_deg"], "x_c_mm": r4(e["x_c_mm"]), "load_direction": e["direction"],
@@ -184,6 +189,11 @@ def drake_rows() -> tuple[list[dict], list[str]]:
                     row["proximal_force_max_n"] = r4(x.get("proximal_force_max_n"))
                 elif "distal_normal_end_n" in x:
                     row["distal_force_end_n"] = r4(x.get("distal_normal_end_n"))
+            elif task == "fingertip coin drag":
+                x = e.get("drag") or {}
+                row.update(measure=r4(x.get("travel_end_mm")), measure_unit="mm (coin travel toward the MCP)",
+                           event=None if x.get("touched", True) else "not touched",
+                           distal_force_max_n=r4(x.get("distal_force_max_n")), proximal_force_max_n=r4(x.get("proximal_force_max_n")))
             elif task == "in-hand rolling":
                 x = e.get("roll") or {}
                 row.update(measure=r4(x.get("rotation_deg")), measure_unit="deg (cylinder rotation)", held_at_end=x.get("held"),
@@ -227,6 +237,7 @@ def study3() -> None:
     groups = {}
     for r in drows + irows:
         name = {"pull-out": "pullout", "grasp acquisition": "acquisition", "dial": "dial", "fingertip dial": "tipdial",
+                "fingertip coin drag": "coin",
                 "in-hand rolling": "rolling"}[r["task"]]
         eng = "isaac" if r["engine"] == "Isaac Lab" else "drake"
         groups.setdefault(f"runs_{eng}_{name}.csv", []).append({k: r.get(k) for k in keys})
@@ -252,6 +263,7 @@ def study3() -> None:
             ("drake_e28y_point.json", "Drake", "fingertip dial", "auxiliary: y-axis fingertip dial"),
             ("drake_e29z_point.json", "Drake", "fingertip dial", "z-axis disk, randomized starts (confirmation)"),
             ("drake_e29y_point.json", "Drake", "fingertip dial", "y-axis dial, randomized starts (confirmation)"),
+            ("drake_e30b_coin.json", "Drake", "fingertip coin drag", "long drag, randomized starts"),
             ("drake_e24_point.json", "Drake", "dial", "superseded by experiment 26: dial turned 5-10 deg"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
@@ -291,6 +303,9 @@ def study3() -> None:
             "fingertip dial": "the distal pad alone drives a dial against a torsional spring as the finger sweeps open-loop "
                               "from O's touch angle; z: a disk whose top face the pad drags, y: a rim pushed tangentially; "
                               "the proximal pad never touches; measure = rotation (experiment 28)",
+            "fingertip coin drag": "the distal pad alone drags a 2 mm coin (tethered at 45 N/m, coin-table mu 0.2) toward the "
+                                   "MCP on a table sprung at 30 N/m, sweeping 45-55 deg open-loop from O's touch angle; "
+                                   "measure = the coin's travel at the end (experiment 30b; time step 0.25 ms)",
             "in-hand rolling": "after the grasp, an open-loop flexion sweep of 8 or 15 deg rolls the cylinder; "
                                "measure = rotation",
         },
