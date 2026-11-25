@@ -111,9 +111,9 @@ uv run python pinch_rotate.py frames --draws logs/pinch_e33.json --draw 29 && uv
 
 **wall time (worker 6).** 보정 약 20분(위 목록), R·U 4분, 나머지 16개 손 25분(손당 cpu 약 6분), 분석 약 1분.
 
-## Study 3로 옮김 (2026-11-25, 사용자 결정)
+## Study 3에 넣었다가 다시 뺌 (2026-11-25, 사용자 결정)
 
-33차는 사용자 결정으로 Study 3의 과제 표에 넣었다(`report/study3/study3.md`, 요약 `report/study3/data/drake_e33_pinch.json`). 이 문서는 사전 기록과 보정의 기록으로 남긴다.
+33차는 한때 Study 3의 과제 표와 Fig. 4의 넷째 열에 들어갔다(11b9e2f, d38cbcc, fe6ff90). 아래 엄지 도달 확인(맞은편 pad를 실제 엄지가 놓을 수 없음)과 33b차 결과(실제 엄지 자세의 세 손가락 집기에서 판정 1·2 실패, 오차는 Δ_skel을 따름)를 보고 사용자 결정으로 Study 3, Fig. 4, raw 표, SSoT에서 뺐다. Fig. 4의 넷째 열은 35차(멈춤쇠에 기대 상자 세우기, `drake_pivot.md`)가 대신한다. 33차와 33b차의 기록은 이 문서에 그대로 남긴다.
 
 - **궤적 (`sim/drake/logs/pinch_trajectory_e33.png`, `pinch_rotate.py summary`의 `deviation`):** R − O는 sweep 내내 ±0.05°(중앙값) 안에 있다. U − O는 sweep 앞부분에서 최대 +0.55°(μ 1.3)와 +0.9°(μ 2.0)이고, 끝에서는 +0.15°와 +0.31°이다. O의 끝 회전은 중앙 4.1°(μ 1.3)와 6.6°(μ 2.0)이다.
 - **효과가 작은 이유:** 제어는 다른 Drake 과제와 같다(조건 A, K_Q 5 N·m/rad). 부드러운 엄지 스프링(40 N/m)이 검지 경로의 차이를 흡수한다. 엄지를 단단하게 하면 관통 gate를 넘는다(보정 3단계). 그래서 순서(ρ 0.51)는 성립하지만 궤적의 차이는 1° 아래다.

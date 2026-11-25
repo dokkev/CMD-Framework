@@ -419,3 +419,21 @@ Fig. 4(a): `report/study3/data/renders/render_hold{0,1,2}.png` are now the isome
 - Small-effect caveat (state it if the task is used). The soft thumb spring absorbs the index path difference. Over time, R − O stays within ±0.05° (median), and U − O peaks at +0.56° (μ 1.3) and +0.89° (μ 2.0), ending at +0.15° and +0.31°; O itself turns 4.1° and 6.6° (medians). Five hands, R among them, err below the noise floor's 75th percentile. The ordering holds, but the errors are small. A stiffer thumb would break the 1.5 mm penetration gate.
 - Data: report/study3/data/drake_e33_pinch.json (with the trajectory-deviation bands in `deviation`). Raw runs: report/study3/data/raw/runs_drake_pinch.csv. Renders: report/study3/data/renders/render_pinch{0,1,2}.png; strip report/study3/figures/fingertip_pinch.png. Log: docs/experimental/drake_pinch.md.
 - **Fig. 4 now has four columns** (2026-11-25): Power-grasp hold, Fingertip dial, Coin drag, **Pinch rotate**. The new column shows the render strip (report/study3/figures/fingertip_pinch.png), the deviation from O ("sphere turned, vs. O (deg)" against time from the sweep's start; R and U, median and quartiles, friction 1.3 and 2.0), and matching O (%) over every redesign (R 98%, U 89%). Data: report/study3/data/fig4_sync.json (`tasks.pinch`, `deviation.pinch`, `curves.pinch_*`), from paper/figures/fig4_sync.py. Update the Fig. 4 caption and text for the fourth task, and keep the small-effect caveat above.
+
+## Study 3 update (2026-11-25, user decisions): pad shape back in Table I, the pinch out, the block pivot in Fig. 4
+
+- **Pinch rotate removed** from Study 3, Fig. 4, the raw tables and the SSoT. Drop the handoff above (experiment 33) from the manuscript. The simulation's opposing pad was not a place the hand's real thumb can reach (IK, 0/64 draws). With the real thumb at a reachable pose (experiment 33b, a three-finger pinch), the result did not hold: ρ(E, Δ_contact) 0.35, p 0.077, R 9.8% ≈ U 9.6%, and the error followed Δ_skel (0.58). Both are kept in docs/experimental/drake_pinch.md.
+- **Pad shape (experiment 34, Drake, pre-registered).** Flat to a 2 mm crown, each shape placed where O's pads of that shape touch the cylinder. Isaac's experiment 8 reused the flat placements, and its crowned grasps collapsed.
+  - Result: ρ(E, Δ_contact) 0.69, permutation p 0.0027 (16 hands); Δ_skel −0.22; E_R 54.5%, E_U 122.7%.
+  - Table I signed bias: CoDe −43%, Conventional +70%. It is a new row in the pad-change section, with footnote d: Drake, placement by O's contact per shape.
+  - Caveat: the shape's effect on O is small and changes sign across placements, so E is large for every redesign. The noise floor is 4.6%.
+  - Data: report/study3/data/drake_e34_shape.json; raw runs_drake_shape.csv.
+- **Block pivot (experiment 35, pre-registered), Fig. 4's fourth column "Box pivot".** The fingertip drags the top of a spring-return block toward the palm and a stop holds its bottom edge, so it tips. It is non-prehensile, with an extrinsic contact.
+  - Result: ρ(E, Δ_contact) 0.41, permutation p 0.04995 (weak: just under 0.05); Δ_skel −0.21; E_R 5.4%, E_U 22.2%; noise floor 0.5%.
+  - Data: report/study3/data/drake_e35_pivot.json; raw runs_drake_pivot.csv; renders render_pivot{0,1,2}.png and figures/fingertip_pivot.png.
+- **Manuscript, already updated in this round:**
+  - abstract "four tasks";
+  - Replications: the block pivot and the shape measurement;
+  - Results: the shape ordering (Table I) and the pivot "repeats it more weakly (ρ 0.41, p 0.050)";
+  - Table I: the shape row and footnote d;
+  - Fig. 4: regenerated with the Box pivot column. The caption needed no change: it says "four Drake tasks" and names none.

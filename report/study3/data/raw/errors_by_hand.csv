@@ -196,24 +196,42 @@ Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drak
 Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_hu,9.0,3.89,7.17,0.1634,64
 Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.0295,64
 Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1973,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,R,7.0,0.86,7.67,0.0167,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0191,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d2p25_minDs_s0,7.0,2.33,4.62,0.0396,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0166,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d3_minDs_s0,7.0,3.09,3.83,0.0406,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,U,7.0,3.91,3.38,0.1137,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d4p5_s0,7.0,4.41,11.33,0.0221,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d5p5_s0,7.0,5.4,12.17,0.0221,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0673,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,d3_maxDs_s0,7.0,3.04,11.55,0.1025,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to5_hr,5.0,0.35,3.55,0.0109,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to5_hu,5.0,1.58,2.02,0.0223,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to5_d3_s0,5.0,2.92,6.38,0.015,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.0368,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to9_hr,9.0,2.32,9.37,0.0543,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to9_hu,9.0,3.89,7.17,0.1185,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1634,64
-Drake,thumb-index pinch rotate,"sprung sphere, identical sprung thumb, randomized starts",report/study3/data/drake_e33_pinch.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1196,64
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,R,7.0,0.86,7.67,0.5455,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_minDs_s0,7.0,1.6,5.37,0.7153,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_minDs_s0,7.0,2.33,4.62,1.0,51
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.75,11
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_minDs_s0,7.0,3.09,3.83,0.9737,54
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,U,7.0,3.91,3.38,1.2265,39
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d4p5_s0,7.0,4.41,11.33,,0
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d5p5_s0,7.0,5.4,12.17,,0
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.5273,48
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_maxDs_s0,7.0,3.04,11.55,0.6768,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hr,5.0,0.35,3.55,0.2697,56
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hu,5.0,1.58,2.02,0.5,55
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_s0,5.0,2.92,6.38,0.5833,1
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.9787,46
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hr,9.0,2.32,9.37,0.56,51
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hu,9.0,3.89,7.17,1.0,43
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.6923,49
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.6842,15
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,R,7.0,0.86,7.67,0.0542,62
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1005,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1299,62
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.048,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d3_minDs_s0,7.0,3.09,3.83,0.1536,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,U,7.0,3.91,3.38,0.2218,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d4p5_s0,7.0,4.41,11.33,0.0234,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d5p5_s0,7.0,5.4,12.17,0.0282,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0895,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d3_maxDs_s0,7.0,3.04,11.55,0.1235,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to5_hr,5.0,0.35,3.55,0.0226,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to5_hu,5.0,1.58,2.02,0.0932,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to5_d3_s0,5.0,2.92,6.38,0.03,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1368,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_hr,9.0,2.32,9.37,0.1524,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_hu,9.0,3.89,7.17,0.2301,63
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1872,61
+Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2518,63
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,R,7.0,0.86,7.67,0.2685,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1742,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.135,11

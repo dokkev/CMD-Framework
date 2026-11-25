@@ -3,8 +3,8 @@ the index finger at the frame's flexion, middle and ring curled away (render3d's
 its simulated height, the stop, the block at its simulated pose (its start outlined faintly), and a red arc arrow
 once it tilts. Three frames: the sweep's start, where the tilt first reaches half its final value, and the end of the hold. render3d is imported read-only.
 
-    uv run python box_pivot.py frames --draws logs/pivot_e35.json --draw 5
-    uv run python render_pivot.py --draw 5   ->  logs/render_pivot{0,1,2}.png, logs/render_pivot_strip.png
+    uv run python box_pivot.py frames --draws logs/pivot_e35.json --draw 2
+    uv run python render_pivot.py --draw 2   ->  logs/render_pivot{0,1,2}.png, logs/render_pivot_strip.png
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ HERE = Path(__file__).resolve().parent
 LOGS = HERE / "logs"
 BLOCK = [0.55, 0.70, 0.86, 1.0]
 BLOCK_EDGE = [0.33, 0.45, 0.60, 1.0]
-CAMERA = {"target_mm": (48.0, 0.0, -28.0), "dist": 0.27, "az_deg": 125.0, "el_deg": 25.0, "fov_deg": 33.0}
-"""render3d's coin camera (in front of the fingertip, above and on the index finger's outer side), aimed lower."""
+CAMERA = {"target_mm": (45.0, 0.0, -30.0), "dist": 0.26, "az_deg": 160.0, "el_deg": 18.0, "fov_deg": 33.0}
+"""From the index finger's outer side (+y), a little in front of the fingertip and above: the block tips in profile."""
 
 
 def rect(c, w, h, ang):
@@ -58,10 +58,11 @@ def scene(fr, pl, folder, start):
             sc.bar(a, b, 0.35, half + 0.2, half + 0.9, R.GHOST)
         # the arc arrow about the pivot corner, in front (+y)
         pivot = rect((bx, bz), w, h, ang)[0]
-        r = math.hypot(w, h) * 0.75
-        a_top = math.atan2(h, w * 0.0 + 1e-9)  # straight up from the pivot
+        r = h + 6.0  # just above the block's top, about the pivot corner
+        a0 = math.pi / 2 - (start["block_mm_rad"][2] - 0.0)  # straight up from the pivot at the start
         sgn = 1.0 if turned < 0 else -1.0  # ang < 0: the top moves toward -x (counter-clockwise in (x, z))
-        R.arc_arrow(sc, pivot, r, a_top - sgn * math.radians(5), a_top + sgn * math.radians(35), half + 3.0, R.LOAD)
+        span = max(abs(turned), math.radians(12.0))
+        R.arc_arrow(sc, pivot, r, a0 - sgn * math.radians(8), a0 + sgn * (span + math.radians(10)), half + 3.0, R.LOAD)
     if fr.get("contact_mm") and fr.get("f_distal", 0) > 0.05:
         sc.cylinder(fr["contact_mm"], -half - 0.3, half + 0.3, 0.7, R.CONTACT)
     return sc
