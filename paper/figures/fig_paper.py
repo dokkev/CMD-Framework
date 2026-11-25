@@ -812,30 +812,42 @@ def task_icon(ax, kind):
 def fig4():
     isaac_f = {k: (v["D_c_mm"], v["E_rel_median"]) for k, v in
                json.load(open(S3 / "isaac_dose_A_all.json"))["hands"].items() if v.get("E_rel_median") is not None}
-    isaac_k = {k: (v["D_c_mm"], v["E_median"]) for k, v in json.load(open(S3 / "isaac_comp.json"))["hands"].items()}
     acq = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e23_point.json"))}
-    dial = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e26_point.json"))}
-    cols = (("Hold: pad friction", "Isaac Lab", "friction", isaac_f),
-            ("Hold: pad stiffness", "Isaac Lab", "stiffness", isaac_k),
-            ("Grasp acquisition", "Drake", "acquire", acq),
-            ("Dial turning", "Drake", "dial", dial))
+    tip = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e28z_point.json"))["rows"]}
+    coin = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]}
+    # (title, engine, task image under report/study3/figures or None for the drawn icon, frame, one-line task, data)
+    cols = (("Power-grasp hold", "Isaac Lab", "power_grasp_hold_iso.png", 2, "pull-out load", isaac_f),
+            ("Grasp acquisition", "Drake", None, 0, "cylinder drawn in", acq),
+            ("Fingertip dial", "Drake", "fingertip_disk.png", 1, "dial turned", tip),
+            ("Coin drag", "Drake", "fingertip_coin.png", 2, "coin dragged", coin))
     h = 2.95
     fig = plt.figure(figsize=(W, h))
-    cw = 1.62
-    for i, (name, sim, kind, data) in enumerate(cols):
-        x0 = 0.42 + i * (cw + 0.12)
+    cw = 1.60
+    from PIL import Image
+    for i, (name, sim, img, frame, what, data) in enumerate(cols):
+        x0 = 0.34 + i * (cw + 0.10)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
         ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.52 / h))
-        what = task_icon(ia, kind)
-        fig.text((x0 + cw / 2) / W, (h - 0.82) / h, what, fontsize=5.6, color=INK2, ha="center", va="top")
+        if img is None:
+            task_icon(ia, "acquire")
+        else:
+            strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
+            wq = strip.shape[1] // 3
+            im_ = strip[:, frame * wq:(frame + 1) * wq]
+            ink = im_.min(axis=2) < 240
+            rr, cc = np.nonzero(ink)
+            im_ = im_[rr.min():rr.max() + 1, cc.min():cc.max() + 1]
+            ia.imshow(im_); ia.axis("off"); ia.set_aspect("equal", anchor="C")
+        fig.text((x0 + cw / 2) / W, (h - 0.82) / h, f"{what}; friction $1.3\\to2.0$", fontsize=5.6,
+                 color=INK2, ha="center", va="top")
         # error of R and U
         ba = fig.add_axes(((x0 + 0.25) / W, (h - 1.46) / h, (cw - 0.30) / W, 0.42 / h))
         er, eu = 100 * data["R"][1], 100 * data["U"][1]
         ba.barh([1, 0], [er, eu], height=0.6, color=[BLUE, AMBER])
         for y, v in ((1, er), (0, eu)):
             ba.text(v + 6, y, f"{v:.0f}%", va="center", fontsize=6.4)
-        ba.set_xlim(0, 260); ba.set_yticks([1, 0]); ba.set_yticklabels(["R", "U"])
+        ba.set_xlim(0, 200); ba.set_yticks([1, 0]); ba.set_yticklabels(["R", "U"])
         ba.set_xticks([0, 100, 200])
         clean(ba)
         if i == 0:
