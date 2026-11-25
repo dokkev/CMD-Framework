@@ -108,11 +108,29 @@ def icon(ax, kind):
                 if not inner.is_empty and inner.geom_type == "Polygon":
                     ax.add_patch(Pg(np.array(inner.exterior.coords), fc="#dbe6f6", ec="none", zorder=1.3))
         return
-    if kind == "traction":  # black traction pad with a tread
-        pts = [(0.5, -2.0), (9.5, -2.0), (9.5, 0.0), (0.5, 0.0)]
-        oblique(ax, pts, depth=(1.0, 0.7), fc="#1d1d1d", ec="#000000", top="#3a3a3a", side="#2a2a2a", lw=0.3)
-        for x in np.arange(0.9, 9.3, 0.8):  # transverse ribs
-            ax.add_patch(Rectangle((x, -2.45), 0.45, 0.45, fc="#111111", ec="#000000", lw=0.2, zorder=2))
+    if kind == "traction":  # black traction pad in isometric view, its contact face up, with a tyre-like tread
+        from matplotlib.patches import Polygon as Pg
+        for p_ in list(ax.patches):  # no module base under the isometric pad
+            p_.remove()
+        L, Wd, H = 6.5, 4.5, 0.9
+        c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
+
+        def iso(u, v, w):
+            return np.array([(u - v) * c30, (u + v) * s30 + w])
+        top = [iso(0, 0, H), iso(L, 0, H), iso(L, Wd, H), iso(0, Wd, H)]
+        front = [iso(0, 0, 0), iso(L, 0, 0), iso(L, 0, H), iso(0, 0, H)]
+        right = [iso(0, 0, 0), iso(0, Wd, 0), iso(0, Wd, H), iso(0, 0, H)]  # the near end (u = 0), visible
+        ax.add_patch(Pg(front, fc="#262626", ec="#000000", lw=0.3, zorder=1))
+        ax.add_patch(Pg(right, fc="#1a1a1a", ec="#000000", lw=0.3, zorder=1))
+        ax.add_patch(Pg(top, fc="#151515", ec="#000000", lw=0.3, zorder=1))
+        # tread: chevron grooves across the face, and a centre rib
+        for u0 in np.arange(0.5, L - 0.6, 0.75):
+            for side in (0, 1):
+                v_a, v_b = (0.25, Wd / 2 - 0.2) if side == 0 else (Wd - 0.25, Wd / 2 + 0.2)
+                p1, p2 = iso(u0, v_a, H), iso(u0 + 0.45, v_b, H)
+                ax.plot(*np.array([p1, p2]).T, color="#5a5a5a", lw=0.9, solid_capstyle="round", zorder=2)
+        ax.plot(*np.array([iso(0.3, Wd / 2, H), iso(L - 0.3, Wd / 2, H)]).T, color="#3a3a3a", lw=0.6, zorder=2)
+        ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + H + 0.4)
         return
     if kind == "thin":
         ax.add_patch(Rectangle((0.5, -0.8), 9.0, 0.8, fc="#5b7fc7", ec=PAD, lw=0.5))
