@@ -9,7 +9,9 @@
 Rolls the deterministic policy out on the task's own resets and reports, over every control step and actuated servo:
 the p50/p95/p99/max of |q_dot| (servo joint, rad/s; the XM335 no-load speed is 5.55 rad/s, which the implicit servo
 model does not enforce in MuJoCo-Warp), per joint, the share of samples above 1x and 2x that speed, and how the episodes
-ended (time-out, abnormal joint speed, non-finite state, cube out of reach), by reset type.
+ended (time-out, abnormal joint speed, non-finite state, cube out of reach), by reset type; and the training policy's
+action noise at the visited states (std mean and p95 over envs, steps and actions; entropy). Hydra overrides after the
+options reach the task and agent configs (e.g. the run's ``agent.actor.distribution_cfg.std_range``).
 """
 
 from __future__ import annotations
@@ -46,7 +48,7 @@ def main() -> int:
     import code_isaaclab.tasks  # noqa: F401
     from code_isaaclab.tasks.rotate_cube_omnireset.mdp import reset_term
 
-    cfg, agent = resolve_task_config(args.task, "rsl_rl_cfg_entry_point")
+    cfg, agent = resolve_task_config(args.task, "rsl_rl_cfg_entry_point", overrides=hydra)
     speeds = []
     speed_term = cfg.terminations.abnormal_robot
     inner = speed_term.func
@@ -76,7 +78,13 @@ def main() -> int:
         ends = collections.Counter()
         term = reset_term(u)
         obs = wrapped.get_observations()
+        actor = runner.alg.actor
+        stds, entropies = [], []
         for _ in range(args.steps):
+            if getattr(actor, "distribution", None) is not None:  # the training policy's noise at these states
+                actor(obs, stochastic_output=True)
+                stds.append(actor.output_std.clone())
+                entropies.append(actor.output_entropy.clone())
             task_id = term.task_id.clone()
             obs, _, dones, _ = wrapped.step(policy(obs))
             tm = u.termination_manager
@@ -98,13 +106,19 @@ def main() -> int:
                                   for k, n in enumerate(names)},
             "episode_ends": {f"{t}/{k}": c for (t, k), c in sorted(ends.items())},
         }  # fmt: skip
+        if stds:
+            st = torch.stack(stds).reshape(-1)
+            out["policy_std_mean"] = float(st.mean())
+            out["policy_std_p95"] = float(st[torch.randperm(st.numel(), device=st.device)[: 2**24 - 1]].quantile(0.95))
+            out["policy_entropy_mean"] = float(torch.stack(entropies).mean())
         totals = collections.Counter()
         for (_, k), c in ends.items():
             totals[k] += c
         out["episode_end_shares"] = {k: c / max(sum(totals.values()), 1) for k, c in totals.items()}
         with open(args.out, "w") as f:
             json.dump(out, f, indent=1)
-        print(json.dumps({k: out[k] for k in ("servo_speed_rad_s_p50_p95_p99", "servo_speed_rad_s_max",
+        print(json.dumps({k: out.get(k) for k in ("servo_speed_rad_s_p50_p95_p99", "servo_speed_rad_s_max",
+                                                  "policy_std_mean", "policy_std_p95", "policy_entropy_mean",
                                               "share_above_1x_limit", "share_above_2x_limit",
                                               "episode_end_shares")}, indent=1))  # fmt: skip
         env.close()

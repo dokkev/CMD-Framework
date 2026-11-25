@@ -242,3 +242,33 @@ segment 1–2와 그 held-out eval은 2배 기준으로 돌렸고, segment 3부�
 **하지 않은 것** (보고서 6–7번, 다음 대안으로 남김): dense yaw-progress 항, pose/energy penalty.
 
 **Eval:** `CoDe-Rotate-Cube-O-OmniResetV2-Eval`, `heldout_omnireset_v1`. 회전, quarter-turn 비율, goal/episode를 보고하고, 90°는 goal 2개 연속으로 본다.
+
+### 6.1 v2b (2026-11-25): action noise 제한
+
+**무엇이 바뀌었나:** v2 segment 1의 `model_499`에서 이어서 학습한다. 아래 두 가지만 바꿨고 나머지 (reward, reset, 45° goal, 10× 검사, NaN guard, 4096 env)는 v2와 같다.
+- entropy 계수: 0.006 → 0.001
+- 예측된 policy std의 상한: 2.0 → 1.0 (`agent.actor.distribution_cfg.std_range=[0.001,1.0]`)
+
+**왜 바꿨나:** v2에서 goal 수는 segment 경계에서 한 번에 떨어진 게 아니다. segment 2 안에서 서서히 떨어졌고, 그 사이 policy std가 계속 커졌다. 아래는 100 iteration 구간 평균이다.
+
+| iteration | 0 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| goals/episode (학습) | 0.20 | 0.63 | 0.44 | 0.46 | 0.57 | 0.55 | 0.52 | 0.41 | 0.38 | 0.35 |
+| policy std 평균 | 0.84 | 0.95 | 1.15 | 1.17 | 1.33 | 1.57 | 1.66 | 1.70 | 1.72 | 1.74 |
+| entropy | 15.9 | 16.6 | 17.6 | 18.4 | 20.7 | 23.1 | 24.0 | 24.4 | 24.6 | 24.8 |
+
+- 같은 기간에 mean reward는 1.2에서 8.7로 올랐다. reach와 dense-success 항은 goal을 채우지 않아도 매 step 보상을 주기 때문이다.
+- held-out goal/episode도 0.13에서 0.07로 떨어졌다.
+- resume 때문이 아님을 확인했다. rsl_rl 5.5.1의 resume은 optimizer, 적응형 lr, 관측 normaliser, std head, iteration 카운터를 모두 되살린다. 경계에서 생긴 효과는 모든 env가 함께 다시 시작해서 생긴 약 20 iteration 동안뿐이다.
+- `model_499`의 policy std (probe로 잰 값): 평균 1.45, p95 2.0 (상한에 닿음). 상한을 1.0으로 두면 평균 0.91이 된다.
+
+**근거:**
+- OmniReset의 entropy 0.006이 13차원 action과 state-dependent std, 높은 상한 2.0과 함께 쓰이면 std가 계속 커진다.
+- 참고 구현들의 entropy 계수 범위는 0–0.006이다: HORA 0, Isaac Lab Allegro 0.002 (조사 보고서 Q3 9번).
+
+**판단 기준:** 2 segment 뒤에 아래를 모두 만족하면 계속 간다. 아니면 다음 방안은 고정 std다.
+- 학습 goals/episode > 0.55
+- held-out goals/episode > 0.13
+- std < 1.0
+
+v2 segment 3는 iteration 약 1036에서 멈췄다. `model_1000`은 기록용으로 남긴다.
