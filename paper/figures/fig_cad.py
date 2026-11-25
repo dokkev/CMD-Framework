@@ -336,7 +336,7 @@ def main() -> int:
 
     # ---------------- single column, top to bottom
     top = H_ - 0.03
-    hand = usd_render(CAD / "usd_hand_cube.png")
+    hand = usd_render(CAD / "hand_usd_palm_up.png")  # the open hand, palm up, no object
     hw = 1.30
     hh = hw * hand.shape[0] / hand.shape[1]
     plabel(0.02, top, "a", "CoDe Hand")
