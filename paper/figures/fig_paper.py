@@ -889,7 +889,7 @@ def fig4():
              ha="left", va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
-               plt.Line2D([], [], color=AMBER, lw=1.1, label="coverage-only"),
+               plt.Line2D([], [], color=AMBER, lw=1.1, label="conventional"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
                           label="pad friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
