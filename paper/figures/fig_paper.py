@@ -848,27 +848,27 @@ def fig4():
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
         # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
         ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.58) / h, (cw - 0.58) / W, 0.78 / h))
-        ra.axhline(0, color=INK, lw=0.9, zorder=2)
+        ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
         for hi, hh in enumerate(("R", "U")):
             for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
                 bd = dv[f"{hh}_{mu}"]
-                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
-                ra.plot(x, bd["median"], color=HC[hh], lw=1.0, zorder=3, marker=mk_, ms=2.8 if mk_ == "o" else 2.5,
-                        mfc="white", mew=0.7, markevery=((2 * hi + mi) * step // 4, step))
+                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
+                ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
+                        mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 4, step))
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.tick_params(labelbottom=False)
         clean(ra)
         # the bias in the friction effect each hand measures: its effect (same hand, 2.0 minus 1.3) minus O's on the
         # same placement, as a share of O's effect; 0 is the friction effect measured without bias
         ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.58) / W, 0.78 / h), sharex=ra)
-        ea.axhline(0, color=INK, lw=0.9, zorder=2)
+        ea.axhline(0, color=INK, lw=0.6, zorder=2)
         labs = []
         for hh in ("U", "R"):
             bd = dv[f"{hh}_bias"]
             m_ = np.asarray(bd["median"])
-            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.18, lw=0, zorder=1)
-            ea.plot(x, m_, color=HC[hh], lw=1.2, zorder=3)
+            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.12, lw=0, zorder=1)
+            ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
             labs.append((m_[-1], f"{m_[-1]:+.0f}%", HC[hh]))
         lim = max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"] + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
