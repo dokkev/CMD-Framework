@@ -927,31 +927,30 @@ def fig4():
 
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
-    """Table I (Study 3B): the error in the measured pad effect, CoDe against Conventional, as the pad change, the
-    simulator and the contact model vary (pull-out, 7 mm, condition A). E: median over placements and load
-    directions of |D(H) - D(O)| / |D(O)|; data in report/study3/data."""
-    def iso(name, key="E_median"):
-        return {h: v[key] for h, v in json.load(open(S3 / name))["hands"].items() if h in ("R", "U")}
-
-    def drake(name):
-        rows = json.load(open(S3 / name))
-        rows = rows["rows"] if isinstance(rows, dict) else rows
-        return {r["hand"]: r["E"] for r in rows if r["hand"] in ("R", "U")}
-    rowsd = (("friction $1.3\\to2.0$", "Isaac Lab, point", iso("isaac_dose_A_all.json", "E_rel_median")),
-             ("stiffness $2.5\\to1.0$\\,kN/m", "Isaac Lab, point", iso("isaac_comp.json")),
-             ("flat $\\to$ crowned$^{a}$", "Isaac Lab, point", iso("isaac_shape.json")),
-             ("friction, softer pad$^{b}$", "Isaac Lab, point", iso("isaac_padk_matched.json")),
-             ("friction $1.3\\to2.0$", "Drake, point", drake("drake_e21_point.json")),
-             ("friction $1.3\\to2.0$", "Drake, hydroelastic", drake("drake_e21_hydro.json")),
-             ("friction, softer pad$^{b}$", "Drake, hydroelastic", drake("drake_e25_hydro_own.json")))
-    lines = [r"\begin{table}[t]", r"  \centering",
-             r"  \caption{Error in the measured pad effect as the pad change and the contact model vary (pull-out, "
-             r"$7$\,mm pads). $^{a}$Six $7$\,mm redesigns. $^{b}$Pads soften with thickness "
-             r"(stiffness $\propto 1/h$, an upper bound on the softening); the reference is $O$ carrying the same pad.}",
-             r"  \label{tab:robust}", r"  \begin{tabular}{llrr}", r"    \toprule",
-             r"    Pad change & Simulator, contact & \ourmethod{} & Conventional \\", r"    \midrule"]
-    for name, sim, d in rowsd:
-        lines.append(f"    {name} & {sim} & ${100 * d['R']:.0f}\\%$ & ${100 * d['U']:.0f}\\%$ \\\\")
+    """Table I (Study 3B): the signed bias in the measured pad effect, CoDe against Conventional, as the pad change,
+    the simulator and the contact model vary (pull-out, 7 mm, condition A): median over placements and load
+    directions of (D(H) - D(O)) / D(O), + overstating O's effect; O's effect in N. Data: report/study3/data/
+    table_signed.json (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
+    st = json.load(open(S3 / "table_signed.json"))["settings"]
+    rowsd = (("friction", "Isaac, point", "friction, Isaac point"),
+             ("stiffness", "Isaac, point", "stiffness, Isaac point"),
+             ("shape$^{a}$", "Isaac, point", "crowned, Isaac point"),
+             ("friction$^{b}$", "Isaac, point", "friction softer pad, Isaac point"),
+             ("friction", "Drake, point", "friction, Drake point"),
+             ("friction", "Drake, hydro.", "friction, Drake hydro"),
+             ("friction$^{b}$", "Drake, hydro.", "friction softer pad, Drake hydro"))
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
+             r"  \caption{Bias in the measured pad effect (pull-out, $7$\,mm pads): the effect each redesign measures "
+             r"minus $O$'s, as a share of $O$'s ($+$: overstated); $O$: $O$'s effect. Pad changes: friction "
+             r"$1.3\to2.0$, stiffness $2.5\to1.0$\,kN/m, shape flat$\to$crowned. $^{a}$Six redesigns. "
+             r"$^{b}$Pads soften with thickness (stiffness $\propto 1/h$, an upper bound on the softening), against "
+             r"$O$ carrying the same pad.}",
+             r"  \label{tab:robust}", r"  \setlength{\tabcolsep}{4pt}", r"  \begin{tabular}{llrrr}", r"    \toprule",
+             r"    Pad change & Simulator & $O$ (N) & \ourmethod{} & Conv. \\", r"    \midrule"]
+    for name, sim, key in rowsd:
+        d = st[key]
+        lines.append(f"    {name} & {sim} & ${d['R']['O_effect_median_n']:+.1f}$ & "
+                     f"${100 * d['R']['bias_median']:+.0f}\\%$ & ${100 * d['U']['bias_median']:+.0f}\\%$ \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))

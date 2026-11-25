@@ -1,0 +1,103 @@
+{
+ "note": "Table I data: the signed bias in the measured pad effect, (D(H) - D(O)) / D(O) per placement-direction pair (+: the",
+ "settings": {
+  "friction, Isaac point": {
+   "R": {
+    "bias_median": -0.21000556712359353,
+    "E": 0.21000556712359353,
+    "pairs": 48,
+    "O_effect_median_n": 1.9666666388511658
+   },
+   "U": {
+    "bias_median": 1.147890712804951,
+    "E": 1.2358544228555846,
+    "pairs": 52,
+    "O_effect_median_n": 1.9333332777023315
+   }
+  },
+  "stiffness, Isaac point": {
+   "R": {
+    "bias_median": -0.25,
+    "E": 0.25,
+    "pairs": 48,
+    "O_effect_median_n": -1.899999976158142
+   },
+   "U": {
+    "bias_median": 1.7250222135392135,
+    "E": 1.7250222135392135,
+    "pairs": 48,
+    "O_effect_median_n": -1.899999976158142
+   }
+  },
+  "crowned, Isaac point": {
+   "R": {
+    "bias_median": -0.2666664123535156,
+    "E": 0.2666664123535156,
+    "pairs": 13,
+    "O_effect_median_n": -0.5999999046325684
+   },
+   "U": {
+    "bias_median": 1.1666671137015292,
+    "E": 1.5714296662079663,
+    "pairs": 5,
+    "O_effect_median_n": -0.3333333730697632
+   }
+  },
+  "friction softer pad, Isaac point": {
+   "R": {
+    "bias_median": -0.13636358464059864,
+    "E": 0.13636358464059864,
+    "pairs": 51,
+    "O_effect_median_n": 1.1999999284744263
+   },
+   "U": {
+    "bias_median": 1.250000167638036,
+    "E": 1.2857143830280013,
+    "pairs": 51,
+    "O_effect_median_n": 1.1999999284744263
+   }
+  },
+  "friction, Drake point": {
+   "R": {
+    "bias_median": -0.19375000000000012,
+    "E": 0.19375000000000012,
+    "pairs": 46,
+    "O_effect_median_n": 1.2333333333333332
+   },
+   "U": {
+    "bias_median": 0.696153846153846,
+    "E": 0.7166666666666659,
+    "pairs": 48,
+    "O_effect_median_n": 1.1666666666666665
+   }
+  },
+  "friction, Drake hydro": {
+   "R": {
+    "bias_median": -0.14545454545454545,
+    "E": 0.1666666666666661,
+    "pairs": 53,
+    "O_effect_median_n": 3.5999999999999988
+   },
+   "U": {
+    "bias_median": 2.538164251207731,
+    "E": 2.538164251207731,
+    "pairs": 54,
+    "O_effect_median_n": 3.5999999999999988
+   }
+  },
+  "friction softer pad, Drake hydro": {
+   "R": {
+    "bias_median": -0.07846153846153857,
+    "E": 0.16349085365853647,
+    "pairs": 44,
+    "O_effect_median_n": 2.1999999999999993
+   },
+   "U": {
+    "bias_median": 3.472222222222221,
+    "E": 3.472222222222221,
+    "pairs": 22,
+    "O_effect_median_n": 2.1999999999999993
+   }
+  }
+ }
+}
