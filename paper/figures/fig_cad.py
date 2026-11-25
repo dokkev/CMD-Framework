@@ -171,6 +171,9 @@ def icon(ax, kind):
     if kind == "thin":
         iso_pad(ax, 0.35, "#5b7fc7", "#4a6db5", "#3f60a6", PAD)
         return
+    if kind == "thin_block":
+        iso_pad(ax, 1.4, "#8fb6e4", "#5f91d2", "#3f78c4", PAD, rr=0.3, fil=0.15)
+        return
     if kind == "soft":  # solid soft pad, a moulded silicone fingertip (as the PLATO hand's): a rounded loaf, shaded
         for p_ in list(ax.patches):
             p_.remove()
@@ -335,13 +338,37 @@ def main() -> int:
     fig.lines.append(plt.Line2D([1.72 / W_] * 2, [(top - 1.18) / H_, (top - 0.10) / H_], transform=fig.transFigure,
                                 color="#cfcfcf", lw=0.6))
     CROP = 705
-    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]
-    fw = 2.35
-    fh = fw * fin.shape[0] / fin.shape[1]
-    fig.text(*inch(1.82 + fw / 2, top), "Crossed Four-bar Joint", fontsize=8, va="top", ha="center", **BOLD)
-    f = fig.add_axes((*inch(1.82, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
-    for cx, cy, ew, eh in ((1250 - CROP, 530, 450, 190), (2215 - CROP, 485, 340, 220)):
-        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=1.0, ls=(0, (3, 2)), clip_on=False, zorder=5))
+    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]  # zoom in the middle row
+    # concept: a measured change after a redesign holds the interface's effect and the redesign's own; the
+    # redesign-induced part drawn to scale with E of R and U (Isaac Lab), the interface effect as 1
+    cx0, cw = 1.82, 2.40
+    fig.text(*inch(cx0 + cw / 2, top), "New contact interface", fontsize=8, va="top", ha="center", **BOLD)
+    ia = fig.add_axes((*inch(cx0 + cw / 2 - 0.18, top - 0.42), 0.36 / W_, 0.22 / H_))
+    fit_icon(ia, "thin_block")
+    yb = top - 0.47
+    fig.lines.append(plt.Line2D([(cx0 + cw / 2) / W_] * 2, [(top - 0.42) / H_, yb / H_], transform=fig.transFigure,
+                                color=INK2, lw=0.8))
+    fig.lines.append(plt.Line2D([(cx0 + 0.60) / W_, (cx0 + cw - 0.60) / W_], [yb / H_] * 2, transform=fig.transFigure,
+                                color=INK2, lw=0.8))
+    for k, (kind, col, title, verdict) in enumerate((("R", BLUE_, "Contact-centric", "Reduced confounding"),
+                                                    ("U", ORANGE_, "Coverage-only", "Confounded effects"))):
+        xc = cx0 + 0.60 + k * (cw - 1.20)
+        fig.patches.append(FancyArrowPatch(inch(xc, yb), inch(xc, yb - 0.09), transform=fig.transFigure,
+                                           arrowstyle="-|>", mutation_scale=6, lw=0.8, color=INK2))
+        fig.text(*inch(xc, yb - 0.11), title, fontsize=7, color=col, ha="center", va="top", **BOLD)
+        e = d[kind]["E_rel_median"]
+        unit = 0.42
+        x0b = xc - (unit * (1 + e)) / 2
+        y0b = yb - 0.46
+        box(x0b, y0b, unit, 0.20, LBLUE, BLUE_, r=0.02, lw=0.6, z=1)
+        box(x0b + unit, y0b, unit * e, 0.20, LORANGE, ORANGE_, r=0.02, lw=0.6, z=1)
+        fig.text(*inch(x0b + unit / 2, y0b + 0.10), "interface", fontsize=5.4, color=BLUE_, ha="center", va="center")
+        if e > 0.5:
+            fig.text(*inch(x0b + unit + unit * e / 2, y0b + 0.10), "redesign", fontsize=5.4, color=ORANGE_,
+                     ha="center", va="center")
+        fig.text(*inch(xc, y0b - 0.02), f"redesign adds {100 * e:.0f}%", fontsize=5.6,
+                 color=INK2, ha="center", va="top")
+        fig.text(*inch(xc, y0b - 0.15), verdict, fontsize=6.8, color=col, ha="center", va="top", **BOLD)
     bx0, bw_ = 4.32, 2.80
     box(bx0, top - 1.18, bw_, 1.16, "white", PAD, lw=0.9)
     fig.text(*inch(bx0 + bw_ / 2, top - 0.06), "Contact Interfaces ($h$)", fontsize=8, va="top", ha="center", **BOLD)
