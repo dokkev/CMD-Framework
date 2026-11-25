@@ -827,16 +827,21 @@ def fig4():
         x0 = 0.34 + i * (cw + 0.12)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
-        ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.52 / h))
+        ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.56 / h))
         if img is None:
             task_icon(ia, "acquire")
         else:
             strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
             wq = strip.shape[1] // 3
-            im_ = strip[:, frame * wq:(frame + 1) * wq]
-            ink = im_.min(axis=2) < 240
-            rr, cc = np.nonzero(ink)
-            im_ = im_[rr.min():rr.max() + 1, cc.min():cc.max() + 1]
+            ink_all = strip.min(axis=2) < 240
+            rr = np.nonzero(ink_all.any(axis=1))[0]
+            frames = []
+            for fr in range(3):  # the three time steps, each cropped to its ink, at one height
+                sub = strip[rr.min():rr.max() + 1, fr * wq:(fr + 1) * wq]
+                cc = np.nonzero((sub.min(axis=2) < 240).any(axis=0))[0]
+                frames.append(sub[:, max(cc.min() - 6, 0):cc.max() + 7])
+            gap = np.full((frames[0].shape[0], 12, 3), 255, np.uint8)
+            im_ = np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1)
             ia.imshow(im_); ia.axis("off"); ia.set_aspect("equal", anchor="C")
         fig.text((x0 + cw / 2) / W, (h - 0.82) / h, f"{what}; friction $1.3\\to2.0$", fontsize=5.6,
                  color=INK2, ha="center", va="top")
