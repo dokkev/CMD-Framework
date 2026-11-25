@@ -14,7 +14,7 @@ rotate_cube task's tuning is used (its hand, grasp geometry, joint impedance and
 - observations: OmniReset's actor (last action, joint positions, the object's pose and its pose relative to the goal;
   no history, no noise) and, with ``CODE_OMNIRESET_ASYM_CRITIC=1``, its privileged critic (defined but switched off in
   their configuration);
-- terminations: time-out (16 s), abnormal joint speed, and the cube off the hand;
+- terminations: time-out (16 s), abnormal joint speed, a non-finite (diverged) state, and the cube off the hand;
 - contact model: ``code_isaaclab.contact_model`` (pad mu 1.3, condim 4, impratio 1000, stiffer solimp/solref);
 - domain randomisation: OmniReset's stage-1 object mass and actuator gains (its friction ranges would override the
   contact model's pads);
@@ -181,7 +181,8 @@ class RewardsCfg:
 @configclass
 class TerminationsCfg:
     time_out = DoneTerm(func=base_mdp.time_out, time_out=True)
-    abnormal_robot = DoneTerm(func=mdp.abnormal_robot_state)
+    abnormal_robot = DoneTerm(func=mdp.joint_speed_abnormal)
+    non_finite_state = DoneTerm(func=mdp.NonFiniteState)
     cube_out_of_reach = DoneTerm(func=mdp.cube_out_of_reach, params={"max_distance": OUT_OF_REACH_M})
 
 

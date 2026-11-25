@@ -104,6 +104,8 @@ def main(argv=None) -> int:
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.episode_length_s = 1.0e4
     env_cfg.terminations.abnormal_robot = None
+    env_cfg.terminations.non_finite_state = None
+    env_cfg.rewards.abnormal_robot = None
     env_cfg.terminations.cube_out_of_reach = None
     for term in ("servo_gains",):
         setattr(env_cfg.events, term, None)

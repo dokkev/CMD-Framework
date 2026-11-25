@@ -462,14 +462,36 @@ def joint_vel_l2_clamped(env, asset_cfg: SceneEntityCfg, four_bar_tables: dict) 
     return _finite(torch.clamp(flexion_joint_vel(env, asset_cfg, four_bar_tables).square().sum(dim=1), 0, 1e4))
 
 
+def joint_speed_abnormal(env) -> torch.Tensor:
+    """Any joint faster than twice its velocity limit (``uwlab/envs/mdp/terminations.py`` ``abnormal_robot_state``)."""
+    robot = env.scene["robot"]
+    return (_t(robot.data.joint_vel).abs() > 2.0 * _t(robot.data.joint_vel_limits)).any(dim=1)
+
+
+class NonFiniteState(ManagerTermBase):
+    """Termination: a non-finite joint or cube state (a diverged world; NaN compares false, so the speed test misses
+    it). Logs ``Metrics/non_finite_per_10k_env_steps`` since the start of the run."""
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self.events = 0
+        self.env_steps = 0
+
+    def __call__(self, env) -> torch.Tensor:
+        robot, obj = env.scene["robot"], env.scene["object"]
+        states = (_t(robot.data.joint_pos), _t(robot.data.joint_vel), _t(obj.data.root_pose_w),
+                  _t(obj.data.root_vel_w))  # fmt: skip
+        bad = ~torch.stack([torch.isfinite(x).all(dim=1) for x in states], dim=1).all(dim=1)
+        self.events += int(bad.sum())
+        self.env_steps += env.num_envs
+        env.extras.setdefault("log", {})["Metrics/non_finite_per_10k_env_steps"] = 1e4 * self.events / self.env_steps
+        return bad
+
+
 def abnormal_robot_state(env) -> torch.Tensor:
-    """Any joint faster than twice its velocity limit (``uwlab/envs/mdp/terminations.py``), or a non-finite joint or
-    cube state (a diverged world; NaN compares false, so the speed test alone misses it)."""
-    robot, obj = env.scene["robot"], env.scene["object"]
-    qd = _t(robot.data.joint_vel)
-    fast = (qd.abs() > 2.0 * _t(robot.data.joint_vel_limits)).any(dim=1)
-    states = (_t(robot.data.joint_pos), qd, _t(obj.data.root_pose_w), _t(obj.data.root_vel_w))
-    return fast | ~torch.stack([torch.isfinite(x).all(dim=1) for x in states], dim=1).all(dim=1)
+    """The abnormal-state penalty's condition: a runaway joint or a non-finite state (both end the episode)."""
+    tm = env.termination_manager
+    return tm.get_term("abnormal_robot") | tm.get_term("non_finite_state")
 
 
 def _finite(x: torch.Tensor) -> torch.Tensor:
@@ -524,7 +546,9 @@ __all__ = [
     "OmniResetFlexionAction",
     "OmniResetFlexionActionCfg",
     "OmniResetStates",
+    "NonFiniteState",
     "abnormal_robot_state",
+    "joint_speed_abnormal",
     "action_l2_clamped",
     "action_rate_l2_clamped",
     "cube_goal_error",
