@@ -38,7 +38,7 @@ def usd_render(path):
     from PIL import Image
     im = np.asarray(Image.open(path).convert("RGB")).astype(float)
     bg = np.median(np.concatenate([im[:20, :20].reshape(-1, 3), im[-20:, -20:].reshape(-1, 3)]), axis=0)
-    alpha = np.clip((np.linalg.norm(im - bg, axis=2) - 8.0) / 40.0, 0.0, 1.0)[..., None]
+    alpha = np.clip((np.linalg.norm(im - bg, axis=2) - 2.0) / 6.0, 0.0, 1.0)[..., None]  # sharp key: dark servos stay dark
     out = alpha * im + (1.0 - alpha) * 255.0
     rows, cols = np.where(alpha[..., 0] > 0.05)
     out = out[max(rows.min() - 8, 0):rows.max() + 8, max(cols.min() - 8, 0):cols.max() + 8]
@@ -336,7 +336,7 @@ def main() -> int:
 
     # ---------------- single column, top to bottom
     top = H_ - 0.03
-    hand = usd_render(CAD / "hand_usd_palm_up.png")  # the open hand, palm up, no object
+    hand = usd_render(CAD / "hand_usd_relaxed.png")  # a relaxed pose, no object (render_grasp.py --object none)
     hw = 1.30
     hh = hw * hand.shape[0] / hand.shape[1]
     plabel(0.02, top, "a", "CoDe Hand")

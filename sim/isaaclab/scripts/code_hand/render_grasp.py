@@ -100,7 +100,7 @@ def fit_box(points, centre, quat, margin=0.0006, search=0.012, n=4000, seed=0):
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--usd", type=Path, required=True)
-    p.add_argument("--object", choices=("sphere", "box", "cylinder"), default="sphere")
+    p.add_argument("--object", choices=("sphere", "box", "cylinder", "none"), default="sphere")
     p.add_argument("--size", type=int, nargs=2, default=(1400, 1100))
     p.add_argument("--eye", type=float, nargs=3, default=None)
     p.add_argument("--out", default="hand")
@@ -179,17 +179,21 @@ def main(argv=None) -> int:
     print("object centre", centre.round(4), "radius", round(r, 4))
     from scipy.spatial.transform import Rotation
     quat = Rotation.from_euler("xyz", args.tilt, degrees=True).as_quat()
-    if args.object == "box":  # no penetration: the largest cube clear of every visual surface
+    if args.object == "none":
+        model = build()
+    elif args.object == "box":  # no penetration: the largest cube clear of every visual surface
         pts_hand = hand_points(model, state, newton)
         centre, r = fit_box(pts_hand, centre, quat)
         if args.radius:
             r = min(r, args.radius)
         print("clear cube: centre", np.round(centre, 4), "half side", round(r, 4), "points", len(pts_hand))
-    model = build((args.object, centre, r, tuple(quat)))
+    if args.object != "none":
+        model = build((args.object, centre, r, tuple(quat)))
     state = pose(model)
-    colors = model.shape_color.numpy()
-    colors[-1] = (0.86, 0.55, 0.30)
-    model.shape_color.assign(colors)
+    if args.object != "none":
+        colors = model.shape_color.numpy()
+        colors[-1] = (0.86, 0.55, 0.30)
+        model.shape_color.assign(colors)
     viewer = newton.viewer.ViewerGL(width=args.size[0], height=args.size[1], headless=True)
     viewer.set_model(model)
     viewer.show_collision = False
