@@ -612,6 +612,86 @@ def render_hold_iso(snap: dict) -> list[Path]:
     return out
 
 
+BRASS, BRASS_DARK = [0.86, 0.69, 0.30, 1.0], [0.72, 0.55, 0.20, 1.0]
+TABLE = [0.86, 0.88, 0.91, 1.0]
+COIN_CAMERA = {"target_mm": (52.0, 0.0, -18.0), "dist": 0.25, "az_deg": 125.0, "el_deg": 35.0, "fov_deg": 33.0}
+"""The coin drag from in front of the fingertip, above and on the index finger's outer side (+y), in its planar frame:
+the fingertip on the coin in profile, the coin's travel arrow and start ring on the near side. Chosen over straight in
+front (azimuth 100 deg, the distal phalanx covers most of the coin) and from the middle finger's side (70 deg, the coin
+small behind the fingertip)."""
+COIN_FRAMES = ("start", "dragging", "end")
+
+
+def build_coin(st: dict, snap: dict, folder: Path, start: dict | None = None) -> Scene:
+    """Experiment 30b's frame (coin_drag.py frames, logs/coin_snapshots.json) in the index finger's planar frame (mm;
+    the coin in the finger's plane, y = 0): the table slab at its height, the brass coin on it (2 mm thick, the draw's
+    diameter), its tether to a post ahead of it on the table as a coil, the start position faint on the table and a red
+    arrow for its travel toward the palm in the later frames, and the pad's contact outlined on the coin's top."""
+    sc = Scene(folder)
+    r, th = snap["coin"]["diameter_mm"] / 2, snap["coin"]["thickness_mm"]
+    x, zc = st["coin_pose_mm_rad"][0], st["coin_pose_mm_rad"][1]
+    x0 = (start or st)["coin_pose_mm_rad"][0]
+    z_tab = st["table_z_mm"]
+    lo, hi = snap["table"]["x_extent_from_coin_mm"]
+    c = np.array([x, 0.0])
+    sc.extrude(rounded_rect(x0 + lo, x0 + hi, -r - 14.0, r + 14.0, 3.0), z_tab - 5.0, z_tab, TABLE, axis="z")
+    sc.cylinder(c, zc - th / 2, zc + th / 2, r, BRASS, n=120, axis="z")
+    sc.cylinder(c, zc + th / 2 - 0.1, zc + th / 2 + 0.25, r - 2.2, BRASS_DARK, n=120, axis="z")  # the coin's face
+    sc.cylinder(c, zc + th / 2 - 0.1, zc + th / 2 + 0.35, r - 3.2, BRASS, n=120, axis="z")
+    post = np.array([x0 + r + 16.0, 0.0])  # the tether's anchor, on the table ahead of the coin
+    sc.cylinder(post, z_tab, zc + 4.0, 1.8, MID, axis="z")
+    a, b = c + np.array([r, 0.0]), post - np.array([1.8, 0.0])
+    n_coil = 9
+    pts = [a + (b - a) * t for t in np.linspace(0.0, 1.0, 2 * n_coil + 1)]
+    zig = [np.array([p[0], (1.6 if k % 2 else -1.6) if 0 < k < 2 * n_coil else 0.0]) for k, p in enumerate(pts)]
+    for p_, q_ in zip(zig[:-1], zig[1:]):  # the coil, seen from above as a zigzag in the table's plane
+        sc.bar(p_, q_, 0.35, zc - 0.35, zc + 0.35, STEEL, axis="z")
+    travel = x0 - x
+    if travel > 1.0:
+        y_ghost = 0.0
+        for k in range(40):  # the coin's start, a dashed ring on the table
+            t0, t1 = 2 * math.pi * k / 40, 2 * math.pi * (k + 0.55) / 40
+            sc.bar(np.array([x0, y_ghost]) + r * np.array([math.cos(t0), math.sin(t0)]),
+                   np.array([x0, y_ghost]) + r * np.array([math.cos(t1), math.sin(t1)]), 0.45, z_tab, z_tab + 0.5,
+                   GHOST, axis="z")
+        y_arr, z_arr = r + 6.0, z_tab + 0.8  # on the camera's side
+        tail, head = np.array([x0, y_arr]), np.array([x, y_arr])
+        d = (head - tail) / np.linalg.norm(head - tail)
+        nrm = np.array([-d[1], d[0]])
+        base = head - 4.5 * d
+        if np.linalg.norm(base - tail) > 0.5:
+            sc.bar(tail, base, 1.1, z_arr - 0.8, z_arr + 0.8, LOAD, axis="z")
+        sc.extrude([base + 3.0 * nrm, base - 3.0 * nrm, head], z_arr - 0.8, z_arr + 0.8, LOAD, smooth_deg=0.0,
+                   axis="z")
+        for xx in (x0, x):  # ticks at the start and the coin's centre
+            sc.bar(np.array([xx, y_arr - 2.5]), np.array([xx, y_arr + 2.5]), 0.35, z_arr - 0.6, z_arr + 0.6, GHOST,
+                   axis="z")
+    if st.get("contact_point_mm"):
+        p = np.array([st["contact_point_mm"][0], 0.0])
+        for k in range(16):
+            a0, a1 = 2 * math.pi * k / 16, 2 * math.pi * (k + 0.6) / 16
+            sc.bar(p + 3.0 * np.array([math.cos(a0), math.sin(a0)]), p + 3.0 * np.array([math.cos(a1), math.sin(a1)]),
+                   0.5, zc + th / 2, zc + th / 2 + 0.6, CONTACT, axis="z")
+    return sc
+
+
+def render_coin(path: Path | None = None, camera: dict | None = None, out_dir: Path | None = None,
+                size=(W, H)) -> list[Path]:
+    """render_coin{0,1,2}.png (start, dragging, end) and render_coin_strip.png from logs/coin_snapshots.json: the
+    index finger at the frame's flexion, middle and ring curled away, as the fingertip disk."""
+    snap = json.loads((path or T.OUT / "coin_snapshots.json").read_text())
+    shots = snap["snapshots"]
+    out_dir, out = out_dir or T.OUT, []
+    for i, key in enumerate(COIN_FRAMES):
+        st = shots[key]
+        sc = build_coin(st, snap, T.OUT / "render3d" / f"coin{i}", start=shots["start"])
+        out.append(render_on_hand(sc, out_dir / f"render_coin{i}.png", st["distal_pose_mm_rad"][2],
+                                  camera={**COIN_CAMERA, **(camera or {})}, size=size, ref=TIPDIAL_REF,
+                                  fingers=TIPDIAL_FINGERS, curled=TIPDIAL_CURLED))
+    strip(out, out_dir / "render_coin_strip.png")
+    return out
+
+
 def main():
     snap = json.loads((T.OUT / "task_snapshots.json").read_text())
     for task in ("hold", "acquire", "dial"):
@@ -622,6 +702,8 @@ def main():
                        turn_sign=math.copysign(1.0, frames[-1]["spin"]), finger=False, span=task_span())
             render_on_hand(sc, T.OUT / f"render_{task}{i}.png", st["distal"][2])
     render_hold_iso(snap)
+    if (T.OUT / "coin_snapshots.json").exists():
+        render_coin()
     if "tipdial" in snap:
         tip = snap["tipdial"]
         for i, st in enumerate(tip["frames"]):
