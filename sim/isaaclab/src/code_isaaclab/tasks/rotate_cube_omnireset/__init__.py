@@ -11,14 +11,19 @@
 
 import gymnasium as gym
 
-for _suffix, _cfg in (("", "CoDeRotateCubeOOmniResetEnvCfg"), ("-Eval", "CoDeRotateCubeOOmniResetEvalEnvCfg")):
+for _suffix, _cfg, _agent in (
+    ("", "CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOmniResetPPORunnerCfg"),
+    ("-Eval", "CoDeRotateCubeOOmniResetEvalEnvCfg", "CoDeRotateCubeOmniResetPPORunnerCfg"),
+    ("V2", "CoDeRotateCubeOOmniResetV2EnvCfg", "CoDeRotateCubeOmniResetV2PPORunnerCfg"),
+    ("V2-Eval", "CoDeRotateCubeOOmniResetV2EvalEnvCfg", "CoDeRotateCubeOmniResetV2PPORunnerCfg"),
+):
     gym.register(
         id=f"CoDe-Rotate-Cube-O-OmniReset{_suffix}",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
         disable_env_checker=True,
         kwargs={
             "env_cfg_entry_point": f"{__name__}.env_cfg:{_cfg}",
-            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetPPORunnerCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:{_agent}",
             "default_agent": "rsl_rl",
         },
     )

@@ -39,3 +39,14 @@ class CoDeRotateCubeOmniResetPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         super().__post_init__()
         if os.environ.get("CODE_OMNIRESET_ASYM_CRITIC", "0") == "1":
             self.obs_groups = {"actor": ["policy"], "critic": ["critic"]}
+
+
+@configclass
+class CoDeRotateCubeOmniResetV2PPORunnerCfg(CoDeRotateCubeOmniResetPPORunnerCfg):
+    """v2: the same PPO, the critic on the privileged group (OmniReset paper section 3.3, UWLab v1.2.0)."""
+
+    experiment_name = "code_rotate_cube_omnireset_v2"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.obs_groups = {"actor": ["policy"], "critic": ["critic"]}

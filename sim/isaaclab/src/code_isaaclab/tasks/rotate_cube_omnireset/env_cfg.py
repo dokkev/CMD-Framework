@@ -97,7 +97,8 @@ GEN = {
     "window_rad": {"aa": math.radians(15.0), "fe": math.radians(25.0), "pip_servo": math.radians(30.0),
                    "ro": math.radians(40.0), "raa": math.radians(15.0), "mcp": math.radians(15.0),
                    "ip": math.radians(15.0)},
-    "lift_prob": 0.25, "close_deg": 10.0,
+    "lift_prob": 0.25, "close_deg": 10.0, "midturn_lift_deg": 20.0, "midturn_goal_rad": (math.radians(10.0),
+                                                                                       math.radians(60.0)),
     "near_open_deg": 20.0, "goal_jitter_deg": 2.0,
     "goal_inside_rad": 0.3, "goal_outside_rad": 0.8,
 }  # fmt: skip
@@ -143,6 +144,8 @@ class ObservationsCfg:
         joint_pos = ObsTerm(func=flexion_joint_pos_normalized, params={})
         cube_pose = ObsTerm(func=mdp.cube_pose, params={})
         cube_goal_error = ObsTerm(func=mdp.cube_goal_error, params={})
+        joint_targets: ObsTerm | None = None
+        """The commanded joint targets (v2)."""
 
         def __post_init__(self):
             self.enable_corruption = True
@@ -230,6 +233,19 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     reset_datasets: str = ""
     contact_model: dict | None = None
     """The hand-cube contact model (``code_isaaclab.contact_model.describe()``), recorded in the run's params."""
+    version: str = "v1"
+    goal_step_rad: float = GOAL_STEP_RAD
+    success: dict | None = None
+    """``GoalContext``'s success thresholds and hold (None: :data:`SUCCESS`)."""
+    asym_critic: bool = ASYM_CRITIC
+    actor_history: int = 0
+    observe_targets: bool = False
+    """Add the commanded joint targets (PIP in flexion, normalised) to the actor input (v2)."""
+    abnormal_factor: float = ABNORMAL_FACTOR
+    reset_probs: dict | None = None
+    """``{reset type: probability}`` (None: OmniReset's four types at 0.25)."""
+    goal_offsets: dict | None = None
+    """``OmniResetStates.goal_offsets`` (None: each dataset's stored offsets, v1)."""
 
     scene: SceneCfg = SceneCfg()
     observations: ObservationsCfg = ObservationsCfg()
@@ -297,12 +313,19 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         obs.policy.joint_pos.params = {"asset_cfg": joints, "four_bar_tables": tables}
         obs.policy.cube_pose.params = {"rest_pos": rest}
         obs.policy.cube_goal_error.params = {"rest_pos": rest}
-        if ASYM_CRITIC:
+        if self.observe_targets:
+            obs.policy.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
+        obs.policy.history_length = self.actor_history
+        if self.asym_critic:
             obs.critic = ObservationsCfg.CriticCfg()
             for term in ("joint_pos", "cube_pose", "cube_goal_error"):
                 getattr(obs.critic, term).params = getattr(obs.policy, term).params
+            if self.observe_targets:
+                obs.critic.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
             obs.critic.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
-        self.rewards.goal_context.params = {"rest_pos": rest, "goal_step": GOAL_STEP_RAD, **SUCCESS}
+        self.rewards.goal_context.params = {"rest_pos": rest, "goal_step": self.goal_step_rad,
+                                            **(self.success or SUCCESS)}  # fmt: skip
+        self.terminations.abnormal_robot.params["factor"] = self.abnormal_factor
         self.rewards.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
         self.rewards.reach.params["asset_cfg"] = tips
         self.terminations.cube_out_of_reach.params["rest_pos"] = rest
@@ -310,7 +333,7 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         self.events.servo_gains.params["asset_cfg"] = SceneEntityCfg("robot", joint_names=non_pip, preserve_order=True)
         open_sign = [OPEN_SIGN.get(j, OPEN_SIGN.get(j.split("_", 1)[1], 0.0)) for j in actuated]
         reset = {
-            "actuated": actuated, "four_bar_tables": tables, "goal_step": GOAL_STEP_RAD, "rest_pos": rest,
+            "actuated": actuated, "four_bar_tables": tables, "goal_step": self.goal_step_rad, "rest_pos": rest,
             "rest_quat": tuple(float(v) for v in g["rest_quat_xyzw"]), "gen": {**GEN, "open_sign": open_sign},
         }  # fmt: skip
         if self.evaluation:
@@ -326,8 +349,11 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
             self.episode_length_s = TRAIN_EPISODE_S
             directory = dataset_dir(self.hand_key, profile)
             self.reset_datasets = str(directory)
-            reset["datasets"] = {t: str(directory / f"resets_{t}.pt") for t in mdp.RESET_TYPES}
-            reset["probs"] = [0.25] * len(mdp.RESET_TYPES)
+            probs = self.reset_probs or {t: 0.25 for t in mdp.OMNIRESET_TYPES}
+            reset["datasets"] = {t: str(directory / f"resets_{t}.pt") for t in probs}
+            reset["probs"] = list(probs.values())
+            if self.goal_offsets:
+                reset["goal_offsets"] = self.goal_offsets
         self.events.reset_grasp.params = reset
         self.sim.physics = HandPhysicsCfg()
         apply_hand_buffers(self.sim.physics, spec.mjwarp_buffers)
@@ -349,4 +375,46 @@ class CoDeRotateCubeOOmniResetEvalEnvCfg(CoDeRotateCubeOmniResetEnvCfg):
     evaluation = True
 
 
-__all__ = ["CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOOmniResetEvalEnvCfg", "dataset_dir"]
+V2_GOAL_STEP_RAD = math.radians(45.0)
+V2_SUCCESS = {"success_distance_m": 0.02, "success_orientation_rad": 0.3, "hold_steps": 6}
+
+
+@configclass
+class CoDeRotateCubeOOmniResetV2EnvCfg(CoDeRotateCubeOmniResetEnvCfg):
+    """v2 (``docs/experimental/omnireset_recipe.md`` section 6): the OmniReset framework with
+
+    - a mid-turn reset type (Khandate et al., RSS 2023: reset states from inside a gait), half of the near-goal share;
+    - the commanded joint targets in the actor input, a 5-step actor history and the privileged critic (OmniReset paper
+      section 3.3 and UWLab v1.2.0 ``rl_state_cfg.py``: ``history_length = 5``, ``critic = CriticCfg()``);
+    - 45 deg chained goals (AnyRotate's small increments), success at 0.3 rad held 0.2 s (6 steps; references count
+      success at once, at 0.1-0.4 rad);
+    - the abnormal-speed test at 10x the servo limit (``CODE_OMNIRESET_ABNORMAL_FACTOR`` overrides).
+
+    Goal offsets at reset: 45 deg ahead for the reaching, near-object and grasp types; near-goal half within +-0.45 rad
+    (1.5x the success threshold) and half 0.45-0.785 rad ahead; mid-turn as stored (10-60 deg)."""
+
+    hand_key = "O"
+    version = "v2"
+    goal_step_rad = V2_GOAL_STEP_RAD
+    success = V2_SUCCESS
+    asym_critic = True
+    actor_history = 5
+    observe_targets = True
+    abnormal_factor = float(os.environ.get("CODE_OMNIRESET_ABNORMAL_FACTOR", "10"))
+    reset_probs = {"ObjectAnywhereHandAnywhere": 0.25, "ObjectRestingHandNear": 0.25, "ObjectAnywhereHandGrasped": 0.25,
+                   "ObjectNearGoalHandGrasped": 0.125, "ObjectMidTurnHandWound": 0.125}  # fmt: skip
+    goal_offsets = {
+        "ObjectAnywhereHandAnywhere": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectRestingHandNear": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectAnywhereHandGrasped": ["fixed", V2_GOAL_STEP_RAD],
+        "ObjectNearGoalHandGrasped": ["near", 1.5 * V2_SUCCESS["success_orientation_rad"], V2_GOAL_STEP_RAD],
+    }
+
+
+@configclass
+class CoDeRotateCubeOOmniResetV2EvalEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
+    evaluation = True
+
+
+__all__ = ["CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOOmniResetEvalEnvCfg", "CoDeRotateCubeOOmniResetV2EnvCfg",
+           "CoDeRotateCubeOOmniResetV2EvalEnvCfg", "dataset_dir"]

@@ -54,7 +54,9 @@ TASK = "CoDe-Rotate-Cube-O-OmniReset"
 ORDER = ("ObjectAnywhereHandAnywhere", "ObjectAnywhereHandGrasped", "ObjectRestingHandNear",
          "ObjectNearGoalHandGrasped")
 MAX_DEVIATION_M = {"ObjectAnywhereHandAnywhere": math.inf, "ObjectRestingHandNear": 0.01,
-                   "ObjectAnywhereHandGrasped": 0.05, "ObjectNearGoalHandGrasped": 0.025}  # fmt: skip
+                   "ObjectAnywhereHandGrasped": 0.05, "ObjectNearGoalHandGrasped": 0.025,
+                   "ObjectMidTurnHandWound": 0.025}  # fmt: skip
+MIDTURN = "ObjectMidTurnHandWound"
 FINGER_BODIES = [f"{f}_{s}" for f in ("index", "middle", "ring") for s in ("proximal", "distal")]
 
 
@@ -64,7 +66,10 @@ def main(argv=None) -> int:
     from isaaclab_tasks.utils import setup_preset_cli
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--type", default="all", choices=("all", *ORDER))
+    parser.add_argument("--type", default="all", choices=("all", *ORDER, MIDTURN),
+                        help="all: OmniReset's four types; ObjectMidTurnHandWound (v2) needs --source_rows")
+    parser.add_argument("--source_rows", type=Path, help="harvested states (harvest_omnireset_midturn.py)")
+    parser.add_argument("--render", action="store_true", help="a PNG of four kept states per type")
     parser.add_argument("--count", type=int, default=10000)
     parser.add_argument("--num_envs", type=int, default=4096)
     parser.add_argument("--hold_s", type=float, default=2.0)
@@ -101,6 +106,10 @@ def main(argv=None) -> int:
     params["generate"] = first
     if first in ("ObjectRestingHandNear", "ObjectNearGoalHandGrasped"):
         params["grasp_rows"] = str(grasp_path)
+    if first == MIDTURN:
+        if not args.source_rows:
+            parser.error("ObjectMidTurnHandWound needs --source_rows")
+        params["grasp_rows"] = str(args.source_rows)
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.episode_length_s = 1.0e4
     env_cfg.terminations.abnormal_robot = None
@@ -147,7 +156,7 @@ def main(argv=None) -> int:
                     if not len(rows["q"]):
                         raise RuntimeError("no stable grasp near the goal pose to start near-goal states from")
                 term.grasp_rows = {k: v.to(dev) for k, v in rows.items()}
-            kept = {k: [] for k in ("q", "qd", "target", "pos", "quat", "vel", "goal_offset")}
+            kept = {k: [] for k in ("q", "qd", "target", "pos", "quat", "vel", "goal_offset", "progress", "lifted")}
             tried, reasons = 0, {}
             for rnd in range(args.max_rounds):
                 env.reset(seed=seed)
@@ -175,6 +184,9 @@ def main(argv=None) -> int:
                 }
                 if kind == "ObjectAnywhereHandGrasped":
                     tests["not_held"] = touch[:, -1] & touch[:, :-1].any(dim=1)
+                if kind == MIDTURN:  # still held near the pads, lying near flat
+                    tests["not_held"] = touch[:, -1] & touch[:, :-1].any(dim=1)
+                    tests["off_pads"] = ((pos - rest_d).norm(dim=1) < 0.03) & (cube_tilt(quat) < math.radians(20))
                 if kind == "ObjectNearGoalHandGrasped":
                     tests["off_goal"] = ((pos - rest_d).norm(dim=1) < 0.015) & (cube_tilt(quat) < math.radians(10))
                 keep = torch.ones(n, dtype=torch.bool, device=dev)
@@ -187,12 +199,20 @@ def main(argv=None) -> int:
                                  ("vel", torch.cat((tq(obj.data.root_lin_vel_w), tq(obj.data.root_ang_vel_w)), 1)),
                                  ("goal_offset", term.goal_offset)):  # fmt: skip
                     kept[key].append(val[keep].cpu())
+                prog = getattr(term, "gen_progress", None)
+                prog = prog if prog is not None else torch.full((n,), math.nan, device=dev)
+                kept["progress"].append(prog[keep].cpu())
+                lifted = getattr(term, "gen_lifted", None) if kind == MIDTURN else None
+                kept["lifted"].append((lifted if lifted is not None else torch.zeros(n, dtype=torch.bool,
+                                                                                      device=dev))[keep].cpu())
                 total = sum(len(x) for x in kept["q"])
                 print(f"{kind} round {rnd}: kept {int(keep.sum())}/{n}, total {total}; rejected (first failing test) "
                       f"{reasons}", flush=True)
                 if total >= args.count:
                     break
             data = {k: torch.cat(v)[: args.count] for k, v in kept.items()}
+            if args.render:
+                render(u, keep, out_dir / f"resets_{kind}_samples.png")
             accepted = sum(len(x) for x in kept["q"])
             meta = {
                 "type": kind, "task": TASK, "joint_names": list(robot.joint_names), "hand": env_cfg.hand_key,
@@ -212,6 +232,44 @@ def main(argv=None) -> int:
             print(f"{path}: {meta['stored']} states; acceptance {accepted}/{tried}", flush=True)
     print(f"wall {time.time() - started:.0f} s")
     return 0
+
+
+def render(u, keep, path) -> None:
+    """Four kept states of the last round, drawn with Newton's GL viewer offscreen, colliders shown (the hand's
+    drawing meshes are Isaac Lab's; the colliders are what the physics sees)."""
+    import pyglet
+
+    if not os.environ.get("DISPLAY"):
+        pyglet.options["headless"] = True
+    import newton
+    import numpy as np
+    import warp as wp
+    from PIL import Image
+
+    from code_isaaclab.tasks.rotate_cube.camera import CAMERA_EYE_ENV, CAMERA_LOOKAT_ENV
+
+    viewer = newton.viewer.ViewerGL(width=960, height=540, headless=True)
+    viewer.set_model(u.sim.physics_manager.get_model())
+    viewer.show_collision = True
+    viewer.set_world_offsets((0.0, 0.0, 0.0))
+    frames = []
+    for k in keep.nonzero().flatten()[:4].tolist():
+        viewer.set_visible_worlds([k])
+        o = u.scene.env_origins[k].tolist()
+        eye = [o[i] + CAMERA_EYE_ENV[i] for i in range(3)]
+        d = [CAMERA_LOOKAT_ENV[i] - CAMERA_EYE_ENV[i] for i in range(3)]
+        viewer.set_camera(pos=wp.vec3(*eye), pitch=math.degrees(math.atan2(d[2], math.hypot(d[0], d[1]))),
+                          yaw=math.degrees(math.atan2(d[1], d[0])))
+        for _ in range(2):
+            viewer.begin_frame(0.0)
+            viewer.log_state(u.sim.physics_manager.get_state_0())
+            viewer.end_frame()
+        frames.append(viewer.get_frame().numpy())
+    viewer.close()
+    if len(frames) >= 2:
+        grid = np.concatenate([np.concatenate(frames[i:i + 2], axis=1) for i in range(0, len(frames) - 1, 2)], axis=0)
+        Image.fromarray(grid).save(path)
+        print(path, flush=True)
 
 
 if __name__ == "__main__":

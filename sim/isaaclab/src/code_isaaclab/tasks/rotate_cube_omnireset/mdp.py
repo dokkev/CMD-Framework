@@ -33,11 +33,16 @@ from isaaclab.utils import configclass
 
 from ..rotate_cube.rotate_cube_mdp import RelativeFlexionAction, RelativeFlexionActionCfg, _t
 
-RESET_TYPES = ("ObjectAnywhereHandAnywhere", "ObjectRestingHandNear", "ObjectAnywhereHandGrasped",
-               "ObjectNearGoalHandGrasped")  # fmt: skip
+OMNIRESET_TYPES = ("ObjectAnywhereHandAnywhere", "ObjectRestingHandNear", "ObjectAnywhereHandGrasped",
+                   "ObjectNearGoalHandGrasped")  # fmt: skip
 """OmniReset's four reset types for the hand (``omnireset/config/.../reset_states_cfg.py``): reaching
 (``ObjectAnywhereEEAnywhere``), near-object (``ObjectRestingEEGrasped``), stable grasp (``ObjectAnywhereEEGrasped``)
 and near-goal (``ObjectPartiallyAssembledEEGrasped``)."""
+MIDTURN = "ObjectMidTurnHandWound"
+"""v2's mid-turn type (Khandate et al., RSS 2023): states harvested from policy roll-outs with the cube 30-80 deg into
+a turn or a servo near its limit, half of them with one finger lifted, the goal 10-60 deg ahead
+(``scripts/rotate_cube/harvest_omnireset_midturn.py``, ``gen_omnireset_resets.py --type ObjectMidTurnHandWound``)."""
+RESET_TYPES = OMNIRESET_TYPES + (MIDTURN,)
 DATASET_KEYS = {"q": 2, "qd": 2, "target": 2, "pos": 2, "quat": 2, "vel": 2, "goal_offset": 1}
 
 
@@ -93,7 +98,7 @@ def load_reset_dataset(path: str | Path, joint_names: Sequence[str], goal_step: 
     data.setdefault("qd", torch.zeros_like(data["q"]))
     data.setdefault("vel", torch.zeros(n, 6))
     data.setdefault("goal_offset", torch.full((n,), float(goal_step)))
-    out = {}
+    out = {k: data[k].to(torch.float32) for k in ("progress",) if k in data}
     for key, ndim in DATASET_KEYS.items():
         v = data[key].to(torch.float32)
         if n == 0 or v.shape[0] != n or v.ndim != ndim or not torch.isfinite(v).all():
@@ -152,8 +157,8 @@ class OmniResetStates(ManagerTermBase):
             if p.get("grasp_rows"):
                 rows = load_reset_dataset(p["grasp_rows"], self.robot.joint_names, p["goal_step"])
                 self.grasp_rows = {k: v.to(dev) for k, v in rows.items()}
-            elif self.generate in RESET_TYPES[1::2]:
-                raise ValueError(f"{self.generate} starts from the stable-grasp dataset: set grasp_rows")
+            elif self.generate in ("ObjectRestingHandNear", "ObjectNearGoalHandGrasped", MIDTURN):
+                raise ValueError(f"{self.generate} starts from source states: set grasp_rows")
         elif p.get("cache"):
             self.names = ["cache"]
             self.datasets = [load_reset_dataset(p["cache"], self.robot.joint_names, p["goal_step"])]
@@ -166,6 +171,10 @@ class OmniResetStates(ManagerTermBase):
                 self.names.append(name)
                 self.datasets.append(load_reset_dataset(path, self.robot.joint_names, p["goal_step"]))
         self.datasets = [{k: v.to(dev) for k, v in d.items()} for d in self.datasets]
+        self.goal_offsets = p.get("goal_offsets") or {}
+        """Per type, how a reset sets the goal instead of the dataset's stored offset: ``["fixed", rad]``,
+        ``["near", inside, outside]`` (half within +-inside, half inside..outside ahead: OmniReset's
+        ``assembly_success_prob`` 0.5), ``["uniform", lo, hi]``; types not listed keep the stored offset (v1)."""
         probs = p.get("probs") or [1.0] * len(self.names)
         if len(probs) != len(self.names):
             raise ValueError("probs must match the reset types")
@@ -215,7 +224,7 @@ class OmniResetStates(ManagerTermBase):
 
     def __call__(
         self, env, env_ids, actuated, four_bar_tables, goal_step, rest_pos, rest_quat, gen, datasets=None, probs=None,
-        cache=None, generate=None, grasp_rows=None,
+        cache=None, generate=None, grasp_rows=None, goal_offsets=None,
     ):  # fmt: skip
         if env_ids is None or isinstance(env_ids, slice):
             ids = torch.arange(env.num_envs, device=env.device)
@@ -237,7 +246,22 @@ class OmniResetStates(ManagerTermBase):
             sub = ids[mask]
             rows = torch.randint(0, data["q"].shape[0], (len(sub),), device=env.device)
             self.grasp_cache_index[sub] = rows
-            self.write(sub, {k: v[rows] for k, v in data.items()})
+            self.write(sub, {k: v[rows] for k, v in data.items() if k in DATASET_KEYS})
+            spec = self.goal_offsets.get(self.names[t])
+            if spec:
+                self.goal_offset[sub] = self._sample_goal(spec, len(sub))
+
+    def _sample_goal(self, spec, k: int) -> torch.Tensor:
+        dev = self._env.device
+        u = torch.rand(k, device=dev)
+        if spec[0] == "fixed":
+            return torch.full((k,), float(spec[1]), device=dev)
+        if spec[0] == "uniform":
+            return spec[1] + (spec[2] - spec[1]) * u
+        if spec[0] == "near":
+            inside = torch.rand(k, device=dev) < 0.5
+            return torch.where(inside, (2 * u - 1) * spec[1], spec[1] + (spec[2] - spec[1]) * u)
+        raise ValueError(f"unknown goal offset spec {spec}")
 
     def _log(self, env, ids: torch.Tensor) -> None:
         if not hasattr(env, "reward_manager") or "goal_context" not in env.reward_manager.active_terms:
@@ -312,7 +336,27 @@ class OmniResetStates(ManagerTermBase):
             act = self._to_flexion(src["q"][:, self._act])
             target = self._to_flexion(src["target"][:, self._act])
             pos, quat = src["pos"], src["quat"]
-            if kind == "ObjectRestingHandNear":
+            self.gen_progress = src.get("progress")
+            if kind == MIDTURN:
+                # the harvested state, jittered by +-1 deg; half with one digit (a finger, or the thumb) opened by
+                # 0-20 deg; the goal 10-60 deg ahead
+                jitter = math.radians(1.0) * (2 * torch.rand(k, len(names), device=dev) - 1)
+                act, target = act + jitter, target + jitter
+                digits = [[col(f"{f}_fe"), col(f"{f}_pip_servo")] for f in ("index", "middle", "ring")]
+                digits.append([col("thumb_mcp"), col("thumb_ip")])
+                which = torch.randint(0, len(digits), (k,), device=dev)
+                lift = (torch.rand(k, device=dev) < 0.5)[:, None]
+                sign = torch.tensor(g["open_sign"], device=dev)
+                for d, cols in enumerate(digits):
+                    mask = torch.zeros(len(names), device=dev)
+                    mask[cols] = 1.0
+                    amount = math.radians(g["midturn_lift_deg"]) * torch.rand(k, 1, device=dev)
+                    opened = lift & (which == d)[:, None]
+                    act = act + opened * amount * sign * mask
+                    target = target + opened * amount * sign * mask
+                self.gen_lifted = lift[:, 0] & True
+                goal = uniform(*g["midturn_goal_rad"])
+            elif kind == "ObjectRestingHandNear":
                 # the hand opened off the grasp by a few degrees (OmniReset: +-2 cm, +-pi/16 off a grasp pose)
                 open_ = math.radians(g["near_open_deg"]) * torch.rand(k, len(names), device=dev)
                 sign = torch.tensor(g["open_sign"], device=dev)
@@ -544,6 +588,8 @@ def time_left(env) -> torch.Tensor:
 
 
 __all__ = [
+    "MIDTURN",
+    "OMNIRESET_TYPES",
     "RESET_TYPES",
     "GoalContext",
     "OmniResetFlexionAction",
