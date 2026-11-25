@@ -75,6 +75,8 @@ CROWN_WID_MM = float(os.environ.get("CODE_OMNIRESET_CROWN_WID_MM", "1"))
 ASYM_CRITIC = os.environ.get("CODE_OMNIRESET_ASYM_CRITIC", "0") == "1"
 ABNORMAL_FACTOR = float(os.environ.get("CODE_OMNIRESET_ABNORMAL_FACTOR", "2"))
 GOAL_BONUS = float(os.environ.get("CODE_OMNIRESET_GOAL_BONUS", "0"))
+TILT_PENALTY = float(os.environ.get("CODE_OMNIRESET_TILT_PENALTY", "0"))
+"""Weight (negative) of ``mdp.upright_tilt_excess`` beyond a 15 deg free band (0: none). v2d: -0.1."""
 """A one-time reward per goal reached (``mdp.goal_advance_bonus``; 0: none, as OmniReset). v2c: 5.0."""
 """The abnormal-speed termination's multiple of the servo velocity limit (5.55 rad/s): OmniReset's 2 by default. The
 implicit servo model's velocity limit is not enforced by MuJoCo-Warp, so 2x (11 rad/s) ends episodes on ordinary fast
@@ -245,6 +247,7 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     """Add the commanded joint targets (PIP in flexion, normalised) to the actor input (v2)."""
     abnormal_factor: float = ABNORMAL_FACTOR
     goal_bonus: float = GOAL_BONUS
+    tilt_penalty: float = TILT_PENALTY
     reset_probs: dict | None = None
     """``{reset type: probability}`` (None: OmniReset's four types at 0.25)."""
     goal_offsets: dict | None = None
@@ -331,6 +334,9 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         self.terminations.abnormal_robot.params["factor"] = self.abnormal_factor
         if self.goal_bonus > 0.0:
             self.rewards.goal_advance_bonus = RewTerm(func=mdp.goal_advance_bonus, weight=self.goal_bonus)
+        if self.tilt_penalty != 0.0:
+            self.rewards.upright_tilt = RewTerm(func=mdp.upright_tilt_excess, weight=self.tilt_penalty,
+                                                params={"free_rad": math.radians(15.0)})  # fmt: skip
         self.rewards.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
         self.rewards.reach.params["asset_cfg"] = tips
         self.terminations.cube_out_of_reach.params["rest_pos"] = rest

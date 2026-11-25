@@ -487,6 +487,12 @@ def goal_advance_bonus(env) -> torch.Tensor:
     return goal_context(env).advanced.float() / env.step_dt
 
 
+def upright_tilt_excess(env, free_rad: float) -> torch.Tensor:
+    """``max(tilt - free_rad, 0)`` [rad], ``tilt`` the most upright face's angle from world z (the tilt success uses):
+    with a negative weight, keeps the cube level between goals beyond a free band (v2d)."""
+    return (goal_context(env).tilt - free_rad).clamp_min(0.0)
+
+
 def dense_success_reward(env, std: float) -> torch.Tensor:
     """``mean(exp(-orientation_distance / std), exp(-distance / std))`` (OmniReset's ``dense_success_reward``)."""
     c = goal_context(env)
@@ -725,4 +731,5 @@ __all__ = [
     "reset_term",
     "success_reward",
     "time_left",
+    "upright_tilt_excess",
 ]

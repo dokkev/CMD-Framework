@@ -347,3 +347,16 @@ v2b segment 2는 iteration 약 1026에서 멈췄다. `model_1000`은 남긴다.
 3. **onset 기록:** onset이 생기면 그 world에서 non-finite인 MuJoCo-Warp와 Newton 배열 목록을 run 폴더의 `nan_onsets.jsonl`에 남긴다.
 
 **검증:** 같은 NaN을 주입했을 때 복구가 있으면 1 step 뒤 정상이 된다 (stuck 0). 다른 world는 영향받지 않았다.
+
+### 6.5 v2d (2026-11-25): goal 사이에도 큐브를 수평으로 유지
+
+**무엇이 바뀌었나:** v2c segment 2의 마지막 checkpoint `model_1497`에서 이어서 학습한다.
+- 항 하나만 추가했다: `upright_tilt_excess`, weight −0.1 (`CODE_OMNIRESET_TILT_PENALTY=-0.1`).
+- 값은 max(tilt − 15°, 0) rad이다. tilt는 success가 쓰는 것과 같은 값으로, 가장 위를 향한 면이 수직에서 기운 각이다.
+- 나머지(reward, reset, goal, 보너스 5, entropy 0.001, std 상한 1.0, NaN 복구)는 v2c와 같다.
+
+**왜 바꿨나:** v2c segment 2에서 가장 위를 향한 면이 20° 안에 있던 시간 비율이 74.4% / 71.1%였다 (seed 94000 / 95000). segment 1의 약 75%에서 나아지지 않았다. 판단 규칙("약 75%이거나 떨어지면 (b)를 시작한다")에 따라 시작했다.
+
+**크기:** 지금 분포에서 이 penalty는 episode당 약 0.01–0.02 (Isaac Lab 정규화 기준)로 예상된다. goal 보너스 약 5.1에 비해 작으므로 회전을 깨지 않을 것으로 본다. 이 값은 실행 전 추정이고 측정하지 않았다.
+
+v2c segment 3은 시작 직후 멈췄다.
