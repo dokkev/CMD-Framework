@@ -26,7 +26,7 @@ POSE = {"fe": {"index": 38.0, "middle": 44.0, "ring": 50.0}, "pip": {"index": 70
         "thumb_ro": 75.0, "thumb_raa": 35.0, "thumb_mcp": 25.0, "thumb_ip": 30.0}
 
 
-def hand_points(model, state, newton, step: float = 0.0008) -> np.ndarray:
+def hand_points(model, state, newton, step: float = 0.0008, only: str | None = None) -> np.ndarray:
     """Points on every visual surface of the posed hand, in the world [m]: mesh triangles sampled about every
     ``step``, boxes and capsules on their surfaces. Used to keep the object clear of the hand."""
     from scipy.spatial.transform import Rotation
@@ -35,6 +35,8 @@ def hand_points(model, state, newton, step: float = 0.0008) -> np.ndarray:
     out = []
     for k, label in enumerate(model.shape_label):
         if "/visual_" not in label and not label.endswith("_pad"):
+            continue
+        if only is not None and only not in label:
             continue
         g = newton.GeoType(int(types[k])).name
         sc = scales[k]

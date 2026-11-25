@@ -406,35 +406,48 @@ def main() -> int:
         box(x0, r3t - ph, pw, ph, "white", col, lw=0.9)
         box(x0, r3t - 0.26, pw, 0.26, lc, "none", lw=0, r=0.06)
         fig.text(*inch(x0 + pw / 2, r3t - 0.13), title, fontsize=8, color=col, ha="center", va="center", **BOLD)
-        # 1. the effect of a softer 7 mm pad on pull-out load: true (on O) against what this redesign measures
+        # 0. an example task, dial turning, from the hand's visual USD; the two touch points (red) circled
+        im_, _ = usd_white(CAD / f"usd_dial_{kind}.png", paper=255.0)
+        im_ = im_[440:880, 380:980]
+        red_ = (im_[..., 0] > 180) & (im_[..., 1] < 90) & (im_[..., 2] < 90)
+        ry, rx = np.nonzero(red_)
+        dh = 0.68
+        dw = dh * im_.shape[1] / im_.shape[0]
+        xa = fig.add_axes((*inch(x0 + 0.10, r3t - ph + 0.40), dw / W_, dh / H_)); xa.imshow(im_); xa.axis("off")
+        if len(rx):
+            xa.add_patch(Ellipse(((rx.min() + rx.max()) / 2, (ry.min() + ry.max()) / 2),
+                                 (rx.max() - rx.min()) * 1.6 + 60, (ry.max() - ry.min()) * 1.5 + 60, fc="none", ec=col,
+                                 lw=1.0, ls=(0, (3, 2)), zorder=5))
+        fig.text(*inch(x0 + 0.10 + dw / 2, r3t - 0.40), "dial turning (example)", fontsize=6.2, color=INK2, ha="center",
+                 va="center")
+        # 1. the effect of a softer, thicker pad on the pull-out load: true (on O) against what this redesign measures
         cc = conc[kind]
-        ba = fig.add_axes((*inch(x0 + 0.22, r3t - 1.06), 1.40 / W_, 0.52 / H_))
+        bx_ = x0 + 0.10 + dw + 0.10
+        ba = fig.add_axes((*inch(bx_, r3t - 1.04), 1.05 / W_, 0.48 / H_))
         vals = ((cc["true_change_pct"], "true (O)", "#9a9a9a"), (cc["measured_change_pct"], f"measured ({kind})", col))
         for j, (v, lab, c_) in enumerate(vals):
             ba.barh(1 - j, v, height=0.62, color=c_, edgecolor="none")
-            ba.text(5 if v < 0 else -5, 1 - j, lab, va="center", ha="left" if v < 0 else "right", fontsize=6.2,
+            ba.text(5 if v < 0 else -5, 1 - j, lab, va="center", ha="left" if v < 0 else "right", fontsize=5.8,
                     color=c_ if j else INK2)
         ba.axvline(0, color=INK, lw=0.6)
         ba.set_xlim(-95, 95); ba.set_ylim(-0.6, 1.6); ba.axis("off")
-        same = np.sign(cc["true_change_pct"]) == np.sign(cc["measured_change_pct"])
-        fig.text(*inch(x0 + 0.92, r3t - 0.40), "softer, thicker pad: pull-out load", fontsize=6.2, color=INK2,
+        fig.text(*inch(bx_ + 0.52, r3t - 0.40), "softer pad: pull-out load", fontsize=6.2, color=INK2,
                  ha="center", va="center")
-        fig.text(*inch(x0 + 0.92, r3t - 1.16), "interface effect read correctly" if same else "sign reversed",
+        fig.text(*inch(bx_ + 0.52, r3t - 1.12), "Reduced confounding" if kind == "R" else "Confounded effects",
                  fontsize=7.2, color=col, ha="center", va="center", **BOLD)
         # 2. how far the distal contact surface strays from O's over flexion
-        da = fig.add_axes((*inch(x0 + 2.10, r3t - 1.02), 1.25 / W_, 0.52 / H_))
+        da = fig.add_axes((*inch(x0 + 2.55, r3t - 1.02), 0.85 / W_, 0.52 / H_))
         red = np.array(paths[kind]["contact"])
         dev = np.linalg.norm(red - ref, axis=1)
         qd = np.linspace(0, 120, len(dev))
         da.axhspan(0, 1.0, color=LBLUE, lw=0, zorder=0)
         da.plot(qd, dev, color=col, lw=1.4)
         da.set_xlim(0, 120); da.set_ylim(0, 4.5); da.set_xticks([]); da.set_yticks([])
-        da.tick_params(labelsize=5.6, length=2, pad=1)
         for sp in ("top", "right"):
             da.spines[sp].set_visible(False)
         da.set_xlabel("flexion", fontsize=5.8, labelpad=1)
         da.set_ylabel("offset from O", fontsize=5.8, labelpad=1)
-        fig.text(*inch(x0 + 2.72, r3t - 0.40), "distal contact surface", fontsize=6.2, color=INK2, ha="center",
+        fig.text(*inch(x0 + 2.97, r3t - 0.40), "contact surface", fontsize=6.2, color=INK2, ha="center",
                  va="center")
         # 3. what each redesign kept: skeleton change against contact-surface change, and coverage
         box(x0 + 0.10, r3t - ph + 0.06, pw - 0.20, 0.24, lc, col, r=0.05, lw=0.6)

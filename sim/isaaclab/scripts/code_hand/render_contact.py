@@ -32,6 +32,7 @@ def main(argv=None) -> int:
     p.add_argument("--radius", type=float, default=None, help="cylinder radius [m]; default: the largest clear")
     p.add_argument("--size", type=int, nargs=2, default=(1400, 1100))
     p.add_argument("--out", default="hand")
+    p.add_argument("--dial", action="store_true", help="draw the object as a dial on an axle, contacts marked")
     args = p.parse_args(argv)
     import pyglet
     if not os.environ.get("DISPLAY"):
@@ -48,12 +49,23 @@ def main(argv=None) -> int:
     desc = Description.load(ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json")
     digit = "ring"
 
+    extras = []  # (kind, xform args, colour)
+
     def build(cyl=None):
         b = newton.ModelBuilder()
         b.add_usd(str(args.usd))
         if cyl is not None:
             c, q, r, hh = cyl
             b.add_shape_cylinder(body=-1, xform=wp.transform(wp.vec3(*c), wp.quat(*q)), radius=r, half_height=hh)
+            for kind, a1, a2_ in extras:
+                if kind == "axle":
+                    b.add_shape_cylinder(body=-1, xform=wp.transform(wp.vec3(*a1), wp.quat(*q)), radius=a2_[0],
+                                         half_height=a2_[1])
+                elif kind == "box":
+                    b.add_shape_box(body=-1, xform=wp.transform(wp.vec3(*a1), wp.quat(*q)), hx=a2_[0], hy=a2_[1],
+                                    hz=a2_[2])
+                else:
+                    b.add_shape_sphere(body=-1, xform=wp.transform(wp.vec3(*a1), wp.quat(0, 0, 0, 1)), radius=a2_)
         return b.finalize()
 
     def pose(model):
@@ -92,24 +104,56 @@ def main(argv=None) -> int:
     r = args.radius or 0.015
     a_ = np.asarray(desc.joint(f"{digit}_a")["anchor"], float) - o
     a2 = np.array([a_ @ xd, a_ @ zd])
-    best = None
-    for cx in np.linspace(-0.02, 0.12, 281):
-        for cz in np.linspace(-0.10, 0.03, 261):
-            dmin = np.min(np.hypot(p2[:, 0] - cx, p2[:, 1] - cz))
-            if r + 0.0002 <= dmin <= r + 0.0012:
-                dd = np.hypot(cx - a2[0], cz - a2[1])
-                if best is None or dd < best[0]:
-                    best = (dd, cx, cz)
+    from scipy.spatial import cKDTree
+
+    def slab2(points):
+        rr = points - o
+        keep_ = np.abs(rr @ ax_y) < 0.010
+        return np.c_[rr[keep_] @ xd, rr[keep_] @ zd]
+    pp2 = slab2(G.hand_points(model, state, newton, only=f"{digit}_proximal_pad"))
+    dp2 = slab2(G.hand_points(model, state, newton, only=f"{digit}_distal_pad"))
+    tree, tp, td = cKDTree(p2), cKDTree(pp2), cKDTree(dp2)
+    gx, gz = np.meshgrid(np.linspace(-0.02, 0.12, 561), np.linspace(-0.10, 0.03, 521))
+    cand = np.c_[gx.ravel(), gz.ravel()]
+    da_, _ = tree.query(cand)
+    dpp, _ = tp.query(cand)
+    ddp, _ = td.query(cand)
+    err = np.maximum(np.abs(dpp - r), np.abs(ddp - r))
+    err[da_ < r - 0.0003] = np.inf  # nothing of the finger inside the object
+    k = int(np.argmin(err))
+    best = (err[k], cand[k, 0], cand[k, 1])
+    print("touch error", round(err[k] * 1000, 2), "mm")
+    contact_pts = []
+    for tr in (tp, td):
+        _, ii = tr.query(cand[k])
+        contact_pts.append(tr.data[ii])
     _, cx, cz = best
     r = r - 0.0
     centre = o + cx * xd + cz * zd
     rotm = np.c_[xd, np.cross(ax_y, xd), ax_y]  # cylinder axis (local z) along the joint axis
     quat = Rotation.from_matrix(rotm).as_quat()
     print("cylinder centre", np.round(centre, 4), "radius", round(r, 4))
-    model = build((centre, tuple(quat), r, 0.014))
+    colours = [(0.92, 0.80, 0.62)]
+    if args.dial:
+        hh = 0.006
+        extras.append(("axle", centre, (0.0025, 0.016)))
+        colours.append((0.45, 0.45, 0.48))
+        for sgn in (-1, 1):
+            spoke = centre + (r * 0.5) * zd + sgn * (hh + 0.0004) * ax_y
+            extras.append(("box", spoke, (0.0011, r * 0.45, 0.0005)))
+            colours.append((0.35, 0.30, 0.25))
+        for c2 in contact_pts:  # the two touch points, marked on both end faces
+            for sgn in (-1, 1):
+                extras.append(("sphere", o + c2[0] * xd + c2[1] * zd + sgn * (hh + 0.0012) * ax_y, 0.0019))
+                colours.append((0.89, 0.18, 0.16))
+            print("contact at", np.round(c2, 4))
+    else:
+        hh = 0.014
+    model = build((centre, tuple(quat), r, hh))
     state = pose(model)
     cols = model.shape_color.numpy()
-    cols[-1] = (0.92, 0.80, 0.62)
+    for k_, c_ in enumerate(colours):
+        cols[len(cols) - len(colours) + k_] = c_
     model.shape_color.assign(cols)
     viewer = newton.viewer.ViewerGL(width=args.size[0], height=args.size[1], headless=True)
     viewer.set_model(model)
