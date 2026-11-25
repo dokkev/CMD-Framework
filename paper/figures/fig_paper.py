@@ -987,13 +987,11 @@ def table():
                   ("close at sensed touch", pr["touch"]),
                   ("matched contact force$^{c}$", pr["force"]))))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
-             r"  \caption{Bias in the measured pad effect (pull-out, $7$\,mm pads): the effect each redesign measures "
-             r"minus $O$'s, as a share of $O$'s ($+$: overstated). Unless the row says otherwise, the redesigns reuse "
-             r"$O$'s joint setpoint. $^{a}$Pads soften with thickness (stiffness $\propto 1/h$, "
-             r"an upper bound on the softening), against $O$ carrying the same pad. $^{b}$Drake: each hand's setpoint "
-             r"puts its fingertip contact point where $O$'s is. $^{c}$Oracle: the distal force fed back from the "
-             r"simulator. Medians over placements; under joint torque Conventional's bias spreads from "
-             f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$.}}",
+             r"  \caption{Error in the measured pad effect, median over placements ($+$: overstated). Pull-out, "
+             r"$7$\,mm pads, joint setpoint reused unless noted. $^{a}$Stiffness $\propto 1/h$ (upper bound); "
+             r"reference: $O$ with the same pad. $^{b}$Drake; setpoint matched at the fingertip contact point. "
+             r"$^{c}$Oracle distal force. Conventional under joint torque: "
+             f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$ (quartiles).}}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
              r"    & \ourmethod{} & Conventional \\"]
     for k, (title, rows) in enumerate(sections):
