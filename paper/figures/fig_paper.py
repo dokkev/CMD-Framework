@@ -824,7 +824,7 @@ def fig4():
             ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "sphere rotation (deg)",
              "extra rotation (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
-    h = 3.20
+    h = 2.35
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.30, 0.10
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -845,42 +845,40 @@ def fig4():
         ia.axis("off"); ia.set_aspect("equal", anchor="C")
         dv = DV[key]
         x = np.asarray(dv["x"])
-        # O, R, U's object response at each friction, over every placement
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.62) / h, (cw - 0.34) / W, 0.74 / h))
-        step = max(len(x) // 6, 1)
-        for hi, hh in enumerate(("O", "R", "U")):  # O beneath; markers staggered so overlapping curves stay visible
-            for mu, mk_ in (("1.3", "o"), ("2", "D")):
-                bd = dv[f"{hh}_{mu}_abs"]
-                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.07, lw=0, zorder=1)
-                ra.plot(x, bd["median"], color=HC[hh], lw=1.6 if hh == "O" else 1.0, alpha=0.55 if hh == "O" else 1,
-                        zorder=2 if hh == "O" else 3, marker=mk_, ms=2.8 if mk_ == "o" else 2.5, mfc="white",
-                        mew=0.7, markevery=(step // 2 + hi * step // 3, step))
-        ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
-        ra.tick_params(labelbottom=False)
-        clean(ra)
-        # each hand's friction effect: the same hand at 2.0 minus at 1.3
-        ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.34) / W, 0.74 / h), sharex=ra)
-        for hh in ("O", "R", "U"):
-            bd = dv[f"{hh}_effect"]
-            ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
-            ea.plot(x, bd["median"], color=HC[hh], lw=1.6 if hh == "O" else 1.0, alpha=0.55 if hh == "O" else 1,
-                    zorder=2 if hh == "O" else 3)
+        # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
+        # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
+        ea = fig.add_axes(((x0 + 0.30) / W, 0.52 / h, (cw - 0.58) / W, 1.02 / h))
+        o_m = np.asarray(dv["O_effect"]["median"])
+        ea.plot(x, o_m, color="#9a9a9a", lw=2.6, solid_capstyle="round", zorder=2)
+        labs = [(o_m[-1], "100%", "#7a7a7a")]
+        for hh in ("U", "R"):
+            m_ = np.asarray(dv[f"{hh}_effect"]["median"])
+            ea.fill_between(x, o_m, m_, color=HC[hh], alpha=0.22 if hh == "U" else 0.30, lw=0, zorder=1)
+            ea.plot(x, m_, color=HC[hh], lw=1.1, zorder=3)
+            labs.append((m_[-1], f"{100 * m_[-1] / o_m[-1]:.0f}%", HC[hh]))
+        # end labels, nudged apart in axes height so they never overlap
+        y0, y1 = ea.get_ylim()
+        fr = sorted(((v - y0) / (y1 - y0), t, c) for v, t, c in labs)
+        for k in range(1, len(fr)):
+            if fr[k][0] - fr[k - 1][0] < 0.11:
+                fr[k] = (fr[k - 1][0] + 0.11, fr[k][1], fr[k][2])
+        over = fr[-1][0] - 0.97  # keep the stack inside the axes: shift it down as a whole
+        if over > 0:
+            fr = [(f_ - over, t, c) for f_, t, c in fr]
+        for f_, t, c in fr:
+            ea.text(1.02, f_, t, transform=ea.transAxes, fontsize=5.8, va="center", ha="left", color=c,
+                    fontweight="bold" if c != "#7a7a7a" else "normal")
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3); ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
-    fig.text(0.02 / W, (h - 1.25) / h, "object response\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, 1.03 / h, "effect of raising\npad friction 1.3 to 2.0", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.87 / h, "friction effect\n(2.0 minus 1.3)", fontsize=6.0, color=INK2, rotation=90,
-             ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color=INK, lw=1.6, alpha=0.55, label="O (reference)"),
-               plt.Line2D([], [], color=BLUE, lw=1.0, label="R: contact-preserving"),
-               plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
-               plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
-                          label="friction 1.3"),
-               plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
-                          label="friction 2.0"),
-               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.25, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
-               handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
+    handles = [plt.Line2D([], [], color="#9a9a9a", lw=2.6, label="O: friction alone (reference)"),
+               plt.Line2D([], [], color=BLUE, lw=1.1, label="R: contact-preserving"),
+               plt.Line2D([], [], color=AMBER, lw=1.1, label="U: coverage-only"),
+               plt.Rectangle((0, 0), 1, 1, fc=AMBER, alpha=0.22, label="added by the changed finger"),
+               plt.Line2D([], [], ls="none", label="%: share of O's effect at the end")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=5, frameon=False, fontsize=6.0,
+               handletextpad=0.4, columnspacing=1.4, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)
