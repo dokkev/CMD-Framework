@@ -810,73 +810,87 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    isaac_f = {k: (v["D_c_mm"], v["E_rel_median"]) for k, v in
-               json.load(open(S3 / "isaac_dose_A_all.json"))["hands"].items() if v.get("E_rel_median") is not None}
-    acq = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e23_point.json"))}
-    tip = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e28z_point.json"))["rows"]}
-    coin = {r["hand"]: (r["d_contact"], r["E"]) for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]}
-    # (title, engine, task image under report/study3/figures or None for the drawn icon, frame, one-line task, data)
-    cols = (("Power-grasp hold", "Isaac Lab", "power_grasp_hold_iso.png", 2, "pull-out load", isaac_f),
-            ("Fingertip dial", "Drake", "fingertip_disk.png", 1, "dial turned", tip),
-            ("Coin drag", "Drake", "fingertip_coin.png", 2, "coin dragged", coin))
-    h = 2.95
+    """Study 3A: three Drake tasks under O's reused command. Rows: the task (three frames), O, R and U's object
+    response at friction 1.3 (solid) and 2.0 (dashed), and every redesign's measured friction effect as a share of
+    O's (100% = in sync). Data: report/study3/data/fig4_sync.json (paper/figures/fig4_sync.py)."""
+    from PIL import Image
+    d = json.load(open(S3 / "fig4_sync.json"))
+    T, CV = d["tasks"], d["curves"]
+    # (title, task key, image, response axis labels)
+    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "load (N)", "cylinder displacement (mm)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel (mm)"))
+    HC = {"O": INK, "R": BLUE, "U": AMBER}
+    h = 3.05
     fig = plt.figure(figsize=(W, h))
     cw = 2.15
-    from PIL import Image
-    for i, (name, sim, img, frame, what, data) in enumerate(cols):
+    for i, (name, key, img, xl, yl) in enumerate(cols):
         x0 = 0.34 + i * (cw + 0.12)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
-        fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
-        ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.56 / h))
-        if img is None:
-            task_icon(ia, "acquire")
-        else:
-            strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
-            wq = strip.shape[1] // 3
-            ink_all = strip.min(axis=2) < 240
-            rr = np.nonzero(ink_all.any(axis=1))[0]
-            frames = []
-            for fr in range(3):  # the three time steps, each cropped to its ink, at one height
-                sub = strip[rr.min():rr.max() + 1, fr * wq:(fr + 1) * wq]
-                cc = np.nonzero((sub.min(axis=2) < 240).any(axis=0))[0]
-                frames.append(sub[:, max(cc.min() - 6, 0):cc.max() + 7])
-            gap = np.full((frames[0].shape[0], 12, 3), 255, np.uint8)
-            im_ = np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1)
-            ia.imshow(im_); ia.axis("off"); ia.set_aspect("equal", anchor="C")
-        fig.text((x0 + cw / 2) / W, (h - 0.82) / h, f"{what}; friction $1.3\\to2.0$", fontsize=5.6,
-                 color=INK2, ha="center", va="top")
-        # error of R and U
-        ba = fig.add_axes(((x0 + 0.25) / W, (h - 1.46) / h, (cw - 0.30) / W, 0.42 / h))
-        er, eu = 100 * data["R"][1], 100 * data["U"][1]
-        ba.barh([1, 0], [er, eu], height=0.6, color=[BLUE, AMBER])
-        for y, v in ((1, er), (0, eu)):
-            ba.text(v + 6, y, f"{v:.0f}%", va="center", fontsize=6.4)
-        ba.set_xlim(0, 200); ba.set_yticks([1, 0]); ba.set_yticklabels(["R", "U"])
-        ba.set_xticks([0, 100, 200])
-        clean(ba)
-        if i == 0:
-            ba.set_xlabel("error in the measured effect (%)", labelpad=1, fontsize=6.2)
-        # every redesign
-        sa = fig.add_axes(((x0 + 0.25) / W, 0.50 / h, (cw - 0.30) / W, 0.72 / h))
-        for k, (dc, e) in data.items():
-            if k in ("R", "U", "O"):
+        ia = fig.add_axes((x0 / W, (h - 0.70) / h, cw / W, 0.52 / h))
+        strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
+        wq = strip.shape[1] // 3
+        rr = np.nonzero((strip.min(axis=2) < 240).any(axis=1))[0]
+        frames = []
+        for fr in range(3):  # the three time steps, each cropped to its ink, at one height
+            sub = strip[rr.min():rr.max() + 1, fr * wq:(fr + 1) * wq]
+            cc = np.nonzero((sub.min(axis=2) < 240).any(axis=0))[0]
+            frames.append(sub[:, max(cc.min() - 6, 0):cc.max() + 7])
+        gap = np.full((frames[0].shape[0], 12, 3), 255, np.uint8)
+        ia.imshow(np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1))
+        ia.axis("off"); ia.set_aspect("equal", anchor="C")
+        # object response of O, R, U at the representative placement
+        ra = fig.add_axes(((x0 + 0.25) / W, (h - 1.62) / h, (cw - 0.30) / W, 0.70 / h))
+        for hh in "ORU":
+            for mu, ls in (("1.3", "-"), ("2", "--")):
+                c = CV[f"{key}_{hh}_{mu}"]
+                if key == "pull":
+                    x, y = np.asarray(c["load_n"]), np.asarray(c["disp_mm"])
+                    ra.plot(x, y, ls, color=HC[hh], lw=1.0, zorder=3 if hh == "O" else 2)
+                    if y[-1] <= 1.5:  # a slip that ends the grasp before the cylinder runs off
+                        ra.plot(x[-1], y[-1], marker="x", ms=3.5, mew=0.9, color=HC[hh], zorder=4)
+                else:
+                    x = np.asarray(c["t_s"])
+                    y = np.asarray(c["rotation_deg" if key == "dial" else "travel_mm"])
+                    ra.plot(x, y, ls, color=HC[hh], lw=1.0, zorder=3 if hh == "O" else 2)
+        if key == "pull":
+            ra.set_ylim(0, 1.5)
+        ra.set_xlabel(xl, labelpad=1); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
+        clean(ra)
+        # every redesign: measured effect as a share of O's
+        sa = fig.add_axes(((x0 + 0.25) / W, 0.50 / h, (cw - 0.30) / W, 0.66 / h))
+        sa.axhline(100, color=INK, lw=0.7, zorder=1)
+        hd = T[key]["hands"]
+        for k, v in hd.items():
+            if k in ("R", "U"):
                 continue
-            sa.plot(dc, 100 * e, ls="none", marker="o", ms=2.8, color="#b5b5b2", mec="none", zorder=2)
-        sa.plot(*[data["R"][0], 100 * data["R"][1]], ls="none", marker="o", ms=4.0, color=BLUE, zorder=3)
-        sa.plot(*[data["U"][0], 100 * data["U"][1]], ls="none", marker="o", ms=4.0, color=AMBER, zorder=3)
-        sa.set_xlim(0, 5.8); sa.set_ylim(0, max(100 * max(e for _, e in data.values()) * 1.1, 100))
+            sa.plot(v["d_contact"], 100 * v["ratio_median"], ls="none", marker="o", ms=2.8, color="#b5b5b2",
+                    mec="none", zorder=2)
+        for k in ("R", "U"):
+            v = hd[k]
+            sa.plot(v["d_contact"], 100 * v["ratio_median"], ls="none", marker="o", ms=4.0, color=HC[k], zorder=3)
+            sa.annotate(f"{100 * v['ratio_median']:.0f}%", (v["d_contact"], 100 * v["ratio_median"]),
+                        xytext=(4, 0), textcoords="offset points", fontsize=5.6, va="center", color=INK)
+        ys = [100 * v["ratio_median"] for v in hd.values()]
+        lo, hi = min(min(ys), 100), max(max(ys), 100)
+        pad = 0.12 * (hi - lo)
+        sa.set_ylim(lo - pad, hi + pad)
+        sa.set_xlim(0, 5.8)
         sa.set_xlabel("$\\Delta_{contact}$ (mm)", labelpad=1)
         if i == 0:
-            sa.set_ylabel("error (%)", labelpad=1)
+            sa.set_ylabel("effect vs. O (%)", labelpad=1, fontsize=5.6)
         clean(sa)
-    handles = [plt.Line2D([], [], ls="none", marker="o", ms=4, color=BLUE, label="R: contact-preserving"),
-               plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="U: coverage-only"),
-               plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=3, frameon=False, fontsize=6.2,
-               handletextpad=0.2, columnspacing=1.2)
-    fig.text(0.02 / W, (h - 1.35) / h, "error of\nR and U", fontsize=6.0, color=INK2, rotation=90, ha="left",
-             va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.86 / h, "every redesign\n(3 to 5, 7, 9 mm)", fontsize=6.0, color=INK2, rotation=90,
+    handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
+               plt.Line2D([], [], color=BLUE, lw=1.0, marker="o", ms=3.5, label="R: contact-preserving"),
+               plt.Line2D([], [], color=AMBER, lw=1.0, marker="o", ms=3.5, label="U: coverage-only"),
+               plt.Line2D([], [], ls="none", marker="o", ms=3, color="#b5b5b2", label="other redesigns"),
+               plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
+               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="2.0")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
+               handletextpad=0.3, columnspacing=1.0, handlelength=1.6)
+    fig.text(0.02 / W, (h - 1.27) / h, "object response\n(one placement)", fontsize=6.0, color=INK2, rotation=90,
+             ha="left", va="center", linespacing=1.0)
+    fig.text(0.02 / W, 0.83 / h, "friction effect\n(every redesign)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)

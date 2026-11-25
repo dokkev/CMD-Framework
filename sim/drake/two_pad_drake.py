@@ -504,7 +504,7 @@ def tipdial(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, g, q_start, 
         clear = min(clear, gap)
         if touch_q is None and fd > GATE_N:
             touch_q = math.degrees(s.measure()["q"])
-        if (i + 1) % 15 == 0:
+        if (i + 1) % (1 if opts.get("curve") else 15) == 0:  # --curve: every step
             trace.append([round(math.degrees(q), 2), round(-math.degrees(spin.get_angle(s.pctx)), 3), round(fd, 4)])
     m_ = s.measure()
     force, _ = s.contacts()
@@ -639,6 +639,7 @@ def _run_env(task):
     d = np.array(DIRECTIONS[direction])
     c0 = m_["c"].copy()
     limit = {"event": None, "f_limit_n": None, "mu_eff_geo_at_slip": None, "slip_pad": None, "roll_n": None}
+    curve = []  # load-displacement: [load N (three fingers), cylinder displacement along the load mm, normals N]
     if gate["pass"]:
         steps = int(MAX_FORCE_N / (RATE_N_S * DT_ENV)) + 1
         for i in range(steps):
@@ -647,6 +648,9 @@ def _run_env(task):
             s.step()
             m_ = s.measure()
             disp = 1e3 * float(np.linalg.norm((m_["c"] - c0)[[0, 2]]))
+            if opts.get("curve"):
+                curve.append([round(f * FINGERS, 4), round(1e3 * float((m_["c"] - c0)[[0, 2]] @ d), 4),
+                              round(disp, 4), [round(float(x), 4) for x in m_["normal"]]])
             event = None
             k = int(np.argmax(m_["slip"]))
             if 1e3 * m_["slip"][k] > SLIP_MM_S:
@@ -664,7 +668,7 @@ def _run_env(task):
                 limit["event"], limit["f_limit_n"] = event, float(f * FINGERS)
                 break
     return {"rho_mm": rho_mm, "q0_deg": g["q0_deg"], "x_c_mm": g["x_c_mm"], "direction": direction, "pre": pre,
-            "gate0": gate, "limit": limit, "setpoint": setpoint}
+            "gate0": gate, "limit": limit, "setpoint": setpoint, **({"curve": curve} if opts.get("curve") else {})}
 
 
 def main() -> int:
@@ -709,6 +713,7 @@ def main() -> int:
     p.add_argument("--approach_s", type=float, default=1.0, help="tipdial: 0 -> touch angle over this time")
     p.add_argument("--any_radius", action="store_true",
                    help="every placement at its own rho_mm (experiment 29's random draws); the file is named _rany")
+    p.add_argument("--curve", action="store_true", help="limit: also record the load-displacement curve")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads((args.grasps or GRASPS).read_text())["grasps"]
@@ -718,7 +723,7 @@ def main() -> int:
             "face_load_n": args.face_load_n, "close_s": args.close_s, "gap_mm": args.gap_mm,
             "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm, "strokes": args.strokes,
             "setpoint": args.setpoint, "tip_mode": args.tip_mode, "tip_kr": args.tip_kr, "tip_dr": args.tip_dr,
-            "tip_thick_mm": args.tip_thick_mm, "approach_s": args.approach_s}
+            "tip_thick_mm": args.tip_thick_mm, "approach_s": args.approach_s, "curve": args.curve}
     if args.setpoint != "shared":
         where = "mid" if args.setpoint == "contact_mid" else "tip"
         rows = [contact_setpoint(args.hand, q, where) for q in sorted({g["q0_deg"] + args.delta_deg for g in grasps})]
