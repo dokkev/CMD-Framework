@@ -294,3 +294,50 @@ E (작을수록 좋다):
   - full≤30°에서는 잡음 안이다.
 
 **해석 (가설):** O에서 학습한 closed-loop 정책은 이미 물체 피드백으로 손 차이를 흡수하고 있다. 기구학적 사상은 그 보정을 오히려 흔든다. MCP offset 6–10°가 grasp 자세를 바꾸는 것이 원인 후보다.
+
+## 시도 5: 긴 손가락 RL / UL로 zero-shot 이전 (사전 등록, RL/UL 수치를 보기 전에 commit, 2026-11-25)
+
+**왜 하는가:** 5/7/9 mm 쌍에서는 R과 U의 접촉면 움직임 차이가 작아서 정책 수준에서 갈리지 않았을 수 있다. 손가락을 길게 하면 같은 pad 두께에서도 피복만 맞춘 재설계가 접촉면 움직임을 훨씬 크게 바꾼다. 그 차이가 정책 이전에서 보이는지 본다.
+
+**손** (export는 `logs/rotate_cube/transfer/hands/`, 설계 파라미터는 `design/output/sim/study3/hands/`, commit 1ea240f, e1d8b65):
+
+| key | export | L_f | pad | 설계 |
+|---|---|---|---|---|
+| O | `cfl_q120_h3to7_h0` | 90 mm | 3 mm | 기준, 바꾸지 않는다 |
+| RL | `cfl_q120_L120_h3to7_hr` | 120 mm | 7 mm | O의 피복을 지키면서 contact Jacobian 변화(Δ_contact)를 최소로 |
+| UL | `cfl_q120_L150_h3to7_hu` | 150 mm | 7 mm | 피복만 맞춤 |
+
+**공개 (수치를 보기 전에 알고 있는 것):**
+- RL과 UL은 길이가 다르다 (120 / 150 mm). O(90 mm)와도 다르므로 큐브 grasp 기하가 많이 바뀐다.
+- O 대비 접촉 경로 변화: RL 30.1 mm (길이 offset 제외 24.4 mm), UL 52.1 mm.
+- RL은 경계에 있다: q_max 124°, 최악 MA 0.37 (O 0.58), transmission angle 최저 32°.
+- smoke에서 grasp acceptance는 RL 0.28, UL 0.44였다 (16 env, 참고용).
+- 시도 1–2의 결과를 모두 본 뒤에 등록한다. 손은 그 뒤에 설계됐다.
+
+**정책과 조건:**
+- release policy `model_1497` (시도 1과 같다), fine-tuning 없음, unmapped (`CoDe-Rotate-Cube-<H>-OmniResetV2-Eval`).
+- held-out grasp: `gen_grasps.py --hand RL|UL --target 1024 --num_envs 4096 --seed_start 76000`, `CODE_ROTATE_CUBE_CROWN_LAYOUT=dome`, `CODE_ROTATE_CUBE_CONTACT=pad13_condim4_v1` → `heldout_transfer_v1/RL.pt`, `UL.pt`. 수율을 보고한다.
+- pad μ 1.3과 2.0, seed 94000과 95000, 1024 env. eval override는 시도 1과 같다.
+- O의 수치는 시도 1b의 것을 그대로 쓴다 (같은 checkpoint, cache, seed, eval 조건).
+
+**주 지표:** μ 1.3 → 2.0 교체에 대한 회전 E (시도 1c의 정의).
+
+E(H) = |Δrot(H) − Δrot(O)| / |Δrot(O)|, Δrot(H) = rot_H(μ 2.0) − rot_H(μ 1.3), 두 seed 평균.
+
+- **예측:** E(RL) < E(UL)이고, 그 차이가 seed 잡음 합보다 크다.
+  - 잡음 합: RL과 UL 각각 Δrot의 seed 차이를 |Δrot(O)|로 나눈 값의 합.
+- **반증:** E(RL) ≥ E(UL)이고, 그 차이가 잡음 합보다 크다.
+- 차이가 잡음 합 이내면 "구별 안 됨"이다.
+- **판정 불가:** RL 또는 UL의 grasp 수율이 256 미만이면 판정하지 않는다. μ 1.3에서 RL이나 UL의 평균 회전이 180° 미만이어도 (정책이 그 손에서 거의 돌리지 못함) E를 판정하지 않고 그대로 보고한다.
+
+**보조 지표:**
+- μ 1.3의 O 대비 이전 비율: 회전, full≤30°, full+clean (gate 없음), goals/episode. 예측은 ratio_RL > ratio_UL (seed 차이 합을 넘을 때만 판정).
+- 같은 E를 goals, full≤30°, full+clean에 대해서도 계산한다.
+- mapped 조건 (`-OmniResetV2-Eval-Mapped`, μ 1.3과 2.0): 같은 E와 gain을 보고한다. 예측은 두지 않는다 (탐색).
+
+### 시도 4 보완: 이전 대상에 RL / UL 추가 (사전 등록, 같은 commit)
+
+- 시도 4의 blind 정책(미리 정한 마지막 segment checkpoint)을 RL과 UL에도 이전한다. `CoDe-Rotate-Cube-RL|UL-OmniResetV2Blind-Eval`, 시도 5와 같은 cache, μ, seed.
+- 주 지표와 예측은 시도 4와 같다: 회전 E에서 E(RL) < E(UL)이고 차이가 잡음 합보다 크다.
+- RL/UL 행은 따로 판정한다. 5/7/9 mm의 판정은 바꾸지 않는다.
+- 시도 4의 판정 불가 조건(O의 μ 1.3 평균 회전 < 180°)과 시도 5의 수율 조건을 그대로 적용한다.
