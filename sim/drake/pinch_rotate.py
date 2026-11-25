@@ -150,7 +150,9 @@ def build(hand, mu, pl, time_step, k_theta, d_theta, stage, opts):
             PdControllerGains(p=1.0e5, d=1.0e3))
         plant.AddJointActuator("spin", js).set_controller_gains(PdControllerGains(p=10.0, d=0.1))
     else:
-        plant.AddJointActuator("spin", js).set_controller_gains(PdControllerGains(p=pl["k_r"], d=D_SPIN))
+        share = opts.get("share", 1.0)  # experiment 33b: one finger of a symmetric two-finger pinch carries half
+        plant.AddJointActuator("spin", js).set_controller_gains(PdControllerGains(p=share * pl["k_r"],
+                                                                                   d=share * D_SPIN))
 
     def props(k):
         pr = ProximityProperties()
@@ -166,7 +168,7 @@ def build(hand, mu, pl, time_step, k_theta, d_theta, stage, opts):
     tt = THUMB_THICK_MM * mm
     # the thumb pad's face on the thumb frame's origin, its body behind it (away from the sphere, + local z = +n)
     plant.RegisterCollisionGeometry(thumb, RigidTransform([0.0, 0.0, tt / 2]), Box(THUMB_LEN_MM * mm, w, tt),
-                                    "thumb_pad", props(T.POINT_STIFFNESS))
+                                    "thumb_pad", props(opts.get("thumb_contact_k", T.POINT_STIFFNESS)))
     plant.RegisterCollisionGeometry(sph, RigidTransform(), Sphere(r), "sphere", props(1.0e8))
     plant.Finalize()
     plant.mutable_gravity_field().set_gravity_vector(np.zeros(3))
@@ -246,13 +248,14 @@ def pinch(hand, mu, pl, opts, delta_deg=0.0, record=False) -> dict:
     n_app, n_set, n_rel, n_sw, n_hold = (int(round(opts[k] / T.DT_ENV)) for k in
                                          ("approach_s", "settle_s", "release_s", "sweep_s", "hold_s"))
     pen, prox_max, frames = 0.0, 0.0, []
+    thumb_k = opts.get("thumb_contact_k", T.POINT_STIFFNESS) * 1e-3  # N/mm: the thumb pad's penetration per force
     peak = {"distal": 0.0, "thumb": 0.0}
     touch_q = None
 
     def log(s, phase, q):
         nonlocal pen, prox_max, touch_q
         f = s.forces()
-        pen = max(pen, f["distal"] / POINT_K, f["thumb"] / POINT_K, f["proximal"] / POINT_K)
+        pen = max(pen, f["distal"] / POINT_K, f["thumb"] / thumb_k, f["proximal"] / POINT_K)
         prox_max = max(prox_max, f["proximal"])
         for k in peak:
             peak[k] = max(peak[k], f[k])

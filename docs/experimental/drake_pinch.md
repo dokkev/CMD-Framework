@@ -139,3 +139,83 @@ uv run python pinch_rotate.py frames --draws logs/pinch_e33.json --draw 29 && uv
 - **뽑기 범위를 바꿔도 안 된다:** q_s를 10–120°로 훑었다(r 10 mm, back 5 mm, 엄지 면은 검지 접촉에서 2r). 면 위치 3 mm·법선 10° 안에 드는 표본이 어느 q_s에서도 없고, 법선 10° 안의 가장 가까운 점이 27–73 mm다. back_mm와 r은 면 위치를 몇 mm 옮길 뿐 법선 각을 바꾸지 않는다.
   - 실제 엄지와 맞는 집기는 쥐는 축이 검지 평면 밖(옆 방향)에 있어야 한다. 이는 평면 시뮬레이션(구가 검지 평면 안에서만 움직임)으로는 나타낼 수 없는 3차원 과제다.
 - **결론:** 33차의 맞은편 pad는 이 손의 엄지가 놓을 수 있는 곳이 아니다. 33차는 "검지 하나와 맞은편의 같은 스프링 pad"라는 추상 과제이고, 엄지–검지 집기로 부르면 안 된다. 실험을 다시 돌리지 않았다.
+
+# 33b차: 세 손가락 집기 회전 (엄지가 검지·중지와 마주 봄, 실제 엄지 자세)
+
+33차의 맞은편 pad는 실제 엄지가 놓을 수 없는 곳이었다(위 "엄지 도달 확인"). 33b차는 손 O의 URDF에서 관절 공간 FK 격자로 찾은 실제 집기 자세를 쓴다. 엄지가 검지와 중지 사이를 마주 보고, 검지와 중지가 같이 구를 누른다. 사용자가 승인한 과제이고, 끝나면 Study 3와 Fig. 4에서 33차를 대신할 후보다(교체는 보고 뒤 결정). 33차의 기록은 위에 그대로 둔다.
+
+## 33b차 사전 기록 (2026-11-25, O만으로 보정, R·U는 gate만 확인, 재설계 손의 D와 E를 보기 전)
+
+### 자세 (`sim/drake/pinch3_pose.py`)
+
+- URDF 관절값(도): thumb_ro −90, thumb_raa 10(CMC, 고정), thumb_mcp 45, thumb_ip −7.5. index_fe = middle_fe = 72.5(지름 20 mm 이상의 구는 70), index_aa = middle_aa = 0. 검지·중지 PIP는 0 근처에서 시작하고, 약지는 접는다.
+- pad 면: 검지 distal pad 중심 (−6.5, 0, −6) mm(index_distal 좌표, 바깥 법선 −z), 엄지 pad 중심 (13, 41, 0) mm(thumb_distal 좌표, 바깥 법선 +x).
+- 검지 평면 좌표(검지 FE 축 원점, proximal phalanx 축)에서 FE 72.5°의 엄지 pad 면 중심은 (71.9, −26.2) mm(world z)이다. 검지 pad 중심 (72.7, −5.9) mm에서 검지 법선 방향으로 20.3 mm 떨어져 있다.
+- 엄지 법선은 정면 마주 봄에서 평면 안으로 20.4° 기울었다(FE 70°에서 17.9°). 평면 밖 기울기는 7.9°이고, 엄지 pad 중심은 검지·중지 중간 평면에서 2.8 mm 옆이다. thumb_ro는 placeholder 한계(−90°)에, thumb_ip는 아래 한계 근처(−7.5°, 한계 −10°)에 있다.
+
+### 모델 (`sim/drake/pinch3.py`로 뽑기와 설정을 만들고, 시뮬레이션은 `pinch_rotate.py` 그대로)
+
+- **평면, 대칭:** 검지와 중지는 같은 재설계, 같은 PIP 명령을 받으므로 구는 둘의 중간 평면에 머문다. 손가락 하나를 모델링하고, 그 손가락이 엄지와 구가 받는 것의 절반을 진다(`share` 0.5). 엄지 스프링, 엄지 pad의 접촉 강성(1.25 kN/m), 구의 비틀림 스프링과 감쇠를 반으로 줄였다. 엄지 pad의 관통은 모델의 엄지 힘 / 1.25 N/mm로, 실제 엄지 힘 / 2.5 N/mm와 같다. pull-out의 FINGERS 배율 대신 이 반분을 썼다. 엄지 법선의 평면 밖 기울기 7.9°와 엄지의 2.8 mm 옆 어긋남은 **무시한다**.
+- **엄지는 실제 엄지다.** 떠 있는 부드러운 스프링이 아니다. 자세의 FK에서 엄지 pad의 평면 안 법선을 정한다. 엄지는 그 법선 방향으로만 서보 순응만큼 움직인다.
+  - 순응: 엄지 서보 넷 모두 XM335 위치 루프 강성 11.85 N·m/rad(`desc["servo"]["derived"]`). pad 중심에서 법선 방향 힘에 대한 lever arm은 RO 16.9, RAA 0, MCP 76.2, IP 41.0 mm다.
+  - 직렬로 **k = 1 / Σ a_i² / k_θ = 1,525 N/m**(MCP·IP만 1,583 N/m). 손가락 하나에는 763 N/m이다. 33차의 40 N/m보다 38배 단단하지만 아래 보정에서 관통 gate 안에 든다.
+- **배치 (proximal-face 좌표, 모든 손에 같음, 다른 Study 3 과제와 같은 규칙):**
+  - O의 시작 굽힘 q_s에서 검지 distal pad 중심점(distal 좌표 x −6.5 mm, URDF pad 중심)을 pad를 따라 jitter_mm만큼 옮긴 점에 구가 닿는다. 구 중심은 O의 pad 법선 방향으로 r이다.
+  - 엄지 pad는 FK 법선을 jitter_deg만큼 돌린 방향으로 구의 맞은편에 닿는다. 엄지의 쉼 위치는 preload / k만큼 구 안쪽이다.
+  - 엄지 면은 FK 자세에서 법선 방향 −3.4 ~ +2.6 mm, 접선 방향 −5.9 ~ +1.0 mm 떨어진다. 이 구를 쥐기 위한 작은 엄지 재지령이다(엄지 pad 길이 25 mm 안). 검지와 엄지 법선의 각은 17.6–30.8°다.
+- **명령 (33차와 같음, 조건 A):** 구를 잡은 채(엄지 축 방향은 힘 한계 1.25 × preload) PIP 0 → q_s(1 s), 유지 0.5 s. 놓고 0.5 s. q_s → q_s + sweep(2 s), 유지 0.5 s. MCP는 자세 값에 고정한다(시뮬레이션에서 proximal phalanx가 world). point contact, time step 0.25 ms.
+- **측정, gate (33차와 같음):** 구의 회전(sweep 시작부터), D = 회전(μ 2.0) − 회전(μ 1.3). lost(검지 쪽이나 엄지 쪽 법선력이 끝에서, 또는 3 표본 연속 0.0667 N 미만), 관통(법선력 기준) > 1.5 mm, solver 실패, O의 |D(O)| < 0.3°.
+
+### 뽑기 (seed 34, 64개, `logs/pinch3_e33b.json`)
+
+`numpy.random.default_rng([34, 34])`에서 이 순서로 길이 64의 균등 벡터를 뽑는다. 모든 손이 같은 뽑기를 쓴다.
+- q_s 0–10°
+- r 8–12 mm(지름 16–24 mm; 20 mm 미만은 FE 72.5°, 이상은 70°, 64개 중 28 / 36)
+- jitter 위치 ±1 mm, 각 ±3°
+- preload 0.2–0.5 N
+- sweep 4–10°
+- k_r 0.6–0.9 N·m/rad(손가락 하나에는 반)
+
+### O만의 보정 (이 기록 전)
+
+| 단계 | 범위 | O (12개) | 결정 |
+|---|---|---|---|
+| 1 | preload 0.3–0.8, sweep 5–15°, k_r 0.25–0.40 | 회전 5.4–10.9°, 관통 최대 1.78 mm(3개 > 1.5), D 중앙 0.17°(6개 < 0.3°: 두 μ 모두 붙어서 돎) | 스프링을 세게, sweep·preload를 작게 |
+| 2 | preload 0.2–0.5, sweep 4–10°, k_r 0.6–0.9 | 회전 1.7–3.6°, D 0.5–2.4°(모두 > 0.3°), 관통 ≤ 1.10 mm | **채택** |
+| 3 | k_r 1.0–1.5 또는 1.5–2.5, sweep 4–10 / 6–12° | D 0.5–1.7°, 회전 0.8–2.5° | 효과가 작아짐 |
+
+- **최종 O (64개):**
+  - solver 0, lost 0, proximal 접촉 0, 관통 최대 1.20 mm(중앙 0.87).
+  - 회전(μ 1.3) 1.28 / 3.05 / 5.87°.
+  - 제외는 |D(O)| < 0.3° 3개뿐이고 **61개가 남는다**. D(O) 0.39 / 1.77 / 2.75°, 모두 양수.
+  - 놓은 뒤 엄지 힘(손가락 하나 몫) 0.11–0.26 N.
+- **잡음 바닥 (O, 명령 +0.05°, tag e33bn):** E 중앙 **0.42%**, 75분위 **0.52%**(61쌍).
+- **time step:** 0.25 vs 0.125 ms에서 D의 차이는 중앙 0.31%, 75분위 2.3%, 최대 13.7%(16개 뽑기).
+- **R·U gate 확인 (D, E는 보지 않음):**
+  - R: solver 0, lost 0(1 표본 떨림 1), proximal 0, 관통 최대 1.12 mm
+  - U: solver 0, lost 0, proximal 0, 관통 최대 1.10 mm
+
+### 지표와 판정 (사전, 33차와 같음)
+
+- **주 출력은 궤적이다.** 구의 회전 대 sweep 시작부터의 시간이다. R − O와 U − O의 중앙값과 사분위 띠를 μ 1.3과 2.0에서 구한다(fig4_sync의 deviation과 같은 구조, `pinch_rotate.py summary`). 최대(절댓값)와 끝 값을 보고한다.
+- **사전 등록 수:** E(H) = 점수를 받은 뽑기의 |D(H) − D(O)| / |D(O)| 중앙값. ρ(E, Δ_contact)와 순열 p(2만 번, seed 0, 단측), ρ(E, Δ_skel).
+- **판정:** (1) E_R < E_U. (2) ρ(E, Δ_contact) > 0이고 순열 p < 0.05. (3) ρ(E, Δ_skel)을 비교한다.
+- **제외:** O만으로(solver, lost, 관통, proximal 접촉, |D(O)| < 0.3°). H의 lost·over-pressed·solver는 따로 세고 E에서 빼며, 무한대로 둔 민감도를 함께 보고한다.
+- **해석:** 33차와 같다. 판정 1·2가 성립하면 실제 엄지 자세의 세 손가락 집기에서도 재설계 오차가 Δ_contact를 따른다. 지표가 안정하고 gate가 유효한데 성립하지 않으면 경계로 기록한다. 궤적 편차의 크기를 함께 적는다.
+
+### 순서와 계산
+
+이 기록을 커밋한 뒤 나머지 16개 손을 worker 6으로 돌린다(손당 약 1분, 합계 약 16분 예상). 보정 wall time: 12개 run 각 약 11 s, O 64개 61 s, 잡음 약 60 s, time step 비교 약 35 s, R·U 약 2분.
+
+### 명령
+
+```
+cd sim/drake
+uv run python pinch3_pose.py                                   # 자세, 엄지 강성
+uv run python pinch3.py draws --out logs/pinch3_e33b.json
+uv run python pinch_rotate.py run --hands O --draws logs/pinch3_e33b.json --tag e33b
+uv run python pinch_rotate.py run --hands O --draws logs/pinch3_e33b.json --tag e33bn --delta_deg 0.05
+uv run python pinch_rotate.py run --hands R U ... --draws logs/pinch3_e33b.json --tag e33b
+uv run python pinch_rotate.py analyze --tag e33b --noise_tag e33bn --out logs/e33b_pinch.json
+uv run python pinch_rotate.py summary --tag e33b --noise_tag e33bn --out logs/e33b_summary.json
+```
