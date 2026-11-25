@@ -11,6 +11,8 @@ carry 7 mm pads under the studies' CFL goal with the finger length searched in [
   (as U was chosen from ``cfl_q120_h7``);
 - UL120: UL's search with L_f held at 120 mm (``cfl_long_q120_h7_L120``), RL's coverage-only partner at its length
   (UL at 150 mm is kept as a secondary hand);
+- RL60: the same front's least change with C_pad >= 0.60 (``--extra-floors``), the contact-preserving partner of
+  UL120 (RL itself is barely apart from UL120 in Delta_J);
 - RL: Study 2's redesign (Eq. opt2) against O, NSGA-II for the least change and the most C_pad, Study 2's search
   (one_finger.yaml ``redesign.search``), warm-started from O and UL; the least change with C_pad at least O's.
 
@@ -123,6 +125,8 @@ def main(argv=None) -> int:
     parser.add_argument("--rl-pick", choices=("floor", "most"), default="floor",
                         help="RL from the front: the least change with C_pad >= the floor (default), or the most C_pad")
     parser.add_argument("--coverage-floor", type=float, default=None, help="default: O's C_pad")
+    parser.add_argument("--extra-floors", type=float, nargs="*", default=[0.60],
+                        help="also RL<100 c> (hand ..._hr<100 c>): the least change with C_pad >= c, for each c")
     args = parser.parse_args(argv)
     study = read_config_file(ROOT / "scripts" / "study" / "study2_morphology_adaptation" / "one_finger.yaml")
     spec = study["architectures"]["cfl"]
@@ -169,6 +173,10 @@ def main(argv=None) -> int:
     print(f"RL: {args.rl_pick} (C_pad floor {floor:.3f}): change {float(pick['contact_change_mm']):.2f} mm, "
           f"C_pad {float(pick['c_pad_mean']):.4f}, L_f {float(pick['finger_length_mm']):.1f} mm")
     x_rl = tuple(float(v) for v in pick["x"].split(";"))
+    extra = []  # RL60: a lower floor, for a real contrast in Delta_J to UL120 at the same length
+    for c in args.extra_floors:
+        row = next(r for r in merged if float(r["c_pad_mean"]) >= c)
+        extra.append((f"hr{round(100 * c):d}", f"RL{round(100 * c):d}", tuple(float(v) for v in row["x"].split(";"))))
 
     # The 7 mm R/U of the 90 mm pair, for comparison (make_hands.py's choice).
     with (e15.STUDY2 / "front.csv").open(encoding="utf-8", newline="") as stream:
@@ -180,7 +188,8 @@ def main(argv=None) -> int:
 
     table = []
     for name, x, cfg in (("O", o.x, o.config), ("R7", x_r7, goal7.config), ("U7", x_u7, goal7.config),
-                         ("RL", x_rl, ul_config), ("UL", x_ul, ul_config),
+                         ("RL", x_rl, ul_config), *((label, x, ul_config) for _, label, x in extra),
+                         ("UL", x_ul, ul_config),
                          *((("UL120", *ul120),) if ul120 else ())):
         table.append({"hand": name, **measures(base, x, cfg, reference, scale)})
     write_rows(OUT / "designs.csv", table)
@@ -202,6 +211,7 @@ def main(argv=None) -> int:
     o_base = mechanism(o.mechanism)
     ok = True
     for suffix, label, x, cfg in (("hu", "UL", x_ul, ul_config), ("hr", "RL", x_rl, ul_config),
+                                  *((suffix, label, x, ul_config) for suffix, label, x in extra),
                                   *((("hu", "UL120", *ul120),) if ul120 else ())):
         finger_params, pads = make_hands.hand_parameters(x, cfg, THICK)
         tip_err, contact_err = make_hands.check(o_base, x, cfg, finger_params, pads, math.radians(FLEXION))
