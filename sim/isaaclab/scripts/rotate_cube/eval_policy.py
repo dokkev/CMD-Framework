@@ -81,6 +81,16 @@ class CubeRotationMetrics(RecorderTerm):
         )
         up_z = math_utils.quat_apply(quat, self.initial_up_body)[:, 2]
         self.min_up_z = torch.where(self.active, torch.minimum(self.min_up_z, up_z), self.min_up_z)
+        # the cube's most upright face: the angle between world z and its body axis nearest to it (any face up)
+        upright = math_utils.matrix_from_quat(quat)[:, 2, :].abs().max(dim=1).values.clamp(max=1.0).acos()
+        self.peak_upright_tilt = torch.where(self.active, torch.maximum(self.peak_upright_tilt, upright),
+                                             self.peak_upright_tilt)  # fmt: skip
+        self.upright_within_20 += self.active & (upright <= math.radians(20.0))
+        # the grasps start with the cube on the inclined pads (~40 deg): the gated peak counts from its first level
+        self.levelled |= self.active & (upright <= math.radians(20.0))
+        self.peak_upright_after_level = torch.where(
+            self.active & self.levelled, torch.maximum(self.peak_upright_after_level, upright),
+            self.peak_upright_after_level)  # fmt: skip
         old_heading = math_utils.quat_apply(self.previous_quat, self.initial_x_body)
         new_heading = math_utils.quat_apply(quat, self.initial_x_body)
         cross_z = old_heading[:, 0] * new_heading[:, 1] - old_heading[:, 1] * new_heading[:, 0]
@@ -99,7 +109,7 @@ class CubeRotationMetrics(RecorderTerm):
             values = torch.stack((
                 self.yaw, self.heading, displacement.norm(dim=1), up_z,
                 (targets.abs() >= 0.99).float().mean(dim=1),
-                env.action_manager.action.clamp(-1.0, 1.0).square().mean(dim=1).sqrt(),
+                env.action_manager.action.clamp(-1.0, 1.0).square().mean(dim=1).sqrt(), upright,
             ), dim=-1)
             self.trace[self.trace_step] = torch.where(self.active[:, None], values, torch.nan)
             self.target_trace[self.trace_step] = torch.where(self.active[:, None], targets, torch.nan)
@@ -132,10 +142,11 @@ class CubeRotationMetrics(RecorderTerm):
             self.grasp_quat = torch.zeros(n, 4, device=device)
             self.grasp_valid = torch.zeros(n, dtype=torch.bool, device=device)
         self.active = torch.ones(n, dtype=torch.bool, device=device)
+        self.grasp_index = grasp_term(self._env).grasp_cache_index.clone()  # each env's held-out grasp row
         self.trace = None
         if capture_trace:
             self.trace_step = 0
-            self.trace = torch.empty(self._env.max_episode_length, n, 6, device=device)
+            self.trace = torch.empty(self._env.max_episode_length, n, 7, device=device)
             self.target_names = list(self._env.action_manager.get_term("joint_pos")._joint_names)
             self.target_trace = torch.empty(self._env.max_episode_length, n, len(self.target_names), device=device)
         self.yaw, self.off_axis, self.max_displacement, self.length = torch.zeros(4, n, device=device)
@@ -157,7 +168,8 @@ class CubeRotationMetrics(RecorderTerm):
             self.prev_digit_touch = None
         self.off_grasp, self.tilted, self.timeout = torch.zeros(3, n, dtype=torch.bool, device=device)
         rewards = self._env.reward_manager
-        self.goal_context = rewards.get_term_cfg("goal_context").func if "goal_context" in rewards.active_terms else None
+        has_goals = "goal_context" in rewards.active_terms
+        self.goal_context = rewards.get_term_cfg("goal_context").func if has_goals else None
         self.goals = torch.zeros(n, dtype=torch.long, device=device)
         up = self.yaw.new_tensor((0., 0., 1.)).expand(n, 3)
         quat = _t(self._env.scene["object"].data.root_quat_w)
@@ -165,6 +177,10 @@ class CubeRotationMetrics(RecorderTerm):
         x = self.yaw.new_tensor((1., 0., 0.)).expand(n, 3)
         self.initial_x_body = math_utils.quat_apply_inverse(quat, x)
         self.min_up_z = torch.ones_like(self.yaw)
+        self.peak_upright_tilt = torch.zeros_like(self.yaw)
+        self.upright_within_20 = torch.zeros_like(self.yaw)
+        self.levelled = torch.zeros_like(self.yaw, dtype=torch.bool)
+        self.peak_upright_after_level = torch.zeros_like(self.yaw)
 
     def summarize(self):
         seconds = self.length * self._env.step_dt
@@ -197,7 +213,26 @@ class CubeRotationMetrics(RecorderTerm):
             "full_turn_and_clean_timeout_rate": float(((turn >= math.tau) & clean_timeout).float().mean()),
             "full_turn_within_40mm_and_60deg_rate": float(((turn >= math.tau) & retained).float().mean()),
             "max_retained_rotation_deg": float(torch.rad2deg(turn[retained].max())) if retained.any() else None,
+            "tilt_note": ("peak_tilt_deg_median and the *_within_40mm_and_60deg_* rates gate on the reset-direction "
+                          "tilt (world up as seen by the cube at reset), which precesses when a cube resting on the "
+                          "inclined pads is levelled and turned; the *_upright<g>deg_* rates gate on the most upright "
+                          "face's tilt from world z, its peak counted from the first step the cube is within 20 deg of "
+                          "level (the grasps start on the inclined pads at ~40 deg; never levelled: not retained)"),
+            "reset_direction_peak_tilt_deg_median": float(peak_tilt_deg.quantile(0.5)),
+            "upright_peak_tilt_deg_p50_p90": torch.rad2deg(self.peak_upright_tilt).quantile(
+                self.yaw.new_tensor([0.5, 0.9])).tolist(),
+            "upright_peak_tilt_after_level_deg_p50_p90": (
+                torch.rad2deg(self.peak_upright_after_level[self.levelled]).quantile(
+                    self.yaw.new_tensor([0.5, 0.9])).tolist() if self.levelled.any() else None),
+            "levelled_rate": float(self.levelled.float().mean()),
+            "upright_within_20deg_time_share": float((self.upright_within_20 / self.length.clamp_min(1)).mean()),
         }
+        for gate in (30, 45):
+            kept = clean_timeout & (self.max_displacement <= 0.04) & self.levelled & (
+                self.peak_upright_after_level <= math.radians(gate))
+            for name, frac in (("quarter", 0.25), ("half", 0.5), ("three_quarter", 0.75), ("full", 1.0)):
+                summary[f"{name}_turn_within_40mm_and_upright{gate}deg_rate"] = float(
+                    ((turn >= frac * math.tau) & kept).float().mean())
         if self.goal_context is not None:
             summary["goals_per_episode_mean"] = float(self.goals.float().mean())
             summary["goals_per_episode_p50_p90"] = self.goals.float().quantile(self.goals.new_tensor(
@@ -365,11 +400,12 @@ def main(argv=None):
                     np.savez_compressed(
                         stream, steps=metrics.trace[: metrics.trace_step].cpu().numpy(),
                         columns=("net_yaw_rad", "heading_rad", "displacement_m", "up_dot",
-                                 "target_limit_fraction", "action_rms"),
+                                 "target_limit_fraction", "action_rms", "upright_tilt_rad"),
                         normalized_targets=metrics.target_trace[: metrics.trace_step].cpu().numpy(),
                         target_names=metrics.target_names,
                         step_dt=env.unwrapped.step_dt,
                         clean_timeout=(metrics.timeout & ~(metrics.off_grasp | metrics.tilted)).cpu().numpy(),
+                        grasp_index=metrics.grasp_index.cpu().numpy(),
                     )
     return 0
 

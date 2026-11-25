@@ -302,3 +302,26 @@ v2 segment 3는 iteration 약 1036에서 멈췄다. `model_1000`은 기록용으
 - held-out goals/episode > 0.13
 
 v2b segment 2는 iteration 약 1026에서 멈췄다. `model_1000`은 남긴다.
+
+### 6.3 eval 지표: 기울기 기준 (2026-11-25)
+
+**기존 지표의 문제:** 원래 eval은 "reset 때 큐브가 본 world-up 방향"이 얼마나 기울었는지로 기울기를 쟀다. turn 비율은 이 값의 최대가 60° 이하인 episode만 셌다.
+- 이 손의 grasp에서는 큐브가 기울어진 proximal pad 위에 놓여 시작한다. 가장 위를 향한 면이 수직에서 약 40° 기울어 있다.
+- 정책이 큐브를 수평으로 세운 뒤 world z 축으로 돌리면, 이 reset 방향은 약 40° 원뿔을 따라 세차운동을 한다.
+- 그래서 큐브가 수평인데도 이 값의 중앙값은 약 35°, episode 최대값의 중앙값은 61°로 나온다.
+
+**v2c seg1 재채점 (기존 trace 사용, 40 mm 조건은 유지):**
+
+| reset 방향 기울기 상한 | full turn (seed 94000 / 95000) |
+|---|---|
+| 60° | 30.7% / 29.3% |
+| 45° | 0.2% / 0.1% |
+| 상한 없음 | 76.6% / 73.9% |
+
+**`eval_policy.py`에 추가한 것:**
+- 가장 위를 향한 면의 기울기 (world z와 가장 가까운 body 축 사이의 각). 매 step trace에 기록한다 (`upright_tilt_rad` 열).
+- episode 최대값. 큐브가 처음으로 20° 안으로 수평이 된 step부터 센다. 한 번도 수평이 되지 않으면 retained에서 뺀다.
+- 30°와 45° 상한을 둔 turn 비율 (`*_turn_within_40mm_and_upright30deg_rate`, `...45deg_rate`).
+- 20° 안에 있던 시간 비율, 수평이 된 episode 비율.
+
+기존 필드는 비교를 위해 그대로 남겼고, `tilt_note`에 reset 방향 기울기라고 표시했다.
