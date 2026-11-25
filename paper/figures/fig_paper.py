@@ -881,7 +881,7 @@ def fig4():
             ea.text(1.02, f_, t, transform=ea.transAxes, fontsize=5.8, va="center", ha="left", color=c,
                     fontweight="bold")
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
-        ea.set_ylabel("friction bias (%)", labelpad=1, fontsize=5.6)
+        ea.set_ylabel("bias in friction effect (%)", labelpad=1, fontsize=5.6)
         clean(ea)
     fig.text(0.02 / W, (h - 1.19) / h, "deviation from O\n(0: as O)", fontsize=6.0, color=INK2,
              rotation=90, ha="left", va="center", linespacing=1.0)
