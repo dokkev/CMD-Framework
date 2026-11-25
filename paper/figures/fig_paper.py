@@ -811,8 +811,8 @@ def task_icon(ax, kind):
 
 def fig4():
     """Study 3A: four Drake tasks under O's reused command. Per task: three frames, and R and U minus O over every
-    placement (friction 1.3 solid, 2.0 dashed). Below, all tasks together: every redesign's friction effect matching
-    O, 100(1 - E), by the contact surface's motion change. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
+    placement (median, quartiles; friction 1.3 solid, 2.0 dashed). Data: report/study3/data/fig4_sync.json
+    (paper/figures/fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
     T, DV = d["tasks"], d["deviation"]
@@ -823,7 +823,7 @@ def fig4():
             ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"),
             ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
-    h = 3.25
+    h = 2.15
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.30, 0.10
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -843,7 +843,7 @@ def fig4():
         ia.imshow(np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1))
         ia.axis("off"); ia.set_aspect("equal", anchor="C")
         # R and U minus O over every placement: median line, quartile band
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.62) / h, (cw - 0.34) / W, 0.70 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, 0.52 / h, (cw - 0.34) / W, 0.80 / h))
         dv = DV[key]
         x = np.asarray(dv["x"])
         ra.axhline(0, color=INK, lw=0.9, zorder=4)
@@ -854,47 +854,16 @@ def fig4():
                 ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.0, zorder=3)
         ra.set_xlabel(xl, labelpad=1, fontsize=6.3); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         clean(ra)
-    fig.text(0.02 / W, (h - 1.27) / h, "deviation from O\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, 0.92 / h, "deviation from O\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    # every redesign, all tasks: friction effect matching O against two morphology indices that the redesigns vary
-    # independently, the contact surface's motion change and the fingertip (skeleton) path change; three bands each
-    # (contact: the redesigns' targets 1.5 and 3 mm), dots: hands, line: band median
-    mk = {"pull": "o", "dial": "s", "coin": "^", "pinch": "D"}
-    panels = (("d_contact", ((0.0, 1.5, "< 1.5"), (1.5, 3.0, "1.5 to 3"), (3.0, 99.0, "> 3")),
-               "contact-surface motion change (mm)"),
-              ("d_skel", ((0.0, 5.0, "< 5"), (5.0, 9.0, "5 to 9"), (9.0, 99.0, "> 9")),
-               "fingertip path change (mm)"))
-    for pi, (field, bands, xlab) in enumerate(panels):
-        sa = fig.add_axes(((left + pi * (cw + gapc) + 0.30) / W, 0.36 / h, (cw - 0.34) / W, 0.80 / h))
-        for j, (name, key, *_r) in enumerate(cols):
-            hd = T[key]["hands"]
-            off = (j - (len(cols) - 1) / 2) * 0.10
-            med = []
-            for b_, (lo, hi, _) in enumerate(bands):
-                ag = [100 * (1 - v["E"]) for v in hd.values() if lo <= v[field] < hi]
-                sa.plot([b_ + off] * len(ag), ag, ls="none", marker=mk[key], ms=2.0, color="#c4c4c1", mec="none",
-                        zorder=1)
-                med.append(np.median(ag))
-            sa.plot(np.arange(3) + off, med, color=INK, lw=0.9, marker=mk[key], ms=3.4, mfc="white", mew=0.8, zorder=3)
-        sa.set_xticks(range(3)); sa.set_xticklabels([b[2] for b in bands]); sa.set_xlim(-0.4, 2.4)
-        sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
-        sa.set_xlabel(xlab, labelpad=1, fontsize=6.0)
-        if pi == 0:
-            sa.set_ylabel("friction effect\nmatching O (%)", labelpad=1, fontsize=5.6, linespacing=1.0)
-        clean(sa)
-    fig.text(0.02 / W, 0.76 / h, "every redesign\n(18 hands)", fontsize=6.0, color=INK2, rotation=90, ha="left",
-             va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
                plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
-               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0")]
-    handles += [plt.Line2D([], [], color=INK, lw=0.9, marker=mk[key], ms=3.4, mfc="white", mew=0.8,
-                           label=f"{name} (median)") for name, key, *_r in cols]
-    handles += [plt.Line2D([], [], ls="none", marker="o", ms=2.4, color="#c4c4c1", label="one redesign")]
-    fig.legend(handles=handles, loc="center left", bbox_to_anchor=((left + 2 * (cw + gapc) + 0.15) / W, 0.74 / h),
-               ncol=2, frameon=False, fontsize=5.8, handletextpad=0.4, columnspacing=1.2, handlelength=1.8,
-               labelspacing=0.35)
+               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0"),
+               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.25, label="quartiles over placements")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
+               handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)
