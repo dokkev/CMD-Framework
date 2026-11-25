@@ -305,18 +305,22 @@ E (작을수록 좋다):
 |---|---|---|---|---|
 | O | `cfl_q120_h3to7_h0` | 90 mm | 3 mm | 기준, 바꾸지 않는다 |
 | RL | `cfl_q120_L120_h3to7_hr` | 120 mm | 7 mm | O의 피복을 지키면서 contact Jacobian 변화(Δ_contact)를 최소로 |
-| UL | `cfl_q120_L150_h3to7_hu` | 150 mm | 7 mm | 피복만 맞춤 |
+| UL120 | (설계 중, 도착하면 export 이름을 적는다) | 120 mm | 7 mm | 피복만 맞춤. **주 비교 상대** |
+| UL | `cfl_q120_L150_h3to7_hu` | 150 mm | 7 mm | 피복만 맞춤. 보조 비교 |
+
+**수정 (f08a2ef 직후, RL/UL 수치를 보기 전):** RL(120 mm)과 UL(150 mm)은 길이가 달라 길이가 비교를 교란한다. 그래서 주 비교 쌍을 **RL vs UL120** (둘 다 L_f 120 mm, 7 mm pad)으로 바꾸고, UL(150 mm)은 보조 비교로 둔다. 아래 지표, 예측, 반증, 판정 불가 규칙에서 "UL"은 주 비교에서는 UL120을 뜻한다. 같은 규칙을 RL vs UL(150)에도 보조로 계산한다.
 
 **공개 (수치를 보기 전에 알고 있는 것):**
 - RL과 UL은 길이가 다르다 (120 / 150 mm). O(90 mm)와도 다르므로 큐브 grasp 기하가 많이 바뀐다.
 - O 대비 접촉 경로 변화: RL 30.1 mm (길이 offset 제외 24.4 mm), UL 52.1 mm.
-- RL은 경계에 있다: q_max 124°, 최악 MA 0.37 (O 0.58), transmission angle 최저 32°.
+- RL의 Δ_J는 24 mm다. R7처럼 거의 0이 아니다. 이 길이에서는 피복을 지키면서 contact Jacobian을 유지할 수 없다. 따라서 RL은 "접촉을 지킨 손"이 아니라 "접촉 변화를 덜 만든 손"이다.
+- RL은 굽힘 범위와 MA에서 경계에 있다: q_max 124° (120°보다 4° 큼), 최악 MA 0.37 (O 0.58), transmission angle 최저 32°, servo 기울기가 45° 한계에 닿아 있다.
 - smoke에서 grasp acceptance는 RL 0.28, UL 0.44였다 (16 env, 참고용).
 - 시도 1–2의 결과를 모두 본 뒤에 등록한다. 손은 그 뒤에 설계됐다.
 
 **정책과 조건:**
 - release policy `model_1497` (시도 1과 같다), fine-tuning 없음, unmapped (`CoDe-Rotate-Cube-<H>-OmniResetV2-Eval`).
-- held-out grasp: `gen_grasps.py --hand RL|UL --target 1024 --num_envs 4096 --seed_start 76000`, `CODE_ROTATE_CUBE_CROWN_LAYOUT=dome`, `CODE_ROTATE_CUBE_CONTACT=pad13_condim4_v1` → `heldout_transfer_v1/RL.pt`, `UL.pt`. 수율을 보고한다.
+- held-out grasp (UL120도 같다): `gen_grasps.py --hand RL|UL --target 1024 --num_envs 4096 --seed_start 76000`, `CODE_ROTATE_CUBE_CROWN_LAYOUT=dome`, `CODE_ROTATE_CUBE_CONTACT=pad13_condim4_v1` → `heldout_transfer_v1/RL.pt`, `UL.pt`. 수율을 보고한다.
 - pad μ 1.3과 2.0, seed 94000과 95000, 1024 env. eval override는 시도 1과 같다.
 - O의 수치는 시도 1b의 것을 그대로 쓴다 (같은 checkpoint, cache, seed, eval 조건).
 
@@ -337,7 +341,7 @@ E(H) = |Δrot(H) − Δrot(O)| / |Δrot(O)|, Δrot(H) = rot_H(μ 2.0) − rot_H(
 
 ### 시도 4 보완: 이전 대상에 RL / UL 추가 (사전 등록, 같은 commit)
 
-- 시도 4의 blind 정책(미리 정한 마지막 segment checkpoint)을 RL과 UL에도 이전한다. `CoDe-Rotate-Cube-RL|UL-OmniResetV2Blind-Eval`, 시도 5와 같은 cache, μ, seed.
+- 시도 4의 blind 정책(미리 정한 마지막 segment checkpoint)을 RL, UL120, UL에도 이전한다. 주 비교는 RL vs UL120, UL(150)은 보조다. `CoDe-Rotate-Cube-RL|UL-OmniResetV2Blind-Eval`, 시도 5와 같은 cache, μ, seed.
 - 주 지표와 예측은 시도 4와 같다: 회전 E에서 E(RL) < E(UL)이고 차이가 잡음 합보다 크다.
 - RL/UL 행은 따로 판정한다. 5/7/9 mm의 판정은 바꾸지 않는다.
 - 시도 4의 판정 불가 조건(O의 μ 1.3 평균 회전 < 180°)과 시도 5의 수율 조건을 그대로 적용한다.
