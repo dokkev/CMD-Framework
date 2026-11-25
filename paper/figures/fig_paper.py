@@ -817,12 +817,11 @@ def fig4():
     d = json.load(open(S3 / "fig4_sync.json"))
     DV = d["deviation"]
     # (title, task key, image, x label, response label, effect label)
-    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)", "load held (N)",
-             "extra load held (N)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial rotation (deg)", "extra rotation (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin travel (mm)", "extra travel (mm)"),
-            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "sphere rotation (deg)",
-             "extra rotation (deg)"))
+    cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
+             "load deviation (N)", ""),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)", ""),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)", ""),
+            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "rotation deviation (deg)", ""))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.25
     fig = plt.figure(figsize=(W, h))
@@ -847,16 +846,16 @@ def fig4():
         x = np.asarray(dv["x"])
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
-        # the trajectories: O, R and U's object response at each friction, over every placement
+        # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
         ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.58) / h, (cw - 0.58) / W, 0.78 / h))
+        ra.axhline(0, color=INK, lw=0.9, zorder=2)
         step = max(len(x) // 6, 1)
-        for hi, hh in enumerate(("O", "R", "U")):  # O beneath; markers staggered so overlapping curves stay visible
-            for mu, mk_ in (("1.3", "o"), ("2", "D")):
-                bd = dv[f"{hh}_{mu}_abs"]
-                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.07, lw=0, zorder=1)
-                ra.plot(x, bd["median"], color=HC[hh], lw=1.6 if hh == "O" else 1.0, alpha=0.55 if hh == "O" else 1,
-                        zorder=2 if hh == "O" else 3, marker=mk_, ms=2.8 if mk_ == "o" else 2.5, mfc="white",
-                        mew=0.7, markevery=(step // 2 + hi * step // 3, step))
+        for hi, hh in enumerate(("R", "U")):
+            for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
+                bd = dv[f"{hh}_{mu}"]
+                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
+                ra.plot(x, bd["median"], color=HC[hh], lw=1.0, zorder=3, marker=mk_, ms=2.8 if mk_ == "o" else 2.5,
+                        mfc="white", mew=0.7, markevery=((2 * hi + mi) * step // 4, step))
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.tick_params(labelbottom=False)
         clean(ra)
@@ -884,11 +883,11 @@ def fig4():
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
         ea.set_ylabel("% of O's effect", labelpad=1, fontsize=5.6)
         clean(ea)
-    fig.text(0.02 / W, (h - 1.19) / h, "object trajectory\n(closer to O: better)", fontsize=6.0, color=INK2,
+    fig.text(0.02 / W, (h - 1.19) / h, "deviation from O\n(0: as O)", fontsize=6.0, color=INK2,
              rotation=90, ha="left", va="center", linespacing=1.0)
     fig.text(0.02 / W, 0.89 / h, "bias in the friction\neffect (0: no bias)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color=INK, lw=1.6, alpha=0.55, label="O (original finger)"),
+    handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="U: coverage-only"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
