@@ -885,7 +885,7 @@ def fig4():
         clean(ea)
     fig.text(0.02 / W, (h - 1.19) / h, "deviation from O\n(0: as O)", fontsize=6.0, color=INK2,
              rotation=90, ha="left", va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.89 / h, "bias in the friction\neffect (0: no bias)", fontsize=6.0, color=INK2, rotation=90,
+    fig.text(0.02 / W, 0.89 / h, "friction effect\n(0: no bias)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="R: contact-preserving"),
