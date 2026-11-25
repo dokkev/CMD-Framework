@@ -1,6 +1,7 @@
-"""Fig. 4 data: for the three Drake tasks (pull-out e21 point, fingertip dial e28z, coin drag e30b), the per-hand
+"""Fig. 4 data: for the four Drake tasks (pull-out e21 point, fingertip dial e28z, coin drag e30b, pinch rotate e33), the per-hand
 measured friction effect as a share of O's, D(H)/D(O) (100% = in sync with O), over the same pairs and gates as the
-tasks' error E (sim/drake/analyze.py, analyze_roll.py tip_error, coin_drag.py hand_error; median |D(H)/D(O) - 1| is
+tasks' error E (sim/drake/analyze.py, analyze_roll.py tip_error, coin_drag.py hand_error, pinch_rotate.py hand_error;
+median |D(H)/D(O) - 1| is
 E exactly, checked here), and O, R, U's object response for one representative placement per task: the placement
 whose R and U ratios are nearest their medians. Pull-out curves come from the --curve rerun (tag e21c, the same
 simulation as e21), the dial's from e28zc (e28z with a trace every step). Writes report/study3/data/fig4_sync.json.
@@ -19,6 +20,7 @@ sys.path.insert(0, str(DRAKE))
 import analyze as A  # noqa: E402
 import analyze_roll as AR  # noqa: E402
 import coin_drag as CD  # noqa: E402
+import pinch_rotate as PR  # noqa: E402
 
 MU = (1.3, 2.0)
 LOG = DRAKE / "logs"
@@ -78,6 +80,22 @@ def coin_pairs(hand):
     return out
 
 
+def pinch_pairs(hand):
+    """Experiment 33 over E's gates (pinch_rotate.hand_error): O's kept draws; the hand's solver failures, lost and
+    over-pressed draws dropped."""
+    keep, _ = PR.o_keep("e33")
+    h = PR._load(hand, "e33")
+    out = {}
+    for k, o in keep.items():
+        runs = [h[k][f"{m:g}"] for m in PR.MU]
+        if any("solver_fail" in x for x in runs) or any(PR.is_lost(x) for x in runs):
+            continue
+        if max(x["pen_mm"] for x in runs) > PR.PEN_MM:
+            continue
+        out[k] = (runs[1]["rotation_deg"] - runs[0]["rotation_deg"]) / (o[1]["rotation_deg"] - o[0]["rotation_deg"])
+    return out
+
+
 def _band(ys):
     y = np.asarray(ys)
     return {"median": np.nanmedian(y, 0).round(4).tolist(), "q25": np.nanpercentile(y, 25, 0).round(4).tolist(),
@@ -89,7 +107,7 @@ def deviation():
     displacement; the limit once the grasp gives way) on a displacement grid, dial rotation and coin travel in
     time; median and quartiles."""
     dgrid = np.linspace(0.0, 5.0, 101)
-    dev = {"pull": {"x": dgrid.round(3).tolist()}, "dial": {}, "coin": {}}
+    dev = {"pull": {"x": dgrid.round(3).tolist()}, "dial": {}, "coin": {}, "pinch": {}}
 
     def held(c):
         d = np.maximum.accumulate(c[:, 2])
@@ -116,6 +134,15 @@ def deviation():
             dev["coin"][f"{h}_{m:g}"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
                                                for a, b in zip(co, ch)
                                                if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
+    # pinch: the sphere's rotation from the sweep's start, every step over the sweep and hold, on E's draws
+    for h in ("R", "U"):
+        pr = pinch_pairs(h)
+        o_, h_ = PR._load("O", "e33"), PR._load(h, "e33")
+        for m in MU:
+            ys = [np.array(h_[k][f"{m:g}"]["trace"])[:, 0] - np.array(o_[k][f"{m:g}"]["trace"])[:, 0] for k in pr]
+            n_p = min(map(len, ys))
+            dev["pinch"][f"{h}_{m:g}"] = _band([y[:n_p] for y in ys])
+    dev["pinch"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
     dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
     dev["coin"]["x"] = [round(0.2 * (i + 1), 3) for i in range(30)]
     return dev
@@ -125,8 +152,9 @@ def main():
     S3 = ROOT / "report" / "study3" / "data"
     ref = {"pull": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e21_point.json"))},
            "dial": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e28z_point.json"))["rows"]},
-           "coin": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]}}
-    fns = {"pull": pull_pairs, "dial": dial_pairs, "coin": coin_pairs}
+           "coin": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e30b_coin.json"))["rows"]},
+           "pinch": {r["hand"]: r["E"] for r in json.load(open(S3 / "drake_e33_pinch.json"))["rows"]}}
+    fns = {"pull": pull_pairs, "dial": dial_pairs, "coin": coin_pairs, "pinch": pinch_pairs}
     out = {"note": __doc__.splitlines()[0], "tasks": {}}
     for task, fn in fns.items():
         hands, per = {}, {}
@@ -180,6 +208,13 @@ def main():
             d = CD.load(h, m, "e30b")[rc]
             tr = np.array(d["trace"])
             curves[f"coin_{h}_{m:g}"] = {"t_s": tr[:, 0].tolist(), "travel_mm": tr[:, 2].tolist()}
+    rk = t["pinch"]["representative"]
+    for h in "ORU":
+        d = PR._load(h, "e33")[rk]
+        for m in MU:
+            tr = np.array(d[f"{m:g}"]["trace"])
+            curves[f"pinch_{h}_{m:g}"] = {"t_s": (np.arange(1, len(tr) + 1) / 30).round(4).tolist(),
+                                          "rotation_deg": tr[:, 0].tolist()}
     out["curves"] = curves
     out["deviation"] = deviation()
     (S3 / "fig4_sync.json").write_text(json.dumps(out, indent=1))

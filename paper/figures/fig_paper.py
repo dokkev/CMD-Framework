@@ -810,7 +810,7 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    """Study 3A: three Drake tasks under O's reused command. Rows: the task (three frames), O, R and U's object
+    """Study 3A: four Drake tasks under O's reused command. Rows: the task (three frames), O, R and U's object
     response at friction 1.3 (solid) and 2.0 (dashed), and every redesign's measured friction effect as a share of
     O's (100% = in sync). Data: report/study3/data/fig4_sync.json (paper/figures/fig4_sync.py)."""
     from PIL import Image
@@ -820,13 +820,15 @@ def fig4():
     cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
              "load deviation (N)"),
             ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"))
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"),
+            ("Pinch rotate", "pinch", "fingertip_pinch.png", "time (s)", "sphere turned, vs. O (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.05
     fig = plt.figure(figsize=(W, h))
-    cw = 2.15
+    left, gapc = 0.30, 0.10
+    cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
     for i, (name, key, img, xl, yl) in enumerate(cols):
-        x0 = 0.34 + i * (cw + 0.12)
+        x0 = left + i * (cw + gapc)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         ia = fig.add_axes((x0 / W, (h - 0.70) / h, cw / W, 0.52 / h))
         strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
@@ -841,7 +843,7 @@ def fig4():
         ia.imshow(np.concatenate([frames[0], gap, frames[1], gap, frames[2]], axis=1))
         ia.axis("off"); ia.set_aspect("equal", anchor="C")
         # R and U minus O over every placement: median line, quartile band
-        ra = fig.add_axes(((x0 + 0.25) / W, (h - 1.62) / h, (cw - 0.30) / W, 0.70 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.62) / h, (cw - 0.34) / W, 0.70 / h))
         dv = DV[key]
         x = np.asarray(dv["x"])
         ra.axhline(0, color=INK, lw=0.9, zorder=4)
@@ -850,10 +852,10 @@ def fig4():
                 bd = dv[f"{hh}_{mu}"]
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
                 ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.0, zorder=3)
-        ra.set_xlabel(xl, labelpad=1); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
+        ra.set_xlabel(xl, labelpad=1, fontsize=6.3); ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         clean(ra)
         # every redesign: measured effect as a share of O's
-        sa = fig.add_axes(((x0 + 0.25) / W, 0.50 / h, (cw - 0.30) / W, 0.66 / h))
+        sa = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.34) / W, 0.66 / h))
         hd = T[key]["hands"]
         agree = {k: 100 * (1 - v["E"]) for k, v in hd.items()}  # 100%: the same effect as O's
         for k, v in hd.items():
@@ -866,7 +868,7 @@ def fig4():
                         fontsize=5.6, va="center", color=INK)
         sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
         sa.set_xlim(0, 5.8)
-        sa.set_xlabel("contact-surface motion change (mm)", labelpad=1)
+        sa.set_xlabel("contact-surface motion change (mm)", labelpad=1, fontsize=5.8)
         if i == 0:
             sa.set_ylabel("matching O (%)", labelpad=1, fontsize=5.6)
         clean(sa)
