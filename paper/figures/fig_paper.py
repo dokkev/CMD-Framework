@@ -888,7 +888,7 @@ def fig4():
     fig.text(0.02 / W, 0.89 / h, "friction effect\n(0: no bias)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
-               plt.Line2D([], [], color=BLUE, lw=1.1, label="R: contact-preserving"),
+               plt.Line2D([], [], color=BLUE, lw=1.1, label="R: CoDe"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="U: coverage-only"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
                           label="pad friction 1.3"),
