@@ -965,30 +965,45 @@ def fig_protocols():
 
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
-    """Table I (Study 3B): the signed bias in the measured pad effect, CoDe against Conventional, as the pad change,
-    the simulator and the contact model vary (pull-out, 7 mm, condition A): median over placements and load
-    directions of (D(H) - D(O)) / D(O), + overstating O's effect; O's effect in N. Data: report/study3/data/
-    table_signed.json (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
-    st = json.load(open(S3 / "table_signed.json"))["settings"]
-    rowsd = (("friction", "Isaac, point", "friction, Isaac point"),
-             ("stiffness", "Isaac, point", "stiffness, Isaac point"),
-             ("shape$^{a}$", "Isaac, point", "crowned, Isaac point"),
-             ("friction$^{b}$", "Isaac, point", "friction softer pad, Isaac point"),
-             ("friction", "Drake, point", "friction, Drake point"),
-             ("friction", "Drake, hydro.", "friction, Drake hydro"),
-             ("friction$^{b}$", "Drake, hydro.", "friction softer pad, Drake hydro"))
+    """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe and
+    Conventional (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
+    O's effect, in three sections: the pad change (Isaac Lab, point contact, reused setpoint), the contact model
+    (Drake, friction change) and the reused command (friction change). Data: report/study3/data/table_signed.json
+    (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
+    t = json.load(open(S3 / "table_signed.json"))
+    st, pr = t["settings"], t["protocols"]
+    sections = (("Pad change (Isaac Lab, point contact)",
+                 (("friction $1.3\\to2.0$", st["friction, Isaac point"]),
+                  ("stiffness $2.5\\to1.0$\\,kN/m", st["stiffness, Isaac point"]),
+                  ("shape flat$\\to$crowned$^{a}$", st["crowned, Isaac point"]),
+                  ("friction, softer pad$^{b}$", st["friction softer pad, Isaac point"]))),
+                ("Contact model (Drake, friction $1.3\\to2.0$)",
+                 (("point", st["friction, Drake point"]),
+                  ("hydroelastic", st["friction, Drake hydro"]),
+                  ("hydroelastic, softer pad$^{b}$", st["friction softer pad, Drake hydro"]))),
+                ("Reused command (friction $1.3\\to2.0$)",
+                 (("joint setpoint (no sensing)", pr["setpoint"]),
+                  ("contact setpoint$^{c}$ (no sensing)", pr["contact setpoint"]),
+                  ("joint torque", pr["torque"]),
+                  ("close at sensed touch", pr["touch"]),
+                  ("matched contact force$^{d}$", pr["force"]))))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
              r"  \caption{Bias in the measured pad effect (pull-out, $7$\,mm pads): the effect each redesign measures "
-             r"minus $O$'s, as a share of $O$'s ($+$: overstated). Pad changes: friction "
-             r"$1.3\to2.0$, stiffness $2.5\to1.0$\,kN/m, shape flat$\to$crowned. $^{a}$Six redesigns. "
-             r"$^{b}$Pads soften with thickness (stiffness $\propto 1/h$, an upper bound on the softening), against "
-             r"$O$ carrying the same pad.}",
-             r"  \label{tab:robust}", r"  \setlength{\tabcolsep}{4pt}", r"  \begin{tabular}{llrr}", r"    \toprule",
-             r"    Pad change & Simulator & \ourmethod{} & Conventional \\", r"    \midrule"]
-    for name, sim, key in rowsd:
-        d = st[key]
-        lines.append(f"    {name} & {sim} & "
-                     f"${100 * d['R']['bias_median']:+.0f}\\%$ & ${100 * d['U']['bias_median']:+.0f}\\%$ \\\\")
+             r"minus $O$'s, as a share of $O$'s ($+$: overstated). Unless the row says otherwise, the redesigns reuse "
+             r"$O$'s joint setpoint. $^{a}$Six redesigns. $^{b}$Pads soften with thickness (stiffness $\propto 1/h$, "
+             r"an upper bound on the softening), against $O$ carrying the same pad. $^{c}$Drake: each hand's setpoint "
+             r"puts its fingertip contact point where $O$'s is. $^{d}$Oracle: the distal force fed back from the "
+             r"simulator. Medians over placements; under joint torque Conventional's bias spreads from "
+             f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$.}}",
+             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
+             r"    & \ourmethod{} & Conventional \\"]
+    for k, (title, rows) in enumerate(sections):
+        lines.append(r"    \midrule")
+        lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")
+        for name, d in rows:
+            fmt = [f"{v:+.0f}" if round(v) != 0 else "0" for v in (100 * d["R"]["bias_median"],
+                                                                 100 * d["U"]["bias_median"])]
+            lines.append(f"    \\quad {name} & ${fmt[0]}\\%$ & ${fmt[1]}\\%$ \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
