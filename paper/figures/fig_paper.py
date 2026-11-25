@@ -818,9 +818,9 @@ def fig4():
     T, DV = d["tasks"], d["deviation"]
     # (title, task key, image, response axis labels)
     cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
-             "load held, vs. O (N)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "dial turned, vs. O (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "coin dragged, vs. O (mm)"))
+             "load deviation (N)"),
+            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)"),
+            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.05
     fig = plt.figure(figsize=(W, h))
