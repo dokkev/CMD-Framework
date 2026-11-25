@@ -258,7 +258,7 @@ def common_pad_extension(view_of, mech, configs, x, qd=150.0, step=0.25, margin=
     return ep, ed, SPoly(pp).distance(SPoly((dd - d0[1]) @ R.T + t))
 
 
-def faint_extended(ax, v, pads, pins):
+def faint_extended(ax, v, pads, pins, bodies=True):
     """The finger extended (q = 0), faint, under the flexed drawing."""
     from matplotlib.patches import Circle as _C
     n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
@@ -275,12 +275,16 @@ def faint_extended(ax, v, pads, pins):
         for p_ in list(ax.patches[n0p:]):
             if isinstance(p_, _C):
                 p_.remove()
+    if not bodies:
+        for p_ in list(ax.patches[n0p:]):
+            if not isinstance(p_, _C):
+                p_.remove()
     for pad in pads:
         ax.add_patch(Polygon(pad, fc="#dbe6f6", ec="#9db6dd", lw=0.4, ls=(0, (2, 1)), zorder=0.8))
 
 
 def fig2():
-    h = 2.15
+    h = 1.95
     fig = plt.figure(figsize=(W, h))
     head = h - 0.04
     # (a) room: the optimized designs at 7 mm, 120 deg (evaluator geometry) and the pad length each keeps
@@ -365,6 +369,10 @@ def fig2():
                                                else min(150.0, first_hit(v)))
             n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
             v.draw(ax, qd, hit=set(), style="sketch")
+            from matplotlib.patches import Circle as _Cc
+            for p_ in list(ax.patches[n0p:]):  # no servo or palm bodies in (a)
+                if not isinstance(p_, _Cc):
+                    p_.remove()
             alpha = 1.0 if hh == 7.0 else 0.30
             for p_ in ax.patches[n0p:]:
                 p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_alpha(alpha); p_.set_linewidth(0.5)
@@ -394,7 +402,7 @@ def fig2():
                 for pad in (pp, dpose):
                     ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
                 if hh == 3.0:
-                    faint_extended(ax, v, (pp, dext), pins=True)
+                    faint_extended(ax, v, (pp, dext), pins=True, bodies=False)
                 ov = SPoly(pp).intersection(SPoly(dpose))
                 if not ov.is_empty and ov.geom_type == "Polygon":
                     ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
@@ -403,7 +411,7 @@ def fig2():
                         cx_, cy_ = ov.centroid.x, ov.centroid.y
                         ax.add_patch(Circle((cx_, cy_), 9.0, fc="none", ec="#c0392b", lw=0.8, ls=(0, (2, 1.5)),
                                             zorder=40))
-                        ax.annotate("pad interference", xy=(cx_ + 6.5, cy_ - 6.5), xytext=(cx_ + 22, cy_ - 30),
+                        ax.annotate("pad interference", xy=(cx_ + 6.5, cy_ - 6.5), xytext=(cx_ + 4, cy_ - 36),
                                     fontsize=5.8, color="#c0392b", ha="left", va="center", zorder=41,
                                     arrowprops=dict(arrowstyle="-|>", color="#c0392b", lw=0.7, mutation_scale=6,
                                                     shrinkA=1, shrinkB=0))
@@ -440,7 +448,7 @@ def fig2():
                     ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
                                          alpha=0.9, zorder=26 + j))
                 if hh == 3.0:
-                    faint_extended(ax, v, (pp, dext), pins=False)
+                    faint_extended(ax, v, (pp, dext), pins=False, bodies=False)
                 if hh == 3.0:  # the remote centre of rotation over 0..qd
                     from fig_mechanisms import icr_path
                     path = icr_path(v, qd)
@@ -450,13 +458,13 @@ def fig2():
         foot = {None: ("", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
                 "hr": ("clear at $150^\\circ$", BLUE),
                 "proto": ("larger RoM with every pad", BLUE)}[hand]
-        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.40) / h, foot[0], fontsize=5.6, color=foot[1],
+        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.24) / h, foot[0], fontsize=5.6, color=foot[1],
                  ha="center", va="top")
     for j, hh in enumerate((3.0, 5.0, 7.0)):
         x0 = 0.35 + j * 0.70
-        fig.patches.append(Rectangle((x0 / W, 0.10 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
+        fig.patches.append(Rectangle((x0 / W, 0.42 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
                                      fc=PADC[hh], ec="#1f4f9c", lw=0.4))
-        fig.text((x0 + 0.18) / W, 0.14 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
+        fig.text((x0 + 0.18) / W, 0.46 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
     # (b) where each joint can put the pole (Study 0): the poles reachable over each design space
     from fig_mechanisms import cached_outlines, roller_pole
     label(fig, 2.55, head, "(b) Achievable poles", h)
@@ -815,18 +823,18 @@ def fig4():
             ("Hold: pad stiffness", "Isaac Lab", "stiffness", isaac_k),
             ("Grasp acquisition", "Drake", "acquire", acq),
             ("Dial turning", "Drake", "dial", dial))
-    h = 3.15
+    h = 2.95
     fig = plt.figure(figsize=(W, h))
     cw = 1.62
     for i, (name, sim, kind, data) in enumerate(cols):
         x0 = 0.42 + i * (cw + 0.12)
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         fig.text((x0 + cw / 2) / W, (h - 0.16) / h, sim, fontsize=6.0, color=INK2, ha="center", va="top")
-        ia = fig.add_axes((x0 / W, (h - 0.86) / h, cw / W, 0.58 / h))
+        ia = fig.add_axes((x0 / W, (h - 0.80) / h, cw / W, 0.52 / h))
         what = task_icon(ia, kind)
-        fig.text((x0 + cw / 2) / W, (h - 0.90) / h, what, fontsize=5.6, color=INK2, ha="center", va="top")
+        fig.text((x0 + cw / 2) / W, (h - 0.82) / h, what, fontsize=5.6, color=INK2, ha="center", va="top")
         # error of R and U
-        ba = fig.add_axes(((x0 + 0.25) / W, (h - 1.58) / h, (cw - 0.30) / W, 0.46 / h))
+        ba = fig.add_axes(((x0 + 0.25) / W, (h - 1.46) / h, (cw - 0.30) / W, 0.42 / h))
         er, eu = 100 * data["R"][1], 100 * data["U"][1]
         ba.barh([1, 0], [er, eu], height=0.6, color=[BLUE, AMBER])
         for y, v in ((1, er), (0, eu)):

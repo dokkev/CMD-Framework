@@ -196,6 +196,9 @@ def main() -> int:
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
     Image.open(out).convert("RGB").save(out)  # opaque RGB, no SMask (PaperPlaza)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from pngout import trim_white
+    trim_white(out)
     print(out, f"{width} x {height} in")
     return 0
 
