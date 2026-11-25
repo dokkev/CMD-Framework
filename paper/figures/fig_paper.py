@@ -858,6 +858,26 @@ def fig4():
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
                 ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
                         mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 4, step))
+        # end labels: the final deviation as a share of O's final value at the same friction, marker = friction
+        labs_r = []
+        for hh in ("R", "U"):
+            for mu, mk_ in (("1.3", "o"), ("2", "D")):
+                dev_end = dv[f"{hh}_{mu}"]["median"][-1]
+                ref_end = dv[f"O_{mu}_abs"]["median"][-1]
+                labs_r.append((dev_end, f"{100 * dev_end / ref_end:+.0f}%", HC[hh], mk_))
+        y0, y1 = ra.get_ylim()
+        fr = sorted(((v - y0) / (y1 - y0), t, c, m) for v, t, c, m in labs_r)
+        for k in range(1, len(fr)):
+            if fr[k][0] - fr[k - 1][0] < 0.12:
+                fr[k] = (fr[k - 1][0] + 0.12,) + fr[k][1:]
+        over = fr[-1][0] - 0.97
+        if over > 0:
+            fr = [(q[0] - over,) + tuple(q[1:]) for q in fr]
+        for f_, t, c, m in fr:
+            ra.plot(1.045, f_, marker=m, ms=2.4 if m == "o" else 2.1, mfc="white", mec=c, mew=0.5, ls="none",
+                    transform=ra.transAxes, clip_on=False)
+            ra.text(1.08, f_, t, transform=ra.transAxes, fontsize=5.6, va="center", ha="left", color=c,
+                    fontweight="bold")
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.tick_params(labelbottom=False)
         clean(ra)
@@ -893,7 +913,7 @@ def fig4():
              rotation=90, ha="left", va="center", linespacing=1.0)
     fig.text(0.02 / W, 0.89 / h, "bias in the friction\neffect (0: none)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original finger)"),
+    handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="Conventional"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
@@ -901,7 +921,7 @@ def fig4():
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
                           label="pad friction 2.0"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements"),
-               plt.Line2D([], [], ls="none", label="%: share of O's friction effect")]
+               plt.Line2D([], [], ls="none", label="%: relative to O")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
