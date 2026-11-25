@@ -463,19 +463,30 @@ def fig2():
     fig.text(3.82 / W, (head - 0.20) / h, "over each joint's design space", fontsize=6.2, color=INK2, ha="center",
              va="top")
     pax = fig.add_axes((2.95 / W, 0.42 / h, 1.72 / W, (head - 0.74) / h))
-    shown = {90: "#a9c7ee", 120: "#4f8fdc", 150: "#123f7a"}
+    from shapely.geometry import Polygon as SPoly
+    from shapely.ops import unary_union
+    QSET = (90, 105, 120)  # Q_eval for q_req = 120 deg: 90, (90 + q_req) / 2, q_req
     gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
-    rings = cached_outlines({d: None for d in shown}, gx, gy)
-    pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
-    pax.fill(rings[120][:, 0], rings[120][:, 1], fc="#dbe7f7", ec=BLUE, lw=0.9, zorder=0.5)
+    rings = cached_outlines({d: None for d in QSET}, gx, gy)
     radii = np.linspace(9.5, 20.0, 60)
     lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
-    teal = {90: "#a7ddd4", 120: TEAL, 150: "#0e5c50"}
-    for deg in (120,):
+
+    def roller_band(deg):
         tq = np.radians(deg)
-        edge = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
-                               roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
-        pax.fill(edge.real, edge.imag, fc=teal[deg], ec="none", zorder=3)
+        e = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
+                            roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
+        return SPoly(np.c_[e.real, e.imag]).buffer(0)
+    pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
+    for polys, light, dark, edge in (([SPoly(rings[d]).buffer(0) for d in QSET], "#e4edf9", "#9cc0ea", BLUE),
+                                     ([roller_band(d) for d in QSET], "#bfe6df", TEAL, TEAL)):
+        uni, inter = unary_union(polys), polys[0]
+        for pg in polys[1:]:
+            inter = inter.intersection(pg)
+        for geom, fc, z in ((uni, light, 0.5), (inter, dark, 0.7)):
+            for g in getattr(geom, "geoms", [geom]):
+                if g.geom_type == "Polygon" and not g.is_empty:
+                    xy = np.array(g.exterior.coords)
+                    pax.fill(xy[:, 0], xy[:, 1], fc=fc, ec=edge if z == 0.5 else "none", lw=0.7, zorder=z)
     pax.plot([-32, 55], [0, 0], color=GREY, lw=1.6, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
@@ -484,7 +495,8 @@ def fig2():
              path_effects=halo, zorder=6)
     pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
     pax.text(21, -13.5, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
-    pax.text(54, 29, "$q=120^\\circ$", fontsize=6.2, color=INK2, ha="right", va="top")
+    pax.text(54, 29, "$q\\in Q=\\{90^\\circ, 105^\\circ, 120^\\circ\\}$\nlight: some $q$;  dark: every $q$", fontsize=5.6,
+             color=INK2, ha="right", va="top", linespacing=1.1)
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
     clean(pax)
@@ -667,8 +679,8 @@ def fig3():
                  color=ARCH[key][1], ha="center", va="top", fontweight="bold" if key == "cfl" else "normal", family="Nimbus Sans" if key == "cfl" else "Helvetica Light")
         fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.14 - gh) / h, f"$\\bar C_{{pad}}$ = {100 * c:.0f}%",
                  fontsize=6.2, color=ARCH[key][1], ha="center", va="top")
-    fig.text(0.05 / W, (row_b + 0.30) / h, "dark: contact surface holding the cylinder;  light: mounted pad;  "
-             "grey: actuator, linkage, rollers, joints;  faint: extended", fontsize=5.6, color=INK2, va="center")
+    fig.text(0.05 / W, (row_b + 0.22) / h, "dark: contact surface holding the cylinder;  light: mounted pad;  "
+             "grey: actuator, linkage, rollers, joints;  faint: extended", fontsize=5.4, color=INK2, va="center")
     # (a) right: coverage dots, every condition
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, (row_b + 0.55) / h, 0.82 / W, (row_a - row_b - 0.85) / h))
@@ -693,8 +705,8 @@ def fig3():
         clean(ax)
     # (b) left: reference and redesign paths, 120 deg, 3 -> 7 mm
     label(fig, 0.02, row_b + 0.02, "(b) Preservation: redesign from 3 to 7 mm at $q_{req}=120^\\circ$", h)
-    axc = fig.add_axes((0.30 / W, 0.30 / h, 1.80 / W, (row_b - 0.48) / h))
-    axs = fig.add_axes((2.30 / W, 0.30 / h, 1.80 / W, (row_b - 0.48) / h))
+    axc = fig.add_axes((0.42 / W, 0.30 / h, 1.68 / W, (row_b - 0.48) / h))
+    axs = fig.add_axes((2.50 / W, 0.30 / h, 1.60 / W, (row_b - 0.48) / h))
     for key in ("2r_remote", "cfl"):  # the fixed axis and the CFL; the others are in the dots
         t = traj[key]
         col = ARCH[key][1]
@@ -709,9 +721,10 @@ def fig3():
         clean(ax)
     axc.plot([], [], color=INK2, lw=0.8, ls=(0, (2.2, 1.4)), label="3 mm reference")
     axc.plot([], [], color=INK2, lw=1.3, label="7 mm redesign")
-    axc.text(0.98, 0.06, "CFL keeps it", transform=axc.transAxes, fontsize=5.8, color=BLUE, ha="right")
-    axs.text(0.02, 0.06, "2R-remote keeps it", transform=axs.transAxes, fontsize=5.8, color=AMBER, ha="left")
-    axc.legend(fontsize=5.6, frameon=False, loc="lower left", handlelength=1.8, borderaxespad=0.1)
+    axc.text(0.02, 0.62, "CFL keeps it", transform=axc.transAxes, fontsize=5.8, color=BLUE, ha="left")
+    axs.text(0.02, 0.95, "2R-remote keeps it", transform=axs.transAxes, fontsize=5.8, color=AMBER, ha="left",
+             va="top")
+    axc.legend(fontsize=5.6, frameon=False, loc="upper left", handlelength=1.8, borderaxespad=0.1)
     # (b) right: contact deviation dots, every condition, fixed-axis value dashed
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
