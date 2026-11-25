@@ -129,7 +129,7 @@ def icon(ax, kind):
         tc = np.array([(4.5 / 2 - 6.5 / 2) * c30, (6.5 / 2 + 4.5 / 2) * s30 + H])
         for art in ax.patches:
             art.set_clip_on(False)
-        ax.annotate("", xy=tc + np.array([0, 0.1]), xytext=tc + np.array([0, 4.2]), annotation_clip=False,
+        ax.annotate("", xy=tc + np.array([0, 0.1]), xytext=tc + np.array([0, 2.6]), annotation_clip=False,
                     arrowprops=dict(arrowstyle="-|>", color=INK, lw=0.8, mutation_scale=5, shrinkA=0, shrinkB=0, clip_on=False), zorder=5)
         return
     if kind == "traction":  # black traction pad with a tyre-like chevron tread
@@ -312,20 +312,30 @@ def main() -> int:
              color=INK2, ha="center", va="top")
     # bottom: contact interfaces to carry
     by = 0.06
-    fig.text(*inch(0.02, by + 0.72), "contact interfaces to carry", fontsize=6.6, fontweight="bold", va="top")
-    nari = np.asarray(Image.open(CAD / "nari_touch.png").convert("RGB"))
-    nw = 0.62
-    nh = nw * nari.shape[0] / nari.shape[1]
-    ax = fig.add_axes((*inch(0.08, by + 0.10), nw / width, nh / height))
-    ax.imshow(nari); ax.axis("off")
-    fig.text(*inch(0.08 + nw / 2, by + 0.08), "NARI-Touch Tactile", fontsize=5.8, ha="center", va="top")
-    kinds = (("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"), ("soft", "Solid Soft Pad"))
-    iw, ih = 0.68, 0.30
-    for k, (kk, nm) in enumerate(kinds):
-        x = 0.95 + k * (iw + 0.15)
-        ax = fig.add_axes((*inch(x, by + 0.16), iw / width, ih / height))
-        icon(ax, kk)
-        fig.text(*inch(x + iw / 2, by + 0.08), nm, fontsize=5.8, ha="center", va="top")
+    fig.text(*inch(0.02, by + 0.76), "contact interfaces to carry", fontsize=6.6, fontweight="bold", va="top")
+    # four interfaces in equal boxes, each drawing scaled to fill its box the same way
+    bw, bh, gap = 0.74, 0.44, 0.105
+    names = (("nari", "NARI-Touch Tactile"), ("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"),
+             ("soft", "Solid Soft Pad"))
+    for k, (kk, nm) in enumerate(names):
+        x = 0.08 + k * (bw + gap)
+        ax = fig.add_axes((*inch(x, by + 0.14), bw / width, bh / height))
+        if kk == "nari":
+            nari = np.asarray(Image.open(CAD / "nari_touch.png").convert("RGB"))
+            ax.imshow(nari); ax.axis("off")
+        else:
+            icon(ax, kk)
+            # fit the drawing to its box: the extent of everything drawn, padded equally
+            pts = []
+            for art in list(ax.patches) + list(ax.lines):
+                xy = art.get_xy() if hasattr(art, "get_xy") else np.c_[art.get_xdata(), art.get_ydata()]
+                pts.append(np.asarray(xy, float).reshape(-1, 2))
+            pts = np.vstack(pts)
+            (x0, y0), (x1, y1) = pts.min(0), pts.max(0)
+            pad = 0.06 * max(x1 - x0, y1 - y0)
+            ax.set_xlim(x0 - pad, x1 + pad); ax.set_ylim(y0 - pad, y1 + pad)
+            ax.set_aspect("equal", adjustable="box", anchor="C")
+        fig.text(*inch(x + bw / 2, by + 0.10), nm, fontsize=5.8, ha="center", va="top")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
