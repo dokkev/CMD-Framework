@@ -158,12 +158,6 @@ def icon(ax, kind):
                         continue
                     ax.add_patch(Pg([iso(0, v, w) for v, w in zip(hv, hw)], fc="#2a55a0", ec="none", zorder=2))
         iso_pad(ax, H, "#7aa6e3", "#5a8bd4", "#4677c4", PAD, decorate=cells)
-        c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
-        tc = np.array([(4.5 / 2 - 6.5 / 2) * c30, (6.5 / 2 + 4.5 / 2) * s30 + H])
-        for art in ax.patches:
-            art.set_clip_on(False)
-        ax.annotate("", xy=tc + np.array([0, 0.1]), xytext=tc + np.array([0, 2.6]), annotation_clip=False,
-                    arrowprops=dict(arrowstyle="-|>", color=INK, lw=0.8, mutation_scale=5, shrinkA=0, shrinkB=0, clip_on=False), zorder=5)
         return
     if kind == "traction":  # black traction pad with a tyre-like chevron tread
         def tread(iso, L, Wd):
