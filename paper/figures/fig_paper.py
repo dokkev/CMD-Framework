@@ -478,30 +478,24 @@ def fig2():
     pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
     pax.contourf(man["x"], man["z"], reach, levels=[0.5, 1.5], colors=["#dbe7f7"], zorder=0.5)
     pax.contour(man["x"], man["z"], reach, levels=[0.5], colors=[BLUE], linewidths=0.9, zorder=0.6)
-    # RCJ, equal rollers (as in the study), P(q) = r - i r tan(q/4) over q in [0, 120 deg]:
-    # the study's radii 9.5-20 mm (filled) and the cap lifted to 45 mm, a roller as wide as the finger (dashed)
-    def rcj_region(rmax):
-        rr = np.linspace(9.5, rmax, 80)
-        qq = np.radians(np.linspace(0.0, 120.0, 61))
-        R_, Q_ = np.meshgrid(rr, qq)
-        P_ = roller_pole(R_.ravel(), R_.ravel(), Q_.ravel())
-        pts_ = np.c_[P_.real, P_.imag]
-        pts_ = pts_[np.isfinite(pts_).all(1)]
-        from scipy.spatial import ConvexHull
-        return pts_[ConvexHull(pts_).vertices]
-    h20, h45 = rcj_region(20.0), rcj_region(45.0)
-    pax.fill(h45[:, 0], h45[:, 1], fc="none", ec=TEAL, lw=0.8, ls=(0, (2.5, 1.5)), zorder=3)
-    pax.fill(h20[:, 0], h20[:, 1], fc=TEAL, ec="none", alpha=0.85, zorder=3.1)
-    pax.text(h45[:, 0].max() - 1.0, -13, "$r\\leq45$\nmm", fontsize=5.4, color=TEAL, ha="right",
-             va="center", linespacing=1.0)
-    pax.plot([-32, 55], [0, 0], color=GREY, lw=1.6, zorder=4)
+    # RCJ, equal rollers, bound as the CFL's space: both pivots on the link line within the 90 mm finger, so
+    # |AB| = 2r <= 90 mm, and r >= 9.5 mm for the pins' hardware; P(q) = r (1 - i tan(q/4)), q in [0, 120 deg]
+    from scipy.spatial import ConvexHull
+    rr = np.linspace(9.5, 45.0, 80)
+    qq = np.radians(np.linspace(0.0, 120.0, 61))
+    R_, Q_ = np.meshgrid(rr, qq)
+    P_ = roller_pole(R_.ravel(), R_.ravel(), Q_.ravel())
+    pts_ = np.c_[P_.real, P_.imag]
+    pts_ = pts_[np.isfinite(pts_).all(1)]
+    hull = pts_[ConvexHull(pts_).vertices]
+    pax.fill(hull[:, 0], hull[:, 1], fc=TEAL, ec="none", alpha=0.8, zorder=3)
+    pax.plot([-32, 60], [0, 0], color=GREY, lw=1.6, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
-    pax.text(54, 1.2, "fixed axis", fontsize=5.6, color=GREY, va="bottom", ha="right", path_effects=halo, zorder=6)
-    pax.text(-31, -18.5, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
+    pax.text(-31, 1.2, "fixed axis", fontsize=5.6, color=GREY, va="bottom", ha="left", path_effects=halo, zorder=6)
+    pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
-    pax.text(15, -3.0, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
+    pax.text(32, -6.0, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
     pax.text(54, 29, "$q\\in[0, 120^\\circ]$", fontsize=6.0, color=INK2, ha="right", va="top")
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
