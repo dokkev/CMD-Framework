@@ -847,31 +847,37 @@ def fig4():
         x = np.asarray(dv["x"])
         # O, R, U's object response at each friction, over every placement
         ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.62) / h, (cw - 0.34) / W, 0.74 / h))
-        for hh in ("U", "R", "O"):
-            for mu, ls in (("1.3", "-"), ("2", "--")):
+        step = max(len(x) // 6, 1)
+        for hi, hh in enumerate(("O", "R", "U")):  # O beneath; markers staggered so overlapping curves stay visible
+            for mu, mk_ in (("1.3", "o"), ("2", "D")):
                 bd = dv[f"{hh}_{mu}_abs"]
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.07, lw=0, zorder=1)
-                ra.plot(x, bd["median"], ls, color=HC[hh], lw=1.1 if hh == "O" else 1.0, zorder=3)
+                ra.plot(x, bd["median"], color=HC[hh], lw=1.6 if hh == "O" else 1.0, alpha=0.55 if hh == "O" else 1,
+                        zorder=2 if hh == "O" else 3, marker=mk_, ms=2.8 if mk_ == "o" else 2.5, mfc="white",
+                        mew=0.7, markevery=(step // 2 + hi * step // 3, step))
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.tick_params(labelbottom=False)
         clean(ra)
         # each hand's friction effect: the same hand at 2.0 minus at 1.3
         ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.34) / W, 0.74 / h), sharex=ra)
-        for hh in ("U", "R", "O"):
+        for hh in ("O", "R", "U"):
             bd = dv[f"{hh}_effect"]
             ea.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.10, lw=0, zorder=1)
-            ea.plot(x, bd["median"], color=HC[hh], lw=1.2 if hh == "O" else 1.0, zorder=3)
+            ea.plot(x, bd["median"], color=HC[hh], lw=1.6 if hh == "O" else 1.0, alpha=0.55 if hh == "O" else 1,
+                    zorder=2 if hh == "O" else 3)
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3); ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
     fig.text(0.02 / W, (h - 1.25) / h, "object response\n(every placement)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
     fig.text(0.02 / W, 0.87 / h, "friction effect\n(2.0 minus 1.3)", fontsize=6.0, color=INK2, rotation=90,
              ha="left", va="center", linespacing=1.0)
-    handles = [plt.Line2D([], [], color=INK, lw=1.1, label="O (reference)"),
+    handles = [plt.Line2D([], [], color=INK, lw=1.6, alpha=0.55, label="O (reference)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, label="R: contact-preserving"),
                plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
-               plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
-               plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0"),
+               plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
+                          label="friction 1.3"),
+               plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
+                          label="friction 2.0"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.25, label="quartiles over placements")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
