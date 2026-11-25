@@ -1,0 +1,77 @@
+# Drake 엄지–검지 집기: 접촉을 유지한 채 구를 조금 돌리기 (33차, 실험용, Study 3 본 실험 아님)
+
+사용자 요청: "contact을 유지한 채 sphere를 조금 돌리는 task, thumb이랑 index 이용해서". 검지 distal pad와 엄지 pad 사이에 구를 쥐고, 검지를 열린 루프로 더 굽혀 구를 돌린다. 재설계는 검지만 바뀐다. 엄지는 모든 손에서 같다. 결과는 report/에 넣지 않는다. 데이터와 그림은 `sim/drake/logs`에 둔다.
+
+## 33차 사전 기록 (2026-11-25, O만으로 보정, R·U는 gate(관통, lost, solver)만 확인, 재설계 손의 D와 E를 보기 전)
+
+### 구현 (`sim/drake/pinch_rotate.py`, 그림 `sim/drake/render_pinch.py`)
+
+- 새 모듈이다. `two_pad_drake.py`의 기하, servo 표, 조건 A의 굽힘 임피던스(K_Q 5 N·m/rad, D_Q 0.08, 이득은 시작 명령에서 dθ/dq로 사상)를 읽기만 한다. MCP는 0에 고정한다(proximal phalanx가 world). point contact, pad 2.5 kN/m, 구는 강체(1e8 N/m), 중력 없음(pull-out과 같음).
+- **구 (반지름 r):** 손가락 평면 안에서 O의 distal pad 접선 t와 법선 n 방향의 두 slide, 그리고 y축 회전(spin). 회전에는 **비틀림 스프링 k_r**(감쇠 1e-4 N·m·s/rad)이 걸린다. 스프링이 없으면 구는 미끄러지지 않고 굴러 μ와 무관하게 돈다(보정에서 확인, 아래).
+- **엄지:** 모든 손에서 같은 맞은편 pad(상자, 길이 30 mm, 두께 3 mm, 폭은 검지 pad와 같음, 같은 point stiffness와 μ). 구의 맞은편에서 면 법선 −n으로 구를 향하고, n 방향 prismatic joint 위의 부드러운 스프링 **K_THUMB 40 N/m**(감쇠 0.5 N·s/m)로 민다. 스프링의 쉼 위치는 구 안쪽으로 preload / K_THUMB이다. 그래서 쥐는 힘은 엄지 스프링이 정하고, 면이 O와 다르게 나온 손은 엄지를 조금 밀어낼 뿐이다(26차와 획득 C의 교훈). 엄지는 접선 방향으로 움직이지 않는다.
+- **배치 (O에서, 손마다 같은 proximal-face 좌표):** O의 시작 굽힘 q_s에서 O의 distal pad 끝(distal_end)에서 back_mm 뒤의 면 점이 접촉점이다. 구의 중심은 그 점에서 n으로 r, 엄지 면은 중심에서 n으로 r.
+- **명령 (모든 손에 O의 열린 루프, 조건 A):** (1) 구를 잡은 채(접선과 회전은 단단히, n 방향은 힘 한계 1.25 × preload인 drive로) 굽힘 0 → q_s를 1 s, 유지 0.5 s. n 방향 drive는 엄지의 preload를 버티다가 검지가 도착하면 물러난다. (2) 새 plant에서 구를 놓고(t, n 자유, 회전은 k_r) 0.5 s. (3) q_s → q_s + sweep을 2 s, 유지 0.5 s.
+- **측정:** sweep 시작부터 끝까지 구의 회전(°, 굽힘 방향이 +). D = 회전(μ 2.0) − 회전(μ 1.3), 두 pad 모두 μ. 힘은 접촉의 **법선 성분**이다. 관통 = 실행 전체에서 (검지 distal, proximal, 엄지) 법선력 최대 / 2.5 N/mm.
+- **lost:** 끝에서 두 pad(검지 distal, 엄지) 중 하나라도 법선력 < 0.0667 N(`T.LOSS_N`), 또는 sweep과 유지 동안 **3개 연속 표본(0.1 s)** 이 그렇다. 표본 하나만 낮은 것은 stick-slip 떨림(chatter)으로 따로 센다(보정에서 O의 두 뽑기에서 엄지 힘이 표본 하나에서만 0이고 검지 힘은 2.0–2.4 N였다).
+- **time step 0.25 ms** (30b차와 같음). O 16개 뽑기에서 D의 차이: 1 vs 0.25 ms 중앙 9.1%(최대 43%), 0.5 vs 0.25 ms 2.7%, 0.25 vs 0.125 ms **0.67%**(75분위 1.3%, 최대 6.5%). 1 ms에서는 미끄러지는 동안의 떨림이 D를 흔든다.
+
+### 뽑기 (seed 33, 64개, `logs/pinch_e33.json`)
+
+`numpy.random.default_rng([33, 33])`에서 이 순서로 길이 64의 균등 벡터: q_s 30–55°, back 3–8 mm, r 8–12 mm(지름 16–24), preload 0.4–0.8 N, sweep 18–28°, k_r 0.25–0.40 N·m/rad. 모든 손이 같은 뽑기를 쓴다(공통 난수).
+
+### O만의 보정 (이 기록 전)
+
+| 단계 | 바꾼 것 | O (12–64개 뽑기) | 결정 |
+|---|---|---|---|
+| 1 | 처음 범위(k_r 0.02–0.06, sweep 8–15°, K_THUMB 100) | 회전 2.7–6.8°, **D = 0** (12/12) | 굴러 감. 스프링이 너무 약함 |
+| 2 | k_r 0.15 / 0.3 / 0.6 / 1.2 고정 | D 중앙 0 / 0 / 0.11 / 0.52°, 회전 1–3° | 굽힘은 pad를 법선 방향으로 밀어(엄지가 ~5 mm 물러남) 접선 운동이 작다. 미끄러짐을 만들려면 sweep을 늘려야 함 |
+| 3 | sweep 18–28°, 25–35°, k_r 0.6, 1.0 | D 1.0–2.6° 모두 양수, 그러나 관통 중앙 1.4–1.8 mm(엄지가 10 mm 물러나며 100 N/m로 힘 2.7 N) | 엄지 스프링을 부드럽게 |
+| 4 | **K_THUMB 40**, k_r 0.2 / 0.3 / 0.45 | 0.3에서 회전 2.9–5.2°, D 1.4–3.2°(모두 양수), 관통 ≤ 1.11 mm | k_r 0.25–0.40, sweep 18–28°로 정함 |
+| 5 | time step (위) | — | 0.25 ms |
+| 6 | lost 정의 (위) | 1 표본 떨림 2개 | 3 연속 표본 |
+| 7 | R·U gate 확인 1차: U가 64개 중 13개에서 관통 > 1.5 mm(최대 2.18) | 원인 둘: 접근 단계에서 구를 단단히 잡아 U의 pad가 3.95 N까지 누름(설정의 인공물), 관통을 법선력이 아니라 접촉력 크기(미끄러질 때 N√(1+μ²))로 잼 | 접근의 n 방향 hold를 힘 한계 1.25 × preload로, 관통은 법선 성분으로. O의 회전은 그대로(같은 값) |
+
+- **최종 O (64개):** solver 실패 0, lost 0(1 표본 떨림 2개), proximal 접촉 0, 관통 최대 0.90 mm(중앙 0.67). 회전(μ 1.3) 2.25 / 4.14 / 7.11°(최소/중앙/최대). **D(O) 1.29 / 2.45 / 4.48°, 64개 모두 양수.** 제외 규칙(아래)으로 64개 모두 남는다.
+- 이 과제의 회전은 작다(수 °). μ의 효과는 구가 스프링에 맞서 미끄러지는 양으로 나타나고, D는 회전의 절반 안팎이다. "조금 돌리기"라는 요청과 맞지만, D의 크기는 비틀림 스프링과 sweep의 보정에 달려 있다.
+- **잡음 바닥 (O, 명령 +0.05°, tag e33n, 이 기록 전에 돌림):** E 중앙 **0.99%**, 75분위 **1.94%**(64쌍).
+- **R·U gate 확인 (최종 설정, 이 기록 전; D, E는 보지 않음, `pinch_rotate.py check`):** R: solver 0, lost 0(떨림 1), proximal 0, 관통 최대 0.89 mm(중앙 0.65). U: solver 0, lost 0(떨림 4), proximal 0, 관통 최대 0.88 mm(중앙 0.63).
+- **그림:** O, draw 29(q_s 40.9°, r 9.5 mm, sweep 27.1°), sweep 시작·가운데·끝(`logs/render_pinch{0,1,2}.png`, `logs/render_pinch_strip.png`). 검지만 굽히고 가운데·약지는 접었다. 구는 두 색으로 나눠 회전이 보인다(끝에서 +4.8°). 엄지는 실제 엄지가 아니라 pad를 얹은 블록으로 그렸다.
+
+### 제외 (O만으로, 미리 정함)
+
+- O: 두 μ 중 하나라도 solver 실패, lost, 관통 > 1.5 mm, proximal 접촉(1e-3 N 초과), |D(O)| < 0.3°. 첫 이유로 센다. 현재 0개가 빠진다.
+- 재설계 손 H(쌍마다): solver 실패, **lost**, **over-pressed**(관통 > 1.5 mm, 두 μ 중 큰 값)를 따로 세고 E에서 뺀다. 손별 수를 보고한다. lost는 접촉 유지가 과제의 일부이므로 주 결과와 함께 보고한다. H의 proximal 접촉 쌍은 점수에 넣고 센다.
+- **민감도:** solver 실패, lost, over-pressed를 가장 큰 오차(무한대)로 둔 E 중앙값과 ρ.
+
+### 지표와 판정 (사전, 30b차와 같은 형식)
+
+- E(H) = 점수를 받은 뽑기의 |D(H) − D(O)| / |D(O)| 중앙값.
+- 통계: `analyze.spearman_perm`(손 18개, 2만 번 무작위 순열, seed 0, 단측 ρ > 0; "순열 p"). Δ_contact와 Δ_skel은 `analyze.DESIGN`.
+- **판정 1:** E_R < E_U. 5, 9 mm 쌍(`h3to5_hr/hu`, `h3to9_hr/hu`)도 보고한다.
+- **판정 2:** ρ(E, Δ_contact) > 0이고 순열 p < 0.05.
+- **판정 3:** ρ(E, Δ_skel)과 p를 보고하고 ρ(E, Δ_contact)와 비교한다.
+
+### 해석 (사전에 고정)
+
+- 판정 1과 2가 성립하면: 맞은편 접촉이 있는 집기에서도 재설계가 얹는 오차가 Δ_contact를 따른다. 손끝 원판(28z, 29z), 긴 동전 끌기(30b)에 이어 두 접촉 과제로 넓어진다.
+- 지표가 안정하고(잡음 바닥이 E보다 작고, D(O) 부호가 일정) gate가 유효한데(lost, over-pressed가 적음) 성립하지 않으면: 집기 과제의 경계로 기록한다.
+- lost가 많은 손은 E와 별도로 "접촉을 유지하지 못함"으로 보고한다. lost가 Δ_contact 순서를 따르는지도 보고한다(판정에는 쓰지 않음).
+- **미리 알 수 있는 것:** (i) 엄지 스프링이 쥐는 힘을 정하므로, 손마다 다른 것은 주로 sweep 동안 pad 접촉점의 접선 운동과 pad의 기울기다. (ii) 굽힘의 대부분은 법선 방향 운동이어서(보정 2) 회전은 작고, D는 미끄러짐이 정한다. 접선 운동의 작은 차이가 E에 크게 보일 수 있다. (iii) 다른 과제처럼 point contact뿐이다.
+
+### 순서와 계산
+
+- 이 기록을 커밋한 뒤 나머지 16개 손을 돌리고(R, U는 이미 돌렸다; 손 하나에 약 2분, worker 6, 합계 약 35분 예상), O, R, U와 함께 분석한다.
+- 보정 wall time(worker 6): 처음 12개 3 s, k_r·sweep·스프링 탐색 run 각 3–4 s(1 ms), O 64개(1 ms) 16 s, time step 비교 17 + 17 + 34 s, O 64개(0.25 ms) 62 s와 잡음 63 s, 최종 O 117 s, 잡음 120 s, R·U 1차 약 2분, 2차 240 s.
+
+### 명령
+
+```
+cd sim/drake
+uv run python pinch_rotate.py draws --n 64 --seed 33 --out logs/pinch_e33.json
+uv run python pinch_rotate.py run --hands O --draws logs/pinch_e33.json --tag e33
+uv run python pinch_rotate.py run --hands O --draws logs/pinch_e33.json --tag e33n --delta_deg 0.05
+uv run python pinch_rotate.py check --tag e33 --hands O R U
+uv run python pinch_rotate.py run --hands R U h3to5_hr ... --draws logs/pinch_e33.json --tag e33
+uv run python pinch_rotate.py analyze --tag e33 --noise_tag e33n --out logs/e33_pinch.json
+uv run python pinch_rotate.py frames --draws logs/pinch_e33.json --draw 29 && uv run python render_pinch.py --draw 29
+```
