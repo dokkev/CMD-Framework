@@ -37,7 +37,7 @@ W = 7.16
 INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
 BLUE, AMBER, GREY, TEAL, PURPLE = "#2a6fc9", "#e0942b", "#7d7d7d", "#1b9e8a", "#8a3ffc"
 ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "rcj": ("RCJ", TEAL, "D"),
-        "cfl": ("CFL", BLUE, "o")}
+        "cfl": ("CoDe", BLUE, "o")}
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
@@ -284,193 +284,22 @@ def faint_extended(ax, v, pads, pins, bodies=True):
 
 
 def fig2():
-    h = 1.95
-    fig = plt.figure(figsize=(W, h))
-    head = h - 0.04
-    # (a) room: the optimized designs at 7 mm, 120 deg (evaluator geometry) and the pad length each keeps
-    import one_finger
-    from core.optimization.mechanism import read_config_file
-    from visualize import sketch
-    from visualize.finger import view_of
-    sketch.SHOW_GROUND = False
-    cfg = read_config_file(one_finger.DEFAULT_CONFIG)
-    label(fig, 0.10, head, "(a) Interface clearance", h)
-    from dataclasses import replace as dc_replace
-    from core.optimization.mechanism import mechanism as mech_of
-    PADC = {3.0: "#bcd3f2", 5.0: "#6f9fe0", 7.0: "#1f4f9c"}  # pad thickness, light to dark
+    """Single column, two panels stacked: (a) the poles each joint can reach, (b) the CoDe kinematic model over the
+    CAD side view (paper/figures/cad/finger_side.png, registered on pivots A and B)."""
+    WC = 3.45
+    ha, hb = 1.78, 1.20
+    h = ha + hb + 0.10
+    fig = plt.figure(figsize=(WC, h))
+    head = h - 0.02
 
-    def with_pads(cf, hh):
-        def one(c):
-            pk = c.packaging
-            return dc_replace(c, packaging=dc_replace(pk, proximal_pad=dc_replace(pk.proximal_pad, height_mm=hh),
-                                                      distal_pad=dc_replace(pk.distal_pad, height_mm=hh)))
-        return one(cf) if hasattr(cf, "packaging") else dc_replace(cf, goal=one(cf.goal))
-
-    def first_hit(v):
-        for qq in np.arange(0.0, 181.0, 1.0):
-            if v.collisions(qq):
-                return qq - 1.0
-        return 180.0
-    panels = (("2r_dd", "Revolute", 3.0, False, None),
-              ("cfl", "CoDe Mechanism", 7.0, False, "proto"))
-    for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
-        ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
-        base = ds[base_h]
-        x = list(base.x)
-        if hand == "proto":  # the CoDe prototype's finger (report/study0/data/prototype_seeds.csv, balanced)
-            from types import SimpleNamespace
-            from visualize.finger.view import load_run
-            from visualize.fronts import read_rows, with_role
-            proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
-            row = with_role(read_rows(proto), "balanced")
-            run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
-            base = SimpleNamespace(mechanism=run.mechanism.name, config=run.config)
-            x = list(run.mechanism.read_design(row))
-        if hand:
-            xx = list(x)
-            nm_ = list(mech_of(base.mechanism).variable_names)
-            for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
-                xx[nm_.index(k_)] = 0.0
-            ep_, ed_, gap_ = common_pad_extension(view_of, base.mechanism,
-                                                  [with_pads(base.config, t_) for t_ in (7.0, 5.0, 3.0)], xx,
-                                                  qd=143.0 if hand == "proto" else 150.0)
-            cfl_ext = (ep_, ed_)
-            print(hand, "ext", cfl_ext, "gap", round(gap_, 2))
-        elif key == "cfl":  # of the searched candidates, the one whose common-length pads come closest at 150 deg
-            cands = json.loads((ROOT / "report" / "study0" / "data" / "fig2_cfl_pad_gap150.json").read_text())
-            choice = None
-            for cnd in cands:
-                b_ = one_finger.study1_designs(key, cfg["architectures"][key], cnd["cfg"][0], cfg)[cnd["cfg"][1]]
-                xx = list(cnd["x"])
-                nm_ = list(mech_of(b_.mechanism).variable_names)
-                for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
-                    xx[nm_.index(k_)] = 0.0
-                ep_, ed_, gap_ = common_pad_extension(view_of, b_.mechanism,
-                                                      [with_pads(b_.config, t_) for t_ in (7.0, 5.0, 3.0)], xx)
-                print("candidate", cnd["source"], "common ext", ep_, ed_, "gap", round(gap_, 2))
-                if choice is None or gap_ < choice[0]:
-                    choice = (gap_, b_, list(cnd["x"]), (ep_, ed_))
-            _, base, x, cfl_ext = choice
-        nm = list(mech_of(base.mechanism).variable_names)
-        if servo_up:
-            x[nm.index("servo_tilt_deg")] = 0.0
-        if key == "cfl":
-            for k_ in ("proximal_mount_offset_mm", "distal_mount_offset_mm"):
-                x[nm.index(k_)] = 0.0
-        pw = 1.15
-        ax = fig.add_axes(((0.04 + i * (pw + 0.02)) / W, (head - 1.36) / h, pw / W, 1.02 / h))
-        ax.set_xlim(-6, 96); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
-        col_ = {None: GREY, "hu": AMBER, "hr": BLUE, "proto": BLUE}[hand]
-        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 0.20) / h, name, fontsize=6.0, color=col_,
-                 ha="center", va="top", fontweight="bold" if hand in ("hr", "proto") else "normal", family="Nimbus Sans" if hand in ("hr", "proto") else "Helvetica Light", linespacing=1.0)
-        for j, hh in enumerate((7.0, 5.0, 3.0)):  # thick first, so each thinner pad lies on top
-            v = view_of(base.mechanism, with_pads(base.config, hh), x)
-            qd = 120.0 if key == "2r_dd" else (143.0 if hand == "proto" else 150.0 if hand
-                                               else min(150.0, first_hit(v)))
-            n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
-            v.draw(ax, qd, hit=set(), style="sketch")
-            from matplotlib.patches import Circle as _Cc
-            for p_ in list(ax.patches[n0p:]):  # no servo or palm bodies in (a)
-                if not isinstance(p_, _Cc):
-                    p_.remove()
-            alpha = 1.0 if hh == 7.0 else 0.30
-            for p_ in ax.patches[n0p:]:
-                p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_alpha(alpha); p_.set_linewidth(0.5)
-            for ln in ax.lines[n0l:]:
-                ln.set_color("#8c8c8c"); ln.set_alpha(alpha); ln.set_linewidth(min(ln.get_linewidth(), 1.2))
-                ln.set_markersize(0)
-            for c in list(ax.collections[n0c:]):
-                c.remove()
-            from matplotlib.patches import Circle as _C
-            if key == "cfl":
-                for p_ in list(ax.patches[n0p:]):
-                    if isinstance(p_, _C):
-                        p_.remove()
-            if key == "2r_dd":
-                # the same pad length as the CFL's (35 mm) on the pin finger: extend each pad toward the joint and
-                # pose the distal one rigidly with its phalanx; the overlap at 120 deg is the pads' self-collision
-                from shapely.geometry import Polygon as SPoly
-                L = 35.0
-                pp = v.proximal_pad().copy()
-                pp[[1, 2], 0] = pp[0, 0] + L
-                d0, dq = v.distal_pad(0.0), v.distal_pad(qd)
-                ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
-                Rm = np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]])
-                dext = d0.copy()
-                dext[[0, 3], 0] = d0[1, 0] - L
-                dpose = (dext - d0[1]) @ Rm.T + dq[1]
-                for pad in (pp, dpose):
-                    ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
-                if hh == 3.0:
-                    faint_extended(ax, v, (pp, dext), pins=True, bodies=False)
-                ov = SPoly(pp).intersection(SPoly(dpose))
-                if not ov.is_empty and ov.geom_type == "Polygon":
-                    ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
-                                         alpha=0.9, zorder=26 + j))
-                    if hh == 7.0:
-                        cx_, cy_ = ov.centroid.x, ov.centroid.y
-                        ax.add_patch(Circle((cx_, cy_), 9.0, fc="none", ec="#c0392b", lw=0.8, ls=(0, (2, 1.5)),
-                                            zorder=40))
-                        ax.annotate("pad interference", xy=(cx_ + 6.5, cy_ - 6.5), xytext=(cx_ + 4, cy_ - 36),
-                                    fontsize=5.8, color="#c0392b", ha="left", va="center", zorder=41,
-                                    arrowprops=dict(arrowstyle="-|>", color="#c0392b", lw=0.7, mutation_scale=6,
-                                                    shrinkA=1, shrinkB=0))
-            else:
-                # pads lengthened toward the joint as far as they stay clear of each other over 0..qd
-                from shapely.geometry import Polygon as SPoly
-                d0 = v.distal_pad(0.0)
-                poses = []
-                for qq in np.linspace(0.0, qd, 61):
-                    dq = v.distal_pad(qq)
-                    ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
-                    poses.append((np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]), dq[1]))
-
-                def padded(ep, ed):
-                    pp = v.proximal_pad().copy()
-                    pp[[1, 2], 0] += ep
-                    dext = d0.copy()
-                    dext[[0, 3], 0] -= ed
-                    return pp, dext
-
-                def clear(ep, ed):
-                    pp, dext = padded(ep, ed)
-                    return all(SPoly(pp).buffer(0.3).intersection(SPoly((dext - d0[1]) @ Rm.T + t1)).area < 1e-4
-                               for Rm, t1 in poses)
-                ep, ed = cfl_ext  # one length for every thickness
-                pp, dext = padded(ep, ed)
-                ext = (ep, ed)
-                Rm, t1 = poses[-1]
-                dposed = (dext - d0[1]) @ Rm.T + t1
-                for pad in (pp, dposed):
-                    ax.add_patch(Polygon(pad, fc=PADC[hh], ec="#1f4f9c", lw=0.4, zorder=20 + j))
-                ov = SPoly(pp).intersection(SPoly(dposed))
-                if not ov.is_empty and ov.area > 1e-3 and ov.geom_type == "Polygon":
-                    ax.add_patch(Polygon(np.array(ov.exterior.coords), fc="#e74c3c", ec="#c0392b", lw=0.4,
-                                         alpha=0.9, zorder=26 + j))
-                if hh == 3.0:
-                    faint_extended(ax, v, (pp, dext), pins=False, bodies=False)
-                if hh == 3.0:  # the remote centre of rotation over 0..qd
-                    from fig_mechanisms import icr_path
-                    path = icr_path(v, qd)
-                    ax.plot(*path.T, color=PURPLE, lw=1.0, zorder=40, solid_capstyle="round")
-                    ax.plot(*path[-1], marker="o", ms=3.0, color=PURPLE, mec="white", mew=0.3, zorder=41)
-                print("CFL pad extension", hh, ext)
-        foot = {None: ("", "#c0392b"), "hu": ("clear at $120^\\circ$", AMBER),
-                "hr": ("clear at $150^\\circ$", BLUE),
-                "proto": ("larger RoM with every pad", BLUE)}[hand]
-        fig.text((0.04 + i * (pw + 0.02) + pw / 2) / W, (head - 1.24) / h, foot[0], fontsize=5.6, color=foot[1],
-                 ha="center", va="top")
-    for j, hh in enumerate((3.0, 5.0, 7.0)):
-        x0 = 0.35 + j * 0.70
-        fig.patches.append(Rectangle((x0 / W, 0.42 / h), 0.14 / W, 0.08 / h, transform=fig.transFigure,
-                                     fc=PADC[hh], ec="#1f4f9c", lw=0.4))
-        fig.text((x0 + 0.18) / W, 0.46 / h, f"{hh:.0f} mm pads", fontsize=5.8, va="center")
+    def lab(x, y, text):
+        fig.text(x / WC, y / h, text, fontsize=7.5, fontweight="bold", family="Nimbus Sans", va="top", ha="left")
     # (b) where each joint can put the pole (Study 0): the poles reachable over each design space
     from fig_mechanisms import cached_outlines, roller_pole
-    label(fig, 2.55, head, "(b) Achievable poles", h)
-    fig.text(3.82 / W, (head - 0.20) / h, "over each joint's design space", fontsize=6.2, color=INK2, ha="center",
-             va="top")
-    pax = fig.add_axes((2.95 / W, 0.42 / h, 1.72 / W, (head - 0.74) / h))
+    lab(0.02, head, "(a) Achievable poles")
+    fig.text((WC - 0.04) / WC, head / h, "over each joint's design space, $q\\in[0, 120^\\circ]$", fontsize=6.0,
+             color=INK2, ha="right", va="top")
+    pax = fig.add_axes((0.40 / WC, (hb + 0.10 + 0.30) / h, (WC - 0.46) / WC, (ha - 0.50) / h))
     # CFL: poles reachable at some q in [10, 120] deg, by two-position synthesis with closure checked
     # (fig2_pole_manifold.py, no sampling); RCJ: P(q) = r - i r tan(q/4) family over the same q and radii
     man = np.load(ROOT / "design" / "output" / "paper" / "fig2_pole_manifold.npz")
@@ -488,7 +317,7 @@ def fig2():
     pts_ = np.c_[P_.real, P_.imag]
     pts_ = pts_[np.isfinite(pts_).all(1)]
     hull = pts_[ConvexHull(pts_).vertices]
-    pax.fill(hull[:, 0], hull[:, 1], fc=TEAL, ec="none", alpha=0.8, zorder=3)
+    pax.fill(hull[:, 0], hull[:, 1], fc="#d3eeea", ec=TEAL, lw=0.9, zorder=3)  # the same style as CoDe's region
     pax.plot([-32, 60], [0, 0], color=GREY, lw=2.0, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
@@ -496,16 +325,16 @@ def fig2():
              zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(-14, 18, "CoDe", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
-    pax.text(32, -6.0, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(27, -3.0, "Rolling\ncontact joint", fontsize=6.4, linespacing=1.0, ha="center", color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
-    pax.text(54, 29, "$q\\in[0, 120^\\circ]$", fontsize=6.0, color=INK2, ha="right", va="top")
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
     clean(pax)
     # (c) the CFL's kinematic model (the CoDe prototype at 120 deg): pivots, fingertip, frame
-    label(fig, 4.80, head, "(c) CFL kinematic model", h)
+    lab(0.02, hb + 0.06, "(b) CoDe kinematic model")
+    from visualize.finger import view_of
     from visualize.finger.view import load_run
     from visualize.fronts import read_rows, with_role
     proto = ROOT / "report" / "study0" / "data" / "prototype_seeds.csv"
@@ -513,13 +342,28 @@ def fig2():
     run = load_run(proto.parent / ("prototype_" + row["run"].split("/")[-1]))
     v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
     qk = 0.0  # the extended pose only
-    kax = fig.add_axes((4.80 / W, 0.10 / h, 2.32 / W, (head - 0.30) / h))
-    kax.set_xlim(-12, 112); kax.set_ylim(-22, 30); kax.set_aspect("equal"); kax.axis("off")
+    kax = fig.add_axes((0.02 / WC, 0.02 / h, (WC - 0.04) / WC, (hb - 0.10) / h))
+    kax.set_xlim(-16, 103); kax.set_ylim(-12, 26); kax.set_aspect("equal"); kax.axis("off")
+    # the CAD side view underneath, semi-transparent, registered on the pivots A and B (pixel centres read from
+    # finger_side.png: A (1448, 480), B (1975, 492)); similarity transform, the image rotated about A
+    from PIL import Image as _Im
+    cad = _Im.open(ROOT / "paper" / "figures" / "cad" / "finger_side.png").convert("RGBA")
+    uA, vA, uB, vB = 1448.0, 480.0, 1975.0, 492.0
+    Bm = np.array([72.415, -0.065]); Am = np.array([44.1, 0.0])
+    s_px = np.hypot(uB - uA, vB - vA) / np.linalg.norm(Bm - Am)
+    tilt = np.degrees(np.arctan2(vB - vA, uB - uA)) - np.degrees(np.arctan2(-(Bm - Am)[1], (Bm - Am)[0]))
+    cad = cad.rotate(tilt, center=(uA, vA), resample=_Im.BICUBIC, fillcolor=(255, 255, 255, 0))
+    arr = np.asarray(cad).astype(float) / 255.0
+    white = arr[..., :3].min(axis=2) > 0.97
+    arr[..., 3] = np.where(white, 0.0, 0.55)
+    Wp, Hp = cad.size
+    kax.imshow(arr, extent=(Am[0] - uA / s_px, Am[0] + (Wp - uA) / s_px, Am[1] - (Hp - vA) / s_px, Am[1] + vA / s_px),
+               zorder=1, interpolation="bilinear")
     # bodies only (servos, palm) from the sketch; the links are drawn here in grey shades
     n0p, n0l, n0c = len(kax.patches), len(kax.lines), len(kax.collections)
     v.draw(kax, qk, hit=set(), style="sketch")
-    for p_ in kax.patches[n0p:]:
-        p_.set_facecolor("#e3e3e1"); p_.set_edgecolor("#8c8c8c"); p_.set_linewidth(0.5)
+    for p_ in list(kax.patches[n0p:]):  # the CAD shows the bodies; only the skeleton is drawn on top
+        p_.remove()
     for ln in list(kax.lines[n0l:]):
         ln.remove()
     for c in list(kax.collections[n0c:]):
@@ -539,12 +383,12 @@ def fig2():
     kax.plot(*np.array([O, A]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([A, Ap]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([O, Ap]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
-    kax.add_patch(Polygon([O, A, Ap], fc="#dcdcda", ec="none", zorder=9))  # the proximal phalanx, one rigid body
+    kax.add_patch(Polygon([O, A, Ap], fc="#dcdcda", ec="none", alpha=0.55, zorder=9))  # the proximal phalanx, one rigid body
     # distal phalanx: B-B'-C, mid grey
     kax.plot(*np.array([B, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([B, Bp]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([Bp, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
-    kax.add_patch(Polygon([B, Bp, C], fc="#ededeb", ec="none", zorder=9))  # the distal phalanx, one rigid body
+    kax.add_patch(Polygon([B, Bp, C], fc="#ededeb", ec="none", alpha=0.55, zorder=9))  # the distal phalanx, one rigid body
     # the crossed links A'-B and A-B', black
     for p1, p2 in ((Ap, B), (A, Bp)):
         kax.plot(*np.array([p1, p2]).T, color=INK, lw=1.1, solid_capstyle="round", zorder=12)
@@ -562,8 +406,6 @@ def fig2():
         kax.plot(*pt, marker="o", ms=3.0, mfc="white", mec=INK, mew=0.7, zorder=30)
     for pt in (O, C):
         kax.plot(*pt, marker="o", ms=2.0, color=INK, zorder=30)
-    for pad in (v.proximal_pad(), v.distal_pad(qk)):
-        kax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
     pts = {"A": A, "A'": Ap, "B": B, "B'": Bp, "C": C, "O": O}
     offs = {"A": (-4, -7), "A'": (-6, 6), "B": (5, -7), "B'": (7, 6), "C": (6, -5), "O": (-6, -8)}
     for nm_, at in pts.items():
@@ -577,8 +419,8 @@ def fig2():
     kax.text(15.5, -2.0, "$x$", fontsize=6.5, va="top", zorder=36, path_effects=halo)
     kax.text(-1.5, 15.5, "$z$", fontsize=6.5, ha="right", zorder=36)
     kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
-    fig.text(5.96 / W, 0.04 / h, "extended ($q=0$); dashed: pivot clearance; filled: fixed pivots", fontsize=5.4,
-             color=INK2, ha="center", va="bottom")
+    fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
+             va="top")
     save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
     plt.close(fig)
     print("fig2", h)
@@ -767,7 +609,7 @@ def fig3():
         ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(-40, 100); ax.set_yticks([0, 50, 100])
         ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
         if j == 0:
-            ax.set_ylabel("contact motion\nkept (%)", labelpad=1, linespacing=1.0)
+            ax.set_ylabel("contact motion\nkept (%)", labelpad=1, linespacing=1.25)
             ax.text(4.2, 3, "fixed axis", fontsize=5.4, color=INK2, va="bottom")
         else:
             ax.set_yticklabels([])

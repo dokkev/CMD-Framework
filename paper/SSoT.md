@@ -81,7 +81,7 @@ model, the analysis and the design studies; Experiment holds simulation only.
 | face depth t | depth of a pad's contact face below the link line, set by the mounting rule |
 | the mounting rule | each pad at the shallowest depth clear of its joint hardware, no spacers |
 | the goal | the common requirements of every design search |
-| CFL | the crossed four-bar of the study; CoDe is the hand |
+| CoDe | the crossed four-bar PIP finger in the design studies and the hand; "CFL" is not written (user, 2026-11-25: readers who skim should not need the acronym). In Fig. 2 the rolling contact joint is written out; elsewhere RCJ may stay |
 | O, R, U, M | reference hand; redesign that keeps Δ_contact small; coverage-only design; a middle redesign |
 | proximal pad, distal pad | never "near/far pad" |
 
