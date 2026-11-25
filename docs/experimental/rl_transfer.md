@@ -151,5 +151,12 @@ Study 3의 정의를 그대로 쓴 것이다. 재설계 손이 측정한 인터�
 
 (원래 예측 "unmapped에서 R ≥ U"는 7 mm에서 이미 반증됐다. 결과 1 참고.)
 
+### 시도 2 보완 (1c와 같은 구조, mapped 수치를 보기 전에 commit)
+
+- **주 지표:** mapped 조건에서 μ 1.3 → 2.0 교체에 대한 회전 E.
+  - 대상: 5, 7, 9 mm. 그러려면 mapped μ 2.0 eval이 필요하다.
+  - 예측: 각 두께에서 E(R) < E(U)이고, 그 차이가 seed 잡음 합보다 크다.
+- **보조 지표:** 앞서 등록한 gain (mapped − unmapped 비율), full≤30°, full+clean, goals/episode.
+
 ## 결과
 (아래에 덧붙인다.)
