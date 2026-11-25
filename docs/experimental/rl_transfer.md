@@ -221,3 +221,30 @@ E (작을수록 좋다):
 | U5 | `ax773z1n` |
 | R9 | `dpsfktpq` |
 | U9 | `y6myezl8` |
+
+## 시도 4: 물체를 보지 않는 정책 (사전 등록, 학습 전 commit, 2026-11-25)
+
+**왜 하는가:** 지금까지 정책은 큐브 pose와 goal 오차를 본다. 그래서 손마다 접촉면이 다르게 움직여도 물체 피드백으로 보정할 수 있고, 이것이 R/U를 가르지 못한 이유일 수 있다. 피드백이 없으면 손이 만들어 내는 접촉면 움직임이 결과를 더 직접 정한다. Drake에서 같은 open-loop 명령을 다시 쓴 실험과 같은 논리다.
+
+**정책** (`CoDe-Rotate-Cube-O-OmniResetV2Blind`, 변형 (a)):
+- **Actor 입력:** 직전 action, 관절 위치, 관절 target만 보고, 5-step history를 쓴다 (39 × 5 = 195). 큐브 pose와 goal 오차는 빼서 HORA의 고유감각 정책과 같은 형태다.
+- **Critic:** privileged 그대로다 (77).
+- **Goal과 reward:**
+  - env는 참 pose로 goal(45° 단위)을 센다. reward도 v2c와 같다 (goal 보너스 5).
+  - actor는 goal을 모르므로 실제로는 "계속 +z로 돌린다"를 배운다.
+- **학습:**
+  - actor 입력 차원이 달라 release policy에서 warm start할 수 없다. 그래서 O에서 처음부터 학습한다.
+  - recipe는 v2c와 같다: entropy 0.001, std 상한 1.0, 비대칭 critic, 네 OmniReset type + mid-turn reset, NaN 복구, 10× 속도 검사.
+  - seed 20, 4096 env, segment는 500 iteration이다. 최대 4 segment이고, O의 held-out 지표가 정체하면 멈춘다.
+- **이전에 쓸 checkpoint:** 마지막 segment의 것을 쓴다. 미리 정해 두어서, 결과를 보고 고르지 않는다.
+
+**이전과 지표:**
+- 손, cache, seed, eval 조건은 시도 1/1c와 같다 (`CoDe-Rotate-Cube-<hand>-OmniResetV2Blind-Eval`).
+- 마찰 교체는 μ 1.3과 2.0 두 조건이다.
+- **주 지표:** μ 1.3 → 2.0 교체에 대한 회전 E. 5, 7, 9 mm에서 계산한다.
+  - **예측:** 각 두께에서 E(R) < E(U)이고, 그 차이가 seed 잡음 합보다 크다.
+- **보조 지표:** 회전 이전 비율. 예측은 ratio_R > ratio_U다. full≤30°, full+clean (gate 없음), goals/episode의 비율도 같이 보고한다.
+
+**반증:** 어느 두께에서든 E(R) ≥ E(U)이고, 그 차이가 잡음 합보다 크다. 차이가 잡음 안이면 "구별 안 됨"이다.
+
+**판정 불가:** O에서 μ 1.3 평균 회전이 180° 미만이면 정책이 회전을 배우지 못한 것으로 보고, 판정하지 않는다.

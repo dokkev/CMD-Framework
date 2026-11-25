@@ -62,3 +62,15 @@ class CoDeRotateCylinderFingertipPPORunnerCfg(CoDeRotateCubeOmniResetV2PPORunner
         super().__post_init__()
         self.algorithm.entropy_coef = 0.001
         self.actor.distribution_cfg.std_range = (0.001, 1.0)
+
+
+@configclass
+class CoDeRotateCubeOmniResetV2BlindPPORunnerCfg(CoDeRotateCubeOmniResetV2PPORunnerCfg):
+    """Attempt 4 (object-blind actor): v2's PPO with v2c's entropy 0.001 and std capped at 1.0."""
+
+    experiment_name = "code_rotate_cube_omnireset_v2_blind"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.algorithm.entropy_coef = 0.001
+        self.actor.distribution_cfg.std_range = (0.001, 1.0)

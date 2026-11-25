@@ -75,3 +75,26 @@ for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
                 "default_agent": "rsl_rl",
             },
         )
+
+# attempt 4: the object-blind actor (training on O, evaluation on every hand)
+gym.register(
+    id="CoDe-Rotate-Cube-O-OmniResetV2Blind",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCubeOOmniResetV2BlindEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetV2BlindPPORunnerCfg",
+        "default_agent": "rsl_rl",
+    },
+)
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
+    gym.register(
+        id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2Blind-Eval",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCube{_key}OmniResetV2BlindEvalEnvCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetV2BlindPPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )

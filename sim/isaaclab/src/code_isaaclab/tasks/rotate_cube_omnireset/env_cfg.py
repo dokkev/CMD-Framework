@@ -252,6 +252,9 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     goal_bonus: float = GOAL_BONUS
     tilt_penalty: float = TILT_PENALTY
     joint_map: bool = False
+    actor_blind: bool = False
+    """The actor sees no object pose or goal error (``docs/experimental/rl_transfer.md`` attempt 4); goals are still
+    counted from the true pose, and the critic keeps the privileged object state."""
     object_kind: str = "cube"
     """``cube`` (40 mm, turned about world z) or ``cylinder`` (lying across the fingers, turned about its own axis)."""
     object_diameter_m: float = 0.035
@@ -347,11 +350,15 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         obs.policy.cube_goal_error.params = {"rest_pos": rest}
         if self.observe_targets:
             obs.policy.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
+        if self.actor_blind:  # proprioception and its history only; the critic keeps the object (attempt 4)
+            obs.policy.cube_pose = None
+            obs.policy.cube_goal_error = None
         obs.policy.history_length = self.actor_history
         if self.asym_critic:
             obs.critic = ObservationsCfg.CriticCfg()
-            for term in ("joint_pos", "cube_pose", "cube_goal_error"):
-                getattr(obs.critic, term).params = dict(getattr(obs.policy, term).params)  # managers add defaults
+            obs.critic.joint_pos.params = dict(obs.policy.joint_pos.params)  # managers add defaults: no sharing
+            obs.critic.cube_pose.params = {"rest_pos": rest}
+            obs.critic.cube_goal_error.params = {"rest_pos": rest}
             if self.observe_targets:
                 obs.critic.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
             obs.critic.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
@@ -476,6 +483,21 @@ for _key in ("O", *TRANSFER_HANDS):  # the "mapped" condition (O: the maps are i
         type(f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,),
              {"hand_key": _key, "joint_map": True})
     )
+
+@configclass
+class CoDeRotateCubeOOmniResetV2BlindEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
+    """v2c with an object-blind actor (attempt 4): goal bonus 5 (entropy 0.001 and std cap 1.0 in the agent config)."""
+
+    actor_blind = True
+    goal_bonus = 5.0
+
+
+for _key in ("O", *TRANSFER_HANDS):
+    _n = f"CoDeRotateCube{_key}OmniResetV2BlindEvalEnvCfg"
+    globals()[_n] = configclass(
+        type(_n, (CoDeRotateCubeOOmniResetV2BlindEnvCfg,), {"hand_key": _key, "evaluation": True})
+    )
+
 
 CYLINDER_HELD_OUT = SIM_ROOT / "logs" / "rotate_cube" / "heldout_cylinder_v1"
 
