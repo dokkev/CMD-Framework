@@ -1,0 +1,81 @@
+"""Experiment 39's grasp-and-twist on hand O (twist_grasp.py): one placement re-simulated, three frames (the settled
+grasp, half the limit torque, the limit), drawn as render3d's power-grasp frames (palm up, HOLD_ISO_CAMERA) with a red
+arc arrow on the cylinder's near end for the torque (no linear load arrow); the end face's stripe shows the turn.
+render3d, preload_match and twist_grasp are imported read-only.
+
+    uv run python render_twist.py [--rho 15 --q0 95 --sense +spin]  ->  logs/render_twist{0,1,2}.png, _strip.png
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+
+import preload_match as P
+import render3d as R
+import two_pad_drake as T
+import twist_grasp as W
+
+HERE = Path(__file__).resolve().parent
+LOGS = HERE / "logs"
+
+
+def frames(rho, q0, sense):
+    pl = next(g for r, g in W.places() if r == rho and g["q0_deg"] == q0)
+
+    def settled():
+        s, m_, gate, pre, c = P.pull_settle("O", 1.3, rho, pl, q0 + 5.0)
+        assert gate["pass"], gate
+        b = W.TwistStage("O", 1.3, rho, "point", 1.0e-3, False, c["k_theta"], c["d_theta"])
+        b.plant.SetPositionsAndVelocities(b.pctx, s.plant.GetPositionsAndVelocities(s.pctx).copy())
+        b.ctrl.theta_cmd = s.ctrl.theta_cmd
+        b.sim.Initialize()
+        return b
+
+    def snap(s):
+        m_ = s.measure()
+        return {"distal": [0.0, 0.0, float(m_["q"])], "centre": (1e3 * m_["c"][[0, 2]]).tolist(),
+                "spin": float(s.plant.GetJointByName("spin").get_angle(s.pctx)), "load_n": [0.0, 0.0]}
+    s = settled()
+    out = [snap(s)]
+    lim, _ = W.twist_ramp(s, sense)
+    s2 = settled()
+    sgn = 1.0 if sense == "+spin" else -1.0
+    for i in range(int(0.5 * lim["tau_limit_nm"] / T.FINGERS / (W.RATE_NM_S * T.DT_ENV))):
+        s2.ctrl.torque = sgn * W.RATE_NM_S * T.DT_ENV * (i + 1)
+        s2.step()
+    out.append(snap(s2))
+    out.append(snap(s))
+    return out, lim
+
+
+def main() -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--rho", type=float, default=15.0)
+    p.add_argument("--q0", type=float, default=95.0)
+    p.add_argument("--sense", default="+spin")
+    a = p.parse_args()
+    frs, lim = frames(a.rho, a.q0, a.sense)
+    (LOGS / "twist_render_frames.json").write_text(json.dumps({"rho": a.rho, "q0": a.q0, "sense": a.sense,
+                                                               "limit": lim, "frames": frs}, indent=1))
+    print(f"limit {lim}")
+    span = R.task_span()
+    snapd = {"hold": {"rho_mm": a.rho}, "rho_mm": a.rho}
+    paths = []
+    sgn = 1.0 if a.sense == "+spin" else -1.0
+    for i, st in enumerate(frs):
+        sc = R.build("hold", st, snapd, LOGS / "render3d" / f"twist{i}", finger=False, span=span)
+        if i > 0:  # the torque: an arc arrow just off the cylinder's near end (y below the span)
+            c = np.array(st["centre"])
+            a0 = math.radians(200.0)
+            R.arc_arrow(sc, c, a.rho + 4.0, a0, a0 - sgn * math.radians(110), span[0] - 3.0, R.LOAD)
+        paths.append(R.render_on_hand(sc, LOGS / f"render_twist{i}.png", st["distal"][2], camera=R.HOLD_ISO_CAMERA))
+    R.strip(paths, LOGS / "render_twist_strip.png")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
