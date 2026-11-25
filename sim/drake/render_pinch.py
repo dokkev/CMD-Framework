@@ -43,10 +43,21 @@ def sphere_tris(c_xz, r, spin, n_lat=24, n_lon=48):
     return a, b
 
 
-def build(fr: dict, pl: dict, folder: Path) -> R.Scene:
+def rounded_box(f, t, n, t0, t1, n0, n1, rad, k=8):
+    """A rectangle t0..t1 along t, n0..n1 along n from f (x, z mm), its corners rounded by rad."""
+    pts = []
+    for (ct, cn), a0 in (((t1 - rad, n0 + rad), -90), ((t1 - rad, n1 - rad), 0), ((t0 + rad, n1 - rad), 90),
+                         ((t0 + rad, n0 + rad), 180)):
+        for a in np.linspace(math.radians(a0), math.radians(a0 + 90), k):
+            pts.append(f + (ct + rad * math.cos(a)) * t + (cn + rad * math.sin(a)) * n)
+    return pts
+
+
+def build(fr: dict, pl: dict, folder: Path, start: dict) -> R.Scene:
+    """The frame's scene; start: the sweep's first frame (the arrow shows once the sphere has turned from it)."""
     sc = R.Scene(folder)
-    sx, sz, spin = fr["sphere_mm_rad"]
-    ta, tb = sphere_tris((sx, sz), pl["r_mm"], spin)
+    sx, sz, rot = fr["sphere_mm_rad"]  # rot = -(spin angle about +y), rad
+    ta, tb = sphere_tris((sx, sz), pl["r_mm"], -rot)
     for tris, rgba in ((ta, SPHERE_A), (tb, SPHERE_B)):
         # outward winding
         fixed = []
@@ -58,14 +69,18 @@ def build(fr: dict, pl: dict, folder: Path) -> R.Scene:
     t = np.array([-n[1], n[0]])
     f = np.array(fr["thumb_mm"])  # the thumb pad's face centre (x, z)
     hl, th = PR.THUMB_LEN_MM / 2, PR.THUMB_THICK_MM
-    pad = [f + hl * t, f - hl * t, f - hl * t + th * n, f + hl * t + th * n]
     w = T.finger_geometry("O")["pads"]["width_mm"] / 2
-    sc.extrude(pad, -w, w, R.PAD)
-    block = [f + (hl + 2) * t + th * n, f - (hl + 2) * t + th * n, f - (hl - 2) * t + (th + 14) * n,
-             f + (hl - 2) * t + (th + 14) * n]
-    sc.extrude(block, -w - 2, w + 2, THUMB_SKIN)
+    sc.extrude(rounded_box(f, t, n, -hl, hl, 0.0, th + 0.6, 0.8), -w, w, R.PAD)  # the thumb pad
+    sc.extrude(rounded_box(f, t, n, -hl - 1.5, hl + 1.5, th, th + 12.0, 3.5), -w - 1.5, w + 1.5, THUMB_SKIN)
     if fr.get("contact_mm"):
         sc.cylinder(fr["contact_mm"], -w - 0.3, w + 0.3, 0.6, R.CONTACT)
+    turned = rot - start["sphere_mm_rad"][2]
+    if abs(turned) > math.radians(0.5):  # a red arc in front of the sphere (+y), in the direction it turns
+        sgn = math.copysign(1.0, turned)
+        a_mid = math.atan2(-t[1], -t[0])  # on the sphere's side away from the palm
+        r_arc = pl["r_mm"] + 3.5
+        R.arc_arrow(sc, np.array([sx, sz]), r_arc, a_mid - sgn * math.radians(40), a_mid + sgn * math.radians(40),
+                    w + 3.0, R.LOAD)
     return sc
 
 
@@ -82,7 +97,7 @@ def main() -> int:
     out = []
     c0 = picks[0]["sphere_mm_rad"]
     for i, fr in enumerate(picks):
-        sc = build(fr, pl, T.OUT / "render3d" / f"pinch{i}")
+        sc = build(fr, pl, T.OUT / "render3d" / f"pinch{i}", picks[0])
         cam = {**CAMERA, "target_mm": (c0[0] - 4.0, 0.0, c0[1] + 6.0)}
         out.append(R.render_on_hand(sc, T.OUT / f"render_pinch{i}.png", math.radians(fr["q_deg"]), hand=a.hand,
                                     camera=cam, ref=R.TIPDIAL_REF, fingers=R.TIPDIAL_FINGERS,
