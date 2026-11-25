@@ -975,24 +975,23 @@ def table():
     sections = (("Pad change (Isaac Lab, point contact)",
                  (("friction $1.3\\to2.0$", st["friction, Isaac point"]),
                   ("stiffness $2.5\\to1.0$\\,kN/m", st["stiffness, Isaac point"]),
-                  ("shape flat$\\to$crowned$^{a}$", st["crowned, Isaac point"]),
-                  ("friction, softer pad$^{b}$", st["friction softer pad, Isaac point"]))),
+                  ("friction, softer pad$^{a}$", st["friction softer pad, Isaac point"]))),
                 ("Contact model (Drake, friction $1.3\\to2.0$)",
                  (("point", st["friction, Drake point"]),
                   ("hydroelastic", st["friction, Drake hydro"]),
-                  ("hydroelastic, softer pad$^{b}$", st["friction softer pad, Drake hydro"]))),
+                  ("hydroelastic, softer pad$^{a}$", st["friction softer pad, Drake hydro"]))),
                 ("Reused command (friction $1.3\\to2.0$)",
                  (("joint setpoint (no sensing)", pr["setpoint"]),
-                  ("contact setpoint$^{c}$ (no sensing)", pr["contact setpoint"]),
+                  ("contact setpoint$^{b}$ (no sensing)", pr["contact setpoint"]),
                   ("joint torque", pr["torque"]),
                   ("close at sensed touch", pr["touch"]),
-                  ("matched contact force$^{d}$", pr["force"]))))
+                  ("matched contact force$^{c}$", pr["force"]))))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
              r"  \caption{Bias in the measured pad effect (pull-out, $7$\,mm pads): the effect each redesign measures "
              r"minus $O$'s, as a share of $O$'s ($+$: overstated). Unless the row says otherwise, the redesigns reuse "
-             r"$O$'s joint setpoint. $^{a}$Six redesigns. $^{b}$Pads soften with thickness (stiffness $\propto 1/h$, "
-             r"an upper bound on the softening), against $O$ carrying the same pad. $^{c}$Drake: each hand's setpoint "
-             r"puts its fingertip contact point where $O$'s is. $^{d}$Oracle: the distal force fed back from the "
+             r"$O$'s joint setpoint. $^{a}$Pads soften with thickness (stiffness $\propto 1/h$, "
+             r"an upper bound on the softening), against $O$ carrying the same pad. $^{b}$Drake: each hand's setpoint "
+             r"puts its fingertip contact point where $O$'s is. $^{c}$Oracle: the distal force fed back from the "
              r"simulator. Medians over placements; under joint torque Conventional's bias spreads from "
              f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$.}}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
