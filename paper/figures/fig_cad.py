@@ -410,17 +410,18 @@ def main() -> int:
         box(x0, r3t - 0.26, pw, 0.26, lc, "none", lw=0, r=0.06)
         fig.text(*inch(x0 + pw / 2, r3t - 0.13), title, fontsize=8, color=col, ha="center", va="center", **BOLD)
         # what the measured interface effect holds: the interface's own (1) and the part the redesign adds (E)
+        # same total for both: the measured effect, split into the interface's share 1/(1+E) and the redesign's
         e = d[kind]["E_rel_median"]
-        unit = 0.56
+        span = 1.30
         xb = x0 + 0.12
         yb_ = r3t - 0.78
-        box(xb, yb_, unit, 0.24, LBLUE, BLUE_, r=0.02, lw=0.6, z=1)
-        box(xb + unit, yb_, max(unit * e, 0.02), 0.24, LORANGE, ORANGE_, r=0.02, lw=0.6, z=1)
-        fig.text(*inch(xb + unit / 2, yb_ + 0.12), "interface", fontsize=6.0, color=BLUE_, ha="center", va="center")
-        if e > 0.5:
-            fig.text(*inch(xb + unit + unit * e / 2, yb_ + 0.12), "redesign", fontsize=6.0, color=ORANGE_,
+        ui = span / (1 + e)
+        box(xb, yb_, ui, 0.24, LBLUE, BLUE_, r=0.02, lw=0.6, z=1)
+        box(xb + ui, yb_, span - ui, 0.24, LORANGE, ORANGE_, r=0.02, lw=0.6, z=1)
+        fig.text(*inch(xb + ui / 2, yb_ + 0.12), "interface", fontsize=6.0, color=BLUE_, ha="center", va="center")
+        if span - ui > 0.40:
+            fig.text(*inch(xb + ui + (span - ui) / 2, yb_ + 0.12), "redesign", fontsize=6.0, color=ORANGE_,
                      ha="center", va="center")
-        span = unit * (1 + e)
         fig.lines.append(plt.Line2D([xb / W_, xb / W_, (xb + span) / W_, (xb + span) / W_],
                                     [(yb_ - 0.04) / H_, (yb_ - 0.07) / H_, (yb_ - 0.07) / H_, (yb_ - 0.04) / H_],
                                     transform=fig.transFigure, color=INK2, lw=0.6))
@@ -445,15 +446,10 @@ def main() -> int:
                  bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=col, lw=0.6))
         # numbers
         box(x0 + 0.10, r3t - ph + 0.06, pw - 0.20, 0.26, lc, col, r=0.05, lw=0.6)
-        fig.text(*inch(x0 + 0.62, r3t - ph + 0.19), rf"$\Delta_{{skel}}$ = {d[kind]['D_s_mm']:.2f} mm",
+        fig.text(*inch(x0 + 1.00, r3t - ph + 0.19), rf"$\Delta_{{skel}}$ = {d[kind]['D_s_mm']:.2f} mm",
                  fontsize=7.2, ha="center", va="center")
-        fig.text(*inch(x0 + 1.55, r3t - ph + 0.19), rf"$\bar C_{{pad}}$ = {d[kind]['C_pad']:.3f}",
+        fig.text(*inch(x0 + 2.50, r3t - ph + 0.19), rf"$\bar C_{{pad}}$ = {d[kind]['C_pad']:.3f}",
                  fontsize=7.2, ha="center", va="center")
-        fig.patches.append(FancyBboxPatch(inch(x0 + 2.25, r3t - ph + 0.085), 1.05 / W_, 0.21 / H_,
-                                          boxstyle=f"round,pad=0,rounding_size={0.04 / W_}", transform=fig.transFigure,
-                                          fc=col, ec="none"))
-        fig.text(*inch(x0 + 2.775, r3t - ph + 0.19), f"E = {100 * d[kind]['E_rel_median']:.0f}%", fontsize=8.4,
-                 color="white", ha="center", va="center", **BOLD)
     # legend
     ly = r3t - ph - 0.12
     fig.lines.append(plt.Line2D([2.35 / W_, 2.65 / W_], [ly / H_] * 2, transform=fig.transFigure, color="#8a8a8a",
