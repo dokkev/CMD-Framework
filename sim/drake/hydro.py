@@ -4,8 +4,10 @@ the point-vs-hydro rerun after experiments 30b-41). Import and call enable() bef
 What changes (the setup of experiments 21/25, two_pad_drake.py --contact hydro --pad_kh_mm own):
 - every plant uses ContactModel.kHydroelasticWithFallback;
 - a geometry registered with the pad's point stiffness (T.POINT_STIFFNESS) becomes a compliant hydroelastic body with
-  modulus MODULUS_PA / h * h / 2 (experiment 25's "own" rule: a pad as soft as its own thickness, i.e. 0.05 MPa on
-  every hand), resolution hint 2 mm; every other geometry (objects, tables, rails) is rigid hydroelastic, hint 0.5 mm.
+  modulus MODULUS_PA / 3 mm * h / 2, h the pad thickness of the hand last passed to T.finger_geometry (experiment 21's
+  rule: every hand gets O's foundation stiffness, 0.1 MPa over 3 mm, so E stays referenced to O; experiment 25's
+  own-thickness pads would need an O_h reference per thickness), resolution hint 2 mm; every other geometry (objects,
+  tables, rails) is rigid hydroelastic, hint 0.5 mm.
   Friction is kept; Drake's default dissipation, as in 21 and 25;
 - the plant's contact results are read through a view that lists each hydroelastic contact as one point pair (the
   surface's centroid, its total force, its area-weighted normal), so the modules' point-pair loops see every contact.
@@ -19,6 +21,7 @@ import numpy as np
 import two_pad_drake as T
 
 _ON = False
+_PAD_H = [0.003]  # m: the pad thickness of the hand being built
 
 
 class _Pair:
@@ -93,13 +96,21 @@ def enable():
     def material(*args, point_stiffness=None, properties=None, **kw):
         pad = point_stiffness is not None and abs(point_stiffness - T.POINT_STIFFNESS) < 1e-6
         if pad:
-            G.AddCompliantHydroelasticProperties(resolution_hint=0.002, hydroelastic_modulus=T.MODULUS_PA / 2,
+            G.AddCompliantHydroelasticProperties(resolution_hint=0.002,
+                                                 hydroelastic_modulus=T.MODULUS_PA / 0.003 * _PAD_H[0] / 2,
                                                  properties=properties)
         else:
             G.AddRigidHydroelasticProperties(resolution_hint=0.0005, properties=properties)
         return add_material(*args, properties=properties, **kw)
 
     G.AddContactMaterial = material
+    geometry = T.finger_geometry
+
+    def finger_geometry(hand, *a, **k):
+        g = geometry(hand, *a, **k)
+        _PAD_H[0] = g["pads"]["thickness_mm"] * 1e-3
+        return g
+    T.finger_geometry = finger_geometry
     set_model = MultibodyPlant.set_contact_model
     MultibodyPlant.set_contact_model = lambda self, m: set_model(self, ContactModel.kHydroelasticWithFallback)
     port = MultibodyPlant.get_contact_results_output_port

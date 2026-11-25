@@ -88,7 +88,7 @@ def cmd_run(a) -> int:
     d = json.loads(a.draws.read_text())
     draws = [x for x in d["draws"] if x["x_c_mm"] is not None]
     draws = draws[: a.only] if a.only else draws
-    pad_kh = "own" if a.contact == "hydro" else None
+    pad_kh = None  # hydro: experiment 21's rule (every hand O's pad foundation stiffness)
     t0 = time.time()
     with Pool(a.workers) as pool:
         recs = pool.map(run_task, [(h, pl, a.contact, a.time_step, a.delta_deg, pad_kh) for h in a.hands for pl in draws],
