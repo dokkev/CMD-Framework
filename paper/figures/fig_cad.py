@@ -33,6 +33,13 @@ def usd_white(path, paper=244.0):
     return (alpha * im + (1.0 - alpha) * paper).astype(np.uint8), alpha[..., 0]
 
 
+def white_to_alpha(im, lo=236, hi=252):
+    """RGB (uint8) to RGBA float with the near-white background faded out, so the image sits on a tinted box."""
+    im = np.asarray(im)[..., :3].astype(float) / 255.0
+    a = np.clip((hi / 255.0 - im.min(axis=2)) / ((hi - lo) / 255.0), 0.0, 1.0)
+    return np.dstack([im, a])
+
+
 def usd_render(path, gradient=False):
     """The Newton render with its background blended to white and cropped to the hand. gradient: the viewer's sky
     (a camera below the ground plane), keyed row by row against the left and right edge columns."""
@@ -285,7 +292,7 @@ def fit_icon(ax, kk):
     """An interface icon fitted to its axes (CAD render for NARI-Touch, drawn otherwise)."""
     from PIL import Image
     if kk == "nari":
-        ax.imshow(np.asarray(Image.open(CAD / "nari_touch.png").convert("RGB"))); ax.axis("off")
+        ax.imshow(white_to_alpha(Image.open(CAD / "nari_touch.png").convert("RGB"))); ax.axis("off")
         return
     icon(ax, kk)
     pts = []
@@ -361,16 +368,20 @@ def main() -> int:
     box(0.02, 0.04, 2.30, top - 0.06, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "CoDe Hand")
     hand = usd_render(CAD / "hand_usd_relaxed.png")  # Isaac Lab visual USD, the relaxed pose
-    hw_, hh_ = image(hand, 0.05, 0.10, fit=(1.40, 1.80))
+    hw_, hh_ = image(hand, 0.05, 0.10, fit=(1.30, 1.80))
     if hh_ < 1.70:  # centre the hand in the space under its label
         fig.axes[-1].set_position((0.05 / W_, (0.10 + (1.72 - hh_) / 2) / H_, hw_ / W_, hh_ / H_))
+    # the finger and the interfaces it can carry, each in a light box, joined by a plus
+    box(1.39, top - 0.64, 0.90, 0.60, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
-    fw, fh = image(fin, 1.44, top - 0.50, w=0.86)
-    fig.text(*inch(1.87, top - 0.52), "crossed four-bar finger", fontsize=5.8, ha="center", va="top", color=INK2)
-    plabel(1.44, top - 0.70, "b", "interfaces")
+    fw, fh = image(white_to_alpha(fin), 1.43, top - 0.50, w=0.82)
+    fig.text(*inch(1.84, top - 0.52), "crossed four-bar finger", fontsize=5.8, ha="center", va="top", color=INK2)
+    fig.text(*inch(1.84, top - 0.74), "+", fontsize=11, ha="center", va="center", color=INK, **BOLD)
+    box(1.39, 0.08, 0.90, top - 0.84 - 0.08, "#f6f1e6", "#dccfb3", r=0.05, lw=0.6)
+    plabel(1.43, top - 0.87, "b", "interfaces")
     names = (("nari", "tactile"), ("honeycomb", "compliant"), ("traction", "traction"), ("soft", "soft pad"))
     for k, (kk, nm) in enumerate(names):
-        cx, cy = 1.46 + (k % 2) * 0.43, top - 1.22 - (k // 2) * 0.50
+        cx, cy = 1.45 + (k % 2) * 0.43, top - 1.36 - (k // 2) * 0.48
         ax = fig.add_axes((*inch(cx, cy), 0.38 / W_, 0.28 / H_))
         fit_icon(ax, kk)
         fig.text(*inch(cx + 0.19, cy - 0.01), nm, fontsize=5.6, ha="center", va="top", color=INK2)
