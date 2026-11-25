@@ -134,7 +134,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 - PNG only, never PDF figures. Save opaque RGB (`paper/figures/pngout.save_rgb`): an alpha channel becomes a
   soft mask in the PDF, which submission checkers flag. Keep plots with many points raster, so no point
   becomes a PDF object.
-- Hand, finger and sensor images are CAD renders (Onshape shaded views, `paper/figures/fetch_cad.py`) or renders of the visual USD used in Isaac Lab (`sim/isaaclab/scripts/code_hand/render_visuals.py`), never the Drake renders.
+- Hand, finger and sensor images are CAD renders (Onshape shaded views, `paper/figures/fetch_cad.py`) or renders of the visual USD used in Isaac Lab (`sim/isaaclab/scripts/code_hand/render_visuals.py`), never the Drake finger renders (render_hands.py); the Drake task renders in report/study3/figures are approved (2026-11-24).
 - Scripts live in `paper/figures/` and write into the manuscript's `figures/`. Long computations are cached
   under `design/output/paper/` (git-ignored); delete a cache to recompute.
 - Before submission, on the Overleaf PDF: `pdfimages -list` shows no `smask`, `pdffonts` shows every font
