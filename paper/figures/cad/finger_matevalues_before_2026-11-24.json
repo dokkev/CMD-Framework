@@ -1,0 +1,53 @@
+{
+ "mateValues": [
+  {
+   "jsonType": "Revolute",
+   "rotationZ": 1.4022895543099325,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 1",
+   "featureId": "M4rvSkW5f4oW1EfWn"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": 0.1685067724849616,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 2",
+   "featureId": "MYlQCTPvn05z8riBF"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": -0.27341890097616073,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 4",
+   "featureId": "Mk2YysCi0iqA94rSb"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": -0.0014627584882234146,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 5",
+   "featureId": "Mn8xbOphynmSFsnKV"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": 1.8442170113068856,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 3",
+   "featureId": "MroQJsw2MyLJBYpO0"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": -1.1404883829749561,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 7",
+   "featureId": "MsAm9eLi14oznYxKG"
+  },
+  {
+   "jsonType": "Revolute",
+   "rotationZ": -0.43030794381994397,
+   "ownerOccurrencePath": [],
+   "mateName": "Revolute 6",
+   "featureId": "MuFq8FH9n9Yps+mOm"
+  }
+ ]
+}

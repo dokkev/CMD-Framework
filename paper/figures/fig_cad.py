@@ -347,8 +347,15 @@ def main() -> int:
     fh = fw * fin.shape[0] / fin.shape[1]
     plabel(1.40, top, "b", "crossed four-bar joint")
     f = fig.add_axes((*inch(1.44, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
-    for cx, cy, ew, eh in ((1250 - CROP, 530, 450, 190), (2215 - CROP, 485, 340, 220)):
-        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec="k", lw=0.7, ls="--", clip_on=False, zorder=5))
+    blue_ = (fin[..., 2].astype(int) - fin[..., 0] > 35) & (fin[..., 2] > 120)  # the pads in the CAD view
+    bx_ = np.nonzero(blue_.any(axis=0))[0]
+    cut = bx_[np.argmax(np.diff(bx_))] + 1
+    for lo_, hi_ in ((bx_.min(), cut), (cut, bx_.max() + 1)):
+        ys_, xs_ = np.nonzero(blue_[:, lo_:hi_])
+        xs_ = xs_ + lo_
+        f.add_patch(Ellipse(((xs_.min() + xs_.max()) / 2, (ys_.min() + ys_.max()) / 2), (xs_.max() - xs_.min()) * 1.05,
+                            (ys_.max() - ys_.min()) * 1.25, fc="none", ec="k", lw=0.7, ls="--", clip_on=False,
+                            zorder=5))
     fig.text(*inch(1.44 + fw / 2, top - 0.34 - fh), "dashed: pad seats", fontsize=6.0, ha="center", va="top")
     y = top - 0.20 - max(hh, fh + 0.25)
     plabel(0.02, y, "c", "contact interfaces")

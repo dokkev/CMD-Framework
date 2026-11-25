@@ -1,7 +1,7 @@
 {
  "document": "70331145392063eb01686da5",
  "workspace": "5e0189f99c1cf0c993f8846a",
- "microversion": "49301fdbf513fd4330b1979e",
+ "microversion": "40766cb2132023e585bc7301",
  "renders": {
   "code_hand_iso": {
    "element": "67c456d3940fbb4fa89384f6",
@@ -18,9 +18,9 @@
    "view": "front",
    "crop": [
     0,
-    580,
+    579,
     2400,
-    1220
+    1221
    ]
   }
  }
