@@ -538,6 +538,8 @@ def fig2():
     # proximal phalanx (ground link): O-A-A', dark grey
     kax.plot(*np.array([O, A]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([A, Ap]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.plot(*np.array([O, Ap]).T, color="#4a4a48", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.add_patch(Polygon([O, A, Ap], fc="#dcdcda", ec="none", zorder=9))  # the proximal phalanx, one rigid body
     # distal phalanx: B-B'-C, mid grey
     kax.plot(*np.array([B, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([B, Bp]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
