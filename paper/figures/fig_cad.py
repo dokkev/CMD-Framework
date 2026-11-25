@@ -129,8 +129,40 @@ def icon(ax, kind):
     if kind == "thin":
         iso_pad(ax, 0.35, "#5b7fc7", "#4a6db5", "#3f60a6", PAD)
         return
-    if kind == "soft":  # solid soft pad: a uniform elastomer block
-        iso_pad(ax, 1.6, "#cfdcf3", "#b3c8ec", "#a2bbe5", PAD)
+    if kind == "soft":  # solid soft pad: an elastomer block with a domed contact face and rounded edges
+        from scipy.spatial import ConvexHull
+        for p_ in list(ax.patches):
+            p_.remove()
+        L, Wd, H, bump, rr = 6.5, 4.5, 1.2, 0.8, 0.9
+        c30, s30 = np.cos(np.radians(30)), np.sin(np.radians(30))
+
+        def iso(u, v, w):
+            return np.array([(u - v) * c30, (u + v) * s30 + w])
+
+        def height(u, v):  # dome, flattened toward the rounded rim
+            return H + bump * np.sin(np.pi * u / L) ** 0.8 * np.sin(np.pi * v / Wd) ** 0.8
+
+        # rounded-rectangle footprint
+        t = np.linspace(0, np.pi / 2, 10)
+        corners = [(L - rr, Wd - rr, 0), (rr, Wd - rr, np.pi / 2), (rr, rr, np.pi), (L - rr, rr, 1.5 * np.pi)]
+        rim = np.concatenate([np.c_[cu + rr * np.cos(t + a0), cv + rr * np.sin(t + a0)] for cu, cv, a0 in corners])
+        # body silhouette: rim at the floor and at the top
+        body = np.array([iso(u, v, 0) for u, v in rim] + [iso(u, v, H) for u, v in rim])
+        hull = body[ConvexHull(body).vertices]
+        ax.add_patch(Pg(hull, fc="#a9c0e8", ec=PAD, lw=0.4, zorder=1))
+        # domed face: the top silhouette and contour lines of equal height
+        uu, vv = np.meshgrid(np.linspace(0.05, L - 0.05, 40), np.linspace(0.05, Wd - 0.05, 30))
+        from matplotlib.path import Path as MPath
+        inside = MPath(rim).contains_points(np.c_[uu.ravel(), vv.ravel()])
+        pts = np.array([iso(u, v, height(u, v)) for u, v in zip(uu.ravel()[inside], vv.ravel()[inside])])
+        top = np.vstack([pts, [iso(u, v, H) for u, v in rim]])
+        ax.add_patch(Pg(top[ConvexHull(top).vertices], fc="#d3e0f5", ec=PAD, lw=0.4, zorder=2))
+        for f in (0.35, 0.65, 0.9):
+            th = np.linspace(0, 2 * np.pi, 60)
+            cu, cv = L / 2 + (L / 2 - 0.4) * (1 - f) ** 0.7 * np.cos(th), Wd / 2 + (Wd / 2 - 0.4) * (1 - f) ** 0.7 * np.sin(th)
+            ring = np.array([iso(u, v, height(u, v)) for u, v in zip(cu, cv)])
+            ax.plot(*ring.T, color="#eef3fb", lw=0.5, zorder=3)
+        ax.set_xlim(-Wd * c30 - 0.4, L * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.0)
         return
     if kind == "thick":
         ax.add_patch(FancyBboxPatch((0.7, -3.6), 8.6, 3.5, boxstyle="round,pad=0.1,rounding_size=1.2",
