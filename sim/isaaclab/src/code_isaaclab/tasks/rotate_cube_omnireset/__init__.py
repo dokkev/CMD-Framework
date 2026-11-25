@@ -28,7 +28,7 @@ for _suffix, _cfg, _agent in (
         },
     )
 
-for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "UL"):  # zero-shot transfer of the O-trained v2 policy
+for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "UL120", "UL"):  # zero-shot transfer of the O-trained v2 policy
     gym.register(
         id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
@@ -40,7 +40,7 @@ for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "UL"):  # zero-shot transfe
         },
     )
 
-for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL"):  # the same, through the contact-referenced joint maps
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL120", "UL"):  # the same, through the contact-referenced joint maps
     gym.register(
         id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval-Mapped",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
@@ -63,7 +63,7 @@ gym.register(
         "default_agent": "rsl_rl",
     },
 )
-for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL"):
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL120", "UL"):
     for _suffix in ("", "Mapped"):
         gym.register(
             id=f"CoDe-Rotate-Cylinder-{_key}-Fingertip-Eval" + (f"-{_suffix}" if _suffix else ""),
@@ -87,7 +87,7 @@ gym.register(
         "default_agent": "rsl_rl",
     },
 )
-for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL"):
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "UL120", "UL"):
     gym.register(
         id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2Blind-Eval",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",
