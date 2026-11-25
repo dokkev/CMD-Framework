@@ -360,7 +360,7 @@ def main() -> int:
     # ---- inputs: the hand we have and the interfaces it can carry (dashed group, as in a pipeline sketch)
     box(0.02, 0.04, 2.30, top - 0.06, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "CoDe Hand")
-    hand = usd_render(CAD / "hand_usd_dorsal.png", gradient=True)  # Isaac Lab visual USD, dorsal view
+    hand = usd_render(CAD / "hand_usd_relaxed.png")  # Isaac Lab visual USD, the relaxed pose
     hw_, hh_ = image(hand, 0.05, 0.10, fit=(1.40, 1.80))
     if hh_ < 1.70:  # centre the hand in the space under its label
         fig.axes[-1].set_position((0.05 / W_, (0.10 + (1.72 - hh_) / 2) / H_, hw_ / W_, hh_ / H_))
