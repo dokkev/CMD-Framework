@@ -33,12 +33,17 @@ def usd_white(path, paper=244.0):
     return (alpha * im + (1.0 - alpha) * paper).astype(np.uint8), alpha[..., 0]
 
 
-def usd_render(path):
-    """The Newton render with its uniform dark background blended to white and cropped to the hand."""
+def usd_render(path, gradient=False):
+    """The Newton render with its background blended to white and cropped to the hand. gradient: the viewer's sky
+    (a camera below the ground plane), keyed row by row against the left and right edge columns."""
     from PIL import Image
     im = np.asarray(Image.open(path).convert("RGB")).astype(float)
-    bg = np.median(np.concatenate([im[:20, :20].reshape(-1, 3), im[-20:, -20:].reshape(-1, 3)]), axis=0)
-    alpha = np.clip((np.linalg.norm(im - bg, axis=2) - 2.0) / 6.0, 0.0, 1.0)[..., None]  # sharp key: dark servos stay dark
+    if gradient:
+        bg = np.median(np.concatenate([im[:, :24], im[:, -24:]], axis=1), axis=1)[:, None, :]
+        alpha = np.clip((np.linalg.norm(im - bg, axis=2) - 10.0) / 12.0, 0.0, 1.0)[..., None]
+    else:
+        bg = np.median(np.concatenate([im[:20, :20].reshape(-1, 3), im[-20:, -20:].reshape(-1, 3)]), axis=0)
+        alpha = np.clip((np.linalg.norm(im - bg, axis=2) - 2.0) / 6.0, 0.0, 1.0)[..., None]  # sharp key: dark servos stay dark
     out = alpha * im + (1.0 - alpha) * 255.0
     rows, cols = np.where(alpha[..., 0] > 0.05)
     out = out[max(rows.min() - 8, 0):rows.max() + 8, max(cols.min() - 8, 0):cols.max() + 8]
@@ -355,7 +360,7 @@ def main() -> int:
     # ---- inputs: the hand we have and the interfaces it can carry (dashed group, as in a pipeline sketch)
     box(0.02, 0.04, 2.30, top - 0.06, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "CoDe Hand")
-    hand = crop_white(np.asarray(Image.open(CAD / "code_hand_iso.png").convert("RGB")))
+    hand = usd_render(CAD / "hand_usd_dorsal.png", gradient=True)  # Isaac Lab visual USD, dorsal view
     hw_, hh_ = image(hand, 0.05, 0.10, fit=(1.40, 1.80))
     if hh_ < 1.70:  # centre the hand in the space under its label
         fig.axes[-1].set_position((0.05 / W_, (0.10 + (1.72 - hh_) / 2) / H_, hw_ / W_, hh_ / H_))
