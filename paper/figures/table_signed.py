@@ -90,9 +90,27 @@ SETTINGS = (
 )
 
 
+# the command protocols (pull-out, friction 1.3 -> 2.0, 7 mm): what is reused across redesigns, ordered by the sensing
+PROTOCOLS = (
+    ("setpoint", lambda h: isaac_friction(h, "A"), ("isaac_dose_A_all.json", "E_rel_median")),
+    ("contact setpoint", lambda h: drake(h, "point", "e27"), ("drake_e27_point.json", "E")),
+    ("torque", lambda h: isaac_friction(h, "C"), ("isaac_dose_C_all.json", "E_rel_median")),
+    ("touch", lambda h: isaac_friction(h, "E"), ("isaac_dose_E_all.json", "E_rel_median")),
+    ("force", lambda h: isaac_friction(h, "B"), ("isaac_dose_B.json", "E_rel_median")),
+)
+
+
 def main():
-    out = {"note": __doc__.splitlines()[0], "settings": {}}
-    for name, fn, (refname, refkey) in SETTINGS:
+    out = {"note": __doc__.splitlines()[0], "settings": {}, "protocols": {}}
+    for group, items in (("settings", SETTINGS), ("protocols", PROTOCOLS)):
+        for name, fn, ref in items:
+            out[group][name] = one(name, fn, ref)
+    (S3 / "table_signed.json").write_text(json.dumps(out, indent=1))
+
+
+def one(name, fn, ref_):
+    refname, refkey = ref_
+    if True:
         ref = ref_e(refname, refkey)
         row = {}
         for h in ("R", "U"):
@@ -100,12 +118,12 @@ def main():
             b = np.array([(dh - do) / do for dh, do in pr.values()])  # +: overstates O's effect, -: understates it
             e = float(np.median(np.abs(b)))
             assert abs(e - ref[h]) < 1e-6, (name, h, e, ref[h])
-            row[h] = {"bias_median": float(np.median(b)), "E": e, "pairs": int(len(b)),
+            row[h] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
+                      "bias_q75": float(np.percentile(b, 75)), "E": e, "pairs": int(len(b)),
                       "O_effect_median_n": float(np.median([do for _, do in pr.values()]))}
-        out["settings"][name] = row
         print(f"{name:34s} O {row['R']['O_effect_median_n']:+.2f} N | CoDe {100 * row['R']['bias_median']:+5.0f}% "
               f"(E {100 * row['R']['E']:.0f}) | Conv {100 * row['U']['bias_median']:+5.0f}% (E {100 * row['U']['E']:.0f})")
-    (S3 / "table_signed.json").write_text(json.dumps(out, indent=1))
+        return row
 
 
 if __name__ == "__main__":

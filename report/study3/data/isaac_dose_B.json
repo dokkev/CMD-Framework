@@ -1,0 +1,136 @@
+{
+ "condition": "B",
+ "mu": [
+  1.3,
+  2.0
+ ],
+ "extended": false,
+ "hands": {
+  "R": {
+   "thickness_mm": 7.0,
+   "D_c_mm": 0.86,
+   "D_s_mm": 7.67,
+   "C_pad": 0.725,
+   "pairs": 44,
+   "E_rel_median": 0.027799299562583465,
+   "E_log_median": 0.025317783913183258,
+   "E_abs_median_n": 0.0666666030883789,
+   "E_rel_by_direction": {
+    "+x": 0.0555580280508119,
+    "+x-z": 6.87745894947915e-08,
+    "-z": 0.02857140229672712,
+    "-x": 0.02499997653067077
+   },
+   "distal_force_ratio_median": 0.999321921061773,
+   "gate0_fail_share": 0.6477272727272727,
+   "complete": true
+  },
+  "d2p25_minDs_s0": {
+   "thickness_mm": 7.0,
+   "D_c_mm": 2.33,
+   "D_s_mm": 4.62,
+   "C_pad": 0.7,
+   "pairs": 48,
+   "E_rel_median": 0.03448283463256048,
+   "E_log_median": 0.033901639027312,
+   "E_abs_median_n": 0.06666678190231323,
+   "E_rel_by_direction": {
+    "+x": 0.2331082381650532,
+    "+x-z": 0.03448272460139292,
+    "-z": 0.029437359341633093,
+    "-x": 0.029198709907024088
+   },
+   "distal_force_ratio_median": 0.9982340415686486,
+   "gate0_fail_share": 0.571969696969697,
+   "complete": true
+  },
+  "d2p25_maxDs_s0": {
+   "thickness_mm": 7.0,
+   "D_c_mm": 2.3,
+   "D_s_mm": 9.17,
+   "C_pad": 0.712,
+   "pairs": 24,
+   "E_rel_median": 0.03999996137619326,
+   "E_log_median": 0.03922060586492002,
+   "E_abs_median_n": 0.06666684150695801,
+   "E_rel_by_direction": {
+    "+x": 0.14583221781315137,
+    "+x-z": 0.020000125538205422,
+    "-z": 0.04625776817139544,
+    "-x": 0.03173411179362079
+   },
+   "distal_force_ratio_median": 0.9996801600755878,
+   "gate0_fail_share": 0.8143939393939394,
+   "complete": true
+  },
+  "d3_minDs_s0": {
+   "thickness_mm": 7.0,
+   "D_c_mm": 3.09,
+   "D_s_mm": 3.83,
+   "C_pad": 0.713,
+   "pairs": 48,
+   "E_rel_median": 0.05000004135072203,
+   "E_log_median": 0.05004174938945673,
+   "E_abs_median_n": 0.09999728202819824,
+   "E_rel_by_direction": {
+    "+x": 0.27402407730214295,
+    "+x-z": 0.05714288394467358,
+    "-z": 0.03214282689958165,
+    "-x": 0.04257254583834323
+   },
+   "distal_force_ratio_median": 0.9984755695014351,
+   "gate0_fail_share": 0.571969696969697,
+   "complete": true
+  },
+  "U": {
+   "thickness_mm": 7.0,
+   "D_c_mm": 3.91,
+   "D_s_mm": 3.38,
+   "C_pad": 0.711,
+   "pairs": 48,
+   "E_rel_median": 0.06838094455725482,
+   "E_log_median": 0.07083148347411403,
+   "E_abs_median_n": 0.13333332538604736,
+   "E_rel_by_direction": {
+    "+x": 0.26974929921957036,
+    "+x-z": 0.037241343704046845,
+    "-z": 0.03438233801936695,
+    "-x": 0.07789868512380443
+   },
+   "distal_force_ratio_median": 0.9965520666380996,
+   "gate0_fail_share": 0.571969696969697,
+   "complete": true
+  }
+ },
+ "tests": {
+  "n_hands": 5,
+  "rho_E_Dc": 0.8999999999999998,
+  "p_one_sided": 0.041666666666666664,
+  "rho_E_Ds": -0.7,
+  "rho_E_Cpad": -0.3,
+  "std_coef_Dc": 0.9660103426370665,
+  "std_coef_Ds": 0.04019983039675988,
+  "partial_E_Dc_given_Ds": 0.8673649643743678,
+  "partial_E_Ds_given_Dc": 0.5789473684210528,
+  "bootstrap_ci95": {
+   "rho_E_Dc": [
+    0.6842105263157895,
+    1.0
+   ],
+   "rho_E_Ds": [
+    -1.0,
+    -0.15789473684210528
+   ],
+   "partial_E_Dc_given_Ds": [
+    -0.010456834397881634,
+    1.0
+   ],
+   "partial_E_Ds_given_Dc": [
+    -0.8393650047838916,
+    0.853221497025294
+   ]
+  },
+  "rho_Elog_Dc": 0.8999999999999998,
+  "rho_Elog_Ds": -0.7
+ }
+}

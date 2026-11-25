@@ -925,6 +925,44 @@ def fig4():
     print("fig4", h)
 
 
+# ------------------------------------------------------------------------------------------- command protocols
+def fig_protocols():
+    """The bias in the measured pad effect (pull-out, friction 1.3 -> 2.0, 7 mm) of CoDe and Conventional under each
+    command the redesigns reuse, ordered by the sensing it needs: median and quartiles over placements, + overstating
+    O's effect. Data: report/study3/data/table_signed.json (paper/figures/table_signed.py)."""
+    pr = json.load(open(S3 / "table_signed.json"))["protocols"]
+    cols = (("setpoint", "joint\nsetpoint", "none"), ("contact setpoint", "contact\nsetpoint$^{*}$", "none"),
+            ("torque", "joint\ntorque", "joint torque"), ("touch", "close at\ntouch", "touch"),
+            ("force", "contact\nforce", "pad forces"))
+    W1, h = 3.45, 1.85
+    fig = plt.figure(figsize=(W1, h))
+    ax = fig.add_axes((0.60 / W1, 0.62 / h, (W1 - 0.68) / W1, (h - 0.72) / h))
+    ax.axhline(0, color=INK, lw=0.6, zorder=1)
+    for i, (key, lab, sense) in enumerate(cols):
+        r, u = pr[key]["R"], pr[key]["U"]
+        ax.plot([i, i], [100 * r["bias_median"], 100 * u["bias_median"]], color="#b5b5b2", lw=2.2,
+                solid_capstyle="round", zorder=2)
+        for d, c, dx in ((r, BLUE, -0.09), (u, AMBER, 0.09)):
+            ax.plot([i + dx] * 2, [100 * d["bias_q25"], 100 * d["bias_q75"]], color=c, lw=0.7, zorder=3)
+            ax.plot(i + dx, 100 * d["bias_median"], marker="o", ms=4.2, color=c, mec="white", mew=0.5, zorder=4)
+        ax.text(i, -0.30, sense, transform=ax.get_xaxis_transform(), fontsize=5.4, color=INK2, ha="center",
+                va="top")
+    ax.set_xticks(range(len(cols))); ax.set_xticklabels([c[1] for c in cols], fontsize=5.8, linespacing=1.0)
+    ax.set_xlim(-0.5, len(cols) - 0.5)
+    ax.set_ylabel("bias in pad effect (%)", labelpad=1, fontsize=6.0)
+    ax.tick_params(axis="x", length=0, pad=2)
+    clean(ax)
+    ax.text(-0.62, -0.30, "sensing:", transform=ax.get_xaxis_transform(), fontsize=5.4, color=INK2, ha="right",
+            va="top")
+    handles = [plt.Line2D([], [], ls="none", marker="o", ms=4, color=BLUE, label="CoDe"),
+               plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="Conventional"),
+               plt.Line2D([], [], color="#b5b5b2", lw=2.2, label="gap")]
+    ax.legend(handles=handles, loc="upper right", frameon=False, fontsize=5.8, handletextpad=0.3, borderaxespad=0.1)
+    save_rgb(fig, DEST / "fig_protocols.png", dpi=400)
+    plt.close(fig)
+    print("fig_protocols", h)
+
+
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
     """Table I (Study 3B): the signed bias in the measured pad effect, CoDe against Conventional, as the pad change,
@@ -958,6 +996,6 @@ def table():
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    for name, fn in (("fig2", fig2), ("fig3", fig3), ("fig4", fig4), ("table", table)):
+    for name, fn in (("fig2", fig2), ("fig3", fig3), ("fig4", fig4), ("protocols", fig_protocols), ("table", table)):
         if which in (name, "all"):
             fn()
