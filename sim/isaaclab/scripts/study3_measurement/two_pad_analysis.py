@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered measures from ``two_pad_wrench.py`` runs (latest
-run per hand, mu, condition, radius). See ``report/study3/experiments.md`` (third experiment, Stage B).
+run per hand, mu, condition, radius). See ``report/study3/study3.md`` (third experiment, Stage B).
 
     python3 scripts/study3_measurement/two_pad_analysis.py --mu 1.3 2.0 [--condition B] [--validate]
 

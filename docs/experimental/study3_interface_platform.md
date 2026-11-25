@@ -6,7 +6,7 @@ What it was: a programme of learning-based experiments on one CoDe hand — an i
 
 What was run under it, all kept unchanged:
 
-- 3A pilot (flat vs crowned pads, prototype hand pivot8, action EMA 1.0): `report/study3/study3_pilot.md`; confirmatory analysis on 10 seeds in `report/study3/tables/confirmatory.json` (flat → crowned transfer gap +0.196, 10/10 seeds, sign-flip p = 0.002).
+- 3A pilot (flat vs crowned pads, prototype hand pivot8, action EMA 1.0): `report/study3/study3.md`; confirmatory analysis on 10 seeds in `report/study3/tables/confirmatory.json` (flat → crowned transfer gap +0.196, 10/10 seeds, sign-flip p = 0.002).
 - 3B′ (VBD replay, EMA 0.1): judged not interpretable by its pre-registered validity condition.
 - Goal-count audit, budget pilot, hydroelastic and friction-model Gate 0, and the 3A main experiment (`-Main` tasks, 3000 iterations, seeds 0–9): `docs/decisions.md` (2026-11-21 entries), `logs/study3_main/`.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 3 pilot, end to end, from sim/isaaclab/ (report/study3/study3_pilot.md, "Reproduction").
+# Study 3 pilot, end to end, from sim/isaaclab/ (report/study3/study3.md, "Reproduction").
 #
 #   bash scripts/study3/run_pilot.sh [stage]      stage: export | validate | train | eval | analyze | all
 #

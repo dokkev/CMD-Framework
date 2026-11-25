@@ -400,7 +400,7 @@ $\mathcal F_{\mathrm{static}}$과 $\mathcal F_{\mathrm{motion}}$은 형상 $\mat
 
 ### A.6.0. Study 0: 관절이 pad에서 빼앗는 길이 (해석)
 
-Study 0은 최적화 없이, 요구(pad 두께 $h$, 요구 flexion $q_{\mathrm{req}}$)와 morphology 사이의 관계를 기하로 유도한다. 명제의 정확한 가정과 증명은 `report/study0/derivation.md`가 기준이며, 이 절은 그 요약이다. 계산은 `core/geometry/pole.py`, 최적화 결과와의 대조는 `scripts/study/study2_morphology_adaptation/pole_law.py`가 한다.
+Study 0은 최적화 없이, 요구(pad 두께 $h$, 요구 flexion $q_{\mathrm{req}}$)와 morphology 사이의 관계를 기하로 유도한다. 명제의 정확한 가정과 증명은 `report/study0/study0.md`가 기준이며, 이 절은 그 요약이다. 계산은 `core/geometry/pole.py`, 최적화 결과와의 대조는 `scripts/study/study2_morphology_adaptation/pole_law.py`가 한다.
 
 **Pole.** 평면에서 방향이 바뀌는 강체 변위는 한 점을 중심으로 한 회전과 같다. Flexion $q$에서 distal phalanx의 자세는 기준 자세를 점 $\mathbf P(M,q)$를 중심으로 $q$만큼 돌린 것이며, 이 점을 (finite) pole이라 부른다. Pole은 기준 자세에서 그 자세까지의 유한한 변위의 성질이고, 순간 회전 중심과는 다르다(pole이 고정된 관절에서만 같다). Pole이 link 선(기준 자세에서 관절 축들을 잇는 직선)에서 palmar 쪽으로 내려온 깊이를 $z(q)$라 쓴다(dorsal 쪽이면 음수).
 
@@ -616,7 +616,7 @@ $$
 
 ### A.6.4. Study 3: 재설계한 손에서도 interface 효과가 같게 측정되는가 (시뮬레이션)
 
-Study 3의 질문은 하나이다(H3, research-objective §6, §8). 기준 손가락을 더 두꺼운 pad에 맞춰 다시 설계한 손들에서 같은 interface 변화를 재면, 측정의 오차는 어느 설계 변화를 따르는가. 사전 기록과 그 수정은 `report/study3/experiments.md`(3–14차)에 있다.
+Study 3의 질문은 하나이다(H3, research-objective §6, §8). 기준 손가락을 더 두꺼운 pad에 맞춰 다시 설계한 손들에서 같은 interface 변화를 재면, 측정의 오차는 어느 설계 변화를 따르는가. 사전 기록과 그 수정은 `report/study3/study3.md`(3–14차)에 있다.
 
 **손.** CoDe hand 모델(MCP 고정, $q_{\mathrm{req}}=120^\circ$)의 세 손가락이 같은 설계를 쓰고 같은 원기둥을 잡는다.
 - 기준 $O$: Study 1의 3 mm 설계 $M_0$.

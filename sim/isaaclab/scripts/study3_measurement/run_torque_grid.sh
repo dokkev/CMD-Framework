@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 3, eighteenth experiment (separability.md): condition C on the hand-independent grid, O and the 27 hands of
+# Study 3, eighteenth experiment (report/study3/study3.md): condition C on the hand-independent grid, O and the 27 hands of
 # the thirteenth experiment. Usage (from sim/isaaclab): run_torque_grid.sh [hands...]  (default: all, O first)
 set -euo pipefail
 HANDS=("$@")

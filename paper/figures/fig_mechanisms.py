@@ -13,7 +13,7 @@ there. RCJ and CFL also trace the distal phalanx's instantaneous centre relative
 (b) The finite poles P each joint type can reach over the study's design space at 60, 90, 120 and 150 deg (light to
 dark), in the proximal phalanx's frame (origin: its end on its axis), from Study 0's analysis (no optimization run):
 a pin is the phalanx end (a point); rollers fill a narrow area (roller_pole); a crossed four-bar's P = b / (1 - e^{iq})
-(Lemma 1), with b from the closure of its links (feasible_space.md, F1), covers a wide one: outlined, the region
+(Lemma 1), with b from the closure of its links (report/study0/study0.md, F1), covers a wide one: outlined, the region
 holding 95% of the crossed four-bars drawn from the study's CFL bounds that close through q (four_bar_pole_sets,
 region_outline; Gaussian kernel density, largest piece). Only the design space is drawn, no particular design.
 Legend: 2R, RCJ, CFL, in the colours (c) shares.

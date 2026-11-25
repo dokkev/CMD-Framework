@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered dose-response measures
-(``report/study3/experiments.md``, fourth experiment).
+(``report/study3/study3.md``, fourth experiment).
 
     python3 scripts/study3_measurement/dose_analysis.py [--condition A] [--mu 1.3 2.0]
 
@@ -27,13 +27,13 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2] / "logs" / "study3" / "two_pad"
 DIRECTIONS = ("+x", "+x-z", "-z", "-x")
-# design metrics of the pre-registered hands (e18; separability.md, fourth experiment, reselection)
+# design metrics of the pre-registered hands (e18; report/study3/study3.md, fourth experiment, reselection)
 HANDS = {"R": (0.86, 7.67, 0.725), "d1p5_minDs_s0": (1.60, 5.37, 0.706), "d2p25_minDs_s0": (2.33, 4.62, 0.700),
          "d2p25_maxDs_s0": (2.30, 9.17, 0.712), "d3_minDs_s0": (3.09, 3.83, 0.713), "U": (3.91, 3.38, 0.711),
          "d4p5_s0": (4.41, 11.33, 0.716), "d5p5_s0": (5.40, 12.17, 0.703)}
-# added after the first results once the hand model took two mount depths (separability.md, fourth experiment, extension)
+# added after the first results once the hand model took two mount depths (report/study3/study3.md, fourth experiment, extension)
 EXTENSION = {"d1p5_maxDs_s0": (1.46, 9.67, 0.707), "d3_maxDs_s0": (3.04, 11.55, 0.700)}
-# sixth experiment: four hands each at 3 -> 5 and 3 -> 9 mm (separability.md, sixth experiment)
+# sixth experiment: four hands each at 3 -> 5 and 3 -> 9 mm (report/study3/study3.md, sixth experiment)
 THICK = {"h3to5_hr": (0.35, 3.55, 0.753), "h3to5_hu": (1.58, 2.02, 0.748), "h3to5_d3_s0": (2.92, 6.38, 0.750),
          "h3to5_d3_minDs_s0": (3.09, 0.38, 0.728), "h3to9_hr": (2.32, 9.37, 0.695), "h3to9_hu": (3.89, 7.17, 0.688),
          "h3to9_d3p5_maxDs_s0": (3.52, 12.72, 0.672), "h3to9_d5_minDs_s0": (5.08, 5.32, 0.673)}

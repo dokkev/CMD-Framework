@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 3, seventeenth experiment (separability.md): O with the contact stiffness of a 5, 7 or 9 mm pad
+# Study 3, seventeenth experiment (report/study3/study3.md): O with the contact stiffness of a 5, 7 or 9 mm pad
 # (ke = 2.5e3 * 3 / h), condition A, tags padk-ref5/7/9. Run from sim/isaaclab.
 set -euo pipefail
 for h in 5 7 9; do

@@ -1,4 +1,4 @@
-"""Experiment 22 (in-hand rolling) analysis, as pre-registered in report/study3/experiments.md: per hand H, over
+"""Experiment 22 (in-hand rolling) analysis, as pre-registered in report/study3/study3.md: per hand H, over
 placements and both sweeps where O and H pass Gate 0 at both mu and |D(O)| >= 0.5 deg, D = rotation(2.0) -
 rotation(1.3), E(H) = median |D(H) - D(O)| / |D(O)|; grasps lost by the end are counted apart. Spearman rho(E,
 D_contact) and rho(E, D_skel) with exact one-sided permutation p over the redesigned hands present.

@@ -1,7 +1,7 @@
 # Idea (sparse)
 
 Source of truth: `design/SSoT/research-objective.md`, `design/SSoT/problem_formulation.md` (A.6),
-`report/study0/derivation.md`. Scope of this paper: Studies 0–2 only (no learning results).
+`report/study0/study0.md`. Scope of this paper: Studies 0–2 only (no learning results).
 
 ## Problem
 

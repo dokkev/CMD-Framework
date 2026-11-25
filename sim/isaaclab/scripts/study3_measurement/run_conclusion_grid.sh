@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 4 confirmation, nineteenth experiment (separability.md): soft 7 mm pads on the hand-independent grid.
+# Study 4 confirmation, nineteenth experiment (report/study3/study3.md): soft 7 mm pads on the hand-independent grid.
 # Usage (from sim/isaaclab): run_conclusion_grid.sh ref | run_conclusion_grid.sh [hands...] (default: all 27)
 set -euo pipefail
 KE=1071.43

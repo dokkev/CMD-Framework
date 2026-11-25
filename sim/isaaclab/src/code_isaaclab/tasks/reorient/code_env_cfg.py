@@ -35,7 +35,7 @@ from .env_cfg import HandReorientEnvCfg, HandReorientSceneCfg
 GOAL_AXIS = (0.0, 0.0, 1.0)
 """World axis of the goal rotations (vertical: the cube turned while it rests on the pads).
 
-Chosen from scripted probes of the flat variant before any training (report/study3/study3_pilot.md): the three
+Chosen from scripted probes of the flat variant before any training (report/study3/study3.md): the three
 fingers abducted together turn the cube about the vertical by about 11 deg with five or six pads in contact,
 while flexion tips the cube over onto the palm (a 90 deg flip about the finger axes, with non-pad contact)."""
 GOAL_MAX_ANGLE = math.radians(30.0)

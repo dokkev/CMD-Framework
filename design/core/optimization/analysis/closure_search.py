@@ -1,5 +1,5 @@
 """The CFL searched in coordinates in which it always flexes to the required
-angle (report/study0/feasible_space.md). Experimental: the studies' search
+angle (report/study0/study0.md). Experimental: the studies' search
 (``core/optimization/linkage/search.py``) and its results are not touched.
 
 The four-bar's six dimensions are searched as

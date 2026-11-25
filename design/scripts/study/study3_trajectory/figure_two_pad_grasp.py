@@ -3,7 +3,7 @@
 
     python scripts/study/study3_trajectory/figure_two_pad_grasp.py [--rho 15] [--q0 105] [--condition A] [--mu 1.3]
 
-One placement of the third experiment (``report/study3/experiments.md``): the cylinder put where O's two pads
+One placement of the third experiment (``report/study3/study3.md``): the cylinder put where O's two pads
 touch it at q0, each hand closed by the same flexion command (condition A), the grasp settled with the cylinder free
 in the plane. Drawn in the proximal contact face's frame (x along the face from the MCP axis, palm up): the pads from
 each design's own kinematics at the grasp flexion q* the simulation measured (the distal face turns by q* against the

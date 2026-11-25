@@ -1,6 +1,6 @@
 # Playground: Study 3 설계와, SSoT에서 옮긴 미확정 내용
 
-2026-11-21에 `design/SSoT/`에서 옮겼다. 확정되지 않은 가설과 진행 중인 설계라서 SSoT에 두지 않는다. 결과가 검증되고 합의되면 다시 SSoT로 제안한다. 아래는 옮긴 원문 그대로이며, 그 뒤의 변경(예: friction 실험, 조건 A/B)은 `separability.md`에 있다.
+2026-11-21에 `design/SSoT/`에서 옮겼다. 확정되지 않은 가설과 진행 중인 설계라서 SSoT에 두지 않는다. 결과가 검증되고 합의되면 다시 SSoT로 제안한다. 아래는 옮긴 원문 그대로이며, 그 뒤의 변경(예: friction 실험, 조건 A/B)은 `report/study3/study3.md`에 있다.
 
 ## research-objective.md, Section 8.1-8.3 (Study 3 design)
 
@@ -30,8 +30,8 @@
 - **H_U is one fixed design:** Study 1's first independent coverage-only design for 7 mm at 120° (its D_c depends on the search: the Study 1 design Study 2 compared against has 1.28 mm, this one 3.91 mm; the choice is recorded, and a less favourable U would narrow the contrast).
 - **Actions and observations in flexion q**, mapped to each hand's servo angle by its θ(q) table. Sent as servo angles, the 3 mm finger's commands bend H_R and H_U off by about the same amount (21.0° and 22.0° at 120°, 7 mm), which would hide the trajectory difference (`docs/decisions.md`, transmission entry).
 - **Stiffness matched in flexion:** per-flexion PD gains so that the effective joint stiffness is equal across hands; the transmission ratio dθ/dq differs from H0's by up to 20% (H_R) and 21% (H_U) and MA_wc by −11% and −18%. Residual torque-limit differences are recorded.
-- **Interface: compliant pads**, normal contact stiffness k_pad = 2 N/mm as the reference (1 and 5 N/mm as a sensitivity check), the same on every hand and both thicknesses. With rigid pads an offset of a few tenths of a millimetre already loads the servo heavily (quasi-static estimate), so the comparison would be decided by the simulator's contact softness; with k_pad 2 N/mm the force error at H0's grasps stays at or below 0.6 N on H_R and reaches 5.7 N on H_U at 120°, 7 mm (`report/study3/regrasp_geometry.md`). The simulated stiffness is checked in Gate 0.
-- **Task:** two-pad grasps. Precondition 1 checked geometrically (`report/study3/regrasp_geometry.md`): at 120°, 7 mm the difference holds over the whole flexion range of the grasps (H_R at most 0.33 mm, H_U 3.10 mm). At 90°, 5 mm it was confined to flexions of 70° and above, one reason for the change of condition.
+- **Interface: compliant pads**, normal contact stiffness k_pad = 2 N/mm as the reference (1 and 5 N/mm as a sensitivity check), the same on every hand and both thicknesses. With rigid pads an offset of a few tenths of a millimetre already loads the servo heavily (quasi-static estimate), so the comparison would be decided by the simulator's contact softness; with k_pad 2 N/mm the force error at H0's grasps stays at or below 0.6 N on H_R and reaches 5.7 N on H_U at 120°, 7 mm (`report/study3/study3.md`). The simulated stiffness is checked in Gate 0.
+- **Task:** two-pad grasps. Precondition 1 checked geometrically (`report/study3/study3.md`): at 120°, 7 mm the difference holds over the whole flexion range of the grasps (H_R at most 0.33 mm, H_U 3.10 mm). At 90°, 5 mm it was confined to flexions of 70° and above, one reason for the change of condition.
 
 ## research-objective.md, Section 6, claim 4
 
@@ -44,7 +44,7 @@
 | Step | Evidence | Status |
 |---|---|---|
 | 1. The object meets the contact faces | Definition (Section 2) | Argued |
-| 2. Only the trajectory cannot be undone by control | Transmission: flexion-space commands and stiffness scheduling hold flexion within 0.07 deg on the simulated hand (`docs/decisions.md`). Trajectory: problem_formulation proposition 4; re-establishing a two-pad cylinder grasp moves the contact up to 5-9 mm along the distal pad (`report/study3/regrasp_geometry.md`). MCP-level offset: compensability not yet computed | Partly shown; the P/D compensability computation (residual contact error after the best re-command, free and fixed object) is next |
+| 2. Only the trajectory cannot be undone by control | Transmission: flexion-space commands and stiffness scheduling hold flexion within 0.07 deg on the simulated hand (`docs/decisions.md`). Trajectory: problem_formulation proposition 4; re-establishing a two-pad cylinder grasp moves the contact up to 5-9 mm along the distal pad (`report/study3/study3.md`). MCP-level offset: compensability not yet computed | Partly shown; the P/D compensability computation (residual contact error after the best re-command, free and fixed object) is next |
 | 3. Its size matters | Quasi-static series-compliance estimate at 120 deg, 3 to 7 mm, k_pad 2 N/mm: force error up to 0.6 N (trajectory kept) against 5.7 N (coverage only), grasp forces 1-5 N | Estimate only; to be measured (quasi-static simulation, then a second engine) |
 | 4. Not kept unless targeted | Study 1's coverage-only designs change it by 3.9-5.8 mm (1.28-3.91 mm at 120 deg, 7 mm, depending on the search) | Shown (2D) |
 | 5. Kept at little cost | Study 2: 10-51% of the fixed-axis bound, coverage within 0.2 points; C1 | Shown (2D) |

@@ -2,7 +2,7 @@
 
 Sources (synced 2026-11-22 with the SSoT after the Study 3 update): `design/SSoT/north-star.md`,
 `design/SSoT/research-objective.md` (§6 claims, §8 Study 3, §9 status), `design/SSoT/problem_formulation.md`
-A.3–A.6, `report/study0/derivation.md`, and for Study 3 `report/study3/experiments.md` (experiments 3–8,
+A.3–A.6, `report/study0/study0.md`, and for Study 3 `report/study3/study3.md` (experiments 3–8,
 pre-registered gates and amendments) with the logs in `sim/isaaclab/logs/study3/two_pad/`.
 Study 3 is now a simulation result (C2.3), with its scope stated: reused joint-position (impedance) commands,
 CFL, q_req 120°, 3→5/7/9 mm, a free cylinder held by two pads, rigid contact (MuJoCo-Warp).

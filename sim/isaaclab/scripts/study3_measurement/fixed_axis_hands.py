@@ -1,7 +1,7 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Study 3 measurement (problem_formulation A.6.4): fixed-axis contrast hands for Study 3 (separability.md, 14th
+"""Study 3 measurement (problem_formulation A.6.4): fixed-axis contrast hands for Study 3 (report/study3/study3.md, 14th
 experiment).
 
     python3 scripts/study3_measurement/fixed_axis_hands.py
@@ -128,7 +128,7 @@ def grasps(o: dict) -> dict:
                 continue
             out.append({"rho_mm": rho_mm, "q0_deg": float(q0), "x_c_mm": (xa - s) * 1e3, "O": float(q0)})
     return {"flexion_deg": 120.0, "note": "fixed-axis family: where its 3 mm finger touches with both pads at q0 "
-            "(separability.md, 14th experiment)", "axis_mm": xa * 1e3, "grasps": out}
+            "(report/study3/study3.md, 14th experiment)", "axis_mm": xa * 1e3, "grasps": out}
 
 
 def main() -> int:

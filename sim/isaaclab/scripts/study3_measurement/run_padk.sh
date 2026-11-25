@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 3, fifteenth experiment (separability.md): pad contact stiffness that falls with thickness,
+# Study 3, fifteenth experiment (report/study3/study3.md): pad contact stiffness that falls with thickness,
 # ke = 2.5e3 * 3 / h N/m, condition A, tag padk. Run from sim/isaaclab.
 set -euo pipefail
 declare -A H=( [O]=3 [R]=7 [d1p5_minDs_s0]=7 [d2p25_minDs_s0]=7 [d2p25_maxDs_s0]=7 [d3_minDs_s0]=7 [U]=7 [d4p5_s0]=7

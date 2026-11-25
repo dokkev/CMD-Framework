@@ -36,7 +36,7 @@ and the discussion.
 ## Before submission
 
 - Re-check every number against `design/output/study/` (the log copies the reports).
-- Numbers from the 2026-11-20 partial pole-law run (`report/study2/pole_law.md`): the fixed-finger
+- Numbers from the 2026-11-20 partial pole-law run (`report/study2/study2.md`): the fixed-finger
   first-contact angles (65° vs 92°) and the adjacent-thickness contact/skeleton changes (0.84 / 3.54 mm).
   Re-run `pole_law.py` on the final Study 1 designs and update.
 - Redraw the four figures for the paper (they are cropped report figures now).

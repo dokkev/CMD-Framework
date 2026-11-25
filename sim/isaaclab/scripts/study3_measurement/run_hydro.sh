@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Study 3, sixteenth experiment (separability.md): hydroelastic compliant pads with the reference's pad mechanics
+# Study 3, sixteenth experiment (report/study3/study3.md): hydroelastic compliant pads with the reference's pad mechanics
 # on every hand (E = 1 MPa, stiffness E / 3 mm), condition A, tag hydro. Run from sim/isaaclab.
 set -euo pipefail
 for hand in O R U h3to5_hr h3to5_hu h3to9_hr h3to9_hu d1p5_minDs_s0 d2p25_minDs_s0 d2p25_maxDs_s0 d3_minDs_s0 \

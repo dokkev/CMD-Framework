@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered impedance-sweep measures
-(``report/study3/experiments.md``, seventh experiment).
+(``report/study3/study3.md``, seventh experiment).
 
     python3 scripts/study3_measurement/impedance_analysis.py [--hands R U] [--scales 0.1 0.3 1 3 10]
 

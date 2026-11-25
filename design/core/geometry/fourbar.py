@@ -1,4 +1,4 @@
-"""A four-bar's motion from its dimensions, in closed form (report/study0/feasible_space.md).
+"""A four-bar's motion from its dimensions, in closed form (report/study0/study0.md).
 
 The CFL: pivots ``A`` and ``A'`` on the proximal phalanx, ``B`` and ``B'`` on
 the distal one, links ``A'-B`` (length ``r1``) and ``A-B'`` (length ``r2``).

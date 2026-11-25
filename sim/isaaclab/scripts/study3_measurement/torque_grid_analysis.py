@@ -1,7 +1,7 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Study 3 measurement (problem_formulation A.6.4): the eighteenth experiment (separability.md).
+"""Study 3 measurement (problem_formulation A.6.4): the eighteenth experiment (report/study3/study3.md).
 
     python3 scripts/study3_measurement/torque_grid_analysis.py
 

@@ -8,9 +8,9 @@
 All numbers copied from the reports below; the reports cite the run outputs under
 `design/output/study/` (not tracked). Re-check against them before submission.
 
-- Study 0: `report/study0/derivation.md`, `report/study2/pole_law.md`, `report/study0/feasible_space.md`
-- Study 1: `report/study1/study1_thickness_coverage.md`, `report/study1/study1_fixed_morphology_native_2026-11-20.md`
-- Study 2: `report/study2/study2_redesign.md`
+- Study 0: `report/study0/study0.md`, `report/study2/study2.md`, `report/study0/study0.md`
+- Study 1: `report/study1/study1.md`, `report/study1/study1.md`
+- Study 2: `report/study2/study2.md`
 
 ## Common setup
 
@@ -190,7 +190,7 @@ Readings:
 
 ## Study 3: does an interface measurement follow the contact-surface motion? (simulation, 2026-11-21/22)
 
-Source: `report/study3/experiments.md` (experiments 3–8, pre-registration and amendments),
+Source: `report/study3/study3.md` (experiments 3–8, pre-registration and amendments),
 logs `sim/isaaclab/logs/study3/two_pad/` (dose_{A,B,C}_*.json, impedance.json), scripts
 `sim/isaaclab/scripts/study3_measurement/two_pad_wrench.py`, `dose_analysis.py`, `impedance_analysis.py`.
 
@@ -355,7 +355,7 @@ For the manuscript session: Fig. 4 and the text must change wherever experiment 
 - Results, 18 hands: ρ(E, Δ_contact) 0.78 (p 0.0001), ρ(E, Δ_skel) 0.20; R 17.0%, U 46.8%; E 5.6–54.6%; noise floor median 0.9%.
 - Auxiliary 28y (a y-axis dial pushed at its rim by the fingertip): ρ 0.55 (p 0.0095); R 6.5%, U 24.1%; E range near its noise floor (75th percentile 6.9%). Not the headline.
 - Reading: the claim now covers a single-contact fingertip task, not only two-pad grasps.
-- Data: report/study3/data/drake_e28z_point.json, drake_e28y_point.json. Log: report/study3/experiments.md, experiment 28. The renders for the new task are being made (sim/drake, render_tipdial*.png).
+- Data: report/study3/data/drake_e28z_point.json, drake_e28y_point.json. Log: report/study3/study3.md, experiment 28. The renders for the new task are being made (sim/drake, render_tipdial*.png).
 - Wording: the permutation p for 18 hands uses 20,000 random permutations, not exact enumeration. Say "permutation p", not "exact".
 
 ## Study 3 renders for the paper (2026-11-24; Drake VTK on the hand's URDF geometry, the same visuals as the USD)
@@ -373,4 +373,16 @@ For the manuscript session: Fig. 4 and the text must change wherever experiment 
 - y rim dial: 0.56 (p 0.009), Δ_skel −0.37; R 9.3%, U 26.5%; every hand's E now above the noise 75th percentile.
 - The pre-registered rule picks the z disk (E IQR / noise p75: 7.6 vs 3.7). This answers "chosen after seeing the data": the hand-picked placements of experiment 28 are not what make the result.
 - Data: report/study3/data/drake_e29{z,y}_point.json. Raw runs: report/study3/data/raw/runs_drake_tipdial.csv, tags e29z and e29y.
+
+## Reports compressed, and three corrections for the manuscript (2026-11-24)
+
+Each study now has one report: report/study0/study0.md, study1/study1.md, study2/study2.md and study3/study3.md. The old files (derivation.md, experiments.md and so on) are gone from the tree but kept in git history. Study 3's experiment index lists each experiment's plan and result commits.
+
+Please check the manuscript for these:
+1. **Pre-registration scope.** Plan and result are separate commits, so the plan provably came first, only from experiment 15 on (15–29). For experiments 3 (Stage B), 4, 9, 10, 12, 13 and 14, plan and result went into the same commit. Experiment 11 has no plan. Experiment 10's gate values were seen before its plan. Experiment 17's redesigned-hand runs had been seen in experiment 15. The headline friction result (experiments 5–9, ρ 0.83) therefore counts as documented, not provably pre-registered. Wherever the paper says every plan was committed before its data, narrow it to "from experiment 15 on". The earlier answers_v33.md item on pre-registration overstates this.
+2. **"Exact" permutation p.** Tests on 14–18 hands used random permutations: 100,000 in Isaac Lab and 20,000 in Drake, seed 0. Only the six-hand shape test (p 0.008) is exact. Say "permutation p".
+3. **Other SSoT wording now corrected:**
+   - Δ_contact's maximum over q predicts about as well as its mean (0.83, 0.80, 0.86); it is lower for stiffness, not "as well or better".
+   - Task noise floors are 0.2–0.8% only for experiments 22–26; they are 0.9–2.4% for the disk, the rim dial and the soft pads.
+   - For the three hands that cannot hold, the "face retreats 1.5–2.6 mm" cause is not in the log. The log says only that the cylinder is pushed 4–9 mm on release, cause unconfirmed.
 

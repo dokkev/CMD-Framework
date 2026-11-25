@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """E12: where do random CFL designs fail, and what does sampling in the
-closure coordinates buy? (report/study0/feasible_space.md)
+closure coordinates buy? (report/study0/study0.md)
 
     python scripts/study/exploratory/e12_closure_sampling.py [--flexion 120] [--thickness 7]
         [--samples 200000] [--workers 8]

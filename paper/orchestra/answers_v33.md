@@ -4,7 +4,7 @@ Written 2026-11-23 from the experiment records; no manuscript file was changed. 
 
 ## R and U under touch re-zeroing (r2: "The paper does not report what R and U score under re-zeroing")
 
-Source: ninth experiment, condition E (`report/study3/experiments.md`, "9차 결과";
+Source: ninth experiment, condition E (`report/study3/study3.md`, "9차 결과";
 `sim/isaaclab/logs/study3/two_pad/dose_E_all.json`).
 
 | Pad | R, reused setpoint (A) | R, re-zeroed at touch (E) | U, reused setpoint (A) | U, re-zeroed at touch (E) |
@@ -20,7 +20,7 @@ skeleton most (d4p5, d5p5 61%; h3to9_d3p5_maxDs 42%). Possible sentence:
 
 ## Hand counts in Table I (r2: "15, 14 differ from the 18 stated")
 
-Source: `dose_A_all.json` (15 hands) and `comp.json` (14 hands); separability.md, results of the fifth and sixth experiments.
+Source: `dose_A_all.json` (15 hands) and `comp.json` (14 hands); report/study3/study3.md, results of the fifth and sixth experiments.
 Under the reused setpoint, three redesigns cannot hold the cylinder at any shared placement with friction 1.3:
 d4p5_s0, d5p5_s0 and h3to5_d3_s0 (Δ_contact 4.41, 5.40, 2.92 mm). A fourth one cannot hold with the stiffness change.
 Scored as the largest errors, they give ρ = 0.81 (friction, 18 hands) and 0.67 (stiffness).
@@ -30,7 +30,7 @@ Under re-zeroing (E) all 18 hold. Possible caption clause:
 
 ## Pre-registration (r2: "cannot be checked")
 
-Each experiment's plan was committed to `report/study3/experiments.md` before its data. Examples:
+Each experiment's plan was committed to `report/study3/study3.md` before its data. Examples:
 - experiment 25: plan commit a280bef, then the small sample, then the full run;
 - experiment 26: plan commit eb615e4, made before any hand other than O was run.
 The repository history therefore dates every plan. If the paper can point to a public log or a supplement, this is the

@@ -89,7 +89,7 @@ def main() -> int:
                             ("friction_torque", tq, "E_rel_median"), ("friction_grid", gr, "E_rel_median"),
                             ("friction_grid_expanded", gx, "E_rel_median"),
                             # exploratory, after the thirteenth experiment's results: hands that keep two-pad contact
-                            # at >= 80% of the grid's placements (the threshold's effect: separability.md, 13th)
+                            # at >= 80% of the grid's placements (the threshold's effect: report/study3/study3.md, 13th)
                             ("friction_grid_expanded_held", {h: r for h, r in gx.items() if r["gate0_fail_share"] < 0.2},
                              "E_rel_median")):
         hs = [h for h in recs if h in feats]

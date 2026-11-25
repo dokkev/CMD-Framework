@@ -5,9 +5,9 @@
 All numbers copied from the reports below; the reports cite the run outputs under
 `design/output/study/` (not tracked). Re-check against them before submission.
 
-- Study 0: `report/study0/derivation.md`, `report/study2/pole_law.md`, `report/study0/feasible_space.md`
-- Study 1: `report/study1/study1_thickness_coverage.md`, `report/study1/study1_fixed_morphology_native_2026-11-20.md`
-- Study 2: `report/study2/study2_redesign.md`
+- Study 0: `report/study0/study0.md`, `report/study2/study2.md`, `report/study0/study0.md`
+- Study 1: `report/study1/study1.md`, `report/study1/study1.md`
+- Study 2: `report/study2/study2.md`
 
 ## Common setup
 

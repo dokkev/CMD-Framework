@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Study 3 measurement (problem_formulation A.6.4): the pre-registered robustness and shape-interface measures
-(``report/study3/experiments.md``, eighth experiment).
+(``report/study3/study3.md``, eighth experiment).
 
     python3 scripts/study3_measurement/robust_analysis.py robust      # condition A under each robustness setting
     python3 scripts/study3_measurement/robust_analysis.py shape-gate  # O: crowned minus flat, per direction

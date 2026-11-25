@@ -7,7 +7,7 @@ matched?
 
     uv run python scripts/study3_measurement/two_pad_wrench.py --hand O|R|U --mu MU --condition A|B [--radius_mm 15|20]
 
-Pre-registered in ``report/study3/experiments.md`` (third experiment, Stage B). Hands O, R, U (CFL, 120 deg,
+Pre-registered in ``report/study3/study3.md`` (third experiment, Stage B). Hands O, R, U (CFL, 120 deg,
 3 -> 7 mm, flat pads with friction ``mu``; the cylinder's own coefficient is 0.01). Placements from e17
 (``design/output/sim/study3/two_pad_grasps.json``): a cylinder where O's two pads touch it at q0, at the same height
 above each hand's own proximal face; one environment per placement and load direction. Gravity off.
@@ -427,7 +427,7 @@ def run_pass(args, physics, face_w, rho_mm, envs, targets, torques, ImplicitActu
         # The fixed-axis contrast hands carry the distal phalanx's geometry on the servo link (fixed_axis_hands.py).
         # The sensor's filter columns follow the simulator's body order, which for that hand puts the servo link in
         # the column the four-bar description lists as the driver link (checked: the contact point lies on the
-        # distal face; separability.md, 14th experiment).
+        # distal face; report/study3/study3.md, 14th experiment).
         fa = args.hand.startswith("fa_")
         dist = "servo_link" if fa else "distal"
         cols = {f: (bodies.index(f"{f}_proximal"), bodies.index(f"{f}_{'driver_link' if fa else 'distal'}"))

@@ -1,7 +1,7 @@
 # Copyright (c) 2026, CoDe Hand.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Study 3 measurement (problem_formulation A.6.4): the fixed-axis contrast family in Study 3 (separability.md, 14th
+"""Study 3 measurement (problem_formulation A.6.4): the fixed-axis contrast family in Study 3 (report/study3/study3.md, 14th
 experiment).
 
     python3 scripts/study3_measurement/fa_analysis.py

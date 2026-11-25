@@ -22,7 +22,7 @@ Panels (b)-(d) below were (a), (b), (d) before 2026-11-23.
     degrees, replaced experiment 24's 5-10 degree dial on 2026-11-23). In-hand rolling (experiment 22, which
     failed its test) is left out of the figure; the paper states it as a limitation.
 Legends give Spearman rho(E, Delta_contact) and its exact or Monte Carlo one-sided permutation p (sim/drake/analyze.py).
-Experiments 21-26: report/study3/experiments.md.
+Experiments 21-26: report/study3/study3.md.
 """
 import json
 import sys
