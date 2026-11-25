@@ -31,12 +31,14 @@ TRANSFER_HAND_DIR = Path(os.environ.get("CODE_ROTATE_TRANSFER_HAND_DIR", _TRANSF
 HANDS.update({
     f"{k}{t}": TRANSFER_HAND_DIR / f"cfl_q120_h3to{t}_{v}.json" for t in (5, 9) for k, v in (("R", "hr"), ("U", "hu"))
 })
-HANDS.update({"RL": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hr.json", "UL120": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hu.json",
+HANDS.update({"RL": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hr.json", "RL60": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hr60.json",
+              "UL120": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hu.json",
               "UL": TRANSFER_HAND_DIR / "cfl_q120_L150_h3to7_hu.json"})
 """R and U of the 5 and 9 mm pairs (R5, U5, R9, U9), re-exported with the current exporter (servo shapes and visuals,
 which the committed ``design/output`` exports of these pairs predate; kinematics identical) by
 ``scripts/rotate_cube/export_transfer_hands.sh``. RL, UL120 and UL: the long fingers (7 mm pads; RL 120 mm, the
-least change of the contact Jacobian from O that keeps O's coverage; UL120, coverage alone at RL's length, its partner;
+least change of the contact Jacobian from O that keeps O's coverage; RL60, the same front's least change with C_pad >= 0.60, the
+contact-preserving partner of UL120; UL120, coverage alone at RL's length;
 UL, coverage alone with L_f free in 120-150 mm, which takes 150), exported by the same script."""
 
 FINGERS = ("index", "middle", "ring")
