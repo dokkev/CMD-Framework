@@ -79,9 +79,19 @@ def honeycomb_section(x0, x1, y0, y1, cell=1.15, wall=0.22):
     return outer.difference(unary_union(holes)).intersection(outer)
 
 
-def iso_pad(ax, H, top, side1, side2, edge, L=6.5, Wd=4.5, decorate=None):
-    """A pad block in 30 deg isometric view, contact face up: the face, the two near sides, and ``decorate(iso)``
-    drawn on the face (iso maps face coordinates u along, v across to the page)."""
+def rounded_rim(L, Wd, rr, inset=0.0, n=8):
+    """Counter-clockwise points of a rounded rectangle [0, L] x [0, Wd] (corner radius rr), shrunk by ``inset``."""
+    r = max(rr - inset, 0.05)
+    t = np.linspace(0, np.pi / 2, n)
+    corners = [(L - rr, rr, -np.pi / 2), (L - rr, Wd - rr, 0.0), (rr, Wd - rr, np.pi / 2), (rr, rr, np.pi)]
+    return np.concatenate([np.c_[cu + r * np.cos(t + a0), cv + r * np.sin(t + a0)] for cu, cv, a0 in corners])
+
+
+def iso_pad(ax, H, top, side1, side2, edge, L=6.5, Wd=4.5, decorate=None, rr=0.7, fil=0.35):
+    """A pad block in 30 deg isometric view (long axis toward the upper left), contact face up, with rounded corners
+    (radius rr) and a filleted top edge (radius fil): the visible sides shaded by their facing, the fillet, the face,
+    and ``decorate(iso, L, Wd)`` drawn on it."""
+    import matplotlib.colors as mc
     from matplotlib.patches import Polygon as Pg
     for p_ in list(ax.patches):
         p_.remove()
@@ -89,9 +99,32 @@ def iso_pad(ax, H, top, side1, side2, edge, L=6.5, Wd=4.5, decorate=None):
 
     def iso(u, v, w=H):
         return np.array([(v - u) * c30, (u + v) * s30 + w])
-    ax.add_patch(Pg([iso(0, 0, 0), iso(L, 0, 0), iso(L, 0, H), iso(0, 0, H)], fc=side1, ec=edge, lw=0.3, zorder=1))
-    ax.add_patch(Pg([iso(0, 0, 0), iso(0, Wd, 0), iso(0, Wd, H), iso(0, 0, H)], fc=side2, ec=edge, lw=0.3, zorder=1))
-    ax.add_patch(Pg([iso(0, 0), iso(L, 0), iso(L, Wd), iso(0, Wd)], fc=top, ec=edge, lw=0.3, zorder=1))
+    c1, c2, ct = (np.array(mc.to_rgb(c)) for c in (side1, side2, top))
+
+    def side_colour(nu, nv):
+        wt = max(-nv, 0) / max(max(-nu, 0) + max(-nv, 0), 1e-9)
+        return wt * c1 + (1 - wt) * c2
+    rim = rounded_rim(L, Wd, rr)
+    rim_in = rounded_rim(L, Wd, rr, inset=fil)
+    k = len(rim)
+    for i in range(k):  # sides: only the segments that face the viewer (outward normal toward -u, -v)
+        p0, p1 = rim[i], rim[(i + 1) % k]
+        e = p1 - p0
+        nrm = np.array([e[1], -e[0]]) / (np.linalg.norm(e) + 1e-12)
+        if nrm @ np.array([-1.0, -1.0]) <= 0:
+            continue
+        col = side_colour(*nrm)
+        ax.add_patch(Pg([iso(*p0, 0), iso(*p1, 0), iso(*p1, H - fil), iso(*p0, H - fil)], fc=col, ec=col, lw=0.2,
+                        zorder=1))
+        q0, q1 = rim_in[i], rim_in[(i + 1) % k]  # the fillet, lighter toward the face
+        fc = 0.5 * col + 0.5 * ct
+        ax.add_patch(Pg([iso(*p0, H - fil), iso(*p1, H - fil), iso(*q1, H), iso(*q0, H)], fc=fc, ec=fc, lw=0.2,
+                        zorder=1.1))
+    ax.add_patch(Pg([iso(u, v) for u, v in rim_in], fc=top, ec=edge, lw=0.3, zorder=1.2))
+    sil = [iso(u, v, 0) for u, v in rim] + [iso(u, v, H - fil) for u, v in rim]  # outline of the whole body
+    from scipy.spatial import ConvexHull
+    sil = np.array(sil)
+    ax.add_patch(Pg(sil[ConvexHull(sil).vertices], fc="none", ec=edge, lw=0.35, zorder=1.3))
     if decorate:
         decorate(iso, L, Wd)
     ax.set_xlim(-L * c30 - 0.4, Wd * c30 + 0.4); ax.set_ylim(-0.6, (L + Wd) * s30 + 2.6)
@@ -114,14 +147,14 @@ def icon(ax, kind):
                 for j in range(int(H / h_) + 2):
                     cu, cw = 0.55 + i * w_ + (w_ / 2 if j % 2 else 0), 0.68 + j * h_
                     hu, hw = cu + (r - wall) * np.cos(ang), cw + (r - wall) * np.sin(ang)
-                    if hu.min() < 0.1 or hw.min() < 0.1 or hu.max() > L - 0.1 or hw.max() > H - 0.2:
+                    if hu.min() < 0.8 or hw.min() < 0.1 or hu.max() > L - 0.8 or hw.max() > H - 0.45:
                         continue
                     ax.add_patch(Pg([iso(u, 0, w) for u, w in zip(hu, hw)], fc="#2f5fa8", ec="none", zorder=2))
             for i in range(int(Wd / w_) + 2):  # and on the near end face (u = 0)
                 for j in range(int(H / h_) + 2):
                     cv, cw = 0.55 + i * w_ + (w_ / 2 if j % 2 else 0), 0.68 + j * h_
                     hv, hw = cv + (r - wall) * np.cos(ang), cw + (r - wall) * np.sin(ang)
-                    if hv.min() < 0.1 or hw.min() < 0.1 or hv.max() > Wd - 0.1 or hw.max() > H - 0.2:
+                    if hv.min() < 0.8 or hw.min() < 0.1 or hv.max() > Wd - 0.8 or hw.max() > H - 0.45:
                         continue
                     ax.add_patch(Pg([iso(0, v, w) for v, w in zip(hv, hw)], fc="#2a55a0", ec="none", zorder=2))
         iso_pad(ax, H, "#7aa6e3", "#5a8bd4", "#4677c4", PAD, decorate=cells)
@@ -134,11 +167,11 @@ def icon(ax, kind):
         return
     if kind == "traction":  # black traction pad with a tyre-like chevron tread
         def tread(iso, L, Wd):
-            for u0 in np.arange(0.5, L - 0.6, 0.75):
-                for v_a, v_b in ((0.25, Wd / 2 - 0.2), (Wd - 0.25, Wd / 2 + 0.2)):
+            for u0 in np.arange(0.95, L - 1.3, 0.7):
+                for v_a, v_b in ((0.65, Wd / 2 - 0.2), (Wd - 0.65, Wd / 2 + 0.2)):
                     ax.plot(*np.array([iso(u0, v_a), iso(u0 + 0.45, v_b)]).T, color="#5a5a5a", lw=0.9,
                             solid_capstyle="round", zorder=2)
-            ax.plot(*np.array([iso(0.3, Wd / 2), iso(L - 0.3, Wd / 2)]).T, color="#3a3a3a", lw=0.6, zorder=2)
+            ax.plot(*np.array([iso(0.8, Wd / 2), iso(L - 0.8, Wd / 2)]).T, color="#3a3a3a", lw=0.6, zorder=2)
         iso_pad(ax, 0.9, "#151515", "#262626", "#1a1a1a", "#000000", decorate=tread)
         return
     if kind == "thin":
