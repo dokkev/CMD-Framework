@@ -300,15 +300,16 @@ def main() -> int:
     fig.text(*inch(0.02, height - 0.02), "CoDe Hand", fontsize=6.8, fontweight="bold", va="top")
     ha = fig.add_axes((*inch(0.02, height - 0.16 - hh), hw / width, hh / height))
     ha.imshow(hand); ha.axis("off")
-    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))
-    fw = 2.05
+    CROP = 705  # image px: drop the MCP abduction servo at the left end of the CAD view
+    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]
+    fw = 1.80  # fill the column to the right of the hand
     fh = fw * fin.shape[0] / fin.shape[1]
     fy = height - 0.32 - fh
-    f = fig.add_axes((*inch(1.38, fy), fw / width, fh / height))
+    f = fig.add_axes((*inch(1.62, fy), fw / width, fh / height))
     f.imshow(fin); f.axis("off")
-    fig.text(*inch(1.38, height - 0.02), "one finger (CAD): crossed four-bar PIP,\nremote PIP servo", fontsize=6.3,
+    fig.text(*inch(1.50, height - 0.02), "one finger (CAD): crossed four-bar PIP,\nremote PIP servo", fontsize=6.3,
              fontweight="bold", va="top", linespacing=1.0)
-    seats = ((1250, 530, 450, 190), (2215, 485, 340, 220))  # proximal and distal pad seats (image px: x, y, w, h)
+    seats = ((1250 - CROP, 530, 450, 190), (2215 - CROP, 485, 340, 220))  # proximal and distal pad seats (image px: x, y, w, h)
     for cx, cy, ew, eh in seats:
         f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=0.9, ls=(0, (3, 2)), clip_on=False, zorder=5))
     # 2. the contact interfaces, which go into those seats
@@ -337,8 +338,8 @@ def main() -> int:
             ax.set_aspect("equal", adjustable="box", anchor="C")
         fig.text(*inch(x + bw / 2, by - 0.03), nm, fontsize=5.8, ha="center", va="top")
     # arrow from the interfaces up into the circled seats
-    seat_fig = fig.transFigure.inverted().transform(f.transData.transform((1300, 640)))
-    seat2 = fig.transFigure.inverted().transform(f.transData.transform((2235, 610)))
+    seat_fig = fig.transFigure.inverted().transform(f.transData.transform((1300 - CROP, 640)))
+    seat2 = fig.transFigure.inverted().transform(f.transData.transform((2235 - CROP, 610)))
     src = inch(2.20, row_top + 0.04)
     for tgt in (seat_fig, seat2):
         fig.patches.append(FancyArrowPatch(src, tuple(tgt), transform=fig.transFigure, arrowstyle="-|>",
