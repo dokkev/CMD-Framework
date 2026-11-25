@@ -31,9 +31,11 @@ TRANSFER_HAND_DIR = Path(os.environ.get("CODE_ROTATE_TRANSFER_HAND_DIR", _TRANSF
 HANDS.update({
     f"{k}{t}": TRANSFER_HAND_DIR / f"cfl_q120_h3to{t}_{v}.json" for t in (5, 9) for k, v in (("R", "hr"), ("U", "hu"))
 })
+HANDS.update({"RL": TRANSFER_HAND_DIR / "cfl_q120_L120_h3to7_hr.json", "UL": TRANSFER_HAND_DIR / "cfl_q120_L150_h3to7_hu.json"})
 """R and U of the 5 and 9 mm pairs (R5, U5, R9, U9), re-exported with the current exporter (servo shapes and visuals,
 which the committed ``design/output`` exports of these pairs predate; kinematics identical) by
-``scripts/rotate_cube/export_transfer_hands.sh``."""
+``scripts/rotate_cube/export_transfer_hands.sh``. RL and UL: the long fingers (7 mm pads; RL 120 mm, the least change
+of the contact Jacobian from O that keeps O's coverage; UL 150 mm, coverage alone), exported by the same script."""
 
 FINGERS = ("index", "middle", "ring")
 THUMB = ("thumb_ro", "thumb_raa", "thumb_mcp", "thumb_ip")
