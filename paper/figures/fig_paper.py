@@ -703,28 +703,50 @@ def fig3():
         if j == 1:
             ax.set_xlabel("pad thickness (mm);  $\\times$: no feasible design", labelpad=1, fontsize=6.2)
         clean(ax)
-    # (b) left: reference and redesign paths, 120 deg, 3 -> 7 mm
-    label(fig, 0.02, row_b + 0.02, "(b) Preservation: redesign from 3 to 7 mm at $q_{req}=120^\\circ$", h)
-    axc = fig.add_axes((0.42 / W, 0.30 / h, 1.68 / W, (row_b - 0.48) / h))
-    axs = fig.add_axes((2.45 / W, 0.30 / h, 1.48 / W, (row_b - 0.48) / h))
-    for key in ("2r_remote", "cfl"):  # the fixed axis and the CFL; the others are in the dots
-        t = traj[key]
-        col = ARCH[key][1]
-        for ax, a, b in ((axc, "ref", "red"), (axs, "ref_tip", "red_tip")):
-            ref, red = np.array(t[a]), np.array(t[b])
-            ax.plot(*ref.T, color=col, lw=0.8, ls=(0, (2.2, 1.4)), zorder=2)
-            ax.plot(*red.T, color=col, lw=1.3, zorder=3)
-    for ax, ttl in ((axc, "distal contact point, contact frame"), (axs, "fingertip, skeleton frame")):
-        ax.set_aspect("equal", adjustable="datalim")
-        ax.set_title(ttl, fontsize=6.4, pad=1)
-        ax.set_xlabel("x (mm)", labelpad=1); ax.set_ylabel("z (mm)", labelpad=1)
-        clean(ax)
-    axc.plot([], [], color=INK2, lw=0.8, ls=(0, (2.2, 1.4)), label="3 mm reference")
-    axc.plot([], [], color=INK2, lw=1.3, label="7 mm redesign")
-    axc.text(0.02, 0.62, "CFL keeps it", transform=axc.transAxes, fontsize=5.8, color=BLUE, ha="left")
-    axs.text(0.02, 0.95, "2R-remote keeps it", transform=axs.transAxes, fontsize=5.8, color=AMBER, ha="left",
-             va="top")
-    axc.legend(fontsize=5.6, frameon=False, loc="upper left", handlelength=1.8, borderaxespad=0.1)
+    # (b) left: how coverage is measured (problem formulation A.3): at each pose of Q_eval the pads' faces, extended,
+    # cross at X; a cylinder inscribed in the V touches both faces at the same distance t from X; the pads hold it
+    # together over T = T1 & T2 (dark), shown with the smallest and the largest such cylinder
+    label(fig, 0.02, row_b + 0.02, "(b) Coverage evaluation: inscribed cylinder at each $q\\in Q_{eval}$", h)
+    vq = views["cfl"]
+    for i, qe in enumerate((90.0, 105.0, 120.0)):
+        ax = fig.add_axes(((0.06 + i * 1.36) / W, 0.12 / h, 1.30 / W, (row_b - 0.38) / h))
+        ax.set_aspect("equal"); ax.axis("off")
+        n0p, n0l, n0c = len(ax.patches), len(ax.lines), len(ax.collections)
+        vq.draw(ax, qe, hit=set(), style="sketch")
+        for p_ in ax.patches[n0p:]:
+            p_.set_facecolor("#ececea"); p_.set_edgecolor("#a8a8a6"); p_.set_linewidth(0.4)
+        for ln in ax.lines[n0l:]:
+            ln.set_color("#b0b0ae"); ln.set_linewidth(min(ln.get_linewidth(), 1.0)); ln.set_markersize(0)
+        for c in list(ax.collections[n0c:]):
+            c.remove()
+        for pad in (vq.proximal_pad(), vq.distal_pad(qe)):
+            ax.add_patch(Polygon(pad, fc="#d6e4f5", ec=BLUE, lw=0.5, zorder=20))
+        pf = vq.proximal_pad()[[0, 1]]
+        df = vq.distal_pad(qe)[[1, 0]]
+        got = common_interval(pf, df)
+        if got:
+            X, rays, lo, hi = got
+            alpha = 0.5 * np.arccos(np.clip(rays[0] @ rays[1], -1, 1))
+            bis = (rays[0] + rays[1]) / np.linalg.norm(rays[0] + rays[1])
+            for r_ in rays:  # the faces' extensions to X
+                ax.plot(*np.array([X, X + hi * r_]).T, color=INK2, lw=0.5, ls=(0, (1.5, 1.2)), zorder=21)
+                ax.plot(*np.array([X + lo * r_, X + hi * r_]).T, color=BLUE, lw=2.4, solid_capstyle="butt",
+                        zorder=25)
+            for tt, ls in ((lo, (0, (2, 1.2))), (hi, "-")):
+                if tt <= 0.2:
+                    continue
+                ctr = X + bis * tt / np.cos(alpha)
+                ax.add_patch(Circle(ctr, tt * np.tan(alpha), fc="#f2e2cc" if ls == "-" else "none",
+                                    ec="#9a7a52", lw=0.6, ls=ls, alpha=0.9, zorder=22))
+            ax.plot(*X, marker="o", ms=2.4, color=INK, zorder=26)
+            ax.text(X[0] + 1.5, X[1] + 1.5, "$X$", fontsize=6.2, zorder=27)
+        ax.autoscale_view()
+        x0_, x1_ = ax.get_xlim(); y0_, y1_ = ax.get_ylim()
+        ax.set_title(f"$q={qe:.0f}^\\circ$", fontsize=6.4, pad=1)
+    fig.text(2.1 / W, 0.02 / h, "dark: $T=T_1\\cap T_2$, where both pads hold the cylinder;  "
+             "$\\bar C_{pad}$ averages $2|T|/L_f$ over $Q_{eval}$", fontsize=5.6, color=INK2, ha="center",
+             va="bottom")
+    label(fig, 4.05, row_b + 0.02, "(c) Preservation, $3\\to5,7,9$ mm", h)
     # (b) right: contact motion kept, 100 (1 - Delta_contact / Delta_fixed), every condition; 0: a fixed axis
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
