@@ -19,7 +19,13 @@ in the hand's proximal-face frame (origin at the foot of the MCP axis on the pro
   q_t is O's touch angle (O's fingertip face point meets the coin's top at q_t, before the height offset dz).
 - Measure: the coin's travel toward the MCP (mm) at the end, and its largest travel; D = travel(2.0) - travel(1.3).
 
+Experiment 30b (tag e30b): a long drag (O drags 8-13 mm at mu 1.3). Its distributions (RANDOM_B: the tip lands edge_mm
+inside the coin's distal edge) and settings (CONFIG_B: a softer table and tether, coin-table mu 0.2, a 4 s sweep) are
+stored in its draws file as 'config', which 'run' and 'frames' read. travel_slip_mm (the travel when the pad first slides
+over the coin, > SLIP_MM_S) is recorded but not used: on O its mu effect changed sign between draws.
+
     uv run python coin_drag.py draws --n 64 --seed 30 --out logs/coin_e30.json
+    uv run python coin_drag.py draws --n 64 --seed 31 --config e30b --out logs/coin_e30b.json
     uv run python coin_drag.py run --hand O --mu 1.3 --draws logs/coin_e30.json --tag e30 [--delta_deg 0.05]
     uv run python coin_drag.py analyze --tag e30 --noise_tag e30n
     uv run python coin_drag.py frames --draws logs/coin_e30.json --draw 0
@@ -55,11 +61,19 @@ G = 9.81
 # this order from numpy.random.default_rng([seed, 30])
 RANDOM = {"q_t_deg": (25.0, 50.0), "x_back_mm": (2.0, 7.0), "dz_mm": (-0.5, 0.5), "diam_mm": (20.0, 28.0),
           "sweep_deg": (15.0, 25.0)}
+# experiment 30b (a long drag): its own distributions and task settings, stored in its draws file as 'config'
+RANDOM_B = {"q_t_deg": (25.0, 38.0), "edge_mm": (2.0, 5.0), "dz_mm": (-0.5, 0.5), "diam_mm": (28.0, 32.0),
+            "sweep_deg": (45.0, 55.0)}
+CONFIG_B = {"tether": 45.0, "k_table": 30.0, "mu_table": 0.2, "approach_s": 1.0, "sweep_s": 4.0, "hold_s": 1.0}
+CONFIGS = {"e30": (RANDOM, {}), "e30b": (RANDOM_B, CONFIG_B)}
+DEFAULTS = {"tether": K_TETHER, "k_table": K_TABLE, "mu_table": MU_TABLE, "approach_s": 1.0, "sweep_s": 3.0,
+            "hold_s": 1.0}
+SLIP_MM_S = 1.0  # the pad slides over the coin: their relative speed along x at the contact point
 
 
-def make_draws(n: int, seed: int) -> list[dict]:
+def make_draws(n: int, seed: int, ranges: dict = RANDOM) -> list[dict]:
     rng = np.random.default_rng([seed, 30])
-    cols = {k: rng.uniform(lo, hi, n) for k, (lo, hi) in RANDOM.items()}
+    cols = {k: rng.uniform(lo, hi, n) for k, (lo, hi) in ranges.items()}
     geom = T.finger_geometry("O")
     qs, th = T.servo_table(geom)
     out = []
@@ -68,7 +82,8 @@ def make_draws(n: int, seed: int) -> list[dict]:
         tip = T.reference_point(geom, qs, th, math.radians(d["q_t_deg"]), "tip")
         # the coin's centre (proximal-face frame): x_back proximal of O's fingertip face point at q_t; its top face at
         # that point's depth, raised by dz
-        out.append({"draw": i, **d, "x_c_mm": float(tip[0] - d["x_back_mm"]),
+        back = d["x_back_mm"] if "x_back_mm" in d else d["diam_mm"] / 2 - d["edge_mm"]  # 30b: edge_mm inside the edge
+        out.append({"draw": i, **d, "x_c_mm": float(tip[0] - back),
                     "z_top_mm": float(tip[1] + d["dz_mm"])})
     return out
 
@@ -79,7 +94,7 @@ def pair_mu(mu_coin: float, target: float) -> float:
 
 
 def build(hand: str, mu: float, pl: dict, time_step: float, k_theta: float, d_theta: float, tether: float,
-          foot_k: float = None, spin_d: float = None):
+          foot_k: float = None, spin_d: float = None, k_table: float = K_TABLE, mu_table: float = MU_TABLE):
     from pydrake.geometry import (AddContactMaterial, Box, CollisionFilterDeclaration, Cylinder, GeometrySet,
                                   ProximityProperties, Sphere)
     from pydrake.math import RigidTransform
@@ -132,7 +147,7 @@ def build(hand: str, mu: float, pl: dict, time_step: float, k_theta: float, d_th
                                                        UnitInertia.SolidBox(t_len, 0.04, 0.005)))
     f_tb = plant.AddFrame(FixedOffsetFrame("table_base", world.body_frame(), RigidTransform([x_c, 0.0, z_top])))
     table_z = plant.AddJoint(PrismaticJoint("table_z", f_tb, table.body_frame(), zax))
-    plant.AddJointActuator("table_z", table_z).set_controller_gains(PdControllerGains(p=K_TABLE, d=D_TABLE))
+    plant.AddJointActuator("table_z", table_z).set_controller_gains(PdControllerGains(p=k_table, d=D_TABLE))
 
     # the coin: world -x-> cx -z-> cz -spin(y)-> coin; tethered along x to its start
     cx = plant.AddRigidBody("coin_cx", rod(1e-4, 0.01))
@@ -172,7 +187,7 @@ def build(hand: str, mu: float, pl: dict, time_step: float, k_theta: float, d_th
     t_h = 0.01
     table_id = plant.RegisterCollisionGeometry(
         table, RigidTransform([(TABLE_FRONT_MM - TABLE_BACK_MM) / 2 * mm, 0.0, -t_h / 2]), Box(t_len, 0.06, t_h),
-        "table", props(1e8, pair_mu(mu, MU_TABLE)))
+        "table", props(1e8, pair_mu(mu, mu_table)))
     plant.Finalize()
     cfm = scene_graph.collision_filter_manager()
     cfm.Apply(CollisionFilterDeclaration().ExcludeBetween(GeometrySet([coin_id]), GeometrySet([table_id])))
@@ -183,11 +198,13 @@ def build(hand: str, mu: float, pl: dict, time_step: float, k_theta: float, d_th
 
 
 class Run:
-    def __init__(self, hand, mu, pl, time_step, k_theta, d_theta, tether, foot_k=None, spin_d=None):
+    def __init__(self, hand, mu, pl, time_step, k_theta, d_theta, tether, foot_k=None, spin_d=None,
+                 k_table=K_TABLE, mu_table=MU_TABLE):
         from pydrake.systems.analysis import Simulator
         from pydrake.systems.framework import LeafSystem
 
-        builder, plant, sg, bodies = build(hand, mu, pl, time_step, k_theta, d_theta, tether, foot_k, spin_d)
+        builder, plant, sg, bodies = build(hand, mu, pl, time_step, k_theta, d_theta, tether, foot_k, spin_d,
+                                           k_table, mu_table)
         self.plant, self.bodies = plant, bodies
         self.theta_cmd = 0.0
         nv, n_act = plant.num_velocities(), plant.num_actuators()
@@ -255,7 +272,8 @@ class Run:
 
 def drag(hand, mu, pl, time_step, k_theta, d_theta, q_start, qs, th, opts, record=False) -> dict:
     tether = opts.get("tether", K_TETHER)
-    s = Run(hand, mu, pl, time_step, k_theta, d_theta, tether, opts.get("foot_k"), opts.get("spin_d"))
+    s = Run(hand, mu, pl, time_step, k_theta, d_theta, tether, opts.get("foot_k"), opts.get("spin_d"),
+            opts.get("k_table", K_TABLE), opts.get("mu_table", MU_TABLE))
     s.sim.Initialize()
     geom = T.finger_geometry(hand)
     pads = geom["pads"]
@@ -265,6 +283,7 @@ def drag(hand, mu, pl, time_step, k_theta, d_theta, q_start, qs, th, opts, recor
     q1 = min(q_start + math.radians(opts["sweep_deg"]), math.radians(120.0))
     n_app, n_sweep, n_hold = (int(round(opts[k] / T.DT_ENV)) for k in ("approach_s", "sweep_s", "hold_s"))
     touch_q = None
+    slip_travel = slip_q = None
     fd_max = prox_max = dtab_max = 0.0
     travel_max, clear = -1e9, float("inf")
     rad = pl["diam_mm"] / 2
@@ -289,6 +308,15 @@ def drag(hand, mu, pl, time_step, k_theta, d_theta, q_start, qs, th, opts, recor
         clear = min(clear, gap_coin, gap_table)
         if touch_q is None and fd > TOUCH_N:
             touch_q = math.degrees(q)
+        if touch_q is not None and slip_travel is None and fd > TOUCH_N and c["distal_coin_pt"] is not None:
+            pt = c["distal_coin_pt"]
+            vel = []
+            for body in ("distal", "coin"):
+                X = s.plant.EvalBodyPoseInWorld(s.pctx, s.bodies[body])
+                V = s.plant.EvalBodySpatialVelocityInWorld(s.pctx, s.bodies[body])
+                vel.append(V.translational() + np.cross(V.rotational(), pt - X.translation()))
+            if 1e3 * abs(vel[0][0] - vel[1][0]) > SLIP_MM_S:  # the pad slides over the coin along x
+                slip_travel, slip_q = travel, math.degrees(q)
         if (i + 1) % 6 == 0:
             trace.append([round(s.t, 3), round(math.degrees(q), 2), round(travel, 3), round(fd, 4)])
         if record:
@@ -303,6 +331,7 @@ def drag(hand, mu, pl, time_step, k_theta, d_theta, q_start, qs, th, opts, recor
     cp, tp, dp = s.pose("coin"), s.pose("table"), s.pose("distal")
     c = s.contacts()
     out = {"travel_end_mm": float(1e3 * (x0 - cp[0])), "travel_max_mm": float(travel_max),
+           "travel_slip_mm": slip_travel, "slip_q_cmd_deg": slip_q,
            "coin_lift_mm": float(1e3 * (cp[1] - tp[1]) - COIN_THICK_MM / 2),
            "coin_tilt_deg": float(math.degrees(cp[2])), "table_drop_mm": float(-(1e3 * tp[1] - (pl["z_top_mm"] - face - COIN_THICK_MM))),
            "touched": touch_q is not None, "touch_q_deg": touch_q, "q_start_deg": math.degrees(q_start),
@@ -350,8 +379,11 @@ def cmd_run(a) -> int:
     draws = json.loads(a.draws.read_text())["grasps"]
     if a.only is not None:
         draws = [d for d in draws if d["draw"] in a.only]
-    opts = {"approach_s": a.approach_s, "sweep_s": a.sweep_s, "hold_s": a.hold_s, "tether": a.tether,
-            "foot_k": a.foot_k, "spin_d": a.spin_d}
+    cfg = {**DEFAULTS, **json.loads(a.draws.read_text()).get("config", {})}
+    for k in DEFAULTS:  # an explicit command-line value wins over the draws file's config (calibration)
+        if getattr(a, k) is not None:
+            cfg[k] = getattr(a, k)
+    opts = {**cfg, "foot_k": a.foot_k, "spin_d": a.spin_d}
     if a.sweep_deg is not None:
         draws = [{**d, "sweep_deg": a.sweep_deg} for d in draws]
     tasks = [(a.hand, a.mu, d, a.time_step, a.delta_deg, opts) for d in draws]
@@ -364,7 +396,7 @@ def cmd_run(a) -> int:
           f"retried {retried})", flush=True)
     out_path(a.hand, a.mu, a.tag).write_text(json.dumps({
         "hand": a.hand, "mu": a.mu, "tag": a.tag, "time_step": a.time_step, "delta_deg": a.delta_deg, "opts": opts,
-        "k_table": K_TABLE, "mu_table": MU_TABLE, "envs": envs}))
+        "envs": envs}))
     return 0
 
 
@@ -485,24 +517,27 @@ def cmd_frames(a) -> int:
     import matplotlib.pyplot as plt
     from matplotlib.patches import Polygon, Rectangle
 
-    pl = next(d for d in json.loads(a.draws.read_text())["grasps"] if d["draw"] == a.draw)
-    opts = {"approach_s": 1.0, "sweep_s": 3.0, "hold_s": 1.0, "tether": K_TETHER}
+    dfile = json.loads(a.draws.read_text())
+    pl = next(d for d in dfile["grasps"] if d["draw"] == a.draw)
+    opts = {**DEFAULTS, **dfile.get("config", {})}
     env = _run_env(("O", a.mu, pl, 2.5e-4, 0.0, opts, True))
     fr = env["drag"]["frames"]
     i_touch = next(i for i, f in enumerate(fr) if f["contact_point_mm"] is not None)
-    i_mid = i_touch + (len(fr) - 30 - i_touch) // 2  # halfway through the dragging sweep
+    n_hold = int(round(opts["hold_s"] / T.DT_ENV))
+    i_mid = i_touch + (len(fr) - n_hold - i_touch) // 2  # halfway through the dragging sweep
     picks = {"start": 0, "dragging": i_mid, "end": len(fr) - 1}
     geom = T.finger_geometry("O")
     pads = geom["pads"]
     face = pads["mount_offset_mm"] + pads["thickness_mm"]
-    snap = {"task": "coin drag (experiment 30, tag e30)", "hand": "O", "mu": a.mu, "draw": pl,
+    snap = {"task": f"coin drag (experiment {a.label})", "hand": "O", "mu": a.mu, "draw": pl,
             "frame": "world = proximal phalanx frame (mm): x along it from the MCP, z dorsal; MCP held at 0 deg; "
                      "the finger plane is y = 0; angles about +y (pitch = flexion q)",
             "pads": pads, "proximal_face_z_mm": -face, "coin": {"diameter_mm": pl["diam_mm"],
                                                                 "thickness_mm": COIN_THICK_MM, "mass_kg": COIN_MASS_KG},
             "table": {"top_rest_z_mm": pl["z_top_mm"] - face - COIN_THICK_MM, "x_extent_from_coin_mm":
-                      [-TABLE_BACK_MM, TABLE_FRONT_MM], "spring_n_m": K_TABLE},
-            "tether_n_m": K_TETHER, "mu_table": MU_TABLE,
+                      [-TABLE_BACK_MM, TABLE_FRONT_MM], "spring_n_m": opts["k_table"]},
+            "tether_n_m": opts["tether"], "mu_table": opts["mu_table"], "command": {k: opts[k] for k in
+                                                                                  ("approach_s", "sweep_s", "hold_s")},
             "result": {k: v for k, v in env["drag"].items() if k not in ("frames", "trace")},
             "snapshots": {k: fr[i] for k, i in picks.items()}}
     (OUT / "coin_snapshots.json").write_text(json.dumps(snap, indent=1))
@@ -535,7 +570,7 @@ def cmd_frames(a) -> int:
             ax.annotate("", p + 6 * fv, p, arrowprops=dict(arrowstyle="<-", color="C3"))
         ax.set_title(f"{name}: t {f['t']:.2f} s, q {f['q_deg']:.1f} deg, travel {f['travel_mm']:.1f} mm", fontsize=9)
         ax.set_aspect("equal")
-        ax.set_xlim(20, 105)
+        ax.set_xlim(15, 105)
         ax.set_ylim(-45, 8)
         ax.set_xlabel("x along the proximal phalanx (mm)")
     axs[0].set_ylabel("z dorsal (mm)")
@@ -554,6 +589,7 @@ def main() -> int:
     d.add_argument("--n", type=int, default=64)
     d.add_argument("--seed", type=int, default=30)
     d.add_argument("--out", type=Path, required=True)
+    d.add_argument("--config", choices=tuple(CONFIGS), default="e30")
     r = sub.add_parser("run")
     r.add_argument("--hand", required=True)
     r.add_argument("--mu", type=float, required=True)
@@ -562,11 +598,13 @@ def main() -> int:
     r.add_argument("--tag", required=True)
     r.add_argument("--delta_deg", type=float, default=0.0)
     r.add_argument("--time_step", type=float, default=2.5e-4)
-    r.add_argument("--approach_s", type=float, default=1.0)
-    r.add_argument("--sweep_s", type=float, default=3.0)
-    r.add_argument("--hold_s", type=float, default=1.0)
+    r.add_argument("--approach_s", type=float, default=None)
+    r.add_argument("--sweep_s", type=float, default=None)
+    r.add_argument("--hold_s", type=float, default=None)
+    r.add_argument("--k_table", type=float, default=None)
+    r.add_argument("--mu_table", type=float, default=None)
     r.add_argument("--sweep_deg", type=float, default=None, help="override every draw's sweep (calibration)")
-    r.add_argument("--tether", type=float, default=K_TETHER)
+    r.add_argument("--tether", type=float, default=None)
     r.add_argument("--foot_k", type=float, default=FOOT_K)
     r.add_argument("--spin_d", type=float, default=SPIN_D)
     r.add_argument("--workers", type=int, default=4)
@@ -580,11 +618,13 @@ def main() -> int:
     f.add_argument("--draws", type=Path, required=True)
     f.add_argument("--draw", type=int, default=0)
     f.add_argument("--mu", type=float, default=1.3)
+    f.add_argument("--label", default="30, tag e30")
     a = p.parse_args()
     if a.cmd == "draws":
-        out = make_draws(a.n, a.seed)
+        ranges, cfg = CONFIGS[a.config]
+        out = make_draws(a.n, a.seed, ranges)
         a.out.write_text(json.dumps({"seed": a.seed, "n": a.n, "rng": f"numpy.random.default_rng([{a.seed}, 30])",
-                                     "ranges": RANDOM, "grasps": out}, indent=1))
+                                     "ranges": ranges, **({"config": cfg} if cfg else {}), "grasps": out}, indent=1))
         print(a.out, len(out))
         return 0
     return {"run": cmd_run, "analyze": cmd_analyze, "frames": cmd_frames}[a.cmd](a)
