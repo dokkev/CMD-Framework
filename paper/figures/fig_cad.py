@@ -286,7 +286,7 @@ def main() -> int:
     from matplotlib.patches import FancyArrowPatch
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    width, height = 3.45, 4.15
+    width, height = 3.45, 4.35
     fig = plt.figure(figsize=(width, height))
     d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
     from matplotlib.patches import Ellipse
@@ -313,10 +313,10 @@ def main() -> int:
     for cx, cy, ew, eh in seats:
         f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=0.9, ls=(0, (3, 2)), clip_on=False, zorder=5))
     # 2. the contact interfaces, which go into those seats
-    row_top = min(fy, height - 0.16 - hh) - 0.30
+    row_top = min(fy, height - 0.16 - hh) - 0.52
     bw, bh, gap = 0.74, 0.40, 0.105
     by = row_top - bh
-    fig.text(*inch(0.02, row_top + 0.16), "contact interfaces", fontsize=6.6, fontweight="bold", va="top")
+    fig.text(*inch(0.08, row_top + 0.16), "contact interfaces", fontsize=6.6, fontweight="bold", va="top")
     names = (("nari", "NARI-Touch Tactile"), ("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"),
              ("soft", "Solid Soft Pad"))
     for k, (kk, nm) in enumerate(names):
@@ -337,17 +337,21 @@ def main() -> int:
             ax.set_xlim(x0 - pad, x1 + pad); ax.set_ylim(y0 - pad, y1 + pad)
             ax.set_aspect("equal", adjustable="box", anchor="C")
         fig.text(*inch(x + bw / 2, by - 0.03), nm, fontsize=5.8, ha="center", va="top")
+    from matplotlib.patches import FancyBboxPatch
+    fig.patches.append(FancyBboxPatch(inch(0.03, by - 0.17), 3.39 / width, (row_top + 0.21 - by + 0.17) / height,
+                                      boxstyle="round,pad=0,rounding_size=0.012", transform=fig.transFigure,
+                                      fc="none", ec=PAD, lw=0.7, zorder=0))
     # arrow from the interfaces up into the circled seats
     seat_fig = fig.transFigure.inverted().transform(f.transData.transform((1300 - CROP, 640)))
     seat2 = fig.transFigure.inverted().transform(f.transData.transform((2235 - CROP, 610)))
-    src = inch(2.20, row_top + 0.04)
+    src = inch(2.20, row_top + 0.21)
     for tgt in (seat_fig, seat2):
         fig.patches.append(FancyArrowPatch(src, tuple(tgt), transform=fig.transFigure, arrowstyle="-|>",
                                            mutation_scale=7, lw=0.9, color=PAD, connectionstyle="arc3,rad=0.0"))
-    fig.text(*inch(2.12, row_top + 0.08), "go into the circled seats", fontsize=5.8, color=PAD, style="italic",
+    fig.text(*inch(2.12, row_top + 0.33), "go into the circled seats", fontsize=5.8, color=PAD, style="italic",
              va="center", ha="right")
     # 3. design reoptimization for a thicker interface: around the contact-surface motion (R) or the skeleton (U)
-    top = by - 0.30
+    top = by - 0.40
     fig.text(*inch(1.73, top + 0.02), "design reoptimization for a thicker interface, around ...", fontsize=6.3,
              color=INK2, ha="center", va="bottom", style="italic")
     for xe, col in ((0.95, HAND_C["R"]), (2.50, HAND_C["U"])):
