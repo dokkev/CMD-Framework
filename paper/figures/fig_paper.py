@@ -311,7 +311,7 @@ def fig2():
             if v.collisions(qq):
                 return qq - 1.0
         return 180.0
-    panels = (("2r_dd", "Pivot Joint", 3.0, False, None),
+    panels = (("2r_dd", "Revolute", 3.0, False, None),
               ("cfl", "CoDe Mechanism", 7.0, False, "proto"))
     for i, (key, name, base_h, servo_up, hand) in enumerate(panels):
         ds = one_finger.study1_designs(key, cfg["architectures"][key], 150.0, cfg)
@@ -492,7 +492,7 @@ def fig2():
     pax.plot([-32, 60], [0, 0], color=GREY, lw=2.0, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
-    pax.text(-31, 1.2, "Pivot Joint", fontsize=6.2, color=GREY, va="bottom", ha="left", path_effects=halo,
+    pax.text(-31, 1.2, "Revolute", fontsize=6.2, color=GREY, va="bottom", ha="left", path_effects=halo,
              zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
