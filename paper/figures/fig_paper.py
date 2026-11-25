@@ -847,6 +847,9 @@ def fig4():
         dv = DV[key]
         x = np.asarray(dv["x"])
         ra.axhline(0, color=INK, lw=0.9, zorder=4)
+        oe = dv["O_effect"]  # the friction effect on O itself, the scale the deviations are read against
+        ra.fill_between(x, oe["q25"], oe["q75"], color="#8c8c8c", alpha=0.18, lw=0, zorder=0)
+        ra.plot(x, oe["median"], color="#8c8c8c", lw=1.3, ls=(0, (4, 1.5, 1, 1.5)), zorder=2)
         for hh in ("R", "U"):
             for mu, ls in (("1.3", "-"), ("2", "--")):
                 bd = dv[f"{hh}_{mu}"]
@@ -861,9 +864,10 @@ def fig4():
                plt.Line2D([], [], color=AMBER, lw=1.0, label="U: coverage-only"),
                plt.Line2D([], [], color="#777", lw=1.0, ls="-", label="friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, ls="--", label="friction 2.0"),
+               plt.Line2D([], [], color="#8c8c8c", lw=1.3, ls=(0, (4, 1.5, 1, 1.5)), label="friction effect on O"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.25, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=6, frameon=False, fontsize=6.0,
-               handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
+               handletextpad=0.4, columnspacing=1.0, handlelength=1.8)
     save_rgb(fig, DEST / "fig_study3.png", dpi=400)
     plt.close(fig)
     print("fig4", h)

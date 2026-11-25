@@ -143,6 +143,26 @@ def deviation():
             n_p = min(map(len, ys))
             dev["pinch"][f"{h}_{m:g}"] = _band([y[:n_p] for y in ys])
     dev["pinch"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
+    # O's own friction effect, the reference: O at 2.0 minus O at 1.3, over the same placements
+    def pe_o(m):
+        o_ = {}
+        for r in A.RADII:
+            for e in json.load(open(LOG / f"dk_O_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
+                if e["gate0"]["pass"] and e.get("curve"):
+                    o_[A.key(e)] = np.array([x[:3] for x in e["curve"]])
+        return o_
+    p1, p2 = pe_o(1.3), pe_o(2.0)
+    dev["pull"]["O_effect"] = _band([held(p2[k]) - held(p1[k]) for k in p1 if k in p2])
+    d1, d2 = (json.load(open(LOG / f"dktipdial_O_mu{m:g}_point-e28zc_r15.json"))["envs"] for m in MU)
+    dev["dial"]["O_effect"] = _band([np.array(b["dial"]["trace"])[:, 1] - np.array(a["dial"]["trace"])[:, 1]
+                                     for a, b in zip(d1, d2)])
+    c1, c2 = (json.load(open(LOG / f"dkcoin_O_mu{m:g}_point-e30b.json"))["envs"] for m in MU)
+    dev["coin"]["O_effect"] = _band([np.array(b["drag"]["trace"])[:, 2] - np.array(a["drag"]["trace"])[:, 2]
+                                     for a, b in zip(c1, c2)
+                                     if len(a["drag"]["trace"]) == 30 == len(b["drag"]["trace"])])
+    o_ = PR._load("O", "e33")
+    ys = [np.array(o_[k]["2"]["trace"])[:, 0] - np.array(o_[k]["1.3"]["trace"])[:, 0] for k in pinch_pairs("R")]
+    dev["pinch"]["O_effect"] = _band([y[:n_p] for y in ys])
     dev["dial"]["x"] = (np.arange(1, len(do[0]["dial"]["trace"]) + 1) / 30).round(4).tolist()
     dev["coin"]["x"] = [round(0.2 * (i + 1), 3) for i in range(30)]
     return dev
