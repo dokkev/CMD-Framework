@@ -295,15 +295,15 @@ def fit_icon(ax, kk):
 
 
 def main() -> int:
-    """Fig. 1 (user layout, 2026-11-24), page width. Top: the CoDe Hand (Isaac Lab USD, render_grasp.py), one finger
-    from the CAD with its pad seats dashed, and the contact interfaces. Middle: the redesign problem, 1. a thicker
-    interface t', 2. the finger re-optimized (Eq. (opt2) of the paper), branching into R (keeps Delta_contact small)
-    and U (coverage only). Bottom: R and U from their Isaac Lab visual USD closed on a 15 mm cylinder
-    (render_contact.py), the distal contact point's path against the 3 mm reference (fig1_paths.py), and their
-    numbers (report/study3/data/isaac_dose_A_all.json)."""
+    """Fig. 1 (user layout, 2026-11-25), page width, read left to right as a flow: what we have (the CoDe Hand and its
+    crossed four-bar finger, CAD) and the contact interfaces it can carry -> the redesign for a new interface (the
+    operator) -> two hands, CoDe (keeps the contact-surface motion) and Conventional (coverage only) -> what each does
+    with a reused command: the measured interface effect, O for the same effect as the reference hand, X otherwise.
+    Numbers: Isaac Lab softer-pad pull-out (isaac_conclusion_study3.json, 7 mm) and the Drake fingertip dial
+    (fig4_sync.json, friction effect as a share of O's)."""
     import json
     from PIL import Image
-    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Ellipse, Circle as Ci
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci
     from matplotlib import font_manager as _fm
     for _f in ("/usr/local/share/fonts/Helvetica Light Regular.otf",
                "/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf",
@@ -314,144 +314,116 @@ def main() -> int:
                          "font.weight": "light", "mathtext.fontset": "custom", "mathtext.rm": "Helvetica Light",
                          "mathtext.it": "Nimbus Sans:italic", "mathtext.bf": "Nimbus Sans:bold", "font.size": 7})
     BOLD = dict(fontweight="bold", family="Nimbus Sans")
-    W_, H_ = 3.45, 6.30
+    W_, H_ = 7.16, 2.12
     fig = plt.figure(figsize=(W_, H_))
-    d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
-    paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
     conc = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["hands"]
-    BLUE_, ORANGE_ = HAND_C["R"], HAND_C["U"]
-    LBLUE, LORANGE = "#eaf1fb", "#fdf0e7"
+    sync = json.load(open(ROOT / "report" / "study3" / "data" / "fig4_sync.json"))["tasks"]
+    BLUE_, ORANGE_, GREEN_, RED_ = HAND_C["R"], HAND_C["U"], "#2e9b4f", "#d0342c"
 
     def inch(x, y):
         return x / W_, y / H_
 
-    def box(x, y, w, h, fc, ec, r=0.06, lw=0.8, z=-1):
+    def box(x, y, w, h, fc, ec, r=0.06, lw=0.7, ls="-", z=-1):
         fig.patches.append(FancyBboxPatch(inch(x, y), w / W_, h / H_, boxstyle=f"round,pad=0,rounding_size={r / W_}",
-                                          transform=fig.transFigure, fc=fc, ec=ec, lw=lw, zorder=z))
+                                          transform=fig.transFigure, fc=fc, ec=ec, lw=lw, ls=ls, zorder=z))
 
-    # plain matplotlib look: panel letters, thin black lines, no filled boxes
-    def plabel(x, y, letter, title):
-        fig.text(*inch(x, y), f"({letter})", fontsize=7.5, va="top", ha="left", **BOLD)
-        fig.text(*inch(x + 0.22, y), title, fontsize=7.5, va="top", ha="left")
+    def image(im, x, y, w=None, h=None, fit=None):
+        H0, W0 = im.shape[:2]
+        if fit is not None:  # the largest size inside a (w, h) cell
+            w, h = fit
+            if w / h > W0 / H0:
+                w = None
+            else:
+                h = None
+        if w is None:
+            w = h * W0 / H0
+        if h is None:
+            h = w * H0 / W0
+        a = fig.add_axes((*inch(x, y), w / W_, h / H_)); a.imshow(im); a.axis("off")
+        return w, h
 
-    # ---------------- single column, top to bottom
+    def arrow(p0, p1, col="k", lw=0.9, rad=0.0):
+        fig.patches.append(FancyArrowPatch(inch(*p0), inch(*p1), transform=fig.transFigure, arrowstyle="-|>",
+                                           mutation_scale=7, lw=lw, color=col, connectionstyle=f"arc3,rad={rad}",
+                                           shrinkA=0, shrinkB=0, zorder=5))
+
+    def plabel(x, y, letter, title, col=INK):
+        fig.text(*inch(x, y), f"({letter})", fontsize=7, va="top", ha="left", color=col, **BOLD)
+        fig.text(*inch(x + 0.19, y), title, fontsize=7, va="top", ha="left", color=col)
+
     top = H_ - 0.03
-    hand = usd_render(CAD / "hand_usd_relaxed.png")  # a relaxed pose, no object (render_grasp.py --object none)
-    hw = 1.30
-    hh = hw * hand.shape[0] / hand.shape[1]
-    plabel(0.02, top, "a", "CoDe Hand")
-    ax = fig.add_axes((*inch(0.02, top - 0.17 - hh), hw / W_, hh / H_)); ax.imshow(hand); ax.axis("off")
-    CROP = 705
-    fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, CROP:]
-    fw = 1.98
-    fh = fw * fin.shape[0] / fin.shape[1]
-    plabel(1.40, top, "b", "crossed four-bar joint")
-    f = fig.add_axes((*inch(1.44, top - 0.30 - fh), fw / W_, fh / H_)); f.imshow(fin); f.axis("off")
-    blue_ = (fin[..., 2].astype(int) - fin[..., 0] > 35) & (fin[..., 2] > 120)  # the pads in the CAD view
-    bx_ = np.nonzero(blue_.any(axis=0))[0]
-    cut = bx_[np.argmax(np.diff(bx_))] + 1
-    for lo_, hi_ in ((bx_.min(), cut), (cut, bx_.max() + 1)):
-        ys_, xs_ = np.nonzero(blue_[:, lo_:hi_])
-        xs_ = xs_ + lo_
-        f.add_patch(Ellipse(((xs_.min() + xs_.max()) / 2, (ys_.min() + ys_.max()) / 2), (xs_.max() - xs_.min()) * 1.05,
-                            (ys_.max() - ys_.min()) * 1.25, fc="none", ec="k", lw=0.7, ls="--", clip_on=False,
-                            zorder=5))
-    fig.text(*inch(1.44 + fw / 2, top - 0.34 - fh), "dashed: pad seats", fontsize=6.0, ha="center", va="top")
-    y = top - 0.20 - max(hh, fh + 0.25)
-    plabel(0.02, y, "c", "contact interfaces")
-    names = (("nari", "tactile\n(NARI-Touch)"), ("honeycomb", "compliant\nstructure"), ("traction", "traction\npad"),
-             ("soft", "solid\nsoft pad"))
-    iw = 0.70
+    # ---- inputs: the hand we have and the interfaces it can carry (dashed group, as in a pipeline sketch)
+    box(0.02, 0.04, 2.30, top - 0.06, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
+    plabel(0.07, top - 0.04, "a", "CoDe Hand")
+    hand = crop_white(np.asarray(Image.open(CAD / "code_hand_iso.png").convert("RGB")))
+    hw_, hh_ = image(hand, 0.05, 0.10, fit=(1.40, 1.80))
+    if hh_ < 1.70:  # centre the hand in the space under its label
+        fig.axes[-1].set_position((0.05 / W_, (0.10 + (1.72 - hh_) / 2) / H_, hw_ / W_, hh_ / H_))
+    fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
+    fw, fh = image(fin, 1.44, top - 0.50, w=0.86)
+    fig.text(*inch(1.87, top - 0.52), "crossed four-bar finger", fontsize=5.8, ha="center", va="top", color=INK2)
+    plabel(1.44, top - 0.70, "b", "interfaces")
+    names = (("nari", "tactile"), ("honeycomb", "compliant"), ("traction", "traction"), ("soft", "soft pad"))
     for k, (kk, nm) in enumerate(names):
-        x = 0.12 + k * (iw + 0.15)
-        ax = fig.add_axes((*inch(x, y - 0.68), iw / W_, 0.50 / H_))
+        cx, cy = 1.46 + (k % 2) * 0.43, top - 1.22 - (k // 2) * 0.50
+        ax = fig.add_axes((*inch(cx, cy), 0.38 / W_, 0.28 / H_))
         fit_icon(ax, kk)
-        fig.text(*inch(x + iw / 2, y - 0.71), nm, fontsize=6.0, ha="center", va="top", linespacing=1.0)
-    # (d) the redesign problem
-    y -= 1.05
-    fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
-                                color="0.6", lw=0.5))
-    plabel(0.02, y, "d", "thicker pad, re-optimized finger")
-    chg = np.asarray(Image.open(CAD / "distal_pad_change.png").convert("RGB"))
-    cw_ = 0.80
-    ch_ = cw_ * chg.shape[0] / chg.shape[1]
-    ca = fig.add_axes((*inch(0.05, y - 0.20 - ch_), cw_ / W_, ch_ / H_)); ca.imshow(chg); ca.axis("off")
-    fig.patches.append(FancyArrowPatch(inch(0.90, y - 0.42), inch(1.10, y - 0.42), transform=fig.transFigure,
-                                       arrowstyle="->", mutation_scale=8, lw=0.8, color="k"))
-    eqR = r"$\min_{M\in\mathcal{F}}\;(\Delta_\mathrm{contact}(M,M_0),\,-\bar{C}_\mathrm{pad}(M))$"
-    eqU = r"$\max_{M\in\mathcal{F}}\;\bar{C}_\mathrm{pad}(M)$"
-    for k, (lab, col, eq) in enumerate((("CoDe", BLUE_, eqR), ("Conv.", ORANGE_, eqU))):
-        yy = y - 0.30 - k * 0.24
-        fig.text(*inch(1.15, yy), f"{lab}:", fontsize=7, color=col, ha="left", va="center", **BOLD)
-        fig.text(*inch(1.62, yy), eq, fontsize=6.8, ha="left", va="center", math_fontfamily="stixsans")
-    # (e) the task: a fingertip turns a sprung dial (report/study3/figures/fingertip_disk.png)
-    y -= 0.82
-    fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
-                                color="0.6", lw=0.5))
-    plabel(0.02, y, "e", "tasks")
-    tasks = (("task_hold", "hold (pull-out)"), ("task_dial", "dial turning"), ("task_coin", "coin drag"),
-             ("task_inhand", "in-hand rotation (RL)"))
-    tw, th_ = 0.80, 0.62
-    BG = np.array([236, 237, 239], float)  # one light-grey backdrop for every task image
-    for k, (fn, nm) in enumerate(tasks):
-        im_ = np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")).astype(float)
-        if fn != "task_inhand":
-            ink = im_.min(axis=2) < 240
-            rr, cc_ = np.nonzero(ink)
-            im_ = im_[rr.min():rr.max() + 1, cc_.min():cc_.max() + 1]
-            a_ = np.clip((250 - im_.min(axis=2)) / 15.0, 0, 1)[..., None]  # white -> backdrop
-            im_ = a_ * im_ + (1 - a_) * BG
-        im_ = im_.astype(np.uint8)
-        # pad to the cell's aspect with the backdrop, so every cell is the same grey rectangle
-        H0, W0 = im_.shape[:2]
-        want = tw / th_
-        if W0 / H0 < want:
-            padw = int(round(H0 * want)) - W0
-            im_ = np.pad(im_, ((0, 0), (padw // 2, padw - padw // 2), (0, 0)), constant_values=0)
-            im_[:, :padw // 2] = BG; im_[:, W0 + padw // 2:] = BG
-        else:
-            padh = int(round(W0 / want)) - H0
-            im_ = np.pad(im_, ((padh // 2, padh - padh // 2), (0, 0), (0, 0)), constant_values=0)
-            im_[:padh // 2] = BG; im_[H0 + padh // 2:] = BG
-        x = 0.04 + k * (tw + 0.05)
-        ta = fig.add_axes((*inch(x, y - 0.20 - th_), tw / W_, th_ / H_)); ta.imshow(im_, aspect="auto"); ta.axis("off")
-        fig.text(*inch(x + tw / 2, y - 0.23 - th_), nm, fontsize=5.8, ha="center", va="top")
-    sh_ = th_ + 0.10
-    # (f, g) the two redesigns: measured pad effect against O's, and the contact surface's offset from O
-    y -= 0.30 + sh_
-    ref = np.array(paths["O"]["contact"])
-    for i, (kind, col, letter, title) in enumerate((("R", BLUE_, "f", "CoDe redesign"),
-                                                    ("U", ORANGE_, "g", "conventional redesign"))):
-        y0 = y - i * 0.98
-        fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y0 + 0.05) / H_] * 2, transform=fig.transFigure,
-                                    color="0.6", lw=0.5))
-        plabel(0.02, y0, letter, title)
-        cc = conc[kind]
-        ba = fig.add_axes((*inch(0.32, y0 - 0.70), 1.15 / W_, 0.42 / H_))
-        ba.barh([1, 0], [cc["true_change_pct"], cc["measured_change_pct"]], height=0.6, color=["0.6", col])
-        ba.axvline(0, color="k", lw=0.6)
-        ba.set_yticks([1, 0]); ba.set_yticklabels(["original", {"R": "CoDe", "U": "conv."}[kind]], fontsize=5.8)
-        ba.set_xlim(-80, 80); ba.set_xticks([]); ba.set_ylim(-0.6, 1.6)
-        ba.set_xlabel("pull-out change, softer pad", fontsize=5.6, labelpad=2)
-        ba.tick_params(length=0, pad=2)
-        for sp in ("top", "right"):
-            ba.spines[sp].set_visible(False)
-        ba.set_title("same sign" if kind == "R" else "sign reversed", fontsize=6.0, color=col, pad=2)
-        da = fig.add_axes((*inch(2.05, y0 - 0.70), 1.30 / W_, 0.42 / H_))
-        red = np.array(paths[kind]["contact"])
-        dev = np.linalg.norm(red - ref, axis=1)
-        qd = np.linspace(0, 120, len(dev))
-        da.plot(qd, dev, color=col, lw=1.1)
-        da.axhline(1.0, color="0.5", lw=0.6, ls=":")
-        da.set_xlim(0, 120); da.set_ylim(0, 4.5); da.set_xticks([]); da.set_yticks([])
-        for sp in ("top", "right"):
-            da.spines[sp].set_visible(False)
-        da.set_xlabel("flexion", fontsize=5.6, labelpad=2)
-        da.set_ylabel("offset\nfrom O", fontsize=5.6, labelpad=2, linespacing=1.0)
-        da.set_title("contact surface", fontsize=6.0, pad=2)
-        words = {"R": "skeleton changed more, contact kept: reduced confounding",
-                 "U": "skeleton changed less, contact moved: confounded"}[kind]
-        fig.text(*inch(W_ / 2, y0 - 0.92), words, fontsize=6.0, ha="center", va="bottom", color=col)
+        fig.text(*inch(cx + 0.19, cy - 0.01), nm, fontsize=5.6, ha="center", va="top", color=INK2)
+    # ---- the operator: a new interface goes on, the finger is redesigned for it
+    mid = 1.06
+    ox = 2.48
+    fig.patches.append(Ci(inch(ox, mid), 0.085 / W_, transform=fig.transFigure, fc="white", ec=INK, lw=0.8, zorder=6))
+    fig.text(*inch(ox, mid - 0.005), "+", fontsize=9, ha="center", va="center", zorder=7, **BOLD)
+    arrow((2.32, mid), (ox - 0.09, mid))
+    plabel(2.42, top - 0.04, "c", "redesign")
+    box(2.62, mid - 0.40, 0.84, 0.80, "#eef3ea", "#8fb08a", r=0.07, lw=0.7)
+    arrow((ox + 0.09, mid), (2.62, mid))
+    chg = crop_white(np.asarray(Image.open(CAD / "distal_pad_change.png").convert("RGB")))
+    image(chg, 2.68, mid - 0.04, w=0.72)
+    fig.text(*inch(3.04, mid - 0.10), "re-optimize the finger\nfor a thicker interface", fontsize=5.8,
+             ha="center", va="top", linespacing=1.05)
+    # ---- the two hands it can give
+    outs = (("R", "CoDe Hand", BLUE_, "keep contact-surface\nmotion", top - 0.18),
+            ("U", "Conventional Hand", ORANGE_, "coverage only", 0.86))
+    for kind, name, col, rule, yt in outs:
+        im = usd_render(CAD / f"usd_contact_{kind}.png")[12:]
+        w_, h_ = image(im, 3.86, yt - 0.80, h=0.66)
+        fig.text(*inch(3.86 + w_ / 2, yt - 0.02), name, fontsize=6.6, ha="center", va="top", color=col, **BOLD)
+        yc = yt - 0.45
+        arrow((3.46, mid + (0.16 if kind == "R" else -0.16)), (3.83, yc), col=col, lw=1.1,
+              rad=0.25 if kind == "R" else -0.25)
+        fig.text(*inch(3.52, yc + (0.18 if kind == "R" else -0.14)), rule, fontsize=5.6, color=col,
+                 ha="center", va="bottom" if kind == "R" else "top", linespacing=1.0)
+    # ---- what each does with the same command: the interface effect it measures
+    plabel(4.86, top - 0.04, "d", "same command, new interface")
+    tasks = (("task_hold", "softer pad:\npull-out load"), ("task_dial", "higher friction:\ndial turned"))
+    o_pull = conc["R"]["true_change_pct"]
+    for r_, (kind, name, col, rule, yt) in enumerate(outs):
+        yrow = yt - 0.20 - (0.0 if kind == "R" else 0.02)
+        for c_, (fn, lab) in enumerate(tasks):
+            x0 = 4.86 + c_ * 1.15
+            im_ = crop_white(np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")))
+            w_, h_ = image(im_, x0, yrow - 0.52, fit=(0.62, 0.50))
+            if fn == "task_hold":
+                meas = conc[kind]["measured_change_pct"]
+                ok = np.sign(meas) == np.sign(o_pull)
+                txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "\u2212")
+            else:
+                share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
+                ok = kind == "R"
+                txt = f"{share:.0f}% of\nref.'s effect"
+            fig.text(*inch(x0 + 0.64, yrow - 0.20), txt, fontsize=5.8, ha="left", va="top", linespacing=1.05,
+                     color=INK)
+            fig.text(*inch(x0 + 0.64, yrow + 0.0), "O" if ok else "X", fontsize=9, ha="left", va="top",
+                     color=GREEN_ if ok else RED_, **BOLD)
+            if r_ == 0:
+                fig.text(*inch(x0 + 0.55, top - 0.20), lab, fontsize=5.6, ha="center", va="top", color=INK2,
+                         linespacing=1.0)
+        say = {"R": "measures the interface as the reference hand does",
+               "U": "reverses or shrinks the interface's effect"}[kind]
+        fig.text(*inch(6.00, yrow - 0.53), say, fontsize=6.0, ha="center", va="top", color=col,
+                 **(BOLD if kind == "R" else {}))
+        arrow((4.66, yt - 0.45), (4.82, yt - 0.45), col=col, lw=1.0)
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
