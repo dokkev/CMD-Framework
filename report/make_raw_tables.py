@@ -196,6 +196,45 @@ def drake_rows() -> tuple[list[dict], list[str]]:
     return rows, srcs
 
 
+PINCH_TAG = "e33"
+
+
+def pinch_rows() -> tuple[list[dict], list[str]]:
+    """Experiment 33 (sim/drake/pinch_rotate.py, logs pinch_<hand>_e33.json): one row per hand x draw x mu."""
+    import sys
+    sys.path.insert(0, str(ROOT / "sim/drake"))
+    import pinch_rotate as PR  # is_lost(): the run's loss rule
+
+    draws = {g["draw"]: g for g in json.loads((DRAKE / "pinch_e33.json").read_text())["draws"]}
+    rows, srcs = [], []
+    for p in sorted(DRAKE.glob(f"pinch_*_{PINCH_TAG}.json")):
+        hand = p.name[len("pinch_"):-len(f"_{PINCH_TAG}.json")]
+        srcs.append(rel(p))
+        for rec in json.loads(p.read_text())["draws"]:
+            pl = draws[rec["draw"]]
+            for mu in ("1.3", "2"):
+                x = rec[mu]
+                fail = "solver_fail" in x
+                lost = None if fail else PR.is_lost(x)
+                rows.append({"engine": "Drake", "experiment": "33", "task": "thumb-index pinch rotate",
+                             "setting": "the index distal pad turns a sprung sphere against an identical thumb pad on "
+                                        "a 40 N/m spring, 64 randomized starts (seed 33)",
+                             "tag": PINCH_TAG, "contact_model": "point", "hand": hand, "mu": float(mu),
+                             "cylinder_radius_mm": r4(pl["r_mm"]), "draw": rec["draw"],
+                             "tip_spring_nm_rad": r4(pl["k_r"]), "q0_deg": r4(pl["q_s_deg"]), "load_direction": "none",
+                             "sweep_deg": r4(pl["sweep_deg"]), "thumb_preload_n": r4(pl["preload_n"]),
+                             "contact_back_mm": r4(pl["back_mm"]),
+                             "measure": None if fail else r4(x["rotation_deg"]),
+                             "measure_unit": "deg (sphere rotation from the sweep's start)",
+                             "event": "solver fail" if fail else ("lost" if lost else None),
+                             "held_at_end": None if fail else not lost,
+                             "distal_force_max_n": None if fail else r4(x["f_peak_n"]["distal"]),
+                             "thumb_force_max_n": None if fail else r4(x["f_peak_n"]["thumb"]),
+                             "proximal_force_max_n": None if fail else r4(x["proximal_max_n"]),
+                             "penetration_max_mm": None if fail else r4(x["pen_mm"])})
+    return rows, srcs
+
+
 def isaac_rows() -> tuple[list[dict], list[str]]:
     latest = {}
     for p in sorted(ISAAC.glob("tp_*.json")):
@@ -222,16 +261,20 @@ def study3() -> None:
     out_dir = REP / "study3/data/raw"
     drows, dsrc = drake_rows()
     irows, isrc = isaac_rows()
+    prows, psrc = pinch_rows()
+    drows += prows
+    dsrc += psrc
     files = {}
     keys = ["engine", "experiment", "task", "setting", "tag", "contact_model", "hand", "mu", "cylinder_radius_mm", "q0_deg",
             "x_c_mm", "load_direction", "gate0_pass", "measure", "measure_unit", "event", "held_at_end",
             "distal_force_max_n", "proximal_force_max_n", "distal_force_end_n",
             "draw", "tip_spring_nm_rad", "sideways_offset_mm",
-            "setpoint_o_deg", "setpoint_deg", "setpoint_residual_mm"]
+            "setpoint_o_deg", "setpoint_deg", "setpoint_residual_mm",
+            "sweep_deg", "thumb_preload_n", "contact_back_mm", "thumb_force_max_n", "penetration_max_mm"]
     groups = {}
     for r in drows + irows:
         name = {"pull-out": "pullout", "grasp acquisition": "acquisition", "dial": "dial", "fingertip dial": "tipdial",
-                "fingertip coin drag": "coin",
+                "fingertip coin drag": "coin", "thumb-index pinch rotate": "pinch",
                 "in-hand rolling": "rolling"}[r["task"]]
         eng = "isaac" if r["engine"] == "Isaac Lab" else "drake"
         groups.setdefault(f"runs_{eng}_{name}.csv", []).append({k: r.get(k) for k in keys})
@@ -254,6 +297,7 @@ def study3() -> None:
             ("drake_e28z_point.json", "Drake", "fingertip dial", "z-axis disk (Study 3's dial task)"),
             ("drake_e29z_point.json", "Drake", "fingertip dial", "z-axis disk, randomized starts (confirmation)"),
             ("drake_e30b_coin.json", "Drake", "fingertip coin drag", "long drag, randomized starts"),
+            ("drake_e33_pinch.json", "Drake", "thumb-index pinch rotate", "sprung sphere, identical sprung thumb, randomized starts"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
         d = json.loads((REP / "study3/data" / fname).read_text())
@@ -294,6 +338,14 @@ def study3() -> None:
             "fingertip coin drag": "the distal pad alone drags a 2 mm coin (tethered at 45 N/m, coin-table mu 0.2) toward the "
                                    "MCP on a table sprung at 30 N/m, sweeping 45-55 deg open-loop from O's touch angle; "
                                    "measure = the coin's travel at the end (experiment 30b; time step 0.25 ms)",
+            "thumb-index pinch rotate": "a sphere (radius 8-12 mm, cylinder_radius_mm) is pinched between the index "
+                                        "distal pad and a thumb pad identical on every hand, pressed by a 40 N/m "
+                                        "spring at thumb_preload_n; the index sweeps sweep_deg open-loop from O's "
+                                        "flexion q0_deg and turns the sphere against a torsional spring "
+                                        "(tip_spring_nm_rad); measure = the sphere's rotation from the sweep's start; "
+                                        "lost = either pad's normal force below 0.067 N at the end or for 0.1 s; "
+                                        "penetration_max_mm = largest pad normal force / 2.5 N/mm (gate 1.5 mm) "
+                                        "(experiment 33; time step 0.25 ms)",
             "in-hand rolling": "after the grasp, an open-loop flexion sweep of 8 or 15 deg rolls the cylinder; "
                                "measure = rotation",
         },

@@ -1,6 +1,6 @@
 {
- "created": "2026-11-24",
- "git_commit": "448ca63943e9daf28187bf71b175d364030b98cb",
+ "created": "2026-11-25",
+ "git_commit": "d2d802c5918857843ae8a8195656ea6eaca604f7",
  "generator": "report/make_raw_tables.py",
  "study": "Study 3: the error a redesign adds to a measured interface effect (simulation; CFL fingers, q_req 120 deg)",
  "files": {
@@ -68,6 +68,56 @@
     "distal_force_max_n",
     "proximal_force_max_n",
     "draw"
+   ],
+   "hands": [
+    "O",
+    "R",
+    "U",
+    "d1p5_maxDs_s0",
+    "d1p5_minDs_s0",
+    "d2p25_maxDs_s0",
+    "d2p25_minDs_s0",
+    "d3_maxDs_s0",
+    "d3_minDs_s0",
+    "d4p5_s0",
+    "d5p5_s0",
+    "h3to5_d3_minDs_s0",
+    "h3to5_d3_s0",
+    "h3to5_hr",
+    "h3to5_hu",
+    "h3to9_d3p5_maxDs_s0",
+    "h3to9_d5_minDs_s0",
+    "h3to9_hr",
+    "h3to9_hu"
+   ]
+  },
+  "report/study3/data/raw/runs_drake_pinch.csv": {
+   "rows": "one per simulated run: hand x friction x cylinder radius x placement x load direction (or trajectory)",
+   "count": 2432,
+   "columns": [
+    "engine",
+    "experiment",
+    "task",
+    "setting",
+    "tag",
+    "contact_model",
+    "hand",
+    "mu",
+    "cylinder_radius_mm",
+    "q0_deg",
+    "load_direction",
+    "measure",
+    "measure_unit",
+    "held_at_end",
+    "distal_force_max_n",
+    "proximal_force_max_n",
+    "draw",
+    "tip_spring_nm_rad",
+    "sweep_deg",
+    "thumb_preload_n",
+    "contact_back_mm",
+    "thumb_force_max_n",
+    "penetration_max_mm"
    ],
    "hands": [
     "O",
@@ -300,7 +350,7 @@
   },
   "report/study3/data/raw/errors_by_hand.csv": {
    "rows": "one per (setting, redesigned hand): the error E of that hand",
-   "count": 212,
+   "count": 230,
    "columns": [
     "engine",
     "task",
@@ -1046,7 +1096,26 @@
    "sim/drake/logs/dktipdial_h3to9_hu_mu1.3_point-e28z_r15.json",
    "sim/drake/logs/dktipdial_h3to9_hu_mu1.3_point-e29z_rany.json",
    "sim/drake/logs/dktipdial_h3to9_hu_mu2_point-e28z_r15.json",
-   "sim/drake/logs/dktipdial_h3to9_hu_mu2_point-e29z_rany.json"
+   "sim/drake/logs/dktipdial_h3to9_hu_mu2_point-e29z_rany.json",
+   "sim/drake/logs/pinch_O_e33.json",
+   "sim/drake/logs/pinch_R_e33.json",
+   "sim/drake/logs/pinch_U_e33.json",
+   "sim/drake/logs/pinch_d1p5_maxDs_s0_e33.json",
+   "sim/drake/logs/pinch_d1p5_minDs_s0_e33.json",
+   "sim/drake/logs/pinch_d2p25_maxDs_s0_e33.json",
+   "sim/drake/logs/pinch_d2p25_minDs_s0_e33.json",
+   "sim/drake/logs/pinch_d3_maxDs_s0_e33.json",
+   "sim/drake/logs/pinch_d3_minDs_s0_e33.json",
+   "sim/drake/logs/pinch_d4p5_s0_e33.json",
+   "sim/drake/logs/pinch_d5p5_s0_e33.json",
+   "sim/drake/logs/pinch_h3to5_d3_minDs_s0_e33.json",
+   "sim/drake/logs/pinch_h3to5_d3_s0_e33.json",
+   "sim/drake/logs/pinch_h3to5_hr_e33.json",
+   "sim/drake/logs/pinch_h3to5_hu_e33.json",
+   "sim/drake/logs/pinch_h3to9_d3p5_maxDs_s0_e33.json",
+   "sim/drake/logs/pinch_h3to9_d5_minDs_s0_e33.json",
+   "sim/drake/logs/pinch_h3to9_hr_e33.json",
+   "sim/drake/logs/pinch_h3to9_hu_e33.json"
   ],
   "isaac_logs": [
    "sim/isaaclab/logs/study3/two_pad/tp_O_mu1.3_A_r15_20261121-171232_2117133.json",
@@ -1321,6 +1390,7 @@
    "report/study3/data/drake_e28z_point.json",
    "report/study3/data/drake_e29z_point.json",
    "report/study3/data/drake_e30b_coin.json",
+   "report/study3/data/drake_e33_pinch.json",
    "report/study3/data/drake_e22_point.json"
   ]
  },
@@ -1331,6 +1401,7 @@
   "grasp acquisition": "from the open finger, closing to O's setpoint draws the cylinder in against a load; measure = distance drawn in",
   "fingertip dial": "the distal pad alone drives a dial against a torsional spring as the finger sweeps open-loop from O's touch angle; z: a disk whose top face the pad drags, y: a rim pushed tangentially; the proximal pad never touches; measure = rotation (experiment 28)",
   "fingertip coin drag": "the distal pad alone drags a 2 mm coin (tethered at 45 N/m, coin-table mu 0.2) toward the MCP on a table sprung at 30 N/m, sweeping 45-55 deg open-loop from O's touch angle; measure = the coin's travel at the end (experiment 30b; time step 0.25 ms)",
+  "thumb-index pinch rotate": "a sphere (radius 8-12 mm, cylinder_radius_mm) is pinched between the index distal pad and a thumb pad identical on every hand, pressed by a 40 N/m spring at thumb_preload_n; the index sweeps sweep_deg open-loop from O's flexion q0_deg and turns the sphere against a torsional spring (tip_spring_nm_rad); measure = the sphere's rotation from the sweep's start; lost = either pad's normal force below 0.067 N at the end or for 0.1 s; penetration_max_mm = largest pad normal force / 2.5 N/mm (gate 1.5 mm) (experiment 33; time step 0.25 ms)",
   "in-hand rolling": "after the grasp, an open-loop flexion sweep of 8 or 15 deg rolls the cylinder; measure = rotation"
  },
  "events": {

@@ -473,6 +473,65 @@ def cmd_analyze(a) -> int:
     return 0
 
 
+def cmd_summary(a) -> int:
+    """The Study 3 summary (report/study3/data/drake_e33_pinch.json): the analysis, and the sweep's rotation
+    deviation from O over every kept draw in fig4_sync.json's 'deviation' structure (x = time from the sweep's start,
+    s; per hand and mu the median, quartiles and n of rot_H(t) - rot_O(t), deg), plus O's own rotation curve."""
+    from analyze import DESIGN, spearman_perm
+    keep, excl = o_keep(a.tag)
+    o = _load("O", a.tag)
+    rows = []
+    for hand, (dc, ds) in DESIGN.items():
+        r = hand_error(hand, a.tag, keep)
+        if r is not None:
+            rows.append({"hand": hand, "d_contact": dc, "d_skel": ds, **r})
+    rho = lambda key, cand: list(spearman_perm([r[cand] for r in rows], [r[key] for r in rows]))
+    dev, n_min = {}, None
+    for hand in ("R", "U"):
+        h = _load(hand, a.tag)
+        for mu in MU:
+            ys = []
+            for k in keep:
+                x_o, x_h = o[k][f"{mu:g}"], h[k][f"{mu:g}"]
+                if "solver_fail" in x_h or is_lost(x_h) or max(h[k][f"{m:g}"]["pen_mm"] for m in MU) > PEN_MM:
+                    continue
+                ro, rh = np.array(x_o["trace"])[:, 0], np.array(x_h["trace"])[:, 0]
+                n = min(len(ro), len(rh))
+                ys.append(rh[:n] - ro[:n])
+            n = min(map(len, ys))
+            n_min = n if n_min is None else min(n_min, n)
+            y = np.array([v[:n] for v in ys])
+            dev[f"{hand}_{mu:g}"] = {"median": np.round(np.median(y, 0), 4).tolist(),
+                                     "q25": np.round(np.percentile(y, 25, 0), 4).tolist(),
+                                     "q75": np.round(np.percentile(y, 75, 0), 4).tolist(), "n": len(ys)}
+    dev["x"] = [round((i + 1) * T.DT_ENV, 4) for i in range(n_min)]
+    o_rot = {}
+    for mu in MU:
+        y = np.array([np.array(keep[k][MU.index(mu)]["trace"])[:n_min, 0] for k in keep])
+        o_rot[f"{mu:g}"] = {"median": np.round(np.median(y, 0), 4).tolist(),
+                            "q25": np.round(np.percentile(y, 25, 0), 4).tolist(),
+                            "q75": np.round(np.percentile(y, 75, 0), 4).tolist(), "n": len(y)}
+    nz = hand_error("O", a.noise_tag, keep)
+    out = {"tag": a.tag, "metric": "rotation_deg (sphere, from the sweep's start)", "o_survive": len(keep),
+           "o_excluded": excl, "o_pen_max_mm": max(max(x["pen_mm"] for x in v) for v in keep.values()),
+           "d_o_deg": {str(k): v[1]["rotation_deg"] - v[0]["rotation_deg"] for k, v in keep.items()},
+           "rows": rows, "noise_floor": {"tag": a.noise_tag, **nz},
+           "E_rho": {"contact": rho("E", "d_contact"), "skel": rho("E", "d_skel")},
+           "E_over_as_max_rho": {"contact": rho("E_sens", "d_contact"), "skel": rho("E_sens", "d_skel")},
+           "deviation": dev, "o_rotation": {"x": dev["x"], **o_rot},
+           "note": "Experiment 33 (docs/experimental/drake_pinch.md): thumb-index pinch, the index distal pad turns a "
+                   "sphere (k_r 0.25-0.40 N m/rad) against an identical thumb pad on a 40 N/m spring, 64 draws (seed "
+                   "33), condition A, point contact, time step 0.25 ms. deviation: rot_H(t) - rot_O(t) per draw over "
+                   "the sweep and hold (x: time from the sweep's start, s), median/q25/q75 over kept draws; "
+                   "o_rotation: O's own rotation."}
+    a.out.write_text(json.dumps(out, indent=1, default=float))
+    for k in ("R_1.3", "U_1.3", "R_2", "U_2"):
+        m = np.array(dev[k]["median"])
+        print(f"{k}: median deviation peak {m[np.argmax(abs(m))]:+.3f} deg, end {m[-1]:+.3f} deg, n {dev[k]['n']}")
+    print(f"O end rotation median: {o_rot['1.3']['median'][-1]:.2f} / {o_rot['2']['median'][-1]:.2f} deg -> {a.out}")
+    return 0
+
+
 def cmd_check(a) -> int:
     """O-only (or any hand) summary without E: lost, penetration, proximal contact, rotation, D."""
     for hand in a.hands:
@@ -544,6 +603,10 @@ def main() -> int:
     pc.add_argument("--hands", nargs="+", default=["O"])
     pc.add_argument("--show_d", action="store_true")
     pc.add_argument("--verbose", action="store_true")
+    ps = sub.add_parser("summary")
+    ps.add_argument("--tag", default="e33")
+    ps.add_argument("--noise_tag", default="e33n")
+    ps.add_argument("--out", type=Path, required=True)
     pf = sub.add_parser("frames")
     pf.add_argument("--draws", type=Path, required=True)
     pf.add_argument("--draw", type=int, default=0)
@@ -557,7 +620,8 @@ def main() -> int:
                                      "ranges": RANDOM, "config": DEFAULTS, "draws": draws}, indent=1))
         print(f"{len(draws)} draws -> {a.out}")
         return 0
-    return {"run": cmd_run, "analyze": cmd_analyze, "check": cmd_check, "frames": cmd_frames}[a.cmd](a)
+    return {"run": cmd_run, "analyze": cmd_analyze, "check": cmd_check, "frames": cmd_frames,
+            "summary": cmd_summary}[a.cmd](a)
 
 
 if __name__ == "__main__":

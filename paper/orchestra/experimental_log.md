@@ -410,3 +410,11 @@ The manuscript should not cite these any more:
 
 Fig. 4(a): `report/study3/data/renders/render_hold{0,1,2}.png` are now the isometric power-grasp frames (palm up, seen from above), with the same file names. Re-run fig_study3.py and check the crop.
 
+
+## Study 3: thumb–index pinch rotate (experiment 33, pre-registered 3ae7026; results fae4d3f; added to Study 3 2026-11-25 by user decision)
+
+- Task. The index distal pad turns a sphere (diameter 16–24 mm) 2–7° against a torsional spring (0.25–0.40 N·m/rad). Only the index is redesigned. An opposing thumb pad holds the sphere from the other side; it is identical on every hand (same pad stiffness and μ) and pressed along the squeeze normal by a soft 40 N/m spring (preload 0.4–0.8 N). The index sweeps 18–28° open-loop from O's flexion (condition A).
+- 64 randomized starts (seed 33), the same for every hand. On O, D is 1.3–4.5°, all positive. Every hand keeps both contacts (lost 0) and none is over-pressed (penetration at most 0.96 mm). Time step 0.25 ms.
+- Result: ρ(E, Δ_contact) 0.51, permutation p 0.016; ρ(E, Δ_skel) 0.16; R 1.7%, U 11.4%; noise floor 0.99% (75th percentile 1.94%).
+- Small-effect caveat (state it if the task is used). The soft thumb spring absorbs the index path difference. Over time, R − O stays within ±0.05° (median), and U − O peaks at +0.56° (μ 1.3) and +0.89° (μ 2.0), ending at +0.15° and +0.31°; O itself turns 4.1° and 6.6° (medians). Five hands, R among them, err below the noise floor's 75th percentile. The ordering holds, but the errors are small. A stiffer thumb would break the 1.5 mm penetration gate.
+- Data: report/study3/data/drake_e33_pinch.json (with the trajectory-deviation bands in `deviation`). Raw runs: report/study3/data/raw/runs_drake_pinch.csv. Renders: report/study3/data/renders/render_pinch{0,1,2}.png; strip report/study3/figures/fingertip_pinch.png. Log: docs/experimental/drake_pinch.md.
