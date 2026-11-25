@@ -45,11 +45,75 @@ def usd_render(path):
     return out.astype(np.uint8)
 
 
+def oblique(ax, poly, depth=(1.6, 1.0), fc="#cccccc", ec="#555555", top="#e6e6e6", side="#b3b3b3", lw=0.4, z=1):
+    """An extruded 2-D section drawn in oblique projection: front face, plus the visible top and right faces."""
+    from matplotlib.patches import Polygon
+    P = np.asarray(poly, float)
+    d = np.asarray(depth, float)
+    n = len(P)
+    for k in range(n):  # side faces whose outward normal points up or right (visible)
+        a, b = P[k], P[(k + 1) % n]
+        e = b - a
+        nrm = np.array([e[1], -e[0]])  # outward for counter-clockwise polygons
+        if nrm @ d > 1e-9:
+            ax.add_patch(Polygon([a, b, b + d, a + d], fc=top if abs(e[0]) > abs(e[1]) else side, ec=ec, lw=lw,
+                                 zorder=z))
+    ax.add_patch(Polygon(P, fc=fc, ec=ec, lw=lw, zorder=z + 0.1))
+
+
+def honeycomb_section(x0, x1, y0, y1, cell=1.15, wall=0.22):
+    """A honeycomb (hexagonal) lattice clipped to the box: returns the solid walls as a shapely geometry.
+    Hexagons of circumradius ``cell`` (flat sides up), walls of thickness ``wall``."""
+    from shapely.geometry import Polygon as SP, box
+    from shapely.ops import unary_union
+    r = cell
+    w, hgt = 1.5 * r, np.sqrt(3) * r
+    holes = []
+    for i in range(int((x1 - x0) / w) + 3):
+        for j in range(int((y1 - y0) / hgt) + 3):
+            cx = x0 + i * w
+            cy = y0 + j * hgt + (hgt / 2 if i % 2 else 0)
+            ang = np.radians(np.arange(0, 360, 60))
+            holes.append(SP(np.c_[cx + (r - wall / 2) * np.cos(ang), cy + (r - wall / 2) * np.sin(ang)]))
+    outer = box(x0, y0, x1, y1)
+    return outer.difference(unary_union(holes)).intersection(outer)
+
+
 def icon(ax, kind):
     """A cross-section sketch of one contact interface on its module base (illustrative, not to scale)."""
     from matplotlib.patches import Rectangle, Polygon, FancyBboxPatch
     ax.set_xlim(0, 10); ax.set_ylim(-5.2, 1.6); ax.set_aspect("equal"); ax.axis("off")
     ax.add_patch(Rectangle((0.5, 0.0), 9.0, 1.0, fc="#c9cdd2", ec=INK2, lw=0.5))  # module base on the phalanx
+    if kind == "honeycomb":  # compliant pad: hexagonal lattice, front face with its cells, extruded (oblique)
+        from matplotlib.patches import Polygon as Pg
+        x0, x1, y0, y1, r, wall = 0.7, 9.3, -3.6, -0.05, 0.55, 0.16
+        d = np.array([0.8, 0.55])
+        oblique(ax, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], depth=d, fc="#6f9fe0", ec=PAD, top="#a9c4ee",
+                side="#4f7fc4", lw=0.3, z=1)
+        w_, h_ = 1.5 * r, np.sqrt(3) * r
+        ang = np.radians(np.arange(0, 360, 60))
+        from shapely.geometry import Polygon as SP, box
+        frame = box(x0 + wall, y0 + wall, x1 - wall, y1 - wall)
+        for i in range(int((x1 - x0) / w_) + 2):
+            for j in range(int((y1 - y0) / h_) + 2):
+                cx = x0 + i * w_
+                cy = y0 + j * h_ + (h_ / 2 if i % 2 else 0)
+                cellp = SP(np.c_[cx + (r - wall / 2) * np.cos(ang), cy + (r - wall / 2) * np.sin(ang)])
+                hole = cellp.intersection(frame)
+                if hole.is_empty or hole.area < 0.05:
+                    continue
+                xy = np.array(hole.exterior.coords)
+                ax.add_patch(Pg(xy, fc="#2f5fa8", ec="none", zorder=1.2))           # cell interior (shadow)
+                inner = SP(xy + d * 0.55).intersection(hole)                          # far end of the cell, lit
+                if not inner.is_empty and inner.geom_type == "Polygon":
+                    ax.add_patch(Pg(np.array(inner.exterior.coords), fc="#dbe6f6", ec="none", zorder=1.3))
+        return
+    if kind == "traction":  # black traction pad with a tread
+        pts = [(0.5, -2.0), (9.5, -2.0), (9.5, 0.0), (0.5, 0.0)]
+        oblique(ax, pts, depth=(1.0, 0.7), fc="#1d1d1d", ec="#000000", top="#3a3a3a", side="#2a2a2a", lw=0.3)
+        for x in np.arange(0.9, 9.3, 0.8):  # transverse ribs
+            ax.add_patch(Rectangle((x, -2.45), 0.45, 0.45, fc="#111111", ec="#000000", lw=0.2, zorder=2))
+        return
     if kind == "thin":
         ax.add_patch(Rectangle((0.5, -0.8), 9.0, 0.8, fc="#5b7fc7", ec=PAD, lw=0.5))
     elif kind == "thick":
@@ -185,7 +249,7 @@ def main() -> int:
     ax = fig.add_axes((*inch(0.08, by + 0.10), nw / width, nh / height))
     ax.imshow(nari); ax.axis("off")
     fig.text(*inch(0.08 + nw / 2, by + 0.08), "NARI-Touch tactile", fontsize=5.8, ha="center", va="top")
-    kinds = (("thick", "thick compliant"), ("textured", "textured skin"), ("thin", "thin rigid"))
+    kinds = (("honeycomb", "honeycomb compliant"), ("traction", "traction pad"), ("thin", "thin rigid"))
     iw, ih = 0.68, 0.30
     for k, (kk, nm) in enumerate(kinds):
         x = 0.95 + k * (iw + 0.15)
