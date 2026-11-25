@@ -286,13 +286,14 @@ def main() -> int:
     from matplotlib.patches import FancyArrowPatch
     plt.rcParams.update({"font.family": "serif", "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
                          "mathtext.fontset": "stix", "font.size": 7})
-    width, height = 3.45, 3.62
+    width, height = 3.45, 4.15
     fig = plt.figure(figsize=(width, height))
     d = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_dose_A_all.json"))["hands"]
+    from matplotlib.patches import Ellipse
 
     def inch(x, y):
         return x / width, y / height
-    # top: the whole hand manipulating a cube (Isaac Lab visual USD, render_grasp.py) and one finger from the CAD
+    # 1. top: the whole hand manipulating a cube (Isaac Lab USD) and one finger from the CAD, its pad seats circled
     hand = usd_render(CAD / "usd_hand_cube.png")
     hw = 1.30
     hh = hw * hand.shape[0] / hand.shape[1]
@@ -302,57 +303,29 @@ def main() -> int:
     fin = np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))
     fw = 2.05
     fh = fw * fin.shape[0] / fin.shape[1]
-    fy = height - 0.30 - fh
+    fy = height - 0.32 - fh
     f = fig.add_axes((*inch(1.38, fy), fw / width, fh / height))
     f.imshow(fin); f.axis("off")
     fig.text(*inch(1.38, height - 0.02), "one finger (CAD): crossed four-bar PIP,\nremote PIP servo", fontsize=6.3,
              fontweight="bold", va="top", linespacing=1.0)
-    x0, x1, yb = 880, 2000, 690
-    f.plot([x0, x0, x1, x1], [yb - 50, yb, yb, yb - 50], color=PAD, lw=0.8, clip_on=False)
-    f.text((x0 + x1) / 2, yb + 30, "room for thick interfaces\non both phalanges", color=PAD, fontsize=6.0,
-           ha="center", va="top", clip_on=False, linespacing=1.0)
-    fy = min(fy - 0.30, height - 0.16 - hh)
-    # two arrows into the two redesigns
-    top = fy - 0.12
-    for xe, col in ((0.95, HAND_C["R"]), (2.50, HAND_C["U"])):
-        fig.patches.append(FancyArrowPatch(inch(1.73, top), inch(xe, top - 0.30), transform=fig.transFigure,
-                                           arrowstyle="-|>", mutation_scale=8, lw=1.2, color=col,
-                                           connectionstyle="arc3,rad=0.0"))
-    fig.text(*inch(1.73, top + 0.02), "thicker interface: redesign the finger around ...", fontsize=6.3, color=INK2,
-             ha="center", va="bottom", style="italic")
-    panels = (("R", "contact-surface motion", d["R"]),
-              ("U", "skeleton (links kept)", d["U"]))
-    sw, sh = 1.55, 0.95
-    py = top - 0.36 - sh
-    for i, (kind, name, rec) in enumerate(panels):
-        px = 0.12 + i * (sw + 0.10)
-        col = HAND_C[kind]
-        fig.text(*inch(px + sw / 2, top - 0.33), name, fontsize=6.8, color=col, fontweight="bold", ha="center",
-                 va="top")
-        ax = fig.add_axes((*inch(px, py - 0.05), sw / width, sh / height))
-        finger_sketch(ax, col, kind)
-        verdict = "interface effect read correctly" if kind == "R" else "interface effect distorted"
-        fig.text(*inch(px + sw / 2, py - 0.04),
-                 f"error {rec['E_rel_median'] * 100:.0f}%: {verdict}", fontsize=6.3, color=col, ha="center",
-                 va="top", fontweight="bold")
-    fig.text(*inch(width / 2, py - 0.17), "purple: pole;  dashed: original contact motion", fontsize=5.6,
-             color=INK2, ha="center", va="top")
-    # bottom: contact interfaces to carry
-    by = 0.06
-    fig.text(*inch(0.02, by + 0.76), "contact interfaces to carry", fontsize=6.6, fontweight="bold", va="top")
-    # four interfaces in equal boxes, each drawing scaled to fill its box the same way
-    bw, bh, gap = 0.74, 0.44, 0.105
+    seats = ((1250, 530, 450, 190), (2215, 485, 340, 220))  # proximal and distal pad seats (image px: x, y, w, h)
+    for cx, cy, ew, eh in seats:
+        f.add_patch(Ellipse((cx, cy), ew, eh, fc="none", ec=PAD, lw=0.9, ls=(0, (3, 2)), clip_on=False, zorder=5))
+    # 2. the contact interfaces, which go into those seats
+    row_top = min(fy, height - 0.16 - hh) - 0.30
+    bw, bh, gap = 0.74, 0.40, 0.105
+    by = row_top - bh
+    fig.text(*inch(0.02, row_top + 0.16), "contact interfaces", fontsize=6.6, fontweight="bold", va="top")
     names = (("nari", "NARI-Touch Tactile"), ("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"),
              ("soft", "Solid Soft Pad"))
     for k, (kk, nm) in enumerate(names):
         x = 0.08 + k * (bw + gap)
-        ax = fig.add_axes((*inch(x, by + 0.14), bw / width, bh / height))
+        ax = fig.add_axes((*inch(x, by), bw / width, bh / height))
         if kk == "nari":
             nari = np.asarray(Image.open(CAD / "nari_touch.png").convert("RGB"))
             ax.imshow(nari); ax.axis("off")
         else:
             icon(ax, kk)
-            # fit the drawing to its box: the extent of everything drawn, padded equally
             pts = []
             for art in list(ax.patches) + list(ax.lines):
                 xy = art.get_xy() if hasattr(art, "get_xy") else np.c_[art.get_xdata(), art.get_ydata()]
@@ -362,7 +335,38 @@ def main() -> int:
             pad = 0.06 * max(x1 - x0, y1 - y0)
             ax.set_xlim(x0 - pad, x1 + pad); ax.set_ylim(y0 - pad, y1 + pad)
             ax.set_aspect("equal", adjustable="box", anchor="C")
-        fig.text(*inch(x + bw / 2, by + 0.10), nm, fontsize=5.8, ha="center", va="top")
+        fig.text(*inch(x + bw / 2, by - 0.03), nm, fontsize=5.8, ha="center", va="top")
+    # arrow from the interfaces up into the circled seats
+    seat_fig = fig.transFigure.inverted().transform(f.transData.transform((1300, 640)))
+    seat2 = fig.transFigure.inverted().transform(f.transData.transform((2235, 610)))
+    src = inch(2.20, row_top + 0.04)
+    for tgt in (seat_fig, seat2):
+        fig.patches.append(FancyArrowPatch(src, tuple(tgt), transform=fig.transFigure, arrowstyle="-|>",
+                                           mutation_scale=7, lw=0.9, color=PAD, connectionstyle="arc3,rad=0.0"))
+    fig.text(*inch(2.12, row_top + 0.08), "go into the circled seats", fontsize=5.8, color=PAD, style="italic",
+             va="center", ha="right")
+    # 3. design reoptimization for a thicker interface: around the contact-surface motion (R) or the skeleton (U)
+    top = by - 0.30
+    fig.text(*inch(1.73, top + 0.02), "design reoptimization for a thicker interface, around ...", fontsize=6.3,
+             color=INK2, ha="center", va="bottom", style="italic")
+    for xe, col in ((0.95, HAND_C["R"]), (2.50, HAND_C["U"])):
+        fig.patches.append(FancyArrowPatch(inch(1.73, top), inch(xe, top - 0.28), transform=fig.transFigure,
+                                           arrowstyle="-|>", mutation_scale=8, lw=1.2, color=col))
+    panels = (("R", "contact-surface motion", d["R"]), ("U", "skeleton (links kept)", d["U"]))
+    sw, sh = 1.55, 0.95
+    py = top - 0.34 - sh
+    for i, (kind, name, rec) in enumerate(panels):
+        px = 0.12 + i * (sw + 0.10)
+        col = HAND_C[kind]
+        fig.text(*inch(px + sw / 2, top - 0.31), name, fontsize=6.8, color=col, fontweight="bold", ha="center",
+                 va="top")
+        ax = fig.add_axes((*inch(px, py - 0.05), sw / width, sh / height))
+        finger_sketch(ax, col, kind)
+        verdict = "interface effect read correctly" if kind == "R" else "interface effect distorted"
+        fig.text(*inch(px + sw / 2, py - 0.04), f"error {rec['E_rel_median'] * 100:.0f}%: {verdict}", fontsize=6.3,
+                 color=col, ha="center", va="top", fontweight="bold")
+    fig.text(*inch(width / 2, py - 0.17), "purple: pole;  dashed: original contact motion", fontsize=5.6,
+             color=INK2, ha="center", va="top")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
