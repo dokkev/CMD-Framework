@@ -380,10 +380,10 @@ def main() -> int:
                                        arrowstyle="->", mutation_scale=8, lw=0.8, color="k"))
     eqR = r"$\min_{M\in\mathcal{F}}\;(\Delta_\mathrm{contact}(M,M_0),\,-\bar{C}_\mathrm{pad}(M))$"
     eqU = r"$\max_{M\in\mathcal{F}}\;\bar{C}_\mathrm{pad}(M)$"
-    for k, (lab, col, eq) in enumerate((("R", BLUE_, eqR), ("U", ORANGE_, eqU))):
+    for k, (lab, col, eq) in enumerate((("CoDe", BLUE_, eqR), ("Conv.", ORANGE_, eqU))):
         yy = y - 0.30 - k * 0.24
         fig.text(*inch(1.15, yy), f"{lab}:", fontsize=7, color=col, ha="left", va="center", **BOLD)
-        fig.text(*inch(1.35, yy), eq, fontsize=6.8, ha="left", va="center", math_fontfamily="stixsans")
+        fig.text(*inch(1.62, yy), eq, fontsize=6.8, ha="left", va="center", math_fontfamily="stixsans")
     # (e) the task: a fingertip turns a sprung dial (report/study3/figures/fingertip_disk.png)
     y -= 0.82
     fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
@@ -420,8 +420,8 @@ def main() -> int:
     # (f, g) the two redesigns: measured pad effect against O's, and the contact surface's offset from O
     y -= 0.30 + sh_
     ref = np.array(paths["O"]["contact"])
-    for i, (kind, col, letter, title) in enumerate((("R", BLUE_, "f", "contact-preserving redesign (R)"),
-                                                    ("U", ORANGE_, "g", "coverage-only redesign (U)"))):
+    for i, (kind, col, letter, title) in enumerate((("R", BLUE_, "f", "CoDe redesign"),
+                                                    ("U", ORANGE_, "g", "conventional redesign"))):
         y0 = y - i * 0.98
         fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y0 + 0.05) / H_] * 2, transform=fig.transFigure,
                                     color="0.6", lw=0.5))
@@ -430,7 +430,7 @@ def main() -> int:
         ba = fig.add_axes((*inch(0.32, y0 - 0.70), 1.15 / W_, 0.42 / H_))
         ba.barh([1, 0], [cc["true_change_pct"], cc["measured_change_pct"]], height=0.6, color=["0.6", col])
         ba.axvline(0, color="k", lw=0.6)
-        ba.set_yticks([1, 0]); ba.set_yticklabels(["O", kind], fontsize=5.8)
+        ba.set_yticks([1, 0]); ba.set_yticklabels(["original", {"R": "CoDe", "U": "conv."}[kind]], fontsize=5.8)
         ba.set_xlim(-80, 80); ba.set_xticks([]); ba.set_ylim(-0.6, 1.6)
         ba.set_xlabel("pull-out change, softer pad", fontsize=5.6, labelpad=2)
         ba.tick_params(length=0, pad=2)

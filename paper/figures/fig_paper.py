@@ -910,9 +910,9 @@ def table():
              ("Drake, hydroelastic, thickness-dependent",
               {r["hand"]: r for r in json.load(open(S3 / "drake_e25_hydro_own.json"))}, "E"))
     lines = [r"\begin{table}[t]", r"  \centering",
-             r"  \caption{Error of $R$ and $U$ by contact model (pull-out, pad friction change)}",
+             r"  \caption{Error of \ourmethod{} and Conventional by contact model (pull-out, pad friction change)}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    Contact model & $R$ & $U$ \\", r"    \midrule"]
+             r"    Contact model & \ourmethod{} & Conventional \\", r"    \midrule"]
     for name, d, key in rowsd:
         lines.append(f"    {name} & ${100 * d['R'][key]:.0f}\\%$ & ${100 * d['U'][key]:.0f}\\%$ \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
