@@ -369,7 +369,7 @@ def main() -> int:
         fig.text(*inch(x + 0.15, r2t - 0.18), text, fontsize=8, ha="left", va="center", **BOLD)
     step(0.30, 1, "Add contact interface")
     step(2.55, 2, "Re-optimize mechanism")
-    for k_, (hh_, lab_, fc_) in enumerate(((0.55, "$h$ = 3 mm", "#c7d8f0"), (1.30, "$h$ = 7 mm", "#6f9fe0"))):
+    for k_, (hh_, lab_, fc_) in enumerate(((0.55, "thin pad", "#c7d8f0"), (1.30, "thicker pad", "#6f9fe0"))):
         pa_ = fig.add_axes((*inch(0.32 + k_ * 0.82, r2t - r2h + 0.20), 0.62 / W_, 0.42 / H_))
         iso_pad(pa_, hh_, fc_, "#5a8bd4", "#4677c4", PAD)
         pa_.set_xlim(-6.5 * 0.866 - 0.4, 4.5 * 0.866 + 0.4); pa_.set_ylim(-0.6, 7.4)
@@ -415,8 +415,6 @@ def main() -> int:
         vals = ((cc["true_change_pct"], "true (O)", "#9a9a9a"), (cc["measured_change_pct"], f"measured ({kind})", col))
         for j, (v, lab, c_) in enumerate(vals):
             ba.barh(1 - j, v, height=0.62, color=c_, edgecolor="none")
-            ba.text(v + (4 if v > 0 else -4), 1 - j, f"{v:+.0f}%".replace("-", "\u2212"), va="center",
-                    ha="left" if v > 0 else "right", fontsize=6.4)
             ba.text(5 if v < 0 else -5, 1 - j, lab, va="center", ha="left" if v < 0 else "right", fontsize=6.2,
                     color=c_ if j else INK2)
         ba.axvline(0, color=INK, lw=0.6)
@@ -433,32 +431,30 @@ def main() -> int:
         qd = np.linspace(0, 120, len(dev))
         da.axhspan(0, 1.0, color=LBLUE, lw=0, zorder=0)
         da.plot(qd, dev, color=col, lw=1.4)
-        da.set_xlim(0, 120); da.set_ylim(0, 4.5); da.set_xticks([0, 60, 120]); da.set_yticks([0, 2, 4])
+        da.set_xlim(0, 120); da.set_ylim(0, 4.5); da.set_xticks([]); da.set_yticks([])
         da.tick_params(labelsize=5.6, length=2, pad=1)
         for sp in ("top", "right"):
             da.spines[sp].set_visible(False)
-        da.set_xlabel("flexion (deg)", fontsize=5.8, labelpad=0)
-        da.set_ylabel("off O (mm)", fontsize=5.8, labelpad=1)
+        da.set_xlabel("flexion", fontsize=5.8, labelpad=1)
+        da.set_ylabel("offset from O", fontsize=5.8, labelpad=1)
         fig.text(*inch(x0 + 2.72, r3t - 0.40), "distal contact surface", fontsize=6.2, color=INK2, ha="center",
                  va="center")
         # 3. what each redesign kept: skeleton change against contact-surface change, and coverage
         box(x0 + 0.10, r3t - ph + 0.06, pw - 0.20, 0.24, lc, col, r=0.05, lw=0.6)
-        bold_s = d[kind]["D_s_mm"] > 5
-        fig.text(*inch(x0 + 0.75, r3t - ph + 0.18), rf"skeleton change {d[kind]['D_s_mm']:.1f} mm", fontsize=6.4,
-                 ha="center", va="center", **(BOLD if bold_s else {}))
-        fig.text(*inch(x0 + 1.88, r3t - ph + 0.18), rf"contact change {d[kind]['D_c_mm']:.2f} mm", fontsize=6.4,
-                 ha="center", va="center", color=col, **BOLD)
-        fig.text(*inch(x0 + 2.95, r3t - ph + 0.18), rf"coverage {d[kind]['C_pad']:.2f}", fontsize=6.4,
-                 ha="center", va="center")
+        words = {"R": ("skeleton: changed more", "contact surfaces: kept", "coverage: same"),
+                 "U": ("skeleton: changed less", "contact surfaces: moved", "coverage: same")}[kind]
+        for xx, w_, bb in zip((0.70, 1.80, 2.90), words, (kind == "R", True, False)):
+            fig.text(*inch(x0 + xx, r3t - ph + 0.18), w_, fontsize=6.4, ha="center", va="center",
+                     color=col if bb and xx > 1 else INK, **(BOLD if bb else {}))
     # legend
     ly = r3t - ph - 0.12
     fig.patches.append(FancyBboxPatch(inch(2.40, ly - 0.04), 0.25 / W_, 0.08 / H_, boxstyle="square,pad=0",
                                       transform=fig.transFigure, fc="#9a9a9a", ec="none"))
-    fig.text(*inch(2.72, ly), "O (reference, $h$ = 3 mm)", fontsize=7, va="center")
+    fig.text(*inch(2.72, ly), "O (reference, thin pads)", fontsize=7, va="center")
     for k, c_ in enumerate((BLUE_, ORANGE_)):
         fig.lines.append(plt.Line2D([(3.95 + k * 0.32) / W_, (4.22 + k * 0.32) / W_], [ly / H_] * 2,
                                     transform=fig.transFigure, color=c_, lw=1.4))
-    fig.text(*inch(4.62, ly), "redesigns ($h$ = 7 mm); shaded: within 1 mm of O", fontsize=7, va="center")
+    fig.text(*inch(4.62, ly), "redesigns for a thicker pad; shaded: close to O", fontsize=7, va="center")
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "fig_cad.png"
     fig.savefig(out, dpi=400)
