@@ -947,7 +947,7 @@ def table():
     lines = [r"\begin{table}[t]", r"  \centering",
              r"  \caption{Error in the measured pad effect as the pad change and the contact model vary (pull-out, "
              r"$7$\,mm pads). $^{a}$Six $7$\,mm redesigns. $^{b}$Pads soften with thickness "
-             r"(stiffness $\propto 1/h$); the reference is $O$ carrying the same pad.}",
+             r"(stiffness $\propto 1/h$, an upper bound on the softening); the reference is $O$ carrying the same pad.}",
              r"  \label{tab:robust}", r"  \begin{tabular}{llrr}", r"    \toprule",
              r"    Pad change & Simulator, contact & \ourmethod{} & Conventional \\", r"    \midrule"]
     for name, sim, d in rowsd:
