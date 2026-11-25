@@ -127,6 +127,13 @@ def main(argv=None) -> int:
 
     stem = args.usd.name.split("_thumbpad")[0].split("_ball")[0]
     desc = Description.load(ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json")
+    if max(POSE["pip"].values()) > 120.0:  # the description's tables stop at 120 deg: tables to 180 deg, made with
+        # design/scripts/export/code_hand_sim.four_bar_table (PIP_RANGE_DEG = (-10, 180)) in the design env
+        import json as _j
+        tag = stem.split("_")[-1]
+        tab = _j.loads((ROOT.parents[1] / "design" / "output" / "paper" / f"four_bar_{tag}_180.json").read_text())
+        for dg in desc.four_bar:
+            desc.four_bar[dg] = tab
 
     def build(obj=None):
         b = newton.ModelBuilder()
