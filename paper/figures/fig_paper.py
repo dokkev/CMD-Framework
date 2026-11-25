@@ -859,26 +859,21 @@ def fig4():
         clean(ra)
         # every redesign: measured effect as a share of O's
         sa = fig.add_axes(((x0 + 0.25) / W, 0.50 / h, (cw - 0.30) / W, 0.66 / h))
-        sa.axhline(100, color=INK, lw=0.7, zorder=1)
         hd = T[key]["hands"]
+        agree = {k: 100 * (1 - v["E"]) for k, v in hd.items()}  # 100%: the same effect as O's
         for k, v in hd.items():
             if k in ("R", "U"):
                 continue
-            sa.plot(v["d_contact"], 100 * v["ratio_median"], ls="none", marker="o", ms=2.8, color="#b5b5b2",
-                    mec="none", zorder=2)
+            sa.plot(v["d_contact"], agree[k], ls="none", marker="o", ms=2.8, color="#b5b5b2", mec="none", zorder=2)
         for k in ("R", "U"):
-            v = hd[k]
-            sa.plot(v["d_contact"], 100 * v["ratio_median"], ls="none", marker="o", ms=4.0, color=HC[k], zorder=3)
-            sa.annotate(f"{100 * v['ratio_median']:.0f}%", (v["d_contact"], 100 * v["ratio_median"]),
-                        xytext=(4, 0), textcoords="offset points", fontsize=5.6, va="center", color=INK)
-        ys = [100 * v["ratio_median"] for v in hd.values()]
-        lo, hi = min(min(ys), 100), max(max(ys), 100)
-        pad = 0.12 * (hi - lo)
-        sa.set_ylim(lo - pad, hi + pad)
+            sa.plot(hd[k]["d_contact"], agree[k], ls="none", marker="o", ms=4.0, color=HC[k], zorder=3)
+            sa.annotate(f"{agree[k]:.0f}%", (hd[k]["d_contact"], agree[k]), xytext=(4, 0), textcoords="offset points",
+                        fontsize=5.6, va="center", color=INK)
+        sa.set_ylim(0, 105); sa.set_yticks([0, 50, 100])
         sa.set_xlim(0, 5.8)
         sa.set_xlabel("$\\Delta_{contact}$ (mm)", labelpad=1)
         if i == 0:
-            sa.set_ylabel("effect vs. O (%)", labelpad=1, fontsize=5.6)
+            sa.set_ylabel("agreement with O (%)", labelpad=1, fontsize=5.6)
         clean(sa)
     handles = [plt.Line2D([], [], color=INK, lw=1.0, label="O (reference)"),
                plt.Line2D([], [], color=BLUE, lw=1.0, marker="o", ms=3.5, label="R: contact-preserving"),
