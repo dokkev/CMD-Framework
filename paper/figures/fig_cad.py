@@ -325,6 +325,15 @@ def main() -> int:
     bw, bh, gap = 0.74, 0.40, 0.105
     by = row_top - bh
     fig.text(*inch(width / 2, row_top + 0.16), "Contact Interfaces", fontsize=6.8, va="top", ha="center", **BOLD)
+    # swap mark: two arcs chasing each other (exchangeable modules)
+    sa = fig.add_axes((*inch(width / 2 + 0.54, row_top + 0.02), 0.17 / width, 0.17 / height))
+    sa.set_xlim(-1.3, 1.3); sa.set_ylim(-1.3, 1.3); sa.set_aspect("equal"); sa.axis("off")
+    for a0 in (20, 200):
+        t = np.radians(np.linspace(a0, a0 + 140, 40))
+        sa.plot(np.cos(t), np.sin(t), color=PAD, lw=1.1, solid_capstyle="round")
+        e = np.radians(a0 + 140)
+        sa.annotate("", xy=(np.cos(e + 0.35), np.sin(e + 0.35)), xytext=(np.cos(e), np.sin(e)),
+                    arrowprops=dict(arrowstyle="-|>", color=PAD, lw=1.1, mutation_scale=6, shrinkA=0, shrinkB=0))
     names = (("nari", "NARI-Touch Tactile"), ("honeycomb", "Compliant Structure"), ("traction", "Traction Pad"),
              ("soft", "Solid Soft Pad"))
     for k, (kk, nm) in enumerate(names):
