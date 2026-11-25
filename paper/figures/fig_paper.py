@@ -541,6 +541,8 @@ def fig2():
     # distal phalanx: B-B'-C, mid grey
     kax.plot(*np.array([B, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
     kax.plot(*np.array([B, Bp]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.plot(*np.array([Bp, C]).T, color="#9a9a98", lw=2.0, solid_capstyle="round", zorder=10)
+    kax.add_patch(Polygon([B, Bp, C], fc="#ededeb", ec="none", zorder=9))  # the distal phalanx, one rigid body
     # the crossed links A'-B and A-B', black
     for p1, p2 in ((Ap, B), (A, Bp)):
         kax.plot(*np.array([p1, p2]).T, color=INK, lw=1.1, solid_capstyle="round", zorder=12)
