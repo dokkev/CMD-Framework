@@ -360,3 +360,25 @@ v2b segment 2는 iteration 약 1026에서 멈췄다. `model_1000`은 남긴다.
 **크기:** 지금 분포에서 이 penalty는 episode당 약 0.01–0.02 (Isaac Lab 정규화 기준)로 예상된다. goal 보너스 약 5.1에 비해 작으므로 회전을 깨지 않을 것으로 본다. 이 값은 실행 전 추정이고 측정하지 않았다.
 
 v2c segment 3은 시작 직후 멈췄다.
+
+### 6.6 v2e (2026-11-25): 수평 유지 penalty를 10배로, reset dataset 점검
+
+**무엇이 바뀌었나:** v2c segment 2의 `model_1497`에서 이어서 학습한다.
+- `upright_tilt_excess`의 weight를 −0.1에서 **−1.0**으로 올렸다. 15° 자유 구간은 그대로다.
+- 나머지는 v2c/v2d와 같다: 보너스 5, entropy 0.001, std 상한 1.0, NaN 복구.
+
+**왜 바꿨나:** v2d segment 1에서 20° 안에 있던 시간이 73.6% / 71.0%로 v2c와 같았다. penalty는 episode당 −0.004로, goal 보너스의 약 0.1%였다.
+
+**판단 기준 (segment 1 뒤):** 아래 셋을 모두 만족해야 한다.
+- 두 seed 모두 20° 안 시간 > 75%
+- 30° 상한 full turn ≥ 60%
+- goals/episode ≥ 18
+
+수평 유지 시간이 그대로면 수평 유지는 더 밀지 않는다. 그 경우 v2c segment 2 `model_1497`을 release policy로 둔다.
+
+**reset dataset 점검** (`scripts/rotate_cube/filter_omnireset_resets.py`):
+- 다섯 type의 모든 row(각 10,000개)를 v2 학습 조건(접촉 모델, DR)에서 action 0으로 10 step 돌렸다.
+- 다음 경우는 버리는 기준이었다: non-finite가 된 경우, 큐브 net 접촉력이 200 N을 넘은 경우.
+- **버린 row는 0개다.** 큐브 접촉력 p99는 type별로 1.96–2.52 N이고, 최대는 14 N (reaching)이다.
+- 따라서 v2d에서 episode step 1에 생긴 onset 2건은 dataset 상태 자체 때문이 아니다. reset 때의 gain DR(×0.5–2)과 첫 policy action이 겹쳤을 가능성이 크지만 확인하지 않았다.
+- dataset은 원본을 그대로 쓴다 (`O_40f4fc6626_filtered`는 원본과 같다).
