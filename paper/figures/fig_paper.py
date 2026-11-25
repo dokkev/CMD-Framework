@@ -827,7 +827,7 @@ def fig4():
     HC = {"O": INK, "R": BLUE, "U": AMBER}
     h = 3.25
     fig = plt.figure(figsize=(W, h))
-    left, gapc = 0.30, 0.10
+    left, gapc = 0.06, 0.10
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
     for i, (name, key, img, xl, yl, el) in enumerate(cols):
         x0 = left + i * (cw + gapc)
@@ -909,10 +909,6 @@ def fig4():
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
         ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
-    fig.text(0.02 / W, (h - 1.19) / h, "deviation from O\n(0: as O)", fontsize=6.0, color=INK2,
-             rotation=90, ha="left", va="center", linespacing=1.0)
-    fig.text(0.02 / W, 0.89 / h, "bias in the friction\neffect (0: none)", fontsize=6.0, color=INK2, rotation=90,
-             ha="left", va="center", linespacing=1.0)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="Conventional"),
