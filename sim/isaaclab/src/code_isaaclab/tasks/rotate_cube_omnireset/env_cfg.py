@@ -248,6 +248,8 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     abnormal_factor: float = ABNORMAL_FACTOR
     goal_bonus: float = GOAL_BONUS
     tilt_penalty: float = TILT_PENALTY
+    joint_map: bool = False
+    """Run an O-trained policy through the contact-referenced joint maps (``joint_transfer.joint_maps``)."""
     reset_probs: dict | None = None
     """``{reset type: probability}`` (None: OmniReset's four types at 0.25)."""
     goal_offsets: dict | None = None
@@ -313,6 +315,16 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         joints = SceneEntityCfg("robot", joint_names=actuated, preserve_order=True)
         tips = SceneEntityCfg("robot", body_names=["index_distal", "middle_distal", "ring_distal", "thumb_distal"],
                               preserve_order=True)  # fmt: skip
+        if self.joint_map:
+            from .joint_transfer import joint_maps
+
+            maps = joint_maps(str(HANDS["O"]), str(desc_path))
+            self.actions.joint_pos = mdp.MappedFlexionActionCfg(
+                **{k: v for k, v in self.actions.joint_pos.to_dict().items() if k != "class_type"},
+                joint_maps={j: [[math.radians(x) for x in m["q_o_deg"]], [math.radians(x) for x in m["q_h_deg"]]]
+                            for j, m in maps.items() if j != "identity"},
+            )  # fmt: skip
+            self.observations.policy.joint_pos = ObsTerm(func=mdp.mapped_joint_pos_normalized, params={})
         self.actions.joint_pos.joint_names = actuated
         self.actions.joint_pos.four_bar_tables = tables
         obs = self.observations
@@ -325,7 +337,7 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         if self.asym_critic:
             obs.critic = ObservationsCfg.CriticCfg()
             for term in ("joint_pos", "cube_pose", "cube_goal_error"):
-                getattr(obs.critic, term).params = getattr(obs.policy, term).params
+                getattr(obs.critic, term).params = dict(getattr(obs.policy, term).params)  # managers add defaults
             if self.observe_targets:
                 obs.critic.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
             obs.critic.joint_vel.params = {"asset_cfg": joints, "four_bar_tables": tables}
@@ -432,6 +444,11 @@ TRANSFER_HANDS = ("R", "U", "R5", "U5", "R9", "U9")
 for _key in TRANSFER_HANDS:
     globals()[f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg"] = configclass(
         type(f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,), {"hand_key": _key})
+    )
+for _key in ("O", *TRANSFER_HANDS):  # the "mapped" condition (O: the maps are identity, a check)
+    globals()[f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg"] = configclass(
+        type(f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,),
+             {"hand_key": _key, "joint_map": True})
     )
 
 __all__ = ["CoDeRotateCubeOOmniResetEnvCfg", "CoDeRotateCubeOOmniResetEvalEnvCfg", "CoDeRotateCubeOOmniResetV2EnvCfg",

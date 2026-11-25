@@ -75,5 +75,57 @@ Study 4가 원래 하려던 일이다. 가설은 하나다. 접촉면 움직임(
 ## 영상
 손마다 W&B group `omnireset_transfer`에 짧은 play 영상을 올린다.
 
+## 추가 사전 등록 (2026-11-25, 해당 수치를 보기 전에 commit)
+
+이 문서 전체에 적용하는 원칙:
+- 모든 시도는 실패까지 포함해 보고한다.
+- 시도마다 주 지표를 미리 정한다.
+- 성공 정의 두 가지를 항상 같이 보고한다:
+  - 기울기 gate 없이 full turn + clean time-out (`full_turn_and_clean_timeout_rate`)
+  - goals/episode
+
+비교는 언제나 같은 두께에서 O로 학습한 정책을 R과 U에 zero-shot으로 옮긴 결과다.
+
+### 시도 1b: 인터페이스 교체 (pad μ 1.3 → 2.0)
+μ 2.0 결과는 driver가 이미 계산했지만 열어 보지 않았다.
+
+**지표:** Study 3와 같은 E. 작을수록 좋다.
+
+E(H) = |Δ(H) − Δ(O)| / |Δ(O)|, Δ(H) = perf_H(μ 2.0) − perf_H(μ 1.3)
+
+- perf: 주 지표 (upright ≤30° full turn, 두 seed 평균)
+- 보조로 같은 E를 회전 평균에도 계산한다.
+
+**예측:** 각 두께에서 E(R) < E(U).
+
+**반증:** 7 mm에서 E(R) ≥ E(U)이고, 그 차이가 잡음보다 크다.
+- 잡음: 각 손 Δ의 seed 차이를 |Δ(O)|로 나눈 값을 R과 U에 대해 더한 것
+
+**판정 불가:** |Δ(O)|가 O의 Δ seed 차이의 2배보다 작으면, 그 지표에서는 E를 판정하지 않는다.
+
+### 시도 2: contact 기준 관절 사상 ("mapped")
+**사상** (`tasks/rotate_cube_omnireset/joint_transfer.py`):
+
+| 관절 | 사상 |
+|---|---|
+| PIP | 실험 27의 contact setpoint. distal 면의 손끝 아래 점을 proximal 면 frame에서 맞춘다 |
+| MCP FE | proximal pad 면 위 세 점의 최소제곱 |
+| AA, thumb | identity. 축, anchor, thumb pad가 모든 손에서 같다 (확인함) |
+
+- 정책 action은 O 관절각으로 해석해 사상하고, 관측은 역사상해서 정책에 O 좌표로 보인다.
+- 정책, cache, seed, 지표는 unmapped와 같다.
+
+**사전 점검** (손별 최대 편차와 잔차; 수치는 아래 결과에):
+- O에서는 사상이 identity다.
+- PIP 사상은 Drake 실험 27의 7 mm R/U setpoint와 0.05° 안에서 일치한다.
+
+**주 지표:** upright ≤30° full turn (O 대비 비율).
+
+**예측:** 사상이 U를 R보다 더 돕는다: gain_U > gain_R. gain_H = ratio_H(mapped) − ratio_H(unmapped).
+
+**반증:** 7 mm에서 gain_U ≤ gain_R이고, 그 차이가 R·U의 seed 차이 합보다 크다.
+
+(원래 예측 "unmapped에서 R ≥ U"는 7 mm에서 이미 반증됐다. 결과 1 참고.)
+
 ## 결과
 (아래에 덧붙인다.)

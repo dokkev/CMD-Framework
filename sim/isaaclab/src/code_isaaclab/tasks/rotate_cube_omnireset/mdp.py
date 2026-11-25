@@ -83,6 +83,85 @@ class OmniResetFlexionActionCfg(RelativeFlexionActionCfg):
     gain_log_range: tuple[float, float] = (1.0, 1.0)
 
 
+def _interp(x: torch.Tensor, xp: torch.Tensor, fp: torch.Tensor) -> torch.Tensor:
+    """Piecewise-linear interpolation (``np.interp``: clamped at the ends) on the last table axis."""
+    i = torch.searchsorted(xp, x.clamp(xp[0], xp[-1]).contiguous()).clamp(1, len(xp) - 1)
+    x0, x1, f0, f1 = xp[i - 1], xp[i], fp[i - 1], fp[i]
+    w = torch.where(x1 > x0, (x - x0) / (x1 - x0).clamp_min(1e-12), torch.zeros_like(x))
+    return f0 + w.clamp(0, 1) * (f1 - f0)
+
+
+class MappedFlexionAction(OmniResetFlexionAction):
+    """:class:`OmniResetFlexionAction` for a policy trained on another hand: the policy's targets are that hand's joint
+    angles (PIP in flexion), mapped per joint to this hand's by ``cfg.joint_maps`` (``{joint: [q_src, q_this]}`` [rad],
+    ``joint_transfer.joint_maps``) before they reach the servos; the targets it observes stay in its own coordinates,
+    and :func:`mapped_joint_pos_normalized` maps the measured joints back."""
+
+    cfg: MappedFlexionActionCfg
+
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self._maps = {}
+        for k, name in enumerate(self._joint_names):
+            if name in cfg.joint_maps:
+                src, dst = (torch.tensor(v, device=self.device, dtype=torch.float32) for v in cfg.joint_maps[name])
+                self._maps[k] = (src, dst)
+
+    def to_this(self, q_src: torch.Tensor) -> torch.Tensor:
+        out = q_src.clone()
+        for k, (src, dst) in self._maps.items():
+            out[:, k] = _interp(q_src[:, k], src, dst)
+        return out
+
+    def to_source(self, q_this: torch.Tensor) -> torch.Tensor:
+        out = q_this.clone()
+        for k, (src, dst) in self._maps.items():
+            out[:, k] = _interp(q_this[:, k], dst, src)
+        return out
+
+    def process_actions(self, actions: torch.Tensor):
+        self._raw_actions[:] = actions
+        command = self._prev_applied_actions + self.cfg.step * actions.clamp(-1.0, 1.0)
+        command = torch.clamp(command, self._cmd_limits[..., 0], self._cmd_limits[..., 1])
+        self._prev_applied_actions[:] = command
+        here = torch.clamp(self.to_this(command), self._cmd_limits[..., 0], self._cmd_limits[..., 1])
+        self._flexion_cmd[:] = here[:, self._pip_cols]
+        self._processed_actions[:] = self._to_servo(here)
+        if self.cfg.flexion_stiffness is not None or self.cfg.flexion_damping is not None:
+            self._schedule_gains()
+
+    def reset(self, env_ids=None) -> None:
+        super().reset(env_ids)
+        ids = slice(None) if env_ids is None else env_ids
+        self._prev_applied_actions[ids] = self.to_source(self._prev_applied_actions[ids])
+
+
+@configclass
+class MappedFlexionActionCfg(OmniResetFlexionActionCfg):
+    class_type: type = MappedFlexionAction
+    joint_maps: dict = {}
+
+
+def mapped_joint_pos_normalized(env, asset_cfg: SceneEntityCfg, four_bar_tables: dict,
+                                flexion_limits_deg: tuple[float, float] = (0.0, 120.0)) -> torch.Tensor:
+    """The actuated joints as the policy's source hand would read them (:class:`MappedFlexionAction`), normalised to
+    [-1, 1] like ``flexion_joint_pos_normalized`` (PIP flexion over 0-120 deg)."""
+    from code_isaaclab.flexion_control import FlexionTables, _pip_columns
+
+    asset = env.scene[asset_cfg.name]
+    names = [asset.joint_names[i] for i in asset_cfg.joint_ids]
+    tables = FlexionTables(four_bar_tables, device=env.device)
+    pos = _t(asset.data.joint_pos)[:, asset_cfg.joint_ids].clone()
+    lo = _t(asset.data.soft_joint_pos_limits)[:, asset_cfg.joint_ids, 0].clone()
+    hi = _t(asset.data.soft_joint_pos_limits)[:, asset_cfg.joint_ids, 1].clone()
+    for k, n in _pip_columns(names, tables):
+        pos[:, k] = tables.flexion(n, pos[:, k])
+        lo[:, k], hi[:, k] = (math.radians(v) for v in flexion_limits_deg)
+    if hasattr(env, "action_manager"):
+        pos = env.action_manager.get_term("joint_pos").to_source(pos)
+    return math_utils.scale_transform(pos, lo, hi)
+
+
 # --- reset --------------------------------------------------------------------------------------------------------
 
 
@@ -709,6 +788,8 @@ __all__ = [
     "OMNIRESET_TYPES",
     "RESET_TYPES",
     "GoalContext",
+    "MappedFlexionAction",
+    "MappedFlexionActionCfg",
     "OmniResetFlexionAction",
     "OmniResetFlexionActionCfg",
     "OmniResetStates",
@@ -727,6 +808,7 @@ __all__ = [
     "goal_context",
     "joint_vel_l2_clamped",
     "load_reset_dataset",
+    "mapped_joint_pos_normalized",
     "recover_worlds",
     "reset_term",
     "success_reward",

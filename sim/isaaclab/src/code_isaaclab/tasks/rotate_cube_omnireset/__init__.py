@@ -39,3 +39,15 @@ for _key in ("R", "U", "R5", "U5", "R9", "U9"):  # zero-shot transfer of the O-t
             "default_agent": "rsl_rl",
         },
     )
+
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):  # the same, through the contact-referenced joint maps
+    gym.register(
+        id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval-Mapped",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetV2PPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )
