@@ -381,15 +381,22 @@ def main() -> int:
     y -= 0.82
     fig.lines.append(plt.Line2D([0.02 / W_, (W_ - 0.02) / W_], [(y + 0.05) / H_] * 2, transform=fig.transFigure,
                                 color="0.6", lw=0.5))
-    plabel(0.02, y, "e", "example task: turning a sprung dial")
-    strip = np.asarray(Image.open(CAD / "task_dial_strip.png").convert("RGB"))
-    ink = strip.min(axis=2) < 245
-    cols_ = np.nonzero(ink.any(axis=0))[0]
-    rows_ = np.nonzero(ink.any(axis=1))[0]
-    strip = strip[rows_.min():rows_.max() + 1]
-    sw_ = W_ - 0.10
-    sh_ = sw_ * strip.shape[0] / strip.shape[1]
-    sa = fig.add_axes((*inch(0.05, y - 0.20 - sh_), sw_ / W_, sh_ / H_)); sa.imshow(strip); sa.axis("off")
+    plabel(0.02, y, "e", "tasks")
+    tasks = (("task_hold", "hold (pull-out)"), ("task_dial", "dial turning"), ("task_coin", "coin drag"),
+             ("task_inhand", "in-hand rotation (RL)"))
+    tw, th_ = 0.80, 0.62
+    for k, (fn, nm) in enumerate(tasks):
+        im_ = np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB"))
+        ink = im_.min(axis=2) < 240
+        if fn == "task_inhand":
+            ink = np.ones(ink.shape, bool)
+        rr, cc_ = np.nonzero(ink)
+        im_ = im_[rr.min():rr.max() + 1, cc_.min():cc_.max() + 1]
+        x = 0.04 + k * (tw + 0.05)
+        ta = fig.add_axes((*inch(x, y - 0.20 - th_), tw / W_, th_ / H_)); ta.imshow(im_); ta.axis("off")
+        ta.set_aspect("equal", anchor="C")
+        fig.text(*inch(x + tw / 2, y - 0.23 - th_), nm, fontsize=5.8, ha="center", va="top")
+    sh_ = th_ + 0.10
     # (f, g) the two redesigns: measured pad effect against O's, and the contact surface's offset from O
     y -= 0.30 + sh_
     ref = np.array(paths["O"]["contact"])
