@@ -349,15 +349,6 @@ def main() -> int:
     fig.patches.append(FancyBboxPatch(inch(0.03, by - 0.17), 3.39 / width, (row_top + 0.21 - by + 0.17) / height,
                                       boxstyle="round,pad=0,rounding_size=0.012", transform=fig.transFigure,
                                       fc="none", ec=PAD, lw=0.7, zorder=0))
-    # arrow from the interfaces up into the circled seats
-    seat_fig = fig.transFigure.inverted().transform(f.transData.transform((1300 - CROP, 640)))
-    seat2 = fig.transFigure.inverted().transform(f.transData.transform((2235 - CROP, 610)))
-    src = inch(2.20, row_top + 0.21)
-    for tgt in (seat_fig, seat2):
-        fig.patches.append(FancyArrowPatch(src, tuple(tgt), transform=fig.transFigure, arrowstyle="-|>",
-                                           mutation_scale=7, lw=0.9, color=PAD, connectionstyle="arc3,rad=0.0"))
-    fig.text(*inch(1.40, row_top + 0.33), "go into the circled seats", fontsize=5.8, color=PAD,
-             va="center", ha="center")
     # 3. design reoptimization for a thicker interface: around the contact-surface motion (R) or the skeleton (U)
     top = by - 0.40
     fig.text(*inch(1.73, top + 0.02), "design reoptimization for a thicker interface, around ...", fontsize=6.3,
