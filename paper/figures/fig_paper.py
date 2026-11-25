@@ -471,30 +471,24 @@ def fig2():
     fig.text(3.82 / W, (head - 0.20) / h, "over each joint's design space", fontsize=6.2, color=INK2, ha="center",
              va="top")
     pax = fig.add_axes((2.95 / W, 0.42 / h, 1.72 / W, (head - 0.74) / h))
-    from shapely.geometry import Polygon as SPoly
-    from shapely.ops import unary_union
-    QSET = (90, 105, 120)  # Q_eval for q_req = 120 deg: 90, (90 + q_req) / 2, q_req
-    gx, gy = np.meshgrid(np.linspace(-45, 65, 330), np.linspace(-30, 50, 240))
-    rings = cached_outlines({d: None for d in QSET}, gx, gy)
+    # CFL: poles reachable at some q in [10, 120] deg, by two-position synthesis with closure checked
+    # (fig2_pole_manifold.py, no sampling); RCJ: P(q) = r - i r tan(q/4) family over the same q and radii
+    man = np.load(ROOT / "design" / "output" / "paper" / "fig2_pole_manifold.npz")
+    reach = man["masks"].any(axis=0).astype(float)
+    pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
+    pax.contourf(man["x"], man["z"], reach, levels=[0.5, 1.5], colors=["#dbe7f7"], zorder=0.5)
+    pax.contour(man["x"], man["z"], reach, levels=[0.5], colors=[BLUE], linewidths=0.9, zorder=0.6)
     radii = np.linspace(9.5, 20.0, 60)
     lo, hi = np.full_like(radii, 9.5), np.full_like(radii, 20.0)
-
-    def roller_band(deg):
+    band = []
+    for deg in np.arange(10, 121, 2):
         tq = np.radians(deg)
-        e = np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq),
-                            roller_pole(radii[::-1], hi, tq), roller_pole(lo, radii[::-1], tq)])
-        return SPoly(np.c_[e.real, e.imag]).buffer(0)
-    pax.axhspan(-12, -6, color="#e6e5e1", lw=0, zorder=0)
-    for polys, light, dark, edge in (([SPoly(rings[d]).buffer(0) for d in QSET], "#e4edf9", "#9cc0ea", BLUE),
-                                     ([roller_band(d) for d in QSET], "#bfe6df", TEAL, TEAL)):
-        uni, inter = unary_union(polys), polys[0]
-        for pg in polys[1:]:
-            inter = inter.intersection(pg)
-        for geom, fc, z in ((uni, light, 0.5), (inter, dark, 0.7)):
-            for g in getattr(geom, "geoms", [geom]):
-                if g.geom_type == "Polygon" and not g.is_empty:
-                    xy = np.array(g.exterior.coords)
-                    pax.fill(xy[:, 0], xy[:, 1], fc=fc, ec=edge if z == 0.5 else "none", lw=0.7, zorder=z)
+        band.append(np.concatenate([roller_pole(radii, lo, tq), roller_pole(hi, radii, tq)]))
+    band = np.concatenate(band)
+    from scipy.spatial import ConvexHull
+    pts_ = np.c_[band.real, band.imag]
+    hull = pts_[ConvexHull(pts_).vertices]
+    pax.fill(hull[:, 0], hull[:, 1], fc=TEAL, ec="none", alpha=0.85, zorder=3)
     pax.plot([-32, 55], [0, 0], color=GREY, lw=1.6, zorder=4)
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
@@ -503,8 +497,7 @@ def fig2():
              path_effects=halo, zorder=6)
     pax.text(-14, 18, "CFL", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top")
     pax.text(21, -13.5, "RCJ", fontsize=6.4, color=TEAL, fontweight="bold", family="Nimbus Sans", va="top")
-    pax.text(54, 29, "$q\\in Q=\\{90^\\circ, 105^\\circ, 120^\\circ\\}$\nlight: some $q$;  dark: every $q$", fontsize=5.6,
-             color=INK2, ha="right", va="top", linespacing=1.1)
+    pax.text(54, 29, "$q\\in[0, 120^\\circ]$", fontsize=6.0, color=INK2, ha="right", va="top")
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
     clean(pax)
