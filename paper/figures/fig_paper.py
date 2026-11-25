@@ -941,15 +941,15 @@ def table():
              ("friction$^{b}$", "Drake, hydro.", "friction softer pad, Drake hydro"))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
              r"  \caption{Bias in the measured pad effect (pull-out, $7$\,mm pads): the effect each redesign measures "
-             r"minus $O$'s, as a share of $O$'s ($+$: overstated); $O$: $O$'s effect. Pad changes: friction "
+             r"minus $O$'s, as a share of $O$'s ($+$: overstated). Pad changes: friction "
              r"$1.3\to2.0$, stiffness $2.5\to1.0$\,kN/m, shape flat$\to$crowned. $^{a}$Six redesigns. "
              r"$^{b}$Pads soften with thickness (stiffness $\propto 1/h$, an upper bound on the softening), against "
              r"$O$ carrying the same pad.}",
-             r"  \label{tab:robust}", r"  \setlength{\tabcolsep}{4pt}", r"  \begin{tabular}{llrrr}", r"    \toprule",
-             r"    Pad change & Simulator & $O$ (N) & \ourmethod{} & Conv. \\", r"    \midrule"]
+             r"  \label{tab:robust}", r"  \setlength{\tabcolsep}{4pt}", r"  \begin{tabular}{llrr}", r"    \toprule",
+             r"    Pad change & Simulator & \ourmethod{} & Conventional \\", r"    \midrule"]
     for name, sim, key in rowsd:
         d = st[key]
-        lines.append(f"    {name} & {sim} & ${d['R']['O_effect_median_n']:+.1f}$ & "
+        lines.append(f"    {name} & {sim} & "
                      f"${100 * d['R']['bias_median']:+.0f}\\%$ & ${100 * d['U']['bias_median']:+.0f}\\%$ \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
