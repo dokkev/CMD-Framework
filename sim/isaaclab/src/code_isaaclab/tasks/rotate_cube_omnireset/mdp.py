@@ -433,7 +433,7 @@ def success_reward(env) -> torch.Tensor:
 def dense_success_reward(env, std: float) -> torch.Tensor:
     """``mean(exp(-orientation_distance / std), exp(-distance / std))`` (OmniReset's ``dense_success_reward``)."""
     c = goal_context(env)
-    return 0.5 * (torch.exp(-c.orientation_distance / std) + torch.exp(-c.distance / std))
+    return _finite(0.5 * (torch.exp(-c.orientation_distance / std) + torch.exp(-c.distance / std)))
 
 
 def fingertip_cube_distance_tanh(env, std: float, asset_cfg: SceneEntityCfg) -> torch.Tensor:
@@ -442,30 +442,39 @@ def fingertip_cube_distance_tanh(env, std: float, asset_cfg: SceneEntityCfg) -> 
     robot, obj = env.scene[asset_cfg.name], env.scene["object"]
     tips = _t(robot.data.body_link_pos_w)[:, asset_cfg.body_ids]
     d = (tips - _t(obj.data.root_pos_w)[:, None]).norm(dim=-1).mean(dim=1)
-    return 1.0 - torch.tanh(d / std)
+    return _finite(1.0 - torch.tanh(d / std))
 
 
 def action_l2_clamped(env) -> torch.Tensor:
-    return torch.clamp(torch.sum(torch.square(env.action_manager.action), dim=1), 0, 1e4)
+    return _finite(torch.clamp(torch.sum(torch.square(env.action_manager.action), dim=1), 0, 1e4))
 
 
 def action_rate_l2_clamped(env) -> torch.Tensor:
-    return torch.clamp(
+    return _finite(torch.clamp(
         torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1), 0, 1e4
-    )
+    ))
 
 
 def joint_vel_l2_clamped(env, asset_cfg: SceneEntityCfg, four_bar_tables: dict) -> torch.Tensor:
     """``sum qd^2`` over the actuated joints, the PIP as flexion rate (OmniReset: the arm joints)."""
     from code_isaaclab.flexion_control import flexion_joint_vel
 
-    return torch.clamp(flexion_joint_vel(env, asset_cfg, four_bar_tables).square().sum(dim=1), 0, 1e4)
+    return _finite(torch.clamp(flexion_joint_vel(env, asset_cfg, four_bar_tables).square().sum(dim=1), 0, 1e4))
 
 
 def abnormal_robot_state(env) -> torch.Tensor:
-    """Any joint faster than twice its velocity limit (``uwlab/envs/mdp/terminations.py``)."""
-    robot = env.scene["robot"]
-    return (_t(robot.data.joint_vel).abs() > 2.0 * _t(robot.data.joint_vel_limits)).any(dim=1)
+    """Any joint faster than twice its velocity limit (``uwlab/envs/mdp/terminations.py``), or a non-finite joint or
+    cube state (a diverged world; NaN compares false, so the speed test alone misses it)."""
+    robot, obj = env.scene["robot"], env.scene["object"]
+    qd = _t(robot.data.joint_vel)
+    fast = (qd.abs() > 2.0 * _t(robot.data.joint_vel_limits)).any(dim=1)
+    states = (_t(robot.data.joint_pos), qd, _t(obj.data.root_pose_w), _t(obj.data.root_vel_w))
+    return fast | ~torch.stack([torch.isfinite(x).all(dim=1) for x in states], dim=1).all(dim=1)
+
+
+def _finite(x: torch.Tensor) -> torch.Tensor:
+    """Zero for a diverged world's terms (it is terminated as abnormal in the same step)."""
+    return torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
 
 
 # --- terminations -------------------------------------------------------------------------------------------------
@@ -487,7 +496,7 @@ def cube_pose(env, rest_pos) -> torch.Tensor:
     obj = env.scene["object"]
     pos = _t(obj.data.root_pos_w) - env.scene.env_origins - torch.tensor(rest_pos, device=env.device)
     rot = math_utils.axis_angle_from_quat(_t(obj.data.root_quat_w))
-    return torch.cat((pos, rot), dim=1)
+    return _finite(torch.cat((pos, rot), dim=1))
 
 
 def cube_goal_error(env, rest_pos) -> torch.Tensor:
@@ -502,7 +511,7 @@ def cube_goal_error(env, rest_pos) -> torch.Tensor:
     k = r[:, 2, :].abs().argmax(dim=1)
     up = r.gather(2, k[:, None, None].expand(-1, 3, 1))[..., 0]  # the body axis nearest world z
     up = torch.where(up[:, 2:3] < 0, -up, up)
-    return torch.cat((pos, up[:, :2], c.yaw_error.clamp(-math.pi, math.pi)[:, None]), dim=1)
+    return _finite(torch.cat((pos, up[:, :2], c.yaw_error.clamp(-math.pi, math.pi)[:, None]), dim=1))
 
 
 def time_left(env) -> torch.Tensor:
