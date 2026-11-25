@@ -4,7 +4,7 @@
 # Hydro: experiment 21's rule (every hand O's pad foundation stiffness, 0.1 MPa / 3 mm), 1 ms; randomized tasks on
 # their first 32 draws; grid tasks on their full placement sets.
 task=$1; tag=$2; delta=$3; shift 3
-W=6
+W=${W:-6}  # workers; override with W=5 ./run_hydro.sh ...
 for hand in "$@"; do
   case $task in
     23) d=${delta/-/5}; for a in 3 6; do for mu in 1.3 2.0; do for r in 15 20; do
