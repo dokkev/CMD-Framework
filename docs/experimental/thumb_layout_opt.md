@@ -229,6 +229,109 @@ Prototype thumb: (x, z) = (-51.2, -6.0), IP body distal, e = 28.0 (EE 53.5 mm), 
 - In almost every solution `thumb_ro` sits at -90 and `thumb_ip` at -10, as in the Drake pinch finding.
 - Under the superseded 25 deg rule the same prototype scored 0/10.
 
-## Results
+## Results (M = O)
 
-(below, after the runs)
+All runs use NSGA-II on (functional score, lever ratio), population 24 × 20 generations (32 × 20 with the orientation free), 3 workers. Each row is the run's best functional score; ties are broken by lever ratio.
+
+| run | x, z [mm] | e [mm] | base yaw/pitch/roll [deg] | functional | touch | lever ratio (IP, MCP) | pinch [deg] | min grasp |
+|---|---|---|---|---|---|---|---|---|
+| prototype | -51.2, -6.0 | 28.0 (distal IP) | 0/0/0 | K3 (4/11) | K9 (10/11) | 1.00 (1.00, 1.00) | 29.4 | 2 mm |
+| strict, distal IP, seed 0 / 1 | -50, -5 / -4.5 | 43.5 | 0/0/0 | K4 (6/11) | K9 (10) | 0.73 (0.73, 0.83) | 19.4 / 19.7 | 2 mm |
+| strict, proximal IP | -51, -4.5 | 42 | 0/0/0 | K4 (6/11) | K9 (10) | 0.84 (1.04, 0.84) | 18.1 | 2 mm |
+| relaxed, distal IP | -44.5, -31.5 | 42.5 | 0/0/0 | K4 (7/11) | K9 (10) | 0.74 | 22.8 | 2 mm |
+| relaxed, proximal IP | -34, -33 | 31 | 0/0/0 | K4 (6/11) | K6 (7) | 0.96 | 19.1 | 2 mm |
+| **strict + base orientation ±20 (exploratory), proximal IP** | **-50.5, -10.5** | **34** | **-14/-16/+14** | **K8 (9/11)** | **K9 (10)** | **0.92 (1.30, 0.92)** | **8.8** | **2 mm** |
+
+- In the position-only runs (strict and relaxed, both IP orientations) the levels reached are K0–K4, plus K8 (strict) or K6 (relaxed), out of order.
+- The orientation optimum reaches K0–K8 in order.
+- The functional score's chain stops at **K5 (ring tip) on facing** in every position-only run: the pad gets there, but more than 45 deg from facing.
+- The distal-IP orientation run is queued after R and U (its first attempt crashed on a warm-start bug, since fixed).
+
+### What unlocks K5: the RO axis direction
+
+The probe takes the strict optimum (proximal IP, x -51, z -4.5, e 42) and changes one thing at a time, solving the ring-tip level alone:
+
+| change | K5 | facing | thumb RO |
+|---|---|---|---|
+| none | no | 47.5 deg | -85 (its 5 deg margin) |
+| RO range to -120 (a joint-limit change) | yes | 32.7 | -115 |
+| base pitch -20 | yes | 29.5 | -85 |
+| base pitch +20 / roll ±20 / yaw ±20 (each alone) | no | 48–62 | -85 |
+| base moved forward and palmar (x -26, z -30, relaxed) | yes | 33.1 | -85 |
+
+- The thumb always runs out of RO at the margin. Turning the RO axis (pitch), or giving RO more range, lets the pad roll onto the ring tip.
+- Moving the base forward and palmar also reaches K5, but it loses K0 (index radial side near the MCP: pad 7 mm off), so the chain does not gain. This is why the relaxed runs stay at K4.
+- The orientation optimum combines pitch -16 with yaw -14 and roll +14, keeps K0–K4, and adds K5–K8.
+
+### Lever trade-off
+
+- Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
+- Strict, proximal IP: F-K4 holds from e = 42 (lever 0.84) down to e = 29.5 (lever 0.97). K8 drops out below e ≈ 31.
+- Distal IP has the IP lever as the binding constraint (0.73 at e = 43.5). Turning the IP servo toward the MCP moves the pad closer to the IP axis for the same reach (IP lever 1.04–1.30), and costs only MCP lever.
+- Orientation front, proximal IP:
+
+| level | lever ratio | e [mm] | pinch [deg] |
+|---|---|---|---|
+| F-K8 | 0.92 | 34 | 8.8 |
+| F-K6 | 0.93–1.04 | 24–33 | 9.6–12 |
+| F-K5 | 1.05 | 22.5–23 | 11–12 |
+
+### Recommended design: O_thumbopt
+
+- **Thumb design:**
+  - CMC servo at x -50.5, z -10.5 (y 0.77 as before);
+  - base pose (yaw, pitch, roll) = (-104, -16, -76) deg, i.e. the prototype's (-90, 0, -90) plus offsets (-14, -16, +14);
+  - IP servo turned toward the MCP (`ip_servo_flipped`), mcp_to_ip 51.5 mm;
+  - fingertip case e = 34 mm past the cap bracket, EE 44 mm from the IP axis.
+- **Scores:**
+  - functional Kapandji **K8** (9/11; K9 palm at the ring base fails: pad 4.4 mm short, facing 46 deg; K10 fails: 14.7 mm, 75 deg);
+  - touch Kapandji K9 (10/11);
+  - lever ratio 0.92: IP lever 31.5 mm against 41.0 for the prototype (1.30×), MCP 83.0 mm against 76.5 (0.92×).
+- **Pinch** (pad centre on the finger pad's normal line, the finger free), by gap band. Prototype first, then O_thumbopt:
+
+| gap | index | middle |
+|---|---|---|
+| 6–9 mm | 26.3 → 17.5 deg | 33.6 → 15.6 deg (2.4 mm off the line) |
+| 9–14 mm | 21.2 → 12.9 | 30.1 → 12.3 |
+| 14–20 mm | 18.0 → 8.3 | 24.7 → 6.9 |
+
+- **Drake URDF cross-check** of the solver's best 6–20 mm pinch poses (`sim/drake`, URDF `cfl_q120_h3to7_h0_thumbopt_thumbpad.urdf`):
+
+| hand, finger | from facing | gap | off the line |
+|---|---|---|---|
+| O_thumbopt, index | 8.4 deg (opposition 171.6) | 20.5 mm | 1.3 mm |
+| O_thumbopt, middle | 8.8 deg | 18.2 mm | 1.9 mm |
+| O, index | 18.0 deg | 20.4 mm | — |
+| O, middle | 24.8 deg | 21.4 mm | — |
+
+  The solver and the URDF agree to within 0.1 deg.
+- **The earlier `pinchfk/cmc.py` scan.** It used a joint grid with the finger's abduction at 0 and the thumb normal within 3 deg of the finger's flexion plane. Best angle from facing, prototype → O_thumbopt:
+
+| finger | 6–9 mm | 12–20 mm |
+|---|---|---|
+| index | 30 → 19 deg | 20–25 → 14 deg |
+| middle | — | 38–43 deg (8–18 mm) on O_thumbopt |
+
+  The prototype numbers match the earlier Drake finding of 29–31 deg. With RO at -70, it is no longer at its limit. The middle needs abduction (about ±15 deg) to face the tilted thumb, which that scan forbids.
+- **Minimum graspable diameter:** 2 mm, the same as the prototype. No independent DIP (by design).
+- **Hardware implications:**
+  - The CMC servo pose changes by yaw -14 deg (about H's z), pitch -16 deg and roll +14 deg (intrinsic Z-Y-X). It sits 4.5 mm more palmar and 0.7 mm further forward than now.
+  - Envelope margins:
+    - the RAA servo's sweep clears the abduction servos by 0.98 mm beyond the 2 mm gap;
+    - the RO servo is 5.5 mm under the hood top and 3.9 mm above the 20 mm floor;
+    - the RO body is 25.9 mm clear of the abduction servos and fingers.
+  - The proximal segment grows from 35.5 to 51.5 mm (both servo bodies end to end). The distal segment shrinks from 53.5 to 44 mm (cap bracket + 34 mm case).
+  - The thumb pad is unchanged (25 mm, on the case).
+- **Simulation assets:**
+  - `design/output/sim/study3/hands/cfl_q120_h3to7_h0_thumbopt.yaml`, written by `scripts/optimize/thumb_layout/write_hand.py` from `sim/isaaclab/scripts/rotate_cube/export_transfer_hands.sh`;
+  - description `sim/isaaclab/logs/rotate_cube/transfer/hands/cfl_q120_h3to7_h0_thumbopt.json`;
+  - URDF and USD (with colliders) in `sim/isaaclab/logs/urdf/cfl_q120_h3to7_h0_thumbopt_thumbpad*`;
+  - registered as `O_thumbopt` (`grasp.HANDS`, `CoDe-Rotate-Cube-O_thumbopt`).
+- **Smoke checks:**
+  - the URDF FK matches the model to 1e-3 mm, for the pad and normals, including the turned IP servo;
+  - the Isaac Lab asset (`description_asset`, thumb pad, visuals) builds on CPU with 19 tree joints and 7 pads, and the four-bars close in Drake;
+  - the cube-rotation task's grasp (`grasp.pinch_grasp`) fixes the thumb at RO -90 / RAA 20 for O. That grasp does not exist on O_thumbopt ("the thumb pad cannot press the cube's top face"), so the cube-task env needs a per-hand thumb grasp before it can run on this hand.
+
+## Results: R and U
+
+(pending)
