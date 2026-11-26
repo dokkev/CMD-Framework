@@ -36,7 +36,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-HAND_FILES = {"O": "h0", "R": "hr", "U": "hu"}
+HAND_FILES = {"O": "h0", "R": "hr", "U": "hu", "O_thumbopt": "h0_thumbopt"}
 OUT = HERE / "logs" / "load_hand"
 K_Q, D_Q = 5.0, 0.08
 """PIP impedance in flexion [N m/rad, N m s/rad] (the Study 3 two-pad measurement's and Isaac Lab's values)."""
@@ -55,7 +55,10 @@ def paths(hand: str, visuals: bool = True) -> tuple[Path, Path]:
     urdf = urdf_dir / f"{stem}_thumbpad_vis.urdf"
     if not (visuals and urdf.exists()):
         urdf = urdf_dir / f"{stem}_thumbpad.urdf"
-    return urdf, REPO / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json"
+    description = REPO / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json"
+    if not description.exists():  # transfer hands (thumb layouts, long fingers) keep their descriptions here
+        description = REPO / "sim" / "isaaclab" / "logs" / "rotate_cube" / "transfer" / "hands" / f"{stem}.json"
+    return urdf, description
 
 
 def side_camera(desc: dict, digit: str = "ring", side: float = -1.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
