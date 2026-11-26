@@ -86,14 +86,15 @@ The thumb tip is the fingertip case's rounded end. In the IP servo frame's X–Y
 
 ### Objectives (NSGA-II, both maximised)
 
-1. **Kapandji score** (above), primary.
+1. **Functional Kapandji score**, primary: the same levels and chain score, with each level functionally reached (pad contact, facing ≤ 45 deg, 2 N within the stall torques, thumb joints ≥ 5 deg from their limits, collision-free; decision log). The touch score above (All Hands Up) is reported alongside.
 2. **Pad lever ratio:** min(IP, MCP) of (the prototype's lever / the design's lever), i.e. pad force per joint torque relative to the prototype. Chosen over the thumb's workspace volume as the second measure of general dexterity:
    - the Kapandji levels already measure the opposable workspace;
    - a larger workspace mostly rewards reach away from the fingers;
    - the lever is the quantity that trades against reach (a longer thumb reaches further and pushes less), so the front shows what each extra level costs in force.
    - It stays bounded below by the 0.7 constraint.
 
-**Reported, not optimised:**
+**Reported, not optimised** (computed for the final front's designs):
+- **Touch Kapandji** (All Hands Up) level and count.
 - **Pinch:** the thumb–index / thumb–middle best facing angle, as before (pad centre on the finger pad's normal line within 2 mm, gap 6–20 mm, the worse of the two).
 - **Minimum graspable diameter** (All Hands Up's metric, geometric approximation). This is the smallest cylinder held between the thumb pad and the index or middle distal pad with force closure:
   - the pads are D apart along the finger pad's normal through its centre (within 2 mm);
@@ -164,9 +165,43 @@ The thumb tip is the fingertip case's rounded end. In the IP servo frame's X–Y
     - in the strict envelope, the flipped IP reached 8/10 and the current IP 7/10, against 5/10 for the prototype; pinch 17–21 deg;
     - the relaxed envelope (base about 24 mm deeper in the palm, x ≈ -26, z ≈ -30) brought the pinch to about 10 deg.
 
-## Prototype baseline (M = O, All Hands Up Kapandji)
+- **2026-11-25, functional Kapandji becomes the optimised score; the touch Kapandji is kept as a report (user decision).**
+  - Why: the user distinguishes touching a landmark from being able to use the contact. The All Hands Up touch score stays as a reported metric for comparability.
+  - When: after the touch-Kapandji prototype baseline and before any optimisation result. The touch-score runs had just started, and no run had finished. They were stopped and set aside in `design/output/thumb_layout/_superseded_touch_allhandsup/`.
+  - A level is **functionally reached** if a configuration exists (thumb and the landmark's finger free; the other fingers extended) where all of these hold:
+    1. **Pad contact.** The thumb pad face is within 1 mm of the landmark. The contact is on the face's centre line, 2 mm in from the pad's ends (the face, not its edge), and the place is an IK variable.
+    2. **Facing.** The pad normal is within 45 deg of facing the landmark's surface normal.
+    3. **Force.** At least 2 N along the contact normal, within every servo's stall torque. The torque is the XM335's at 11.1 V, 1.03 N m (`core.hardware.xm335.XM335DriveModel`). τ = Jᵀf is checked for the thumb's four direct-drive joints **and** for the landmark's finger: AA and FE are direct drive; the PIP servo carries the joint torque divided by the four-bar's dθ/dq. J is the contact point's finite-difference Jacobian.
+    4. **Margin.** Every thumb joint is at least 5 deg inside its limits.
+    5. Collision-free.
+  - Score: the highest level with all lower levels functionally reached, plus the margin tie-break (r adds (angle - 45)+/45 and (2 N - force)+/2 to the reach and penetration terms). The count is reported too.
+  - NSGA-II objectives: the functional score and the lever ratio. The touch Kapandji, the pinch angle and the minimum graspable diameter are computed for the final front's designs.
+  - Threshold check on the prototype (below), and why the thresholds were kept:
+    - The score is not degenerate: level 3, 4/11.
+    - The facing (45 deg) and the 5 deg margin both bind. RO sits at its -85 margin and IP at -5 in most solutions.
+    - The **2 N force condition never binds**: the force capacity at the best solutions is 12–33 N. The thumb's lever is at most about 0.09 m, and 1.03 N m over that is about 11 N. It is kept as specified, and is redundant on this hand.
+
+## Prototype baseline (M = O)
 
 Prototype thumb: (x, z) = (-51.2, -6.0), IP body distal, e = 28.0 (EE 53.5 mm), levers IP 41.0 / MCP 76.5 mm.
+
+### Functional Kapandji (optimised): level 3, 4/11, score 3.93
+
+| level | reached | pad error | facing | force capacity | why not |
+|---|---|---|---|---|---|
+| K0 index proximal, radial, near MCP | yes | 0.0 mm | 0 | 13.5 N | |
+| K1 index proximal, radial, near PIP | yes | 0.05 | 1 | 13.3 | |
+| K2 index distal, radial | yes | 0.03 | 1 | 11.9 | |
+| K3 index tip | yes | 0.55 | 31 | 12.1 | |
+| K4 middle tip | no | 1.4 | 41 | 12.1 | pad 1.4 mm short (thumb RO -85, IP -5 at their margins) |
+| K5 ring tip | no | 0.97 | 56 | 12.1 | facing 56 deg |
+| K6 ring distal pad | no | 1.4 | 57 | 14.2 | pad 1.4 mm short, facing 57 |
+| K7 ring PIP crease | no | 2.0 | 47 | 19.4 | pad 2.0 mm short, facing 47 |
+| K8 ring proximal base | no | 4.1 | 37 | 18.3 | pad 4.1 mm short |
+| K9 palm at ring base | no | 1.1 | 31 | 15.9 | pad 1.1 mm short |
+| K10 palm under index–middle | no | 6.0 | 59 | 33.3 | pad 6.0 mm short, facing 59 |
+
+### Touch Kapandji (All Hands Up, reported)
 - **Kapandji level 9** (K0–K9 all reached), **10/11 levels**, score 9.47.
 - **K10 fails.** The distal palmar crease under the index–middle is missed by 6.7 mm. The thumb IP is at its 100 deg limit (thumb (-38.9, 36.9, 80.7, 100.0)) and the thumb's distal segment is at -0.95 mm clearance to the palm. The thumb cannot fold its tip back onto the palm next to its own base.
 - **Marginal levels.** K4 (middle tip) at 0.52 mm, K7 at 0.67 mm and K8 at 0.64 mm. K4 depends on the solver's grid: 1.1 mm (unreached) with a 15 deg grid.

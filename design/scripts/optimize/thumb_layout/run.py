@@ -5,9 +5,10 @@
         [--envelope strict|relaxed] [--population 32] [--generations 25]
     python scripts/optimize/thumb_layout/run.py --hand h0 --baseline      # the prototype's thumb on this morphology
 
-Objectives (both minimised): ``-kapandji_score`` (All Hands Up's Kapandji level with its tie-break) and ``-lever_ratio``
-(min of the IP and MCP pad levers relative to the prototype's). The pinch angle and the level count are recorded, not
-optimised. Constraints ``G <= 0``: the IP and MCP pad levers no worse than 0.7x the prototype's (pad force
+Objectives (both minimised): ``-functional_score`` (the functional Kapandji level with its tie-break) and
+``-lever_ratio`` (min of the IP and MCP pad levers relative to the prototype's). The final front's designs are also
+scored on All Hands Up's touch Kapandji, the pinch angle and the minimum graspable diameter (reported, not optimised).
+Constraints ``G <= 0``: the IP and MCP pad levers no worse than 0.7x the prototype's (pad force
 per torque), and the palm envelope (``Evaluator.envelope``: RAA sweep clear of the abduction servos, RO servo under the
 hood's top and above the envelope's floor). The formulation: ``docs/experimental/thumb_layout_opt.md``.
 
@@ -64,21 +65,32 @@ def evaluate_row(args) -> dict:
     values, orientation, proto_levers = args
     x, z, e, *angles = values
     design = ThumbDesign(float(x), float(z), float(e), orientation, *(float(a) for a in angles))
-    ev = _EVALUATOR.evaluate(design)
+    ev = _EVALUATOR.evaluate(design, touch=False, pinch=False)
     levers = lever_arms(design)
     row = {"cmc_x_mm": x, "cmc_z_mm": z, "extension_mm": e, "ip_orientation": orientation,
            **{f"base_{k}_deg": a for k, a in zip(("yaw", "pitch", "roll"), angles)},
-           "kapandji_level": ev.kapandji_level, "kapandji_score": round(ev.kapandji_score, 4), "reached": ev.reached,
-           "pinch_deg": round(min(ev.pinch_deg, 180.0), 3),
-           "pinch_index_deg": round(ev.pinch["index"].residual, 3), "pinch_middle_deg": round(ev.pinch["middle"].residual, 3),
+           "functional_level": ev.functional_level, "functional_score": round(ev.functional_score, 4),
+           "functional_reached": ev.functional_reached,
            "ip_lever_ratio": round(proto_levers["ip"] / levers["ip"], 4),
            "mcp_lever_ratio": round(proto_levers["mcp"] / levers["mcp"], 4),
            "lever_ratio": round(min(proto_levers["ip"] / levers["ip"], proto_levers["mcp"] / levers["mcp"]), 4),
            "mcp_to_ip_mm": design.mcp_to_ip_mm, "ee_mm": design.ee_mm,
-           "levels": " ".join(f"K{k}" for k, r in ev.levels.items() if r.reached)}
+           "levels": " ".join(f"K{k}" for k, r in ev.functional.items() if r.reached)}
     row.update({k: v for k, v in ev.envelope.items()})
-    row["misses_mm"] = " ".join(f"K{k}:{r.position_mm:.1f}" for k, r in ev.levels.items() if not r.reached)
+    row["misses"] = " | ".join(f"K{k}: {r.blocker}" for k, r in ev.functional.items() if not r.reached)
     return row
+
+
+def report_row(args) -> dict:
+    """The reported metrics of a front design: the touch Kapandji, the pinch, the minimum graspable diameter."""
+    values, orientation = args
+    x, z, e, *angles = values
+    design = ThumbDesign(float(x), float(z), float(e), orientation, *(float(a) for a in angles))
+    ev = _EVALUATOR.evaluate(design, functional=False)
+    grasp = _EVALUATOR.min_grasp_diameter(design)
+    return {"touch_level": ev.kapandji_level, "touch_reached": ev.reached, "pinch_deg": round(min(ev.pinch_deg, 180.0), 2),
+            "pinch_index_deg": round(ev.pinch["index"].residual, 2), "pinch_middle_deg": round(ev.pinch["middle"].residual, 2),
+            "min_grasp_mm": grasp["min_diameter_mm"]}
 
 
 def constraints(row: dict) -> list[float]:
@@ -141,7 +153,7 @@ def main(argv=None) -> int:
             for d, row in zip(todo, pool.map(evaluate_row, [(d, args.orientation, proto_levers) for d in todo])):
                 cache[d] = row
                 rows.append(row)
-            out["F"] = np.array([[-cache[d]["kapandji_score"], -cache[d]["lever_ratio"]] for d in designs])
+            out["F"] = np.array([[-cache[d]["functional_score"], -cache[d]["lever_ratio"]] for d in designs])
             out["G"] = np.array([constraints(cache[d]) for d in designs])
 
     problem = ThumbProblem()
@@ -153,7 +165,6 @@ def main(argv=None) -> int:
     initial = initial_population(problem, np.array(warm).reshape(-1, n_var), settings)
     start = time.time()
     result = OPTIMIZERS["nsga2"].minimize(problem, initial, settings)
-    pool.close()
     out = ROOT / "output" / "thumb_layout" / args.hand / (args.envelope + args.tag) / args.orientation / f"seed{args.seed}"
     out.mkdir(parents=True, exist_ok=True)
     keys = list(rows[0])
@@ -164,9 +175,13 @@ def main(argv=None) -> int:
     pareto = [cache[tuple(np.round(lo + np.round(v) * step, 3))] for v in result.x]
     pareto = [r for r in pareto if max(constraints(r)) <= 0.0]
     pareto = sorted({tuple(v for k, v in r.items() if k.startswith(("cmc", "ext", "base"))): r for r in pareto}.values(),
-                    key=lambda r: -r["kapandji_score"])
+                    key=lambda r: -r["functional_score"])
+    keyed = [tuple(v for k, v in r.items() if k.startswith(("cmc", "ext", "base"))) for r in pareto]
+    for r, extra in zip(pareto, pool.map(report_row, [(k, args.orientation) for k in keyed])):
+        r.update(extra)
+    pool.close()
     with (out / "pareto.csv").open("w", newline="") as f:
-        w = csv.DictWriter(f, keys)
+        w = csv.DictWriter(f, list(pareto[0]) if pareto else keys)
         w.writeheader()
         w.writerows(pareto)
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -179,9 +194,9 @@ def main(argv=None) -> int:
     print(f"{out}: {len(rows)} evaluations in {time.time() - start:.0f} s; Pareto:")
     for r in pareto:
         angles = " ".join(f"{r[k]:+.0f}" for k in ("base_yaw_deg", "base_pitch_deg", "base_roll_deg") if k in r)
-        print(f"  x {r['cmc_x_mm']:7.2f} z {r['cmc_z_mm']:7.2f} e {r['extension_mm']:5.1f} {angles} K{r['kapandji_level']} score {r['kapandji_score']:.3f} "
-              f"n {r['reached']} pinch {r['pinch_deg']:6.2f}  levers {r['ip_lever_ratio']:.2f}/{r['mcp_lever_ratio']:.2f}  "
-              f"miss {r['misses_mm']}")
+        print(f"  x {r['cmc_x_mm']:7.2f} z {r['cmc_z_mm']:7.2f} e {r['extension_mm']:5.1f} {angles} F-K{r['functional_level']} {r['functional_score']:.3f} "
+              f"n {r['functional_reached']}  levers {r['ip_lever_ratio']:.2f}/{r['mcp_lever_ratio']:.2f}  touch K{r['touch_level']} "
+              f"n {r['touch_reached']}  pinch {r['pinch_deg']:5.1f}  grasp {r['min_grasp_mm']}  | {r['levels']}")
     return 0
 
 

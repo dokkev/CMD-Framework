@@ -44,8 +44,8 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
-from core.hardware.xm335 import XM335Actuator
-from core.morphology.code_hand import FINGERS, CoDeHand, HandParameters, four_bar
+from core.hardware.xm335 import XM335Actuator, XM335DriveModel
+from core.morphology.code_hand import FINGERS, CoDeHand, HandParameters, four_bar, pip_servo_deg
 from core.morphology.code_hand.model import THUMB_MCP_MOUNT
 from core.morphology.code_hand.parameters import rx, ry, rz, trans
 from core.optimization.thumb_layout.design import (
@@ -83,6 +83,13 @@ NORMAL_WEIGHT_MM = 30.0
 """Seed matching for the pinch: a unit of normal mismatch counts as this many millimetres."""
 TOUCH_WEIGHT_MM = 10.0
 """The same for the Kapandji contacts (no facing condition; the normal only steers the seeds and the IK's null space)."""
+
+FUNCTIONAL_FACING_DEG, FUNCTIONAL_FORCE_N, FUNCTIONAL_MARGIN_DEG = 45.0, 2.0, 5.0
+"""Functional Kapandji: pad facing within 45 deg, 2 N along the contact normal within the servos' stall torques, every
+thumb joint 5 deg inside its limits (user, 2026-11-25)."""
+PAD_EDGE_INSET_MM = 2.0
+"""The functional contact is on the pad face's centre line, this far in from the pad's ends (the face, not its edge)."""
+SUPPLY_V = 11.1
 
 GRID_STEP_DEG = 10.0
 SEEDS = 16
@@ -193,6 +200,9 @@ class FingerKinematics:
         self.pip_servo = trans(p.ap_x_mm, -p.ap_z_mm, 0.0) @ rz(p.pip_servo_tilt_deg - 90.0)
         self.table_deg = np.arange(LIMITS_DEG["pip"][0] - 1.0, LIMITS_DEG["pip"][1] + 1.0 + 1e-9, 0.25)
         b = np.array([four_bar(p, float(q)).b for q in self.table_deg])
+        servo = np.unwrap(np.radians([pip_servo_deg(p, float(q)) for q in self.table_deg]))
+        self.servo_ratio = np.gradient(servo, np.radians(self.table_deg))
+        """d theta / d q of the PIP servo against the PIP angle (the four-bar's transmission)."""
         self.bx, self.bz = b[:, 0], b[:, 1]
         mount_p, mount_d = pad.mount_offsets_mm
         face_p, face_d = mount_p + pad.thickness_mm, mount_d + pad.thickness_mm
@@ -272,6 +282,8 @@ class ThumbKinematics:
                          np.array([PAD_FACE_MM - PAD_R_MM, -(design.pad_along_mm + half - PAD_R_MM), 0.0]))
         self.distal_end = np.array([0.0, -max(ee - SERVO_R_MM, 0.0), 0.0])
         self.tip_centre = np.array([0.0, -(ee - TIP_RADIUS_MM), 0.0])
+        self.pad_reach = max(design.pad_length_mm / 2.0 - PAD_EDGE_INSET_MM, 0.0)
+        """The functional contact's travel either side of the pad centre along the segment [mm]."""
         self.radii = np.array([SERVO_R_MM, METACARPAL_R_MM, SERVO_R_MM, SERVO_R_MM, PAD_R_MM])
 
     def frames(self, q: np.ndarray) -> dict[str, np.ndarray]:
@@ -291,6 +303,17 @@ class ThumbKinematics:
         local_n = np.stack((np.cos(phi), -np.sin(phi), np.zeros_like(phi)), axis=-1)
         local_p = self.tip_centre + TIP_RADIUS_MM * local_n
         return (e[:, :3, :3] @ local_p[..., None])[..., 0] + e[:, :3, 3], (e[:, :3, :3] @ local_n[..., None])[..., 0]
+
+    def pad_face(self, frames: dict, along: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """A point of the pad face's centre line, ``along`` [mm] from its centre toward the tip, and the pad normal."""
+        e = frames["E"]
+        local = np.stack((np.full_like(along, PAD_FACE_MM), -(self.design.pad_along_mm + along), np.zeros_like(along)),
+                         axis=-1)
+        return (e[:, :3, :3] @ local[..., None])[..., 0] + e[:, :3, 3], e[:, :3, 0]
+
+    def contact(self, frames: dict, value: np.ndarray, mode: str) -> tuple[np.ndarray, np.ndarray]:
+        """``"touch"``: :meth:`tip` at ``value`` [rad]; ``"functional"``: :meth:`pad_face` at ``value`` [mm]."""
+        return self.tip(frames, value) if mode == "touch" else self.pad_face(frames, value)
 
     def capsules(self, frames: dict) -> np.ndarray:
         raa, mcp, ip, e = frames["raa"], frames["mcp"], frames["ip"], frames["E"]
@@ -332,7 +355,9 @@ class TaskResult:
     gap_mm: float | None = None
     residual: float = 0.0
     tip_deg: float | None = None
-    """Where on the thumb tip the contact is (0: pad face, 90: the end)."""
+    """Where the contact is: on the tip [deg] (0: pad face, 90: the end), or on the pad [mm from its centre, + tipward]."""
+    force_n: float | None = None
+    """Functional levels: the largest force along the contact normal within every servo's stall torque."""
 
     def as_dict(self) -> dict:
         out = {}
@@ -343,45 +368,75 @@ class TaskResult:
         return out
 
 
+def chain_level(levels: dict[int, TaskResult]) -> int:
+    """The clinical score: the highest level whose lower levels are all reached (-1: not even K0)."""
+    level = -1
+    while level + 1 in levels and levels[level + 1].reached:
+        level += 1
+    return level
+
+
+def chain_score(levels: dict[int, TaskResult]) -> float:
+    """The level plus a tie-break in [0, 1): the margin to the next level, 1 / (1 + its residual)."""
+    level = chain_level(levels)
+    if level + 1 not in levels:
+        return float(level)
+    return level + 0.999 / (1.0 + levels[level + 1].residual)
+
+
 @dataclass
 class Evaluation:
     design: ThumbDesign
     levels: dict[int, TaskResult]
+    """All Hands Up's touch Kapandji (reported)."""
     pinch: dict[str, TaskResult]
     envelope: dict[str, float] = field(default_factory=dict)
+    functional: dict[int, TaskResult] = field(default_factory=dict)
+    """The functional Kapandji (optimised)."""
 
     @property
     def reached(self) -> int:
-        """How many of the 11 levels are reached (in any order)."""
+        """How many of the 11 touch levels are reached (in any order)."""
         return sum(r.reached for r in self.levels.values())
 
     @property
     def kapandji_level(self) -> int:
-        """The clinical score: the highest level whose lower levels are all reached (-1: not even K0)."""
-        level = -1
-        while level + 1 in self.levels and self.levels[level + 1].reached:
-            level += 1
-        return level
+        return chain_level(self.levels)
 
     @property
     def kapandji_score(self) -> float:
-        """The level plus a tie-break in [0, 1): the margin to the next level, 1 / (1 + its residual)."""
-        level = self.kapandji_level
-        if level + 1 not in self.levels:
-            return float(level)
-        return level + 0.999 / (1.0 + self.levels[level + 1].residual)
+        return chain_score(self.levels)
+
+    @property
+    def functional_reached(self) -> int:
+        return sum(r.reached for r in self.functional.values())
+
+    @property
+    def functional_level(self) -> int:
+        return chain_level(self.functional)
+
+    @property
+    def functional_score(self) -> float:
+        return chain_score(self.functional)
 
     @property
     def pinch_deg(self) -> float:
         """The worse of the thumb–index and thumb–middle best facing angles [deg from antiparallel]."""
-        return max(r.residual for r in self.pinch.values())
+        return max(r.residual for r in self.pinch.values()) if self.pinch else math.nan
 
     def summary(self) -> dict:
-        return {"design": self.design.__dict__, "kapandji_level": self.kapandji_level,
-                "kapandji_score": round(self.kapandji_score, 4), "reached": self.reached,
-                "pinch_deg": round(self.pinch_deg, 2),
+        out = {"design": self.design.__dict__}
+        if self.functional:
+            out |= {"functional_level": self.functional_level, "functional_score": round(self.functional_score, 4),
+                    "functional_reached": self.functional_reached}
+        if self.levels:
+            out |= {"kapandji_level": self.kapandji_level, "kapandji_score": round(self.kapandji_score, 4),
+                    "reached": self.reached}
+        out |= {"pinch_deg": round(self.pinch_deg, 2),
+                "functional": {LANDMARKS[k].name: v.as_dict() for k, v in self.functional.items()},
                 "levels": {LANDMARKS[k].name: v.as_dict() for k, v in self.levels.items()},
                 "pinch": {k: v.as_dict() for k, v in self.pinch.items()}, "envelope": self.envelope}
+        return out
 
 
 # ---------------------------------------------------------------- evaluator
@@ -396,6 +451,7 @@ class Evaluator:
         self.floor_mm = floor_mm
         """The palm envelope's floor: this far below the palm's flat palmar face (:meth:`envelope`)."""
         self.seeds, self.iterations = seeds, iterations
+        self.stall_torque_nm = XM335DriveModel(supply_voltage_v=SUPPLY_V).stall_torque_nm
         self.fingers = {d: FingerKinematics(parameters, d) for d in FINGERS}
         self._pairs: dict = {}
         self.finger_lo, self.finger_hi = _limits_rad(FINGER_JOINTS)
@@ -519,20 +575,29 @@ class Evaluator:
         palm_ok = {t: self._thumb_clearance(caps, thumb.radii, boxes, [], t)[0] >= COLLISION_MM for t in (False, True)}
         rest_ok = {d: self._thumb_clearance(caps, thumb.radii, [], [d], False)[0] >= COLLISION_MM for d in FINGERS}
         n = len(self.thumb_grid)
-        phis = np.radians([0.0, 45.0, 90.0])
-        tips = [thumb.tip(frames, np.full(n, phi)) for phi in phis]
+        # the contact sets the seeds are matched on: the tip (touch) at three places, the pad face (functional) at three
+        contact = {}
+        for mode, values in (("touch", np.radians([0.0, 45.0, 90.0])), ("functional", np.array([-1.0, 0.0, 1.0]))):
+            if mode == "functional":
+                values = values * thumb.pad_reach
+            pts = [thumb.contact(frames, np.full(n, v), mode) for v in values]
+            contact[mode] = (np.concatenate([q[0] for q in pts]), np.concatenate([q[1] for q in pts]), values)
+        margin = np.radians(FUNCTIONAL_MARGIN_DEG)
+        functional_ok = np.all((self.thumb_grid >= self.thumb_lo + margin - 1e-9)
+                               & (self.thumb_grid <= self.thumb_hi - margin + 1e-9), axis=1)
         return {"hand": hand, "thumb": thumb, "boxes": boxes, "palm_ok": palm_ok, "rest_ok": rest_ok,
-                "pad": thumb.pad(frames), "tip_p": np.concatenate([t[0] for t in tips]),
-                "tip_n": np.concatenate([t[1] for t in tips]), "phis": phis}
+                "pad": thumb.pad(frames), "contact": contact, "functional_ok": functional_ok}
 
-    def evaluate(self, design: ThumbDesign, pinch: bool = True) -> Evaluation:
+    def evaluate(self, design: ThumbDesign, touch: bool = True, functional: bool = True,
+                 pinch: bool = True) -> Evaluation:
         s = self._setup(design)
-        levels = {lm.level: self._level(s, lm) for lm in LANDMARKS}
+        levels = {lm.level: self._level(s, lm, "touch") for lm in LANDMARKS} if touch else {}
+        functional_levels = {lm.level: self._level(s, lm, "functional") for lm in LANDMARKS} if functional else {}
         pinches = {}
         if pinch:
             for digit in PINCH_FINGERS:
                 pinches[digit] = self._pinch(s, digit, PINCH_GAP_MM, (7.0, 13.0, 19.0))
-        return Evaluation(design, levels, pinches, self.envelope(s["hand"]))
+        return Evaluation(design, levels, pinches, self.envelope(s["hand"]), functional_levels)
 
     def _ok(self, s: dict, others, palm_target: bool) -> np.ndarray:
         return s["palm_ok"][palm_target] & np.logical_and.reduce([s["rest_ok"][d] for d in others])
@@ -561,27 +626,39 @@ class Evaluator:
         picked = np.array(picked, int).reshape(-1, 2)
         return picked[:, 0], picked[:, 1]
 
-    def _level(self, s: dict, lm: Landmark) -> TaskResult:
-        """One Kapandji level: the thumb tip (``ThumbKinematics.tip``, the place on it free) on the landmark."""
+    def _level(self, s: dict, lm: Landmark, mode: str = "touch") -> TaskResult:
+        """One Kapandji level.
+
+        ``"touch"`` (All Hands Up): the thumb tip (``ThumbKinematics.tip``, the place on it free) within 1 mm of the
+        landmark, collision-free, within the limits. ``"functional"``: the thumb pad face (its centre line, 2 mm in
+        from its ends; the place free) within 1 mm, its normal within 45 deg of facing the landmark's, every thumb
+        joint 5 deg inside its limits, collision-free, and at least 2 N along the contact normal within every servo's
+        stall torque, for the thumb and for the landmark's finger (:meth:`_force_capacity`)."""
         thumb, boxes = s["thumb"], s["boxes"]
+        functional = mode == "functional"
         n_grid = len(self.thumb_grid)
-        unreached = lambda why: TaskResult(lm.name, False, math.inf, math.nan, math.nan, why, (), residual=10.0)
+        c_p, c_n, c_values = s["contact"][mode]
+        margin = np.radians(FUNCTIONAL_MARGIN_DEG) if functional else 0.0
+        t_lo, t_hi = self.thumb_lo + margin, self.thumb_hi - margin
+        c_lo, c_hi = (-thumb.pad_reach, thumb.pad_reach) if functional else (0.0, math.pi / 2)
+        weight = NORMAL_WEIGHT_MM if functional else TOUCH_WEIGHT_MM
+        name = lm.name if not functional else lm.name + " (functional)"
+        unreached = lambda why: TaskResult(name, False, math.inf, math.nan, math.nan, why, (), residual=10.0)
+        grid_ok = s["functional_ok"] if functional else np.ones(n_grid, bool)
         if lm.digit is None:
             point, normal = self.palm_landmark(lm)
             on_palm = min(abs(float(capsule_box_distance(point, point, 0.0, b["c"], b["h"]))) for b in boxes)
             if on_palm > REACH_MM:
                 return unreached("no palm surface at the landmark")
-            ok = np.tile(self._ok(s, FINGERS, True), 3)
-            g_i, t_i = self._match(ok, s["tip_p"], s["tip_n"], point[None], -normal[None], k=self.seeds,
-                                   weight=TOUCH_WEIGHT_MM)
+            ok = np.tile(self._ok(s, FINGERS, True) & grid_ok, 3)
+            g_i, t_i = self._match(ok, c_p, c_n, point[None], -normal[None], k=self.seeds, weight=weight)
             if not len(t_i):
                 return unreached("no seed")
-            x0 = np.hstack((self.thumb_grid[t_i % n_grid], s["phis"][t_i // n_grid][:, None]))
-            lo = np.concatenate((self.thumb_lo, [0.0]))
-            hi = np.concatenate((self.thumb_hi, [math.pi / 2]))
+            x0 = np.hstack((self.thumb_grid[t_i % n_grid], c_values[t_i // n_grid][:, None]))
+            lo, hi = np.concatenate((t_lo, [c_lo])), np.concatenate((t_hi, [c_hi]))
 
             def residual(x):
-                p_t, n_t = thumb.tip(thumb.frames(x[:, :4]), x[:, 4])
+                p_t, n_t = thumb.contact(thumb.frames(x[:, :4]), x[:, 4], mode)
                 return p_t - point, n_t + normal
 
             def clearance(x, detail=False):
@@ -590,8 +667,7 @@ class Evaluator:
                 return out if detail else out[0]
 
             x = _solve(residual, x0, lo, hi, self.iterations, clearance)
-            finger_x = np.zeros((len(x), 0))
-            phi = x[:, 4]
+            fk, finger_x, place = None, np.zeros((len(x), 0)), x[:, 4]
         else:
             fk = self.fingers[lm.digit]
             grid, gframes = self.finger_grid[lm.digit]
@@ -599,16 +675,16 @@ class Evaluator:
             p_f = _apply(gframes[key], p_loc)
             n_f = gframes[key][:, :3, :3] @ n_loc
             others = [d for d in FINGERS if d != lm.digit]
-            ok = np.tile(self._ok(s, others, False), 3)
-            g_i, t_i = self._match(ok, s["tip_p"], s["tip_n"], p_f, -n_f, weight=TOUCH_WEIGHT_MM)
+            ok = np.tile(self._ok(s, others, False) & grid_ok, 3)
+            g_i, t_i = self._match(ok, c_p, c_n, p_f, -n_f, weight=weight)
             if not len(t_i):
                 return unreached("no seed")
-            x0 = np.hstack((self.thumb_grid[t_i % n_grid], grid[g_i], s["phis"][t_i // n_grid][:, None]))
-            lo = np.concatenate((self.thumb_lo, self.finger_lo, [0.0]))
-            hi = np.concatenate((self.thumb_hi, self.finger_hi, [math.pi / 2]))
+            x0 = np.hstack((self.thumb_grid[t_i % n_grid], grid[g_i], c_values[t_i // n_grid][:, None]))
+            lo = np.concatenate((t_lo, self.finger_lo, [c_lo]))
+            hi = np.concatenate((t_hi, self.finger_hi, [c_hi]))
 
             def residual(x):
-                p_t, n_t = thumb.tip(thumb.frames(x[:, :4]), x[:, 7])
+                p_t, n_t = thumb.contact(thumb.frames(x[:, :4]), x[:, 7], mode)
                 f = fk.frames(x[:, 4:7])[key]
                 return p_t - _apply(f, p_loc), n_t + f[:, :3, :3] @ n_loc
 
@@ -618,20 +694,62 @@ class Evaluator:
                 return out if detail else out[0]
 
             x = _solve(residual, x0, lo, hi, self.iterations, clearance)
-            finger_x = x[:, 4:7]
-            phi = x[:, 7]
+            finger_x, place = x[:, 4:7], x[:, 7]
         e_p, e_n = residual(x)
         sd, which, names = clearance(x, detail=True)
         pos = np.linalg.norm(e_p, axis=1)
-        # the angle from facing between the tip's normal and the landmark's (reported only: no facing condition)
+        # the angle from facing between the contact's normal and the landmark's
         angle = np.degrees(np.arccos(np.clip(1.0 - 0.5 * np.einsum("ij,ij->i", e_n, e_n), -1.0, 1.0)))
         reached = (pos <= REACH_MM) & (sd >= COLLISION_MM)
         res = np.maximum(pos - REACH_MM, 0.0) / 5.0 + np.maximum(COLLISION_MM - sd, 0.0) / 5.0
+        force = np.full(len(x), np.nan)
+        if functional:
+            force = self._force_capacity(residual, x, e_n, fk, lm)
+            reached &= (angle <= FUNCTIONAL_FACING_DEG) & (force >= FUNCTIONAL_FORCE_N)
+            res = (res + np.maximum(angle - FUNCTIONAL_FACING_DEG, 0.0) / FUNCTIONAL_FACING_DEG
+                   + np.maximum(FUNCTIONAL_FORCE_N - force, 0.0) / FUNCTIONAL_FORCE_N)
         best = int(np.argmin(np.where(reached, -1e9 + pos, res)))
-        return TaskResult(lm.name, bool(reached[best]), float(pos[best]), float(angle[best]), float(sd[best]),
-                          names[which[best]] if sd[best] < COLLISION_MM else "",
+        why = names[which[best]] if sd[best] < COLLISION_MM else ""
+        if functional and not reached[best]:
+            parts = [why] if why else []
+            if pos[best] > REACH_MM:
+                parts.append(f"pad {pos[best]:.1f} mm off")
+            if angle[best] > FUNCTIONAL_FACING_DEG:
+                parts.append(f"facing {angle[best]:.0f} deg")
+            if force[best] < FUNCTIONAL_FORCE_N:
+                parts.append(f"force {force[best]:.1f} N")
+            why = "; ".join(parts)
+        return TaskResult(name, bool(reached[best]), float(pos[best]), float(angle[best]), float(sd[best]), why,
                           tuple(np.degrees(x[best, :4]).round(1)), tuple(np.degrees(finger_x[best]).round(1)),
-                          residual=0.0 if reached[best] else float(res[best]), tip_deg=float(np.degrees(phi[best])))
+                          residual=0.0 if reached[best] else float(res[best]),
+                          tip_deg=float(place[best] if functional else np.degrees(place[best])),
+                          force_n=float(force[best]) if functional else None)
+
+    def _force_capacity(self, residual, x: np.ndarray, e_n: np.ndarray, fk, lm: Landmark) -> np.ndarray:
+        """The largest force [N] along the contact normal that every servo holds within its stall torque (XM335 at
+        the supply voltage, ``core.hardware.xm335``): ``tau = J^T f`` for the thumb's four direct-drive joints and,
+        on a finger landmark, the finger's AA and FE (direct drive) and its PIP servo (the joint torque over the
+        four-bar's ``d theta / d q``). ``J`` is the contact point's finite-difference Jacobian (mm/rad)."""
+        n, m = x.shape
+        h = 1e-5
+        joints = 4 if fk is None else 7
+        batch = np.concatenate([x] + [x + h * np.eye(m)[i] for i in range(joints)])
+        e_p, _ = residual(batch)
+        e_p = e_p.reshape(joints + 1, n, 3)
+        jac = (e_p[1:] - e_p[0]) / h  # (joints, n, 3): thumb columns +dp_t, finger columns -dp_f
+        # the contact normal: the landmark's outward normal, the one the thumb pushes against
+        normal = -self._landmark_normal(x, fk, lm)
+        per_newton = np.abs(np.einsum("jni,ni->jn", jac, normal)) * 1e-3  # N m per N, each joint
+        if fk is not None:
+            ratio = np.abs(np.interp(np.degrees(x[:, 6]), fk.table_deg, fk.servo_ratio))
+            per_newton[6] = per_newton[6] / np.maximum(ratio, 1e-6)
+        return self.stall_torque_nm / np.maximum(per_newton.max(axis=0), 1e-9)
+
+    def _landmark_normal(self, x: np.ndarray, fk, lm: Landmark) -> np.ndarray:
+        if fk is None:
+            return np.broadcast_to(self.palm_landmark(lm)[1], (len(x), 3))
+        key, _, n_loc = fk.landmark_local(lm)
+        return fk.frames(x[:, 4:7])[key][:, :3, :3] @ n_loc
 
     def _pinch(self, s: dict, digit: str, gap_bounds: tuple[float, float], gaps) -> TaskResult:
         """The thumb pad centre on ``digit``'s distal-pad normal line at a gap in ``gap_bounds`` [mm]: the smallest
