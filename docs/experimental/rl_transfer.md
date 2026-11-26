@@ -441,3 +441,19 @@ hand 파일과 설계(RL, UL, UL120, RL60)는 기록으로 남긴다(commit 1ea2
 **공개:**
 - 시도 1–5의 결과를 모두 본 뒤에 이 시도를 골랐다. 특히 zero-shot 회전 비율이 7 mm에서 R 0.73, U 0.70으로 가깝다는 것을 안다.
 - 학습 seed가 손마다 둘뿐이므로, 잡음 추정이 거칠다.
+
+### 시도 6 보완: 조기 중단 규칙과 학습 분할 (2026-11-25, fine-tuning 수치를 보기 전에 commit)
+
+**조기 점검:** seed 20의 O, R, U를 먼저 iteration 100까지 학습한다. 그리고 checkpoint 25, 50, 75, 100을 평가한다 (256 env, seed 94000). 다음 중 하나이면 시도를 멈추고 "분리 불가"로 기록한다.
+- R과 U가 둘 다 iteration ≤ 25에서 840°에 닿는다 (천장: 잴 것이 없다).
+- iteration 100에서 R과 U의 회전 비율 차이가 3% 이내이고, 둘 다 50–100 구간에서 평평하다.
+  - 평평함의 기준: iteration 50, 75, 100 값의 최댓값 − 최솟값이 0.03 이하.
+
+아니면 300까지 이어 가고 seed 21을 돌린다.
+
+**학습 분할:** 조기 점검 때문에 모든 run을 두 process로 나눈다. 모든 손과 seed에 똑같이 적용한다.
+- 1부: iteration 1–100. 시작 checkpoint는 `start_model_1497_iter1.pt`다.
+- 2부: iteration 101–300. 1부의 `model_100`에서 resume한다 (actor, critic, optimizer, normaliser). iteration 카운터만 101로 바꾼 사본에서 시작하므로 `model_k`는 여전히 k번 update 뒤의 가중치다.
+- v2c segment 사이의 resume과 같은 방식이다. 경계에서 env가 모두 새로 reset되는 차이만 있다.
+
+**R5/U5, R9/U9:** 시도 4b와 과제 B가 대기열에 있으므로, 7 mm 결과가 나온 뒤 할지 정한다. 하지 않으면 "하지 않음"으로 적는다.
