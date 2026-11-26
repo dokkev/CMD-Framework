@@ -4,7 +4,7 @@ and the mu 1.3 -> 2.0 rotation E of the fine-tuned policies.
     python3 scripts/rotate_cube/finetune_summary.py [--hands O R U] [--out logs/rotate_cube/finetune_run/summary.json]
 
 Reads ``logs/rotate_cube/finetune_run/curve_<H>_it0.json`` (model_1497, iteration 0), each run's
-``<run>/eval/model_<k>_rotation_seed94000_*.json`` (256 envs) and ``finetune_run/final_<H>_s<S>_mu<mu>_seed<E>.json``.
+``<run>_ft1|_ft2/eval/model_<k>_rotation_seed94000_*.json`` (256 envs; the runs split at iteration 100) and ``finetune_run/final_<H>_s<S>_mu<mu>_seed<E>.json``.
 """
 
 from __future__ import annotations
@@ -38,12 +38,12 @@ def o_release():
 
 def curve(hand, seed):
     it0 = RUN_DIR / f"curve_{hand}_it0.json"
-    runs = sorted(EXP.glob(f"*_rotate_cube_{hand}_OmniResetV2_s{seed}_ft"))
+    runs = sorted(EXP.glob(f"*_rotate_cube_{hand}_OmniResetV2_s{seed}_ft[123]"))  # the run's parts (split at 100/200)
     if not it0.exists() or not runs:
         return None
     pts = {0: load(it0)["signed_rotation_deg_mean"]}
     for k in ITERS[1:]:
-        f = sorted(glob.glob(str(runs[-1] / "eval" / f"model_{k}_rotation_seed94000_*.json")))
+        f = sorted(x for r in runs for x in glob.glob(str(r / "eval" / f"model_{k}_rotation_seed94000_*.json")))
         if f:
             pts[k] = load(f[-1])["signed_rotation_deg_mean"]
     return {k: v / O_RELEASE[94000] for k, v in pts.items()}
