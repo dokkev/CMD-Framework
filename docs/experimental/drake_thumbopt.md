@@ -84,4 +84,38 @@ Limits: at most 6 worker processes (5 for T1).
 
 ## Results
 
-(after the runs)
+Paused at the user's request (2026-11-26) after T1. T2 and T3 have not been run.
+
+### T1. Reach of the e33 placements (2026-11-26; `logs/thumbopt_reach_<hand>_s<seed>.json`)
+
+| hand | reached, start and end (seeds 0 / 1 / 2) | start only | end only | median normal error at start | median position error |
+|---|---|---|---|---|---|
+| O | 0 / 0 / 0 of 64 | 0 | 0 | 25.6 deg | 18.1 mm |
+| O_thumbopt | 0 / 0 / 0 of 64 | 0 | 0 | 19.0 deg | 12.4 mm |
+
+- Noise: the three IK seeds agree to 1e-4 deg and 1e-4 mm, so the band is effectively zero.
+- **Primary: no difference.** Neither hand reaches a single placement within 1 mm and 5 deg. No placement is within tolerance even with collision ignored.
+- **Secondary: O_thumbopt is closer.** Its median normal error is 6.7 deg smaller, and the seed ranges do not overlap. The position error is also 5.7 mm smaller (reported, not registered).
+- Reading: e33's opposing pad asks for exact facing on a distal pad flexed 30–55 deg. O_thumbopt moves about a quarter of the way toward it but does not get there. The floating pad of experiment 33 remains unreachable by either real thumb.
+
+### Resume
+
+```
+cd sim/drake
+# T3 self-check (first 12 draws), then full
+uv run python thumbopt_drake.py draws36 --hand O --out logs/peg_tho_O.json
+uv run python thumbopt_drake.py draws36 --hand O_thumbopt --out logs/peg_tho_O_thumbopt.json
+uv run python peg_pinch.py run --hands O --draws logs/peg_tho_O.json --tag thoO36 --only 12 --workers 6
+uv run python peg_pinch.py run --hands O --draws logs/peg_tho_O_thumbopt.json --tag thoT36 --only 12 --workers 6
+uv run python peg_pinch.py run --hands O --draws logs/peg_tho_O.json --tag thoO36 --workers 6
+uv run python peg_pinch.py run --hands O --draws logs/peg_tho_O_thumbopt.json --tag thoT36 --workers 6
+uv run python peg_pinch.py run --hands O --draws logs/peg_tho_O.json --tag thoO36n --delta_deg 0.05 --workers 6
+# T2
+uv run python thumbopt_drake.py draws33b --hand O --out logs/pinch3_tho_O.json
+uv run python thumbopt_drake.py draws33b --hand O_thumbopt --out logs/pinch3_tho_O_thumbopt.json
+uv run python pinch_rotate.py run --hands O --draws logs/pinch3_tho_O.json --tag thoO33b --time_step 2.5e-4 --workers 6
+uv run python pinch_rotate.py run --hands O --draws logs/pinch3_tho_O_thumbopt.json --tag thoT33b --time_step 2.5e-4 --workers 6
+uv run python pinch_rotate.py run --hands O --draws logs/pinch3_tho_O.json --tag thoO33bn --delta_deg 0.05 --time_step 2.5e-4 --workers 6
+```
+
+Every run writes `logs/{peg,pinch}_O_<tag>.json` (the finger is O on both hands; the tag names the thumb). The T3 noise tag is `thoO36n`, and T2's is `thoO33bn`, as registered.
