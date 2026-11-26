@@ -255,6 +255,9 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     actor_blind: bool = False
     """The actor sees no object pose or goal error (``docs/experimental/rl_transfer.md`` attempt 4); goals are still
     counted from the true pose, and the critic keeps the privileged object state."""
+    pose_noise: dict | None = None
+    """The actor's cube pose and goal error through a delayed, noisy sensor (``mdp._PoseSensor``: ``pos_m``,
+    ``rot_rad``, ``delay_steps``; attempt 4b); the critic keeps the true state. None: the true pose."""
     object_kind: str = "cube"
     """``cube`` (40 mm, turned about world z) or ``cylinder`` (lying across the fingers, turned about its own axis)."""
     object_diameter_m: float = 0.035
@@ -350,6 +353,10 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
         obs.policy.cube_goal_error.params = {"rest_pos": rest}
         if self.observe_targets:
             obs.policy.joint_targets = ObsTerm(func=rc_mdp.actuated_targets_normalized)
+        if self.pose_noise:  # attempt 4b; the critic's terms are built below from the true state
+            obs.policy.cube_pose = ObsTerm(func=mdp.noisy_cube_pose, params={"rest_pos": rest, **self.pose_noise})
+            obs.policy.cube_goal_error = ObsTerm(func=mdp.noisy_cube_goal_error,
+                                                 params={"rest_pos": rest, **self.pose_noise})  # fmt: skip
         if self.actor_blind:  # proprioception and its history only; the critic keeps the object (attempt 4)
             obs.policy.cube_pose = None
             obs.policy.cube_goal_error = None
@@ -504,6 +511,33 @@ for _key in ("O", *TRANSFER_HANDS):
     globals()[_n] = configclass(
         type(_n, (CoDeRotateCubeOOmniResetV2BlindEnvCfg,), {"hand_key": _key, "evaluation": True})
     )
+
+
+POSE_NOISE = {"pos_m": 0.015, "rot_rad": math.radians(20.0), "delay_steps": (3, 6)}
+"""Attempt 4b's sensor: +-15 mm, up to 20 deg, 100-200 ms (3-6 control steps at 30 Hz)."""
+POSE_NOISE_HALF = {**POSE_NOISE, "pos_m": 0.0075, "rot_rad": math.radians(10.0)}
+"""The one registered reduction: the noise halved, the delay kept."""
+
+
+@configclass
+class CoDeRotateCubeOOmniResetV2NoisyEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
+    """v2c (goal bonus 5; entropy 0.001 and std cap 1.0 as overrides) with the actor's cube pose and goal error from a
+    delayed, noisy sensor (attempt 4b); the actor input keeps its 255 dimensions, so model_1497 warm-starts it."""
+
+    goal_bonus = 5.0
+    pose_noise = POSE_NOISE
+
+
+@configclass
+class CoDeRotateCubeOOmniResetV2NoisyHalfEnvCfg(CoDeRotateCubeOOmniResetV2NoisyEnvCfg):
+    pose_noise = POSE_NOISE_HALF
+
+
+for _key in ("O", *TRANSFER_HANDS):
+    for _v, _base in (("Noisy", CoDeRotateCubeOOmniResetV2NoisyEnvCfg),
+                      ("NoisyHalf", CoDeRotateCubeOOmniResetV2NoisyHalfEnvCfg)):
+        _n = f"CoDeRotateCube{_key}OmniResetV2{_v}EvalEnvCfg"
+        globals()[_n] = configclass(type(_n, (_base,), {"hand_key": _key, "evaluation": True}))
 
 
 CYLINDER_HELD_OUT = SIM_ROOT / "logs" / "rotate_cube" / "heldout_cylinder_v1"

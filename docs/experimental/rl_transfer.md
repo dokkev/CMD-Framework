@@ -475,3 +475,41 @@ O held-out(μ 1.3): 회전 782 / 747°, full+clean 72.7 / 70.1%, full≤30° 64.
 - 7 mm만 규칙상 E(R) < E(U)가 성립한다. 그러나 두 손 모두 거의 돌지 않는다(O의 15–19%). 그래서 μ 반응이 O의 1/5–1/10이고 E가 1에 가깝다. 신호가 거의 없는 상태의 결과로 보고, 확증으로 세지 않는다. 5/9 mm에서는 반복되지 않았다.
 - 보조 지표: goals E는 9 mm에서 R이 작았다(0.84 대 0.87). full≤30°와 full+clean E는 9 mm에서 U가 작았다. 나머지는 구별되지 않는다.
 - **해석:** 물체 피드백이 없으면 정책은 손이 달라지자마자 무너진다. R도 U와 같다. 7 mm 재설계는 PIP의 접촉 경로 밖에서도(MCP 수준 기하, grasp 자세) 정책에 충분히 큰 변화를 준다.
+
+## 시도 4b: 잡음과 지연이 있는 큐브 pose (사전 등록, 학습 전 commit, 2026-11-25)
+
+**왜 하는가:** 시도 4의 blind 정책은 모든 손에서 무너졌다. 반대로 참 pose를 보는 정책(시도 1)은 물체 피드백으로 손 차이를 흡수한다. 그 중간을 본다. 실제 센서처럼 pose가 늦고 흔들리면, 피드백으로 보정할 수 있는 정도가 줄어든다. 그러면 손이 만들어 내는 접촉면 움직임이 결과에 더 많이 드러날 수 있다.
+
+**정책** (`CoDe-Rotate-Cube-O-OmniResetV2Noisy`):
+- actor 입력은 release policy와 같다 (255차원). 그래서 `model_1497`에서 warm start한다.
+- actor의 `cube_pose`와 `cube_goal_error`를 같은 센서 하나에서 계산한다 (`mdp._PoseSensor`):
+  - **지연:** episode마다 3–6 control step (100–200 ms, 30 Hz)을 정수 균등분포로 뽑는다. 보고하는 pose는 그만큼 이전의 참 pose다. episode 시작 직후에는 첫 pose를 쓴다.
+  - **위치 잡음:** 매 step, 축마다 ±15 mm 균등분포.
+  - **자세 잡음:** 매 step, world frame에서 균등 임의 축 둘레로 0–20° 균등분포만큼 돌린다.
+  - **goal 오차:** 지금의 goal에서 지연된 progress를 빼고, 잡음 회전의 world-z 성분을 더 뺀다. 기울기와 위치 오차는 잡음 섞인 pose에서 계산한다.
+- critic은 privileged 참 상태 그대로다.
+- **학습:** recipe는 v2c와 같다 (goal 보너스 5, entropy 0.001, std 상한 1.0, abnormal 10×, NaN 복구, 다섯 reset type). O, seed 20, 4096 env, segment 250 iteration.
+- **조기 점검** (segment마다, O held-out, 1024 env, seed 94000/95000 평균 회전, 센서 켬):
+  - segment 1(전체 잡음) 뒤 ≥ 600°이면 그 checkpoint를 이전에 쓴다.
+  - < 600°이면 한 번만 줄인다: 잡음을 절반으로 (±7.5 mm, 0–10°, 지연은 그대로; `...V2NoisyHalf`). segment 1의 마지막 checkpoint에서 250 iteration을 더 학습한다.
+  - 그 뒤 ≥ 600°이면 그 checkpoint를 쓰고, 이전 eval은 절반 잡음 센서로 한다. 아니면 시도를 중단하고 "학습 실패"로 기록한다.
+  - 이전에 쓸 checkpoint는 이 규칙으로만 정한다. R/U 결과를 보고 고르지 않는다.
+
+**이전:**
+- 대상: O, R, U, R5, U5, R9, U9. task는 `CoDe-Rotate-Cube-<H>-OmniResetV2Noisy[Half]-Eval`이다 (학습과 같은 센서를 켠 채로).
+- 조건은 시도 1과 같다: cache `heldout_transfer_v1`, 1024 env, seed 94000/95000, pad μ 1.3과 2.0, eval override.
+- 순서: 7 mm 쌍(O, R, U)의 μ 1.3/2.0을 먼저 한다. R과 U가 모든 지표에서 잡음 안이어도 5/9 mm까지 기록용으로 마친다.
+- 센서 잡음은 torch 전역 RNG로 뽑는다. eval seed가 정해지면 재현된다.
+
+**주 지표:** μ 1.3 → 2.0 교체에 대한 회전 E (시도 1c 정의). 5, 7, 9 mm에서 각각 계산한다. O의 Δrot은 같은 정책을 O에서 잰 값이다.
+- **예측:** 각 두께에서 E(R) < E(U)이고, 그 차이가 seed 잡음 합보다 크다.
+- **반증:** 어느 두께에서든 E(R) ≥ E(U)이고, 그 차이가 잡음 합보다 크다.
+- 차이가 잡음 합 안이면 "구별 안 됨"이다.
+- **판정 불가:** |Δrot(O)|가 O의 Δrot seed 차이의 2배보다 작으면 E를 판정하지 않는다.
+
+**보조 지표:** μ 1.3의 O 대비 이전 비율 (회전, full≤30°, full+clean, goals/episode).
+- 예측: ratio_R > ratio_U. 차이가 seed 차이 합을 넘을 때만 판정한다.
+
+**공개:**
+- 시도 1–5의 결과를 모두 본 뒤에 등록한다.
+- 코드 점검(smoke) 때 `model_1497`(4b 정책이 아니다)을 이 센서를 켠 R에서 32 env로 한 번 돌렸다. 평균 회전은 432°였다.

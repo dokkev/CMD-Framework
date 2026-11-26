@@ -823,6 +823,90 @@ def cube_goal_error(env, rest_pos) -> torch.Tensor:
     return _finite(torch.cat((pos, up[:, :2], c.yaw_error.clamp(-math.pi, math.pi)[:, None]), dim=1))
 
 
+class _PoseSensor:
+    """The cube pose as a delayed, noisy sensor would report it (attempt 4b, ``docs/experimental/rl_transfer.md``),
+    shared by :func:`noisy_cube_pose` and :func:`noisy_cube_goal_error` and computed once per environment step.
+
+    Per episode a delay of ``delay_steps`` (uniform integer, both ends included; 3-6 control steps = 100-200 ms at 30
+    Hz) is drawn; each step the reported pose is the true pose that many steps ago (the episode's first pose until
+    then), with i.i.d. noise: position uniform in +-``pos_m`` per axis, orientation turned in the world frame about a
+    uniform random axis by an angle uniform in [0, ``rot_rad``]. The goal error uses the current goal against the
+    delayed progress, minus the noise rotation's world-z part (its yaw)."""
+
+    def __init__(self, env, pos_m: float, rot_rad: float, delay_steps: tuple[int, int]):
+        n, dev = env.num_envs, env.device
+        self.env, self.pos_m, self.rot_rad = env, pos_m, rot_rad
+        self.lo, self.hi = int(delay_steps[0]), int(delay_steps[1])
+        self.len = self.hi + 1
+        self.pos = torch.zeros(self.len, n, 3, device=dev)
+        self.quat = torch.zeros(self.len, n, 4, device=dev)
+        self.quat[..., 0] = 1.0
+        self.prog = torch.zeros(self.len, n, device=dev)
+        self.delay = torch.randint(self.lo, self.hi + 1, (n,), device=dev)
+        self.head = 0
+        self.out = None
+
+    def update(self) -> None:
+        """One reading per observation compute: called by :func:`noisy_cube_pose`, which the policy group computes
+        before :func:`noisy_cube_goal_error`."""
+        env = self.env
+        obj = env.scene["object"]
+        pos = _t(obj.data.root_pos_w) - env.scene.env_origins
+        quat = _t(obj.data.root_quat_w)
+        c = goal_context(env) if hasattr(env, "reward_manager") else None
+        prog = c.progress if c is not None else torch.zeros(env.num_envs, device=env.device)
+        self.head = (self.head + 1) % self.len
+        self.pos[self.head], self.quat[self.head], self.prog[self.head] = pos, quat, prog
+        buf = getattr(env, "episode_length_buf", None)
+        if buf is None or self.out is None:  # the first reading: no older ones anywhere
+            new = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+        else:
+            new = buf == 0  # a new episode: no older readings, a new delay
+        if new.any():
+            self.pos[:, new], self.quat[:, new], self.prog[:, new] = pos[new], quat[new], prog[new]
+            self.delay[new] = torch.randint(self.lo, self.hi + 1, (int(new.sum()),), device=env.device)
+        idx = (self.head - self.delay) % self.len
+        ar = torch.arange(env.num_envs, device=env.device)
+        p, q, g = self.pos[idx, ar], self.quat[idx, ar], self.prog[idx, ar]
+        n = env.num_envs
+        p = p + (2 * torch.rand(n, 3, device=env.device) - 1) * self.pos_m
+        axis = torch.nn.functional.normalize(torch.randn(n, 3, device=env.device), dim=1)
+        w = axis * (torch.rand(n, 1, device=env.device) * self.rot_rad)
+        q = math_utils.quat_mul(math_utils.quat_from_angle_axis(w.norm(dim=1), axis), q)
+        yaw_err = (c.goal - g - w[:, 2]) if c is not None else torch.zeros(n, device=env.device)
+        self.out = (p, q, yaw_err)
+
+
+def _pose_sensor(env, pos_m, rot_rad, delay_steps, read: bool) -> _PoseSensor:
+    s = getattr(env, "_code_pose_sensor", None)
+    if s is None or s.env is not env:
+        s = _PoseSensor(env, pos_m, rot_rad, delay_steps)
+        env._code_pose_sensor = s
+    if read or s.out is None:
+        s.update()
+    return s
+
+
+def noisy_cube_pose(env, rest_pos, pos_m: float, rot_rad: float, delay_steps) -> torch.Tensor:
+    """:func:`cube_pose` from :class:`_PoseSensor`."""
+    p, q, _ = _pose_sensor(env, pos_m, rot_rad, delay_steps, read=True).out
+    rel = p - torch.tensor(rest_pos, device=env.device)
+    return _finite(torch.cat((rel, math_utils.axis_angle_from_quat(q)), dim=1))
+
+
+def noisy_cube_goal_error(env, rest_pos, pos_m: float, rot_rad: float, delay_steps) -> torch.Tensor:
+    """:func:`cube_goal_error` (the cube's world-z mode) from :class:`_PoseSensor`."""
+    if not hasattr(env, "reward_manager"):
+        return torch.zeros(env.num_envs, 6, device=env.device)
+    p, q, yaw_err = _pose_sensor(env, pos_m, rot_rad, delay_steps, read=False).out
+    rel = p - goal_context(env).rest_pos
+    r = math_utils.matrix_from_quat(q)
+    k = r[:, 2, :].abs().argmax(dim=1)
+    up = r.gather(2, k[:, None, None].expand(-1, 3, 1))[..., 0]
+    up = torch.where(up[:, 2:3] < 0, -up, up)
+    return _finite(torch.cat((rel, up[:, :2], yaw_err.clamp(-math.pi, math.pi)[:, None]), dim=1))
+
+
 def time_left(env) -> torch.Tensor:
     return (1.0 - env.episode_length_buf / env.max_episode_length)[:, None]
 
