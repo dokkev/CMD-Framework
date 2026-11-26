@@ -117,3 +117,34 @@ reset dataset과 held-out grasp는 그대로 쓴다. actor 입력과 무관하�
 - 250 iteration 뒤: 학습 goals/episode > 0.5, 또는 뚜렷한 상승.
 - 500 iteration 뒤: O held-out 회전 ≥ 180°.
 - 고칠 시도는 한 번만 허용한다. 그래도 실패하면 중단한다.
+
+## 결과: 접촉만 보는 정책 — 중단 (gate 2 실패, 2026-11-26)
+
+| 점검 | 기준 | 결과 | 판정 |
+|---|---|---|---|
+| 250 iteration | 학습 goals/episode > 0.5 | 8.9 (225–250 구간 평균, 0.12에서 상승) | 통과 |
+| 500 iteration | O held-out 회전 ≥ 180° | 32.7° / 38.5° (seed 94000 / 95000) | **실패** |
+
+**O held-out 지표** (1024 env):
+
+| 지표 | 250 iteration | 500 iteration |
+|---|---|---|
+| 원기둥 축 회전 평균 | 142° / 143° | 33° / 38° |
+| 회전 중앙값 | 158° / 164° | 32° / 36° |
+| goals/episode | 2.07 / 2.12 | 0.38 / 0.38 |
+| clean time-out | 86% | 84% |
+| full turn + clean | 2.6% / 1.9% | 0% / 0% |
+| thumb·손가락 link 접촉 비율 | 0.54 | 0.37 |
+
+**관찰:**
+- 250 → 500 사이에 학습 goals/episode는 8.9에서 12.3으로 올랐다.
+- 같은 기간 held-out 회전은 142°에서 35° 안팎으로 떨어졌다.
+- 학습 분포(네 reset type, 마찰 0.3으로 만든 상태, randomization)와 held-out grasp(마찰 1.3으로 만든 잡기) 사이에서 일반화가 무너진 것으로 보인다. 원인은 확인하지 않았다.
+
+**처리:**
+- 사용자 규칙("가망 없는 시도는 빨리 멈춘다")에 따라 고칠 시도 없이 중단했다. 이전은 하지 않았다.
+- 250 iteration checkpoint는 180°에 미치지 못했으므로 이전에 쓰지 않는다.
+
+**run:**
+- `logs/rsl_rl/code_rotate_cylinder_fingertip_touch/*_cyl_seg1`, `*_cyl_seg2`
+- eval: `logs/rotate_cube/cylinder_run/eval_seg{1,2}_seed*.json`
