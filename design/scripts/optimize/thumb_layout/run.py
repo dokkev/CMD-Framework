@@ -159,9 +159,9 @@ def main(argv=None) -> int:
     problem = ThumbProblem()
     settings = OptimizerSettings("nsga2", args.population, args.generations, args.seed)
     warm = []
-    if args.orientation == "distal" and np.all((lo <= [proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm])
-                                               & ([proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm] <= hi)):
-        warm = [np.round((np.array([proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm, 0, 0, 0][:n_var]) - lo) / step)]
+    proto_x = np.array([proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm, 0.0, 0.0, 0.0][:n_var])
+    if args.orientation == "distal" and np.all((lo <= proto_x) & (proto_x <= hi)):
+        warm = [np.round((proto_x - lo) / step)]
     initial = initial_population(problem, np.array(warm).reshape(-1, n_var), settings)
     start = time.time()
     result = OPTIMIZERS["nsga2"].minimize(problem, initial, settings)

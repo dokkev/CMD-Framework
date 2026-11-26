@@ -432,7 +432,7 @@ class CoDeRotateCubeUEnvCfg(CoDeRotateCubeEnvCfg):
     hand_key = "U"
 
 
-for _key in ("R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL"):  # the 5 and 9 mm pairs (grasp.HANDS), for grasp caches of the transfer study
+for _key in ("R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "O_thumbopt"):  # the 5 and 9 mm pairs (grasp.HANDS), for grasp caches of the transfer study
     globals()[f"CoDeRotateCube{_key}EnvCfg"] = configclass(
         type(f"CoDeRotateCube{_key}EnvCfg", (CoDeRotateCubeEnvCfg,), {"hand_key": _key})
     )
