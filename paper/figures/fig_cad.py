@@ -33,11 +33,13 @@ def usd_white(path, paper=244.0):
     return (alpha * im + (1.0 - alpha) * paper).astype(np.uint8), alpha[..., 0]
 
 
-def white_to_alpha(im, lo=236, hi=252):
-    """RGB (uint8) to RGBA float with the near-white background faded out, so the image sits on a tinted box."""
+def white_to_alpha(im, bg="#ffffff", lo=236, hi=252):
+    """RGB (uint8) with the near-white background faded into the colour bg of the tinted box it sits on; opaque RGB,
+    so the PDF holds no soft mask."""
+    from matplotlib.colors import to_rgb
     im = np.asarray(im)[..., :3].astype(float) / 255.0
-    a = np.clip((hi / 255.0 - im.min(axis=2)) / ((hi - lo) / 255.0), 0.0, 1.0)
-    return np.dstack([im, a])
+    a = np.clip((hi / 255.0 - im.min(axis=2)) / ((hi - lo) / 255.0), 0.0, 1.0)[..., None]
+    return a * im + (1.0 - a) * np.array(to_rgb(bg))
 
 
 def usd_render(path, gradient=False):
@@ -292,7 +294,7 @@ def fit_icon(ax, kk):
     """An interface icon fitted to its axes (CAD render for NARI-Touch, drawn otherwise)."""
     from PIL import Image
     if kk == "nari":
-        ax.imshow(white_to_alpha(Image.open(CAD / "nari_touch.png").convert("RGB"))); ax.axis("off")
+        ax.imshow(white_to_alpha(Image.open(CAD / "nari_touch.png").convert("RGB"), "#f6f1e6")); ax.axis("off")
         return
     icon(ax, kk)
     pts = []
@@ -316,12 +318,9 @@ def main() -> int:
     import json
     from PIL import Image
     from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci
-    from matplotlib import font_manager as _fm
-    for _f in ("/usr/local/share/fonts/Helvetica Light Regular.otf",
-               "/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf",
-               "/usr/share/fonts/opentype/urw-base35/NimbusSans-Italic.otf"):
-        if Path(_f).exists():
-            _fm.fontManager.addfont(_f)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from pngout import register_fonts, save_figure
+    register_fonts()
     plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Helvetica Light", "Nimbus Sans"],
                          "font.weight": "light", "mathtext.fontset": "custom", "mathtext.rm": "Helvetica Light",
                          "mathtext.it": "Nimbus Sans:italic", "mathtext.bf": "Nimbus Sans:bold", "font.size": 7})
@@ -374,7 +373,7 @@ def main() -> int:
     # the finger and the interfaces it can carry, each in a light box, joined by a plus
     box(1.39, top - 0.64, 0.90, 0.60, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
-    fw, fh = image(white_to_alpha(fin), 1.43, top - 0.50, w=0.82)
+    fw, fh = image(white_to_alpha(fin, "#eaf1fa"), 1.43, top - 0.50, w=0.82)
     fig.text(*inch(1.84, top - 0.52), "crossed four-bar finger", fontsize=5.8, ha="center", va="top", color=INK2)
     fig.text(*inch(1.84, top - 0.74), "+", fontsize=11, ha="center", va="center", color=INK, **BOLD)
     box(1.39, 0.08, 0.90, top - 0.84 - 0.08, "#f6f1e6", "#dccfb3", r=0.05, lw=0.6)
@@ -441,12 +440,7 @@ def main() -> int:
                  **(BOLD if kind == "R" else {}))
         arrow((4.66, yt - 0.45), (4.82, yt - 0.45), col=col, lw=1.0)
     DEST.mkdir(parents=True, exist_ok=True)
-    out = DEST / "fig_cad.png"
-    fig.savefig(out, dpi=400)
-    Image.open(out).convert("RGB").save(out)  # opaque RGB, no SMask (PaperPlaza)
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from pngout import trim_white
-    trim_white(out)
+    out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")
     return 0
 

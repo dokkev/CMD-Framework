@@ -42,12 +42,8 @@ ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
-from matplotlib import font_manager as _fm  # noqa: E402
-for _f in ("/usr/local/share/fonts/Helvetica Light Regular.otf",
-           "/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf",
-           "/usr/share/fonts/opentype/urw-base35/NimbusSans-Italic.otf"):
-    if Path(_f).exists():
-        _fm.fontManager.addfont(_f)
+from pngout import register_fonts, save_figure  # noqa: E402
+register_fonts()
 # Helvetica Light for text; Nimbus Sans (Helvetica metrics) for bold and math italic, which the Light cut lacks
 plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Helvetica Light", "Nimbus Sans", "DejaVu Sans"],
                      "mathtext.fontset": "custom", "mathtext.rm": "Helvetica Light", "mathtext.it": "Nimbus Sans:italic",
@@ -356,7 +352,8 @@ def fig2():
     cad = cad.rotate(tilt, center=(uA, vA), resample=_Im.BICUBIC, fillcolor=(255, 255, 255, 0))
     arr = np.asarray(cad).astype(float) / 255.0
     white = arr[..., :3].min(axis=2) > 0.97
-    arr[..., 3] = np.where(white, 0.0, 0.55)
+    a = np.where(white, 0.0, 0.55)[..., None]
+    arr = a * arr[..., :3] + (1.0 - a)  # on white, so the PDF gets no soft mask
     Wp, Hp = cad.size
     kax.imshow(arr, extent=(Am[0] - uA / s_px, Am[0] + (Wp - uA) / s_px, Am[1] - (Hp - vA) / s_px, Am[1] + vA / s_px),
                zorder=1, interpolation="bilinear")
@@ -422,7 +419,7 @@ def fig2():
     kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
     fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
              va="top")
-    save_rgb(fig, DEST / "fig_mechanisms.png", dpi=400)
+    save_figure(fig, DEST / "fig_mechanisms.pdf")
     plt.close(fig)
     print("fig2", h)
 
@@ -621,7 +618,7 @@ def fig3():
                for k in ARCH]
     fig.legend(handles=handles, loc="upper right", bbox_to_anchor=(1.0, 1.0), ncol=4, frameon=False, fontsize=6.0,
                handletextpad=0.2, columnspacing=0.8)
-    save_rgb(fig, DEST / "fig_study12.png", dpi=400)
+    save_figure(fig, DEST / "fig_study12.pdf")
     plt.close(fig)
     print("fig3", h)
 
@@ -780,7 +777,7 @@ def fig4():
                plt.Line2D([], [], ls="none", label="%: relative to O")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
-    save_rgb(fig, DEST / "fig_study3.png", dpi=400)
+    save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)
     print("fig4", h)
 
@@ -818,7 +815,7 @@ def fig_protocols():
                plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="Conventional"),
                plt.Line2D([], [], color="#b5b5b2", lw=2.2, label="gap")]
     ax.legend(handles=handles, loc="upper right", frameon=False, fontsize=5.8, handletextpad=0.3, borderaxespad=0.1)
-    save_rgb(fig, DEST / "fig_protocols.png", dpi=400)
+    save_figure(fig, DEST / "fig_protocols.pdf")
     plt.close(fig)
     print("fig_protocols", h)
 

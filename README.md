@@ -31,8 +31,10 @@ The two subprojects keep separate environments and exchange data only through ve
 Studies write figures and reports to the repository-level `report/`. Their run records stay under
 `design/output/`.
 
-**Figures: PNG only, no PDF.** Figure scripts save `.png` (plus `.csv` for the numbers). No script writes a `.pdf`,
+**Figures: PNG only, no PDF.** Figure scripts save `.png` (plus `.csv` for the numbers). No script writes a `.pdf`
 to `report/`, `design/output/` or anywhere else, and no PDF is committed. Do not add PDF output to a new script.
+The one exception is the paper: `paper/figures/` writes each figure as a `.pdf` (what Overleaf includes) and a
+`.png` preview into the manuscript repo (paper/SSoT.md §6).
 
 ## Two optimizations: prototype and study
 

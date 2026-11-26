@@ -131,9 +131,13 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 - Draw at print size and include at scale 1: 3.45 in for a column, 7.16 in for the page; labels 6–7 pt.
   Prefer column floats; define a float in the section that discusses it; look at the page before committing.
-- PNG only, never PDF figures. Save opaque RGB (`paper/figures/pngout.save_rgb`): an alpha channel becomes a
-  soft mask in the PDF, which submission checkers flag. Keep plots with many points raster, so no point
-  becomes a PDF object.
+- PDF for Overleaf, PNG for preview (user, 2026-11-26): every figure is saved by
+  `paper/figures/pngout.save_figure` as `figures/<name>.pdf`, which the manuscript includes, and
+  `figures/<name>.png`, the opaque preview. No RGBA image may enter a figure: flatten it onto its
+  background first (an alpha channel becomes a soft mask, which submission checkers flag; `save_figure`
+  refuses one). Fonts embed as TrueType (`register_fonts` converts the CFF fonts once into
+  ~/.cache/paper_fonts, never committed). Keep plots with many points raster, so no point becomes a PDF
+  object.
 - Hand, finger and sensor images are CAD renders (Onshape shaded views, `paper/figures/fetch_cad.py`) or renders of the visual USD used in Isaac Lab (`sim/isaaclab/scripts/code_hand/render_visuals.py`), never the Drake finger renders (render_hands.py); the Drake task renders in report/study3/figures are approved (2026-11-24).
 - Scripts live in `paper/figures/` and write into the manuscript's `figures/`. Long computations are cached
   under `design/output/paper/` (git-ignored); delete a cache to recompute.
