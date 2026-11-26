@@ -237,6 +237,7 @@ E (작을수록 좋다):
   - recipe는 v2c와 같다: entropy 0.001, std 상한 1.0, 비대칭 critic, 네 OmniReset type + mid-turn reset, NaN 복구, 10× 속도 검사.
   - seed 20, 4096 env, segment는 500 iteration이다. 최대 4 segment이고, O의 held-out 지표가 정체하면 멈춘다.
 - **이전에 쓸 checkpoint:** 마지막 segment의 것을 쓴다. 미리 정해 두어서, 결과를 보고 고르지 않는다.
+  - **수정 (2026-11-25 18:10, 어떤 R/U 수치도 보기 전):** 학습을 segment 3에서 끝낸다(segment 3 마지막 checkpoint를 이전에 쓴다). 이유는 시간이다(segment 4에 1.5 h). O 지표만 보고 정했다. segment 2에서 O 회전 642–669°, full≤30° 59–62%로 판정 조건(180°)을 넘었다.
 
 **이전과 지표:**
 - 손, cache, seed, eval 조건은 시도 1/1c와 같다 (`CoDe-Rotate-Cube-<hand>-OmniResetV2Blind-Eval`).
