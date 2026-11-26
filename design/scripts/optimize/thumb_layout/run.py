@@ -55,6 +55,9 @@ _ARCHED: dict[float, Evaluator] = {}
 
 
 def _hand_path(hand: str) -> Path:
+    """``hand``: a morphology tag (h0, hr, hu) or a hand parameter file (e.g. a bi-level finger)."""
+    if hand.endswith(".yaml"):
+        return Path(hand) if Path(hand).is_absolute() else ROOT / hand
     return HANDS / f"cfl_q120_h3to7_{hand}.yaml"
 
 
@@ -125,7 +128,7 @@ def constraints(row: dict) -> list[float]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--hand", default="h0", help="finger morphology: h0 (O), hr (R), hu (U)")
+    parser.add_argument("--hand", default="h0", help="finger morphology: h0 (O), hr (R), hu (U), or a hand parameter file (.yaml)")
     parser.add_argument("--orientation", choices=("distal", "proximal"), default="distal")
     parser.add_argument("--envelope", choices=tuple(ENVELOPES), default="strict")
     parser.add_argument("--seed", type=int, default=0)
@@ -193,7 +196,8 @@ def main(argv=None) -> int:
     initial = initial_population(problem, np.array(warm).reshape(-1, n_var), settings)
     start = time.time()
     result = OPTIMIZERS["nsga2"].minimize(problem, initial, settings)
-    out = ROOT / "output" / "thumb_layout" / args.hand / (args.envelope + args.tag) / args.orientation / f"seed{args.seed}"
+    hand_tag = Path(args.hand).stem if args.hand.endswith(".yaml") else args.hand
+    out = ROOT / "output" / "thumb_layout" / hand_tag / (args.envelope + args.tag) / args.orientation / f"seed{args.seed}"
     out.mkdir(parents=True, exist_ok=True)
     keys = list(rows[0])
     with (out / "evaluations.csv").open("w", newline="") as f:

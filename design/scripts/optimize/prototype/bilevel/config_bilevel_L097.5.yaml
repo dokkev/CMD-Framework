@@ -1,0 +1,11 @@
+# Bi-level lower level at L_f = 97.5 ± 0.5 mm (docs/experimental/bilevel_hand.md).
+#   python scripts/optimize/sample_seeds.py scripts/optimize/prototype/bilevel/config_bilevel_L097.5.yaml 200000 1000 0 output/linkage/config/samples/seeds.csv
+#   python scripts/optimize/run.py scripts/optimize/prototype/bilevel/config_bilevel_L097.5.yaml
+base: ../config_bilevel.yaml
+goal:
+  link:
+    finger_length_mm: [97.0, 98.0]
+solver:
+  optimizer:
+    warm_start:
+      - output/linkage/config_bilevel_L097.5/samples/seeds.csv
