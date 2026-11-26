@@ -139,6 +139,15 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
   under `design/output/paper/` (git-ignored); delete a cache to recompute.
 - Before submission, on the Overleaf PDF: `pdfimages -list` shows no `smask`, `pdffonts` shows every font
   embedded and no Type 3.
+- Style reference (user, 2026-11-26): follow figures4papers
+  (https://github.com/ChenLiu-1996/figures4papers, `scientific-figure-making/SKILL.md` and
+  `references/design-theory.md`) when making or restyling a figure. Take from it: top and right spines off,
+  frameless legends (a separate legend strip when panels are crowded), no grid or a faint one, explicit
+  y-limits around the data, 2–4 curves per axis with `fill_between` bands for spread, the same font sizes,
+  line widths and colour meaning across every panel of a row, the method of interest in the strong blue and
+  the comparator in a warm red family with neutral greys for references, hatching or markers where print in
+  grey must still separate series. The rules above win where they differ: print size with 6–7 pt labels
+  (not its 16–24 pt canvases), PNG only (not its PDF export), Helvetica Light.
 
 ### 6.1 Figure plan (user, 2026-11-24)
 
