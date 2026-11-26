@@ -35,7 +35,8 @@ OUT = ROOT / "design" / "output" / "study"
 S3 = ROOT / "report" / "study3" / "data"
 W = 7.16
 INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
-BLUE, AMBER, GREY, TEAL, PURPLE = "#2a6fc9", "#e0942b", "#7d7d7d", "#1b9e8a", "#8a3ffc"
+# figures4papers house palette: method blue, comparator warm red, reference grey (paper/SSoT.md §6)
+BLUE, AMBER, GREY, TEAL, PURPLE = "#0F4D92", "#B64342", "#767676", "#42949E", "#9A4D8E"
 ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "rcj": ("RCJ", TEAL, "D"),
         "cfl": ("CoDe", BLUE, "o")}
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
@@ -111,7 +112,7 @@ def pole_shift_scene(ax, q=np.radians(120), L=28.0, t0=6.0, t1=10.0):
     c0 = np.array([L, 0.0])
     c_ref, c_red = rot([c0], q, P0)[0], rot([c0], q, P1)[0]
     # proximal phalanx: the thick pad (redesign) and the reference link line
-    ax.add_patch(Polygon([[-30, 0], [-3, 0], [-3, t1], [-30, t1]], fc="#f6dfbd", ec=AMBER, lw=0.5, zorder=1))
+    ax.add_patch(Polygon([[-30, 0], [-3, 0], [-3, t1], [-30, t1]], fc="#F6CFCB", ec=AMBER, lw=0.5, zorder=1))
     ax.plot([-31, 0], [t1, t1], color=INK2, lw=1.5, solid_capstyle="round", zorder=2)
     ax.plot([-31, 0], [t0, t0], color=GREY, lw=1.0, ls=(0, (2.4, 1.4)), zorder=2)
     ax.plot([-31, 0], [0, 0], color=BLUE, lw=0.8, zorder=2)

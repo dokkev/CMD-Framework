@@ -244,7 +244,7 @@ def icon(ax, kind):
     import numpy as _np  # noqa: F401
 
 
-HAND_C = {"O": "#3a3a3a", "R": "#1f6fd1", "U": "#d9622b"}
+HAND_C = {"O": "#4D4D4D", "R": "#0F4D92", "U": "#B64342"}
 
 
 def crop_white(im, pad=6):
@@ -271,7 +271,7 @@ def finger_sketch(ax, colour, kind):
     # crossed links between the phalanges
     for (xa, ya), (xb, yb) in (((-0.9, bar0 + 0.85), (0.9, bar0 + 0.05)), ((-0.9, bar0 + 0.05), (0.9, bar0 + 0.85))):
         ax.plot([xa, xb], [ya, yb], color=INK2, lw=1.4, solid_capstyle="round")
-    ax.add_patch(Circle(pole, 0.17, fc="#8a3ffc", ec="white", lw=0.4, zorder=6))
+    ax.add_patch(Circle(pole, 0.17, fc="#9A4D8E", ec="white", lw=0.4, zorder=6))
 
     def path(c0):
         q = np.radians(np.linspace(0, 120, 61))
