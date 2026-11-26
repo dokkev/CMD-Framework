@@ -126,7 +126,10 @@ def main(argv=None) -> int:
     from code_isaaclab.assets import Description
 
     stem = args.usd.name.split("_thumbpad")[0].split("_ball")[0]
-    desc = Description.load(ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json")
+    desc_path = ROOT.parents[1] / "design" / "output" / "sim" / "study3" / "hands" / f"{stem}.json"
+    if not desc_path.exists():  # transfer hands (long fingers, thumb layouts) keep their descriptions here
+        desc_path = ROOT / "logs" / "rotate_cube" / "transfer" / "hands" / f"{stem}.json"
+    desc = Description.load(desc_path)
     if max(POSE["pip"].values()) > 120.0:  # the description's tables stop at 120 deg: tables to 180 deg, made with
         # design/scripts/export/code_hand_sim.four_bar_table (PIP_RANGE_DEG = (-10, 180)) in the design env
         import json as _j
