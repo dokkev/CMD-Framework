@@ -354,6 +354,19 @@ Run data: `design/output/thumb_layout/h0/strict_arch_orient20/proximal/seed0/` (
 - **Hypothesis.** It reaches at least F-K8.
 - **Decision rule.** It replaces O_thumbopt as the recommendation only if it reaches a higher level (K9/K10, the palm), or the same F-K8 with a lever ratio ≥ 0.05 higher or a pinch ≥ 3 deg better. Its packaging cost is reported alongside: how far the RO servo sits below the palm face.
 
+### Result: relaxed envelope + base orientation (2026-11-26)
+
+Run data: `design/output/thumb_layout/h0/relaxed_orient20/proximal/seed0/` (794 evaluations).
+- **Best:** x -52.5, z -6.5, e 38, base +3/-19/+7. F-K8 (9/11), touch K9, lever 0.88 (IP 1.15, MCP 0.88), pinch 8.7 deg.
+- **The optimum stays beside the abduction servos, not under them.** Every front design has z between -4.5 and -16.5, inside the strict envelope.
+- **Under the index abduction servo** (z ≤ -28.5): 176 feasible designs, 109 of them forward of x -49. The best is F-K6 (7/11): x -38.5, z -43.5, e 36.5, base -1/-7/+3, lever 0.89.
+  - K7–K9 fail by 6–10 mm and 52–72 deg.
+  - K10 has no palm surface under it: the palm block is gone where the thumb sits.
+  - Going under frees the forward placement. But it puts the base 30–40 mm below the palm face, and the thumb works from below the fingers' level.
+- **Hypothesis:** F-K8 held.
+- **Decision rule:** not met. The level is the same (K8) and the lever is lower (0.88 against 0.92). The pinch is 8.7 against 8.8 deg, not 3 deg better.
+- O_thumbopt stays the recommendation.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
