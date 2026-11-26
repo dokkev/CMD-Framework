@@ -330,8 +330,34 @@ The probe takes the strict optimum (proximal IP, x -51, z -4.5, e 42) and change
 - **Smoke checks:**
   - the URDF FK matches the model to 1e-3 mm, for the pad and normals, including the turned IP servo;
   - the Isaac Lab asset (`description_asset`, thumb pad, visuals) builds on CPU with 19 tree joints and 7 pads, and the four-bars close in Drake;
-  - the cube-rotation task's grasp (`grasp.pinch_grasp`) fixes the thumb at RO -90 / RAA 20 for O. That grasp does not exist on O_thumbopt ("the thumb pad cannot press the cube's top face"), so the cube-task env needs a per-hand thumb grasp before it can run on this hand.
+  - the cube-rotation task's grasp (`grasp.pinch_grasp`) fixes the thumb at RO -90 / RAA 20 for O. That grasp does not exist on O_thumbopt ("the thumb pad cannot press the cube's top face"), so the cube-task env needs a per-hand thumb grasp before it can run on this hand. Fixing other RO/RAA values does not help: none of (RO, RAA) = (-90, 20), (-70, 0), (-70, 20), (-50, 0), (-50, 20), (-90, 40), (-70, 40) gives a grasp either. The grasp needs the pad within 20 deg of straight down on the cube's top face, within 8 mm of the finger plane, and the tilted base moves the reachable pad poses off that. The grasp's thumb search would have to include RO, RAA and the cube's placement. That is a task change, not done here.
 
-## Results: R and U
+### O, distal IP with the orientation free
 
-(pending)
+The distal-IP orientation run was rerun after the warm-start fix. Best design: x -50.5, z -7, e 38, base -5/-15/+8 deg.
+- F-K8 (9/11, score 8.93); touch K9; pinch 10.3 deg.
+- Lever ratio 0.80 (IP 0.80, MCP 0.88), against 0.92 for the proximal-IP optimum at the same level.
+- Both orientations land at a base pitch of -15 to -16 deg; the proximal IP keeps the better lever and pinch.
+
+## Results: R and U (strict envelope, proximal IP, 1 seed each)
+
+| hand | run | x, z [mm] | e [mm] | base yaw/pitch/roll [deg] | functional | touch | lever ratio (IP, MCP) | pinch [deg] | min grasp |
+|---|---|---|---|---|---|---|---|---|---|
+| R | prototype thumb | -51.2, -6.0 | 28 (distal IP) | 0/0/0 | K3 (4/11) | K9 (10) | 1.00 | 23.3 | 2 mm |
+| R | position only | -52.5, -11 | 43 | 0/0/0 | K4 (7/11) | K9 (10) | 0.83 (1.01, 0.83) | 17.4 | 2 mm |
+| R | + orientation ±20 | -59.5, -5 | 43 | -10/-19/+11 | **K8 (9/11)** | K9 (10) | 0.83 (1.01, 0.83) | 9.1 | 2 mm |
+| U | prototype thumb | -51.2, -6.0 | 28 (distal IP) | 0/0/0 | K3 (4/11) | K9 (10) | 1.00 | 23.4 | 2 mm |
+| U | position only | -52, -8.5 | 40 | 0/0/0 | K4 (6/11) | K9 (10) | 0.86 (1.09, 0.86) | 17.4 | 2 mm |
+| U | + orientation ±20 | -56, -5.5 | 44.5 | -1/-16/+13 | **K8 (9/11)** | K9 (10) | 0.82 (0.98, 0.82) | 4.3 | 2 mm |
+
+- **Same picture on all three morphologies.**
+  - The prototype thumb reaches F-K3. On R and U, K5 fails at 55 deg facing.
+  - Position and extension alone stop at F-K4: the ring tip fails on facing.
+  - A base pitch of -15 to -20 deg, with roll +6 to +14 deg, opens K5–K8 and brings the pinch under 10 deg.
+- **K9 and K10 (palm) stay out of reach everywhere.** The pad cannot fold flat onto the palm next to its own base within the IP/MCP ranges and the 5 deg margin.
+- **The R optimum's pitch sits at the -20 deg bound.** On R, more tilt may help further.
+- **Shorter-case designs on the orientation fronts:**
+  - R: F-K6 at e 31 with lever ratio 0.95 and pinch 8.0 deg;
+  - U: F-K6 at e 33 with lever ratio 0.93 and pinch 4.7 deg.
+- **Morphology barely changes the thumb's best layout.** The three optima share the IP orientation and the pitch/roll range. They differ mainly in x (-50.5 for O against -56…-59.5 for R/U) and in e (34 against 43–44.5).
+- **For O, R and U the CMC base orientation is the design variable that matters for dexterity here.** Its position within the palm envelope, the IP servo turn and the case length refine levers and pinch.
