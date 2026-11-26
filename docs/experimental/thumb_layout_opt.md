@@ -278,6 +278,20 @@ O's fingers, proximal IP, functional Kapandji. Each probe changes one thing from
 
 Pitch carries most of the gain; yaw and roll add K7–K8 only together with it. At K5 the pad is about 1 mm from the landmark in every variant: the facing angle, not the reach, decides.
 
+**Without the pitch (pitch fixed at 0).** Same position (x -50.5, z -10.5), with yaw and roll each over -20…+20 deg in 5 deg steps and e ∈ {30, 34, 40, 44}:
+- The best design is F-K4 (6/11) at every e: yaw -10, roll +5 and e 30 gives lever 0.97; e 34 gives 0.92.
+- The tilt's pitch is worth four functional levels (K5–K8) at the same lever, and the pinch goes from about 18–19 deg (position-only optima) to 8.8.
+- Pitch sweep at yaw -14, roll +14, e 34:
+
+| pitch [deg] | functional (reached) | K5 facing |
+|---|---|---|
+| -4 | K4 (6/11) | 47 deg |
+| -8 | K4 (6/11) | 44 |
+| -12 | K4 (7/11) | 40 |
+| -16 | K8 (9/11) | 37 |
+
+  The chain opens between -12 and -16 deg.
+
 **Moving the base instead (no rotation, envelope constraints ignored).** A 7 × 6 grid over x -60…-25, z +5…-32:
 - The facing at K5 drops below 45 deg only at x ≥ -35 (to 36–44 deg).
 - There the RAA servo's sweep overlaps the abduction servos by 5–12 mm. The RO servo body itself stays 17–36 mm clear, so the RAA sweep is the collision that blocks forward placement (the strict front, x -49, is where its clearance reaches 0).
