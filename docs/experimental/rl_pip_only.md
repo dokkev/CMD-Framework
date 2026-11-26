@@ -464,3 +464,11 @@ G = E(U) − E(R) (양수면 R이 유리)와 이전 비율 간격 (ratio_R − r
 | touch-only | 21.2/23.6; 8.4/31.2 | 3.9/10.7; 15.4/12.8 | 15.2/20.0; 10.1/22.9 |
 
 `scripts/finger_relay/attempt8_summary.py relay`, `logs/finger_relay/run/attempt8_summary.json`. 원기둥 걷기 절반은 진행 중이다.
+
+### 시도 8 보완 2: 원기둥 걷기 절반은 양 끝부터 (2026-11-26 14:53, 중간 수준 데이터가 하나도 없을 때, 사용자 지시)
+
+- walk ObsS seed 20은 시작 3분 만에 멈췄다 (`stopped/`). 그 수치는 없다.
+- 순서를 바꿔 touch+direction seed 21을 먼저 한다. 이것으로 양 끝(정확, touch+direction)이 모두 두 seed가 된다.
+- **점검:** touch 끝의 G가 정확 끝의 G보다, 두 끝의 잡음 합을 넘게 크지 않으면 중간 수준(ObsS, ObsL)을 취소한다. G는 5/7/9 mm 평균, 두 seed 평균이다. 이 경우 "양 끝 사이에 측정 가능한 경향이 없다"로 기록한다.
+- 양 끝이 잡음 넘게 다를 때만 ObsL s20/s21, ObsS s20/s21 순서로 돌린다.
+- 각 수준의 Δ(O) (seed별)를 보고한다. |Δ(O)|가 작은 수준은 표시한다.
