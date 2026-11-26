@@ -142,6 +142,60 @@ Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_hu,9.0,3.89,7.17,0.7392,25
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.3246,25
 Drake,grasp acquisition,point contact,report/study3/data/drake_e23_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.9253,25
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,R,7.0,0.86,7.67,0.1583,9
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d1p5_minDs_s0,7.0,1.6,5.37,0.2854,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3837,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.174,7
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d3_minDs_s0,7.0,3.09,3.83,0.3272,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,U,7.0,3.91,3.38,0.6591,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d4p5_s0,7.0,4.41,11.33,0.3849,2
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d5p5_s0,7.0,5.4,12.17,0.5938,2
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.3005,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,d3_maxDs_s0,7.0,3.04,11.55,0.5426,13
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to5_hr,5.0,0.35,3.55,0.2089,9
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to5_hu,5.0,1.58,2.02,0.2636,10
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to5_d3_s0,5.0,2.92,6.38,0.3095,7
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.6563,12
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to9_hr,9.0,2.32,9.37,0.3055,11
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to9_hu,9.0,3.89,7.17,0.7678,13
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.3517,13
+Drake,grasp acquisition,hydroelastic 3 mm,report/study3/data/drake_e23_hydro.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.6551,12
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,R,7.0,0.86,7.67,0.2864,48
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d1p5_minDs_s0,7.0,1.6,5.37,1.0,54
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d2p25_minDs_s0,7.0,2.33,4.62,1.4143,48
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d2p25_maxDs_s0,7.0,2.3,9.17,,0
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d3_minDs_s0,7.0,3.09,3.83,1.6515,44
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,U,7.0,3.91,3.38,1.5,35
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d4p5_s0,7.0,4.41,11.33,,0
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d5p5_s0,7.0,5.4,12.17,,0
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.3167,52
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,d3_maxDs_s0,7.0,3.04,11.55,0.2,46
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to5_hr,5.0,0.35,3.55,0.0839,54
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to5_hu,5.0,1.58,2.02,0.7143,54
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to5_d3_s0,5.0,2.92,6.38,,0
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,1.5,41
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to9_hr,9.0,2.32,9.37,0.3333,54
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to9_hu,9.0,3.89,7.17,1.0,44
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.3167,38
+Drake,hook pull,point contact,report/study3/data/drake_e38_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,1.4222,22
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,R,7.0,0.86,7.67,0.4246,38
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d1p5_minDs_s0,7.0,1.6,5.37,2.2298,46
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d2p25_minDs_s0,7.0,2.33,4.62,3.7048,24
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d2p25_maxDs_s0,7.0,2.3,9.17,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d3_minDs_s0,7.0,3.09,3.83,3.6471,20
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,U,7.0,3.91,3.38,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d4p5_s0,7.0,4.41,11.33,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d5p5_s0,7.0,5.4,12.17,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d1p5_maxDs_s0,7.0,1.46,9.67,1.2022,42
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,d3_maxDs_s0,7.0,3.04,11.55,1.8824,30
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to5_hr,5.0,0.35,3.55,0.0839,48
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to5_hu,5.0,1.58,2.02,2.0592,46
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to5_d3_s0,5.0,2.92,6.38,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,4.2601,6
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to9_hr,9.0,2.32,9.37,1.4775,50
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to9_hu,9.0,3.89,7.17,,0
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.5719,30
+Drake,hook pull,hydroelastic 3 mm; pre-registered 3.75 N pad-force gate,report/study3/data/drake_e38_hydro.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,,0
 Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,R,7.0,0.86,7.67,0.1696,12
 Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1897,12
 Drake,fingertip dial,z-axis disk (Study 3's dial task),report/study3/data/drake_e28z_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.2505,12
@@ -178,42 +232,42 @@ Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/stud
 Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_hu,9.0,3.89,7.17,0.6178,58
 Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.534,59
 Drake,fingertip dial,"z-axis disk, randomized starts (confirmation)",report/study3/data/drake_e29z_point.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.651,58
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,R,7.0,0.86,7.67,0.0217,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d1p5_minDs_s0,7.0,1.6,5.37,0.081,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d2p25_minDs_s0,7.0,2.33,4.62,0.105,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0188,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d3_minDs_s0,7.0,3.09,3.83,0.1283,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,U,7.0,3.91,3.38,0.1634,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d4p5_s0,7.0,4.41,11.33,0.049,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d5p5_s0,7.0,5.4,12.17,0.0423,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0285,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,d3_maxDs_s0,7.0,3.04,11.55,0.0325,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_hr,5.0,0.35,3.55,0.0112,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_hu,5.0,1.58,2.02,0.0712,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_d3_s0,5.0,2.92,6.38,0.0507,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1151,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_hr,9.0,2.32,9.37,0.097,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_hu,9.0,3.89,7.17,0.1634,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.0295,64
-Drake,fingertip coin drag,"long drag, randomized starts",report/study3/data/drake_e30b_coin.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1973,64
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,R,7.0,0.86,7.67,0.5455,52
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_minDs_s0,7.0,1.6,5.37,0.7153,52
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_minDs_s0,7.0,2.33,4.62,1.0,51
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.75,11
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_minDs_s0,7.0,3.09,3.83,0.9737,54
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,U,7.0,3.91,3.38,1.2265,39
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d4p5_s0,7.0,4.41,11.33,,0
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d5p5_s0,7.0,5.4,12.17,,0
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.5273,48
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_maxDs_s0,7.0,3.04,11.55,0.6768,52
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hr,5.0,0.35,3.55,0.2697,56
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hu,5.0,1.58,2.02,0.5,55
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_s0,5.0,2.92,6.38,0.5833,1
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.9787,46
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hr,9.0,2.32,9.37,0.56,51
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hu,9.0,3.89,7.17,1.0,43
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.6923,49
-Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.6842,15
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,R,7.0,0.86,7.67,0.1703,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d1p5_minDs_s0,7.0,1.6,5.37,0.22,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d2p25_minDs_s0,7.0,2.33,4.62,0.3054,29
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.2317,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d3_minDs_s0,7.0,3.09,3.83,0.3268,29
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,U,7.0,3.91,3.38,0.4786,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d4p5_s0,7.0,4.41,11.33,0.2689,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d5p5_s0,7.0,5.4,12.17,0.2626,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.2165,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,d3_maxDs_s0,7.0,3.04,11.55,0.2807,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to5_hr,5.0,0.35,3.55,0.1011,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to5_hu,5.0,1.58,2.02,0.2161,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to5_d3_s0,5.0,2.92,6.38,0.0813,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.2656,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to9_hr,9.0,2.32,9.37,0.4058,29
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to9_hu,9.0,3.89,7.17,0.5079,29
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.4948,30
+Drake,fingertip dial,"z-axis disk, the first 32 randomized starts",report/study3/data/drake_e29z_point_first32.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.5302,29
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,R,7.0,0.86,7.67,0.0406,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d1p5_minDs_s0,7.0,1.6,5.37,0.0694,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d2p25_minDs_s0,7.0,2.33,4.62,0.0861,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0422,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d3_minDs_s0,7.0,3.09,3.83,0.0939,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,U,7.0,3.91,3.38,0.1238,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d4p5_s0,7.0,4.41,11.33,0.0324,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d5p5_s0,7.0,5.4,12.17,0.034,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0672,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,d3_maxDs_s0,7.0,3.04,11.55,0.0773,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to5_hr,5.0,0.35,3.55,0.0282,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to5_hu,5.0,1.58,2.02,0.0735,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to5_d3_s0,5.0,2.92,6.38,0.0474,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.094,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to9_hr,9.0,2.32,9.37,0.0907,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to9_hu,9.0,3.89,7.17,0.1277,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1081,32
+Drake,fingertip dial,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e29z_hydro.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1473,32
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,R,7.0,0.86,7.67,0.0542,62
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1005,63
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1299,62
@@ -232,6 +286,60 @@ Drake,fingertip box pivot,"spring-return block against a stop, randomized starts
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_hu,9.0,3.89,7.17,0.2301,63
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1872,61
 Drake,fingertip box pivot,"spring-return block against a stop, randomized starts",report/study3/data/drake_e35_pivot.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2518,63
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,R,7.0,0.86,7.67,0.0519,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1007,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1207,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0482,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d3_minDs_s0,7.0,3.09,3.83,0.1486,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,U,7.0,3.91,3.38,0.203,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d4p5_s0,7.0,4.41,11.33,0.0253,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d5p5_s0,7.0,5.4,12.17,0.0319,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0864,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,d3_maxDs_s0,7.0,3.04,11.55,0.121,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to5_hr,5.0,0.35,3.55,0.022,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to5_hu,5.0,1.58,2.02,0.0856,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to5_d3_s0,5.0,2.92,6.38,0.0247,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1281,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to9_hr,9.0,2.32,9.37,0.1449,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to9_hu,9.0,3.89,7.17,0.2148,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1849,31
+Drake,fingertip box pivot,the first 32 randomized starts,report/study3/data/drake_e35_point_first32.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.2447,31
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,R,7.0,0.86,7.67,0.0478,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d1p5_minDs_s0,7.0,1.6,5.37,0.085,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d2p25_minDs_s0,7.0,2.33,4.62,0.1072,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.0456,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d3_minDs_s0,7.0,3.09,3.83,0.1299,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,U,7.0,3.91,3.38,0.182,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d4p5_s0,7.0,4.41,11.33,0.0204,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d5p5_s0,7.0,5.4,12.17,0.0218,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.0644,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,d3_maxDs_s0,7.0,3.04,11.55,0.0865,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to5_hr,5.0,0.35,3.55,0.02,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to5_hu,5.0,1.58,2.02,0.0776,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to5_d3_s0,5.0,2.92,6.38,0.0174,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.1105,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to9_hr,9.0,2.32,9.37,0.1286,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to9_hu,9.0,3.89,7.17,0.1861,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.1367,32
+Drake,fingertip box pivot,hydroelastic 3 mm; the first 32 randomized starts,report/study3/data/drake_e35_hydro.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.1994,32
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,R,7.0,0.86,7.67,0.5455,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_minDs_s0,7.0,1.6,5.37,0.7153,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_minDs_s0,7.0,2.33,4.62,1.0,51
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d2p25_maxDs_s0,7.0,2.3,9.17,0.75,11
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_minDs_s0,7.0,3.09,3.83,0.9737,54
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,U,7.0,3.91,3.38,1.2265,39
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d4p5_s0,7.0,4.41,11.33,,0
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d5p5_s0,7.0,5.4,12.17,,0
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d1p5_maxDs_s0,7.0,1.46,9.67,0.5273,48
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,d3_maxDs_s0,7.0,3.04,11.55,0.6768,52
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hr,5.0,0.35,3.55,0.2697,56
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_hu,5.0,1.58,2.02,0.5,55
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_s0,5.0,2.92,6.38,0.5833,1
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to5_d3_minDs_s0,5.0,3.09,0.38,0.9787,46
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hr,9.0,2.32,9.37,0.56,51
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_hu,9.0,3.89,7.17,1.0,43
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d3p5_maxDs_s0,9.0,3.52,12.72,0.6923,49
+Drake,"pull-out, pad shape","flat to 2 mm crowned, each shape placed by O's contact",report/study3/data/drake_e34_shape.json,h3to9_d5_minDs_s0,9.0,5.08,5.32,0.6842,15
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,R,7.0,0.86,7.67,0.2685,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d1p5_minDs_s0,7.0,1.6,5.37,0.1742,11
 Drake,in-hand rolling,point contact,report/study3/data/drake_e22_point.json,d2p25_minDs_s0,7.0,2.33,4.62,0.135,11

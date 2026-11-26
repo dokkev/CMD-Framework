@@ -36,12 +36,15 @@ DRAKE_SETS = {
     ("dk", "point", "e27"): ("27", "pull-out", "joint setpoint re-chosen per hand so the fingertip contact point matches O's"),
     ("dkpullin", "point", "e23-a3"): ("23", "grasp acquisition", "cylinder starts 3 mm past O's contact"),
     ("dkpullin", "point", "e23-a6"): ("23", "grasp acquisition", "cylinder starts 6 mm past O's contact"),
+    ("dkpullin", "hydro", "e23h-a3"): ("23", "grasp acquisition", "hydroelastic (experiment 21's rule); cylinder starts 3 mm past O's contact"),
+    ("dkpullin", "hydro", "e23h-a6"): ("23", "grasp acquisition", "hydroelastic (experiment 21's rule); cylinder starts 6 mm past O's contact"),
     ("dktipdial", "point", "e28z"): ("28", "fingertip dial", "z-axis disk turned by the distal pad on its top face (Study 3's dial task)"),
     ("dktipdial", "point", "e29z"): ("29", "fingertip dial", "z-axis disk, 64 randomized starts (seed 29), common to all hands"),
-    ("dkcoin", "point", "e30b"): ("30b", "fingertip coin drag", "the distal pad alone drags a tethered coin toward the palm on a sprung table, 64 randomized starts (seed 31)"),
     ("dkroll", "point", "e22-s8"): ("22", "in-hand rolling", "flexion sweep of 8 deg"),
     ("dkroll", "point", "e22-s15"): ("22", "in-hand rolling", "flexion sweep of 15 deg"),
+    ("dktipdial", "hydro", "e29zh"): ("29", "fingertip dial", "hydroelastic (experiment 21's rule); z-axis disk, the first 32 of the randomized starts"),
 }
+HYDRO = "hydroelastic, experiment 21's rule (O's pad foundation stiffness on every hand, 1 ms)"
 
 
 def rel(p: Path) -> str:
@@ -183,11 +186,6 @@ def drake_rows() -> tuple[list[dict], list[str]]:
                     row["proximal_force_max_n"] = r4(x.get("proximal_force_max_n"))
                 elif "distal_normal_end_n" in x:
                     row["distal_force_end_n"] = r4(x.get("distal_normal_end_n"))
-            elif task == "fingertip coin drag":
-                x = e.get("drag") or {}
-                row.update(measure=r4(x.get("travel_end_mm")), measure_unit="mm (coin travel toward the MCP)",
-                           event=None if x.get("touched", True) else "not touched",
-                           distal_force_max_n=r4(x.get("distal_force_max_n")), proximal_force_max_n=r4(x.get("proximal_force_max_n")))
             elif task == "in-hand rolling":
                 x = e.get("roll") or {}
                 row.update(measure=r4(x.get("rotation_deg")), measure_unit="deg (cylinder rotation)", held_at_end=x.get("held"),
@@ -224,16 +222,18 @@ def shape_rows() -> tuple[list[dict], list[str]]:
     return rows, srcs
 
 
-def pivot_rows() -> tuple[list[dict], list[str]]:
-    """Experiment 35 (sim/drake/box_pivot.py, logs pivot_<hand>_e35.json): one row per hand x draw x mu."""
+def pivot_rows(tag: str = "e35") -> tuple[list[dict], list[str]]:
+    """Experiment 35 (sim/drake/box_pivot.py, logs pivot_<hand>_<tag>.json): one row per hand x draw x mu; tag e35h is
+    the hydroelastic rerun on the first 32 draws."""
     import sys
     sys.path.insert(0, str(ROOT / "sim/drake"))
     import box_pivot as BP  # lost(): the run's failure rule
 
     draws = {g["draw"]: g for g in json.loads((DRAKE / "pivot_e35.json").read_text())["draws"]}
     rows, srcs = [], []
-    for p in sorted(DRAKE.glob("pivot_*_e35.json")):
-        hand = p.name[len("pivot_"):-len("_e35.json")]
+    hydro = tag.endswith("h")
+    for p in sorted(DRAKE.glob(f"pivot_*_{tag}.json")):
+        hand = p.name[len("pivot_"):-len(f"_{tag}.json")]
         srcs.append(rel(p))
         for rec in json.loads(p.read_text())["draws"]:
             pl = draws[rec["draw"]]
@@ -242,9 +242,10 @@ def pivot_rows() -> tuple[list[dict], list[str]]:
                 fail = "solver_fail" in x
                 lost = None if fail else BP.lost(x)
                 rows.append({"engine": "Drake", "experiment": "35", "task": "fingertip box pivot",
-                             "setting": "the distal pad drags a spring-return block's top toward the palm against a "
-                                        "stop on a sprung table, 64 randomized starts (seed 35)",
-                             "tag": "e35", "contact_model": "point", "hand": hand, "mu": float(mu),
+                             "setting": ("the distal pad drags a spring-return block's top toward the palm against a "
+                                         "stop on a sprung table, " + (f"{HYDRO}, the first 32 of the randomized starts"
+                                                                       if hydro else "64 randomized starts (seed 35)")),
+                             "tag": tag, "contact_model": "hydro" if hydro else "point", "hand": hand, "mu": float(mu),
                              "draw": rec["draw"], "q0_deg": r4(pl["q_t_deg"]), "block_width_mm": r4(pl["w_mm"]),
                              "block_height_mm": r4(pl["h_mm"]), "block_mass_g": r4(pl["mass_g"]),
                              "tip_spring_nm_rad": r4(pl["k_r"]), "sweep_deg": r4(pl["sweep_deg"]),
@@ -257,6 +258,39 @@ def pivot_rows() -> tuple[list[dict], list[str]]:
                              "distal_force_max_n": None if fail else r4(x["distal_force_max_n"]),
                              "proximal_force_max_n": None if fail else r4(x["proximal_force_max_n"]),
                              "penetration_max_mm": None if fail else r4(x["pen_mm"])})
+    return rows, srcs
+
+
+def hook_rows(tag: str = "e38") -> tuple[list[dict], list[str]]:
+    """Experiment 38 (sim/drake/hook_pull.py, logs hook_<hand>_<tag>.json): one row per hand x placement x mu x load
+    direction; tag e38h is the hydroelastic rerun (the penetration column is then pad force / 2.5 N/mm, the 3.75 N
+    force gate at 1.5 mm)."""
+    hydro = tag.endswith("h")
+    rows, srcs = [], []
+    for p in sorted(DRAKE.glob(f"hook_*_{tag}.json")):
+        hand = p.name[len("hook_"):-len(f"_{tag}.json")]
+        srcs.append(rel(p))
+        for r in json.loads(p.read_text())["places"]:
+            for mu, run in sorted((r.get("runs") or {}).items()):
+                g = run.get("gate0") or {}
+                base = {"engine": "Drake", "experiment": "38", "task": "hook pull",
+                        "setting": ("the flexed finger hooks a bar (drawer handle) between its pads; a load pulls it "
+                                    "out of the hook (-z) or diagonally (+x-z)" + (f"; {HYDRO}" if hydro else "; point contact")),
+                        "tag": tag, "contact_model": "hydro" if hydro else "point", "hand": hand, "mu": float(mu),
+                        "cylinder_radius_mm": r["rho_mm"], "q0_deg": r["q0_deg"], "x_c_mm": r4(r["x_c_mm"]),
+                        "gate0_pass": g.get("pass"), "penetration_max_mm": r4((run.get("pre") or {}).get("pen_mm")),
+                        "measure_unit": "N (hook limit load)"}
+                if r.get("solver_fail") or not g.get("pass") or not run.get("dirs"):
+                    rows.append({**base, "load_direction": None, "measure": None,
+                                 "event": "solver fail" if r.get("solver_fail") else "gate 0 failed"})
+                    continue
+                for d, v in run["dirs"].items():
+                    rows.append({**base, "load_direction": d, "measure": r4(v["limit"]["f_limit_n"]),
+                                 "event": v["limit"]["event"]})
+            if r.get("solver_fail") and not r.get("runs"):
+                rows.append({"engine": "Drake", "experiment": "38", "task": "hook pull", "tag": tag, "hand": hand,
+                             "contact_model": "hydro" if hydro else "point", "cylinder_radius_mm": r["rho_mm"],
+                             "q0_deg": r["q0_deg"], "event": "solver fail"})
     return rows, srcs
 
 
@@ -286,7 +320,7 @@ def study3() -> None:
     out_dir = REP / "study3/data/raw"
     drows, dsrc = drake_rows()
     irows, isrc = isaac_rows()
-    for fn in (shape_rows, pivot_rows):
+    for fn in (shape_rows, pivot_rows, lambda: pivot_rows("e35h"), hook_rows, lambda: hook_rows("e38h")):
         xrows, xsrc = fn()
         drows += xrows
         dsrc += xsrc
@@ -301,7 +335,7 @@ def study3() -> None:
     groups = {}
     for r in drows + irows:
         name = {"pull-out": "pullout", "grasp acquisition": "acquisition", "dial": "dial", "fingertip dial": "tipdial",
-                "fingertip coin drag": "coin", "pull-out, pad shape": "shape", "fingertip box pivot": "pivot",
+                "pull-out, pad shape": "shape", "fingertip box pivot": "pivot", "hook pull": "hook",
                 "in-hand rolling": "rolling"}[r["task"]]
         eng = "isaac" if r["engine"] == "Isaac Lab" else "drake"
         groups.setdefault(f"runs_{eng}_{name}.csv", []).append({k: r.get(k) for k in keys})
@@ -321,11 +355,17 @@ def study3() -> None:
             ("drake_e25_hydro_own.json", "Drake", "pull-out", "hydroelastic, each pad as soft as it is thick"),
             ("drake_e27_point.json", "Drake", "pull-out", "contact-referenced joint setpoint"),
             ("drake_e23_point.json", "Drake", "grasp acquisition", "point contact"),
+            ("drake_e23_hydro.json", "Drake", "grasp acquisition", "hydroelastic 3 mm"),
+            ("drake_e38_point.json", "Drake", "hook pull", "point contact"),
+            ("drake_e38_hydro.json", "Drake", "hook pull", "hydroelastic 3 mm; pre-registered 3.75 N pad-force gate"),
             ("drake_e28z_point.json", "Drake", "fingertip dial", "z-axis disk (Study 3's dial task)"),
             ("drake_e29z_point.json", "Drake", "fingertip dial", "z-axis disk, randomized starts (confirmation)"),
-            ("drake_e30b_coin.json", "Drake", "fingertip coin drag", "long drag, randomized starts"),
-            ("drake_e34_shape.json", "Drake", "pull-out, pad shape", "flat to 2 mm crowned, each shape placed by O's contact"),
+            ("drake_e29z_point_first32.json", "Drake", "fingertip dial", "z-axis disk, the first 32 randomized starts"),
+            ("drake_e29z_hydro.json", "Drake", "fingertip dial", "hydroelastic 3 mm; the first 32 randomized starts"),
             ("drake_e35_pivot.json", "Drake", "fingertip box pivot", "spring-return block against a stop, randomized starts"),
+            ("drake_e35_point_first32.json", "Drake", "fingertip box pivot", "the first 32 randomized starts"),
+            ("drake_e35_hydro.json", "Drake", "fingertip box pivot", "hydroelastic 3 mm; the first 32 randomized starts"),
+            ("drake_e34_shape.json", "Drake", "pull-out, pad shape", "flat to 2 mm crowned, each shape placed by O's contact"),
             ("drake_e22_point.json", "Drake", "in-hand rolling", "point contact")]
     for fname, eng, task, setting in sets:
         d = json.loads((REP / "study3/data" / fname).read_text())
@@ -363,9 +403,12 @@ def study3() -> None:
             "fingertip dial": "the distal pad alone drives a dial against a torsional spring as the finger sweeps open-loop "
                               "from O's touch angle; z: a disk whose top face the pad drags, y: a rim pushed tangentially; "
                               "the proximal pad never touches; measure = rotation (experiment 28)",
-            "fingertip coin drag": "the distal pad alone drags a 2 mm coin (tethered at 45 N/m, coin-table mu 0.2) toward the "
-                                   "MCP on a table sprung at 30 N/m, sweeping 45-55 deg open-loop from O's touch angle; "
-                                   "measure = the coin's travel at the end (experiment 30b; time step 0.25 ms)",
+            "hook pull": "the flexed finger hooks a bar (radius 5-8 mm, a drawer handle) between its proximal and "
+                         "distal pads at O's placement, closes to q0 + 10 deg, releases (Gate 0), then a load pulls the "
+                         "bar out of the hook (-z) or diagonally (+x-z) until the hook gives way; measure = that load "
+                         "(experiment 38)",
+            "hydroelastic": "tags ending in h: " + HYDRO + "; randomized tasks on their first 32 draws; the point "
+                            "penetration gate (1.5 mm x 2.5 N/mm) read as a 3.75 N pad-force gate",
             "pull-out, pad shape": "the pull-out at friction 1.3 with both pads flat or crowned (2 mm sagitta along the "
                                    "pad, the middle at full thickness); each shape's cylinder centre (x_c_mm, z_c_mm, "
                                    "made on O, given to each hand in its proximal-face frame) is where O's two pads of "
@@ -377,7 +420,7 @@ def study3() -> None:
                                    "q0_deg; measure = the tilt at the end (tilt_max_deg its largest); lost = the block "
                                    "toppled (> 45 deg), left the stop or lost the pad (experiment 35; time step 0.25 ms)",
             "in-hand rolling": "after the grasp, an open-loop flexion sweep of 8 or 15 deg rolls the cylinder; "
-                               "measure = rotation",
+                               "measure = rotation (experiment 22, the boundary of the claim)",
         },
         "events": {"slip": "a pad's tangential speed exceeds 10 mm/s", "loss": "a pad's normal force falls below the "
                    "threshold (the pad leaves the cylinder)", "collapse": "the finger is pushed open (the joint "
@@ -388,9 +431,9 @@ def study3() -> None:
             "E (per pair)": "|D(hand) - D(O)| / |D(O)|, over the pairs where O and the hand both pass gate 0 at both "
                             "frictions and the measure exists",
             "E (per hand, errors_by_hand.csv)": "median over that hand's pairs (sim/drake/analyze.py error()); tasks "
-                                                "drop pairs with a small effect on O (|D(O)| < 0.3 mm or deg, rolling "
-                                                "< 0.5 deg); acquisition scores a hand that loses the cylinder as the "
-                                                "largest error",
+                                                "drop pairs with a small effect on O (|D(O)| < 0.3 mm or deg; hook "
+                                                "0.2 N; rolling 0.5 deg); acquisition counts a pair where the hand loses the cylinder "
+                                                "apart (lost) and does not score it",
             "experiment 25": "each redesigned hand is compared with O carrying the same soft pad (tags e25-ref5/7/9)",
         },
         "hands": {"O": "3 mm reference", "R": "7 mm redesign keeping the contact-surface motion (Δ_contact 0.86 mm)",

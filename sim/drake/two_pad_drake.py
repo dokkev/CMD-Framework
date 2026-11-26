@@ -528,14 +528,18 @@ def pullin(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, x0, theta_cmd
     s.ctrl.load = np.array([opts["tip_load_n"], opts["face_load_n"]]) / FINGERS
     s.sim.Initialize()
     n_close, n_hold = int(round(opts["close_s"] / DT_ENV)), int(round(opts["hold_s"] / DT_ENV))
+    trace = []  # --curve: [time s, drawn toward the MCP mm] every step (Fig. 4)
     for i in range(n_close + n_hold):
         s.ctrl.theta_cmd = theta_cmd * min(1.0, (i + 1) / n_close)
         s.step()
+        if opts.get("curve"):
+            trace.append([round((i + 1) * DT_ENV, 4), round(float(1e3 * (start[0] - s.measure()["c"][0])), 4)])
     m_ = s.measure()
     c = m_["c"]
     return {"drawn_mm": float(1e3 * (start[0] - c[0])), "x_end_mm": float(1e3 * c[0]),
             "off_face_mm": float(1e3 * (start[1] - c[2])), "held": bool((m_["normal"] >= GATE_N).all()),
-            "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"])}
+            "normal_end_n": m_["normal"].tolist(), "q_end_deg": math.degrees(m_["q"]),
+            **({"trace": trace} if opts.get("curve") else {})}
 
 
 def run_env(task):

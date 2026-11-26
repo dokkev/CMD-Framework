@@ -7,9 +7,9 @@ Figure plan (user, 2026-11-24): physical meaning first; no trend lines, Pareto f
           the skeleton frame and from the contact frame. (a) and (c) are schematics from the closed-form model.
   Fig. 3  design validation (Studies 1, 2): (a) optimized geometry at 120 deg, 7 mm (evaluator) and coverage dots;
           (b) reference and redesign paths at 120 deg, 3 -> 7 mm, and contact-deviation dots with the fixed-axis value.
-  Fig. 4  scientific validation (Study 3): four columns (hold with a friction change, hold with a stiffness change,
-          grasp acquisition, dial turning): the task, R's and U's error, every redesign's error against its
-          contact-surface change.
+  Fig. 4  scientific validation (Study 3): five Drake tasks (power-grasp hold, grasp acquisition, hook pull, fingertip
+          dial, box pivot): the task, R's and U's response minus O's, the bias in the friction effect, and each task's
+          error E for R and U with point and hydroelastic contact.
   Table I contact-model robustness (R and U errors), written as LaTeX to sections/table_robust.tex.
 Colours: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple.
 """
@@ -652,24 +652,27 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    """Study 3A: four Drake tasks under O's reused command. Per task: three frames; O, R and U's object response over
-    every placement (median, quartiles; friction 1.3 solid, 2.0 dashed); and each hand's friction effect, the same
-    hand at 2.0 minus at 1.3 (O's is the reference). Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
+    """Study 3: five Drake tasks under O's reused command. Per task: three frames; R and U's object response minus O's
+    over E's pairs (median, quartiles; friction 1.3 circles, 2.0 diamonds); each redesign's friction effect minus O's;
+    and under the bottom panel each task's error E (median |bias| over placements) for CoDe and Conventional with point
+    and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
     DV = d["deviation"]
     # (title, task key, image, x label, response label, effect label)
     cols = (("Power-grasp hold", "pull", "power_grasp_hold_iso.png", "cylinder displacement (mm)",
              "load deviation (N)", "effect bias (N)"),
+            ("Grasp acquisition", "acquire", "grasp_acquisition.png", "time (s)", "drawn-in deviation (mm)",
+             "effect bias (mm)"),
+            ("Hook pull", "hook", "hook_pull.png", "bar displacement (mm)", "load deviation (N)", "effect bias (N)"),
             ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
              "effect bias (deg)"),
-            ("Coin drag", "coin", "fingertip_coin.png", "time (s)", "travel deviation (mm)", "effect bias (mm)"),
             ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",
              "effect bias (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER}
-    h = 3.25
+    h = 3.40
     fig = plt.figure(figsize=(W, h))
-    left, gapc = 0.06, 0.10
+    left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
     for i, (name, key, img, xl, yl, el) in enumerate(cols):
         x0 = left + i * (cw + gapc)
@@ -691,7 +694,7 @@ def fig4():
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
         # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.58) / h, (cw - 0.58) / W, 0.78 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52) / h, (cw - 0.58) / W, 0.74 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
         for hi, hh in enumerate(("R", "U")):
@@ -728,7 +731,7 @@ def fig4():
         # same placement, in the task's unit (the stored share of O's final effect times that effect); end labels:
         # the share of O's effect. 0 is the friction effect measured without bias
         sc = dv["O_effect"]["median"][-1] / 100.0
-        ea = fig.add_axes(((x0 + 0.30) / W, 0.50 / h, (cw - 0.58) / W, 0.78 / h), sharex=ra)
+        ea = fig.add_axes(((x0 + 0.30) / W, 0.80 / h, (cw - 0.58) / W, 0.70 / h), sharex=ra)
         ea.axhline(0, color=INK, lw=0.6, zorder=2)
         labs = []
         for hh in ("U", "R"):
@@ -738,7 +741,7 @@ def fig4():
                             zorder=1)
             ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
             labs.append((m_[-1], "0%" if round(bd["median"][-1]) == 0 else f"{bd['median'][-1]:+.0f}%", HC[hh]))
-        lim = sc * max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"]
+        lim = abs(sc) * max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"]
                                         + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
         y0, y1 = ea.get_ylim()
@@ -752,6 +755,19 @@ def fig4():
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
         ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
+        # the task's error E (median |bias| over placements) in both contact models; "n/a": no valid pair
+        pt = d["tasks"][key]["hands"]
+        if key in ("dial", "pivot"):  # the randomized tasks: point on the 32 draws the hydro rerun used
+            f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
+            pt = {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
+        for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
+            yy = (0.40 - 0.115 * j) / h
+            xm = (x0 + 0.30 + (cw - 0.58) / 2) / W
+            fig.text(xm - 0.07 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
+            for dx, hh in ((0.0, "R"), (0.30, "U")):
+                e = src.get(hh)
+                fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=5.8,
+                         ha="left", va="center", color=HC[hh], fontweight="bold")
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="Conventional"),

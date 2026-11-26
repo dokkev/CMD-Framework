@@ -1,0 +1,164 @@
+[
+ {
+  "hand": "R",
+  "d_contact": 0.86,
+  "d_skel": 7.67,
+  "E": 0.15827337267461053,
+  "pairs": 9,
+  "lost": 1,
+  "candidates": 10
+ },
+ {
+  "hand": "d1p5_minDs_s0",
+  "d_contact": 1.6,
+  "d_skel": 5.37,
+  "E": 0.28536992569630343,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "d2p25_minDs_s0",
+  "d_contact": 2.33,
+  "d_skel": 4.62,
+  "E": 0.38373806370164154,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "d2p25_maxDs_s0",
+  "d_contact": 2.3,
+  "d_skel": 9.17,
+  "E": 0.17399569494296147,
+  "pairs": 7,
+  "lost": 2,
+  "candidates": 9
+ },
+ {
+  "hand": "d3_minDs_s0",
+  "d_contact": 3.09,
+  "d_skel": 3.83,
+  "E": 0.32718069200626887,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "U",
+  "d_contact": 3.91,
+  "d_skel": 3.38,
+  "E": 0.6590712428695626,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "d4p5_s0",
+  "d_contact": 4.41,
+  "d_skel": 11.33,
+  "E": 0.3848620255141657,
+  "pairs": 2,
+  "lost": 10,
+  "candidates": 12
+ },
+ {
+  "hand": "d5p5_s0",
+  "d_contact": 5.4,
+  "d_skel": 12.17,
+  "E": 0.5937974546634857,
+  "pairs": 2,
+  "lost": 9,
+  "candidates": 11
+ },
+ {
+  "hand": "d1p5_maxDs_s0",
+  "d_contact": 1.46,
+  "d_skel": 9.67,
+  "E": 0.3004689828576319,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "d3_maxDs_s0",
+  "d_contact": 3.04,
+  "d_skel": 11.55,
+  "E": 0.5425680737810741,
+  "pairs": 13,
+  "lost": 0,
+  "candidates": 13
+ },
+ {
+  "hand": "h3to5_hr",
+  "d_contact": 0.35,
+  "d_skel": 3.55,
+  "E": 0.20891728480970884,
+  "pairs": 9,
+  "lost": 0,
+  "candidates": 9
+ },
+ {
+  "hand": "h3to5_hu",
+  "d_contact": 1.58,
+  "d_skel": 2.02,
+  "E": 0.26355296292582836,
+  "pairs": 10,
+  "lost": 0,
+  "candidates": 10
+ },
+ {
+  "hand": "h3to5_d3_s0",
+  "d_contact": 2.92,
+  "d_skel": 6.38,
+  "E": 0.3094739277874599,
+  "pairs": 7,
+  "lost": 1,
+  "candidates": 8
+ },
+ {
+  "hand": "h3to5_d3_minDs_s0",
+  "d_contact": 3.09,
+  "d_skel": 0.38,
+  "E": 0.6563147924857243,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ },
+ {
+  "hand": "h3to9_hr",
+  "d_contact": 2.32,
+  "d_skel": 9.37,
+  "E": 0.30547446780147613,
+  "pairs": 11,
+  "lost": 1,
+  "candidates": 12
+ },
+ {
+  "hand": "h3to9_hu",
+  "d_contact": 3.89,
+  "d_skel": 7.17,
+  "E": 0.7678496885287182,
+  "pairs": 13,
+  "lost": 0,
+  "candidates": 13
+ },
+ {
+  "hand": "h3to9_d3p5_maxDs_s0",
+  "d_contact": 3.52,
+  "d_skel": 12.72,
+  "E": 0.3517282115379411,
+  "pairs": 13,
+  "lost": 0,
+  "candidates": 13
+ },
+ {
+  "hand": "h3to9_d5_minDs_s0",
+  "d_contact": 5.08,
+  "d_skel": 5.32,
+  "E": 0.6551282398175489,
+  "pairs": 12,
+  "lost": 0,
+  "candidates": 12
+ }
+]
