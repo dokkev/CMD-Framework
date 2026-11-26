@@ -347,6 +347,13 @@ Run data: `design/output/thumb_layout/h0/strict_arch_orient20/proximal/seed0/` (
 - **The arch route costs pinch and lever.** It needs a longer case (e 39.5–44.5 against 34): the lever drops to 0.82–0.86, and the thumb–index pinch stays at 17–21 deg from facing instead of 8.8. The arch turns the ring toward the thumb but not the thumb toward the index.
 - **Recommendation unchanged:** O_thumbopt (tilt only). It also leaves the finger geometry that every finger study shares unchanged.
 
+### Pre-registration: relaxed envelope + base orientation (2026-11-26, before the run)
+
+- **Why.** The relaxed envelope lets the CMC go palmar (z down to -46) and forward once the RAA servo passes under the index abduction servo (z ≲ -28.5). It was run with position only (F-K4), never with the base orientation free.
+- **Run.** O, relaxed, proximal IP, orientation ±20 deg, seed 0, population 32 × 25 generations.
+- **Hypothesis.** It reaches at least F-K8.
+- **Decision rule.** It replaces O_thumbopt as the recommendation only if it reaches a higher level (K9/K10, the palm), or the same F-K8 with a lever ratio ≥ 0.05 higher or a pinch ≥ 3 deg better. Its packaging cost is reported alongside: how far the RO servo sits below the palm face.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
