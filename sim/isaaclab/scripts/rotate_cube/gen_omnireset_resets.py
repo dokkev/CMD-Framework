@@ -118,6 +118,9 @@ def main(argv=None) -> int:
     env_cfg.terminations.non_finite_state = None
     env_cfg.rewards.abnormal_robot = None
     env_cfg.terminations.cube_out_of_reach = None
+    # the cylinder task's palm-contact end would reset (and regenerate) worlds mid-hold; the on_palm test rejects them
+    if getattr(env_cfg.terminations, "object_palm_contact", None) is not None:
+        env_cfg.terminations.object_palm_contact = None
     for term in ("servo_gains",):
         setattr(env_cfg.events, term, None)
     env_cfg.actions.joint_pos.gain_log_range = (1.0, 1.0)

@@ -814,7 +814,7 @@ def cube_goal_error(env, rest_pos) -> torch.Tensor:
         a = r[:, :, 1]
         a = torch.where(((a * c.rest_axis).sum(1, keepdim=True)) < 0, -a, a)
         dev = a - c.rest_axis
-        perp = torch.linalg.svd(c.rest_axis[None, :] * torch.ones(1, 1, device=a.device)).Vh[0, 1:]  # (2, 3)
+        perp = torch.linalg.svd(c.rest_axis[None, :]).Vh[1:]  # (2, 3): two directions across the rest axis
         tilt2 = dev @ perp.T
         return _finite(torch.cat((pos, tilt2, c.yaw_error.clamp(-math.pi, math.pi)[:, None]), dim=1))
     k = r[:, 2, :].abs().argmax(dim=1)
