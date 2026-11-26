@@ -82,6 +82,8 @@ class ObservationsCfg:
         prev_actions = ObsTerm(func=base_mdp.last_action)
         pip = ObsTerm(func=flexion_joint_pos_normalized, params={})
         cyl = ObsTerm(func=mdp.walk_obs)
+        direction: ObsTerm | None = None
+        """The target direction only (the touch+direction variant)."""
         touch = ObsTerm(func=mdp.tip_touch, params=dict(TOUCH))
 
         def __post_init__(self):
@@ -134,6 +136,8 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
     hand_key: str = "O"
     object_observed: bool = True
     """False: the actor sees no cylinder state (touch, joints and actions only; the critic keeps it)."""
+    direction_observed: bool = False
+    """With ``object_observed`` False: the actor also sees the sign of the target error (+1 / -1), nothing more."""
     evaluation: bool = False
     contact_model: dict | None = None
 
@@ -197,6 +201,8 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
             group.pip.params = {"asset_cfg": joints, "four_bar_tables": tables}
         if not self.object_observed:
             self.observations.policy.cyl = None
+        if self.direction_observed:
+            self.observations.policy.direction = ObsTerm(func=mdp.walk_direction)
         self.decimation = spec.decimation
         self.sim.render_interval = self.decimation
         self.episode_length_s = EPISODE_S
@@ -220,8 +226,15 @@ class FingerWalkOTouchEnvCfg(FingerWalkEnvCfg):
     object_observed = False
 
 
+@configclass
+class FingerWalkOTouchDirEnvCfg(FingerWalkEnvCfg):
+    hand_key = "O"
+    object_observed = False
+    direction_observed = True
+
+
 for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
-    for _v, _obs in (("", True), ("Touch", False)):
+    for _v, _obs, _dir in (("", True, False), ("Touch", False, False), ("TouchDir", False, True)):
         _n = f"FingerWalk{_key}{_v}EvalEnvCfg"
         globals()[_n] = configclass(type(_n, (FingerWalkEnvCfg,), {"hand_key": _key, "object_observed": _obs,
-                                                                    "evaluation": True}))
+                                                                    "direction_observed": _dir, "evaluation": True}))

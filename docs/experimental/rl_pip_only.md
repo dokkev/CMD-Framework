@@ -237,3 +237,14 @@
 - 200 iteration에서 O eval 순 이동 거리는 2.3 mm였다 (gate 50 mm).
 - 사용자의 상시 지시("가망 없는 시도는 빨리 멈춘다")에 따라 segment 2 시작 직후 멈췄다. 등록한 최대 5 segment를 다 돌리지 않았고, 이전도 하지 않았다.
 - **이유 (해석):** 이 변형의 actor는 목표를 볼 수 없다. 목표는 20 mm와 45 mm를 번갈아 바뀌므로, 접촉만으로는 지금 어느 쪽으로 가야 하는지 알 수 없다. 과제 설계상 풀 수 없는 변형이었다.
+
+### 7b' touch+direction (사전 등록, 학습 전, 2026-11-26)
+
+- **왜 하는가:** touch-only 변형은 목표를 알 수 없어 풀 수 없었다. 7b'는 R과 U를 가른 과제이므로, 물체 위치 없이 접촉만으로도 그 차이가 나는지가 더 흥미로운 시험이다 (사용자 지시).
+- **관측** (`CoDe-Finger-Walk-O-TouchDir`, 65차원): touch-only와 같다 (직전 action, PIP 굽힘, distal pad 접촉 세 개). 여기에 방향 flag 하나를 더한다.
+  - 방향 flag: 목표 오차의 부호만 준다. +1은 45 mm 쪽, −1은 20 mm 쪽이다. 위치나 크기는 주지 않는다.
+  - 5-step history.
+- critic, reward, 학습, 이전, 지표, 예측, 반증, 정지 규칙은 7b' closed loop와 같다.
+- **gate:** 200 iteration에서 O ≥ 50 mm. 못 미치면 더 고치지 않고 중단한다 (`driver_dir.sh`). 통과하면 정체 규칙대로 학습을 이어 간다.
+- **순서:** 7a' touch-only가 끝난 뒤.
+- **공개:** 7b' closed loop(두 학습 seed)와 touch-only 실패를 본 뒤에 등록한다. 코드 점검으로, 학습되지 않은 2-iteration checkpoint를 U에서 8 env로 한 번 돌렸다.

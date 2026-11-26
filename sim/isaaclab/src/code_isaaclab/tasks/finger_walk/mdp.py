@@ -104,6 +104,14 @@ def walk_obs(env) -> torch.Tensor:
     return torch.stack((g.x * 100, g.zh * 100, v.clamp(-1, 1), (g.err * 100).clamp(-10, 10)), dim=1)
 
 
+def walk_direction(env) -> torch.Tensor:
+    """The sign of the target error only (+1 toward the tips' target, -1 toward the MCP's), ``(num_envs, 1)``: the
+    touch+direction actor's one piece of task information (no position, no magnitude)."""
+    if not hasattr(env, "reward_manager"):
+        return torch.zeros(env.num_envs, 1, device=env.device)
+    return torch.sign(walk_goal(env).err)[:, None]
+
+
 def walk_priv(env) -> torch.Tensor:
     """The critic's extra state: the cylinder's y [cm] and angular rate about its axis (rad/s over 10)."""
     if not hasattr(env, "reward_manager"):
