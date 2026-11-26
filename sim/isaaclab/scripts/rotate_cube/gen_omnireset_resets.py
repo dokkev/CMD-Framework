@@ -220,6 +220,7 @@ def main(argv=None) -> int:
                 if total >= args.count:
                     break
             data = {k: torch.cat(v)[: args.count] for k, v in kept.items()}
+            out_dir.mkdir(parents=True, exist_ok=True)
             if args.render:
                 render(u, keep, out_dir / f"resets_{kind}_samples.png")
             accepted = sum(len(x) for x in kept["q"])
