@@ -263,6 +263,58 @@ The probe takes the strict optimum (proximal IP, x -51, z -4.5, e 42) and change
 - Moving the base forward and palmar also reaches K5, but it loses K0 (index radial side near the MCP: pad 7 mm off), so the chain does not gain. This is why the relaxed runs stay at K4.
 - The orientation optimum combines pitch -16 with yaw -14 and roll +14, keeps K0–K4, and adds K5–K8.
 
+### Why a tilt, not a move or a longer thumb (probes, 2026-11-26)
+
+O's fingers, proximal IP, functional Kapandji. Each probe changes one thing from the O_thumbopt design (x -50.5, z -10.5, e 34, yaw/pitch/roll -14/-16/+14).
+
+**Which angle does the work.**
+
+| base angles | F-level (reached) | K5 facing |
+|---|---|---|
+| -14/-16/+14 (O_thumbopt) | K8 (9/11) | 37 deg |
+| pitch -16 only | K6 (8/11) | 41 |
+| yaw -14 + roll +14, no pitch | K4 (6/11) | 51 |
+| none | K4 (6/11) | 51 |
+
+Pitch carries most of the gain; yaw and roll add K7–K8 only together with it. At K5 the pad is about 1 mm from the landmark in every variant: the facing angle, not the reach, decides.
+
+**Moving the base instead (no rotation, envelope constraints ignored).** A 7 × 6 grid over x -60…-25, z +5…-32:
+- The facing at K5 drops below 45 deg only at x ≥ -35 (to 36–44 deg).
+- There the RAA servo's sweep overlaps the abduction servos by 5–12 mm. The RO servo body itself stays 17–36 mm clear, so the RAA sweep is the collision that blocks forward placement (the strict front, x -49, is where its clearance reaches 0).
+- Every one of those forward positions loses K0: the base sits under the index MCP, and the pad cannot fold back onto the index's proximal radial side. Up to 8/11 levels are reached, but the chain is broken at K0.
+
+**A longer thumb instead (no rotation).**
+
+| e [mm] | F-level (reached) | K5 facing | K0 pad error | lever ratio |
+|---|---|---|---|---|
+| 34 | K4 (6/11) | 51 | 0.0 | 0.92 |
+| 42 | K4 (6/11) | 48 | 0.9 | 0.84 |
+| 50 | chain broken at K0 (8/11) | 44 | 3.7 | 0.77 |
+| 60 | chain broken at K0 (8/11) | 35 | 2.4 | 0.70 |
+
+A longer case reaches the ring side but loses K0 and pad force, the same trade as moving the base forward. The tilt alone keeps K0, the lever (0.92) and the RAA clearance (+1.0 mm) while opening K5–K8.
+
+**An arched finger layout instead (ORCA-like; `palm_arch`).** The middle and ring bases turn palmar about H's x axis through the index base, by φ and 2φ:
+
+| φ per finger | prototype thumb | O_thumbopt thumb |
+|---|---|---|
+| 0 | K3 (4/11) | K8 (9/11) |
+| 5 | K4 (7/11) | K3 (6/11) |
+| 10 | K6 (8/11), K9 reached | K2 (3/11) |
+| 15 | K2 (3/11) | K2 (3/11) |
+| -10 | K2 (3/11) | K4 (6/11) |
+
+Arching the fingers toward the thumb does what tilting the thumb toward the fingers does. The two double up when combined unless they are optimised together. Caveats: the palm housing is the exporter's axis-aligned `palm_housing`, so its flat palmar face drops with the ring's abduction servo; the arch changes the finger geometry every finger study shares.
+
+### Pre-registration: arch + thumb co-optimisation (2026-11-26, before any run)
+
+- **Runs** (O, strict envelope, proximal IP, seed 0, population 32 × 25 generations):
+  - A: position, e, base orientation ±20 deg and arch φ ∈ [0, 15] deg (step 1);
+  - B: position, e and arch φ ∈ [0, 15] deg, no base orientation.
+- Constraints as before, plus the RO servo body's clearance whenever the arch is free.
+- **Hypotheses:** B reaches at least F-K6, the prototype-thumb arch probe's level. A reaches at least F-K8, the tilt-only optimum's level.
+- **Decision rule:** The arch is worth carrying forward only if A beats the tilt-only optimum, i.e. a higher F-level (K9: the palm), or the same F-K8 with a lever ratio ≥ 0.05 higher. Otherwise the tilt-only O_thumbopt stays the recommendation, because it leaves the shared finger geometry unchanged.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.

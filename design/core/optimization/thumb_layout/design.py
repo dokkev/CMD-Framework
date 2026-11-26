@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+import numpy as np
+
 from core.hardware.xm335 import XM335Actuator
 from core.morphology.code_hand import HandParameters, Pose
 
@@ -93,6 +95,27 @@ def hand_parameters(parameters: HandParameters, design: ThumbDesign) -> HandPara
         pitch_deg=base.pitch_deg + design.base_pitch_deg, roll_deg=base.roll_deg + design.base_roll_deg))
     thumb = replace(parameters.thumb, mcp_to_ip_mm=design.mcp_to_ip_mm, ee_x_mm=0.0, ee_y_mm=-design.ee_mm, ee_z_mm=0.0)
     return replace(parameters, layout=layout, thumb=thumb)
+
+
+def palm_arch(parameters: HandParameters, arch_deg: float) -> HandParameters:
+    """Exploratory: a curved (arched) finger layout. The middle and ring bases turn about H's x axis (toward the
+    fingers) through the index base, by ``arch_deg`` and ``2 arch_deg``; positive turns them palmar, toward the thumb.
+    The index stays. The palm housing (``palm_housing``) is rebuilt from the turned servos, so its flat palmar face
+    drops with the ring's abduction servo (a conservative stand-in for a curved palm)."""
+    if not arch_deg:
+        return parameters
+    from scipy.spatial.transform import Rotation
+
+    lay = parameters.layout
+    pivot = np.array([0.0, lay.index.y_mm, lay.index.z_mm])
+    new = {}
+    for k, digit in ((1, "middle"), (2, "ring")):
+        m = lay.base(digit).matrix()
+        turn = Rotation.from_euler("x", k * arch_deg, degrees=True)
+        pos = turn.apply(m[:3, 3] - pivot) + pivot
+        yaw, pitch, roll = (turn * Rotation.from_matrix(m[:3, :3])).as_euler("ZYX", degrees=True)
+        new[digit] = Pose(*(float(v) for v in (*pos, yaw, pitch, roll)))
+    return replace(parameters, layout=replace(lay, **new))
 
 
 def lever_arms(design: ThumbDesign) -> dict[str, float]:

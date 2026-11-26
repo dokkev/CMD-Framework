@@ -36,7 +36,7 @@ if str(ROOT) not in sys.path:
 
 from core.morphology.code_hand import load  # noqa: E402
 from core.optimization.optimizer import OPTIMIZERS, OptimizerSettings, initial_population  # noqa: E402
-from core.optimization.thumb_layout import Evaluator, ThumbDesign, lever_arms  # noqa: E402
+from core.optimization.thumb_layout import Evaluator, ThumbDesign, lever_arms, palm_arch  # noqa: E402
 
 HANDS = ROOT / "output" / "sim" / "study3" / "hands"
 STEP_MM = 0.5
@@ -49,6 +49,9 @@ EXTENSION_MM = (15.0, 45.0)
 LEVER_RATIO = 0.7
 
 _EVALUATOR: Evaluator | None = None
+_PARAMS = None
+_FLOOR = 20.0
+_ARCHED: dict[float, Evaluator] = {}
 
 
 def _hand_path(hand: str) -> Path:
@@ -56,19 +59,39 @@ def _hand_path(hand: str) -> Path:
 
 
 def _init(hand: str, floor_mm: float) -> None:
-    global _EVALUATOR
+    global _EVALUATOR, _PARAMS, _FLOOR
     parameters, _ = load(_hand_path(hand))
+    _PARAMS, _FLOOR = parameters, floor_mm
     _EVALUATOR = Evaluator(parameters, floor_mm=floor_mm)
+    _ARCHED.clear()
+    _ARCHED[0.0] = _EVALUATOR
+
+
+def _evaluator(arch: float) -> Evaluator:
+    """The evaluator for a palm arch (``palm_arch``): the fingers' kinematics are built once per arch."""
+    arch = float(arch)
+    if arch not in _ARCHED:
+        _ARCHED[arch] = Evaluator(palm_arch(_PARAMS, arch), floor_mm=_FLOOR)
+    return _ARCHED[arch]
+
+
+def _design(values, layout: dict, orientation: str) -> tuple[ThumbDesign, float]:
+    """Decode a variable vector: x, z, e [, yaw, pitch, roll] [, arch]."""
+    x, z, e = values[:3]
+    angles = tuple(float(a) for a in values[3:6]) if layout["orientation"] else ()
+    arch = float(values[-1]) if layout["arch"] else 0.0
+    return ThumbDesign(float(x), float(z), float(e), orientation, *angles), arch
 
 
 def evaluate_row(args) -> dict:
-    values, orientation, proto_levers = args
-    x, z, e, *angles = values
-    design = ThumbDesign(float(x), float(z), float(e), orientation, *(float(a) for a in angles))
-    ev = _EVALUATOR.evaluate(design, touch=False, pinch=False)
+    values, orientation, proto_levers, layout = args
+    design, arch = _design(values, layout, orientation)
+    ev = _evaluator(arch).evaluate(design, touch=False, pinch=False)
     levers = lever_arms(design)
-    row = {"cmc_x_mm": x, "cmc_z_mm": z, "extension_mm": e, "ip_orientation": orientation,
+    angles = (design.base_yaw_deg, design.base_pitch_deg, design.base_roll_deg) if layout["orientation"] else ()
+    row = {"cmc_x_mm": values[0], "cmc_z_mm": values[1], "extension_mm": values[2], "ip_orientation": orientation,
            **{f"base_{k}_deg": a for k, a in zip(("yaw", "pitch", "roll"), angles)},
+           **({"base_arch_deg": arch} if layout["arch"] else {}),
            "functional_level": ev.functional_level, "functional_score": round(ev.functional_score, 4),
            "functional_reached": ev.functional_reached,
            "ip_lever_ratio": round(proto_levers["ip"] / levers["ip"], 4),
@@ -83,11 +106,10 @@ def evaluate_row(args) -> dict:
 
 def report_row(args) -> dict:
     """The reported metrics of a front design: the touch Kapandji, the pinch, the minimum graspable diameter."""
-    values, orientation = args
-    x, z, e, *angles = values
-    design = ThumbDesign(float(x), float(z), float(e), orientation, *(float(a) for a in angles))
-    ev = _EVALUATOR.evaluate(design, functional=False)
-    grasp = _EVALUATOR.min_grasp_diameter(design)
+    values, orientation, layout = args
+    design, arch = _design(values, layout, orientation)
+    ev = _evaluator(arch).evaluate(design, functional=False)
+    grasp = _evaluator(arch).min_grasp_diameter(design)
     return {"touch_level": ev.kapandji_level, "touch_reached": ev.reached, "pinch_deg": round(min(ev.pinch_deg, 180.0), 2),
             "pinch_index_deg": round(ev.pinch["index"].residual, 2), "pinch_middle_deg": round(ev.pinch["middle"].residual, 2),
             "min_grasp_mm": grasp["min_diameter_mm"]}
@@ -96,7 +118,7 @@ def report_row(args) -> dict:
 def constraints(row: dict) -> list[float]:
     g = [LEVER_RATIO - row["ip_lever_ratio"], LEVER_RATIO - row["mcp_lever_ratio"],
          -row["raa_sweep_clearance_mm"], -row["ro_below_top_mm"], -row["ro_above_floor_mm"]]
-    if "base_yaw_deg" in row:  # orientation free: the RO servo body itself must clear the palm's servos and fingers
+    if "base_yaw_deg" in row or "base_arch_deg" in row:  # orientation or arch free: the RO servo body itself must clear the palm's servos and fingers
         g.append(-row["ro_servo_clearance_mm"])
     return g
 
@@ -112,6 +134,8 @@ def main(argv=None) -> int:
     parser.add_argument("--extension-max", type=float, default=EXTENSION_MM[1], help="upper bound of e [mm]")
     parser.add_argument("--free-orientation", type=float, default=0.0,
                         help="exploratory: base yaw/pitch/roll offsets free within +-this [deg] (beyond the original list)")
+    parser.add_argument("--arch-max", type=float, default=0.0,
+                        help="exploratory: palm arch (palm_arch: middle/ring bases turned palmar) free in [0, this] deg")
     parser.add_argument("--tag", default="", help="appended to the envelope folder name")
     parser.add_argument("--baseline", action="store_true", help="evaluate the prototype thumb and print it")
     args = parser.parse_args(argv)
@@ -135,6 +159,9 @@ def main(argv=None) -> int:
         lo = np.concatenate((lo, np.full(3, -args.free_orientation)))
         hi = np.concatenate((hi, np.full(3, args.free_orientation)))
         step = np.concatenate((step, np.ones(3)))
+    if args.arch_max:
+        lo, hi, step = np.append(lo, 0.0), np.append(hi, args.arch_max), np.append(step, 1.0)
+    layout = {"orientation": bool(args.free_orientation), "arch": bool(args.arch_max)}
     n_var = len(lo)
     steps = np.round((hi - lo) / step)
     workers = int(os.environ.get("OPTIMIZE_WORKERS") or 3)
@@ -144,13 +171,13 @@ def main(argv=None) -> int:
 
     class ThumbProblem(Problem):
         def __init__(self):
-            super().__init__(n_var=n_var, n_obj=2, n_ieq_constr=6 if args.free_orientation else 5,
+            super().__init__(n_var=n_var, n_obj=2, n_ieq_constr=6 if (args.free_orientation or args.arch_max) else 5,
                              xl=np.zeros(n_var), xu=steps)
 
         def _evaluate(self, x, out, *a, **k):
             designs = [tuple(np.round(lo + np.round(v) * step, 3)) for v in x]
             todo = [d for d in dict.fromkeys(designs) if d not in cache]
-            for d, row in zip(todo, pool.map(evaluate_row, [(d, args.orientation, proto_levers) for d in todo])):
+            for d, row in zip(todo, pool.map(evaluate_row, [(d, args.orientation, proto_levers, layout) for d in todo])):
                 cache[d] = row
                 rows.append(row)
             out["F"] = np.array([[-cache[d]["functional_score"], -cache[d]["lever_ratio"]] for d in designs])
@@ -159,7 +186,8 @@ def main(argv=None) -> int:
     problem = ThumbProblem()
     settings = OptimizerSettings("nsga2", args.population, args.generations, args.seed)
     warm = []
-    proto_x = np.array([proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm, 0.0, 0.0, 0.0][:n_var])
+    proto_x = np.array([proto.cmc_x_mm, proto.cmc_z_mm, proto.extension_mm]
+                       + [0.0] * (3 if args.free_orientation else 0) + ([0.0] if args.arch_max else []))
     if args.orientation == "distal" and np.all((lo <= proto_x) & (proto_x <= hi)):
         warm = [np.round((proto_x - lo) / step)]
     initial = initial_population(problem, np.array(warm).reshape(-1, n_var), settings)
@@ -177,7 +205,7 @@ def main(argv=None) -> int:
     pareto = sorted({tuple(v for k, v in r.items() if k.startswith(("cmc", "ext", "base"))): r for r in pareto}.values(),
                     key=lambda r: -r["functional_score"])
     keyed = [tuple(v for k, v in r.items() if k.startswith(("cmc", "ext", "base"))) for r in pareto]
-    for r, extra in zip(pareto, pool.map(report_row, [(k, args.orientation) for k in keyed])):
+    for r, extra in zip(pareto, pool.map(report_row, [(k, args.orientation, layout) for k in keyed])):
         r.update(extra)
     pool.close()
     with (out / "pareto.csv").open("w", newline="") as f:
@@ -187,13 +215,14 @@ def main(argv=None) -> int:
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     (out / "run.json").write_text(json.dumps({
         "hand": args.hand, "orientation": args.orientation, "envelope": {args.envelope: env},
-        "extension_mm": (EXTENSION_MM[0], args.extension_max), "free_orientation_deg": args.free_orientation,
+        "extension_mm": (EXTENSION_MM[0], args.extension_max), "free_orientation_deg": args.free_orientation, "arch_max_deg": args.arch_max,
         "steps": step.tolist(), "settings": settings.to_json(),
         "evaluations": len(rows), "seconds": round(time.time() - start, 1), "commit": commit,
         "prototype": proto.__dict__, "prototype_levers_mm": proto_levers}, indent=1) + "\n")
     print(f"{out}: {len(rows)} evaluations in {time.time() - start:.0f} s; Pareto:")
     for r in pareto:
         angles = " ".join(f"{r[k]:+.0f}" for k in ("base_yaw_deg", "base_pitch_deg", "base_roll_deg") if k in r)
+        angles += f" arch {r['base_arch_deg']:.0f}" if "base_arch_deg" in r else ""
         print(f"  x {r['cmc_x_mm']:7.2f} z {r['cmc_z_mm']:7.2f} e {r['extension_mm']:5.1f} {angles} F-K{r['functional_level']} {r['functional_score']:.3f} "
               f"n {r['functional_reached']}  levers {r['ip_lever_ratio']:.2f}/{r['mcp_lever_ratio']:.2f}  touch K{r['touch_level']} "
               f"n {r['touch_reached']}  pinch {r['pinch_deg']:5.1f}  grasp {r['min_grasp_mm']}  | {r['levels']}")

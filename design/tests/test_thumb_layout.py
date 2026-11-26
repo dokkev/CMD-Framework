@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from core.morphology.code_hand import load
-from core.optimization.thumb_layout import ThumbDesign, hand_parameters, lever_arms
+from core.optimization.thumb_layout import ThumbDesign, hand_parameters, lever_arms, palm_arch
 from core.optimization.thumb_layout.evaluator import FingerKinematics, ThumbKinematics, capsule_box_distance, segment_distance
 
 HAND = "output/sim/study3/hands/cfl_q120_h3to7_h0.yaml"
@@ -49,3 +49,19 @@ def test_proximity():
     assert segment_distance(a[0], a[1], b[0], b[1])[0] == pytest.approx(3.0)
     sd = capsule_box_distance(np.array([0.0, 0, 5]), np.array([10.0, 0, 5]), 1.0, np.zeros(3), np.array([20.0, 20, 2]))
     assert sd == pytest.approx(2.0)
+
+
+def test_palm_arch(parameters):
+    """The arch turns the middle and ring bases about H's x axis through the index base; the index stays."""
+    assert palm_arch(parameters, 0.0) is parameters
+    arched = palm_arch(parameters, 10.0)
+    lay, new = parameters.layout, arched.layout
+    assert new.index == lay.index
+    pivot = np.array([lay.index.y_mm, lay.index.z_mm])
+    for k, d in ((1, "middle"), (2, "ring")):
+        a, b = lay.base(d), new.base(d)
+        assert b.x_mm == pytest.approx(a.x_mm)
+        r0, r1 = np.array([a.y_mm, a.z_mm]) - pivot, np.array([b.y_mm, b.z_mm]) - pivot
+        assert np.linalg.norm(r1) == pytest.approx(np.linalg.norm(r0))
+        assert np.degrees(np.arctan2(r1[1], r1[0]) - np.arctan2(r0[1], r0[0])) == pytest.approx(10.0 * k)
+        assert b.z_mm < a.z_mm  # palmar

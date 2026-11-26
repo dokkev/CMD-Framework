@@ -7,7 +7,7 @@ and by the best thumb–index / thumb–middle pinch facing angle. The formulati
 ``docs/experimental/thumb_layout_opt.md``.
 """
 
-from core.optimization.thumb_layout.design import ThumbDesign, hand_parameters, lever_arms
+from core.optimization.thumb_layout.design import ThumbDesign, hand_parameters, lever_arms, palm_arch
 from core.optimization.thumb_layout.evaluator import LANDMARKS, Evaluation, Evaluator
 
-__all__ = ["LANDMARKS", "Evaluation", "Evaluator", "ThumbDesign", "hand_parameters", "lever_arms"]
+__all__ = ["LANDMARKS", "Evaluation", "Evaluator", "ThumbDesign", "hand_parameters", "lever_arms", "palm_arch"]
