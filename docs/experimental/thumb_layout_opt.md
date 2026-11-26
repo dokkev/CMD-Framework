@@ -327,8 +327,15 @@ The probe takes the strict optimum (proximal IP, x -51, z -4.5, e 42) and change
   - description `sim/isaaclab/logs/rotate_cube/transfer/hands/cfl_q120_h3to7_h0_thumbopt.json`;
   - URDF and USD (with colliders) in `sim/isaaclab/logs/urdf/cfl_q120_h3to7_h0_thumbopt_thumbpad*`;
   - registered as `O_thumbopt` (`grasp.HANDS`, `CoDe-Rotate-Cube-O_thumbopt`).
+- **Visual fix (2026-11-26).** The first O_thumbopt render showed the fingertip case floating about 16 mm past the IP servo's cap. The sim's visual builder (`sim/isaaclab/src/code_isaaclab/assets/visuals.py`, `thumb_tip_case`) always started the case at the IP servo's rear face (25.5 mm from the IP axis), which is right only when the body lies distal. It now starts past the cap (10 mm) when the servo is turned toward the MCP. Only the drawing-only visuals were wrong. The colliders were not: the link capsules and the thumb pad box come from the description's joint anchors and end effector. The URDF and USD were re-exported.
+- **Contiguity check** after the fix: consecutive thumb bodies (palm, CMC, metacarpal, proximal, distal) touch or overlap, by surface distance between their visual pieces. At the zero pose and at (-60, 30, 50, 60) the largest gap is 0.5 mm, the designed IP-cap clearance; the prototype's is 0. The collision capsules are contiguous (gap 0).
+- **Renders** (Drake VTK, `_vis.urdf`):
+  - zero pose, palm and side views: `thumbviz/thumb_compare_fixed.png`;
+  - best thumb–index pinch with a 20 mm sphere between the pads (pad centres 20.4 and 20.5 mm apart): `thumbviz/thumb_pinch_sphere.png`.
+  - Both are in the session scratchpad, beside the coordinator's `r.py`.
+  - The tilted CMC servo and the CMC plate stick out of the palm's heel box. The exporter's housing boxes are axis-aligned and wrap the tilted servo's bounding box, so a tilted base reads as a block with a slanted plate on top. This is a drawing and housing-shape matter; the palm–thumb collision pairs are filtered in the sim.
 - **Smoke checks:**
-  - the URDF FK matches the model to 1e-3 mm, for the pad and normals, including the turned IP servo;
+  - the URDF FK matches the model to 1e-3 mm, for the pad and normals, including the turned IP servo and the tilted base (re-checked after the fix);
   - the Isaac Lab asset (`description_asset`, thumb pad, visuals) builds on CPU with 19 tree joints and 7 pads, and the four-bars close in Drake;
   - the cube-rotation task's grasp (`grasp.pinch_grasp`) fixes the thumb at RO -90 / RAA 20 for O. That grasp does not exist on O_thumbopt ("the thumb pad cannot press the cube's top face"), so the cube-task env needs a per-hand thumb grasp before it can run on this hand. Fixing other RO/RAA values does not help: none of (RO, RAA) = (-90, 20), (-70, 0), (-70, 20), (-50, 0), (-50, 20), (-90, 40), (-70, 40) gives a grasp either. The grasp needs the pad within 20 deg of straight down on the cube's top face, within 8 mm of the finger plane, and the tilted base moves the reachable pad poses off that. The grasp's thumb search would have to include RO, RAA and the cube's placement. That is a task change, not done here.
 

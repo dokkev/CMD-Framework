@@ -689,7 +689,10 @@ def thumb_and_palm_pieces(desc: Description, fingers: list[Extrusion]) -> list[E
         sign = 1.0 if us.mean() > 0 else -1.0
     else:
         sign = 1.0
-    v_lo, v_hi = (tip_v - 2.0, -rear - GAP_MM) if tip_v < 0 else (rear + GAP_MM, tip_v + 2.0)
+    # The case starts where the IP servo ends on the tip's side: past its body when the body lies distal (the tip
+    # along the servo frame's -Y, the prototype), past its rounded cap when the servo is turned toward the MCP
+    # (``ip_servo_flipped``: the tip along +Y, the body on the proximal segment).
+    v_lo, v_hi = (tip_v - 2.0, -rear - GAP_MM) if tip_v < 0 else (r_cap + GAP_MM, tip_v + 2.0)
     u_lo, u_hi = (-r_cap, face) if sign > 0 else (-face, r_cap)
     out.append(Extrusion("thumb_tip_case", "thumb_distal", "plate", rounded_rect(u_lo, u_hi, v_lo, v_hi, 5.0),
                          ci, ui, vi, wi, -half_w, half_w))
