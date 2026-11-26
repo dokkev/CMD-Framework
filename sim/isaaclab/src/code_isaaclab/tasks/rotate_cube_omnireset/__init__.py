@@ -40,6 +40,18 @@ for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL"):  # 
         },
     )
 
+for _key in ("R", "U", "R5", "U5", "R9", "U9"):  # attempt 6: fine-tuning the O-trained v2 policy on each hand
+    gym.register(
+        id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCube{_key}OmniResetV2EnvCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCubeOmniResetV2PPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )
+
 for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL"):  # the same, through the contact-referenced joint maps
     gym.register(
         id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval-Mapped",

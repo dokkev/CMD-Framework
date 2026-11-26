@@ -47,6 +47,9 @@ def main() -> int:
     p.add_argument("--every", type=int, default=15, help="control steps between two states of one environment")
     p.add_argument("--max_steps", type=int, default=6000)
     p.add_argument("--seed", type=int, default=11)
+    p.add_argument("--four_types", action="store_true",
+                   help="roll out on OmniReset's four reset types only, at 0.25 each (a v2 task on a hand that has no "
+                        "mid-turn dataset yet; rl_transfer.md attempt 6)")
     add_launcher_args(p)
     p.set_defaults(device=None, visualizer=[])
     args, hydra = setup_preset_cli(p, None)
@@ -67,6 +70,12 @@ def main() -> int:
     cfg, agent = resolve_task_config(args.task, "rsl_rl_cfg_entry_point")
     cfg.scene.num_envs = args.num_envs
     cfg.seed = agent.seed = args.seed
+    if args.four_types:
+        from code_isaaclab.tasks.rotate_cube_omnireset.mdp import OMNIRESET_TYPES
+
+        reset = cfg.events.reset_grasp.params
+        reset["datasets"] = {t: reset["datasets"][t] for t in OMNIRESET_TYPES}
+        reset["probs"] = [1.0 / len(OMNIRESET_TYPES)] * len(OMNIRESET_TYPES)
     cfg.scene.obj_contacts = ContactSensorCfg(
         prim_path="{ENV_REGEX_NS}/object",
         filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/Robot/{b}" for b in FINGER_BODIES + ["thumb_distal"]],
@@ -124,7 +133,7 @@ def main() -> int:
         data = {k: torch.cat(v) for k, v in kept.items()}
         data["goal_offset"] = torch.zeros(len(data["q"]))
         meta = {"checkpoint": args.checkpoint, "task": args.task, "num_envs": args.num_envs, "steps": step + 1,
-                "seed": args.seed, "counts": counts, "every": args.every,
+                "seed": args.seed, "four_types": args.four_types, "counts": counts, "every": args.every,
                 "progress_deg_quantiles_10_50_90": torch.rad2deg(data["progress"]).quantile(
                     torch.tensor([0.1, 0.5, 0.9])).tolist()}  # fmt: skip
         args.out.parent.mkdir(parents=True, exist_ok=True)

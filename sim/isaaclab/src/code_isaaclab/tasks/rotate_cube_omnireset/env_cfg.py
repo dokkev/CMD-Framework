@@ -478,6 +478,13 @@ for _key in TRANSFER_HANDS:
     globals()[f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg"] = configclass(
         type(f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,), {"hand_key": _key})
     )
+FINETUNE_HANDS = ("R", "U", "R5", "U5", "R9", "U9")
+"""Hands the O-trained v2 policy is fine-tuned on (``docs/experimental/rl_transfer.md`` attempt 6): v2's training task
+on that hand, with the hand's own reset datasets (``dataset_dir``)."""
+for _key in FINETUNE_HANDS:
+    globals()[f"CoDeRotateCube{_key}OmniResetV2EnvCfg"] = configclass(
+        type(f"CoDeRotateCube{_key}OmniResetV2EnvCfg", (CoDeRotateCubeOOmniResetV2EnvCfg,), {"hand_key": _key})
+    )
 for _key in ("O", *TRANSFER_HANDS):  # the "mapped" condition (O: the maps are identity, a check)
     globals()[f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg"] = configclass(
         type(f"CoDeRotateCube{_key}OmniResetV2EvalMappedEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,),

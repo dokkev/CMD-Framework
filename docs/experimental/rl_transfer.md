@@ -387,3 +387,57 @@ hand 파일과 설계(RL, UL, UL120, RL60)는 기록으로 남긴다(commit 1ea2
 - 주 지표와 예측은 시도 4와 같다: 회전 E에서 E(RL) < E(UL)이고 차이가 잡음 합보다 크다.
 - RL/UL 행은 따로 판정한다. 5/7/9 mm의 판정은 바꾸지 않는다.
 - 시도 4의 판정 불가 조건(O의 μ 1.3 평균 회전 < 180°)과 시도 5의 수율 조건을 그대로 적용한다.
+
+## 시도 6: fine-tuning 비용 (사전 등록, fine-tuning 수치를 보기 전에 commit, 2026-11-25)
+
+**왜 하는가:** 시도 1–5의 zero-shot 이전은 R과 U를 가르지 못했다. closed-loop 정책은 두 손에서 모두 15–35%를 잃었고(결과 1), 물체를 보지 않는 정책은 두 손에서 모두 무너졌다(시도 4). 그래서 질문을 "얼마나 물려받나"에서 **"O의 성능을 되찾는 데 학습이 얼마나 필요한가"**로 바꾼다. 접촉면 움직임을 지킨 R이 피복만 맞춘 U보다 적은 적응으로 회복한다면, 접촉 적응의 부담 일부가 제어에서 기구 설계로 옮겨 갔다는 뜻이다.
+
+**손:**
+- O: 대조군. 같은 예산으로 O 자신에서 이어서 학습한다.
+- R, U: 7 mm 쌍 (주 비교).
+- R5/U5, R9/U9: 7 mm가 끝난 뒤 시간이 되면 같은 절차로 한다. 각 두께를 따로 판정한다. 돌리지 못하면 "하지 않음"으로 적는다.
+
+**시작점과 recipe:**
+- 모든 손에서 release policy `model_1497`의 가중치로 시작한다 (actor, critic, optimizer 상태, 관측 normaliser 모두. v2c segment 사이의 resume과 같다).
+- 단 하나 바꾸는 것: checkpoint의 iteration 카운터를 1497에서 1로 바꾼 사본(`logs/rotate_cube/finetune_run/start_model_1497_iter1.pt`)에서 시작한다. 그래야 `model_k`가 정확히 k번의 fine-tuning update 뒤의 가중치가 된다. rsl_rl에서 이 카운터는 checkpoint 이름과 로그에만 쓰인다.
+- recipe는 v2c와 같다:
+  - `CODE_OMNIRESET_ABNORMAL_FACTOR=10`, `CODE_OMNIRESET_GOAL_BONUS=5`
+  - `agent.algorithm.entropy_coef=0.001`, `agent.actor.distribution_cfg.std_range=[0.001,1.0]`
+  - NaN 복구, 다섯 reset type (0.25/0.25/0.25/0.125/0.125), 45° goal
+- 손과 그 손의 reset dataset만 바뀐다. 학습 task는 `CoDe-Rotate-Cube-<H>-OmniResetV2`다 (R/U용 학습 task id를 O와 같은 방식으로 새로 등록했다).
+- 학습 seed 20과 21, 손마다 둘.
+- **예산:** run마다 300 iteration, 4096 env. 25 iteration마다 checkpoint (`agent.save_interval=25`).
+- W&B group `omnireset_finetune`, experiment `code_rotate_cube_omnireset_v2_finetune`.
+- 순서: seed 20의 O, R, U, 그다음 seed 21의 O, R, U.
+
+**손별 reset dataset (R, U):**
+- 네 type은 O와 같은 절차와 크기로 그 손에서 만든다: `gen_omnireset_resets.py --task CoDe-Rotate-Cube-<H>-OmniResetV2 --type all --count 10000 --num_envs 4096 --friction 0.3 --seed_start 0`.
+  - O는 v1 task로 만들었다. v2 task로 만들어도 생성 과정은 같다. 다른 것은 저장된 goal offset뿐인데, v2 학습은 이 네 type의 goal을 reset 때 다시 정한다(`goal_offsets`).
+- mid-turn 상태는 `model_1497`을 그 손에서 rollout해서 모은다 (`harvest_omnireset_midturn.py --four_types`, 1024 env, seed 11, turn 6000 / limit 4000, 15 step 간격). rollout은 그 손의 네 type reset에서 0.25씩 시작한다. 그다음 `gen_omnireset_resets.py --type ObjectMidTurnHandWound --hold_s 0.5`로 가공한다 (O와 같다).
+- O는 release가 학습한 dataset(`O_40f4fc6626`)을 그대로 쓴다. O의 mid-turn 상태는 v1 정책에서 모았고, R/U의 것은 `model_1497`에서 모았다. 정책이 그 손에서 실제로 지나가는 상태를 쓰는 것이 공정한 손별 dataset이라고 보고 이렇게 정했다. 수율과 개수를 결과에 적는다.
+
+**주 지표: 회복 iteration**
+- 정의: held-out 평균 회전(μ 1.3)이 O release 값의 90%에 처음 닿는 checkpoint의 iteration.
+  - 기준값: O release의 1024-env held-out 평균, seed 94000 값 933.2°. 따라서 문턱은 840°다. (eval seed가 94000이므로 그 seed의 값을 쓴다.)
+- checkpoint 평가: 학습이 끝난 뒤, 그 손의 held-out cache(`heldout_transfer_v1/<H>.pt`), 256 env, eval seed 94000. iteration 25, 50, …, 300.
+- iteration 0은 `model_1497`을 같은 조건(256 env, seed 94000)으로 그 손에서 잰 값이다. 두 학습 seed가 공유한다.
+- 회복 곡선: 회전 비율(회전 / 933.2°) 대 iteration.
+- **예측:** R이 U보다 적은 iteration에서 회복한다. 두 seed 평균 회복 iteration의 차이 (U − R)가 seed 잡음보다 크다.
+  - seed 잡음 = |R_s20 − R_s21| + |U_s20 − U_s21| (이 문서의 다른 시도와 같은 "잡음 합" 규칙).
+- **반증:** U의 평균 회복 iteration이 R보다 작고, 그 차이가 잡음보다 크다.
+- 차이가 잡음 안이면 "구별 안 됨"이다.
+- **회복하지 못하는 경우:** 어떤 run이 300 iteration 안에 90%에 닿지 못하면 그 run의 최고 비율을 보고한다. 이때 (R 또는 U의 run 중 하나라도 회복하지 못하면) 판정은 미리 정한 tie-breaker로 한다:
+  - 회복 곡선 아래 넓이 AUC: iteration 0–300의 회전 비율을 사다리꼴로 적분하고 300으로 나눈다.
+  - 예측 AUC_R > AUC_U, 차이가 같은 잡음 합 규칙(두 손 각각의 seed 차이 합)보다 커야 한다. 반증과 "구별 안 됨"도 같은 규칙이다.
+- AUC는 어느 경우에나 보조로 함께 보고한다.
+
+**보조 지표:**
+- iteration 300의 held-out 비율 (1024 env, seed 94000/95000, μ 1.3): 회전, full≤30°, full+clean (gate 없음), goals/episode. O release 대비 비율(seed별 값으로)로 보고하고, 같은 seed로 fine-tuning한 O 대비 비율도 같이 적는다.
+- μ 1.3 → 2.0 교체의 회전 E (시도 1c 정의), iteration 300 정책:
+  - E(H) = |Δrot(H) − Δrot(O_ft)| / |Δrot(O_ft)|. O_ft는 같은 학습 seed로 fine-tuning한 O 정책이다. Δ는 두 eval seed 평균.
+  - 질문: 적응한 R과 U도 O처럼 인터페이스를 측정하는가. 예측은 두지 않는다 (탐색). E(R)과 E(U)를 잡음 합(R, U 각각 Δrot의 eval seed 차이 / |Δrot(O_ft)|)과 함께 보고한다.
+- O 대조군 곡선: fine-tuning 자체가 O의 성능을 얼마나 바꾸는지 보인다. O가 300 iteration 동안 90% 아래로 떨어지면 그 사실을 적고, 판정은 그대로 한다.
+
+**공개:**
+- 시도 1–5의 결과를 모두 본 뒤에 이 시도를 골랐다. 특히 zero-shot 회전 비율이 7 mm에서 R 0.73, U 0.70으로 가깝다는 것을 안다.
+- 학습 seed가 손마다 둘뿐이므로, 잡음 추정이 거칠다.
