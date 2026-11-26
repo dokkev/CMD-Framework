@@ -84,7 +84,18 @@ Limits: at most 6 worker processes (5 for T1).
 
 ## Results
 
-Paused at the user's request (2026-11-26) after T1. T2 and T3 have not been run.
+Paused after T1 at the user's request and resumed the same day. T3 and T2 were then run exactly as registered (the commands under "Resume").
+
+### Summary
+
+| task | metric | O | O_thumbopt | noise band | verdict |
+|---|---|---|---|---|---|
+| T1 e33 reach | placements reached (1 mm, 5 deg) | 0/64 | 0/64 | 0 (IK seeds) | no difference |
+| T1 (secondary) | median normal error at start | 25.6 deg | 19.0 deg | ~0 | O_thumbopt closer |
+| T3 36 peg | successes at mu 1.3 (2.0) | 0/64 (0/64) | 0/64 (0/64) | 3 (command noise 0) | no difference: both fail |
+| T2 33b | successes (both mu) | 64/64 | 64/64 | 3 (command noise 0) | no difference (ceiling) |
+| T2 (secondary) | median rotation at mu 1.3 | 3.10 deg | 3.72 deg | 0.050 | O_thumbopt +0.62 deg (> 2 x band) |
+| T2 (secondary) | median D = rot(2.0) - rot(1.3) | 1.64 deg | 0.72 deg | 0.074 | O_thumbopt -0.91 deg (> 2 x band) |
 
 ### T1. Reach of the e33 placements (2026-11-26; `logs/thumbopt_reach_<hand>_s<seed>.json`)
 
@@ -98,7 +109,34 @@ Paused at the user's request (2026-11-26) after T1. T2 and T3 have not been run.
 - **Secondary: O_thumbopt is closer.** Its median normal error is 6.7 deg smaller, and the seed ranges do not overlap. The position error is also 5.7 mm smaller (reported, not registered).
 - Reading: e33's opposing pad asks for exact facing on a distal pad flexed 30–55 deg. O_thumbopt moves about a quarter of the way toward it but does not get there. The floating pad of experiment 33 remains unreachable by either real thumb.
 
-### Resume
+### T3. 36 pinch peg-in-hole (2026-11-26; `logs/peg_O_thoO36.json`, `peg_O_thoT36.json`, `peg_O_thoO36n.json`)
+
+- Geometry from the draws: at the task's start flexion (q_s 12-22 deg) the index-thumb angle from facing is 40.0-49.7 deg on O and 30.5-40.3 deg on O_thumbopt. The index touches the peg's front end in 64/64 draws on both hands.
+- Self-check (first 12 draws): both hands 0/12, every draw lost, with no solver failure. This is a contact outcome, which the registration counts as thumb-related (opposition), not an abort, so the full 64 were run.
+- Full 64: **0/64 successes on both hands at both mu.** Every draw is lost and none reaches 1 mm past the entrance. The command-noise run is also 0/64, so the band is 3.
+  - The final depth (median) is -3.8 mm on O and -2.8 mm on O_thumbopt. The depth gain over the extension is 0.0 mm (median) on both, at most 1.4 and 1.3 mm.
+  - The index pad presses the slot wall at up to 30 N on both hands, the failure seen in O's original calibration.
+- **Verdict: no difference.** The hypothesis that O_thumbopt succeeds in more draws is not supported.
+- Why: O_thumbopt's pinch is 9 deg closer to facing, but the task's 12-22 deg PIP start flexion still leaves it 30-40 deg off. The index still meets the peg's end rather than its side and follows it into the slot. The pre-registration flagged this risk. 36 needs a pinch within a few degrees of facing at the task's flexion, which neither thumb has within its joint limits (every rule pose has IP at its -10 deg limit).
+
+### T2. 33b three-finger pinch rotate (2026-11-26; `logs/pinch_O_thoO33b.json`, `pinch_O_thoT33b.json`, `pinch_O_thoO33bn.json`)
+
+- Draws: the thumb is 16.4-30.3 deg from facing on O and 6.9-20.6 deg on O_thumbopt (in the plane, per draw); k_thumb is 1533 and 1477 N/m.
+- **Success: 64/64 on both hands.** No solver failure, loss, over-pressing or proximal contact; penetration at most 1.22 and 1.27 mm. Verdict: no difference (both at the ceiling, as predicted).
+- **Rotation at mu 1.3:** median 3.10 deg on O and 3.72 deg on O_thumbopt, +0.62 deg; O_thumbopt turns the sphere further in 58 of the 64 draws.
+  - The band is 0.050 deg: command noise (75th percentile) 0.012, and O's rule pose against its hand-picked pose (`pinch_O_e33b.json`, 3.05 deg) 0.050.
+  - **The difference is 12 x the band.**
+- **D (mu effect):** median 1.64 deg on O and 0.72 deg on O_thumbopt, -0.91 deg, against a band of 0.074 (command 0.009, pose 0.074). With the thumb closer to facing, the turn depends less than half as much on the pads' friction.
+- No direction was registered for either secondary metric (two-sided). Both differ by more than twice the band.
+- Reading (not tested): with the normals nearly opposed, less of the squeeze is spent on tangential friction to hold the sphere in place. More of the finger's sweep therefore goes into turning it, whatever the friction. In this task that is the better behaviour: the same command turns the sphere about 20 % further, with a turn that is more robust to friction. It is a modest, planar-model effect. The grasp itself was secure on both hands.
+
+### Overall
+
+- Where the task grasp is already secure (33b), O_thumbopt keeps it and turns the object further, with less dependence on friction: a real but modest gain.
+- Where the task needs near-parallel opposition at a flexed finger (36, e33 reach), O_thumbopt moves the geometry the right way (6.7-9 deg closer) but not far enough: both hands fail alike.
+- The finger-only tasks are unchanged by construction (identical fingers, no thumb in their models).
+
+### Resume (as run)
 
 ```
 cd sim/drake
