@@ -1,0 +1,16 @@
+# Bi-level hand design, lower level (docs/experimental/bilevel_hand.md): the
+# prototype finger for one finger length L_f, with the pad coverage C_pad as the
+# one objective and MA_wc >= 0.25 as a constraint. L_f is fixed per run:
+#
+#   python scripts/optimize/run.py scripts/optimize/prototype/config_bilevel.yaml \
+#       --set 'goal.link.finger_length_mm=[90, 90]' --tag L090.0
+#
+# The upper level (thumb layout and L_f, functional Kapandji) reads each
+# length's best finger.
+base: config_v1.yaml
+goal:
+  transmission:
+    ma_min: 0.25
+solver:
+  optimizer:
+    warm_start: []
