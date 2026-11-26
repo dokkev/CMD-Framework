@@ -315,6 +315,24 @@ Arching the fingers toward the thumb does what tilting the thumb toward the fing
 - **Hypotheses:** B reaches at least F-K6, the prototype-thumb arch probe's level. A reaches at least F-K8, the tilt-only optimum's level.
 - **Decision rule:** The arch is worth carrying forward only if A beats the tilt-only optimum, i.e. a higher F-level (K9: the palm), or the same F-K8 with a lever ratio ≥ 0.05 higher. Otherwise the tilt-only O_thumbopt stays the recommendation, because it leaves the shared finger geometry unchanged.
 
+### Result: arch + thumb co-optimisation (2026-11-26)
+
+Run data: `design/output/thumb_layout/h0/strict_arch_orient20/proximal/seed0/` (A) and `strict_arch/proximal/seed0/` (B). Each run took about 790 evaluations in 19 min.
+
+| design | arch φ | base yaw/pitch/roll | x, z, e [mm] | functional | touch | lever ratio (IP, MCP) | pinch |
+|---|---|---|---|---|---|---|---|
+| O_thumbopt (tilt only, earlier run) | 0 | -14/-16/+14 | -50.5, -10.5, 34 | K8 (9/11) | K9 | **0.92** (1.30, 0.92) | **8.8 deg** |
+| A best | 13 | +1/+8/-9 | -55, -10, 44.5 | K8 (9/11) | K9 | 0.82 (0.98, 0.82) | 20.8 |
+| A, best lever at K8 | 9 | -6/+9/+10 | -55, -13, 39.5 | K8 (9/11) | K9 | 0.86 (1.11, 0.86) | 19.2 |
+| B best (arch, no tilt) | 7 | 0/0/0 | -56.5, -6, 44 | K8 (9/11) | K9 | 0.82 (0.99, 0.82) | 16.9 |
+| A/B at K6 | 11–12 | about 0 | about -51…-58, -10…-16.5, 19–25 | K6 (7/11) | K9 | 1.03–1.08 | 20–22 |
+
+- **Hypotheses:** B ≥ F-K6, held (F-K8). A ≥ F-K8, held.
+- **Decision rule:** not met. A reaches F-K8 but no higher (K9, the palm, is still out of reach). Its best lever at K8 (0.86) is below the tilt-only design's 0.92.
+- **The arch and the tilt substitute for each other.** With the arch free, the optimiser turns the thumb's pitch the other way (+8, against -16). An arch of 7 deg alone (B) also reaches F-K8. Both routes turn the pad and the ring tip to face each other.
+- **The arch route costs pinch and lever.** It needs a longer case (e 39.5–44.5 against 34): the lever drops to 0.82–0.86, and the thumb–index pinch stays at 17–21 deg from facing instead of 8.8. The arch turns the ring toward the thumb but not the thumb toward the index.
+- **Recommendation unchanged:** O_thumbopt (tilt only). It also leaves the finger geometry that every finger study shares unchanged.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
