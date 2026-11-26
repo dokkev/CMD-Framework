@@ -382,3 +382,20 @@
 - 7 mm에서는 seed 21에서 뒤집혔다. 따라서 "피드백을 빼면 E가 R 쪽으로 바뀐다"는 두 seed에 걸쳐 일관되지 않다 (7 mm).
 - 이전 비율은 두 seed 모두 5 mm에서만 R이 앞선다.
 - 이 과제에서 학습 seed 차이가 eval seed 잡음보다 훨씬 크다. eval seed 잡음만으로 내린 단일 seed 판정은 과신이다.
+
+### 시도 8 보완: 학습 seed 두 개 (2026-11-26 10:55, 7a' touch-only seed 21 결과를 본 뒤, 시도 8의 어떤 R/U 수치도 보기 전)
+
+**이유:** 7a' touch-only의 7 mm 판정이 학습 seed에 따라 뒤집혔다. 학습 seed 차이가 eval seed 잡음보다 크므로, seed 하나의 판정은 믿을 수 없다 (사용자 지시).
+
+**바꾸는 것:**
+- **seed:** 모든 수준을 학습 seed 20과 21로 한다.
+  - 새 수준(ObsS, ObsL): 두 seed 모두 학습한다.
+  - 기존 끝점 중 seed 21이 없는 7a' closed loop와 7b' touch+direction도 seed 21을 학습한다.
+  - 7a' touch-only와 7b' closed loop는 이미 두 seed가 있다.
+- **두께:** 모든 수준, 모든 seed에서 5/7/9 mm를 평가한다. 7b' closed loop seed 21의 5/9 mm도 더한다.
+- **간격 G = E(U) − E(R):** 수준마다 두 seed 평균을 쓴다. 두께별 값과 세 두께 평균을 함께 보고한다.
+- **잡음:** 수준별 G의 잡음은 두 학습 seed의 G 차이에 eval seed 잡음 합(두 seed 평균)을 더한 것이다.
+- **단조성 판정:** 수준별 평균 G로 한다. 반증은 인접 수준에서 평균 G가 줄고, 그 감소가 두 수준 잡음의 합보다 큰 경우다. 두께별로 판정하고, 세 두께 평균으로도 판정한다.
+- 이전 비율 간격도 같은 방식으로 보고한다.
+
+**순서:** relay ObsS seed 20 (진행 중) → 7b' closed loop seed 21의 5/9 mm eval → relay ObsS s21, ObsL s20/s21, closed loop s21 → walk ObsS s20/s21, ObsL s20/s21, touch+direction s21. 각 run은 정체 규칙과 gate를 따른다 (7b' touch+direction은 200 iteration gate도 적용).
