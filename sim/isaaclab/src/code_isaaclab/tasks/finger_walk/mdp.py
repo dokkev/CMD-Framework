@@ -104,6 +104,20 @@ def walk_obs(env) -> torch.Tensor:
     return torch.stack((g.x * 100, g.zh * 100, v.clamp(-1, 1), (g.err * 100).clamp(-10, 10)), dim=1)
 
 
+def walk_obs_noisy(env, pos_amp_m: float, delay_steps) -> torch.Tensor:
+    """:func:`walk_obs` from a delayed, noisy cylinder position (attempt 8): x and height [cm] from the reading, the
+    reading's x rate, and the target error from the reading."""
+    from ..finger_relay.mdp import _sensor
+
+    if not hasattr(env, "reward_manager"):
+        return torch.zeros(env.num_envs, 4, device=env.device)
+    g = walk_goal(env)
+    xz, rate = _sensor(env, "_code_walk_sensor", 2, [pos_amp_m, pos_amp_m], delay_steps).read(
+        torch.stack((g.x, g.zh), dim=1))
+    err = g.target() - xz[:, 0]
+    return torch.stack((xz[:, 0] * 100, xz[:, 1] * 100, rate[:, 0].clamp(-1, 1), (err * 100).clamp(-10, 10)), dim=1)
+
+
 def walk_direction(env) -> torch.Tensor:
     """The sign of the target error only (+1 toward the tips' target, -1 toward the MCP's), ``(num_envs, 1)``: the
     touch+direction actor's one piece of task information (no position, no magnitude)."""

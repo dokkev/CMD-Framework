@@ -6,7 +6,7 @@ to alternating targets, MCP locked."""
 
 import gymnasium as gym
 
-for _v in ("", "Touch", "TouchDir"):
+for _v in ("", "Touch", "TouchDir", "ObsS", "ObsL"):
     gym.register(
         id="CoDe-Finger-Walk-O" + (f"-{_v}" if _v else ""),
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

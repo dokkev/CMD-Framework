@@ -136,6 +136,8 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
     hand_key: str = "O"
     object_observed: bool = True
     """False: the actor sees no cylinder state (touch, joints and actions only; the critic keeps it)."""
+    object_noise: dict | None = None
+    """Attempt 8: the actor's cylinder position delayed and noisy (``mdp.walk_obs_noisy`` parameters); None: exact."""
     direction_observed: bool = False
     """With ``object_observed`` False: the actor also sees the sign of the target error (+1 / -1), nothing more."""
     evaluation: bool = False
@@ -201,6 +203,8 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
             group.pip.params = {"asset_cfg": joints, "four_bar_tables": tables}
         if not self.object_observed:
             self.observations.policy.cyl = None
+        elif self.object_noise:
+            self.observations.policy.cyl = ObsTerm(func=mdp.walk_obs_noisy, params=dict(self.object_noise))
         if self.direction_observed:
             self.observations.policy.direction = ObsTerm(func=mdp.walk_direction)
         self.decimation = spec.decimation
@@ -232,6 +236,17 @@ class FingerWalkOTouchDirEnvCfg(FingerWalkEnvCfg):
     object_observed = False
     direction_observed = True
 
+
+OBS_NOISE = {"ObsS": {"pos_amp_m": 0.002, "delay_steps": (3, 6)},
+             "ObsL": {"pos_amp_m": 0.008, "delay_steps": (3, 6)}}
+"""Attempt 8's observation levels: the cylinder position +-2 mm (a vision tracker) or +-8 mm, 100-200 ms late."""
+for _v, _noise in OBS_NOISE.items():
+    _n = f"FingerWalkO{_v}EnvCfg"
+    globals()[_n] = configclass(type(_n, (FingerWalkEnvCfg,), {"hand_key": "O", "object_noise": _noise}))
+    for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
+        _n = f"FingerWalk{_key}{_v}EvalEnvCfg"
+        globals()[_n] = configclass(type(_n, (FingerWalkEnvCfg,), {"hand_key": _key, "object_noise": _noise,
+                                                                    "evaluation": True}))
 
 for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
     for _v, _obs, _dir in (("", True, False), ("Touch", False, False), ("TouchDir", False, True)):

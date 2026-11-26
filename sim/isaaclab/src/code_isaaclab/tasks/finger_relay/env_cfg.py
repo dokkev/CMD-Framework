@@ -173,6 +173,8 @@ class EventCfg:
 class FingerRelayEnvCfg(ManagerBasedRLEnvCfg):
     hand_key: str = "O"
     dial_observed: bool = True
+    dial_noise: dict | None = None
+    """Attempt 8: the actor's dial angle delayed and noisy (``mdp.dial_obs_noisy`` parameters); None: exact."""
     """False: the actor sees no dial state (touch, joints and actions only; the critic keeps it)."""
     evaluation: bool = False
     placement_face: tuple | None = None
@@ -243,6 +245,8 @@ class FingerRelayEnvCfg(ManagerBasedRLEnvCfg):
             group.pip.params = {"asset_cfg": joints, "four_bar_tables": tables}
         if not self.dial_observed:
             self.observations.policy.dial = None
+        elif self.dial_noise:
+            self.observations.policy.dial = ObsTerm(func=mdp.dial_obs_noisy, params=dict(self.dial_noise))
         self.decimation = spec.decimation
         self.sim.render_interval = self.decimation
         self.episode_length_s = EPISODE_S
@@ -273,9 +277,16 @@ class FingerRelayOTouchEnvCfg(FingerRelayEnvCfg):
     dial_observed = False
 
 
+OBS_NOISE = {"ObsS": {"angle_amp_rad": math.radians(3.0), "delay_steps": (3, 6)},
+             "ObsL": {"angle_amp_rad": math.radians(15.0), "delay_steps": (3, 6)}}
+"""Attempt 8's observation levels: the dial angle +-3 deg (a vision tracker) or +-15 deg, 100-200 ms late."""
+for _v, _noise in OBS_NOISE.items():
+    _n = f"FingerRelayO{_v}EnvCfg"
+    globals()[_n] = configclass(type(_n, (FingerRelayEnvCfg,), {"hand_key": "O", "dial_noise": _noise}))
+
 KEYS = ("O", "R", "U", "R5", "U5", "R9", "U9")
 for _key in KEYS:
-    for _v, _obs in (("", True), ("Touch", False)):
+    for _v, _extra in (("", {}), ("Touch", {"dial_observed": False}),
+                       *((k, {"dial_noise": v}) for k, v in OBS_NOISE.items())):
         _n = f"FingerRelay{_key}{_v}EvalEnvCfg"
-        globals()[_n] = configclass(type(_n, (FingerRelayEnvCfg,), {"hand_key": _key, "dial_observed": _obs,
-                                                                     "evaluation": True}))
+        globals()[_n] = configclass(type(_n, (FingerRelayEnvCfg,), {"hand_key": _key, "evaluation": True, **_extra}))

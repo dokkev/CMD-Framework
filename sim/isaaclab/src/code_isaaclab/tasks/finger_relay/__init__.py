@@ -5,7 +5,7 @@
 
 import gymnasium as gym
 
-for _v in ("", "Touch"):
+for _v in ("", "Touch", "ObsS", "ObsL"):
     gym.register(
         id="CoDe-Finger-Relay-O" + (f"-{_v}" if _v else ""),
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

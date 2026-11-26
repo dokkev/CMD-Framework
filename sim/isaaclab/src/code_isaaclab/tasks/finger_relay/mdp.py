@@ -110,6 +110,61 @@ def dial_priv(env) -> torch.Tensor:
     return torch.stack((slide * 100.0, (g.goal - g.theta).clamp(-math.pi, math.pi)), dim=1)
 
 
+class DelayedNoisy:
+    """A delayed, noisy reading of per-environment values (attempt 8, ``docs/experimental/rl_pip_only.md``): each
+    episode draws a delay of ``delay_steps`` (uniform integer, ends included; 3-6 control steps = 100-200 ms at 30 Hz);
+    a reading is the true value that many steps ago (the episode's first value until then) plus uniform noise in
+    +-``amp`` per component, drawn every step. ``rate`` is the reading's change over one step divided by ``dt``."""
+
+    def __init__(self, env, dim: int, amp, delay_steps):
+        n, dev = env.num_envs, env.device
+        self.env, self.lo, self.hi = env, int(delay_steps[0]), int(delay_steps[1])
+        self.amp = torch.as_tensor(amp, device=dev, dtype=torch.float32)
+        self.buf = torch.zeros(self.hi + 1, n, dim, device=dev)
+        self.delay = torch.randint(self.lo, self.hi + 1, (n,), device=dev)
+        self.head = 0
+        self.last = None
+        self.prev = torch.zeros(n, dim, device=dev)
+
+    def read(self, value: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        env = self.env
+        self.head = (self.head + 1) % len(self.buf)
+        self.buf[self.head] = value
+        steps = getattr(env, "episode_length_buf", None)
+        new = torch.ones(env.num_envs, dtype=torch.bool, device=env.device) if (steps is None or self.last is None) \
+            else steps == 0
+        if new.any():
+            self.buf[:, new] = value[new]
+            self.delay[new] = torch.randint(self.lo, self.hi + 1, (int(new.sum()),), device=env.device)
+        idx = (self.head - self.delay) % len(self.buf)
+        out = self.buf[idx, torch.arange(env.num_envs, device=env.device)]
+        out = out + (2 * torch.rand_like(out) - 1) * self.amp
+        prev = torch.where(new[:, None], out, self.prev)
+        rate = (out - prev) / env.step_dt
+        self.prev, self.last = out.clone(), out
+        return out, rate
+
+
+def _sensor(env, key: str, dim: int, amp, delay_steps) -> DelayedNoisy:
+    s = getattr(env, key, None)
+    if s is None or s.env is not env:
+        s = DelayedNoisy(env, dim, amp, delay_steps)
+        setattr(env, key, s)
+    return s
+
+
+def dial_obs_noisy(env, angle_amp_rad: float, delay_steps) -> torch.Tensor:
+    """:func:`dial_obs` from a delayed, noisy dial angle (attempt 8): sin, cos, the goal error from the reading, and the
+    reading's rate."""
+    if not hasattr(env, "reward_manager"):
+        return torch.zeros(env.num_envs, 4, device=env.device)
+    g = dial_goal(env)
+    th, w = _sensor(env, "_code_dial_sensor", 1, [angle_amp_rad], delay_steps).read(g.theta[:, None])
+    th, w = th[:, 0], w[:, 0]
+    err = (g.goal - th).clamp(-math.pi, math.pi) / math.pi
+    return torch.stack((torch.sin(th), torch.cos(th), err, (w / 10.0).clamp(-1, 1)), dim=1)
+
+
 def tip_touch(env, max_force_n: float, threshold_n: float, force_noise: float, flip_prob: float) -> torch.Tensor:
     """Per-pad contact (as ``rotate_cube_omnireset.mdp.pad_touch``) from the ``tip_touch`` sensor: per filtered link
     the force magnitude with a uniform gain error, clipped and normalised, then a touch flag flipped with
