@@ -118,7 +118,8 @@ follows FE (``_proximal``). The thumb RO servo is the layout pose (palm); RAA fo
 servo turns with its own MCP angle (``Rz(mcp)`` is in its frame: ``thumb_proximal``). The IP servo's frame is the MCP
 frame moved along -Y, but its body lies beyond the IP axis, in the distal segment's span (the CAD's thumb distal
 segment is that servo's body, then the fingertip case), so like the MCP servo it rides on the segment it turns
-(``thumb_distal``); at the geometric zero the frame is the same."""
+(``thumb_distal``); at the geometric zero the frame is the same. A flipped IP servo (``ip_servo_flipped``) lies back
+toward the MCP and rides on ``thumb_proximal``."""
 def servo_shape(geometry) -> dict:
     """A packaging profile (``core.hardware.actuator``) as ``servo.shape`` data, in metres."""
     if isinstance(geometry, DShapedExtrusion):
@@ -130,12 +131,13 @@ def servo_shape(geometry) -> dict:
     raise TypeError(f"no servo shape for {type(geometry).__name__}")
 
 
-def servo_visuals(frames) -> list[dict]:
+def servo_visuals(frames, ip_servo_flipped: bool = False) -> list[dict]:
     """``visuals`` entries: every servo's body at its actuator frame at the geometric zero (module docstring). The
     model's servo frame is the packaging actuator frame: shaft at the origin along +Z, the body along -Y, the cap
     toward +Y, centred along Z (``parameters``: the X330 body is symmetric, +-11 mm, about the servo frame)."""
     return [{"name": f"{key.split('/')[0]}_{key.split('/')[1]}_servo_body", "servo": key,
-             "body": SERVO_BODY[key.split("/")[1]].replace("{d}", key.split("/")[0]), "shape": "servo",
+             "body": ("thumb_proximal" if key == "thumb/ip" and ip_servo_flipped
+                      else SERVO_BODY[key.split("/")[1]].replace("{d}", key.split("/")[0])), "shape": "servo",
              "position": _m(frame[:3, 3]), "quat_wxyz": _quat_wxyz(frame[:3, :3])}
             for key, frame in frames.servos.items()]
 
@@ -334,7 +336,7 @@ def export(params: Path, supply_voltage_v: float = 11.1) -> dict:
                   "shape": servo_shape(XM335Actuator().geometry)},
         "four_bar": tables,
         "tips": {**{d: _m(frames.points[f"{d}/C"]) for d in FINGERS}, "thumb": _m(tip)},
-        "visuals": servo_visuals(frames),
+        "visuals": servo_visuals(frames, t.ip_servo_flipped),
         "palm_housing": {k: v for k, v in dataclasses.asdict(PALM_HOUSING).items()},
     }
 

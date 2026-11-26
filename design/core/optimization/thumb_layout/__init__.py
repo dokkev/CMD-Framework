@@ -8,6 +8,6 @@ and by the best thumb–index / thumb–middle pinch facing angle. The formulati
 """
 
 from core.optimization.thumb_layout.design import ThumbDesign, hand_parameters, lever_arms
-from core.optimization.thumb_layout.evaluator import Evaluation, Evaluator
+from core.optimization.thumb_layout.evaluator import LANDMARKS, Evaluation, Evaluator
 
-__all__ = ["Evaluation", "Evaluator", "ThumbDesign", "hand_parameters", "lever_arms"]
+__all__ = ["LANDMARKS", "Evaluation", "Evaluator", "ThumbDesign", "hand_parameters", "lever_arms"]

@@ -228,7 +228,8 @@ class CoDeHand:
                @ ry(-90.0) @ THUMB_MCP_MOUNT @ rz(q.mcp_deg))
         ip = mcp @ trans(y=-p.mcp_to_ip_mm)
         ee = ip @ rz(q.ip_deg) @ trans(p.ee_x_mm, p.ee_y_mm, p.ee_z_mm)
-        servos = {"thumb/ro": ro, "thumb/raa": raa, "thumb/mcp": mcp, "thumb/ip": ip}
+        servos = {"thumb/ro": ro, "thumb/raa": raa, "thumb/mcp": mcp,
+                  "thumb/ip": ip @ rz(180.0) if p.ip_servo_flipped else ip}  # same axis, body toward the MCP
         return HandFrames(servos=servos, axes={k: _axis(v) for k, v in servos.items()},
                           points={"thumb/tip": ee[:3, 3].copy()}, ends={"thumb/ee": ee})
 

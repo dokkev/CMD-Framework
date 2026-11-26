@@ -160,6 +160,10 @@ class ThumbParameters:
     raa_actuator_zero_deg: float = 90.0
     mcp_actuator_zero_deg: float = 90.0
     ip_actuator_zero_deg: float = 0.0
+    ip_servo_flipped: bool = False
+    """The IP servo turned 180 deg about its output axis, its body toward the MCP on the proximal segment (the
+    prototype has it beyond the IP axis, in the distal segment). The joint axes and the end effector do not change;
+    ``mcp_to_ip_mm`` and ``ee_y_mm`` must leave room for it (``core.optimization.thumb_layout.design``)."""
 
     def __post_init__(self) -> None:
         _finite(self)

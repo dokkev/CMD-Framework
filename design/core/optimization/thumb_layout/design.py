@@ -11,6 +11,7 @@
   cap and the case, which starts ``r + gap`` (10 mm) from the IP axis.
   ``r`` (9.5), ``rear`` (25.5) are the XM335 packaging profile (``core.hardware.xm335``); ``gap`` (0.5 mm) is the
   prototype's (35.5 - 25.5 - 9.5). Turning the servo about its own output axis keeps the flexion sense.
+- ``base_*_deg`` (exploratory, beyond the original list): offsets of the CMC servo's orientation.
 - ``extension_mm``: the fingertip case's length past the servo (a) or past the cap bracket (b); the end effector sits
   at ``case_start + extension`` from the IP axis. The prototype's is 53.5 - 25.5 = 28.0 mm.
 
@@ -42,6 +43,11 @@ class ThumbDesign:
     cmc_z_mm: float
     extension_mm: float
     ip_orientation: str = "distal"
+    base_yaw_deg: float = 0.0
+    base_pitch_deg: float = 0.0
+    base_roll_deg: float = 0.0
+    """Exploratory (beyond the original variable list): offsets added to the prototype base orientation's
+    intrinsic Z-Y-X angles (yaw -90, pitch 0, roll -90)."""
 
     def __post_init__(self) -> None:
         if self.ip_orientation not in ORIENTATIONS:
@@ -82,7 +88,9 @@ class ThumbDesign:
 def hand_parameters(parameters: HandParameters, design: ThumbDesign) -> HandParameters:
     """``parameters`` with the thumb base, MCP-IP distance and end effector of ``design``."""
     base: Pose = parameters.layout.thumb
-    layout = replace(parameters.layout, thumb=replace(base, x_mm=float(design.cmc_x_mm), z_mm=float(design.cmc_z_mm)))
+    layout = replace(parameters.layout, thumb=replace(
+        base, x_mm=float(design.cmc_x_mm), z_mm=float(design.cmc_z_mm), yaw_deg=base.yaw_deg + design.base_yaw_deg,
+        pitch_deg=base.pitch_deg + design.base_pitch_deg, roll_deg=base.roll_deg + design.base_roll_deg))
     thumb = replace(parameters.thumb, mcp_to_ip_mm=design.mcp_to_ip_mm, ee_x_mm=0.0, ee_y_mm=-design.ee_mm, ee_z_mm=0.0)
     return replace(parameters, layout=layout, thumb=thumb)
 
