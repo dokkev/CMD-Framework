@@ -42,3 +42,16 @@ Status: experimental, prototype track (scripts/optimize/prototype). Nothing here
 
 - C̄_pad* rises from 80 to about 90 mm and is noisy above that: one seed of 300 generations has not converged. The `search` preset settles each length.
 - With the 80 mm finger, O_thumbopt (tuned on h0) gives only F-K3 (8/11). The thumb must be re-optimised per length, as planned.
+
+## Lower level, search preset (stopped by the user at 2026-11-26 16:50)
+
+GA + NSGA-II, 200 × 1000, seeds 0–2. The run stopped after 95 mm; the partial 97.5 mm run was discarded, and 97.5–105 mm were not run.
+
+| L_f [mm] | 80 | 82.5 | 85 | 87.5 | 90 | 92.5 | 95 |
+|---|---|---|---|---|---|---|---|
+| C̄_pad* | 0.615 | 0.632 | 0.633 | 0.660 | 0.662 | 0.666 | 0.683 |
+| MA_wc | 0.37 | 0.37 | 0.42 | 0.38 | 0.41 | 0.40 | 0.38 |
+
+- C̄_pad* rises steadily with L_f over 80–95 mm, by about 0.07 in 15 mm. It does not level off in this range.
+- MA_wc stays at 0.37–0.42, well above the 0.25 floor.
+- The upper level was not run. The user moved the hand comparison to a task-agnostic, kinematics-only object-set grasp benchmark (`docs/experimental/grasp_set.md`). The hand files from this sweep can be fed to it.
