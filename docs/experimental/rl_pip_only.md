@@ -75,5 +75,50 @@
 - 배치와 스프링 값은 O에서만 smoke로 확인했다. R/U에서 이 과제를 돌린 수치는 없다. 다만 코드 점검으로, 학습되지 않은 2-iteration checkpoint를 R(16 env)과 U(16 env)에서 한 번씩 돌렸다 (회전 약 4–5°).
 - 학습 seed가 하나라 잡음은 eval seed 차이로만 잰다.
 
-## 시도 7b': 원기둥을 손바닥 위로 걸어 옮기기
-설계와 등록은 7a'가 학습되는 동안 이 문서에 따로 commit한다.
+## 시도 7b': 원기둥을 손바닥 쪽으로 걸어 옮기고 되돌리기 (`CoDe-Finger-Walk-O`, `tasks/finger_walk/`)
+
+### 손과 동작
+- 손바닥이 위를 향한다. 모든 MCP FE 0, AA 0, thumb는 7a'와 같이 고정한다.
+- **action:** index, middle, ring의 PIP 굽힘 목표 세 개 (7a'와 같은 action과 임피던스).
+- MCP를 잠그면 손끝이 손바닥 자체에는 닿지 않는다. 그래서 "손바닥"은 proximal pad 면이다.
+
+### 원기둥
+- 지름 30 mm, 길이 70 mm, 30 g. 재질은 큐브와 같다.
+- 세 손가락을 가로질러 proximal pad 위에 놓인다.
+- 시작: face frame x 28–42 mm 균등, pad 위 정지. 손가락은 0–25° 균등.
+- **동작 원리:**
+  - distal pad가 원기둥 윗면을 누른 채 굽히면 MCP 쪽으로 민다.
+  - 누른 채 펴면 손끝 쪽으로 굴린다.
+  - 한 번의 stroke로 움직이는 거리는 제한된다. 그래서 떼고, 돌아오고, 다시 누르는 순서가 필요하다.
+- **smoke (O, 세 손가락을 같이 움직임):**
+  - 30 → 100°: x 43 → 32 mm (pad당 약 52 N으로 끼워 민다)
+  - 100 → 40°: 41 mm로 되돌아간다
+  - 다시 100 → 30°: 10 mm
+- **목표:** x 20 mm와 45 mm를 번갈아 간다 (첫 목표는 episode마다 무작위).
+  - 성공: |x − 목표| < 4 mm를 3 step 유지.
+
+### reward와 종료
+- reward:
+  - 목표까지 거리의 감소: step마다 ±10 mm로 자르고, 1 cm당 1
+  - 목표 보너스: 2
+  - action rate: −0.01
+  - 원기둥이 떨어지면 −2
+- 종료: x > 90 mm (손끝 밖), 높이 < −10 mm, |y| > 40 mm, non-finite, 10 s time-out.
+
+### 관측
+- **closed loop:** 직전 action (3), PIP 굽힘 (3), 원기둥 (x, 높이, x 속도, 목표 오차; 4), distal pad 접촉 세 개 (힘과 flag; 6). 5-step history로 80차원이다.
+- **접촉만 (`-Touch`):** 원기둥 관측을 뺀다.
+- critic: 잡음 없는 같은 항목 + 원기둥 y + 축 둘레 각속도 (18차원).
+
+### 학습, gate, 이전
+- 학습은 7a'와 같다 (seed 20, 4096 env, 200 iteration segment, 5% 정체 규칙, 최대 1000).
+- **gate:** O의 평균 순 이동 거리(목표 쪽으로 간 거리의 합, `walked_mm_mean`, 두 seed 평균) ≥ 50 mm/episode. 목표 사이 25 mm를 두 번 간 것에 해당한다.
+- **주 지표:** μ 교체에 대한 순 이동 거리의 E (7a'의 회전 E와 같은 정의). 예측 E(R) < E(U), 반증, 잡음 합, 판정 불가 규칙도 7a'와 같다.
+- **보조 지표:** μ 1.3에서 O 대비 이동 거리 비율. 예측은 ratio_R > ratio_U다.
+  - goals/episode, 떨어뜨린 비율, 접촉 make 횟수도 보고한다.
+- **7 mm 정지 규칙과 5/9 mm, touch-only 변형:** 7a'와 같다.
+- eval: `scripts/finger_relay/eval_walk.py`. episode 하나로 재고, 떨어뜨린 episode는 그 전까지 걸은 거리를 쓴다.
+
+### 공개
+- 목표 위치(20/45 mm)와 시작 범위는 O의 smoke(스크립트로 굽히고 편 것)를 보고 정했다.
+- R/U 수치는 코드 점검용으로, 학습되지 않은 checkpoint를 U에서 16 env로 한 번 돌린 것뿐이다.
