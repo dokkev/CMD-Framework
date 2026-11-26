@@ -782,6 +782,25 @@ def object_palm_contact(env, threshold_n: float = 0.05) -> torch.Tensor:
     return f.reshape(env.num_envs, -1, 3).norm(dim=-1).max(dim=1).values > threshold_n
 
 
+PAD_TOUCH_LINKS = ("index_proximal", "index_distal", "middle_proximal", "middle_distal", "ring_proximal", "ring_distal",
+                   "thumb_distal")  # fmt: skip
+"""The pad-carrying links the ``pad_touch`` sensor reads, in this order (the object filtered against each)."""
+
+
+def pad_touch(env, max_force_n: float, threshold_n: float, force_noise: float, flip_prob: float) -> torch.Tensor:
+    """Per-pad contact sensing for a blind actor (``docs/experimental/rl_cylinder.md``), ``(num_envs, 14)``: for each
+    link of :data:`PAD_TOUCH_LINKS`, the magnitude of the object's contact force on it, scaled by a uniform gain in
+    ``1 +- force_noise``, clipped to ``max_force_n`` and divided by it (0..1), then a touch flag (force above
+    ``threshold_n``) flipped with probability ``flip_prob``. The force is the net contact force on the link (normal and
+    friction); no contact position is reported."""
+    f = _t(env.scene.sensors["pad_touch"].data.force_matrix_w).reshape(env.num_envs, -1, 3).norm(dim=-1)
+    gain = 1.0 + force_noise * (2 * torch.rand_like(f) - 1)
+    force = (f * gain).clamp(0.0, max_force_n) / max_force_n
+    flag = f > threshold_n
+    flag = flag ^ (torch.rand_like(f) < flip_prob)
+    return _finite(torch.cat((force, flag.float()), dim=1))
+
+
 def cube_out_of_reach(env, rest_pos, max_distance: float) -> torch.Tensor:
     """The cube more than ``max_distance`` from its rest position on the pads: off the hand, beyond any regrasp (the
     hand cannot reach it, where OmniReset's arm can always reach the table)."""

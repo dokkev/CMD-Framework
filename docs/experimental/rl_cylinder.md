@@ -84,3 +84,36 @@ R > U가 나타난다면 실제 이유가 있는 곳이다.
 **이전:** O가 두 점검을 통과한 뒤에 한다.
 - 대상: R/U 5/7/9 mm, unmapped. μ 교체와 이전 비율을 본다.
 - 등록은 R/U 수치를 보기 전에 이 문서에 따로 commit한다. `rl_transfer.md`의 "앞으로의 구조"를 따른다: 주 지표는 μ 교체에 대한 회전 E이고, 이전 비율은 보조 지표다.
+
+## 관측 변경: 원기둥 pose 대신 pad 접촉 감지 (2026-11-25 23:20, 학습 결과를 보기 전)
+
+**무엇을 했나:** 사용자 요청으로 actor가 원기둥 pose를 모르게 하고, 대신 접촉을 감지하게 했다. pose를 보던 첫 학습(`cyl_seg1`, 22:44 시작)은 iteration 약 185에서 멈췄다. 판정하지 않았고, run 폴더는 `logs/rsl_rl/code_rotate_cylinder_fingertip/stopped/`로 옮겼다. 학습 중 로그의 goals/episode만 봤다.
+
+reset dataset과 held-out grasp는 그대로 쓴다. actor 입력과 무관하기 때문이다.
+- dataset acceptance: reaching 15.2%, grasp 5.1%, near-object 7.6%, near-goal 77%
+- held-out grasp: 1024개, acceptance 19.4% (생성 마찰 1.3)
+
+**새 과제** (`CoDe-Rotate-Cylinder-O-FingertipTouch`, eval `CoDe-Rotate-Cylinder-<H>-FingertipTouch-Eval`):
+- **Actor 입력:** 직전 action, 관절 위치, 관절 target, pad 접촉(`mdp.pad_touch`). 모두 5-step history다. 차원은 (13 + 13 + 13 + 14) × 5 = 265.
+  - 원기둥 pose와 goal 오차는 뺀다. 그래서 actor는 goal을 모르고, 시도 4처럼 "+축으로 계속 돌린다"를 배운다. 방향 flag는 넣지 않았다. 방향이 하나뿐이라 필요 없다.
+- **pad 접촉 (7개 link):** index/middle/ring의 proximal과 distal, thumb distal. 원기둥을 각 link에 대해 filter한 contact sensor로 잰다.
+  - link마다 두 값:
+    - 접촉력 크기: 0–10 N을 0–1로 자르고 나눈다.
+    - 접촉 flag: 0.05 N 초과.
+  - 힘은 link에 걸린 net 접촉력이다 (normal과 마찰 포함). 접촉 위치(pad 길이 방향)는 이 sensor가 싸게 주지 않아 넣지 않았다.
+- **센서 잡음:** 매 읽기마다 힘에 1 ± 10% 균등 gain을 곱하고, flag는 5% 확률로 뒤집는다. 저가 FSR/정전식 촉각 센서의 gain 오차와 간헐적 오검출 정도로 잡았다. eval에서도 켠다 (센서 모델의 일부다).
+- **Critic:** privileged 그대로다 (77차원: 참 pose, goal 오차, 속도, 물성).
+- **reward와 goal 계산:** 참 pose로 한다. 바꾸지 않았다.
+- 학습 recipe와 W&B: 위와 같다 (goal 보너스 5, entropy 0.001, std 상한 1.0, 비대칭 critic, 처음부터 학습, seed 20, 4096 env). W&B group은 `omnireset_fingertip_touch`다.
+
+**smoke:**
+- 3 iteration 학습이 통과했다.
+- held-out O에서 0-action 10 step 뒤 접촉 읽기 (32 env):
+  - thumb: 항상 닿음, 약 6.8 N
+  - 손가락 link: 19–41%의 env에서 닿음
+- eval이 통과했다.
+
+**조기 점검은 그대로 둔다:**
+- 250 iteration 뒤: 학습 goals/episode > 0.5, 또는 뚜렷한 상승.
+- 500 iteration 뒤: O held-out 회전 ≥ 180°.
+- 고칠 시도는 한 번만 허용한다. 그래도 실패하면 중단한다.

@@ -153,6 +153,8 @@ class ObservationsCfg:
         cube_goal_error = ObsTerm(func=mdp.cube_goal_error, params={})
         joint_targets: ObsTerm | None = None
         """The commanded joint targets (v2)."""
+        pad_touch: ObsTerm | None = None
+        """Per-pad contact force and touch flag (``mdp.pad_touch``; the blind cylinder actor)."""
 
         def __post_init__(self):
             self.enable_corruption = True
@@ -258,6 +260,8 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
     pose_noise: dict | None = None
     """The actor's cube pose and goal error through a delayed, noisy sensor (``mdp._PoseSensor``: ``pos_m``,
     ``rot_rad``, ``delay_steps``; attempt 4b); the critic keeps the true state. None: the true pose."""
+    pad_touch: dict | None = None
+    """Per-pad contact sensing in the actor input (``mdp.pad_touch`` parameters); None: none."""
     object_kind: str = "cube"
     """``cube`` (40 mm, turned about world z) or ``cylinder`` (lying across the fingers, turned about its own axis)."""
     object_diameter_m: float = 0.035
@@ -357,6 +361,12 @@ class CoDeRotateCubeOmniResetEnvCfg(ManagerBasedRLEnvCfg):
             obs.policy.cube_pose = ObsTerm(func=mdp.noisy_cube_pose, params={"rest_pos": rest, **self.pose_noise})
             obs.policy.cube_goal_error = ObsTerm(func=mdp.noisy_cube_goal_error,
                                                  params={"rest_pos": rest, **self.pose_noise})  # fmt: skip
+        if self.pad_touch:  # the object against each pad-carrying link, read by the actor only
+            self.scene.pad_touch = ContactSensorCfg(
+                prim_path="{ENV_REGEX_NS}/object",
+                filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/Robot/{b}" for b in mdp.PAD_TOUCH_LINKS],
+            )
+            obs.policy.pad_touch = ObsTerm(func=mdp.pad_touch, params=dict(self.pad_touch))
         if self.actor_blind:  # proprioception and its history only; the critic keeps the object (attempt 4)
             obs.policy.cube_pose = None
             obs.policy.cube_goal_error = None
@@ -569,6 +579,30 @@ class CoDeRotateCylinderOFingertipEnvCfg(CoDeRotateCubeOOmniResetV2EnvCfg):
 class CoDeRotateCylinderOFingertipEvalEnvCfg(CoDeRotateCylinderOFingertipEnvCfg):
     evaluation = True
 
+
+PAD_TOUCH = {"max_force_n": 10.0, "threshold_n": 0.05, "force_noise": 0.10, "flip_prob": 0.05}
+"""The blind cylinder actor's touch sensing: force 0-10 N with a +-10 % gain error per reading, a 0.05 N touch flag
+flipped 5 % of the time."""
+
+
+@configclass
+class CoDeRotateCylinderOFingertipTouchEnvCfg(CoDeRotateCylinderOFingertipEnvCfg):
+    """The cylinder task with an actor that does not see the cylinder (no pose, no goal error; it learns to keep turning
+    one way, as attempt 4's cube actor) and instead reads per-pad contact (:data:`PAD_TOUCH`) with its joint positions,
+    targets and last action, in the 5-step history. The critic, rewards and goal counting keep the true pose."""
+
+    actor_blind = True
+    pad_touch = PAD_TOUCH
+
+
+@configclass
+class CoDeRotateCylinderOFingertipTouchEvalEnvCfg(CoDeRotateCylinderOFingertipTouchEnvCfg):
+    evaluation = True
+
+
+for _key in ("O", *TRANSFER_HANDS):
+    _n = f"CoDeRotateCylinder{_key}FingertipTouchEvalEnvCfg"
+    globals()[_n] = configclass(type(_n, (CoDeRotateCylinderOFingertipTouchEvalEnvCfg,), {"hand_key": _key}))
 
 for _key in ("O", *TRANSFER_HANDS):
     for _suffix, _extra in (("", {}), ("Mapped", {"joint_map": True})):

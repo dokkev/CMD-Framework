@@ -134,3 +134,26 @@ for _v in ("Noisy", "NoisyHalf"):
                 "default_agent": "rsl_rl",
             },
         )
+
+# the cylinder task with a blind actor that reads per-pad contact (docs/experimental/rl_cylinder.md)
+gym.register(
+    id="CoDe-Rotate-Cylinder-O-FingertipTouch",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCylinderOFingertipTouchEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCylinderFingertipPPORunnerCfg",
+        "default_agent": "rsl_rl",
+    },
+)
+for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL"):
+    gym.register(
+        id=f"CoDe-Rotate-Cylinder-{_key}-FingertipTouch-Eval",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        disable_env_checker=True,
+        kwargs={
+            "env_cfg_entry_point": f"{__name__}.env_cfg:CoDeRotateCylinder{_key}FingertipTouchEvalEnvCfg",
+            "rsl_rl_cfg_entry_point": f"{__name__}.agents:CoDeRotateCylinderFingertipPPORunnerCfg",
+            "default_agent": "rsl_rl",
+        },
+    )
