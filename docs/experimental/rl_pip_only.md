@@ -399,3 +399,20 @@
 - 이전 비율 간격도 같은 방식으로 보고한다.
 
 **순서:** relay ObsS seed 20 (진행 중) → 7b' closed loop seed 21의 5/9 mm eval → relay ObsS s21, ObsL s20/s21, closed loop s21 → walk ObsS s20/s21, ObsL s20/s21, touch+direction s21. 각 run은 정체 규칙과 gate를 따른다 (7b' touch+direction은 200 iteration gate도 적용).
+
+### 7b' closed loop, 학습 seed 21의 5/9 mm (시도 8 보완에 따라 추가, 2026-11-26)
+
+G = E(U) − E(R) (양수면 R이 유리)와 이전 비율 간격 (ratio_R − ratio_U):
+
+| 두께 | seed 20 E(R) / E(U) | seed 21 E(R) / E(U) | G seed 20 / 21 | 비율 간격 seed 20 / 21 |
+|---|---|---|---|---|
+| 5 mm | 0.393 / 1.188 | 0.100 / 0.076 | +0.80 / −0.02 | +0.29 / −0.06 |
+| 7 mm | 0.485 / 1.474 | 0.127 / 1.277 | +0.99 / +1.15 | +0.66 / +0.54 |
+| 9 mm | 1.362 / 1.512 | 1.320 / 1.266 | +0.15 / −0.05 | +0.38 / +0.22 |
+
+**정리:**
+- 두 학습 seed에서 E가 R 쪽으로 분명히 갈리는 것은 7 mm뿐이다.
+  - 5 mm: seed 21에서 R과 U가 같다 (E 0.10 / 0.08). 이전 비율도 거의 같다.
+  - 9 mm: seed 21에서 E가 같다. 이전 비율은 두 seed 모두 R이 앞선다.
+- 따라서 "7b'에서 세 두께 모두 R이 유리"라는 seed 20의 결론은 seed 21에서 7 mm만 남는다. 이전 비율로는 7, 9 mm다.
+- seed 간 G 차이(5 mm 0.82)가 eval 잡음(0.10)보다 훨씬 크다.
