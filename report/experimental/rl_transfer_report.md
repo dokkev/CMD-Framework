@@ -86,6 +86,29 @@ Drake에서 효과가 분명했던 조건(MCP 고정, PIP만 사용)으로 좁�
 
 **원기둥 걷기 절반:** 두 seed가 다 있는 것은 정확 수준뿐이다. 사용자 결정으로 종료했고 판정하지 않는다.
 
+### 3.5 손 격자로 이전 조건 찾기 (시도 9, 7b′ closed loop)
+
+**질문:** 7b′의 O 정책 두 개(학습 seed 20, 21)를 새 학습 없이 73개 손으로 옮기면, 어떤 기구학적 양이 이전을 예측하는가? 손은 Study 3 e18 CFL 격자 62개, R/U 쌍 6개, 고정축 계열 4개다. 사전 등록은 df9cc61이다.
+
+| CFL 68개, Spearman ρ (pooled) | Δ_contact | Δ_skel | C̄_pad |
+|---|---|---|---|
+| 이전 비율 | −0.71 [−0.81, −0.54] | −0.59 [−0.74, −0.39] | +0.36 |
+| E (μ 1.3 → 2.0) | +0.44 [+0.19, +0.64] | −0.14 [−0.36, +0.09] | −0.43 |
+
+- 두 학습 seed에서 부호가 같다 (비율과 Δ_contact: −0.70 / −0.69).
+- partial ρ(비율, Δ_contact | Δ_skel) −0.74, partial ρ(비율, Δ_skel | Δ_contact) −0.64 (사후). 두 양이 따로 이전을 낮춘다.
+- 같은 Δ_contact에서 Δ_skel만 다른 17쌍: Δ_skel이 큰 쪽의 비율이 16쌍에서 낮다 (중앙값 −0.21, p 3 × 10⁻⁵). 그래서 등록한 "Δ_skel 때문이 아니다"는 이전 비율에서 반증됐다. E에는 Δ_skel 효과가 없다.
+- **허용치:** 이전 비율이 O의 0.5 아래로 떨어지는 Δ_contact는 1.72 mm [1.10, 2.01]다 (seed별 1.19 / 1.72 mm). Δ_skel > 9 mm인 손은 Δ_contact ≳ 1.8 mm에서 24개 중 21개가 0으로 무너진다.
+- **고정축:** O 기준 Δ_skel 5.6 mm, Δ_contact 5.6–16 mm다.
+  - 계열 안에서는 Δ_contact를 따라 떨어진다 (0.56 → 0.29 → 0.21 → 0.08).
+  - FA3(Δ_contact 5.6 mm)이 0.55를 유지해 예측이 반증됐다. Δ_contact는 같은 CFL 계열 안에서만 예측자다.
+- **실패 방식 (진단):** 무너지는 손에서는 같은 명령에 원기둥이 조금 더 MCP 쪽으로 밀린다. 그 편향이 닫힌 루프에서 누적되어 원기둥이 MCP 너머에 끼이고, 접촉이 끊긴다.
+
+**R이 U를 이기는 조건:** R의 Δ_contact가 허용치(약 1.2–1.7 mm) 아래이고 U의 Δ_contact가 그 위일 때다.
+- 7 mm에서는 R 0.86 대 U 3.91 mm이고, 이전 비율은 0.67 대 0.07이다.
+- 5 mm에서는 U5의 Δ_contact(1.58 mm)가 허용치 근처라 seed에 따라 비긴다.
+- Δ_skel이 크면 허용치가 낮아진다.
+
 ## 4. 통찰
 
 1. **피드백이 손 차이를 흡수한다.** 물체를 보는 닫힌 루프 정책은 R과 U 모두에서 O 성능의 상당 부분을 유지했다(큐브 65–85%, 릴레이 56–79%). 대부분의 과제에서 R과 U는 구별되지 않았다. Drake의 열린 루프 명령에서 R이 일관되게 나았던 것과 대비된다.
@@ -116,6 +139,7 @@ Drake에서 효과가 분명했던 조건(MCP 고정, PIP만 사용)으로 좁�
 | 과제 B | `docs/experimental/rl_cylinder.md` | 3eee555, 596ebbd, 7f2986d, 340020c, 3962649 |
 | 7a′, 7b′ | `docs/experimental/rl_pip_only.md` | bb44f78, 408a2ae, e8c4bb1, 8eb251e, 11a6b0a, cbd138e, 26bb28d, f03a854, fbab08e, 38ffd98, 37a1297, e2cf66a |
 | 8 | `docs/experimental/rl_pip_only.md` | 5ab5c12, 0a162db, 99d8ff1, 8e524f3, eadaa88, 785203a |
+| 9 | `docs/experimental/rl_pip_only.md`, `report/experimental/data/rl_walk_grid_analysis.json` | df9cc61 |
 | 학습 레시피 | `docs/experimental/omnireset_recipe.md`, `report/study4/study4.md` | |
 
 - run 폴더: `sim/isaaclab/logs/rsl_rl/`, `sim/isaaclab/logs/finger_relay/run/`, `sim/isaaclab/logs/finger_walk/run/`
