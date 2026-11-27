@@ -99,6 +99,44 @@ CFL은 9개 중 7개에서 가장 작다. 예외 둘(2R-DD 90°/9 mm 3.81 대 4.
 
 일반적으로 0.5 이상이다(q = 0과 q_req 항의 최대). CFL은 모든 칸에서 이 값보다 작으므로 CFL의 이점은 c₀ 이동이 아니라 pole의 이동이다. (v23 review r3이 제기, 2026-11-22 수치 확인; v28 r3, 이 정리 때 다시 계산해 같은 값.)
 
+### 3.5 A와 B의 높이를 풀 때: 접촉면의 자리와 운동 (탐색, 2026-11-27)
+
+**SSoT:** research-objective R0.3, R2.1, problem_formulation A.6.3 "face의 자리". 기록과 사전 등록은 `docs/experimental/pr_mr.md`에 있다.
+
+**무엇이 문제였나.**
+- 논문 설계는 pin A가 링크 선 위에 있다. 그래서 proximal pad가 링크 선 아래 3 mm에서 시작하고, 7 mm pad의 면은 10 mm 깊이에 온다.
+- 3 mm 손가락의 면은 6 mm 깊이에 있으므로 proximal 면이 4 mm 밀려난다. 이 양이 $\Delta d_p$(이하 Δd_p)다.
+- Δ_contact는 proximal 면을 원점으로 재기 때문에 이 이동을 보지 못한다.
+- 손바닥(MCP 축의 링크 선)에서 본 같은 접촉점 경로 Δ_MCP와는 $\Delta_{contact}+\Delta_{MCP}\ge|\Delta d_p|$로 묶여 있다.
+
+**탐색.**
+- `design/scripts/study/exploratory/e20_mcp_referenced.py --a-z -3 8 --b-z -3 10`으로 돌렸다.
+- A와 B의 링크 선 위 높이를 탐색 변수로 풀고, 관절축 정렬 제약을 껐다.
+- 목적은 Δ_MCP, Δ_contact, −C̄_pad 세 가지다. NSGA-II 200 × 200, seed 0과 1.
+- C̄_pad ≥ 0.70인 front에서 max(Δ_contact, Δ_MCP)가 가장 작은 설계를 MO-Pad라 부른다.
+
+| 손 (CFL, 120°) | 두께 | Δd_p | Δ_contact | Δ_MCP | Δ_skel | C̄_pad | A 높이 | proximal mount |
+|---|---|---|---|---|---|---|---|---|
+| Study 2 재설계 (Pad-Pad) | 7 | 4 | 0.86 | 4.65 | 7.67 | 0.725 | 0 | 3 |
+| **MO-Pad** | 7 | **1** | 1.07 | **1.06** | 4.78 | **0.735** | 3.5 | **0** |
+| MO-Pad | 5 | 0 | 0.28 | 0.28 | 2.02 | 0.763 | | |
+| MO-Pad | 9 | 3 | 2.43 | 2.39 | 7.00 | 0.707 | | |
+| 골격 끝을 지킨 재설계 (Palm-Tip, e22) | 7 | 1 | 4.00 | 3.82 | 0.60 | 0.703 | | 0 |
+
+(mm)
+
+- pad를 줄인 것이 아니다. proximal pad 지지 길이는 34.0 mm로, Study 2 재설계(34.4)와 거의 같다.
+- A를 3.5 mm 올려 pin 하우징이 링크 선 위로 갔고, pad가 그 아래 mount 0부터 붙는다.
+- CFL에서는 distal phalanx가 도는 점이 링크 전체로 정해진다. 그래서 pin을 옮겨도 접촉점 경로를 다시 맞출 수 있다.
+- 하한: mount ≥ 0이므로 Δd_p ≥ max(0, h − 6)이다.
+- 손끝 골격 경로 Δ_skel은 지키지 않는다. 손바닥에서 본 접촉점과 손끝은 distal 면 깊이 변화(7 mm에서 4 mm)만큼 함께 지킬 수 없다. $\Delta_{MCP}+\Delta_{skel}\ge|\Delta d_d|$이다.
+- 그림: `report/experimental/figures/face_shift_dt.png`.
+
+**남은 확인.**
+- A 높이를 푼 논문 Study 2 파이프라인 실행이 진행 중이다. `redesign.py --free-heights`이고, 목적은 논문 그대로 Δ_contact와 C̄_pad이다.
+  - 사전 등록한 예측: Δ_contact만으로는 Δd_p가 작은 설계가 나오지 않는다.
+- mount 0의 패키징(올린 pin과 그 아래 pad)은 CAD로 확인하지 않았다.
+
 ## 4. 한계와 범위
 
 - 2D 측면 모델, 두 pad 같은 두께, 장착 규칙(가장 얕은 깊이, spacer 없음) 안에서의 비교이다.

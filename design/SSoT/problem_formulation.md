@@ -562,7 +562,7 @@ $$
 $$
 이다. $q=0$에서 두 distal face는 같은 방향(축이 일직선)이므로 $\Delta\mathbf x(0)$은 평행이동이고 face 위의 모든 점에 같다. 따라서 이 차이는 점에 따르지 않는다. 두 설계의 pole 경로와 $q=0$의 위치가 같으면, 접촉점이 distal face의 어디에 있든 그 점의 PIP 열이 같다. $\mathbf c$는 그 대표점이고, 점(과 $\mathcal F_p$ 원점)을 고르는 규칙은 시작 오프셋 $\Delta\mathbf c(0)$에만 들어간다. Pole은 한 점이 아니라 flexion마다 하나인 경로이며, 고정 축에서만 한 점이다.
 
-MCP 열은 지렛대에 pad 깊이가 들어가서 interface 두께에 따라 바뀌고, 다시 설계로 지킬 수 없다(research-objective §8.3). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다. 반대로 $\mathbf c(q)$의 변화는 관절 명령으로 보상할 수 없다. 모든 설계에서 $\varphi=q$이므로 두 face가 주어진 상대 각도에 이르는 굽힘은 설계와 관계없이 같고, 그 굽힘에서 남는 위치 차이가 $\Delta\mathbf c$이다.
+MCP 열은 지렛대에 proximal contact face의 깊이가 들어간다. pin이 링크 선 위에 있으면 이 깊이가 interface 두께만큼 바뀌고, pin을 링크 선 밖으로 옮겨 pad를 더 깊이 달면 일정 두께까지 지킬 수 있다(아래의 "face의 자리", research-objective §8.3). Servo 각에서 $q$로 가는 전달(속도와 MA)은 포함하지 않는다. 그것은 mechanism마다 다르며 재설계로 바뀔 수 있고, 따로 기록하고 제어로 보상한다. 반대로 $\mathbf c(q)$의 변화는 관절 명령으로 보상할 수 없다. 모든 설계에서 $\varphi=q$이므로 두 face가 주어진 상대 각도에 이르는 굽힘은 설계와 관계없이 같고, 그 굽힘에서 남는 위치 차이가 $\Delta\mathbf c$이다.
 
 **그 변화.**
 
@@ -572,7 +572,7 @@ $$
 
 $\mathbf c(M,q)-\mathbf c(M_0,q)=[\mathbf c(M,0)-\mathbf c(M_0,0)]+\int_0^q\big(\mathbf c'(M,s)-\mathbf c'(M_0,s)\big)\,ds$이다. 그래서 $q=0$의 자세가 같으면, $\Delta_{\mathrm{contact}}=0$과 $[0,q_{\mathrm{req}}]$에서 $\mathbf J$가 같다는 것은 동치이다. 일반적으로 $\Delta_{\mathrm{contact}}\le\|\Delta\mathbf c(0)\|+\int_0^{q_{\mathrm{req}}}\|\Delta\mathbf J\|\,dq$이다. 원점을 proximal contact face 위에 두므로 pad 깊이의 차이 자체는 $\Delta_{\mathrm{contact}}$에 들어가지 않는다. 단위는 mm이며, 코드는 $L_f$로 나눈 값을 `contact_change`로 기록한다.
 
-뼈대의 운동 변화 $\Delta_{\mathrm{skel}}$은 같은 식을 $\mathcal F_p$에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며(코드의 `skeleton_change`는 $L_f$로 나눈 값) 함께 보고한다.
+뼈대의 운동 변화 $\Delta_{\mathrm{skel}}$은 같은 식을 proximal 링크 선(MCP 축을 원점으로 하는 링크 좌표계)에서 본 손끝 $\mathbf r_C$의 경로로 잰 것이며(코드의 `skeleton_change`는 $L_f$로 나눈 값) 함께 보고한다.
 
 **두 변화는 같은 pole의 변화를 서로 다른 기준에서 본 것이다.** 접촉점과 손끝은 모두 distal phalanx 위의 점이므로 같은 상대 운동($\mathbf J$의 pole)을 따른다. $q=0$에서의 변위를 회전 $R_q$와 유한 pole $\mathbf p(q)$로 쓰면(Study 0, 명제 4), $q=0$에서 같은 자리에 있던 점은 두 손가락에서 $\lVert\Delta\mathbf x(q)\rVert=2\sin\tfrac q2\,\lVert\Delta\mathbf p(q)\rVert$만큼 벌어지며, 이 값은 점에 따르지 않는다. 그래서
 
@@ -583,6 +583,21 @@ $$
 $$
 
 이다. $\Delta\mathbf p_{\mathrm{face}}$는 proximal contact face에서, $\Delta\mathbf p_{\mathrm{link}}$는 proximal 링크 선(뼈대)에서 본 pole의 변화이고, $\Delta d$는 face 깊이의 변화(가장 얕은 장착에서 $\Delta h$)이다. 등식은 $q=0$의 위치가 같을 때 성립하고, 그 차이($\lVert\Delta\mathbf c(0)\rVert$, $\lVert\Delta\mathbf r_C(0)\rVert$)만큼 어긋난다. 따라서 $\Delta_{\mathrm{contact}}$를 지킨다는 것은 pole을 contact face에 대해 지키는 것이고, $\Delta_{\mathrm{skel}}$을 지킨다는 것은 pole을 뼈대에 대해 지키는 것이다. pad가 $\Delta d$만큼 깊어지면 둘을 함께 지킬 수 없다. 고정 축은 pole이 뼈대에 붙어 있어 $\Delta\mathbf p_{\mathrm{link}}$를 0 가까이 둘 수밖에 없으므로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert\ge\Delta d$이고, 이것이 따름정리(H0.4)의 하한이다. 어느 구조든 삼각부등식으로 $\lVert\Delta\mathbf p_{\mathrm{face}}\rVert+\lVert\Delta\mathbf p_{\mathrm{link}}\rVert\ge|\Delta d|$이므로, $q=0$의 위치가 같을 때 $\Delta_{\mathrm{contact}}+\Delta_{\mathrm{skel}}\ge2\sin(q_{\mathrm{req}}/2)\,|\Delta d|$이다(합 하한). 같은 두께에서 두 변화는 서로 맞바뀌므로, 둘 중 무엇이 측정 오차를 예측하는지는 한쪽을 고정한 partial 상관으로만 가를 수 있다.
+
+**face의 자리 (2026-11-27).** 위의 합 하한은 두 face의 깊이 변화가 같을 때($\Delta d$)의 식이다. 일반적으로 링크 선에서 잰 proximal face의 깊이 변화를 $\Delta d_p$, distal face의 깊이 변화를 $\Delta d_d$라 한다. 같은 접촉점 경로를 MCP 축의 링크 선(proximal 링크 좌표계 $\mathcal F_1$, MCP가 돌려도 강체로 함께 돈다)에서 보면
+$$
+\mathbf c_1(M,q)=\mathbf c(M,q)-d_p(M)\,\mathbf e_z,\qquad
+\Delta_{\mathrm{MCP}}(M,M_0)=\max_{q}\big\|\mathbf c_1(M,q)-\mathbf c_1(M_0,q)\big\|
+$$
+이다. 두 기준의 차이는 상수 $\Delta d_p\,\mathbf e_z$이므로 모든 $q$에서
+$$
+\Delta_{\mathrm{contact}}+\Delta_{\mathrm{MCP}}\ge|\Delta d_p|,\qquad \Delta_{\mathrm{MCP}}\le\Delta_{\mathrm{contact}}+|\Delta d_p|
+$$
+이다. 접촉점 경로와 proximal face의 자리를 함께 지키면 MCP에서 본 경로도 지켜진다. 또 $\mathcal F_1$에서 접촉점과 손끝은 $\mathbf c_1-\mathbf r_C=R_q(0,-d_d)$만큼 떨어져 있으므로 $\Delta_{\mathrm{MCP}}+\Delta_{\mathrm{skel}}\ge|\Delta d_d|$이다($\Delta_{\mathrm{skel}}$은 링크 선에서 잰다). MCP에서 본 접촉점 경로와 손끝 경로는 distal face 깊이 변화만큼 함께 지킬 수 없다.
+
+장착 규칙상 pin A가 링크 선 위에 있으면 proximal pad는 링크 선 아래 3 mm(pin 하우징)에서 시작하므로 $d_p=3+h$이고 $\Delta d_p=h-h_0$이다. A의 높이 $a_z$와 B의 높이 $b_z$를 탐색 변수로 풀면(관절축 정렬 제약을 끈다) 하우징이 링크 선 위로 가서 장착을 0까지 줄일 수 있고, $\Delta d_p\ge\max(0,\,h-(3+h_0))$이다. 이것은 spacer가 아니다. pad는 자기 두께의 가장 얕은 깊이에 달리고, 비켜나는 것은 pin이다. CFL에서는 distal phalanx가 도는 점이 링크 전체로 정해지고 pin에 묶이지 않으므로 pin을 옮겨도 접촉점 경로를 다시 맞출 수 있다. 고정 축은 pin이 곧 회전 중심이라 같은 방법을 쓰면 축이 face에서 멀어진다.
+
+**자리와 운동을 함께 지키는 재설계(탐색 단계, 2026-11-27).** $a_z,b_z$를 풀고 같은 study goal 아래에서 $(\Delta_{\mathrm{MCP}},\Delta_{\mathrm{contact}},-\bar C_{\mathrm{pad}})$의 front를 구한 뒤, $\bar C_{\mathrm{pad}}\ge0.70$인 설계 중 $\max(\Delta_{\mathrm{contact}},\Delta_{\mathrm{MCP}})$가 가장 작은 것을 고른다. 결과와 이 정식화를 Study 2 파이프라인에 넣는 일의 상태는 research-objective R2.1에 있다.
 
 **다시 설계.** 두께 $h$에서 두 목적을 함께 최적화한다.
 
