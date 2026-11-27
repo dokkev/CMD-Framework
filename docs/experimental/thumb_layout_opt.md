@@ -653,3 +653,23 @@ The distal-IP orientation run was rerun after the warm-start fix. Best design: x
   - U: F-K6 at e 33 with lever ratio 0.93 and pinch 4.7 deg.
 - **Morphology barely changes the thumb's best layout.** The three optima share the IP orientation and the pitch/roll range. They differ mainly in x (-50.5 for O against -56…-59.5 for R/U) and in e (34 against 43–44.5).
 - **For O, R and U the CMC base orientation is the design variable that matters for dexterity here.** Its position within the palm envelope, the IP servo turn and the case length refine levers and pinch.
+
+### Pre-registration: prototype fingers, IP hyperextension to 90 deg, in-plane oblique RO axis (user request, 2026-11-26, before the run)
+
+- **Request.** The thumb IP may hyperextend to 90 deg. The RO axis may be oblique by turning it about Z only, which keeps it in the palm plane (roll = 0). The fingers are the prototype's.
+- **Hand.** The fingers are the CAD prototype's (`core/morphology/code_hand/prototype.yaml`). That file has no pads, so `design/output/thumb_layout/hands/prototype_pads.yaml` adds them by the Study 3 O rule:
+  - the proximal pad runs from O to A′ + 2.1 mm;
+  - the distal pad runs from B′ − 3.7 mm to C;
+  - mount 3 mm, thickness 3 mm, width 19 mm.
+- **Baseline** (the prototype thumb, double-support plates): F-K3, touch K9, pinch 30.8 deg, RAA sweep −1.32 mm.
+- **Runs** (strict envelope, proximal IP, double-support plates, IP ≥ −90):
+  - Free: x, z, e; yaw ±20; clocking ±45.
+  - Fixed: roll 0; bend 0.
+  - nominal: population 32 × 25 generations;
+  - then robust (`--robust`): population 24 × 20.
+  - The robust IP −30 run on O was stopped unfinished; this run replaces it.
+- **Hypotheses.**
+  - The nominal front reaches F-K8 with a shorter case than at IP −30 (e < 36 mm).
+  - The robust front keeps K6 or better under all 12 perturbations.
+- **Decision rule.** As in the previous pre-registration: among robust-front designs with lever ≥ 0.85, the highest level kept under every perturbation, then the highest robust score, then the best pinch.
+- **Not modelled.** IP self-contact between the proximal and distal thumb bodies at large hyperextension, beyond the capsule set, which skips adjacent links. This needs a CAD check.
