@@ -652,7 +652,7 @@ def task_icon(ax, kind):
 def fig4():
     """Study 3: five Drake tasks under O's reused command. Per task: three frames; R and U's object response minus O's
     over E's pairs (median, quartiles; friction 1.3 circles, 2.0 diamonds); each redesign's friction effect minus O's;
-    and under the bottom panel each task's error E (median |bias| over placements) for CoDe and Coverage with point
+    and under the bottom panel each task's error E (median |bias| over placements) for CoDe, Skeleton and Coverage with point
     and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
@@ -667,7 +667,8 @@ def fig4():
              "effect bias (deg)"),
             ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",
              "effect bias (deg)"))
-    HC = {"O": INK, "R": BLUE, "U": AMBER}
+    HC = {"O": INK, "R": BLUE, "U": AMBER, "S": TEAL}
+    RED = tuple(hh for hh in ("R", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
     h = 3.40
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
@@ -695,15 +696,15 @@ def fig4():
         ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52) / h, (cw - 0.58) / W, 0.74 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
-        for hi, hh in enumerate(("R", "U")):
+        for hi, hh in enumerate(RED):
             for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
                 bd = dv[f"{hh}_{mu}"]
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
                 ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
-                        mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 4, step))
+                        mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 6, step))
         # end labels: the final deviation as a share of O's final value at the same friction, marker = friction
         labs_r = []
-        for hh in ("R", "U"):
+        for hh in RED:
             for mu, mk_ in (("1.3", "o"), ("2", "D")):
                 dev_end = dv[f"{hh}_{mu}"]["median"][-1]
                 ref_end = dv[f"O_{mu}_abs"]["median"][-1]
@@ -712,8 +713,8 @@ def fig4():
         y0, y1 = ra.get_ylim()
         fr = sorted(((v - y0) / (y1 - y0), t, c, m) for v, t, c, m in labs_r)
         for k in range(1, len(fr)):
-            if fr[k][0] - fr[k - 1][0] < 0.12:
-                fr[k] = (fr[k - 1][0] + 0.12,) + fr[k][1:]
+            if fr[k][0] - fr[k - 1][0] < 0.10:
+                fr[k] = (fr[k - 1][0] + 0.10,) + fr[k][1:]
         over = fr[-1][0] - 0.97
         if over > 0:
             fr = [(q[0] - over,) + tuple(q[1:]) for q in fr]
@@ -732,14 +733,14 @@ def fig4():
         ea = fig.add_axes(((x0 + 0.30) / W, 0.80 / h, (cw - 0.58) / W, 0.70 / h), sharex=ra)
         ea.axhline(0, color=INK, lw=0.6, zorder=2)
         labs = []
-        for hh in ("U", "R"):
+        for hh in [x for x in ("S", "U", "R") if f"{x}_bias" in dv]:
             bd = dv[f"{hh}_bias"]
             m_ = sc * np.asarray(bd["median"])
             ea.fill_between(x, sc * np.asarray(bd["q25"]), sc * np.asarray(bd["q75"]), color=HC[hh], alpha=0.12, lw=0,
                             zorder=1)
             ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
             labs.append((m_[-1], "0%" if round(bd["median"][-1]) == 0 else f"{bd['median'][-1]:+.0f}%", HC[hh]))
-        lim = abs(sc) * max(25.0, 1.15 * max(abs(v) for b_ in ("R", "U") for v in dv[f"{b_}_bias"]["q75"]
+        lim = abs(sc) * max(25.0, 1.15 * max(abs(v) for b_ in RED if f"{b_}_bias" in dv for v in dv[f"{b_}_bias"]["q75"]
                                         + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
         y0, y1 = ea.get_ylim()
@@ -757,17 +758,18 @@ def fig4():
         pt = d["tasks"][key]["hands"]
         if key in ("dial", "pivot"):  # the randomized tasks: point on the 32 draws the hydro rerun used
             f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
-            pt = {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
+            pt = d["first32"][key] if "first32" in d else {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
             yy = (0.40 - 0.115 * j) / h
             xm = (x0 + 0.30 + (cw - 0.58) / 2) / W
-            fig.text(xm - 0.07 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
-            for dx, hh in ((0.0, "R"), (0.30, "U")):
+            fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
+            for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 e = src.get(hh)
                 fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=5.8,
                          ha="left", va="center", color=HC[hh], fontweight="bold")
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
+               plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="Coverage"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
                           label="pad friction 1.3"),
@@ -775,7 +777,7 @@ def fig4():
                           label="pad friction 2.0"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements"),
                plt.Line2D([], [], ls="none", label="%: relative to O")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=8, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)

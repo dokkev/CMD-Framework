@@ -25,6 +25,11 @@ import box_pivot as BP  # noqa: E402
 import hook_pull as HP  # noqa: E402
 
 MU = (1.3, 2.0)
+NAME = {"O": "O", "R": "R", "U": "U", "S": "conv_e25"}
+"""Hands drawn: O; CoDe = R; Coverage = U; Skeleton = S, the least-Delta_skel redesign of Study 2's space (2026-11-27,
+design/scripts/study/exploratory/e25_skeleton_min.py). S is scored with the same pair functions but kept out of
+analyze.DESIGN, so the pre-registered dose-response sets are unchanged."""
+REDESIGNS = ("R", "U", "S")
 LOG = DRAKE / "logs"
 S3 = ROOT / "report" / "study3" / "data"
 
@@ -162,24 +167,31 @@ def _held(c, grid):
     return np.interp(grid, d, c[:, 0], right=c[-1, 0])
 
 
-def _trajectories(series, keys_r, keys_u, n_cut=None):
-    """series(h, mu, key) -> array. R and U minus O at each friction over their own E pairs; each hand's friction effect
-    (2.0 minus 1.3) and absolute response over the pairs R and U share; R and U's effect minus O's as a share of O's
-    median final effect (%)."""
+def _trajectories(series, keys, n_cut=None):
+    """series(h, mu, key) -> array; keys: {redesign: its E pairs}. Each redesign minus O at each friction over its own
+    E pairs; each hand's friction effect (2.0 minus 1.3) and absolute response over the pairs R and U share (S's over
+    its own and R's, as it holds fewer); each redesign's effect minus O's as a share of O's median final effect (%)."""
     cut = (lambda y: y[:n_cut]) if n_cut else (lambda y: y)
     dv = {}
-    for h, ks in (("R", keys_r), ("U", keys_u)):
+    for h, ks in keys.items():
         for m in MU:
             dv[f"{h}_{m:g}"] = _band([cut(series(h, m, k) - series("O", m, k)) for k in ks])
-    pk = sorted(set(keys_r) & set(keys_u), key=str)
-    eff = {h: {k: cut(series(h, 2.0, k) - series(h, 1.3, k)) for k in pk} for h in "ORU"}
-    for h in "ORU":
-        dv[f"{h}_effect"] = _band(list(eff[h].values()))
+    pk = sorted(set(keys["R"]) & set(keys["U"]), key=str)
+    hands = ("O",) + tuple(keys)
+    shared = {h: pk if h != "S" else sorted(set(keys["R"]) & set(keys["S"]), key=str) for h in hands}
+    eff = {h: {k: cut(series(h, 2.0, k) - series(h, 1.3, k)) for k in set(pk) | set(shared.get("S", []))}
+           for h in ("O", "R", "U")}
+    if "S" in keys:
+        eff["S"] = {k: cut(series("S", 2.0, k) - series("S", 1.3, k)) for k in shared["S"]}
+    for h in ("O", "R", "U"):
+        dv[f"{h}_effect"] = _band([eff[h][k] for k in pk])
         for m in MU:
             dv[f"{h}_{m:g}_abs"] = _band([cut(series(h, m, k)) for k in pk])
     sc = dv["O_effect"]["median"][-1]
-    for h in "RU":
-        dv[f"{h}_bias"] = _band([100 * (eff[h][k] - eff["O"][k]) / sc for k in pk])
+    for h in keys:
+        ks = shared[h]
+        if ks:
+            dv[f"{h}_bias"] = _band([100 * (eff[h][k] - eff["O"][k]) / sc for k in ks])
     dv["pairs_shared"] = len(pk)
     return dv
 
@@ -189,48 +201,47 @@ def deviation(pairs):
     # pull-out: held load against cylinder displacement (e21c curves, Gate 0 passed), over the E pairs
     grid = np.linspace(0.0, 5.0, 101)
     cur = {}
-    for h in "ORU":
+    for h in ("O",) + REDESIGNS:
         for m in MU:
             for r in A.RADII:
-                for e in json.load(open(LOG / f"dk_{h}_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
+                for e in json.load(open(LOG / f"dk_{NAME[h]}_mu{m:g}_point-e21c_r{r:g}.json"))["envs"]:
                     if e["gate0"]["pass"] and e.get("curve"):
                         cur[(h, m, A.key(e))] = _held([[x[0], x[2]] for x in e["curve"]], grid)
     ok = lambda h, ks: [k for k in ks if all((hh, m, k) in cur for hh in ("O", h) for m in MU)]
-    dev["pull"] = _trajectories(lambda h, m, k: cur[(h, m, k)], ok("R", pairs["pull"]["R"]), ok("U", pairs["pull"]["U"]))
+    dev["pull"] = _trajectories(lambda h, m, k: cur[(h, m, k)], {h: ok(h, pairs["pull"][h]) for h in REDESIGNS})
     dev["pull"]["x"] = grid.round(3).tolist()
     # acquisition: distance drawn toward the MCP against time (e23c)
     tr = {}
-    for h in "ORU":
+    for h in ("O",) + REDESIGNS:
         for m in MU:
             for s in (3, 6):
                 for r in AR.RADII:
-                    p = LOG / f"dkpullin_{h}_mu{m:g}_point-e23c-a{s}_r{r:g}.json"
+                    p = LOG / f"dkpullin_{NAME[h]}_mu{m:g}_point-e23c-a{s}_r{r:g}.json"
                     for e in json.load(open(p))["envs"]:
                         tr[(h, m, (s, r, e["q0_deg"], round(e["x_c_mm"], 3)))] = np.array(e["pullin"]["trace"])[:, 1]
-    dev["acquire"] = _trajectories(lambda h, m, k: tr[(h, m, k)], list(pairs["acquire"]["R"]),
-                                   list(pairs["acquire"]["U"]))
+    dev["acquire"] = _trajectories(lambda h, m, k: tr[(h, m, k)], {h: list(pairs["acquire"][h]) for h in REDESIGNS})
     dev["acquire"]["x"] = np.array(json.load(open(LOG / "dkpullin_O_mu1.3_point-e23c-a3_r15.json"))["envs"][0]
                                    ["pullin"]["trace"])[:, 0].round(4).tolist()
     # hook: held load against bar displacement (curves in the logs), over the E pairs
-    hk = {h: HP._load(h, "e38") for h in "ORU"}
+    hk = {h: HP._load(NAME[h], "e38") for h in ("O",) + REDESIGNS}
     dev["hook"] = _trajectories(lambda h, m, k: _held(hk[h][k[:2]]["runs"][f"{m:g}"]["dirs"][k[2]]["curve"], grid),
-                                list(pairs["hook"]["R"]), list(pairs["hook"]["U"]))
+                                {h: list(pairs["hook"][h]) for h in REDESIGNS})
     dev["hook"]["x"] = grid.round(3).tolist()
     # fingertip disk: rotation against time (e28zc, every step), over the E pairs
     dz = {}
-    for h in "ORU":
+    for h in ("O",) + REDESIGNS:
         for m in MU:
-            for e in json.load(open(LOG / f"dktipdial_{h}_mu{m:g}_point-e28zc_r15.json"))["envs"]:
+            for e in json.load(open(LOG / f"dktipdial_{NAME[h]}_mu{m:g}_point-e28zc_r15.json"))["envs"]:
                 k = (e["rho_mm"], e["q0_deg"], round(e["x_c_mm"], 3), e["placement"].get("y_mm", 0.0))
                 dz[(h, m, k)] = np.array(e["dial"]["trace"])[:, 1]
-    dev["dial"] = _trajectories(lambda h, m, k: dz[(h, m, k)], list(pairs["dial"]["R"]), list(pairs["dial"]["U"]))
+    dev["dial"] = _trajectories(lambda h, m, k: dz[(h, m, k)], {h: list(pairs["dial"][h]) for h in REDESIGNS})
     n_d = len(next(iter(dz.values())))
     dev["dial"]["x"] = (np.arange(1, n_d + 1) / 30).round(4).tolist()
     # box pivot: tilt from the sweep's start against time (e35), over the E pairs
-    bp = {h: BP._load(h, "e35") for h in "ORU"}
-    n_p = min(len(bp[h][k][f"{m:g}"]["trace"]) for h in "ORU" for k in pairs["pivot"]["R"] for m in MU)
+    bp = {h: BP._load(NAME[h], "e35") for h in ("O",) + REDESIGNS}
+    n_p = min(len(bp[h][k][f"{m:g}"]["trace"]) for h in ("O",) + REDESIGNS for k in pairs["pivot"][h] for m in MU)
     dev["pivot"] = _trajectories(lambda h, m, k: np.array(bp[h][k][f"{m:g}"]["trace"])[:, 0],
-                                 list(pairs["pivot"]["R"]), list(pairs["pivot"]["U"]), n_cut=n_p)
+                                 {h: list(pairs["pivot"][h]) for h in REDESIGNS}, n_cut=n_p)
     dev["pivot"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()
     return dev
 
@@ -263,9 +274,34 @@ def main():
                         pairs[task][hand] = pr
                 else:
                     out["hydro"].setdefault(task, {})[hand] = row
+        for label, f in (("point", fn), ("hydro", fn_h)):  # Skeleton: same pair functions, outside analyze.DESIGN
+            try:
+                pr = f(NAME["S"])
+            except (FileNotFoundError, TypeError, AttributeError):
+                pr = None
+            if not pr:
+                continue
+            v = np.array(list(pr.values()))
+            row = {"d_contact": 6.61, "d_skel": 0.34, "E": float(np.median(np.abs(v - 1))),
+                   "ratio_median": float(np.median(v)), "bias_median": float(np.median(v - 1)),
+                   "bias_q25": float(np.percentile(v - 1, 25)), "bias_q75": float(np.percentile(v - 1, 75)),
+                   "pairs": len(v)}
+            if label == "point":
+                hands["S"] = row
+                pairs[task]["S"] = pr
+            else:
+                out["hydro"].setdefault(task, {})["S"] = row
+        if task in ("dial", "pivot"):  # point on the first 32 randomized draws (the hydro rerun's)
+            fr = (lambda h: dial_pairs(h, "point", "e29z", True)) if task == "dial" else (lambda h: pivot_pairs(h, "e35"))
+            out.setdefault("first32", {})[task] = {}
+            for hh in REDESIGNS:
+                pr = fr(NAME[hh])
+                v = np.array([x for k, x in pr.items() if (k[1] if isinstance(k, tuple) else k) < 32])
+                out["first32"][task][hh] = {"E": float(np.median(np.abs(v - 1))), "pairs": len(v)}
         out["tasks"][task] = {"hands": hands}
         hy = out["hydro"].get(task, {})
         print(task, len(hands), "hands; point E R", round(hands["R"]["E"], 3), "U", round(hands["U"]["E"], 3),
+              "S", round(hands["S"]["E"], 3) if "S" in hands else None,
               "| hydro R", hy.get("R", {}).get("bias_median"), "U", hy.get("U", {}).get("bias_median"))
     out["deviation"] = deviation(pairs)
     (S3 / "fig4_sync.json").write_text(json.dumps(out, indent=1))

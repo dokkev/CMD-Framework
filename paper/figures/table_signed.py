@@ -1,6 +1,6 @@
 """Table I data: the signed bias in the measured pad effect, (D(H) - D(O)) / D(O) per placement-direction pair (+: the
 effect overstated in its own direction, -: understated or reversed), its
-median for CoDe (R) and Coverage (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
+median for CoDe (R), Skeleton (S, conv_e25: least Delta_skel, 2026-11-27; where its runs exist) and Coverage (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
 and gates as each setting's E (median |bias|, checked here against report/study3/data). No simulation: the raw logs
 (sim/isaaclab/logs/study3/two_pad, sim/drake/logs). Writes report/study3/data/table_signed.json.
 
@@ -144,8 +144,19 @@ def one(name, fn, ref_):
             row[h] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
                       "bias_q75": float(np.percentile(b, 75)), "E": e, "pairs": int(len(b)),
                       "O_effect_median_n": float(np.median([do for _, do in pr.values()]))}
+        try:
+            pr = fn("conv_e25")
+        except (FileNotFoundError, TypeError, AttributeError, KeyError, ValueError):
+            pr = {}
+        if pr:
+            b = np.array([(dh - do) / do for dh, do in pr.values()])
+            row["S"] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
+                        "bias_q75": float(np.percentile(b, 75)), "E": float(np.median(np.abs(b))), "pairs": int(len(b)),
+                        "O_effect_median_n": float(np.median([do for _, do in pr.values()]))}
+        sk = f"{100 * row['S']['bias_median']:+5.0f}% (E {100 * row['S']['E']:.0f})" if "S" in row else "  —"
         print(f"{name:34s} O {row['R']['O_effect_median_n']:+.2f} N | CoDe {100 * row['R']['bias_median']:+5.0f}% "
-              f"(E {100 * row['R']['E']:.0f}) | Conv {100 * row['U']['bias_median']:+5.0f}% (E {100 * row['U']['E']:.0f})")
+              f"(E {100 * row['R']['E']:.0f}) | Skeleton {sk} | Coverage {100 * row['U']['bias_median']:+5.0f}% "
+              f"(E {100 * row['U']['E']:.0f})")
         return row
 
 
