@@ -400,3 +400,34 @@ The cylinder rests on the proximal face (face-anchored by nature). Runs use `run
   2. 7b′: MRS ratio < 0.5. Its Δ_contact is above attempt 9's Dc50 of 1.7.
   3. Drake pull-out: MRS errs more than MRM.
   - If all three hold, no single 7 mm redesign serves pad and fingertip-end contact together. That is the bound in practice.
+
+## Result: cube transfer versus the proximal face shift (2026-11-27)
+
+64 new evals, all rc 0 (`SUMMARY_HANDS=... mr_transfer_summary.py`). Ratio = the hand's score over O's (rotation, or full turns upright ≤ 30°).
+
+| hand | Δt | Δ_contact | Δ_MCP | Δ_skel | rotation ratio | full≤30° ratio |
+|---|---|---|---|---|---|---|
+| MRM5 | 0 | 0.28 | 0.28 | 2.02 | **0.989** | **0.995** |
+| MR5 | 0.9 | 0.99 | 0.11 | 2.09 | 0.963 | 0.957 |
+| MRM | 1 | 1.07 | 1.06 | 4.78 | 0.938 | 0.976 |
+| R5 / U5 | 2 | 0.35 / 1.58 | 2.10 / 2.16 | 3.55 / 2.02 | 0.837 / 0.840 | 0.774 / 0.813 |
+| MR / MR9 / MRM9 | 3 | 3.26 / 3.99 / 2.43 | 0.54 / 1.47 / 2.39 | 4.29 / 6.98 / 7.00 | 0.766 / 0.809 / 0.815 | 0.730 / 0.814 / 0.812 |
+| R / U / MRbz / MRMbz | 4 | 0.86–3.91 | 1.66–4.65 | 3.38–7.67 | 0.703–0.754 | 0.703–0.800 |
+| R9 / U9 | 6 | 2.32 / 3.89 | 6.36 / 6.11 | 9.37 / 7.17 | 0.655 / 0.621 | 0.740 / 0.710 |
+
+Spearman ρ over the 14 hands, one-sided permutation (20,000):
+
+| measure | Δt | Δ_contact | Δ_MCP | Δ_skel |
+|---|---|---|---|---|
+| rotation ratio | **−0.98** (p < 5e-5) | −0.60 (0.013) | −0.76 (0.0009) | −0.66 (0.007) |
+| full≤30° ratio | **−0.80** (0.0003) | −0.25 (0.20) | −0.59 (0.017) | −0.57 (0.018) |
+
+- **All three predictions hold** (registered after the MRM result, so this is a confirmation):
+  1. The ratio falls with Δt, at ρ −0.98.
+  2. MRM5 reaches 0.99.
+  3. Δt predicts better than Δ_contact, Δ_MCP or Δ_skel.
+  - The registration said 13 hands; the table has 14 (MR9 and MRM9 both sit at Δt 3).
+- **Reading.**
+  - The cube task uses the thumb, the abduction and the MCP. The cube starts on each hand's own proximal face, but the thumb and palm are the same on every hand. So how far the proximal face moves relative to the palm (Δt) sets how far the whole grasp is displaced against the parts that did not change.
+  - At equal Δt, the contact-path quantities hardly matter: the 4 mm group spans Δ_contact 0.86–3.91 at ratios 0.70–0.75.
+  - Keeping the face in place restores the cube policy: Δt 0–1 gives 0.94–0.99.

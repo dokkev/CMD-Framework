@@ -15,11 +15,12 @@ Walk score: walked_mm_mean (attempt 9). Missing files are skipped.
 
 from __future__ import annotations
 
+import os
 import json
 from pathlib import Path
 
 R = Path(__file__).resolve().parents[2] / "logs" / "pr_mr_transfer"
-HANDS = ("O", "R", "U", "MR", "MRM", "MRbz", "MRMbz")
+HANDS = tuple(os.environ.get("SUMMARY_HANDS", "O R U MR MRM MRbz MRMbz").split())
 SEEDS = (94000, 95000)
 
 
