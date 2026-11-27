@@ -71,13 +71,38 @@ def hand_file(hand: str) -> Path:
 def finger_geometry(hand: str) -> dict:
     """Pivots at q = 0 (mm, x along, z dorsal), link lengths and pads, from the hand's parameter file."""
     d = yaml.safe_load(hand_file(hand).read_text())
-    f, p = d["finger"], d["pads"]
+    f, p = d["finger"], dict(d["pads"])
     a = np.array([f["a_x_mm"], f["a_z_mm"]])
     ap = np.array([f["ap_x_mm"], f["ap_z_mm"]])
-    b = np.array([ap[0] + math.sqrt(f["apb_mm"] ** 2 - ap[1] ** 2), 0.0])  # on the link line, distal of A'
+    design = d.get("source", {}).get("design", [])
+    if f["a_z_mm"] == 0.0 and (len(design) < 3 or design[2] == 0.0):  # the studies' hands: A and B on the link line
+        b = np.array([ap[0] + math.sqrt(f["apb_mm"] ** 2 - ap[1] ** 2), 0.0])  # on the link line, distal of A'
+        p["distal_mount_mm"] = p["mount_offset_mm"]  # both pads at mount_offset_mm, as in Study 3
+    else:  # off the link line (pr_mr.md's MR hands): B by the CoDe hand model's closure, each pad at its own mount
+        b = _closed_b(a, ap, np.array([f["bp_x_mm"], f["bp_z_mm"]]), f["apb_mm"], f["abp_mm"])
+        p["distal_mount_mm"] = p.get("distal_mount_offset_mm", p["mount_offset_mm"])
+    p["distal_face_mm"] = p["distal_mount_mm"] + p["thickness_mm"]
     bp = b + np.array([f["bp_x_mm"], f["bp_z_mm"]])
     return {"a": a, "ap": ap, "b": b, "bp_local": np.array([f["bp_x_mm"], f["bp_z_mm"]]), "abp": f["abp_mm"],
             "abp_check": float(np.linalg.norm(bp - a)), "pads": p}
+
+
+def face_depth(hand: str) -> float:
+    """The proximal contact face's depth below the link line (mm)."""
+    pads = finger_geometry(hand)["pads"]
+    return pads["mount_offset_mm"] + pads["thickness_mm"]
+
+
+def _closed_b(a, ap, bp_local, apb, abp) -> np.ndarray:
+    """B at q = 0 as design/core/morphology/code_hand/model.py's _reference_b: on the circle of radius |A'B| about A'
+    and of radius |AB'| about A - B'_local, the branch counter-clockwise of A' -> that centre."""
+    centre = a - bp_local
+    u = centre - ap
+    dist = float(np.linalg.norm(u))
+    along = (apb ** 2 - abp ** 2 + dist ** 2) / (2.0 * dist)
+    h = math.sqrt(max(apb ** 2 - along ** 2, 0.0))
+    mid, perp = ap + along * u / dist, np.array([-u[1], u[0]]) / dist
+    return max((mid + h * perp, mid - h * perp), key=lambda q: u[0] * (q - ap)[1] - u[1] * (q - ap)[0])
 
 
 def rot(t: float) -> np.ndarray:
@@ -133,7 +158,7 @@ def reference_point(g: dict, qs: np.ndarray, th: np.ndarray, q: float, where: st
     else:
         x = pads["distal_end_mm"] if where == "tip" else (pads["distal_start_mm"] + pads["distal_end_mm"]) / 2
     b = g["ap"] + rot(theta) @ (g["b"] - g["ap"])
-    return b + rot(q) @ np.array([x, -face]) + np.array([0.0, face])
+    return b + rot(q) @ np.array([x, -pads["distal_face_mm"]]) + np.array([0.0, face])
 
 
 def contact_setpoint(hand: str, q_o_deg: float, where: str = "tip", q_max_deg: float = 125.0) -> dict:
@@ -254,7 +279,8 @@ def _build(hand: str, mu: float, rho_mm: float, contact: str, time_step: float, 
     plant.RegisterCollisionGeometry(proximal, RigidTransform(at(((s0 + s1) / 2, -(m + h / 2)))), Box(s1 - s0, w, h),
                                     "proximal_pad", props("pad", h))
     t0, t1 = pads["distal_start_mm"] * mm, pads["distal_end_mm"] * mm
-    plant.RegisterCollisionGeometry(distal, RigidTransform(at(((t0 + t1) / 2, -(m + h / 2)))), Box(t1 - t0, w, h),
+    md = pads["distal_mount_mm"] * mm  # the distal pad's mount offset (m for the studies' hands)
+    plant.RegisterCollisionGeometry(distal, RigidTransform(at(((t0 + t1) / 2, -(md + h / 2)))), Box(t1 - t0, w, h),
                                     "distal_pad", props("pad", h))
     if zdisk:  # Drake's cylinder axis is its frame's z: the disk as it is
         plant.RegisterCollisionGeometry(roller, RigidTransform(), Cylinder(rho, TIP_THICK_MM * mm), "roller",
@@ -465,7 +491,10 @@ def tipdial(hand, mu, rho_mm, contact, time_step, k_theta, d_theta, g, q_start, 
     pads = geom["pads"]
     m_mm = pads["mount_offset_mm"]
     face = m_mm + pads["thickness_mm"]
-    c = np.array([g["x_c_mm"], g["z_c_mm"] - face]) * 1e-3  # world (x, z), m
+    # the placement's frame: the hand's own proximal face (anchor 'face', the paper's runs), or O's, i.e. O's coordinates
+    # in F_1 (the link-line frame, the world here, the MCP held) on every hand (anchor 'f1'; docs/experimental/pr_mr.md)
+    at = face if opts.get("anchor", "face") == "face" else face_depth("O")
+    c = np.array([g["x_c_mm"], g["z_c_mm"] - at]) * 1e-3  # world (x, z), m
     if TIP_MODE == "y":
         t_ = math.radians(TIP_AXIS_DEG)
         hold = [float(c @ [math.cos(t_), -math.sin(t_)]), float(c @ [math.sin(t_), math.cos(t_)])]
@@ -718,6 +747,8 @@ def main() -> int:
     p.add_argument("--any_radius", action="store_true",
                    help="every placement at its own rho_mm (experiment 29's random draws); the file is named _rany")
     p.add_argument("--curve", action="store_true", help="limit: also record the load-displacement curve")
+    p.add_argument("--anchor", choices=("face", "f1"), default="face",
+                   help="tipdial: place the dial in the hand's proximal-face frame (face) or at O's coordinates in F_1 (f1)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
     grasps = [g for g in json.loads((args.grasps or GRASPS).read_text())["grasps"]
@@ -728,6 +759,8 @@ def main() -> int:
             "brake_nm": args.brake_nm, "dial_k": args.dial_k, "pad_kh_mm": args.pad_kh_mm, "strokes": args.strokes,
             "setpoint": args.setpoint, "tip_mode": args.tip_mode, "tip_kr": args.tip_kr, "tip_dr": args.tip_dr,
             "tip_thick_mm": args.tip_thick_mm, "approach_s": args.approach_s, "curve": args.curve}
+    if args.anchor != "face":  # only then recorded, so the face-anchored logs' opts stay as they were
+        opts["anchor"] = args.anchor
     if args.setpoint != "shared":
         where = "mid" if args.setpoint == "contact_mid" else "tip"
         rows = [contact_setpoint(args.hand, q, where) for q in sorted({g["q0_deg"] + args.delta_deg for g in grasps})]

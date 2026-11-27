@@ -110,7 +110,9 @@ def build(hand, mu, pl, opts, k_theta, d_theta):
 
     W, H, M = pl["w_mm"] * mm, pl["h_mm"] * mm, pl["mass_g"] * 1e-3
     x_c = pl["x_c_mm"] * mm
-    z_top = pl["z_top_mm"] * mm - face
+    # the placement's frame: the hand's own proximal face (anchor 'face', experiment 35), or O's, i.e. O's coordinates
+    # in F_1 (the link-line frame, the world here, the MCP held) on every hand (anchor 'f1'; docs/experimental/pr_mr.md)
+    z_top = pl["z_top_mm"] * mm - (face if opts.get("anchor", "face") == "face" else T.face_depth("O") * mm)
     z_table = z_top - H  # the table's top (world)
     t_len, t_h = 0.08, 0.01
     table = plant.AddRigidBody("table", SpatialInertia(TABLE_MASS_KG, np.zeros(3),
@@ -136,7 +138,8 @@ def build(hand, mu, pl, opts, k_theta, d_theta):
     pid = plant.RegisterCollisionGeometry(proximal, RigidTransform(at(((s0 + s1) / 2, -(m + h / 2)))),
                                           Box(s1 - s0, w, h), "proximal_pad", props(T.POINT_STIFFNESS, mu))
     t0, t1 = pads["distal_start_mm"] * mm, pads["distal_end_mm"] * mm
-    did = plant.RegisterCollisionGeometry(distal, RigidTransform(at(((t0 + t1) / 2, -(m + h / 2)))),
+    md = pads["distal_mount_mm"] * mm  # the distal pad's mount offset (m for the studies' hands)
+    did = plant.RegisterCollisionGeometry(distal, RigidTransform(at(((t0 + t1) / 2, -(md + h / 2)))),
                                           Box(t1 - t0, w, h), "distal_pad", props(T.POINT_STIFFNESS, mu))
     blk_id = plant.RegisterCollisionGeometry(blk, RigidTransform(), Box(W, DEPTH_MM * mm, H), "block", props(1e8, mu))
     fr = FOOT_MM * mm
@@ -299,6 +302,8 @@ def cmd_run(a) -> int:
     d = json.loads(a.draws.read_text())
     draws = d["draws"][: a.only] if a.only else d["draws"]
     opts = _opts(d, a)
+    if a.anchor != "face":  # only then recorded, so the face-anchored logs' opts stay as they were
+        opts["anchor"] = a.anchor
     tasks = [(h, pl, opts, a.delta_deg) for h in a.hands for pl in draws]
     t0 = time.time()
     with Pool(a.workers) as pool:
@@ -519,6 +524,8 @@ def main() -> int:
     pr.add_argument("--delta_deg", type=float, default=0.0)
     pr.add_argument("--config", default=None)
     pr.add_argument("--workers", type=int, default=6)
+    pr.add_argument("--anchor", choices=("face", "f1"), default="face",
+                    help="place the block in the hand's proximal-face frame (face) or at O's coordinates in F_1 (f1)")
     pa = sub.add_parser("analyze")
     pa.add_argument("--tag", required=True)
     pa.add_argument("--noise_tag", default=None)
