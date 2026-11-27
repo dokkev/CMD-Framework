@@ -278,3 +278,12 @@ variants; two error statistics; Fig. 3(c) normalization and its caption phrase; 
 dispersion and n; a conclusion fragment left below Fig. 5; "a fixed axis cannot" still read as stronger than
 Eq. 5 (conditional on a preserved initial contact point); multiplicity for the fingertip tasks; pre-registration
 not verifiable; opening sentence overgeneralizes ("chains of servos").
+
+v37: 6, 6, 6, all Accept (manuscript c3b325e; noise floors, multiplicity, Fig. 1 vs Table I reconciled, conditional
+fixed-axis claim). r1 O3 Q3 C2 Si3 So3 P2 Co3; r2 O3 Q3 C2 Si2 So3 P2 Co3; r3 O3 Q3 C2 Si2 So3 P2 Co3. Plateau:
+three rounds (v35-v37) at 6, 6, 6 with Clarity and Presentation 2. The score-limiting critiques are not
+presentation: no hardware, pads not deformable, the preload mechanism expected, software re-referencing as an
+alternative, two RL seeds. The presentation critique that persists is density (seven pages of named hands,
+quantities and statistics for an extended abstract). New: the fingertip boundary is unexplained (Drake dial follows
+Delta_contact, RL relay follows Delta_skel); CoDe's errors are systematically negative; Table I groups the contact
+setpoint under Drake while the text calls it another command.
