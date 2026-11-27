@@ -246,13 +246,15 @@ Isaac 행은 GPU 대기열에 있다.
 
 ### 6.1 TODO
 
-- **23b: distal pad에서 시작하는 grasp 획득.** Fig. 4의 획득 렌더(`sim/drake/render_acquire_tip.py`, `logs/render_acquire_tip_strip.png`)는 원기둥을 편 손가락의 distal pad 가운데(proximal-face 좌표 x 72.7 mm)에 두고 시작한다.
+- **23b: distal pad에서 시작하는 grasp 획득.** Fig. 4의 획득 렌더(`sim/drake/render_acquire_tip.py`, `logs/render_acquire_tip_strip.png`)는 원기둥을 편 손가락의 distal pad 위(proximal-face 좌표 x 62 mm, pad의 proximal 끝에서 6.6 mm)에 두고 시작한다.
   - 잰 23차는 두 pad가 쥐는 위치에서 손끝 쪽으로 3·6 mm 옮긴 곳(편 손가락에서는 PIP 근처)에서 시작하므로, 지금 렌더는 실험과 시작 위치가 다르다.
   - 같은 시작으로 실험을 돌려 렌더와 맞춘다. 순서는 지금까지와 같다.
     1. 사전 기록을 쓰고 O를 보정한다.
     2. R과 U를 먼저 돌려 E_U < 10%이면 멈춘다.
     3. 통과하면 18개 손과 대체 손을 point와 hydro 둘 다 돌린다.
-  - O 렌더 시뮬레이션에서는 원기둥이 2 s 안에 x 22 mm까지 끌려 들어온다.
+  - O 렌더 시뮬레이션에서는 x 64 mm까지의 시작이 두 pad 쥐기(중심 25, −21 mm)로 끝난다.
+  - 66 mm부터는 닫히는 손끝이 원기둥을 자기 아래에 가둔다. 원기둥은 proximal pad에 닿지 않고, 중심이 쥐는 자리보다 약 20 mm 아래에 남는다(MCP 고정, 손가락 하나).
+  - 23b의 시작 범위는 이 경계 안에서 정한다.
   - 렌더의 엄지는 물체를 감싸는 듯한 그림용 자세일 뿐이다. 시뮬레이션하지 않고 물체에 닿지 않는다.
 
 ## 7. 실험 색인

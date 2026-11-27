@@ -1,11 +1,11 @@
 """Grasp acquisition drawn from the fingertip (render only; the measured experiment 23 starts 3-6 mm from the grasp,
-over the PIP when the finger is open): hand O, the cylinder started on the open finger's distal pad (its centre over
-the pad's middle, --start_mm from the proximal-face frame's origin), the finger closing as experiment 23 (O's setpoint,
+over the PIP when the finger is open): hand O, the cylinder started on the open finger's distal pad (--start_mm from the
+proximal-face frame's origin; 62 mm, 6.6 mm past the pad's proximal end), the finger closing as experiment 23 (O's setpoint,
 load toward the tip and the face), the thumb swinging in over the frames as if to wrap the object (a drawing pose
 only: it does not touch the cylinder and is not simulated). Experiment 23b (the same start in the experiment) is a
 TODO in report/study3.
 
-    uv run python render_acquire_tip.py [--times 0 1 2] [--start_mm 72.7]  ->  logs/render_acquire_tip{0,1,2}.png, _strip.png
+    uv run python render_acquire_tip.py [--times 0 1 3] [--start_mm 62]  ->  logs/render_acquire_tip{0,1,2}.png, _strip.png
 """
 import argparse
 import math
@@ -47,8 +47,10 @@ def thumb_at(f):
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--times", type=float, nargs="+", default=[0.0, 1.0, 2.0])
-    p.add_argument("--start_mm", type=float, default=72.7, help="the distal pad's middle at the open finger")
+    p.add_argument("--times", type=float, nargs="+", default=[0.0, 1.0, 3.0])
+    p.add_argument("--start_mm", type=float, default=62.0,
+                   help="on the open finger's distal pad (55.4-90.0 mm). From 66 mm on, the closing fingertip traps the "
+                        "cylinder below it (centre ~20 mm under the two-pad grasp) instead of drawing it onto the proximal pad")
     p.add_argument("--wrap", type=float, nargs="+", default=None, help="thumb closure per frame, 0..1")
     a = p.parse_args()
     fr = acquire_from(a.times, a.start_mm)
