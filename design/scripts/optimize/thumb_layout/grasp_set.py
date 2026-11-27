@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Grasp-set benchmark runner (``docs/experimental/grasp_set.md``).
 
-    # run hands (tag=hand file@thumb; thumb: "prototype" = the file's own thumb, or "x,z,e,orientation[,yaw,pitch,roll]")
+    # run hands (tag=hand file@thumb; thumb: "prototype" = the file's own thumb, or
+    #   "x,z,e,orientation[,yaw,pitch,roll[,proximal bend[,IP lower limit]]]")
     python scripts/optimize/thumb_layout/grasp_set.py run --workers 6 --seed 0 --rerun-misses \
         --hand O=output/sim/study3/hands/cfl_q120_h3to7_h0.yaml@prototype \
         --hand O_thumbopt=output/sim/study3/hands/cfl_q120_h3to7_h0.yaml@-50.5,-10.5,34,proximal,-14,-16,14
@@ -34,7 +35,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core.morphology.code_hand import load  # noqa: E402
-from core.optimization.thumb_layout import ThumbDesign  # noqa: E402
+from core.optimization.thumb_layout import Evaluator, ThumbDesign  # noqa: E402
+from core.optimization.thumb_layout.evaluator import LIMITS_DEG  # noqa: E402
 from core.optimization.thumb_layout.grasp_set import GRASPS, MUS, SEEDS, GraspHand, object_set, run_pair  # noqa: E402
 
 OUT = ROOT / "output" / "thumb_layout" / "grasp_set"
@@ -58,7 +60,14 @@ def thumb_design(parameters, thumb: str) -> ThumbDesign:
     parts = thumb.split(",")
     x, z, e = (float(v) for v in parts[:3])
     angles = [float(v) for v in parts[4:7]] + [0.0] * (3 - len(parts[4:7]))
-    return ThumbDesign(x, z, e, parts[3], *angles)
+    bend = float(parts[7]) if len(parts) > 7 and parts[7] else 0.0
+    return ThumbDesign(x, z, e, parts[3], *angles, proximal_bend_deg=bend)
+
+
+def thumb_limits(thumb: str):
+    """The 9th field of a thumb spec, if given: the IP lower limit [deg] (hyperextension)."""
+    parts = thumb.split(",")
+    return {"ip": (float(parts[8]), LIMITS_DEG["ip"][1])} if len(parts) > 8 and parts[8] else None
 
 
 def _init(specs: dict[str, str]) -> None:
@@ -69,7 +78,8 @@ def _hand(tag: str) -> GraspHand:
     if tag not in _HANDS:
         _, path, thumb = parse_hand(_SPECS[tag])
         parameters, _ = load(path)
-        _HANDS[tag] = GraspHand(parameters, thumb_design(parameters, thumb))
+        _HANDS[tag] = GraspHand(parameters, thumb_design(parameters, thumb),
+                                Evaluator(parameters, thumb_limits_deg=thumb_limits(thumb)))
     return _HANDS[tag]
 
 

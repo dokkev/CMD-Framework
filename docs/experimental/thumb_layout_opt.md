@@ -455,6 +455,47 @@ Run data: `design/output/thumb_layout/h0/strict_orient20_dsup/proximal/seed0/` (
   - Hypothesis: the front reaches F-K8 with yaw/roll near zero.
   - Decision rule: as for the double-support run. Highest F-level with lever ≥ 0.85; ties to the smallest yaw/roll; then the best pinch.
 
+### Result: re-optimisation with IP ≥ −30 deg and the double-support plates (2026-11-26)
+
+Run data: `design/output/thumb_layout/h0/strict_orient20_dsup_ip30/proximal/seed0/` (791 evaluations, 12 min).
+- **The hypothesis held.** F-K8 is back with near-zero yaw/roll, and a short case gives a high lever.
+
+| design | x, z, e [mm] | yaw/pitch/roll | F | lever | pinch |
+|---|---|---|---|---|---|
+| c1 (registered pick: K8, \|yaw\|+\|roll\| 7, best pinch) | −55, −11, 23.5 | −2/−17/+5 | K8 | 1.04 | 3.2 |
+| c2 | −64.5, −4.5, 31 | −1/−19/+7 | K8 | 0.96 | 6.2 |
+| c3 | −64, −7, 40.5 | 0/−11/+7 | K8 | 0.85 | 9.9 |
+
+- **Robustness (post hoc, not in the registered rule).** Each K8 design was perturbed by x, z, e ±1 mm and yaw, pitch, roll ±3 deg, twelve perturbations in all:
+  - c1 keeps K8 in 0/12;
+  - c2 in 1/12;
+  - c3 in 4/12.
+  - The rest fall to K4–K6.
+  - The K8 optima are isolated points, and K7–K8 sit on the 1 mm / 45 deg edges of the functional rule.
+  - K6 is the level a built hand can count on. The registered pick (c1) is the least robust.
+
+### Bent proximal phalanx (user proposal, 2026-11-26)
+
+- **Change.** `ThumbDesign(proximal_bend_deg=β)` adds a fixed bend where the MCP and IP servo bodies meet: 25.75 mm from the MCP axis, about the flexion axis, with negative values toward the dorsal side. The proximal capsule splits in two. β = 0 is unchanged, as the tests check.
+- **Probe** (base x −55, z −10.5, pitch −16, double-support plates):
+
+| IP limit | β | e 28 | e 33 | pinch (e 33) |
+|---|---|---|---|---|
+| −10 | 0 | K4 | K6 | 16.5 |
+| −10 | −10 | K5 | K6 | 13.4 |
+| −10 | −20 | K5 | chain broken at K0 | 10.6 |
+| −10 | −30 | broken at K0 | broken at K0 | 8.2 |
+| −10 | +10 | K4 | K4 | 19.7 |
+| −30 | 0 | K6 | K8 | 4.8 |
+| −30 | −10 | K7 | K6 | 2.5 |
+| −30 | −20 | K6 | broken at K0 | 0.4 |
+
+- **What it shows.**
+  - A dorsal bend is not the same as hyperextension. It shifts the IP range toward extension and moves the IP axis, so the thumb loses the fold it needs for K0 (index proximal phalanx near the MCP) beyond about −10 deg.
+  - Hyperextension adds range at the extension end and keeps the flexion end.
+  - A small bend (−10 deg) mainly improves the pinch: 16.5 → 13.4 deg without hyperextension, and 4.8 → 2.5 with it.
+  - The bend was probed on one base only. It has not been optimised jointly with the base.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.

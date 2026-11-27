@@ -37,6 +37,9 @@ SERVO_GAP_MM = 0.5
 PAD_THICKNESS_MM, PAD_MOUNT_MM, PAD_LENGTH_MM = 3.0, 10.0, 25.0
 PAD_FACE_MM = PAD_MOUNT_MM + PAD_THICKNESS_MM
 ORIENTATIONS = ("distal", "proximal")
+BEND_FROM_MCP_MM = SERVO_REAR_MM + SERVO_GAP_MM / 2.0
+"""Where a bent proximal phalanx bends: between the MCP servo body (its rear face, 25.5 mm from the MCP axis) and the
+next body."""
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,10 @@ class ThumbDesign:
     base_roll_deg: float = 0.0
     """Exploratory (beyond the original variable list): offsets added to the prototype base orientation's
     intrinsic Z-Y-X angles (yaw -90, pitch 0, roll -90)."""
+    proximal_bend_deg: float = 0.0
+    """Exploratory: a fixed bend of the proximal phalanx where the MCP and IP servo bodies meet
+    (:data:`BEND_FROM_MCP_MM` from the MCP axis), about an axis parallel to the flexion axes; positive in the flexion
+    sense, negative bends the IP end dorsally (a built-in hyperextension)."""
 
     def __post_init__(self) -> None:
         if self.ip_orientation not in ORIENTATIONS:

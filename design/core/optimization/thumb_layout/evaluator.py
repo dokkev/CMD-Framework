@@ -48,7 +48,8 @@ from core.hardware.xm335 import XM335Actuator, XM335DriveModel
 from core.morphology.code_hand import FINGERS, CoDeHand, HandParameters, four_bar, pip_servo_deg
 from core.morphology.code_hand.model import THUMB_MCP_MOUNT
 from core.morphology.code_hand.parameters import rx, ry, rz, trans
-from core.optimization.thumb_layout.design import (
+from core.optimization.thumb_layout.design import (  # noqa: I001
+    BEND_FROM_MCP_MM,
     PAD_FACE_MM,
     PAD_THICKNESS_MM,
     SERVO_R_MM,
@@ -274,7 +275,13 @@ class ThumbKinematics:
         self.base = parameters.layout.thumb.matrix()
         self.a1 = trans(z=t.ro_to_raa_mm) @ ry(-90.0)
         self.a2 = rz(t.raa_to_mcp_clocking_deg) @ trans(z=t.raa_to_mcp_mm) @ ry(-90.0) @ THUMB_MCP_MOUNT
-        self.a3 = trans(y=-t.mcp_to_ip_mm)
+        self.bent = abs(design.proximal_bend_deg) > 1e-9
+        self.junction = np.array([0.0, -BEND_FROM_MCP_MM, 0.0])
+        if self.bent:  # MCP -> bend point, the bend about the flexion axis, bend point -> IP
+            self.a3 = (trans(y=-BEND_FROM_MCP_MM) @ rz(design.proximal_bend_deg)
+                       @ trans(y=-(t.mcp_to_ip_mm - BEND_FROM_MCP_MM)))
+        else:
+            self.a3 = trans(y=-t.mcp_to_ip_mm)
         ee = design.ee_mm
         self.pad_point = np.array([PAD_FACE_MM, -design.pad_along_mm, 0.0])
         half = design.pad_length_mm / 2.0
@@ -284,7 +291,9 @@ class ThumbKinematics:
         self.tip_centre = np.array([0.0, -(ee - TIP_RADIUS_MM), 0.0])
         self.pad_reach = max(design.pad_length_mm / 2.0 - PAD_EDGE_INSET_MM, 0.0)
         """The functional contact's travel either side of the pad centre along the segment [mm]."""
-        self.radii = np.array([SERVO_R_MM, METACARPAL_R_MM, SERVO_R_MM, SERVO_R_MM, PAD_R_MM])
+        self.radii = np.array([SERVO_R_MM, METACARPAL_R_MM, SERVO_R_MM, SERVO_R_MM, PAD_R_MM]
+                              + ([SERVO_R_MM] if self.bent else []))
+        self.names = list(self.NAMES) + (["thumb_proximal_b"] if self.bent else [])
 
     def frames(self, q: np.ndarray) -> dict[str, np.ndarray]:
         ro, raa, mcp, ip = (q[:, i] for i in range(4))
@@ -318,13 +327,14 @@ class ThumbKinematics:
     def capsules(self, frames: dict) -> np.ndarray:
         raa, mcp, ip, e = frames["raa"], frames["mcp"], frames["ip"], frames["E"]
         o = lambda f: f[:, :3, 3]
+        bend = _apply(mcp, self.junction) if self.bent else o(ip)
         ends = [
             (o(raa), _apply(raa, (0.0, -(SERVO_REAR_MM - SERVO_R_MM), 0.0))),
             (o(raa), o(mcp)),
-            (o(mcp), o(ip)),
+            (o(mcp), bend),
             (o(e), _apply(e, self.distal_end)),
             (_apply(e, self.pad_line[0]), _apply(e, self.pad_line[1])),
-        ]
+        ] + ([(bend, o(ip))] if self.bent else [])
         return np.stack([np.stack(pair, axis=1) for pair in ends], axis=1)
 
 
@@ -512,7 +522,8 @@ class Evaluator:
         n_f = 0 if finger is None else finger[0].shape[1]
         key = (tuple(others), palm_target, finger_digit, tuple(b["name"] for b in boxes), n_t, n_f)
         if key not in self._pairs:
-            names = list(ThumbKinematics.NAMES) + ([] if finger is None else list(finger[2]))
+            names = (list(ThumbKinematics.NAMES) + ["thumb_proximal_b"] * (n_t - 5)
+                     + ([] if finger is None else list(finger[2])))
             static, static_r = [], []
             for other in others:
                 o_ends, o_radii, o_names = self.rest[other]
@@ -526,7 +537,7 @@ class Evaluator:
                 for j in range(s0, s0 + n_s):
                     pairs.append((i, j))
                     labels.append(f"{names[i]}|{names[j]}")
-            for i in range(min(n_t, 4)):
+            for i in [k for k in range(n_t) if k != 4]:  # the pad may touch the landmark's finger
                 for j in range(n_t, s0):
                     pairs.append((i, j))
                     labels.append(f"{names[i]}|{names[j]}")
@@ -536,7 +547,7 @@ class Evaluator:
                     labels.append(f"{names[i]}|{names[j]}")
             box_pairs = []
             for k, box in enumerate(boxes):
-                parts = (2, 3) if palm_target else (2, 3, 4)
+                parts = ((2, 3) if palm_target else (2, 3, 4)) + tuple(range(5, n_t))
                 if box["name"] in ("palm_hood", "palm_block"):
                     parts = (0, 1, *parts)
                 for i in parts:

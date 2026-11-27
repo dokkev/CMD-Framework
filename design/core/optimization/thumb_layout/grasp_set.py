@@ -292,21 +292,23 @@ class GraspHand:
         self.box_h = np.array([b["h"] for b in self.boxes])
         self.box_names = [b["name"] for b in self.boxes]
         self.box_points = [_box_surface(b["c"], b["h"], PALM_STEP_MM) for b in self.boxes]
-        # capsules: thumb (5), index, middle, ring (4 each)
-        names = ["thumb_raa_servo", "thumb_metacarpal", "thumb_proximal", "thumb_distal", "thumb_pad"]
+        # capsules: thumb (5, or 6 with a bent proximal phalanx), index, middle, ring (4 each)
+        names = list(self.thumb.names)
+        n_t = len(names)
         for d in FINGERS:
             names += [f"{d}_fe_servo", f"{d}_pip_servo", f"{d}_proximal", f"{d}_distal"]
         self.capsule_names = names
-        pairs = [(i, j) for i in range(5) for j in range(5, 17)]
+        pairs = [(i, j) for i in range(n_t) for j in range(n_t, n_t + 12)]
         for a in range(3):
             for b in range(a + 1, 3):
-                ia, ib = 5 + 4 * a, 5 + 4 * b
+                ia, ib = n_t + 4 * a, n_t + 4 * b
                 pairs += [(ia + i, ib + j) for i in (2, 3) for j in range(4)]
                 pairs += [(ib + i, ia + j) for i in (2, 3) for j in (0, 1)]
         self.pairs = np.array(pairs)
         box_pairs = []
+        extra = tuple(range(5, n_t))
         for k, name in enumerate(self.box_names):
-            parts = (0, 1, 2, 3, 4) if name in ("palm_hood", "palm_block") else (2, 3, 4)
+            parts = ((0, 1, 2, 3, 4) if name in ("palm_hood", "palm_block") else (2, 3, 4)) + extra
             box_pairs += [(i, k) for i in parts]
         self.box_pairs = np.array(box_pairs)
         self.labels = ([f"{names[i]}|{names[j]}" for i, j in self.pairs]

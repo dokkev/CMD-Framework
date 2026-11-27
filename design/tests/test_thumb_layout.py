@@ -75,3 +75,24 @@ def test_double_support_plates_tighten_the_raa_sweep(parameters):
     plates = Evaluator(parameters, double_support=True).envelope(h)["raa_sweep_clearance_mm"]
     assert plain == pytest.approx(1.46, abs=0.05)  # the earlier, servo-only value
     assert plates < plain - 3.0  # the far plate reaches 3.5 mm closer to the abduction servos
+
+
+def test_proximal_bend(parameters):
+    """A zero bend is the straight phalanx; a bend keeps |MCP-IP| at the chord of the two halves and splits the
+    proximal capsule in two."""
+    import math
+    from core.optimization.thumb_layout import ThumbDesign
+    from core.optimization.thumb_layout.design import BEND_FROM_MCP_MM
+    straight = ThumbDesign(-50.5, -10.5, 34.0, "proximal", 0, -16, 0)
+    bent = ThumbDesign(-50.5, -10.5, 34.0, "proximal", 0, -16, 0, proximal_bend_deg=-20.0)
+    q = np.radians([[-40.0, 20.0, 30.0, 10.0]])
+    ks, kb = ThumbKinematics(hand_parameters(parameters, straight), straight), ThumbKinematics(hand_parameters(parameters, bent), bent)
+    fs, fb = ks.frames(q), kb.frames(q)
+    np.testing.assert_allclose(fs["mcp"], fb["mcp"])
+    l1, l = BEND_FROM_MCP_MM, straight.mcp_to_ip_mm
+    chord = math.sqrt(l1**2 + (l - l1)**2 + 2 * l1 * (l - l1) * math.cos(math.radians(20.0)))
+    assert np.linalg.norm(fb["ip"][0, :3, 3] - fb["mcp"][0, :3, 3]) == pytest.approx(chord)
+    assert len(kb.radii) == 6 and kb.capsules(fb).shape[1] == 6 and ks.capsules(fs).shape[1] == 5
+    # the IP frame turns by the bend about the flexion axis
+    rel = np.linalg.inv(fs["ip"][0]) @ fb["ip"][0]
+    assert math.degrees(math.atan2(rel[1, 0], rel[0, 0])) == pytest.approx(-20.0)
