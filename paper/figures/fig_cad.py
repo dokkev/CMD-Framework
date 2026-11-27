@@ -412,12 +412,11 @@ def main() -> int:
             else:
                 share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
                 ok = kind == "R"
-                txt = f"{share:.0f}% of\nref.'s"
-            fig.text(*inch(x0 + 0.53, yt - 0.02), "O" if ok else "X", fontsize=8, ha="left", va="top",
-                     color=GREEN_ if ok else RED_, **BOLD)
+                txt = f"{share:.0f}% of\nref.'s change"
+            # check / cross (not O / X, which read as the reference hand O; v38 review)
+            fig.text(*inch(x0 + 0.53, yt - 0.02), "\u2713" if ok else "\u2717", fontsize=9, ha="left", va="top",
+                     color=GREEN_ if ok else RED_, family="DejaVu Sans", fontweight="bold")
             fig.text(*inch(x0 + 0.53, yt - 0.20), txt, fontsize=5.6, ha="left", va="top", linespacing=1.0, color=INK)
-    fig.text(*inch(W_ / 2, 0.03), "CoDe keeps the sign of the reference hand's measured effect",
-             fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")

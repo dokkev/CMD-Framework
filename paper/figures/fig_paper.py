@@ -774,7 +774,7 @@ def fig_rl():
     HC = {"R": BLUE, "U": AMBER, "S": TEAL}
     gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("R", "S", "U")}),
            "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("R", "S", "U")}),
-           "cube": ("$\\Delta t$", {"R": 4.0, "S": 4.0, "U": 4.0})}
+           "cube": ("$\\Delta t_p$", {"R": 4.0, "S": 4.0, "U": 4.0})}
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
             ("cube", "Cube rotation\n(whole hand)"))
     MAP = (("R", "R", "CoDe"), ("SK", "S", "Skel."), ("U", "U", "Cov."))
