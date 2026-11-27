@@ -327,7 +327,7 @@ def main() -> int:
     BOLD = dict(fontweight="bold", family="Nimbus Sans")
     # single column (user, 2026-11-27): (a) the hand and (b) the interfaces on top; (c) the two redesigns running the
     # reference hand's command below; the redesign operator panel is dropped
-    W_, H_ = 3.45, 3.00
+    W_, H_ = 3.45, 3.92
     fig = plt.figure(figsize=(W_, H_))
     conc = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["hands"]
     sync = json.load(open(ROOT / "report" / "study3" / "data" / "fig4_sync.json"))["tasks"]
@@ -366,57 +366,84 @@ def main() -> int:
 
     top = H_ - 0.03
     # ---- top: the hand (a), its finger and the interfaces it can carry (b)
-    TB = 1.62  # the top band's bottom
+    TB = H_ - 1.20  # the top band's bottom
     box(0.02, TB, W_ - 0.04, top - TB, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "CoDe Hand")
     hand = usd_render(CAD / "hand_usd_relaxed.png")
-    hw_, hh_ = image(hand, 0.06, TB + 0.05, fit=(1.40, top - TB - 0.26))
+    image(hand, 0.10, TB + 0.04, fit=(1.30, top - TB - 0.24))
     rx = 1.55
-    box(rx, top - 0.56, 1.86, 0.52, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
+    box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
-    image(white_to_alpha(fin, "#eaf1fa"), rx + 0.06, top - 0.52, fit=(1.05, 0.44))
-    fig.text(*inch(rx + 1.46, top - 0.30), "crossed\nfour-bar\nfinger", fontsize=5.8, ha="center", va="center",
+    image(white_to_alpha(fin, "#eaf1fa"), rx + 0.06, top - 0.43, fit=(1.05, 0.36))
+    fig.text(*inch(rx + 1.46, top - 0.26), "crossed\nfour-bar\nfinger", fontsize=5.8, ha="center", va="center",
              color=INK2, linespacing=1.0)
-    fig.text(*inch(rx + 0.93, top - 0.64), "+", fontsize=10, ha="center", va="center", color=INK, **BOLD)
-    box(rx, TB + 0.05, 1.86, top - 0.72 - TB - 0.05, "#f6f1e6", "#dccfb3", r=0.05, lw=0.6)
-    plabel(rx + 0.04, top - 0.75, "b", "interfaces")
+    fig.text(*inch(rx + 0.93, top - 0.54), "+", fontsize=10, ha="center", va="center", color=INK, **BOLD)
+    box(rx, TB + 0.04, 1.86, top - 0.61 - TB - 0.04, "#f6f1e6", "#dccfb3", r=0.05, lw=0.6)
+    plabel(rx + 0.04, top - 0.64, "b", "interfaces")
     names = (("nari", "tactile"), ("honeycomb", "compliant"), ("traction", "traction"), ("soft", "gel pad"))
     for k, (kk, nm) in enumerate(names):
-        cx, cy = rx + 0.06 + k * 0.45, TB + 0.20
-        ax = fig.add_axes((*inch(cx, cy), 0.38 / W_, 0.28 / H_))
+        cx, cy = rx + 0.08 + k * 0.45, TB + 0.16
+        ax = fig.add_axes((*inch(cx, cy), 0.34 / W_, 0.22 / H_))
         fit_icon(ax, kk)
-        fig.text(*inch(cx + 0.19, cy - 0.01), nm, fontsize=5.4, ha="center", va="top", color=INK2)
-    # ---- bottom: (c) the two redesigns for a thicker interface run the reference hand's command
-    plabel(0.07, TB - 0.06, "c", "thicker interface, same command")
+        fig.text(*inch(cx + 0.17, cy - 0.01), nm, fontsize=5.2, ha="center", va="top", color=INK2)
+    # ---- (c) the principle: a thicker pad, two ways to redesign; what each keeps of O's motion (simulated fingers,
+    # 3 -> 7 mm): the contact surfaces' path c(q) in the proximal pad's frame (the contact Jacobian) or the skeleton's
+    # (the fingertip on the link line). Data: design/output/paper/fig1_paths_ORU.json (fig1_paths.py)
+    TEAL_ = "#3F9AA0"
+    paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
+    qd = np.linspace(0.0, 120.0, len(paths["O"]["contact"]))
+    yc = TB - 0.06
+    plabel(0.07, yc, "c", "redesign for a thicker pad: what does it keep?")
+    CUR = (("R", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_), ("U", "Coverage", ORANGE_))
+    for j, (key, ttl) in enumerate((("contact", "contact-surface motion\n(contact Jacobian)"),
+                                    ("tip", "skeleton motion\n(fingertip)"))):
+        ax = fig.add_axes(((0.40 + j * 1.60) / W_, (yc - 0.98) / H_, 1.00 / W_, 0.58 / H_))
+        for key_h, nm, col in CUR:
+            dev = np.linalg.norm(np.array(paths[key_h][key]) - np.array(paths["O"][key]), axis=1)
+            ax.plot(qd, dev, color=col, lw=1.3 if key_h == "R" else 0.9, zorder=3 if key_h == "R" else 2)
+            ax.text(123, dev[-1], nm, fontsize=5.0, color=col, va="center", ha="left",
+                    fontweight="bold" if key_h == "R" else "normal")
+        ax.set_xlim(0, 120); ax.set_ylim(0, 8); ax.set_xticks([0, 60, 120]); ax.set_yticks([0, 4, 8])
+        ax.tick_params(labelsize=5.2, length=2, pad=1)
+        ax.set_title(ttl, fontsize=5.8, pad=2, linespacing=1.0)
+        ax.set_xlabel("flexion (deg)", fontsize=5.4, labelpad=0)
+        if j == 0:
+            ax.set_ylabel("change from O (mm)", fontsize=5.4, labelpad=1)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.spines["left"].set_linewidth(0.5); ax.spines["bottom"].set_linewidth(0.5)
+    fig.text(*inch(W_ / 2, yc - 1.24), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
+             fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
+    # ---- (d) the consequence: the same command on a thicker interface measures the interface itself
+    yd = yc - 1.42
+    plabel(0.07, yd, "d", "same command: is the interface's effect measured?")
     tasks = (("task_hold", "compliant pad:\npull-out load"), ("task_dial", "higher friction:\ndial turned"))
     o_pull = conc["R"]["true_change_pct"]
-    cx0 = (1.18, 2.30)  # the two task columns
+    cx0 = (1.12, 2.28)  # the two task columns
     for c_, (fn, lab) in enumerate(tasks):
-        fig.text(*inch(cx0[c_] + 0.50, TB - 0.24), lab, fontsize=5.6, ha="center", va="top", color=INK2,
+        fig.text(*inch(cx0[c_] + 0.46, yd - 0.17), lab, fontsize=5.4, ha="center", va="top", color=INK2,
                  linespacing=1.0)
-    outs = (("R", "CoDe Hand", BLUE_, "keeps contact-surface\nmotion", TB - 0.48),
-            ("U", "Coverage Hand", ORANGE_, "coverage only", TB - 0.98))
-    for kind, name, col, rule, yt in outs:
-        fig.text(*inch(0.07, yt), name, fontsize=6.6, ha="left", va="top", color=col, **BOLD)
-        im = usd_render(CAD / f"usd_contact_{kind}.png")[12:]
-        fig.text(*inch(0.07, yt - 0.13), rule, fontsize=5.2, ha="left", va="top", color=col, linespacing=1.0)
-        image(im, 0.62, yt - 0.48, h=0.30)
+    outs = (("R", "CoDe Hand", BLUE_, yd - 0.40), ("U", "Coverage Hand", ORANGE_, yd - 0.74))
+    for kind, name, col, yt in outs:
+        fig.text(*inch(0.07, yt - 0.12), name, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
         for c_, (fn, lab) in enumerate(tasks):
             x0 = cx0[c_]
             im_ = crop_white(np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")))
-            image(im_, x0, yt - 0.42, fit=(0.50, 0.40))
+            image(im_, x0, yt - 0.32, fit=(0.44, 0.33))
             if fn == "task_hold":
                 meas = conc[kind]["measured_change_pct"]
                 ok = np.sign(meas) == np.sign(o_pull)
-                txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "\u2212")
+                txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "−")
             else:
                 share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
                 ok = kind == "R"
                 txt = f"{share:.0f}% of the\nreference's"
             # check / cross (not O / X, which read as the reference hand O; v38 review)
-            fig.text(*inch(x0 + 0.53, yt - 0.02), "\u2713" if ok else "\u2717", fontsize=9, ha="left", va="top",
+            fig.text(*inch(x0 + 0.48, yt + 0.02), "✓" if ok else "✗", fontsize=8.5, ha="left", va="top",
                      color=GREEN_ if ok else RED_, family="DejaVu Sans", fontweight="bold")
-            fig.text(*inch(x0 + 0.53, yt - 0.20), txt, fontsize=5.6, ha="left", va="top", linespacing=1.0, color=INK)
+            fig.text(*inch(x0 + 0.48, yt - 0.14), txt, fontsize=5.4, ha="left", va="top", linespacing=1.0, color=INK)
+    fig.text(*inch(W_ / 2, 0.03), "so the interface is evaluated independently of the redesign", fontsize=5.8,
+             ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")
