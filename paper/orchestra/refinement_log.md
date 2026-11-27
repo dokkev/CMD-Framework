@@ -311,3 +311,8 @@ the informative part (skeleton matching does not help) deserves more emphasis (r
 to make Fig. 1 show the contact-Jacobian-centred philosophy and independent interface evaluation; Fig. 1 vs Table I
 compliant columns and the torque column vs the torque correlation still read as inconsistent (r3); why O's effect
 is the right target when O cannot carry the thicker pad (r2).
+
+v41: 6, 6, 6, all Accept (manuscript with the new Fig. 1: what a redesign keeps, and the same command measuring the
+interface). Clarity and Presentation 2. Fig. 1 itself is read as informative, but two reviewers find (d) overstated:
+checks on CoDe's -55% vs -41% and 83% of the dial, and the line "evaluated independently of the redesign". Also: CoDe's
+errors systematically negative and unexplained (the 0.75x preload sentence had been cut), whether Eq. 9 fixes c0.

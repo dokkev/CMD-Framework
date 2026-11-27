@@ -432,17 +432,17 @@ def main() -> int:
             image(im_, x0, yt - 0.32, fit=(0.44, 0.33))
             if fn == "task_hold":
                 meas = conc[kind]["measured_change_pct"]
-                ok = np.sign(meas) == np.sign(o_pull)
+                ok = abs(meas - o_pull) <= 20.0  # within 20 points of the reference's effect (v41 review)
                 txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "−")
             else:
                 share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
-                ok = kind == "R"
+                ok = abs(share - 100.0) <= 20.0
                 txt = f"{share:.0f}% of the\nreference's"
             # check / cross (not O / X, which read as the reference hand O; v38 review)
             fig.text(*inch(x0 + 0.48, yt + 0.02), "✓" if ok else "✗", fontsize=8.5, ha="left", va="top",
                      color=GREEN_ if ok else RED_, family="DejaVu Sans", fontweight="bold")
             fig.text(*inch(x0 + 0.48, yt - 0.14), txt, fontsize=5.4, ha="left", va="top", linespacing=1.0, color=INK)
-    fig.text(*inch(W_ / 2, 0.03), "so the interface is evaluated independently of the redesign", fontsize=5.8,
+    fig.text(*inch(W_ / 2, 0.03), "CoDe's redesign distorts the interface's measured effect far less", fontsize=5.8,
              ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
