@@ -19,7 +19,7 @@ import os
 import json
 from pathlib import Path
 
-R = Path(__file__).resolve().parents[2] / "logs" / "pr_mr_transfer"
+R = Path(__file__).resolve().parents[2] / os.environ.get("TRANSFER_DIR", "logs/pr_mr_transfer")
 HANDS = tuple(os.environ.get("SUMMARY_HANDS", "O R U MR MRM MRbz MRMbz").split())
 SEEDS = (94000, 95000)
 

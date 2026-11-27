@@ -6,9 +6,9 @@
 # - cube (attempt 1/1b's protocol): held-out grasps per hand (gen_grasps.py, seed 76000, dome, pad13_condim4_v1) in
 #   logs/rotate_cube/heldout_transfer_v1 (O, R, U: the existing caches), then eval_policy.py with the v2c seg2
 #   model_1497 and attempt 1's eval overrides -> $R/cube/eval_<hand>_mu<mu>_seed<seed>.json
-# Usage: HANDS="O R U MR MRM" PARTS="walk cube" scripts/rotate_cube/run_mr_transfer.sh
+# Usage: HANDS="O R U MR MRM" PARTS="walk cube" [TRANSFER_DIR=logs/...] [CUBE_CKPT=...] scripts/rotate_cube/run_mr_transfer.sh
 cd "$(dirname "$0")/../.."
-R=logs/pr_mr_transfer
+R=${TRANSFER_DIR:-logs/pr_mr_transfer}
 LOG=$R/driver.log
 mkdir -p $R/walk $R/cube
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
@@ -17,7 +17,7 @@ log() { echo "$(date '+%F %T') $*" >> $LOG; }
 run() { local out=$1; shift; [ -f $R/STOP ] && { log "STOP"; exit 0; }; log "START $out"; "$@" > $out.out 2>&1; log "EXIT $out rc=$?"; }
 C20=$PWD/logs/rsl_rl/code_finger_walk/2026-11-26_03-30-35_finger_walk_O_s20_walk_seg3/model_597.pt
 C21=$PWD/logs/rsl_rl/code_finger_walk/2026-11-26_05-23-33_finger_walk_O_s21_walks21_seg3/model_597.pt
-CKPT=$PWD/logs/rsl_rl/code_rotate_cube_omnireset_v2/2026-11-25_07-41-53_rotate_cube_O_OmniResetV2_s20_v2c_seg2/model_1497.pt
+CKPT=${CUBE_CKPT:-$PWD/logs/rsl_rl/code_rotate_cube_omnireset_v2/2026-11-25_07-41-53_rotate_cube_O_OmniResetV2_s20_v2c_seg2/model_1497.pt}
 HELD=$PWD/logs/rotate_cube/heldout_transfer_v1
 EVAL_OVR="physics=newton_mjwarp env.observations.policy.enable_corruption=false env.terminations.object_off_grasp.params.max_distance=0.07 env.terminations.object_tilted.params.min_dot=0.0"
 HANDS=${HANDS:-"O R U MR MRM MRbz MRMbz"}

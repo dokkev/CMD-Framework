@@ -536,3 +536,18 @@ All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher
   - Palm-Tip has Δt 1, like MO-Pad, but rotates at 0.82, below MO-Pad's 0.94. It is still above the Δt 4 hands (Pad-Pad 0.75, Coverage 0.70).
   - Full turns are kept at 0.99.
   - So Δt sets most of the cube transfer, and the pad path adds to it once Δ_contact is as large as 4 mm. The ρ −0.98 over 14 hands came from hands whose Δ_contact stayed ≤ 3.3.
+
+## Pre-registration: cube transfer with a second training seed (2026-11-27, before training)
+
+- **Why.** The cube result (ρ(ratio, Δt) −0.98 over 14 hands; MO-Pad 0.94 against Pad-Pad 0.75) rests on one policy, seed 20's v2c seg2 `model_1497`.
+- **Training.** Seed 21 repeats the release lineage exactly (`docs/experimental/omnireset_recipe.md` §6.2):
+  1. v2 seg1: 500 iterations from scratch.
+  2. v2c seg1 from its `model_499`: goal bonus 5, entropy 0.001, std cap 1.0, 500 iterations.
+  3. v2c seg2: 500 iterations. The last checkpoint is the release.
+  - The only difference is that the NaN world recovery (§6.4) is now in the code for every segment. It touches diverged worlds only.
+- **Eval.** The same held-out grasps (seed 76000) and overrides, pad μ 1.3 / 2.0, eval seeds 94000 / 95000. Hands: Original and the 14 hands of the dose run, plus MRS and Palm-Tip. Outputs go to `sim/isaaclab/logs/pr_mr_transfer_cube_s21/`; the driver is `run_mr_transfer.sh` with `TRANSFER_DIR` and `CUBE_CKPT`.
+- **Validity gate.** If Original's held-out rotation under seed 21 is below half of seed 20's (919° at μ 1.3), the policy did not learn the task. Then the run counts as a failed training, not a transfer result.
+- **Predictions** (rotation ratio, the primary metric):
+  1. ρ(ratio, Δt) ≤ −0.8 over the same 14 hands.
+  2. MO-Pad exceeds Pad-Pad by ≥ 0.10.
+  3. Palm-Tip is below MO-Pad and above Pad-Pad, as under seed 20.
