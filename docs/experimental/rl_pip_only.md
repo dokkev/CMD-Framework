@@ -615,6 +615,14 @@ G = E(U) − E(R) (양수면 R이 유리)와 이전 비율 간격 (ratio_R − r
 
 ## 결과 9: 손 격자로 이전 조건 찾기 (2026-11-27)
 
+위의 "시도 9 결과"(c0681b1)와 같은 데이터다. 여기서는 seed별 값, 등록한 판정표, 고정축 계열, 실패 방식 진단, R이 U를 이기는 조건을 더한다.
+
+**maxDs 손의 distal mount 점검:** Drake에서 maxDs 손 일부의 distal mount가 잘못 놓였다는 지적을 Isaac export에서 확인했다. Isaac export는 맞다.
+- `d1p5_maxDs_s0`, `d3_maxDs_s0`, `h3to9_d3p5_maxDs_s0`의 proximal 깊이는 11.6 / 12.9 / 13.0 mm이고, distal capsule 반지름(= distal mount)은 3.0 mm다. yaml의 `distal_mount_offset_mm` 3.0과 같다.
+- Isaac export에서 다시 계산한 Δ_contact는 설계값과 0.005 mm 안에서 같다 (68개 모두). 설계값은 distal pad 위치로 정해지므로, distal mount가 2.9 mm 틀렸다면 이 값이 mm 단위로 어긋났을 것이다.
+- 따라서 아래의 min/max Δ_skel 대조는 이 버그의 영향을 받지 않는다.
+- FA3는 pad 두께가 O와 같지만 기구학은 다르다. O 기준 Δ_contact와 Δ_skel이 모두 5.6 mm다.
+
 **실행:** 73개 손 × μ 2개 × eval seed 2개 = 292 eval, 모두 rc 0 (`scripts/finger_relay/run_walk_grid.sh`, `logs/finger_walk/grid/`). 분석은 `walk_grid_analysis.py`이고, 결과는 `report/experimental/data/rl_walk_grid_analysis.json`, 그림은 `report/experimental/figures/rl_walk_grid.png`다.
 
 **정지 규칙 점검 (통과):**
