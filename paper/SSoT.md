@@ -160,7 +160,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ### 6.1 Figure plan (user, 2026-11-24)
 
-Font: Helvetica Light for figure text (bold and math italic in Nimbus Sans, which the Light cut lacks). Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
+Font: Helvetica Light for figure text (bold and math italic in Nimbus Sans, which the Light cut lacks). Physical meaning first: no trend lines or Pareto fronts in figures, and no statistics except Fig. 4's per-task Spearman ρ (user, 2026-11-27: small, beside each Δ row, ρ(E, Δ_contact) and ρ(E, Δ_skel) for point / hydroelastic contact, over the hands of the correlation; no p-values in a figure); p-values, the selection rule
 and coverage retention go in the text. White background, thin technical linework, LaTeX-style math, restrained
 colour: CFL / CoDe blue, 2R-remote amber, 2R-DD / reference grey, RCJ teal, pole purple; in Study 3 the three morphologies are CoDe blue, Skeleton teal, Coverage warm red. Final plots come from the
 evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-drawn values.

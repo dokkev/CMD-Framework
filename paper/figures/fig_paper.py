@@ -655,6 +655,7 @@ def fig4():
     and under the bottom panel each task's error E (median |bias| over placements) for CoDe, Skeleton and Coverage with point
     and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
+    from scipy.stats import spearmanr
     d = json.load(open(S3 / "fig4_sync.json"))
     DV = d["deviation"]
     # (title, task key, image, x label, response label, effect label)
@@ -732,7 +733,7 @@ def fig4():
             pt = d["first32"][key] if "first32" in d else {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
             yy = (0.40 + B - D - 0.115 * j) / h
-            xm = (x0 + 0.30 + (cw - 0.36) / 2) / W
+            xm = (x0 + 0.30 + (cw - 0.36) / 2 - 0.30) / W  # left of centre: room for the rho column
             fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 e = src.get(hh)
@@ -741,12 +742,24 @@ def fig4():
         # how much each morphology changes the contact-surface and the skeletal motion (mm, 7 mm; one hand each, so
         # the same under every task), under the E rows and aligned with them
         hd = d["tasks"]["pull"]["hands"]
+        hdall = d["tasks"][key]["hands"]  # every hand's Delta_contact and Delta_skel
         for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
             fig.text(xm - 0.22 / W, yy, lab, fontsize=5.6, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=5.8, ha="left", va="center",
                          color=HC[hh])
+            # Spearman rho of E with this quantity over the correlation's hands (Skeleton outside it), point / hydro
+            rr = []
+            pt_all = pt
+            if key in ("dial", "pivot"):  # every hand on the 32 draws (fig4_sync's first32 holds R and U only)
+                f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
+                pt_all = {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
+            for src in (pt_all, d["hydro"][key]):
+                hs = [hh for hh, r in src.items() if hh != "S" and r and r.get("E") is not None and hh in hdall]
+                rr.append(spearmanr([src[hh]["E"] for hh in hs], [hdall[hh][k_] for hh in hs]).correlation)
+            fig.text(xm + 0.50 / W, yy, "$\\rho$ " + " / ".join(f"{v:.2f}".replace("-", "\u2212") for v in rr),
+                     fontsize=5.0, ha="left", va="center", color=INK2)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
