@@ -418,6 +418,22 @@ Run data: `design/output/thumb_layout/h0/strict_orient20_dsup/proximal/seed0/` (
 - **CAD mesh check of the plates, current CAD pose (O_thumbopt):** sampled surfaces over RO −90…90 put the idler plate 0.29–1.27 mm from the index abduction servo. There is no overlap, but the gap is below the 2 mm design gap. The box model (−0.39 mm) is about 0.7 mm conservative and agrees in direction.
 - **Palm.** The `palm-base` part studio is empty, and `hand-layout` has no palm housing around the thumb base. The model's overlap with the exporter's palm boxes is therefore a requirement for the housing still to be designed: it must leave room for the plates' sweep. It is not a clash with existing parts.
 
+### The 45 deg facing rule, and double support against cantilever (2026-11-26)
+
+- **Where 45 deg comes from.** The threshold was set when the functional Kapandji was defined (decision log, 2026-11-25). The decision log records only why it was kept: it binds and the score is not degenerate. It was not derived from anything physical.
+- **A physical reading.** A pad pushing along its own normal stays inside the other surface's friction cone if the two normals differ by at most atan(μ). So 45 deg ≈ μ 1.0. The sim pads (μ 1.3) give 52.4 deg, and μ 0.5 gives 26.6 deg, close to the superseded 25 deg rule.
+- **Sensitivity** (flat pads, double-support plates in the envelope):
+
+| facing threshold | prototype | O_thumbopt (cantilever, x −50.5) | pitch-only (double support, x −55, e 33) |
+|---|---|---|---|
+| 26.6 deg (μ 0.5) | K2 (3/11) | K4 (7/11) | K2 (4/11) |
+| 45 deg (μ 1.0) | K3 (4/11) | K8 (9/11) | K6 (8/11) |
+| 52.4 deg (μ 1.3) | K3 (4/11) | K8 (9/11) | K6 (8/11) |
+
+  The order is the same at every threshold. The levels are the same at 45 and 52.4 deg, and at μ 0.5 every design collapses.
+- **Grasp-set benchmark for the double-support pitch-only base** (`O_pitch_ds`, x −55, e 33): median ε over the common pairs (μ 0.5) is 0.220, against O_thumbopt 0.222, O_pitch 0.224 and O 0.129; the spread is 0.016. With 77 feasible pairs, it is not distinguished from O_thumbopt or O_pitch, and is better than O. At μ 1.0: 0.416 against 0.415 / 0.418 / 0.328.
+- **Reading.** K7–K8 (ring PIP crease, ring proximal base) are what the cantilever O_thumbopt keeps over the double-support pitch-only base. Those two levels do not show up in grasp quality on the object set.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
