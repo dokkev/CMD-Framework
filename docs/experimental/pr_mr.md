@@ -71,3 +71,33 @@ Experimental (playground). Not in the SSoT or the paper.
   3. Anchor f1: MR (if it reaches Δ_MCP ≤ 2) errs least of PR, U, MR.
   4. Anchor face: the paper's result stands (E follows Δ_contact). With MR added, PR errs less than MR.
 - **If prediction 1 fails** (E still follows Δ_contact at f1), the face-anchored result is not an artefact of the placement. The MR idea then has no task support in Drake.
+
+## Result: the MR redesign (2026-11-26)
+
+**Run 1: only B's height free** (as registered; `design/output/study/exploratory/e20_mcp_referenced_bz/`, 2 × 40,000 evaluations, about 2 min).
+
+| hand | Δ_MCP | Δ_contact | Δ_skel | C̄_pad | MA_wc | b_z | face P/D |
+|---|---|---|---|---|---|---|---|
+| PR | 4.65 | 0.86 | 7.67 | 0.725 | 0.52 | 0 | 10/10 |
+| U | 4.26 | 3.91 | 3.38 | 0.711 | 0.48 | 0 | 10/10 |
+| MR | **1.66** | 3.47 | 4.34 | 0.701 | 0.58 | 3.4 | 10/10 |
+| MR-mid | 2.10 | 2.08 | 5.22 | 0.704 | 0.53 | 2.2 | 10/10 |
+
+- All three predictions held:
+  1. Δ_MCP ≤ 2 at C̄_pad ≥ 0.70, with b_z > 1;
+  2. Δ_contact ≥ 2;
+  3. the least-sum point is within 6 mm (4.18, against the bound of 4).
+
+**Run 2: A's and B's heights both free, joint-axes alignment off** (user, 2026-11-26: "the pads and skeleton need not align at the extended pose"; `.../e20_mcp_referenced_free/`; a_z in [−3, 8], b_z in [−3, 10]).
+
+| hand | Δ_MCP | Δ_contact | Δ_skel | C̄_pad | MA_wc | a_z, b_z | proximal mount | face P/D |
+|---|---|---|---|---|---|---|---|---|
+| MR | **0.54** | 3.26 | 4.29 | 0.700 | 0.55 | 1, 4.3 | 2 | 9/10 |
+| MR-mid | **1.06** | **1.07** | 4.78 | **0.735** | 0.52 | 3.5, 2.8 | 0 | 7/10 |
+
+- **Raising A lets the proximal pad mount shallower.** Under the shallowest-supported mount policy, the proximal mount offset drops from 3 to 0 when A's pin housing sits above the link line. The proximal face then moves only 1 mm deeper than O's, against 4 mm before.
+- The bound is Δ_contact + Δ_MCP ≥ |Δt|, where Δt is the proximal face's depth change: 1 mm for MR-mid, 3 mm for MR. Both are consistent with it.
+- **MR-mid keeps both references within about 1 mm, at more coverage than PR** (0.735 against 0.725).
+  - The lever the paper does not use is the face depth change itself. Freeing A's height shrinks it, so a thicker pad need not move the proximal face.
+  - This is the "mount compensation" idea from the RL notes: the skeleton moves dorsally instead of the face moving palmar.
+- **Caveat.** A proximal mount offset of 0 puts the pad's mounting surface on the link line. The packaging checks pass, but the PIP servo and A's housing clearance should be checked in CAD before reading much into it.

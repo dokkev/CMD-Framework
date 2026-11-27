@@ -99,9 +99,14 @@ class MCPReferenced(ContactMechanism):
         return Referenced(base, change, coverage, dict(base.constraints), mcp, skel)
 
 
-def with_b_z(config, low: float, high: float):
-    """``config`` with B's height above the link line searched in [low, high] (0 in the studies)."""
-    return dataclasses.replace(config, bounds={**dict(config.bounds), "b_z_mm": (float(low), float(high))})
+def with_b_z(config, low: float, high: float, a_z=None):
+    """``config`` with B's height above the link line searched in [low, high] (0 in the studies); with ``a_z``
+    (low, high) A's height too, and the joint-axes alignment (A and B on the link line) dropped."""
+    bounds = {**dict(config.bounds), "b_z_mm": (float(low), float(high))}
+    if a_z is None:
+        return dataclasses.replace(config, bounds=bounds)
+    bounds["a_z_mm"] = (float(a_z[0]), float(a_z[1]))
+    return dataclasses.replace(config, bounds=bounds, align_joint_axes=False)
 
 
 def main(argv=None) -> int:
@@ -110,6 +115,8 @@ def main(argv=None) -> int:
     parser.add_argument("--to", type=float, default=7.0)
     parser.add_argument("--seeds", type=int, nargs="+", default=(0, 1))
     parser.add_argument("--b-z", type=float, nargs=2, default=(-2.0, 8.0), metavar=("LO", "HI"))
+    parser.add_argument("--a-z", type=float, nargs=2, default=None, metavar=("LO", "HI"),
+                        help="also search A's height (and drop the joint-axes alignment); default: A on the link line")
     parser.add_argument("--population", type=int, default=200)
     parser.add_argument("--generations", type=int, default=200)
     parser.add_argument("--workers", type=int, default=8)
@@ -126,7 +133,7 @@ def main(argv=None) -> int:
     h0_report = base.report(base.evaluate(h0.x, h0.config))
     scale = float(h0_report["finger_length_mm"])
     mech = MCPReferenced(base, reference, float(h0_report["proximal_depth_mm"]), scale)
-    goal_config = with_b_z(goal.config, *args.b_z)
+    goal_config = with_b_z(goal.config, *args.b_z, a_z=args.a_z)
 
     with (e15.STUDY2 / "front.csv").open(encoding="utf-8", newline="") as stream:
         study2_front = [r for r in csv.DictReader(stream) if r["architecture"] == "cfl"
