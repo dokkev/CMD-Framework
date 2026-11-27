@@ -259,3 +259,14 @@ h), Table I mixed and its n column and blank partials unexplained; related work 
 (recomputing the setpoint per redesign from the known geometry, r1); the fixed-axis bound assumes the axis keeps
 its depth without arguing why (r3); the CFL has more design parameters than 2R or RCJ (r3); Delta_contact uses
 one point on the distal pad (r1); Eq. 4 and r tan(q/4) not derived (r1).
+
+v35: 6, 6, 6, all Accept (manuscript d485e27; introduction from Mingyo's comments, Experiment rewritten without
+repetition between figure, caption and text, Fig. 4 with four tasks, per-task rho and a learned-policy band,
+Table I as one wide table, Fig. 1 single column). Sub-scores: r1 O3 Q3 C2 Si3 So3 P2 Co3; r2 O3 Q3 C2 Si2 So3 P2
+Co3; r3 O3 Q3 C2 Si2 So3 P2 Co3. Clarity and Presentation 2 for all three. Common critiques: dense and
+terminology-heavy, Fig. 4 overloaded (all); compliant pad modelling not described (all); numbers not reconciled
+(Fig. 1 -55% vs Table I -14%, Fig. 4 E vs Table I signed, conclusion's 21/72/124% unattributed; r1, r2); dial and
+pivot rho without p-values (all); "pre-registered" unverifiable (all); software alternatives (re-referenced
+setpoint, torque) remove most of the error, why hardware (all); learned policies mixed, two seeds, the
+contribution quotes the favourable case (all); abstract overstates ("every pad thickness", "cannot"; r3); caption
+mentions n/a entries that no longer appear (r3); CoDe alone refined from neighbouring designs (r2, r3).

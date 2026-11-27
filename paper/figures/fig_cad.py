@@ -416,7 +416,7 @@ def main() -> int:
             fig.text(*inch(x0 + 0.53, yt - 0.02), "O" if ok else "X", fontsize=8, ha="left", va="top",
                      color=GREEN_ if ok else RED_, **BOLD)
             fig.text(*inch(x0 + 0.53, yt - 0.20), txt, fontsize=5.6, ha="left", va="top", linespacing=1.0, color=INK)
-    fig.text(*inch(W_ / 2, 0.03), "CoDe measures the interface as the reference hand does",
+    fig.text(*inch(W_ / 2, 0.03), "CoDe keeps the sign of the reference hand's measured effect",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
