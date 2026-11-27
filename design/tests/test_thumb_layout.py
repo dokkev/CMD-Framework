@@ -96,3 +96,20 @@ def test_proximal_bend(parameters):
     # the IP frame turns by the bend about the flexion axis
     rel = np.linalg.inv(fs["ip"][0]) @ fb["ip"][0]
     assert math.degrees(math.atan2(rel[1, 0], rel[0, 0])) == pytest.approx(-20.0)
+
+
+def test_base_pitch_is_ro_clocking(parameters):
+    """The base pitch offset turns the CMC frame about the RO axis itself (the servo's z): the axis stays put, so a
+    pitch offset is the same chain as the RO joint shifted by it. Roll and yaw are what tilt the RO axis."""
+    q = np.radians([[-40.0, 20.0, 30.0, 10.0]])
+    pitched = ThumbDesign(-55.0, -10.5, 33.0, "proximal", 0.0, -16.0, 0.0)
+    flat = ThumbDesign(-55.0, -10.5, 33.0, "proximal")
+    kp = ThumbKinematics(hand_parameters(parameters, pitched), pitched)
+    kf = ThumbKinematics(hand_parameters(parameters, flat), flat)
+    np.testing.assert_allclose(kp.base[:3, 2], kf.base[:3, 2], atol=1e-12)
+    shifted = q + np.radians([[-16.0, 0.0, 0.0, 0.0]])
+    for name in ("raa", "mcp", "ip"):
+        np.testing.assert_allclose(kp.frames(q)[name], kf.frames(shifted)[name], atol=1e-9)
+    rolled = ThumbDesign(-55.0, -10.5, 33.0, "proximal", 0.0, 0.0, 10.0)
+    kr = ThumbKinematics(hand_parameters(parameters, rolled), rolled)
+    assert np.degrees(np.arcsin(kr.base[2, 2])) == pytest.approx(10.0, abs=1e-6)

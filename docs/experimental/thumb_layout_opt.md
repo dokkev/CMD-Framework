@@ -496,6 +496,42 @@ Run data: `design/output/thumb_layout/h0/strict_orient20_dsup_ip30/proximal/seed
   - A small bend (−10 deg) mainly improves the pinch: 16.5 → 13.4 deg without hyperextension, and 4.8 → 2.5 with it.
   - The bend was probed on one base only. It has not been optimised jointly with the base.
 
+### Correction: the base "pitch" is RO clocking, not an axis tilt (2026-11-26)
+
+- **What the angles do.** The base orientation offsets are added to the prototype's intrinsic Z-Y-X angles (−90, 0, −90). With that base, a pitch offset turns the CMC frame about its own z, which is the RO axis.
+  - So pitch leaves the RO axis where it is. It turns the RO servo body and everything after it about the shaft. That is the same chain as the RO joint shifted by the pitch.
+  - Check: x −55, z −10.5, e 33 with the double-support plates. Pitch −16 and pitch 0 with the RO limits shifted from ±90 to (−106, 74) give the same F-K6 (6.439), the same pinch (16.5) and the same envelope. A +16 shift gives K3.
+  - `test_base_pitch_is_ro_clocking` pins this down.
+- **What tilts the axis.** Yaw turns the RO axis within the palm plane, about H z. Roll tilts it out of the palm plane.
+- **Earlier designs, split into axis direction and clocking:**
+
+| design | axis in-plane [deg] | axis elevation [deg] | RO clocking [deg] |
+|---|---|---|---|
+| O_thumbopt (−14/−16/+14) | −10.1 | +13.4 | −17.7 |
+| pitch-only A (0/−16/0) | 0 | 0 | −16.0 |
+| c1 (−2/−17/+5) | −0.5 | +4.8 | −17.1 |
+| c2 (−1/−19/+7) | +1.3 | +6.6 | −19.1 |
+| c3 (0/−11/+7) | +1.3 | +6.9 | −11.0 |
+
+- **What this means.**
+  - The step from K4 to K6 that these notes credited to the base pitch is about 16 deg of RO clocking. Mounting the RAA bracket on the RO horn 16 deg round gives it; so does moving the RO range to (−106, 74). Neither tilts the RO axis.
+  - An axis out of the palm plane (elevation) is what the K8 designs add: 5–13 deg.
+  - The user's manufacturing constraint (2026-11-26) was "yaw oblique is fine, pitch is hard". In this parametrisation that means roll = 0, with yaw and pitch (clocking) free.
+
+### Pre-registration: RO axis in the palm plane (2026-11-26, before the run)
+
+- **Run.** Strict envelope, proximal IP, double-support plates, IP ≥ −30.
+  - Free: x, z, e; yaw ±20; pitch (clocking) ±30; bend β in [−15, +5].
+  - Fixed: roll = 0.
+  - Runner options: `--pitch-max 30 --roll-max 0 --bend -15 5`.
+- **Two runs:**
+  - nominal: population 32 × 25 generations;
+  - robust (`--robust`): population 24 × 20. The objective is the functional score averaged over the design and its ±1 mm (x, z, e) and ±3 deg (yaw, pitch, bend) one-at-a-time perturbations, 13 points in all. The level is taken as kept when every perturbation reaches at least the nominal level.
+- **Hypotheses.**
+  - With the axis kept in the palm plane, the nominal front reaches F-K6 and not K8. The earlier K8 designs all needed 5–13 deg of elevation.
+  - The robust front holds K6 under all 12 perturbations at a lever ratio ≥ 0.9.
+- **Decision rule.** Among robust-front designs with lever ≥ 0.85: the highest level kept under every perturbation, then the highest robust score, then the best pinch.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
