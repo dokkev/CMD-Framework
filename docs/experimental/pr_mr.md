@@ -551,3 +551,12 @@ All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher
   1. ρ(ratio, Δt) ≤ −0.8 over the same 14 hands.
   2. MO-Pad exceeds Pad-Pad by ≥ 0.10.
   3. Palm-Tip is below MO-Pad and above Pad-Pad, as under seed 20.
+
+## Pre-registration: Study 2 with A and B heights free (2026-11-27, before the run)
+
+- **Why.** MO-Pad came from exploratory scripts (e20). The paper's Study 2 searches with A and B on the link line. Does the paper's own pipeline, with the heights opened, find the small-Δt designs by itself, or does it need the second reference as an objective?
+- **Run.** `redesign.py --free-heights`, the paper's objectives (least Δ_contact, most C̄_pad), CFL, q_req 90/120/150, 3 → 5/7/9 mm, NSGA-II 200 × 200, seeds 0 and 1. The A and B height bounds are e20's (A −3 to 8, B −3 to 10 mm). Rows add Δ_MCP. Output: `design/output/study/study2_redesign_free_heights/`.
+- **Predictions** (q 120, 7 mm, against the paper's front in `study2_redesign_2026-11-21`):
+  1. Freeing the heights lowers the least Δ_contact at C̄_pad ≥ 0.70 by less than 0.3 mm. Δ_contact alone does not reward a small Δt.
+  2. The front's designs keep Δt near h − 3. Their least Δ_MCP at C̄_pad ≥ 0.70 stays above 2.5 mm, far from MO-Pad's 1.06.
+  - If both hold, MO-Pad needs Δ_MCP as an objective (or Δt as a constraint): the paper's formulation with one reference does not find it.

@@ -2,7 +2,7 @@
 """Study 2: a finger redesigned for a thicker interface, its relative contact trajectory kept (A.6.3).
 
     python scripts/study/study2_morphology_adaptation/redesign.py [one_finger.yaml] [--resume]
-        [--architectures cfl,2r_remote] [--flexions 120] [--output dir]
+        [--architectures cfl,2r_remote] [--flexions 120] [--output dir] [--free-heights]
 
 For each architecture and required flexion, the reference finger is Study 1's
 design for the thinnest pads. For each thicker pad, the finger is searched
@@ -11,6 +11,10 @@ kinematics from the reference (the distal contact face's path seen from the
 proximal one) and the most pad coverage (Study 1's objective, under Study 1's
 goal for that thickness). No coverage floor is set: the front says what
 coverage is kept at each change.
+
+With ``--free-heights`` (linkage only; experimental, docs/experimental/pr_mr.md), the heights of pivots A and B
+above the link line are searched as well (``FREE_HEIGHTS``) and the joint-axes alignment is dropped. Each row also
+gives the change of the same contact path seen from the MCP axis (``mcp_change_mm``, Delta_MCP).
 
 Writes ``fronts.csv`` (every seed's front; reused by ``--resume``),
 ``front.csv`` (the seeds merged), ``profiles.csv`` (how far the most-coverage
@@ -24,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import dataclasses
 import json
 import math
 import sys
@@ -43,6 +48,16 @@ from core.optimization.mechanism import mechanism, read_config_file  # noqa: E40
 from core.optimization.optimizer import OptimizerSettings  # noqa: E402
 
 
+FREE_HEIGHTS = {"a_z_mm": (-3.0, 8.0), "b_z_mm": (-3.0, 10.0)}
+"""Search bounds of A's and B's heights above the link line under ``--free-heights`` (the e20-e22 hands' bounds)."""
+
+
+def free_heights(config):
+    """``config`` with A's and B's heights searched (``FREE_HEIGHTS``) and the joint-axes alignment dropped."""
+    import dataclasses
+    return dataclasses.replace(config, bounds={**dict(config.bounds), **FREE_HEIGHTS}, align_joint_axes=False)
+
+
 def read_rows(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
@@ -55,9 +70,14 @@ def _row(head: dict, seed, x, evaluation, base, config, reference, scale: float)
     own = paths(base, x, config, evaluation.base, len(reference["tip"]))
     length = float(report["finger_length_mm"])
     pads = float(report["proximal_support_length_mm"]) + float(report["distal_support_length_mm"])
+    mcp = math.nan
+    if own and "depth_mm" in reference:
+        shift = np.array((0.0, float(report["proximal_depth_mm"]) - reference["depth_mm"]))
+        mcp = path_change(np.asarray(own["contact"]) - shift, reference["contact"], scale) * scale
     return {**head, "seed": seed, "contact_change": evaluation.contact_change,
             "contact_change_mm": evaluation.contact_change * scale,
             "skeleton_change": path_change(own["tip"], reference["tip"], scale) if own else math.nan,
+            "mcp_change_mm": mcp,
             "c_pad_mean": evaluation.c_pad_mean, "pad_coverage": pads / length,
             "face_depth_proximal_mm": report.get("proximal_depth_mm"),
             "face_depth_distal_mm": report.get("distal_depth_mm"), "q_max_deg": report.get("q_max_deg"),
@@ -65,7 +85,7 @@ def _row(head: dict, seed, x, evaluation, base, config, reference, scale: float)
 
 
 def run(path: Path, resume: bool = False, only_architectures=None, only_flexions=None,
-        output: str | None = None) -> Path:
+        output: str | None = None, heights: bool = False) -> Path:
     config = read_config_file(path)
     settings = config["redesign"]
     out = REPOSITORY_ROOT / (output or settings["output"])
@@ -89,10 +109,14 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
             first = designs[thin]
             base = mechanism(first.mechanism)
             reference = paths(base, first.x, first.config)
-            scale = float(base.report(base.evaluate(first.x, first.config))["finger_length_mm"])
+            first_report = base.report(base.evaluate(first.x, first.config))
+            scale = float(first_report["finger_length_mm"])
+            reference = {**reference, "depth_mm": float(first_report.get("proximal_depth_mm") or math.nan)}
             warm_front: list = []
             for target in sorted(h for h in designs if h > thin):
                 goal = designs[target]
+                if heights:
+                    goal = dataclasses.replace(goal, config=free_heights(goal.config))
                 head = {"architecture": name, "mechanism": first.mechanism, "upper_bound": first.upper_bound,
                         "required_flexion_deg": flexion, "from_mm": thin, "to_mm": target}
                 for seed in search["seeds"]:
@@ -139,7 +163,7 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
                 shared.write_csv(out / "profiles.csv", profiles)
     (out / "manifest.json").write_text(json.dumps({
         "config": str(path), "formulation": "problem_formulation.md A.6.3 (2026-11-20: contact-centric redesign)",
-        "redesign": settings, "skipped": skipped, **shared.git_commit(out)}, indent=2))
+        "redesign": settings, "free_heights": FREE_HEIGHTS if heights else None, "skipped": skipped, **shared.git_commit(out)}, indent=2))
     return out
 
 
@@ -150,9 +174,10 @@ def main(argv=None) -> int:
     parser.add_argument("--architectures")
     parser.add_argument("--flexions")
     parser.add_argument("--output")
+    parser.add_argument("--free-heights", action="store_true", help="also search A's and B's heights (linkage only)")
     args = parser.parse_args(argv)
     out = run(Path(args.config), args.resume, args.architectures.split(",") if args.architectures else None,
-              [float(q) for q in args.flexions.split(",")] if args.flexions else None, args.output)
+              [float(q) for q in args.flexions.split(",")] if args.flexions else None, args.output, args.free_heights)
     print(f"wrote {out}")
     return 0
 
