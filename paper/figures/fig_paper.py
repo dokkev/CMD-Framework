@@ -669,7 +669,9 @@ def fig4():
     HC = {"O": INK, "R": BLUE, "U": AMBER, "S": TEAL}
     RED = tuple(hh for hh in ("R", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
     B = 0.24  # room for the two motion-change rows under each task's E rows
-    h = 3.40 + B
+    LG = 0.20  # the legend's row between the renders and the trajectories
+    D = 0.12  # the bottom legend's room, now unused
+    h = 3.40 + B + LG - D
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -693,7 +695,7 @@ def fig4():
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
         # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52) / h, (cw - 0.36) / W, 0.74 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52 - LG) / h, (cw - 0.36) / W, 0.74 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
         for hi, hh in enumerate(RED):
@@ -709,7 +711,7 @@ def fig4():
         # same placement, in the task's unit (the stored share of O's final effect times that effect); end labels:
         # the share of O's effect. 0 is the friction effect measured without bias
         sc = dv["O_effect"]["median"][-1] / 100.0
-        ea = fig.add_axes(((x0 + 0.30) / W, (0.80 + B) / h, (cw - 0.36) / W, 0.70 / h), sharex=ra)
+        ea = fig.add_axes(((x0 + 0.30) / W, (0.80 + B - D) / h, (cw - 0.36) / W, 0.70 / h), sharex=ra)
         ea.axhline(0, color=INK, lw=0.6, zorder=2)
         for hh in [x for x in ("S", "U", "R") if f"{x}_bias" in dv]:
             bd = dv[f"{hh}_bias"]
@@ -729,7 +731,7 @@ def fig4():
             f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
             pt = d["first32"][key] if "first32" in d else {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
-            yy = (0.40 + B - 0.115 * j) / h
+            yy = (0.40 + B - D - 0.115 * j) / h
             xm = (x0 + 0.30 + (cw - 0.36) / 2) / W
             fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
@@ -740,7 +742,7 @@ def fig4():
         # the same under every task), under the E rows and aligned with them
         hd = d["tasks"]["pull"]["hands"]
         for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
-            yy = (0.40 + B - 0.115 * (j + 2) - 0.03) / h
+            yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
             fig.text(xm - 0.22 / W, yy, lab, fontsize=5.6, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=5.8, ha="left", va="center",
@@ -754,7 +756,7 @@ def fig4():
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
                           label="pad friction 2.0"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
+    fig.legend(handles=handles, loc="center", bbox_to_anchor=(0.5, (h - 0.74 - LG / 2) / h), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)
