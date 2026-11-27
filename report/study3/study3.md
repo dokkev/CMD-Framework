@@ -158,6 +158,50 @@ distal face의 부호 있는 법선 오프셋이 방향을 정한다(측정 − 
 - 나머지 과제를 MO-Pad로 돌리지 않았다: acquisition(23), hook(38), 손끝 disk(28z/29z), Isaac friction/stiffness, R4 확인 실험.
 - MO-Pad가 대표 재설계로 바뀔지는 research-objective §9 미결정 3에 있다.
 
+### 3.7 Skeleton: 골격 변화를 최소화한 재설계 (2026-11-27)
+
+**배경:** 사용자 결정으로 논문은 세 손을 비교한다.
+- CoDe: R, Δ_contact 최소
+- Skeleton: 같은 메커니즘과 같은 탐색에서 Δ_skel 최소
+- Coverage: U
+
+**Skeleton 손.** `design/scripts/study/exploratory/e25_skeleton_min.py`로 만들었고 손 이름은 `conv_e25`다. 선택 규칙은 coverage가 CoDe보다 0.05 넘게 낮지 않은 설계 중 Δ_skel이 가장 작은 것이다.
+
+| 두께 | Δ_skel | Δ_contact | C̄_pad |
+|---|---|---|---|
+| 5 mm | 0.06 | 3.43 | 0.738 |
+| 7 mm | 0.34 | 6.61 | 0.684 |
+| 9 mm | 1.94 | 8.51 | 0.646 |
+
+사전 정한 18개 손의 상관(ρ) 집합에는 넣지 않고 E만 따로 잰다. 사전 등록은 `docs/experimental/pr_mr.md`에 있다.
+
+**Drake 다섯 과제 (7 mm, E):**
+
+| 과제 | point (CoDe / Skeleton / Coverage) | hydro (CoDe / Skeleton / Coverage) |
+|---|---|---|
+| pull-out | 19 / 86 / 72% | 17 / 388 / 254% |
+| 획득 | 21 / 107 / 74% | 16 / 92 / 66% |
+| hook | 29 / 246 / 150% | 42 / — / — |
+| 손끝 원판 | 17 / 46 / 48% | 4 / 15 / 12% |
+| 상자 세우기 | 5 / 27 / 20% | 5 / 21 / 18% |
+
+- hook의 Skeleton 값은 48쌍 중 2쌍만 버틴 결과다.
+- 손끝 원판과 상자 세우기는 hydro 재실행과 같은 처음 32개 시작에서 잰 값이다.
+
+**결과.**
+- CoDe는 모든 과제와 접촉 모델에서 가장 작다.
+- Skeleton은 잡기 과제에서 Coverage보다 크고, 손끝 과제에서는 Coverage와 비슷하거나 더 크다.
+- 골격 경로를 0.34 mm 안으로 지켜도 접촉면이 6.6 mm 움직이면 측정이 틀어진다.
+
+**Table I.** Drake 행:
+- pad 형상: +181%
+- point: +82%
+- hydro: +388%
+- 두께만큼 부드러운 pad: +490%
+- 접촉 setpoint: +11%
+
+Isaac 행은 GPU 대기열에 있다.
+
 ## 4. 통찰
 
 ### 4.1 왜 순서가 유지되나
