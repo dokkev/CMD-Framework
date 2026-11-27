@@ -392,6 +392,15 @@ Run data: `design/output/thumb_layout/h0/relaxed_orient20/proximal/seed0/` (794 
 - **Palm boxes.** The plates also overlap the model's palm hood/block by about 3 mm at some RO angle in every design, the prototype included. The palm boxes are the exporter's axis-aligned stand-in, so this needs checking against the real `palm-base` part, not the model.
 - **Not yet done:** the plates are not yet part of the optimisation's constraint (`Evaluator.envelope`).
 
+### Pre-registration: re-optimisation with the double-support plates (2026-11-26, before the run)
+
+- **Change.** `Evaluator(double_support=True)` / `run.py --double-support` adds the two plates (`RAA_PLATES_MM`, conservative boxes) to the RAA sweep in `envelope`. The default is unchanged.
+- **Run.** O, strict envelope, proximal IP, orientation ±20 deg, seed 0, population 32 × 25.
+- **Hypothesis.** The front moves rearward (x < −52), and pitch-only-like designs keep F-K6. Whether F-K8 survives is open.
+- **Decision.**
+  - The recommended base is the front's highest F-level that keeps a lever ratio ≥ 0.85. Ties go to the smallest yaw/roll magnitude, since those are easier to build and more robust.
+  - Fallback: O_pitch at x −53.5 (F-K6, +0.96 mm), from the probe above.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.

@@ -446,9 +446,11 @@ class Evaluator:
     """Fixed finger morphology ``parameters``; :meth:`evaluate` scores a :class:`ThumbDesign` on it."""
 
     def __init__(self, parameters: HandParameters, seeds: int = SEEDS, iterations: int = ITERATIONS,
-                 floor_mm: float = 20.0) -> None:
+                 floor_mm: float = 20.0, double_support: bool = False) -> None:
         self.parameters = parameters
         self.floor_mm = floor_mm
+        self.double_support = double_support
+        """Include the RAA servo's double-support plates (:data:`RAA_PLATES_MM`) in the RAA sweep (:meth:`envelope`)."""
         """The palm envelope's floor: this far below the palm's flat palmar face (:meth:`envelope`)."""
         self.seeds, self.iterations = seeds, iterations
         self.stall_torque_nm = XM335DriveModel(supply_voltage_v=SUPPLY_V).stall_torque_nm
@@ -825,6 +827,8 @@ class Evaluator:
         lo = np.min([a.min(axis=0) for a in aa], axis=0)
         hi = np.max([a.max(axis=0) for a in aa], axis=0)
         raa = _servo_cloud(frames.servos["thumb/raa"], geometry)
+        if self.double_support:
+            raa = np.concatenate([raa] + [_box_cloud(frames.servos["thumb/raa"], *b) for b in RAA_PLATES_MM])
         ro_f = frames.servos["thumb/ro"]
 
         def to_boxes(pts):
@@ -850,6 +854,21 @@ class Evaluator:
         return {"raa_sweep_clearance_mm": round(sweep - 2.0, 3), "ro_servo_clearance_mm": round(ro_clear - 2.0, 3),
                 "ro_below_top_mm": round(float(z_top - ro[:, 2].max()), 3),
                 "ro_above_floor_mm": round(float(ro[:, 2].min() - (z_palm - self.floor_mm)), 3)}
+
+
+RAA_PLATES_MM = (((-13.0, -25.5, -9.5), (-9.5, 9.5, 9.5)), ((9.5, -25.5, -9.5), (13.0, 9.5, 9.5)))
+"""The RAA servo's double-support plates as boxes (low, high corners) in its servo frame [mm]: Onshape `oblique-cmc`
+branch, `thumb-example` assembly, `cmc-aa-bracket` (RO horn side) and `cmc-aa-idler-bracket` (far side). Their
+STL extents mapped into the evaluator's RAA frame (the CAD X330 part frame shifted 5.5 mm along the output axis;
+the CAD RO -> RAA transform matches the evaluator's to 0.000). The plates lie on the servo's side faces, along RO's
+axis, 3.5 mm thick; boxes enclose any cut-outs (conservative)."""
+
+
+def _box_cloud(frame: np.ndarray, low, high, n: int = 6) -> np.ndarray:
+    """Points filling a box given in ``frame``'s coordinates, in H."""
+    g = [np.linspace(a, b, n) for a, b in zip(low, high)]
+    pts = np.array([(x, y, z, 1.0) for x in g[0] for y in g[1] for z in g[2]])
+    return (frame @ pts.T).T[:, :3]
 
 
 def _servo_cloud(frame: np.ndarray, geometry, n: int = 6) -> np.ndarray:

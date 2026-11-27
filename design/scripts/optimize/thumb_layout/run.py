@@ -52,6 +52,7 @@ _EVALUATOR: Evaluator | None = None
 _PARAMS = None
 _FLOOR = 20.0
 _ARCHED: dict[float, Evaluator] = {}
+_DOUBLE = False
 
 
 def _hand_path(hand: str) -> Path:
@@ -61,11 +62,11 @@ def _hand_path(hand: str) -> Path:
     return HANDS / f"cfl_q120_h3to7_{hand}.yaml"
 
 
-def _init(hand: str, floor_mm: float) -> None:
-    global _EVALUATOR, _PARAMS, _FLOOR
+def _init(hand: str, floor_mm: float, double_support: bool = False) -> None:
+    global _EVALUATOR, _PARAMS, _FLOOR, _DOUBLE
     parameters, _ = load(_hand_path(hand))
-    _PARAMS, _FLOOR = parameters, floor_mm
-    _EVALUATOR = Evaluator(parameters, floor_mm=floor_mm)
+    _PARAMS, _FLOOR, _DOUBLE = parameters, floor_mm, double_support
+    _EVALUATOR = Evaluator(parameters, floor_mm=floor_mm, double_support=double_support)
     _ARCHED.clear()
     _ARCHED[0.0] = _EVALUATOR
 
@@ -74,7 +75,7 @@ def _evaluator(arch: float) -> Evaluator:
     """The evaluator for a palm arch (``palm_arch``): the fingers' kinematics are built once per arch."""
     arch = float(arch)
     if arch not in _ARCHED:
-        _ARCHED[arch] = Evaluator(palm_arch(_PARAMS, arch), floor_mm=_FLOOR)
+        _ARCHED[arch] = Evaluator(palm_arch(_PARAMS, arch), floor_mm=_FLOOR, double_support=_DOUBLE)
     return _ARCHED[arch]
 
 
@@ -139,6 +140,8 @@ def main(argv=None) -> int:
                         help="exploratory: base yaw/pitch/roll offsets free within +-this [deg] (beyond the original list)")
     parser.add_argument("--arch-max", type=float, default=0.0,
                         help="exploratory: palm arch (palm_arch: middle/ring bases turned palmar) free in [0, this] deg")
+    parser.add_argument("--double-support", action="store_true",
+                        help="include the RAA servo's double-support plates in the RAA sweep (evaluator.RAA_PLATES_MM)")
     parser.add_argument("--tag", default="", help="appended to the envelope folder name")
     parser.add_argument("--baseline", action="store_true", help="evaluate the prototype thumb and print it")
     args = parser.parse_args(argv)
@@ -147,7 +150,7 @@ def main(argv=None) -> int:
     proto = ThumbDesign.prototype(parameters)
     proto_levers = lever_arms(proto)
     if args.baseline:
-        _init(args.hand, env["floor_mm"])
+        _init(args.hand, env["floor_mm"], args.double_support)
         ev = _EVALUATOR.evaluate(proto)
         print(json.dumps(ev.summary(), indent=1, default=float))
         print(json.dumps(_EVALUATOR.min_grasp_diameter(proto), indent=1))
@@ -168,7 +171,7 @@ def main(argv=None) -> int:
     n_var = len(lo)
     steps = np.round((hi - lo) / step)
     workers = int(os.environ.get("OPTIMIZE_WORKERS") or 3)
-    pool = Pool(workers, initializer=_init, initargs=(args.hand, env["floor_mm"]))
+    pool = Pool(workers, initializer=_init, initargs=(args.hand, env["floor_mm"], args.double_support))
     cache: dict[tuple, dict] = {}
     rows: list[dict] = []
 
@@ -219,7 +222,7 @@ def main(argv=None) -> int:
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     (out / "run.json").write_text(json.dumps({
         "hand": args.hand, "orientation": args.orientation, "envelope": {args.envelope: env},
-        "extension_mm": (EXTENSION_MM[0], args.extension_max), "free_orientation_deg": args.free_orientation, "arch_max_deg": args.arch_max,
+        "extension_mm": (EXTENSION_MM[0], args.extension_max), "free_orientation_deg": args.free_orientation, "arch_max_deg": args.arch_max, "double_support": args.double_support,
         "steps": step.tolist(), "settings": settings.to_json(),
         "evaluations": len(rows), "seconds": round(time.time() - start, 1), "commit": commit,
         "prototype": proto.__dict__, "prototype_levers_mm": proto_levers}, indent=1) + "\n")

@@ -65,3 +65,13 @@ def test_palm_arch(parameters):
         assert np.linalg.norm(r1) == pytest.approx(np.linalg.norm(r0))
         assert np.degrees(np.arctan2(r1[1], r1[0]) - np.arctan2(r0[1], r0[0])) == pytest.approx(10.0 * k)
         assert b.z_mm < a.z_mm  # palmar
+
+
+def test_double_support_plates_tighten_the_raa_sweep(parameters):
+    from core.optimization.thumb_layout import Evaluator, ThumbDesign
+    d = ThumbDesign(-50.5, -10.5, 34.0, "proximal", 0, -16, 0)
+    h = hand_parameters(parameters, d)
+    plain = Evaluator(parameters).envelope(h)["raa_sweep_clearance_mm"]
+    plates = Evaluator(parameters, double_support=True).envelope(h)["raa_sweep_clearance_mm"]
+    assert plain == pytest.approx(1.46, abs=0.05)  # the earlier, servo-only value
+    assert plates < plain - 3.0  # the far plate reaches 3.5 mm closer to the abduction servos
