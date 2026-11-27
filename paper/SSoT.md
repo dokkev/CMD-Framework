@@ -85,6 +85,7 @@ model, the analysis and the design studies; Experiment holds simulation only.
 | O, R, U, M | reference hand; redesign that keeps Δ_contact small; coverage-only design; a middle redesign (codebase labels) |
 | CoDe, Skeleton, Coverage | the three compared hands (user, 2026-11-27). **CoDe**: the contact-centred redesign (least Δ_contact). Its data is R's for now; R is also a contact-centred design. When the MO-Pad reruns finish, its data is replaced by MO-Pad's. **Skeleton**: least Δ_skel in the same design space, at pad coverage no more than 0.05 below CoDe's (`design/scripts/study/exploratory/e25_skeleton_min.py`, hands `conv_e25`). When CoDe becomes MO-Pad (pins free), Skeleton becomes the pins-free least-Δ_skel hand of the same rule (`e25_skeleton_min.py --free-heights`, hands `conv_e25f`). Until its Isaac runs exist, the fixed-axis family (Δ_skel = 0, its own 3 mm reference) may stand in, with a note. **Coverage**: U, coverage only, unchanged except the name. Analysis documents keep their own names (Pad-Pad, Palm-Pad, MO-Pad, Palm-Tip, S2F); the paper does not use them, nor "Conventional" |
 | proximal pad, distal pad | never "near/far pad" |
+| deformable pad | a pad of low contact stiffness (user, 2026-11-27); never "soft pad"; comparatives "more deformable", never "softer" |
 | convex pad | a pad whose face bulges 2 mm at its middle (the shape change; user, 2026-11-27); never "crowned" |
 
 In the introduction, "the joints and links" stands for the kinematic layout; no new term is introduced for it.
