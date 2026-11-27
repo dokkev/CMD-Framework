@@ -596,3 +596,26 @@ All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher
   3. RL cube rotation ratio: S2F ≥ 0.90 and S2F5 ≥ 0.90 (Δd_p ≤ 1); S2F9 between 0.75 and 0.88 (Δd_p 3, like MRM9's 0.82).
   4. RL 7b′: S2F ≥ 0.55 (Δ_contact 0.85, like Pad-Pad's 0.86).
   - If 1–4 hold, freeing the pins in the paper's own Study 2 is enough for the paper's redesign at 5 and 7 mm. MO-Pad's extra objective is then needed only at 9 mm.
+
+### Study 2 with the pins free: all flexions (2026-11-27)
+
+Coverage ends of each front (free heights) against the paper's Study 2 (`study2_redesign_2026-11-21`):
+
+| q_req | to | free: Δ_contact / Δ_MCP / C̄ / face | paper: Δ_contact / C̄ / face |
+|---|---|---|---|
+| 90 | 5 | 2.67 / 1.83 / 0.794 / 5 | 1.22 / 0.776 / 8 |
+| 90 | 7 | 1.60 / 2.42 / 0.766 / 7 | 1.84 / 0.749 / 10 |
+| 90 | 9 | 4.36 / 7.36 / 0.734 / 9 | 4.31 / 0.717 / 12 |
+| 120 | 5 | 0.36 / 1.19 / 0.771 / 5 | 0.35 / 0.753 / 8 |
+| 120 | 7 | 0.85 / 1.62 / 0.743 / 7 | 0.86 / 0.725 / 10 |
+| 120 | 9 | 2.13 / 4.79 / 0.712 / 9 | 2.32 / 0.695 / 12 |
+| 150 | 5 | 1.32 / 1.29 / 0.758 / 5 | 0.77 / 0.738 / 8 |
+| 150 | 7 | 2.00 / 1.83 / 0.725 / 7 | 1.71 / 0.707 / 10 |
+| 150 | 9 | 3.35 / 5.51 / 0.692 / 9 | 3.65 / 0.673 / 12 |
+
+- **In all 9 cells the coverage end mounts the proximal pad at 0.** Its face sits at h, against h + 3 on the paper's designs. It gains 1.7–2.0 points of coverage.
+- **Δ_MCP falls to 1.2–2.4 mm at 5 and 7 mm** at every flexion. At 9 mm the face floor is Δd_p 3, and Δ_MCP stays at 4.8–7.4.
+- **Δ_contact at the coverage end:**
+  - About equal to the paper's at 120° and at 7–9 mm of 90° and 150°.
+  - Worse at 5 mm of 90° (2.67 against 1.22) and of 150° (1.32 against 0.77). The coverage end there trades contact path for coverage.
+- So freeing the pins is a free gain in coverage and face place at 120°. Elsewhere the pick along the front matters (not only its coverage end).
