@@ -699,3 +699,26 @@ The least Δ_skel at C̄_pad no more than 0.05 below MO-Pad's. These hands are S
 
 - At 7 mm it keeps the skeleton better than e22's Palm-Tip (`ms_e22`: Δ_skel 0.60, C̄_pad 0.703), under the same coverage rule as the Skeleton hands of Study 2's space.
 - Runs are queued behind the paper's Skeleton runs: the Drake tasks, cube, 7b′ and relay, and Isaac condition A. The predictions are those of `conv_e25`.
+
+## Result: Skeleton (conv_e25) in the Drake tasks (2026-11-27)
+
+All 13 steps rc 0. E with fig4_sync.py's own pair functions (the paper's gates):
+
+| task | contact | CoDe (R) | Coverage (U) | Skeleton |
+|---|---|---|---|---|
+| pull-out | point | 19.4% (46) | 71.7% (48) | **86.1%** (44) |
+| pull-out | hydro | 16.7% (53) | 253.8% (54) | **387.7%** (41) |
+| acquisition | point | 21.3% (22) | 74.1% (25) | **106.8%** (25) |
+| acquisition | hydro | 15.8% (9) | 65.9% (12) | **91.6%** (13) |
+| hook | point | 28.6% (48) | 150.0% (35) | 246% (2 of 48 pairs hold) |
+| hook | hydro | 42.5% (38) | — (gate) | — (gate) |
+| fingertip disk | hydro (32 draws) | 4.1% | 12.4% | **15.0%** |
+| fingertip disk | point (e28z) | 17.0% | 46.8% | pending (e28z queued) |
+| box pivot | point | 5.4% | 22.2% | **26.9%** |
+| box pivot | hydro | 4.8% | 18.2% | **21.2%** |
+
+- **Prediction 1 (CoDe < Skeleton in every task and model): holds** wherever Skeleton can be scored.
+  - In the hook it holds the bar in 2 of 48 pairs. Scoring the hands that fail as the largest errors (the pre-registered variant) puts it last.
+- **Prediction 2 (Skeleton ≥ Coverage in the grasping tasks): holds** in pull-out and acquisition, point and hydro, and in the hook.
+- **Not predicted:** Skeleton also errs most in the fingertip tasks (disk hydro 15.0%, pivot 26.9 / 21.2%). Keeping the skeleton does not help where the fingertip acts, as long as the contact path changes (Δ_contact 6.61).
+- **Prediction 3** (ρ with Δ_contact) waits for the rerun of each task's correlation with Skeleton added.
