@@ -122,3 +122,11 @@ All 22 hands ran (`logs/e44b_tripod.json`).
 - **Judgments, hands and stop rule:** as in experiment 44.
   - Judgment 5: MO-Pad's E is within 3 points of R's.
   - R and U run first. If E_U < 10%, the run stops.
+
+## Result: 44c stopped at the R/U step (2026-11-27)
+
+- E_R 0.3%, E_U 3.6%, 64/64 pairs each. E_U < 10%, so by the stop rule the task does not discriminate. The other hands were not run.
+- **Reading:** once the thumb closes to the contact on each hand, a 3° press gives nearly the same squeeze and twist limit on every hand.
+  - 44b's discrimination came from the thumb held at O's place. There, a hand's pad depth at the reused setpoint (the face's place) sets the squeeze, and that same mechanism leaves MO-Pad and S2F out of contact.
+  - The tripod twist therefore discriminates through where the pad is, not through how it moves while the object is twisted.
+- **Not a Fig. 4 candidate.** 44b is a valid result but cannot score the paper's CoDe hand (MO-Pad).
