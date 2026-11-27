@@ -886,13 +886,13 @@ def table():
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
     groups = (("MJWarp, point contact", (("friction", st["friction, Isaac point"]),
                                             ("stiffness", st["stiffness, Isaac point"]),
-                                            ("compliant thick pad", st["friction softer pad, Isaac point"]),
+                                            ("friction, compliant pad", st["friction softer pad, Isaac point"]),
                                             ("convex pad", st["crowned, Isaac point"]))),
               ("Drake, point contact", (("friction", st["friction, Drake point"]),
                                         ("convex pad", st["crowned, Drake point"]),
                                         ("contact setpoint", pr["contact setpoint"]))),
               ("Drake, hydroelastic", (("friction", st["friction, Drake hydro"]),
-                                       ("compliant thick pad", st["friction softer pad, Drake hydro"]))),
+                                       ("friction, compliant pad", st["friction softer pad, Drake hydro"]))),
               ("MJWarp, other commands", (("joint torque", pr["torque"]),
                                              ("sensed touch", pr["touch"]),
                                              ("contact force", pr["force"]))))

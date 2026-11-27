@@ -270,3 +270,11 @@ pivot rho without p-values (all); "pre-registered" unverifiable (all); software 
 setpoint, torque) remove most of the error, why hardware (all); learned policies mixed, two seeds, the
 contribution quotes the favourable case (all); abstract overstates ("every pad thickness", "cannot"; r3); caption
 mentions n/a entries that no longer appear (r3); CoDe alone refined from neighbouring designs (r2, r3).
+
+v36: 6, 6, 6 (manuscript 7fe328d; Fig. 5 split from Fig. 4, pad modelling and statistics stated,
+why the correction is in hardware, abstract and conclusion scoped). r2 O3 Q3 C2 Si2 So3 P2 Co3; r3 O3 Q3 C2 Si3
+So3 P2 Co3. r1 O3 Q3 C2 Si2 So3 P2 Co3. Clarity and Presentation still 2. r1 adds: no noise floor stated; Fig. 1 vs Table I compliant-pad numbers look inconsistent (different effects). Remaining presentation critiques: density and the number of named
+variants; two error statistics; Fig. 3(c) normalization and its caption phrase; Fig. 4 small text; Table I lacks
+dispersion and n; a conclusion fragment left below Fig. 5; "a fixed axis cannot" still read as stronger than
+Eq. 5 (conditional on a preserved initial contact point); multiplicity for the fingertip tasks; pre-registration
+not verifiable; opening sentence overgeneralizes ("chains of servos").
