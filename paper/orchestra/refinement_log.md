@@ -304,3 +304,10 @@ O alone, Delta t_p, check and cross marks in Fig. 1). r1 O3 Q3 C2 Si2 So3 P2 Co3
 Eq. 4 derivation too terse; Eq. 9 front use unstated; Table I header irregular and "MJWarp" vs "MuJoCo-Warp";
 Fig. 4 annotations too small; Fig. 1(c) "83% of ref.'s change"; Fig. 3(c) clipping convention; abstract hard to
 parse; Skeleton's constraint and the per-task floors too compressed; contribution bullet cites only the walk.
+
+v40: 6, 6, 6, all Accept (manuscript 1dd9161; Eq. 4 derived, Pareto design named, Fig. 3(c) unclipped, Fig. 4
+annotations enlarged, simpler abstract). Clarity and Presentation 2. New: "Coverage" names both a metric and a hand;
+the informative part (skeleton matching does not help) deserves more emphasis (r1), matching the user's request
+to make Fig. 1 show the contact-Jacobian-centred philosophy and independent interface evaluation; Fig. 1 vs Table I
+compliant columns and the torque column vs the torque correlation still read as inconsistent (r3); why O's effect
+is the right target when O cannot carry the thicker pad (r2).
