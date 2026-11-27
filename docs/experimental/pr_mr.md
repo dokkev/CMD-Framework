@@ -821,3 +821,25 @@ Spearman ρ over the same 14 hands, one-sided permutation (20,000): rotation rat
   - MO-Pad (Δt 1) keeps 56%, and only the Δt ≤ 1 hands keep most of the full turns (0.93–1.02).
   - The order by Δt is the same under both seeds; the size of the loss depends on the policy.
   - So the cube result is replicated as an ordering, not as a magnitude.
+
+## Result: Skeleton (conv_e25) in the RL tasks (2026-11-27)
+
+`run_sk_rl.sh`, all evals rc 0. Ratios are the hand's score over Original's (relay: rotation at μ 1.3 over Original's under the face anchor, mean of the two eval seeds, per training seed s20 / s21).
+
+| task | Pad-Pad (R) | Coverage (U) | **Skeleton** | MO-Pad | Palm-Tip |
+|---|---|---|---|---|---|
+| 7b′ walk ratio (s20 / s21) | 0.72 / 0.61 | 0.08 / 0.07 | **0.025 / 0.009** | 0.71 / 0.59 | 0.22 / 0.13 |
+| relay, face (s20 / s21) | 0.57 / 0.56 | 0.72 / 0.68 | **0.82 / 0.76** | 0.57 / 0.56 | 0.90 / 0.95 |
+| relay, f1 (s20 / s21) | 0.68 / 0.69 | 0.84 / 0.89 | **0.87 / 0.94** | 0.69 / 0.63 | 0.95 / 1.02 |
+| cube rotation ratio (s20 / s21) | 0.749 / 0.187 | 0.703 / 0.211 | **0.645 / 0.198** | 0.938 / 0.564 | 0.822 / 0.516 |
+
+Skeleton at 5 / 9 mm in the cube: 0.810 / 0.531 (s20), 0.342 / 0.153 (s21).
+
+- **Prediction 1 holds:** 7b′ ratio < 0.3 (0.017 pooled). Skeleton walks least of all hands; its Δ_contact (6.61) is the largest.
+- **Prediction 2 holds:** relay Skeleton ≥ Coverage under both anchors and both training seeds (face 0.82 / 0.76 vs 0.72 / 0.68; f1 0.87 / 0.94 vs 0.84 / 0.89). The relay follows the fingertip's path; Skeleton keeps it (Δ_skel 0.34), and only Palm-Tip (Δ_skel 0.60) does better.
+- **Prediction 3 holds:** cube ratio ≤ 0.78 (0.645 under s20). With Δt 4, like Pad-Pad and Coverage, it sits with them under both seeds.
+- **Reading:** the three RL tasks split the hands by what each keeps.
+  - The walk (pad contact) follows Δ_contact.
+  - The relay (fingertip-end contact) follows Δ_skel.
+  - The cube follows the proximal face's place (Δt).
+  - MO-Pad is near the top in the walk and the cube and near Pad-Pad in the relay. Skeleton is the reverse.
