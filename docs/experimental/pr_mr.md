@@ -431,3 +431,30 @@ Spearman ρ over the 14 hands, one-sided permutation (20,000):
   - The cube task uses the thumb, the abduction and the MCP. The cube starts on each hand's own proximal face, but the thumb and palm are the same on every hand. So how far the proximal face moves relative to the palm (Δt) sets how far the whole grasp is displaced against the parts that did not change.
   - At equal Δt, the contact-path quantities hardly matter: the 4 mm group spans Δ_contact 0.86–3.91 at ratios 0.70–0.75.
   - Keeping the face in place restores the cube policy: Δt 0–1 gives 0.94–0.99.
+
+## Result: MRS in Drake, and the hydroelastic pull-out (2026-11-27)
+
+**MRS** (Δ_contact 2.29, Δ_MCP 2.02, Δ_skel 2.31), point contact:
+
+| task | anchor | PR | U | MRM | MRS |
+|---|---|---|---|---|---|
+| pull-out | face | 19.4% | 71.7% | 8.5% | **53.3%** |
+| dial y | f1 | 23.4% | 7.7% | 9.2% | **6.4%** |
+| dial y | face | 9.3% | 26.5% | 8.0% | 9.5% |
+| pivot | f1 | 11.7% | 7.8% | 3.0% | 7.1% |
+| pivot | face | 5.4% | 22.2% | 7.4% | 11.0% |
+
+- Prediction 3 holds: MRS errs far more than MRM in the pull-out.
+- MRS is best only in dial y at f1, the fingertip-edge, palm-fixed case.
+- So trading the pad references for the tip path buys the fingertip case and costs the grasp.
+
+**Hydroelastic pull-out** (paper experiment 21's hydro, 0.1 MPa over 3 mm):
+
+| hand | E |
+|---|---|
+| PR / U (7 mm) | 16.7% / 253.8% |
+| MRM / MR (7 mm) | **12.8%** / 41.6% |
+| PR5 / MRM5 | 4.3% / 4.9% |
+| PR9 / MRM9 | 100.0% / **74.0%** |
+
+- The point-contact order holds with hydroelastic pads: MRM ≤ PR at 7 and 9 mm, and a tie at 5 mm.

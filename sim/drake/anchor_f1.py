@@ -35,7 +35,7 @@ LOGS = Path(__file__).resolve().parent / "logs"
 Q_DEG = np.arange(0.0, 120.0 + 1e-9, 0.25)
 
 
-MR = ["lowm_s4_e21", "highm_m3_e21", "highm_m4p5_e21", "mr_bz", "mrmid_bz", "mr_free", "mrmid_free", "h3to5_mr_free", "h3to5_mrmid_free", "h3to9_mr_free",
+MR = ["mrs_e22", "lowm_s4_e21", "highm_m3_e21", "highm_m4p5_e21", "mr_bz", "mrmid_bz", "mr_free", "mrmid_free", "h3to5_mr_free", "h3to5_mrmid_free", "h3to9_mr_free",
       "h3to9_mrmid_free"]  # e20's picks (B, or A and B, off the link line)
 HANDS = [*DESIGN, *MR]
 
