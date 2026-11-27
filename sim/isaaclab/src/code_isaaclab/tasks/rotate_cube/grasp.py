@@ -43,6 +43,13 @@ contact-preserving partner of UL120; UL120, coverage alone at RL's length;
 UL, coverage alone with L_f free in 120-150 mm, which takes 150), exported by the same script. O_thumbopt: O's fingers with
 the thumb-layout optimum (tilted CMC base, IP servo toward the MCP; ``docs/experimental/thumb_layout_opt.md``), same script."""
 
+_MR_DEFAULT = Path(__file__).resolve().parents[4] / "logs" / "finger_walk" / "hands"
+MR_HAND_DIR = Path(os.environ.get("CODE_MR_HAND_DIR", _MR_DEFAULT))
+MR_HANDS = {"MR": "mr_free", "MRM": "mrmid_free", "MRbz": "mr_bz", "MRMbz": "mrmid_bz"}
+HANDS.update({k: MR_HAND_DIR / f"cfl_q120_h3to7_{v}.json" for k, v in MR_HANDS.items()})
+"""The MCP-referenced 7 mm redesigns (``docs/experimental/pr_mr.md``): MR and MR-mid with A's and B's heights free
+(MR, MRM) or B's alone (MRbz, MRMbz), exported from ``design/output/sim/study3/hands/cfl_q120_h3to7_<v>.yaml``."""
+
 FINGERS = ("index", "middle", "ring")
 THUMB = ("thumb_ro", "thumb_raa", "thumb_mcp", "thumb_ip")
 CUBE_SIZE_M = 0.040

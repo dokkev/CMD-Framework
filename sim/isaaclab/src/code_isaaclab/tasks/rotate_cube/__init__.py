@@ -10,7 +10,7 @@ The defaults are the s15 policy's settings (``report/study4/in-hand.md``).
 
 import gymnasium as gym
 
-for _hand in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "O_thumbopt"):
+for _hand in ("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "O_thumbopt", "MR", "MRM", "MRbz", "MRMbz"):
     gym.register(
         id=f"CoDe-Rotate-Cube-{_hand}",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

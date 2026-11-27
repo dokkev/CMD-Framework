@@ -9,6 +9,8 @@
   links; ``scripts/study3_measurement/fixed_axis_hands.py``) rebuilt from O's current export by the same script. Their
   distal pad rides on ``<finger>_servo_link`` (:data:`TOUCH_BODY`).
 
+- ``MR``, ``MRM``, ``MRbz``, ``MRMbz``: the MCP-referenced 7 mm redesigns (``rotate_cube.grasp.MR_HANDS``).
+
 Importing this module adds them to ``rotate_cube.grasp.HANDS`` (new keys only)."""
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ..rotate_cube.grasp import HANDS
+from ..rotate_cube.grasp import HANDS, MR_HANDS
 
 GRID_HAND_DIR = Path(os.environ.get("CODE_WALK_GRID_HAND_DIR",
                                     Path(__file__).resolve().parents[4] / "logs" / "finger_walk" / "hands"))
@@ -29,6 +31,8 @@ for _h in (3, 5, 7, 9):
         GRID[f"FA{_h}"] = GRID_HAND_DIR / f"fa_q120_h{_h}.json"
 for _k, _p in GRID.items():
     HANDS.setdefault(_k, _p)
+for _k in MR_HANDS:  # the MCP-referenced redesigns (``docs/experimental/pr_mr.md``), already in HANDS
+    GRID[_k] = HANDS[_k]
 
 TOUCH_BODY = {k: ("servo_link" if k.startswith("FA") else "distal") for k in GRID}
 """The body that carries each finger's distal pad (the touch sensor's filter)."""
