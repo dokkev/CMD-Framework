@@ -367,6 +367,31 @@ Run data: `design/output/thumb_layout/h0/relaxed_orient20/proximal/seed0/` (794 
 - **Decision rule:** not met. The level is the same (K8) and the lever is lower (0.88 against 0.92). The pinch is 8.7 against 8.8 deg, not 3 deg better.
 - O_thumbopt stays the recommendation.
 
+### Double-support RAA bracket (Onshape, 2026-11-26)
+
+- **The structure.** The `oblique-cmc` branch's `thumb-example` assembly holds the RAA servo between two plates: `cmc-aa-bracket`, driven by the RO horn, and `cmc-aa-idler-bracket`, on the far side of the RO axis. Both turn with RO. Neither plate was in the collision model, which had the servo bodies only.
+- **Frame check.** The CAD X330 part frame equals the evaluator's servo frame shifted 5.5 mm along the output axis; the CAD body spans z −16.5…5.5 and the evaluator's ±11. With that shift, the CAD RO → RAA transform matches the evaluator's to 0.000.
+- **Geometry.** In the RAA frame each plate is 3.5 mm thick on a side face of the servo (x ±9.5…13), so along the RO axis. The idler plate reaches 3.5 mm further toward the fingers.
+- **Clearance to the abduction servos, beyond the 2 mm gap,** with the plates swept over the RO range (−90…90):
+
+| design | servo only (before) | with the plates |
+|---|---|---|
+| prototype | +2.18 | −1.32 (0.68 mm actual gap) |
+| O_thumbopt | +0.98 | −2.39 (0.39 mm overlap) |
+| O_pitch | +1.46 | −2.04 (0.04 mm overlap) |
+
+- The plates come within 2 mm of the abduction servos at every RO angle: the idler plate sits near the RO axis, so turning RO hardly moves it.
+- **Moving the CMC rearward (x), plates included:**
+
+| design | x −50.5 | −52.0 | −53.5 | −55.0 |
+|---|---|---|---|---|
+| O_pitch | F-K6, −2.04 | F-K6, −0.54 | **F-K6, +0.96** | F-K6, +2.46 |
+| O_thumbopt | F-K8, −2.39 | F-K3, −1.10 | F-K3, +0.35 | F-K3, +1.81 |
+
+- O_pitch clears with the CMC 3 mm further back (x −53.5) and keeps F-K6. O_thumbopt's F-K8 does not survive the move, which is one more reason to prefer the pitch-only base.
+- **Palm boxes.** The plates also overlap the model's palm hood/block by about 3 mm at some RO angle in every design, the prototype included. The palm boxes are the exporter's axis-aligned stand-in, so this needs checking against the real `palm-base` part, not the model.
+- **Not yet done:** the plates are not yet part of the optimisation's constraint (`Evaluator.envelope`).
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
