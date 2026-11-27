@@ -346,3 +346,21 @@ Driver: `sim/isaaclab/scripts/rotate_cube/run_mr_transfer.sh`; summary: `mr_tran
   1. Across the 13 hands (7 mm: R, U, MR, MRM, MRbz, MRMbz; plus these 8), the cube rotation ratio falls with Δt. Spearman ρ < 0, one-sided p < 0.05.
   2. MRM5 ≥ 0.90.
   3. Δt predicts the ratio better than Δ_contact or Δ_MCP: |ρ| is larger.
+
+## Result: Drake pull-out (paper experiment 21, point contact) with the MR hands (2026-11-27, post hoc)
+
+The cylinder rests on the proximal face (face-anchored by nature). Runs use `run_batch.sh point e21 <hands>`, and E comes from `analyze.error`, as in the paper.
+
+| hand | Δt | Δ_contact | Δ_MCP | E |
+|---|---|---|---|---|
+| PR / U (7) | 4 | 0.86 / 3.91 | 4.65 / 4.26 | 19.4% / 71.7% |
+| **MRM (7)** | **1** | 1.07 | 1.06 | **8.5%** |
+| MR (7) | 3 | 3.26 | 0.54 | 17.3% |
+| MRMbz / MRbz (7) | 4 | 2.08 / 3.47 | 2.10 / 1.66 | 13.8% / 33.9% |
+| PR5 / U5 | 2 | 0.35 / 1.58 | 2.10 / 2.16 | 4.2% / 36.9% |
+| MRM5 / MR5 | 0 / 0.9 | 0.28 / 0.99 | 0.28 / 0.11 | 5.3% / 5.4% |
+| PR9 / U9 | 6 | 2.32 / 3.89 | 6.36 / 6.11 | 14.8% / 55.2% |
+| **MRM9** / MR9 | 3 | 2.43 / 3.99 | 2.39 / 1.47 | **8.0%** / 16.2% |
+
+- At 7 and 9 mm, MRM errs less than PR in the paper's own pull-out, even though its Δ_contact is a little larger. At 5 mm, MRM5 and PR5 are within 1 point of each other.
+- Across Drake's pull-out, dial y and pivot (both anchorings) and Isaac's 7b′ and cube, MRM is the only 7 mm redesign that is never worse than the best other hand by more than a few points. In each task it is best or near best.
