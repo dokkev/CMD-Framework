@@ -401,6 +401,23 @@ Run data: `design/output/thumb_layout/h0/relaxed_orient20/proximal/seed0/` (794 
   - The recommended base is the front's highest F-level that keeps a lever ratio ≥ 0.85. Ties go to the smallest yaw/roll magnitude, since those are easier to build and more robust.
   - Fallback: O_pitch at x −53.5 (F-K6, +0.96 mm), from the probe above.
 
+### Result: re-optimisation with the double-support plates (2026-11-26)
+
+Run data: `design/output/thumb_layout/h0/strict_orient20_dsup/proximal/seed0/` (792 evaluations, 11 min).
+- **F-K8 is gone.** With the plates the front's best is F-K6 (8/11; K7 fails), from lever 0.86 (x −54.5, e 40, −7/−17/+14, pinch 9.3 deg) to lever 1.01 (x −55, e 26.5, −13/−19/+10, pinch 14.9 deg).
+- **The hypothesis held:** the front moved rearward (x −54…−59.5), and F-K6 survives.
+- **Pitch-only base with the plates** (z −10.5, proximal IP):
+
+| x | e 30 | e 32 | e 34 | e 36 | clearance beyond the 2 mm gap |
+|---|---|---|---|---|---|
+| −53.5 | F-K5 | F-K6 (lever 0.94) | F-K6 (0.92) | F-K4 | +0.96 |
+| −55.0 | F-K4 | F-K6 (0.94) | F-K6 (0.92) | F-K4 | +2.46 |
+
+  Its F-K6 window in e is narrow (32–34 mm). The pinch is 15–17 deg.
+- **Decision (registered rule).** The highest level is F-K6, with lever ≥ 0.85; ties go to the smallest yaw/roll. That picks the **pitch-only base: x −55, z −10.5, e 33, pitch −16, yaw = roll = 0**. It has F-K6, lever about 0.93 and +2.46 mm clearance with the plates. Choosing x −55 over −53.5 buys margin at no level cost.
+- **CAD mesh check of the plates, current CAD pose (O_thumbopt):** sampled surfaces over RO −90…90 put the idler plate 0.29–1.27 mm from the index abduction servo. There is no overlap, but the gap is below the 2 mm design gap. The box model (−0.39 mm) is about 0.7 mm conservative and agrees in direction.
+- **Palm.** The `palm-base` part studio is empty, and `hand-layout` has no palm housing around the thumb base. The model's overlap with the exporter's palm boxes is therefore a requirement for the housing still to be designed: it must leave room for the plates' sweep. It is not a clash with existing parts.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
