@@ -28,7 +28,7 @@ for _suffix, _cfg, _agent in (
         },
     )
 
-for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "MR", "MRM", "MRbz", "MRMbz", "MR5", "MRM5", "MR9", "MRM9", "MRS", "MS", "S2F", "S2F5", "S2F9", "SK", "SK5", "SK9"):  # zero-shot transfer of the O-trained v2 policy
+for _key in ("R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "MR", "MRM", "MRbz", "MRMbz", "MR5", "MRM5", "MR9", "MRM9", "MRS", "MS", "S2F", "S2F5", "S2F9", "SK", "SK5", "SK9", "SKF", "SKF5", "SKF9"):  # zero-shot transfer of the O-trained v2 policy
     gym.register(
         id=f"CoDe-Rotate-Cube-{_key}-OmniResetV2-Eval",
         entry_point="isaaclab.envs:ManagerBasedRLEnv",

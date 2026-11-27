@@ -24,7 +24,8 @@ RUNS = [("bz", "e20_mcp_referenced_bz", 7.0), ("free", "e20_mcp_referenced_free"
         ("free", "e20_mcp_referenced_free_h5", 5.0), ("free", "e20_mcp_referenced_free_h9", 9.0),
         ("e21", "e21_mcp_vs_skeleton", 7.0), ("e22", "e22_all_three_h7", 7.0),
         ("s2f", "e24_study2_free_h5", 5.0), ("s2f", "e24_study2_free_h7", 7.0), ("s2f", "e24_study2_free_h9", 9.0),
-        ("e25", "e25_skeleton_min_h5", 5.0), ("e25", "e25_skeleton_min_h7", 7.0), ("e25", "e25_skeleton_min_h9", 9.0)]
+        ("e25", "e25_skeleton_min_h5", 5.0), ("e25", "e25_skeleton_min_h7", 7.0), ("e25", "e25_skeleton_min_h9", 9.0),
+        ("e25f", "e25_skeleton_min_free_h5", 5.0), ("e25f", "e25_skeleton_min_free_h7", 7.0), ("e25f", "e25_skeleton_min_free_h9", 9.0)]
 LABELS = {"MR": "mr", "MR-mid": "mrmid", "lowM_s4": "lowm_s4", "highM_m3": "highm_m3", "highM_m4p5": "highm_m4p5", "MRS": "mrs", "MS": "ms", "S2F": "s2free", "Conv": "conv"}
 
 

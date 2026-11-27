@@ -686,3 +686,16 @@ Coverage ends of each front (free heights) against the paper's Study 2 (`study2_
   1. 7b′: Skeleton ratio < 0.3. Its Δ_contact is far above attempt 9's Dc50 of 1.7, and Palm-Tip (Δ_contact 4.0) gave 0.18.
   2. Relay: Skeleton ≥ Coverage under both anchors. The relay follows the fingertip's path, and Δ_skel is 0.34 against 3.38.
   3. Cube rotation: Skeleton ≤ 0.78. Its Δd_p is 4, like Pad-Pad and Coverage (0.70–0.75).
+
+## Skeleton in MO-Pad's space (pins free; `e25_skeleton_min.py --free-heights`, 2026-11-27)
+
+The least Δ_skel at C̄_pad no more than 0.05 below MO-Pad's. These hands are Skeleton's data once CoDe becomes MO-Pad. Code key `conv_e25f`; Isaac `SKF`, `SKF5`, `SKF9`.
+
+| t | Δ_skel | Δ_contact | Δ_MCP | C̄_pad | face | A height | mount |
+|---|---|---|---|---|---|---|---|
+| 5 | 0.08 | 2.86 | 2.05 | 0.740 | 7.2 | 0.8 | 2.2 |
+| 7 | 0.23 | 4.46 | 4.19 | 0.699 | 7.0 | 4.9 | 0 |
+| 9 | 0.98 | 7.01 | 6.98 | 0.658 | 9.0 | 6.0 | 0 |
+
+- At 7 mm it keeps the skeleton better than e22's Palm-Tip (`ms_e22`: Δ_skel 0.60, C̄_pad 0.703), under the same coverage rule as the Skeleton hands of Study 2's space.
+- Runs are queued behind the paper's Skeleton runs: the Drake tasks, cube, 7b′ and relay, and Isaac condition A. The predictions are those of `conv_e25`.

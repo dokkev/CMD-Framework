@@ -45,6 +45,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seeds", type=int, nargs="+", default=(0, 1))
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--coverage_floor", type=float, default=0.70)
+    ap.add_argument("--free-heights", action="store_true",
+                    help="A's and B's heights searched (MO-Pad's space); the coverage reference is then MO-Pad's pick")
     args = ap.parse_args(argv)
     config = read_config_file(ROOT / "scripts" / "study" / "study2_morphology_adaptation" / "one_finger.yaml")
     designs = E.e15.study1.study1_designs("cfl", config["architectures"]["cfl"], 120.0, config)
@@ -58,6 +60,7 @@ def main(argv=None) -> int:
         study2 = [r for r in csv.DictReader(stream) if r["architecture"] == "cfl" and float(r["required_flexion_deg"]) == 120]
     for t in args.to:
         goal = designs[t]
+        cfg = E.with_b_z(goal.config, -3, 10, a_z=(-3, 8)) if args.free_heights else goal.config
         warm = [tuple(goal.x)]
         own = [r for r in study2 if float(r["to_mm"]) == t]
         if own:
@@ -65,7 +68,7 @@ def main(argv=None) -> int:
         rows = []
         for seed in args.seeds:
             t0 = time.time()
-            res = run_study(mech, goal.config, OptimizerSettings("nsga2", 200, 200, seed), initial_designs=warm,
+            res = run_study(mech, cfg, OptimizerSettings("nsga2", 200, 200, seed), initial_designs=warm,
                             workers=args.workers)
             for c in res.pareto:
                 e = c.evaluation
@@ -77,10 +80,13 @@ def main(argv=None) -> int:
                                  "ma_wc": r.get("ma_wc"), "face_depth_proximal_mm": r.get("proximal_depth_mm"),
                                  "x": ";".join(f"{v:.6g}" for v in c.x)})
             print(f"{t:g} mm seed {seed}: {len(res.pareto)} front, {time.time() - t0:.0f} s", flush=True)
-        out = ROOT / "output" / "study" / "exploratory" / f"e25_skeleton_min_h{t:g}"
+        out = ROOT / "output" / "study" / "exploratory" / (f"e25_skeleton_min{'_free' if args.free_heights else ''}_h{t:g}")
         out.mkdir(parents=True, exist_ok=True)
         E.shared.write_csv(out / "front.csv", rows)
         floor = (max(float(r["c_pad_mean"]) for r in own) - 0.05) if own else args.coverage_floor
+        if args.free_heights:
+            mo = ROOT / "output" / "study" / "exploratory" / ("e20_mcp_referenced_free" + ("" if t == 7 else f"_h{t:g}")) / "picks.csv"
+            floor = float(next(r for r in csv.DictReader(mo.open()) if r["label"] == "MR-mid")["c_pad_mean"]) - 0.05
         ok = [r for r in rows if r["c_pad_mean"] >= floor]
         if not ok:
             print(f"{t:g} mm: no design with C_pad >= {args.coverage_floor}")
