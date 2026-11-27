@@ -1,8 +1,8 @@
 """Grasp acquisition drawn from the fingertip (render only; the measured experiment 23 starts 3-6 mm from the grasp,
 over the PIP when the finger is open): hand O, the cylinder started on the open finger's distal pad (--start_mm from the
 proximal-face frame's origin; 62 mm, 6.6 mm past the pad's proximal end), the finger closing as experiment 23 (O's setpoint,
-load toward the tip and the face), the thumb swinging in over the frames as if to wrap the object (a drawing pose
-only: it does not touch the cylinder and is not simulated). Experiment 23b (the same start in the experiment) is a
+load toward the tip and the face). The thumb takes no part and stays at its neutral pose (--wrap swings it in as
+a drawing pose only). Experiment 23b (the same start in the experiment) is a
 TODO in report/study3.
 
     uv run python render_acquire_tip.py [--times 0 1 3] [--start_mm 62]  ->  logs/render_acquire_tip{0,1,2}.png, _strip.png
@@ -55,7 +55,7 @@ def main() -> int:
     a = p.parse_args()
     fr = acquire_from(a.times, a.start_mm)
     frames = [fr[t] for t in a.times]
-    wrap = a.wrap or list(np.linspace(0.0, 1.0, len(frames)))
+    wrap = a.wrap or [0.0] * len(frames)  # the thumb takes no part: left at its neutral pose unless --wrap is given
     for t, st in zip(a.times, frames):
         print(f"t {t:g} s: centre {np.round(st['centre'], 2)} mm, q {math.degrees(st['distal'][2]):.1f} deg")
     R3.GONE_MM = 1.0e9  # drawn in ~50 mm from the fingertip: still in the hand, not "gone"
