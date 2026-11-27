@@ -856,3 +856,15 @@ Skeleton at 5 / 9 mm in the cube: 0.810 / 0.531 (s20), 0.342 / 0.153 (s21).
 
 - Skeleton errs most at every thickness, as in Drake. Its fingertip path stays within 0.06–1.94 mm of O's, while its contact surfaces move 3.4–8.5 mm.
 - The other conditions of the block (B, C, D sweep, E, padk) are logged under `sim/isaaclab/logs/study3/two_pad/tp_*conv_e25*`; Table I no longer carries Skeleton, so they are not tabulated here.
+
+## Result: Skeleton with the convex pad in Isaac Lab, condition A (2026-11-27)
+
+`run_gpu_extra.sh` (GPU_EXTRA_DONE). Tag `A-crowned-crowned` for `conv_e25`, scored with `robust_analysis.shape_effect` logic and `table_signed.pairs_from` against O's convex-pad effect (the Table I "convex pad, MuJoCo-Warp" setting).
+
+| hand | pairs | signed median | E |
+|---|---|---|---|
+| CoDe (R) | 13 | −27% (Table I) | — |
+| Coverage (U) | 5 | +117% | 157% |
+| Skeleton | 5 | +83% | 198% |
+
+- Skeleton overstates the convex pad's effect and errs more than Coverage in magnitude, on the same 5 pairs. Few pairs pass for the two thick-contact hands (O's convex-pad gate), so this is a small sample.
