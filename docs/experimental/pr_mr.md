@@ -295,3 +295,37 @@ Wall time: the 18 hands × 3 tasks took 61 min (3, then 6 workers). The 8 MR han
   2. Under face the ratio orders by Δ_contact: PR ≈ MRM > MR ≈ U.
   3. MRM is within 0.1 of the best hand under both anchors.
 - **Kill rule.** If O's face-anchored rotation is off its logged 280 deg by more than 5%, stop.
+
+## Result: RL zero-shot transfer to MR, 7b′ and cube (2026-11-27)
+
+Driver: `sim/isaaclab/scripts/rotate_cube/run_mr_transfer.sh`; summary: `mr_transfer_summary.py`; outputs in `sim/isaaclab/logs/pr_mr_transfer/`.
+- O reproduced its logged values within ±4.5%, so the kill rule passed.
+- MR's and MRM's cube grasp generation first hit a CUDA out-of-memory while attempt 9's grid shared the GPU. Both were rerun alone (rc 0).
+
+| hand | Δt (face) | Δ_contact | Δ_MCP | 7b′ ratio (seed 20 / 21) | 7b′ E | cube rotation ratio | cube full≤30° ratio | cube E (rotation) |
+|---|---|---|---|---|---|---|---|---|
+| PR (R) | 4 | 0.86 | 4.65 | 0.72 / 0.61 | 0.20 | 0.749 | 0.703 | 0.11 |
+| U | 4 | 3.91 | 4.26 | 0.08 / 0.07 | 1.34 | 0.703 | 0.800 | 0.15 |
+| MR (free) | 3 | 3.26 | 0.54 | 0.06 / 0.07 | 1.36 | 0.766 | 0.730 | 0.19 |
+| **MRM (free)** | **1** | 1.07 | 1.06 | 0.71 / 0.59 | 0.41 | **0.938** | **0.976** | 0.44 |
+| MRbz | 4 | 3.47 | 1.66 | 0.03 / 0.06 | 1.40 | 0.754 | 0.738 | 0.20 |
+| MRMbz | 4 | 2.08 | 2.10 | 0.18 / 0.12 | 1.31 | 0.743 | 0.728 | 0.03 |
+
+- Eval-seed noise of the cube rotation ratio is 0.02–0.08, and 0.005–0.06 for full≤30°.
+- 7b′ ratios are pooled over the two training seeds in the E column.
+- The cube E noise is 0.03–0.26, and O's cube response is small (Δ(O) −115 deg; full≤30° −0.065). So E does not separate the hands.
+- **Verdict on the registered predictions.**
+  1. **Cube: MR and MRM better than PR and U on the ratio and on E. Fails as stated.**
+     - MRM beats every hand on the ratio, by 0.19 to 0.24, against noise of about 0.05.
+     - MR does not beat PR.
+     - E separates nothing.
+     - The premise (the cube is palm-anchored) was wrong before any result; see the correction above.
+  2. **7b′: MRM ≈ PR > MR, and MR no better than U. Holds.**
+  3. **MRM within 0.1 of O's ratio on both tasks. Fails.**
+     - Cube: holds, at 0.94 and 0.98.
+     - 7b′: fails, at 0.65. PR, the best 7b′ hand, is 0.67, so 0.1 of O was too strict a mark.
+- **What stands out (post hoc).**
+  - **MRM is the first redesign that inherits the cube policy almost whole.** On rotation it gets 0.94 and full turns 0.98. All the other 7 mm redesigns sit at 0.70–0.77, PR included. The cube task uses the MCP, the abduction and the thumb.
+  - The hands that fail all move the proximal face 3–4 mm. MRM moves it 1 mm, and also keeps both Δ_contact and Δ_MCP near 1 mm.
+  - In 7b′, MRM equals PR. So keeping the face in place costs nothing there, and it buys the cube.
+  - Next: a dose check on Δt with the 5 mm and 9 mm MR and MRM hands on the cube.
