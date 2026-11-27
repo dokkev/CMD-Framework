@@ -673,3 +673,25 @@ The distal-IP orientation run was rerun after the warm-start fix. Best design: x
   - The robust front keeps K6 or better under all 12 perturbations.
 - **Decision rule.** As in the previous pre-registration: among robust-front designs with lever ≥ 0.85, the highest level kept under every perturbation, then the highest robust score, then the best pinch.
 - **Not modelled.** IP self-contact between the proximal and distal thumb bodies at large hyperextension, beyond the capsule set, which skips adjacent links. This needs a CAD check.
+
+### Result: prototype fingers, IP ≥ −90, in-plane oblique axis, nominal run (2026-11-26)
+
+Run data: `design/output/thumb_layout/prototype_pads/strict_zaxis_ip90/proximal/seed0/` (780 evaluations, 16 min).
+- **The first hypothesis held.** F-K8 is reached down to the shortest case, e = 15 mm. Every front design has pinch 0 and touch K9.
+
+| x, z, e [mm] | yaw (Z) | clocking | F | lever (IP/MCP) |
+|---|---|---|---|---|
+| −56.5, −5.5, 45 | +7 | −37 | K8 (8.935) | 0.81 (0.96/0.81) |
+| −58.5, −5, 22.5 | +6 | −41 | K8 (8.908) | 1.05 (1.93/1.05) |
+| −56.5, −6, 15.5 | +5 | −45 | K8 (8.831) | 1.10 (2.31/1.10) |
+
+- **How it gets there: the IP works hyperextended.**
+  - At x −58.5, e 22.5 the levels use IP −22 to −32 deg for K0–K2, and −40 to −85 deg for K3–K8.
+  - The pinches use −69 and −79 deg.
+  - K5 sits on the IP limit with its 5 deg margin (−85).
+  - In effect the distal segment folds back so that its pad faces the finger.
+- **The clocking sits at or near its −45 deg bound.** RO itself reaches −85 in the RO window, which is −130 deg from the prototype zero. The RO joint has no limit, so the bound only places the 180 deg arc that the RAA sweep must clear.
+- **Open.**
+  - IP self-contact at 60–85 deg of hyperextension is not modelled.
+  - The IP servo would hold the pad force in hyperextension, with the force pushing the IP further into extension.
+  - Robustness: the robust run is going.
