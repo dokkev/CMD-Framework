@@ -668,3 +668,10 @@ Coverage ends of each front (free heights) against the paper's Study 2 (`study2_
   1. CoDe errs less than Conventional in every task and both contact models.
   2. In the grasping tasks (pull-out 21, acquisition 23, hook 38), Conventional errs at least as much as Coverage, since its Δ_contact is larger (6.61 against 3.91).
   3. Adding Conventional to the hands of each task keeps E's correlation with Δ_contact positive, and Δ_skel's no better than before.
+
+**Names, revised the same day (user).**
+- Paper labels: **CoDe**, **Skeleton**, **Coverage**. "Conventional" is not used.
+- CoDe carries R's data now and MO-Pad's once the reruns finish (the user picked MO-Pad).
+- Skeleton is the least-Δ_skel hand of the same space: `conv_e25` now, Palm-Tip (`ms_e22`) when CoDe is MO-Pad.
+- Coverage is U.
+- In this document the analysis names stay (Pad-Pad, MO-Pad, Palm-Tip, S2F; the `conv_e25` hands are "Palm-Tip (S2 space)").
