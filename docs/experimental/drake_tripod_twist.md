@@ -104,3 +104,21 @@ All 22 hands ran (`logs/e44b_tripod.json`).
   - These hands mount the proximal pad at 0, so their distal pad stands farther from the object. O's setpoint + 3° does not close that gap.
   - This is the protocol (a thumb held at a fixed place), not the pinch's mechanics: a real pinch closes the thumb until contact.
 - Three maxDs hands over-press (penetration > 1.5 mm). The stiff thumb turns their extra pad motion into squeeze.
+
+## Pre-registration: 44c, the thumb closes until contact and is then held (2026-11-27; O calibrated)
+
+- **Why:** in 44b, MO-Pad and S2F never touched the object. The thumb was held at O's place, and their distal pad stands farther from it. A real pinch closes the thumb until contact.
+- **Protocol** (`tripod_twist.py run --thumb_lock`):
+  1. The finger closes to O's q_s. The thumb is on experiment 33's soft spring.
+  2. The object is released. The soft thumb pushes it onto the pad (experiment 43's release).
+  3. The thumb is then held stiff (1525 N/m) where it stopped.
+  4. The finger presses to q_s + 3° (O's setpoint, reused), so the squeeze is the finger's.
+  5. The twist ramp follows, as in 44b.
+- **Data seen before this pre-registration:** a 3-draw check on O, R and MO-Pad, to confirm that MO-Pad touches. R and MO-Pad were within 0.3–1.6 mN·m of O there; no E was computed.
+- **O (tag e44c) and the noise floor (tag e44cn, +0.05°):**
+  - O keeps all 64 draws (penetration max 0.74 mm).
+  - D(O) is 21.5 / 23.9 / 25.6 mN·m. τ(O, μ 1.3) is 33.0 / 38.4 / 41.6 mN·m.
+  - Noise floor: E 0.14% (p75 0.15%).
+- **Judgments, hands and stop rule:** as in experiment 44.
+  - Judgment 5: MO-Pad's E is within 3 points of R's.
+  - R and U run first. If E_U < 10%, the run stops.

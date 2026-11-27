@@ -80,18 +80,34 @@ def load_curve(hand, mu, pl, opts, delta_deg=0.0) -> dict:
         prox_max = max(prox_max, f["proximal"])
         return f
 
-    s1 = P.Run(hand, mu, pl0, ts, k_theta, d_theta, "hold", hold_opts)
+    lock = opts.get("thumb_lock", False)  # 44c: the thumb closes on its soft spring, then is held where it stopped
+    soft = {**opts, "k_thumb": P.K_THUMB}
+    q_close = q_s if lock else q_cmd
+    s1 = P.Run(hand, mu, pl0, ts, k_theta, d_theta, "hold", {k: v for k, v in (soft if lock else opts).items()
+                                                                if k != "t_drive"})
     s1.sim.Initialize()
     theta_s = float(np.interp(q_cmd, qs, th))
     for i in range(n_app + n_set):
-        q = q_cmd * min(1.0, (i + 1) / n_app)
+        q = q_close * min(1.0, (i + 1) / n_app)
         s1.theta_cmd = float(np.interp(q, qs, th))
         s1.step()
         watch(s1)
     held = s1.plant.GetPositionsAndVelocities(s1.pctx).copy()
+    pl_free = pl0
+    if lock:  # the soft thumb pushes the object onto the pad (experiment 43's release), then the thumb is locked there
+        s2 = P.Run(hand, mu, pl0, ts, k_theta, d_theta, "free", soft)
+        s2.plant.SetPositionsAndVelocities(s2.pctx, held)
+        s2.theta_cmd = float(np.interp(q_s, qs, th))
+        s2.sim.Initialize()
+        for _ in range(n_rel):
+            s2.step()
+            watch(s2)
+        held = s2.plant.GetPositionsAndVelocities(s2.pctx).copy()
+        q_th = s2.plant.GetJointByName("thumb_n").get_translation(s2.pctx)
+        pl_free = {**pl0, "preload_n": -q_th * opts["k_thumb"]}  # the stiff thumb's rest = where it stopped
     out = {"dirs": {}}
     for sgn in DIRS:
-        s = P.Run(hand, mu, pl0, ts, k_theta, d_theta, "free", opts)
+        s = P.Run(hand, mu, pl_free, ts, k_theta, d_theta, "free", opts)
         s.plant.SetPositionsAndVelocities(s.pctx, held)
         s.theta_cmd = theta_s
         s.sim.Initialize()
@@ -99,7 +115,9 @@ def load_curve(hand, mu, pl, opts, delta_deg=0.0) -> dict:
         n_act = s.plant.num_actuators()
         i_t = n_act - 2  # the t drive, then spin
         f = None
-        for _ in range(n_rel):
+        for i in range(n_rel):
+            if lock:  # the press, q_s -> q_s + PRESS_DEG, with the thumb held
+                s.theta_cmd = float(np.interp(q_s + (q_cmd - q_s) * min(1.0, (i + 1) / (n_rel // 2)), qs, th))
             s.step()
             f = watch(s)
         lost_pre = f is None or f["distal"] < T.LOSS_N or f["thumb"] < T.LOSS_N
@@ -173,6 +191,8 @@ def cmd_run(a) -> int:
     opts = {**DEFAULTS, "time_step": a.time_step}
     if a.finger_squeeze:
         opts.update(k_thumb=K_THUMB_HELD, press_deg=PRESS_DEG, t_drive=(K_DRIVE_B, D_DRIVE_B))
+    if a.thumb_lock:
+        opts.update(k_thumb=K_THUMB_HELD, press_deg=PRESS_DEG, t_drive=(K_DRIVE_B, D_DRIVE_B), thumb_lock=True)
     for hand in a.hands:
         t0 = time.time()
         with Pool(a.workers) as pool:
@@ -307,6 +327,8 @@ def main() -> int:
     pr.add_argument("--workers", type=int, default=4)
     pr.add_argument("--finger_squeeze", action="store_true",
                     help="44b: the thumb held stiff (K_THUMB_HELD), the finger closed to q_s + PRESS_DEG")
+    pr.add_argument("--thumb_lock", action="store_true",
+                    help="44c: the thumb closes on its soft spring until contact, is held there, then the finger presses")
     pa = sub.add_parser("analyze")
     pa.add_argument("--tag", required=True)
     pa.add_argument("--noise_tag", default=None)
