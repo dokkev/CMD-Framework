@@ -45,7 +45,7 @@ the thumb-layout optimum (tilted CMC base, IP servo toward the MCP; ``docs/exper
 
 _MR_DEFAULT = Path(__file__).resolve().parents[4] / "logs" / "finger_walk" / "hands"
 MR_HAND_DIR = Path(os.environ.get("CODE_MR_HAND_DIR", _MR_DEFAULT))
-MR_HANDS = {"MR": "mr_free", "MRM": "mrmid_free", "MRbz": "mr_bz", "MRMbz": "mrmid_bz"}
+MR_HANDS = {"MR": "mr_free", "MRM": "mrmid_free", "MRbz": "mr_bz", "MRMbz": "mrmid_bz", "MRS": "mrs_e22"}
 HANDS.update({k: MR_HAND_DIR / f"cfl_q120_h3to7_{v}.json" for k, v in MR_HANDS.items()})
 MR_HANDS_59 = {f"{k}{t}": (t, v) for t in (5, 9) for k, v in (("MR", "mr_free"), ("MRM", "mrmid_free"))}
 HANDS.update({k: MR_HAND_DIR / f"cfl_q120_h3to{t}_{v}.json" for k, (t, v) in MR_HANDS_59.items()})

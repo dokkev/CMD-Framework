@@ -386,3 +386,17 @@ The cylinder rests on the proximal face (face-anchored by nature). Runs use `run
   - The hand with the smallest Δ_skel (U) transfers best under both anchors. That matches the attempt-7a′ note that the fingertip position sets the result there, and Drake dial y under f1, where Δ_skel carried the error too.
   - So the contact-surface account covers pad contact. A task that touches with the fingertip end follows the skeleton's tip path, whatever the anchoring. That is a scope limit to state.
 - All hands transfer better under f1 than under face (by about 0.1–0.17). Placing the dial in each hand's own face frame moves it about 4 mm along the face normal; at O's palm pose it sits closer to where the hand's fingertips actually are.
+
+## A second bound, and the MRS hand (2026-11-27)
+
+- **Bound.** The distal contact point is the fingertip C plus the distal face depth, turned with the distal phalanx: c = C + R(q)(0, −d). In F₁, therefore, Δc(q) − ΔC(q) = R(q)(0, −Δd) at every q, where Δd is the distal face's depth change. So Δ_MCP + Δ_skel ≥ |Δd|.
+  - The distal face's depth is set from B on the distal link line, and the distal mount stays at its least supported value, 3 mm. Raising B lifts the frame with it. So Δd = h − 3 for these designs: 4 mm at 7 mm.
+  - With the first bound (Δ_contact + Δ_MCP ≥ |Δt|), a redesign cannot keep the palm-frame contact point and the palm-frame fingertip together when the pad thickens. This is the "contact versus skeleton" trade, seen from the palm.
+- **MRS** (`design/scripts/study/exploratory/e22_all_three.py`, 7 mm). The least max(Δ_contact, Δ_MCP, Δ_skel) at C̄_pad ≥ 0.70:
+  - Δ_contact 2.29, Δ_MCP 2.02, Δ_skel 2.31, C̄_pad 0.701, MA 0.54, face 7.
+  - Δ_MCP + Δ_skel = 4.33 ≥ 4.
+- **Pre-registration (before any MRS run).** The runs are the relay dial (face and f1), 7b′, the Drake pull-out, dial y and pivot (f1 and face).
+  1. Relay: MRS ≥ U under f1. Its Δ_skel is smaller than U's.
+  2. 7b′: MRS ratio < 0.5. Its Δ_contact is above attempt 9's Dc50 of 1.7.
+  3. Drake pull-out: MRS errs more than MRM.
+  - If all three hold, no single 7 mm redesign serves pad and fingertip-end contact together. That is the bound in practice.
