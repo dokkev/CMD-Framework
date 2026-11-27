@@ -297,3 +297,10 @@ Clarity and Presentation stay at 2: density in five pages (symbols, hand names, 
 New small items: Delta t used for both the pad-depth change and the palm-ward face shift; Fig. 1's O/X marks clash
 with O; how the 15 decoupling redesigns were built; relative error when Delta(O) is small; "+: overstated" split
 across columns. Score-limiting items unchanged: no hardware, pads not deformable, two RL seeds.
+
+v39: 6, 6, 6, all Accept (manuscript e5db966; twelve decoupling redesigns stated, small reference effects dropped on
+O alone, Delta t_p, check and cross marks in Fig. 1). r1 O3 Q3 C2 Si2 So3 P2 Co3; r2 same; r3 same. User
+(2026-11-27): stop chasing 7, 7, 7; work on clarity and presentation. Concrete presentation items across the three:
+Eq. 4 derivation too terse; Eq. 9 front use unstated; Table I header irregular and "MJWarp" vs "MuJoCo-Warp";
+Fig. 4 annotations too small; Fig. 1(c) "83% of ref.'s change"; Fig. 3(c) clipping convention; abstract hard to
+parse; Skeleton's constraint and the per-task floors too compressed; contribution bullet cites only the walk.
