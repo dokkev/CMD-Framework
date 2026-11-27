@@ -1,0 +1,37 @@
+# Drake: a tripod pinch translating the object toward the palm (experiment 45, experimental; not Study 3)
+
+User request (2026-11-27): try three-finger-pinch tasks (candidate 2, after the tripod twist 44b). A Fig. 4 candidate; results stay out of report/ until the user decides.
+
+## Pre-registration (2026-11-27; O calibrated, no redesigned hand run)
+
+### Task (`sim/drake/pinch_translate.py`)
+
+- **Setup:** the thumb holds one face of the object, the index and middle fingertips the other. The two fingers flex together and drag the object along the thumb toward the palm. By symmetry one planar finger models it.
+- **Scene:** experiment 44's.
+  - The thumb is frictionless, on experiment 33's soft squeeze spring.
+  - The object's face is a sphere of r 20–40 mm, its spin held.
+  - The object is tethered along O's pad tangent by a spring of 600 N/m. Without the tether, friction would not matter and D would be about 0.
+- **Command:** close to O's q_s, release, then flex by sweep_deg (18–28°) over 2 s and hold 0.5 s.
+- **Measure:** the object's travel along the tangent, from the sweep's start to the end. D = travel(μ 2.0) − travel(μ 1.3); E(H) = median |D(H) − D(O)| / |D(O)|.
+- **Draws:** 64, seed 45 (`logs/ptrans_e45.json`).
+- **Tuning, on O only:**
+  - A stiff thumb (44b's) blocks the object along the normal. The flexing pad then presses the object (10 N, 4.5 mm penetration) instead of dragging it, and nothing slips. The thumb is therefore soft here.
+  - Tether stiffness, from a 4-draw pilot on O: at 200 N/m the object never slips, and at 1000 N/m it always does. 600 N/m was chosen between them, so that μ 1.3 slips and μ 2.0 is near the drag limit.
+- **Known risk:** the thumb's spring sets the squeeze again, as in experiments 43 and 44. The design can still enter through how far the pad carries the object before it slips (the contact path).
+
+### O (tag e45) and the noise floor (tag e45n, +0.05°)
+
+- O keeps 47 of 64 draws. The other 17 are excluded as |D| < 3% of the travel, all at μ 2.0 = μ 1.3 (the object slips at neither μ).
+- D(O) is 0.25 / 1.61 / 3.21 mm, all positive. travel(O, μ 1.3) is 2.24 / 2.91 / 4.53 mm.
+- Noise floor: E 0.65% (p75 1.77%).
+
+### Hands and judgments
+
+- As in experiment 44: the 18 hands of `analyze.DESIGN`, plus Skeleton, MO-Pad, S2F and pins-free Skeleton.
+- **Judgments:**
+  1. E_R < E_U.
+  2. ρ(E, Δ_contact) > 0, p < 0.05.
+  3. ρ(E, Δ_skel) is reported.
+  4. Skeleton's E ≥ U's.
+  5. MO-Pad's E is within 3 points of R's.
+- **Stop rule:** R and U run first. If E_U < 10%, the run stops and is reported as not discriminating.
