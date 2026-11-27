@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Experimental (playground): redesigns that keep Delta_contact, Delta_MCP and Delta_skel small together
 (docs/experimental/pr_mr.md). NSGA-II, A and B heights free, objectives max(Delta_contact, Delta_MCP), Delta_skel, -C_pad.
-Picks at C_pad >= floor: the least max(Delta_contact, Delta_MCP, Delta_skel) ("MRS").
+Picks at C_pad >= floor:
+- MRS: the least max(Delta_contact, Delta_MCP, Delta_skel);
+- MS: the least Delta_skel (the skeleton-referenced counterpart of MR-mid, which keeps both pad references).
 
-    python scripts/study/exploratory/e22_all_three.py [--to 7] [--seeds 0 1]
+    python scripts/study/exploratory/e22_all_three.py [--to 7] [--seeds 0 1] [--repick]
 """
 import argparse
 import csv
@@ -40,7 +42,12 @@ def main(argv=None) -> int:
     ap.add_argument("--seeds", type=int, nargs="+", default=(0, 1))
     ap.add_argument("--workers", type=int, default=7)
     ap.add_argument("--coverage_floor", type=float, default=0.70)
+    ap.add_argument("--repick", action="store_true", help="only redo the picks from the saved front.csv")
     args = ap.parse_args(argv)
+    out = ROOT / "output" / "study" / "exploratory" / f"e22_all_three_h{args.to:g}"
+    if args.repick:
+        rows = [{k: (v if k == "x" else float(v)) for k, v in r.items()} for r in csv.DictReader((out / "front.csv").open())]
+        return write_picks(out, rows, args.coverage_floor)
     config = read_config_file(ROOT / "scripts" / "study" / "study2_morphology_adaptation" / "one_finger.yaml")
     designs = E.e15.study1.study1_designs("cfl", config["architectures"]["cfl"], 120.0, config)
     h0, goal = designs[3.0], designs[args.to]
@@ -67,15 +74,22 @@ def main(argv=None) -> int:
                              "ma_wc": base.report(e.base).get("ma_wc"), "face_depth_proximal_mm": base.report(e.base).get("proximal_depth_mm"),
                              "x": ";".join(f"{v:.6g}" for v in c.x)})
         print(f"seed {seed}: {len(res.pareto)} front, {time.time() - t0:.0f} s", flush=True)
-    out = ROOT / "output" / "study" / "exploratory" / f"e22_all_three_h{args.to:g}"
     out.mkdir(parents=True, exist_ok=True)
     E.shared.write_csv(out / "front.csv", rows)
-    ok = [r for r in rows if r["c_pad_mean"] >= args.coverage_floor]
-    best = min(ok, key=lambda r: max(r["mcp_change_mm"], r["contact_change_mm"], r["skeleton_change_mm"]))
-    best = {**best, "label": "MRS"}
-    print(f"MRS: D_c {best['contact_change_mm']:.2f} D_MCP {best['mcp_change_mm']:.2f} D_s {best['skeleton_change_mm']:.2f} "
-          f"C {best['c_pad_mean']:.3f} MA {best['ma_wc']:.2f} face {best['face_depth_proximal_mm']}")
-    E.shared.write_csv(out / "picks.csv", [best])
+    return write_picks(out, rows, args.coverage_floor)
+
+
+def write_picks(out: Path, rows: list, floor: float) -> int:
+    ok = [r for r in rows if r["c_pad_mean"] >= floor]
+    picks = []
+    for label, key in (("MRS", lambda r: max(r["mcp_change_mm"], r["contact_change_mm"], r["skeleton_change_mm"])),
+                       ("MS", lambda r: r["skeleton_change_mm"])):
+        best = {**min(ok, key=key), "label": label}
+        picks.append(best)
+        print(f"{label}: D_c {best['contact_change_mm']:.2f} D_MCP {best['mcp_change_mm']:.2f} "
+              f"D_s {best['skeleton_change_mm']:.2f} C {best['c_pad_mean']:.3f} MA {best['ma_wc']:.2f} "
+              f"face {best['face_depth_proximal_mm']}")
+    E.shared.write_csv(out / "picks.csv", picks)
     return 0
 
 

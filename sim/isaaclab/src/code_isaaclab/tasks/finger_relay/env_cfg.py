@@ -290,7 +290,7 @@ for _v, _noise in OBS_NOISE.items():
     _n = f"FingerRelayO{_v}EnvCfg"
     globals()[_n] = configclass(type(_n, (FingerRelayEnvCfg,), {"hand_key": "O", "dial_noise": _noise}))
 
-KEYS = ("O", "R", "U", "R5", "U5", "R9", "U9", "MR", "MRM", "MRS")
+KEYS = ("O", "R", "U", "R5", "U5", "R9", "U9", "MR", "MRM", "MRS", "MS")
 for _key in KEYS:
     for _v, _extra in (("", {}), ("Touch", {"dial_observed": False}),
                        *((k, {"dial_noise": v}) for k, v in OBS_NOISE.items())):

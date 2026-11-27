@@ -23,7 +23,7 @@ from core.optimization.mechanism import mechanism, read_config_file  # noqa: E40
 RUNS = [("bz", "e20_mcp_referenced_bz", 7.0), ("free", "e20_mcp_referenced_free", 7.0),
         ("free", "e20_mcp_referenced_free_h5", 5.0), ("free", "e20_mcp_referenced_free_h9", 9.0),
         ("e21", "e21_mcp_vs_skeleton", 7.0), ("e22", "e22_all_three_h7", 7.0)]
-LABELS = {"MR": "mr", "MR-mid": "mrmid", "lowM_s4": "lowm_s4", "highM_m3": "highm_m3", "highM_m4p5": "highm_m4p5", "MRS": "mrs"}
+LABELS = {"MR": "mr", "MR-mid": "mrmid", "lowM_s4": "lowm_s4", "highM_m3": "highm_m3", "highM_m4p5": "highm_m4p5", "MRS": "mrs", "MS": "ms"}
 
 
 def main() -> int:

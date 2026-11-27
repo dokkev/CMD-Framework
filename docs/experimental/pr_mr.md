@@ -478,3 +478,19 @@ All evals rc 0. Ratios are against O.
   - Attempt 9's Dc50 was measured on hands whose proximal face all moved by h − 3: 4 mm at 7 mm. Δt was constant there, so it could not show.
   - Here MRS (Δ_contact 2.29, Δt 1) walks at 0.66, while MRMbz (Δ_contact 2.08, Δt 4) collapses to 0.15.
   - In 7b′, as in the cube, a small proximal face shift protects the transfer. Δ_contact then matters less. All 7b′ hands with Δt 1 transfer (MRM 0.65, MRS 0.66). Among the Δt 4 hands, only the smallest Δ_contact (PR, 0.86) transfers.
+
+## Pre-registration: MS, the skeleton-referenced counterpart of MRM (2026-11-27, before any MS run)
+
+- **Why.** MRS mixed the pad references with the tip path. A fair test sets two opposite redesigns from the same search side by side: MRM, which keeps the pad paths (Δ_contact and Δ_MCP), against a hand that keeps the skeleton tip path (Δ_skel). U is not that hand. It comes from Study 2's space with A and B on the link line, so its Δt is 4.
+- **MS** (`e22_all_three.py --repick`, e22 front, A and B heights free, C̄_pad ≥ 0.70): the least Δ_skel.
+  - Δ_contact 4.00, Δ_MCP 3.82, Δ_skel **0.60**, C̄_pad 0.703, MA 0.54, face 7 (Δt 1), mounts 0/3.
+  - Against MRM (1.07, 1.06, 4.78, 0.735, Δt 1), the space, Δt and the floor are the same.
+  - Δ_skel costs coverage on this front: the least Δ_skel is 0.99 at C̄_pad ≥ 0.71, 2.11 at ≥ 0.73, and 2.70 at ≥ 0.735. MS sits at the floor, as the MR picks do.
+- **Runs.** These are MRS's runs: Drake pull-out (point, face), dial y and pivot (f1 and face); RL relay (face and f1), 7b′ and cube.
+- **Predictions.**
+  1. Drake pull-out: MS errs more than MRS (53%), because its Δ_contact is larger.
+  2. Drake pivot f1: MS errs more than MRM (3.0%), because pivot follows Δ_MCP. Dial y f1: MS errs less than MRM (9.2%), because dial y also follows Δ_skel.
+  3. RL relay: MS ≥ U under both anchors, and MS > MRM.
+  4. RL 7b′: MS ratio < 0.5. Its Δ_contact (4.0) is far above anything that transferred.
+  5. RL cube: MS ratio ≥ 0.85 if Δt alone sets the cube transfer. If the pad path matters at this size, it is lower.
+  - If 1–4 hold, each redesign wins only the contact it keeps. Pad tasks then follow the pad path, and fingertip-end tasks follow the tip path. The choice of reference is then a choice of task.
