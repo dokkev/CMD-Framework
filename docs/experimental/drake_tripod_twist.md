@@ -77,3 +77,30 @@ Six of 21 hands had run when the run was stopped as hopeless (user: end hopeless
   - On a three-draw check, both senses at both μ were friction-limited, with the normal force from the finger (1.3–1.5 N per finger).
 - **Hands, judgments and discrimination rule:** as in experiment 44.
 - **Order:** R and U run first. If E_U < 10%, the run stops there and is reported as not discriminating.
+
+## Result: 44b (2026-11-27)
+
+All 22 hands ran (`logs/e44b_tripod.json`).
+
+| hand | Δ_contact | E | scored |
+|---|---|---|---|
+| R (CoDe now) | 0.86 | **2.1%** | 64/64 |
+| U (Coverage) | 3.91 | 19.6% | 64/64 |
+| Skeleton (`conv_e25`) | 6.61 | 27.3% | 63/64 |
+| pins-free Skeleton (`conv_e25f`) | – | 2.6% | 64/64 |
+| MO-Pad (`mrmid_free`) | – | — | 0/64: never touches |
+| S2F (`s2free_s2f`) | – | — | 0/64: never touches |
+| d1p5_maxDs / d3_maxDs / h3to9_d3p5_maxDs | 1.46 / 3.04 / 3.52 | 58.5% / — / — | 26 / 0 / 0 (over-pressed) |
+
+- **Judgments:**
+  1. **Holds:** E_R 2.1% < E_U 19.6%.
+  2. **Holds:** ρ(E, Δ_contact) 0.56, p 0.014, on the 16 scorable hands of `analyze.DESIGN`.
+  3. ρ(E, Δ_skel) is 0.42, p 0.054.
+  4. **Holds:** Skeleton 27.3% ≥ U's 19.6%.
+  5. **Fails:** MO-Pad cannot be scored.
+- **Discrimination rule:** passed (E_U 19.6%).
+- **MO-Pad and S2F never touch the object.** At release, the distal and thumb forces are 0 on all 64 draws, against 1.2–1.5 N on O and R.
+  - The object is placed in each hand's proximal-face frame, and the stiff thumb holds it there.
+  - These hands mount the proximal pad at 0, so their distal pad stands farther from the object. O's setpoint + 3° does not close that gap.
+  - This is the protocol (a thumb held at a fixed place), not the pinch's mechanics: a real pinch closes the thumb until contact.
+- Three maxDs hands over-press (penetration > 1.5 mm). The stiff thumb turns their extra pad motion into squeeze.
