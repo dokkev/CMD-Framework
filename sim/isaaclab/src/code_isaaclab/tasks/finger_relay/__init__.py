@@ -16,7 +16,7 @@ for _v in ("", "Touch", "ObsS", "ObsL"):
             "default_agent": "rsl_rl",
         },
     )
-    for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "MR", "MRM", "MRS", "MS", "S2F"):
+    for _key in ("O", "R", "U", "R5", "U5", "R9", "U9", "MR", "MRM", "MRS", "MS", "S2F", "SK"):
         gym.register(
             id=f"CoDe-Finger-Relay-{_key}" + (f"-{_v}" if _v else "") + "-Eval",
             entry_point="isaaclab.envs:ManagerBasedRLEnv",

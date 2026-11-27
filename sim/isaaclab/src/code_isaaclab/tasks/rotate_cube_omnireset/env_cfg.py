@@ -495,7 +495,7 @@ for _key in TRANSFER_HANDS:
     globals()[f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg"] = configclass(
         type(f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg", (CoDeRotateCubeOOmniResetV2EvalEnvCfg,), {"hand_key": _key})
     )
-MR_TRANSFER_HANDS = ("MR", "MRM", "MRbz", "MRMbz", "MR5", "MRM5", "MR9", "MRM9", "MRS", "MS", "S2F", "S2F5", "S2F9")
+MR_TRANSFER_HANDS = ("MR", "MRM", "MRbz", "MRMbz", "MR5", "MRM5", "MR9", "MRM9", "MRS", "MS", "S2F", "S2F5", "S2F9", "SK", "SK5", "SK9")
 """The MCP-referenced 7 mm redesigns (``docs/experimental/pr_mr.md``, "RL transfer to MR"): the unmapped eval only."""
 for _key in MR_TRANSFER_HANDS:
     globals()[f"CoDeRotateCube{_key}OmniResetV2EvalEnvCfg"] = configclass(

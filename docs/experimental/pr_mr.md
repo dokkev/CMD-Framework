@@ -675,3 +675,14 @@ Coverage ends of each front (free heights) against the paper's Study 2 (`study2_
 - Skeleton is the least-Δ_skel hand of the same space: `conv_e25` now, Palm-Tip (`ms_e22`) when CoDe is MO-Pad.
 - Coverage is U.
 - In this document the analysis names stay (Pad-Pad, MO-Pad, Palm-Tip, S2F; the `conv_e25` hands are "Palm-Tip (S2 space)").
+
+## Pre-registration: Skeleton (conv_e25) in the RL tasks (2026-11-27, before any Skeleton rollout)
+
+- **Hands.** Isaac keys `SK`, `SK5`, `SK9` (`conv_e25`; Δ_skel 0.34, Δ_contact 6.61, Δd_p 4 at 7 mm).
+- **Runs.**
+  - 7b′ and relay (face, f1), with both training seeds.
+  - Cube (5/7/9 mm) under the seed-20 policy, and under seed 21 once it exists.
+- **Predictions.**
+  1. 7b′: Skeleton ratio < 0.3. Its Δ_contact is far above attempt 9's Dc50 of 1.7, and Palm-Tip (Δ_contact 4.0) gave 0.18.
+  2. Relay: Skeleton ≥ Coverage under both anchors. The relay follows the fingertip's path, and Δ_skel is 0.34 against 3.38.
+  3. Cube rotation: Skeleton ≤ 0.78. Its Δd_p is 4, like Pad-Pad and Coverage (0.70–0.75).
