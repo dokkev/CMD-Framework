@@ -47,3 +47,33 @@ normal to the palm, twisted about that axis. It is a Fig. 4 candidate. Results s
   5. MO-Pad's E is within 3 points of R's.
 - **Discrimination rule.** If E_U < 10%, the task does not discriminate, as in experiment 43, and is reported as such.
 - **Render.** Thumb, index and middle on a short cylinder whose axis is normal to the palm, with a bold arc about the axis and the torque vector along it.
+
+## Experiment 44 stopped (2026-11-27)
+
+Six of 21 hands had run when the run was stopped as hopeless (user: end hopeless runs quickly).
+
+| hand | Δ_contact | E |
+|---|---|---|
+| R | 0.86 | 0.9% |
+| d1p5_minDs | 1.60 | 1.2% |
+| d2p25_minDs | 2.33 | 1.2% |
+| d2p25_maxDs | 2.30 | 0.6% |
+| d3_minDs | 3.09 | 1.0% |
+| U | 3.91 | 4.5% |
+
+- E_U is 4.5%, below the 10% discrimination rule, so the task does not discriminate. This is experiment 43's known risk.
+- The cause: the thumb's spring sets the squeeze, so each finger's tangential limit is close to μN with N the same on every hand. The design enters only through the finger's tangential stiffness, a few percent.
+
+## Pre-registration: 44b, the finger sets the squeeze (2026-11-27; O calibrated, no redesigned hand run)
+
+- **Change from 44** (`tripod_twist.py run --finger_squeeze`): the grasp tasks' structure.
+  - The thumb is held stiff at its pad: 1525 N/m, the real thumb's servo compliance along its pad normal (33b).
+  - The finger closes to O's q_s + 3° (O's setpoint, reused on every hand), so the squeeze is the finger's: its pad path under the same command.
+  - The drive is stiffer (20 kN/m), so the drive does not set the limit. Everything else is as in experiment 44 (draws `logs/tripod_e44.json`).
+- **O (tag e44b) and the noise floor (tag e44bn, +0.05°):**
+  - O keeps all 64 draws (penetration max 1.07 mm).
+  - D(O) is 20.7 / 22.5 / 23.7 mN·m, all positive. τ(O, μ 1.3) is 31.4 / 35.6 / 38.0 mN·m.
+  - Noise floor: E 1.03% (p75 1.06%).
+  - On a three-draw check, both senses at both μ were friction-limited, with the normal force from the finger (1.3–1.5 N per finger).
+- **Hands, judgments and discrimination rule:** as in experiment 44.
+- **Order:** R and U run first. If E_U < 10%, the run stops there and is reported as not discriminating.

@@ -47,12 +47,14 @@ S_MM = 10.0  # half the index-middle spacing: each fingertip's distance from the
 THETA_MAX_DEG = 10.0
 TRAVEL_MM = S_MM * math.radians(THETA_MAX_DEG)  # the drive's ramp end along t
 RATE = 1.0e-3  # m/s, the drive's rest point
-K_DRIVE, D_DRIVE = 2.0e3, 2.0  # N/m, N s/m
+K_DRIVE, D_DRIVE = 2.0e3, 2.0  # N/m, N s/m (44)
+K_DRIVE_B, D_DRIVE_B = 2.0e4, 20.0  # 44b: stiffer, so that the drive does not set the limit
 LOST_RUN = 3
 RANDOM = {"q_s_deg": (30.0, 55.0), "back_mm": (3.0, 8.0), "r_mm": (20.0, 40.0), "preload_n": (0.4, 0.8)}
 DEFAULTS = {"approach_s": 1.0, "settle_s": 0.5, "release_s": 0.5, "k_thumb": P.K_THUMB, "thumb_mu": 0.0,
             "t_drive": (K_DRIVE, D_DRIVE)}
 DIRS = (1.0, -1.0)  # + : the object's face toward O's fingertip along t
+K_THUMB_HELD, PRESS_DEG = 1525.0, 3.0  # 44b: the real thumb's servo compliance along its pad (33b), the press past q_s
 SPIN_HOLD = 10.0  # N m/rad on the object's spin (no tilt)
 
 
@@ -60,12 +62,14 @@ def load_curve(hand, mu, pl, opts, delta_deg=0.0) -> dict:
     geom = T.finger_geometry(hand)
     qs, th = T.servo_table(geom)
     q_s = math.radians(pl["q_s_deg"] + delta_deg)
+    q_cmd = q_s + math.radians(opts.get("press_deg", 0.0))  # 44b: the finger sets the squeeze (O's setpoint + press)
     ratio = float(np.interp(q_s, qs, np.gradient(th, qs)))
     k_theta, d_theta = T.K_Q / ratio ** 2, T.D_Q / ratio ** 2
     ts = opts.get("time_step", 2.5e-4)
     n_app, n_set, n_rel = (int(round(opts[k] / T.DT_ENV)) for k in ("approach_s", "settle_s", "release_s"))
     pl0 = {**pl, "k_r": SPIN_HOLD}
     hold_opts = {k: v for k, v in opts.items() if k != "t_drive"}
+    kd_, dd_ = opts["t_drive"]
     thumb_k = T.POINT_STIFFNESS * 1e-3
     pen, prox_max = 0.0, 0.0
 
@@ -78,9 +82,9 @@ def load_curve(hand, mu, pl, opts, delta_deg=0.0) -> dict:
 
     s1 = P.Run(hand, mu, pl0, ts, k_theta, d_theta, "hold", hold_opts)
     s1.sim.Initialize()
-    theta_s = float(np.interp(q_s, qs, th))
+    theta_s = float(np.interp(q_cmd, qs, th))
     for i in range(n_app + n_set):
-        q = q_s * min(1.0, (i + 1) / n_app)
+        q = q_cmd * min(1.0, (i + 1) / n_app)
         s1.theta_cmd = float(np.interp(q, qs, th))
         s1.step()
         watch(s1)
@@ -104,12 +108,12 @@ def load_curve(hand, mu, pl, opts, delta_deg=0.0) -> dict:
         while not lost_pre and cmd < TRAVEL_MM * 1e-3 + 1e-12:
             cmd += RATE * T.DT_ENV
             u = np.zeros(n_act)
-            u[i_t] = K_DRIVE * (x0 + sgn * cmd) + D_DRIVE * sgn * RATE  # fed forward onto the PD toward 0
+            u[i_t] = kd_ * (x0 + sgn * cmd) + dd_ * sgn * RATE  # fed forward onto the PD toward 0
             s.plant.get_actuation_input_port().FixValue(s.pctx, u)
             s.step()
             f = watch(s)
             x = jt.get_translation(s.pctx)
-            force = K_DRIVE * (x0 + sgn * cmd - x)  # the spring's pull on the object = the finger's tangential load
+            force = kd_ * (x0 + sgn * cmd - x)  # the spring's pull on the object = the finger's tangential load
             curve.append([round(1e3 * sgn * (x - x0), 5), round(sgn * force, 6)])
             low = low + 1 if (f["distal"] < T.LOSS_N or f["thumb"] < T.LOSS_N) else 0
             if low >= LOST_RUN:
@@ -167,6 +171,8 @@ def cmd_run(a) -> int:
     d = json.loads(a.draws.read_text())
     draws = d["draws"][: a.only] if a.only else d["draws"]
     opts = {**DEFAULTS, "time_step": a.time_step}
+    if a.finger_squeeze:
+        opts.update(k_thumb=K_THUMB_HELD, press_deg=PRESS_DEG, t_drive=(K_DRIVE_B, D_DRIVE_B))
     for hand in a.hands:
         t0 = time.time()
         with Pool(a.workers) as pool:
@@ -299,6 +305,8 @@ def main() -> int:
     pr.add_argument("--only", type=int, default=None)
     pr.add_argument("--time_step", type=float, default=2.5e-4)
     pr.add_argument("--workers", type=int, default=4)
+    pr.add_argument("--finger_squeeze", action="store_true",
+                    help="44b: the thumb held stiff (K_THUMB_HELD), the finger closed to q_s + PRESS_DEG")
     pa = sub.add_parser("analyze")
     pa.add_argument("--tag", required=True)
     pa.add_argument("--noise_tag", default=None)
