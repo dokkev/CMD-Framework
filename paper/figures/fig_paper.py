@@ -823,37 +823,30 @@ def fig_protocols():
 
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
-    """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe and
+    """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe, Skeleton and
     Coverage (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
-    O's effect, in three sections: the pad change (Isaac Lab, point contact, reused setpoint; the pad shape in Drake,
-    each shape placed by O's own contact, experiment 34), the contact model
-    (Drake, friction change) and the reused command (friction change). Data: report/study3/data/table_signed.json
+    O's effect, in two sections: the pad change (friction, stiffness and the soft thick pad in Isaac Lab, point
+    contact; the soft thick pad with hydroelastic contact and the pad shape in Drake, each shape placed by O's own
+    contact, experiment 34; all at the reused setpoint) and the reused command (friction change). The Drake point and
+    hydroelastic friction rows repeat Fig. 4's hold column and are left out. Data: report/study3/data/table_signed.json
     (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
     t = json.load(open(S3 / "table_signed.json"))
     st, pr = t["settings"], t["protocols"]
-    sections = (("Pad change (Isaac Lab, point contact)",
+    # no description in a table (paper/SSoT.md 6): the caption is a title, the conditions are in the text
+    sections = (("Pad change",
                  (("friction $1.3\\to2.0$", st["friction, Isaac point"]),
                   ("stiffness $2.5\\to1.0$\\,kN/m", st["stiffness, Isaac point"]),
-                  ("friction, softer pad$^{a}$", st["friction softer pad, Isaac point"]),
-                  ("shape, flat $\\to$ 2\\,mm crown$^{d}$", st["crowned, Drake point"]))),
-                ("Contact model (Drake, friction $1.3\\to2.0$)",
-                 (("point", st["friction, Drake point"]),
-                  ("hydroelastic", st["friction, Drake hydro"]),
-                  ("hydroelastic, softer pad$^{a}$", st["friction softer pad, Drake hydro"]))),
-                ("Reused command (friction $1.3\\to2.0$)",
-                 (("joint setpoint (no sensing)", pr["setpoint"]),
-                  ("contact setpoint$^{b}$ (no sensing)", pr["contact setpoint"]),
+                  ("soft thick pad", st["friction softer pad, Isaac point"]),
+                  ("soft thick pad, hydroelastic", st["friction softer pad, Drake hydro"]),
+                  ("shape, flat $\\to$ 2\\,mm crown", st["crowned, Drake point"]))),
+                ("Reused command",
+                 (("joint setpoint", pr["setpoint"]),
+                  ("contact setpoint", pr["contact setpoint"]),
                   ("joint torque", pr["torque"]),
                   ("close at sensed touch", pr["touch"]),
-                  ("matched contact force$^{c}$", pr["force"]))))
+                  ("matched contact force", pr["force"]))))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{4pt}",
-             r"  \caption{Error in the measured pad effect, median over placements ($+$: overstated). Pull-out, "
-             r"$7$\,mm pads, joint setpoint reused unless noted. $^{a}$Stiffness $\propto 1/h$ (upper bound); "
-             r"reference: $O$ with the same pad. $^{b}$Drake; setpoint matched at the fingertip contact point. "
-             r"$^{c}$Oracle distal force. $^{d}$Drake; each shape placed where $O$'s pads of that shape touch. "
-             r"--: not yet run. "
-             r"Coverage under joint torque: "
-             f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$ (quartiles).}}",
+             r"  \caption{Signed error in the measured pad effect}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrrr}", r"    \toprule",
              r"    & \ourmethod{} & Skeleton & Coverage \\"]
     for k, (title, rows) in enumerate(sections):

@@ -154,6 +154,10 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
   grey must still separate series. The rules above win where they differ: print size with 6–7 pt labels
   (not its 16–24 pt canvases), PNG only (not its PDF export), Helvetica Light.
 
+- Tables carry no description (user, 2026-11-27): the caption is a title only, with no definitions, conditions,
+  footnotes or notes, and the row and column labels read on their own. What a reader needs to read the table
+  (the measure, its sign, the task, the reference, how a row's condition differs) goes in the text that cites it.
+
 ### 6.1 Figure plan (user, 2026-11-24)
 
 Font: Helvetica Light for figure text (bold and math italic in Nimbus Sans, which the Light cut lacks). Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
