@@ -575,3 +575,24 @@ All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher
 - **Prediction 2 fails.** With the heights free, the coverage end itself mounts the proximal pad at 0. Its face sits at 7 mm (Δd_p 1), and its Δ_MCP is 1.62 mm, not above 2.5. A deeper mount gives the pads more room, so the paper's own objectives find the face kept at 5 and 7 mm. At 9 mm the face reaches its floor (Δd_p 3), but Δ_MCP stays at 4.79. There, only an objective on Δ_MCP keeps it (MO-Pad 9: 2.39).
 - **Reading.** For the paper, the pins off the link line are the change, not a second objective. The 7 mm coverage end ("Pad-Pad, pins free") keeps Δ_contact as the paper's redesign does (0.85), keeps the face near its place, and has the most coverage of all the 7 mm hands (0.743).
 - **Next.** Hand files for the 5/7/9 mm coverage ends, then the Drake pull-out, dial and pivot and the RL cube and 7b′ transfer against MO-Pad and Pad-Pad.
+
+## Pre-registration: Pad-Pad with the pins free (S2F) in Drake and RL (2026-11-27, before any S2F run)
+
+- **Hands** (Study 2's coverage end with A and B heights free; `e24_study2_free_picks.py`, `e20_make_hands.py`; code key `s2free_s2f`, Isaac `S2F`, `S2F5`, `S2F9`):
+
+| hand | Δd_p | Δ_contact | Δ_MCP | Δ_skel | C̄_pad | A height | mount |
+|---|---|---|---|---|---|---|---|
+| S2F5 | −1 | 0.36 | 1.19 | 2.85 | 0.771 | 3.1 | 0 |
+| S2F (7 mm) | 1 | 0.85 | 1.62 | 5.24 | 0.743 | 3.0 | 0 |
+| S2F9 | 3 | 2.13 | 4.79 | 7.30 | 0.712 | 3.0 | 0 |
+
+- **Runs.**
+  - Drake, point contact: pull-out (face), dial y and pivot (face and f1), as for MO-Pad.
+  - RL: cube under the seed-20 policy, and under the seed-21 policy once it exists; 7b′ and relay (face, f1) for S2F.
+  - The RL runs queue behind the seed-21 training, since the GPU is full.
+- **Predictions.**
+  1. Drake f1 (dial y, pivot): S2F errs less than Pad-Pad (23.4%, 11.7%). Its Δ_MCP is 1.62 against 4.65.
+  2. Drake pull-out (point): S2F ≤ Pad-Pad (19.4%).
+  3. RL cube rotation ratio: S2F ≥ 0.90 and S2F5 ≥ 0.90 (Δd_p ≤ 1); S2F9 between 0.75 and 0.88 (Δd_p 3, like MRM9's 0.82).
+  4. RL 7b′: S2F ≥ 0.55 (Δ_contact 0.85, like Pad-Pad's 0.86).
+  - If 1–4 hold, freeing the pins in the paper's own Study 2 is enough for the paper's redesign at 5 and 7 mm. MO-Pad's extra objective is then needed only at 9 mm.

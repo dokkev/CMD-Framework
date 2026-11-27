@@ -45,9 +45,9 @@ the thumb-layout optimum (tilted CMC base, IP servo toward the MCP; ``docs/exper
 
 _MR_DEFAULT = Path(__file__).resolve().parents[4] / "logs" / "finger_walk" / "hands"
 MR_HAND_DIR = Path(os.environ.get("CODE_MR_HAND_DIR", _MR_DEFAULT))
-MR_HANDS = {"MR": "mr_free", "MRM": "mrmid_free", "MRbz": "mr_bz", "MRMbz": "mrmid_bz", "MRS": "mrs_e22", "MS": "ms_e22"}
+MR_HANDS = {"MR": "mr_free", "MRM": "mrmid_free", "MRbz": "mr_bz", "MRMbz": "mrmid_bz", "MRS": "mrs_e22", "MS": "ms_e22", "S2F": "s2free_s2f"}
 HANDS.update({k: MR_HAND_DIR / f"cfl_q120_h3to7_{v}.json" for k, v in MR_HANDS.items()})
-MR_HANDS_59 = {f"{k}{t}": (t, v) for t in (5, 9) for k, v in (("MR", "mr_free"), ("MRM", "mrmid_free"))}
+MR_HANDS_59 = {f"{k}{t}": (t, v) for t in (5, 9) for k, v in (("MR", "mr_free"), ("MRM", "mrmid_free"), ("S2F", "s2free_s2f"))}
 HANDS.update({k: MR_HAND_DIR / f"cfl_q120_h3to{t}_{v}.json" for k, (t, v) in MR_HANDS_59.items()})
 """The 5 and 9 mm MR and MR-mid (A's and B's heights free): MR5, MRM5, MR9, MRM9."""
 """The MCP-referenced 7 mm redesigns (``docs/experimental/pr_mr.md``): MR and MR-mid with A's and B's heights free
