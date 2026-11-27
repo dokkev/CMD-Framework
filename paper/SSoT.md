@@ -82,7 +82,8 @@ model, the analysis and the design studies; Experiment holds simulation only.
 | the mounting rule | each pad at the shallowest depth clear of its joint hardware, no spacers |
 | the goal | the common requirements of every design search |
 | CoDe | the crossed four-bar PIP finger in the design studies and the hand; "CFL" is not written (user, 2026-11-25: readers who skim should not need the acronym). In Fig. 2 the rolling contact joint is written out; elsewhere RCJ may stay |
-| O, R, U, M | reference hand; redesign that keeps Δ_contact small; coverage-only design; a middle redesign |
+| O, R, U, M | reference hand; redesign that keeps Δ_contact small; coverage-only design; a middle redesign (codebase labels) |
+| CoDe, Conventional, Coverage | the three compared hands (user, 2026-11-27): **CoDe** = R, the contact-centred redesign (least Δ_contact; R is a contact-centred design, so the paper does not wait for the pins-free reruns); **Conventional** = skeleton minimization, the same mechanism and search with the least Δ_skel at pad coverage no more than 0.05 below CoDe's (`design/scripts/study/exploratory/e25_skeleton_min.py`); **Coverage** = U, coverage only. Before 2026-11-27 the paper called U "Conventional" |
 | proximal pad, distal pad | never "near/far pad" |
 
 In the introduction, "the joints and links" stands for the kinematic layout; no new term is introduced for it.

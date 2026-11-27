@@ -1,6 +1,6 @@
 """Table I data: the signed bias in the measured pad effect, (D(H) - D(O)) / D(O) per placement-direction pair (+: the
 effect overstated in its own direction, -: understated or reversed), its
-median for CoDe (R) and Conventional (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
+median for CoDe (R) and Coverage (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
 and gates as each setting's E (median |bias|, checked here against report/study3/data). No simulation: the raw logs
 (sim/isaaclab/logs/study3/two_pad, sim/drake/logs). Writes report/study3/data/table_signed.json.
 

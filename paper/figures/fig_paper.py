@@ -652,7 +652,7 @@ def task_icon(ax, kind):
 def fig4():
     """Study 3: five Drake tasks under O's reused command. Per task: three frames; R and U's object response minus O's
     over E's pairs (median, quartiles; friction 1.3 circles, 2.0 diamonds); each redesign's friction effect minus O's;
-    and under the bottom panel each task's error E (median |bias| over placements) for CoDe and Conventional with point
+    and under the bottom panel each task's error E (median |bias| over placements) for CoDe and Coverage with point
     and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
     d = json.load(open(S3 / "fig4_sync.json"))
@@ -768,7 +768,7 @@ def fig4():
                          ha="left", va="center", color=HC[hh], fontweight="bold")
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
-               plt.Line2D([], [], color=AMBER, lw=1.1, label="Conventional"),
+               plt.Line2D([], [], color=AMBER, lw=1.1, label="Coverage"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="o", ms=3.2, mfc="white", mew=0.7,
                           label="pad friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
@@ -784,7 +784,7 @@ def fig4():
 
 # ------------------------------------------------------------------------------------------- command protocols
 def fig_protocols():
-    """The bias in the measured pad effect (pull-out, friction 1.3 -> 2.0, 7 mm) of CoDe and Conventional under each
+    """The bias in the measured pad effect (pull-out, friction 1.3 -> 2.0, 7 mm) of CoDe and Coverage under each
     command the redesigns reuse, ordered by the sensing it needs: median and quartiles over placements, + overstating
     O's effect. Data: report/study3/data/table_signed.json (paper/figures/table_signed.py)."""
     pr = json.load(open(S3 / "table_signed.json"))["protocols"]
@@ -812,7 +812,7 @@ def fig_protocols():
     ax.text(-0.62, -0.30, "sensing:", transform=ax.get_xaxis_transform(), fontsize=5.4, color=INK2, ha="right",
             va="top")
     handles = [plt.Line2D([], [], ls="none", marker="o", ms=4, color=BLUE, label="CoDe"),
-               plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="Conventional"),
+               plt.Line2D([], [], ls="none", marker="o", ms=4, color=AMBER, label="Coverage"),
                plt.Line2D([], [], color="#b5b5b2", lw=2.2, label="gap")]
     ax.legend(handles=handles, loc="upper right", frameon=False, fontsize=5.8, handletextpad=0.3, borderaxespad=0.1)
     save_figure(fig, DEST / "fig_protocols.pdf")
@@ -823,7 +823,7 @@ def fig_protocols():
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
     """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe and
-    Conventional (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
+    Coverage (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
     O's effect, in three sections: the pad change (Isaac Lab, point contact, reused setpoint; the pad shape in Drake,
     each shape placed by O's own contact, experiment 34), the contact model
     (Drake, friction change) and the reused command (friction change). Data: report/study3/data/table_signed.json
@@ -850,10 +850,10 @@ def table():
              r"$7$\,mm pads, joint setpoint reused unless noted. $^{a}$Stiffness $\propto 1/h$ (upper bound); "
              r"reference: $O$ with the same pad. $^{b}$Drake; setpoint matched at the fingertip contact point. "
              r"$^{c}$Oracle distal force. $^{d}$Drake; each shape placed where $O$'s pads of that shape touch. "
-             r"Conventional under joint torque: "
+             r"Coverage under joint torque: "
              f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$ (quartiles).}}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    & \ourmethod{} & Conventional \\"]
+             r"    & \ourmethod{} & Coverage \\"]
     for k, (title, rows) in enumerate(sections):
         lines.append(r"    \midrule")
         lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")

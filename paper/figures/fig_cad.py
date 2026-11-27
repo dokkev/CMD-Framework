@@ -311,7 +311,7 @@ def fit_icon(ax, kk):
 def main() -> int:
     """Fig. 1 (user layout, 2026-11-25), page width, read left to right as a flow: what we have (the CoDe Hand and its
     crossed four-bar finger, CAD) and the contact interfaces it can carry -> the redesign for a new interface (the
-    operator) -> two hands, CoDe (keeps the contact-surface motion) and Conventional (coverage only) -> what each does
+    operator) -> two hands, CoDe (keeps the contact-surface motion) and Coverage (coverage only) -> what each does
     with a reused command: the measured interface effect, O for the same effect as the reference hand, X otherwise.
     Numbers: Isaac Lab softer-pad pull-out (isaac_conclusion_study3.json, 7 mm) and the Drake fingertip dial
     (fig4_sync.json, friction effect as a share of O's)."""
@@ -399,7 +399,7 @@ def main() -> int:
              ha="center", va="top", linespacing=1.05)
     # ---- the two hands it can give
     outs = (("R", "CoDe Hand", BLUE_, "keep contact-surface\nmotion", top - 0.18),
-            ("U", "Conventional Hand", ORANGE_, "coverage only", 0.86))
+            ("U", "Coverage Hand", ORANGE_, "coverage only", 0.86))
     for kind, name, col, rule, yt in outs:
         im = usd_render(CAD / f"usd_contact_{kind}.png")[12:]
         w_, h_ = image(im, 3.86, yt - 0.80, h=0.66)
