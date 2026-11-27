@@ -673,7 +673,8 @@ def fig4():
     B = 0.24 + RB  # room for the two motion-change rows under each task's E rows, and the band below
     LG = 0.20  # the legend's row between the renders and the trajectories
     D = 0.12  # the bottom legend's room, now unused
-    h = 3.40 + B + LG - D
+    NB = 0.85  # the bias row dropped to fit 5 pages (2026-11-27): E under each task carries it
+    h = 3.40 + B + LG - D - NB
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -707,26 +708,8 @@ def fig4():
                 ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
                         mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 6, step))
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
-        ra.tick_params(labelbottom=False)
+        ra.set_xlabel(xl, labelpad=1, fontsize=6.3)
         clean(ra)
-        # the bias in the friction effect each hand measures: its effect (same hand, 2.0 minus 1.3) minus O's on the
-        # same placement, in the task's unit (the stored share of O's final effect times that effect); end labels:
-        # the share of O's effect. 0 is the friction effect measured without bias
-        sc = dv["O_effect"]["median"][-1] / 100.0
-        ea = fig.add_axes(((x0 + 0.30) / W, (0.80 + B - D) / h, (cw - 0.36) / W, 0.70 / h), sharex=ra)
-        ea.axhline(0, color=INK, lw=0.6, zorder=2)
-        for hh in [x for x in ("S", "U", "R") if f"{x}_bias" in dv]:
-            bd = dv[f"{hh}_bias"]
-            m_ = sc * np.asarray(bd["median"])
-            ea.fill_between(x, sc * np.asarray(bd["q25"]), sc * np.asarray(bd["q75"]), color=HC[hh], alpha=0.12, lw=0,
-                            zorder=1)
-            ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
-        lim = abs(sc) * max(25.0, 1.15 * max(abs(v) for b_ in RED if f"{b_}_bias" in dv for v in dv[f"{b_}_bias"]["q75"]
-                                        + dv[f"{b_}_bias"]["q25"]))
-        ea.set_ylim(-lim, lim)
-        ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
-        ea.set_ylabel(el, labelpad=1, fontsize=5.6)
-        clean(ea)
         # the task's error E (median |bias| over placements) in both contact models; "n/a": no valid pair
         pt = d["tasks"][key]["hands"]
         if key in ("dial", "pivot"):  # the randomized tasks: point on the 32 draws the hydro rerun used
