@@ -749,3 +749,29 @@ Table I, Drake rows (signed median bias, E in brackets):
 - **S2F errs as R does or slightly less everywhere.**
 - Replacing R by MO-Pad therefore strengthens the paper's grasping results and leaves the fingertip ones within 2 points.
 - The Isaac reruns (friction dose, stiffness, protocols, padk) are queued on the GPU behind Skeleton's.
+
+## Result: Skeleton (conv_e25) in the coin drag (30b) and the three-finger twist (39) (2026-11-27)
+
+`run_drake_alt.sh`, all steps finished. The analyses score only `analyze.DESIGN`, so Skeleton was scored with each script's own `o_pairs`/`o_keep` and `hand_error` (the same O pairs and gates).
+
+| task | contact | CoDe (R) | Coverage (U) | Skeleton |
+|---|---|---|---|---|
+| coin drag | point (64 pairs) | 2.2% | 16.3% | **19.3%** (64/64) |
+| coin drag | hydro (32 pairs) | 3.2% | 15.9% | **20.6%** (32/32) |
+| twist, 3 fingers | point (56 O pairs) | 16.1% (48) | 54.4% (50) | **71.9%** (28; 22 over-pressed) |
+| twist, 3 fingers | hydro | 13.4% (50) | — (0 pairs; 48 over-pressed) | — (0 pairs; 32 over-pressed) |
+
+- Prediction 1 of the Skeleton block (CoDe < Skeleton) holds in both tasks where Skeleton can be scored.
+- Skeleton errs more than Coverage in both, as in the other fingertip tasks: keeping the fingertip path does not keep the pad-contact path (Δ_contact 6.61).
+- Twist hydro stays unscorable for both baselines under the force gate; only CoDe passes it.
+
+## Pre-registration: coin drag and twist on MO-Pad, S2F and pins-free Skeleton (2026-11-27, before any run)
+
+These two tasks are Fig. 4 candidates in place of hook and acquisition, so the replacement hands need them.
+
+- Hands: `mrmid_free` (MO-Pad), `s2free_s2f` (S2F), `conv_e25f` (pins-free Skeleton). Same draws, tags and gates as R (`e30b`, `e30bh`, `e39`, `e39h`).
+- Predictions:
+  1. Coin drag (a fingertip task): MO-Pad and S2F within 3 points of R, point and hydro. In the disk and pivot they were within 2.
+  2. Twist (a three-finger grasp): MO-Pad ≤ R at point contact, as in the three grasping tasks where it halved R's error.
+  3. `conv_e25f` errs more than R in both tasks.
+- Fails if MO-Pad errs more than R + 3 points in either task at point contact.
