@@ -830,7 +830,7 @@ def table():
     st, pr = t["settings"], t["protocols"]
     # one wide table: every simulator, contact model, pad change and command side by side (user, 2026-11-27: the
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
-    groups = (("Newton MJWarp, point contact", (("friction", st["friction, Isaac point"]),
+    groups = (("MJWarp, point contact", (("friction", st["friction, Isaac point"]),
                                             ("stiffness", st["stiffness, Isaac point"]),
                                             ("soft thick pad", st["friction softer pad, Isaac point"]),
                                             ("crowned pad", st["crowned, Isaac point"]))),
@@ -839,7 +839,7 @@ def table():
                                         ("contact setpoint", pr["contact setpoint"]))),
               ("Drake, hydroelastic", (("friction", st["friction, Drake hydro"]),
                                        ("soft thick pad", st["friction softer pad, Drake hydro"]))),
-              ("Newton MJWarp, other commands", (("joint torque", pr["torque"]),
+              ("MJWarp, other commands", (("joint torque", pr["torque"]),
                                              ("sensed touch", pr["touch"]),
                                              ("contact force", pr["force"]))))
     cols = [c for _, cs in groups for c in cs]
