@@ -90,6 +90,13 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Spoon-feed the reader (user, 2026-11-27).** The paper hands the reader every step. They should never have to infer, recompute or look elsewhere to follow the point.
+  - Say what to look at and what it shows, in the sentence that points to it.
+  - Name the comparison and its outcome explicitly: which is better, by how much, and why.
+  - Lead every figure, table and paragraph with its one takeaway.
+  - Mark the proposed method's results so they stand out at a glance (bold in tables, the strong blue in figures).
+  - Define a symbol where it is first used and restate it when it returns after a gap.
+  - Never leave a number without its meaning.
 - References (Wensing's register takes precedence when they pull apart):
   - **Register and structure (how it reads as engineering):** Bhatia, Johnson and Mason, "Direct Drive Hands:
     Force-Motion Transparency in Gripper Design" (RSS 2019, the DDHand paper), and Wensing et al.,

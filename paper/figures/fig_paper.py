@@ -841,18 +841,19 @@ def table():
     lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{4pt}",
              r"  \caption{Signed error in the measured pad effect}",
              r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    & \ourmethod{} & Coverage \\"]
+             r"    & Coverage & \ourmethod{} \\"]
     for k, (title, rows) in enumerate(sections):
         lines.append(r"    \midrule")
         lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")
         for name, d in rows:
             cells = []
-            for hh in ("R", "U"):  # Skeleton is in Fig. 4, not in the table (user, 2026-11-27)
+            for hh in ("U", "R"):  # Coverage, then CoDe at the right in bold; Skeleton is in Fig. 4 only (user, 2026-11-27)
                 if hh not in d:
                     cells.append("--")
                     continue
                 v = 100 * d[hh]["bias_median"]
-                cells.append(f"${v:+.0f}\\%$" if round(v) != 0 else "$0\\%$")
+                num = f"{v:+.0f}" if round(v) != 0 else "0"
+                cells.append(f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "R" else f"${num}\\%$")
             lines.append(f"    \\quad {name} & {cells[0]} & {cells[1]} \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
