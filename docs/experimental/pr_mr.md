@@ -458,3 +458,23 @@ Spearman ρ over the 14 hands, one-sided permutation (20,000):
 | PR9 / MRM9 | 100.0% / **74.0%** |
 
 - The point-contact order holds with hydroelastic pads: MRM ≤ PR at 7 and 9 mm, and a tie at 5 mm.
+
+## Result: MRS in RL (2026-11-27)
+
+All evals rc 0. Ratios are against O.
+
+| task | PR (R) | U | MRM | MRS |
+|---|---|---|---|---|
+| relay, face (s20 / s21) | 0.57 / 0.56 | 0.72 / 0.68 | 0.57 / 0.56 | 0.72 / 0.72 |
+| relay, f1 | 0.68 / 0.69 | **0.84 / 0.89** | 0.69 / 0.63 | 0.75 / 0.78 |
+| 7b′ (pooled) | 0.67 | 0.07 | 0.65 | **0.66** |
+| cube rotation | 0.75 | 0.70 | 0.94 | 0.93 |
+| cube full≤30° | 0.70 | 0.80 | 0.98 | 1.01 |
+
+- **Prediction 1 (relay f1: MRS ≥ U) fails.** MRS is second, at 0.75–0.78 against U's 0.84–0.89. Under face anchoring it ties U.
+- **Prediction 2 (7b′: MRS < 0.5) fails.** MRS transfers at 0.66, as well as PR and MRM, although its Δ_contact (2.29) is above attempt 9's Dc50 (1.7).
+- **Prediction 3 (Drake pull-out: MRS > MRM) holds** (53% against 8.5%).
+- **Reading.**
+  - Attempt 9's Dc50 was measured on hands whose proximal face all moved by h − 3: 4 mm at 7 mm. Δt was constant there, so it could not show.
+  - Here MRS (Δ_contact 2.29, Δt 1) walks at 0.66, while MRMbz (Δ_contact 2.08, Δt 4) collapses to 0.15.
+  - In 7b′, as in the cube, a small proximal face shift protects the transfer. Δ_contact then matters less. All 7b′ hands with Δt 1 transfer (MRM 0.65, MRS 0.66). Among the Δt 4 hands, only the smallest Δ_contact (PR, 0.86) transfers.
