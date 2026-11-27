@@ -287,3 +287,13 @@ alternative, two RL seeds. The presentation critique that persists is density (s
 quantities and statistics for an extended abstract). New: the fingertip boundary is unexplained (Drake dial follows
 Delta_contact, RL relay follows Delta_skel); CoDe's errors are systematically negative; Table I groups the contact
 setpoint under Drake while the text calls it another command.
+
+v38: 6, 6, 6, all Accept (manuscript 071255e; 5 + 1 pages, every section condensed, "Not only preload" result,
+learned policies read by where the task touches the finger, Fig. 4 without the bias row). r1 O3 Q3 C2 Si3 So3 P2
+Co3; r2 O3 Q3 C2 Si2 So3 P2 Co3 (confidence 3); r3 O3 Q3 C2 Si2 So3 P2 Co3. All three now list the preload controls
+(equal torque, matched force, re-referenced setpoint) as a strength, and none repeats "the result is merely preload"
+as the main weakness, though r2 reads the geometric part beyond preload as modest (14% after re-referencing).
+Clarity and Presentation stay at 2: density in five pages (symbols, hand names, captions carrying the method).
+New small items: Delta t used for both the pad-depth change and the palm-ward face shift; Fig. 1's O/X marks clash
+with O; how the 15 decoupling redesigns were built; relative error when Delta(O) is small; "+: overstated" split
+across columns. Score-limiting items unchanged: no hardware, pads not deformable, two RL seeds.
