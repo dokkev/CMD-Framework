@@ -494,3 +494,45 @@ All evals rc 0. Ratios are against O.
   4. RL 7b′: MS ratio < 0.5. Its Δ_contact (4.0) is far above anything that transferred.
   5. RL cube: MS ratio ≥ 0.85 if Δt alone sets the cube transfer. If the pad path matters at this size, it is lower.
   - If 1–4 hold, each redesign wins only the contact it keeps. Pad tasks then follow the pad path, and fingertip-end tasks follow the tip path. The choice of reference is then a choice of task.
+
+## Names (2026-11-27, from here on)
+
+The user renamed the hands by reference and kept point:
+
+| new | old | keeps |
+|---|---|---|
+| Original | O | the 3 mm hand |
+| Coverage | U | coverage only |
+| Pad-Pad | PR (R) | distal pad contact path from the proximal pad face (Δ_contact) |
+| Palm-Pad | MR | the same path from the palm frame F₁ (Δ_MCP) |
+| MO-Pad | MRM | both pad paths (multi-objective) |
+| Palm-Tip | MS | the fingertip skeleton path in F₁ (Δ_skel) |
+
+MRS (all three) is dropped from the story. Bound 2 makes it a compromise that leads no task except dial y at f1. Code keys and file names are unchanged.
+
+## Result: Palm-Tip (MS) against MO-Pad (2026-11-27)
+
+All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher is better).
+
+| task | anchor | Pad-Pad | Coverage | MO-Pad | Palm-Tip | prediction |
+|---|---|---|---|---|---|---|
+| Drake pull-out (point) | face | 19.4% | 71.7% | **8.5%** | 90.4% | 1. Palm-Tip > MRS (53%): **holds** |
+| Drake pivot | f1 | 11.7% | 7.8% | **3.0%** | 12.1% | 2a. Palm-Tip > MO-Pad: **holds** |
+| Drake dial y | f1 | 23.4% | 7.7% | 9.2% | 10.1% | 2b. Palm-Tip < MO-Pad: **fails** |
+| Drake pivot / dial y | face | 5.4 / 9.3% | 22.2 / 26.5% | 7.4 / 8.0% | 15.3 / 13.9% | – |
+| RL relay (s20 / s21) | face | 0.57 / 0.56 | 0.72 / 0.68 | 0.57 / 0.56 | **0.90 / 0.95** | 3. **holds** |
+| RL relay | f1 | 0.68 / 0.69 | 0.84 / 0.89 | 0.69 / 0.63 | **0.95 / 1.02** | 3. **holds** |
+| RL 7b′ (pooled) | face | 0.67 | 0.07 | 0.65 | 0.18 | 4. < 0.5: **holds** |
+| RL cube rotation | face | 0.75 | 0.70 | **0.94** | 0.82 | 5. ≥ 0.85: **fails** |
+| RL cube full turn ≤ 30° | face | 0.70 | 0.80 | 0.98 | **0.99** | 5. ≥ 0.85: holds |
+
+- **Each redesign wins the contact it keeps.**
+  - MO-Pad leads every pad task: the grasp, the palm-fixed pivot, 7b′ and cube rotation.
+  - Palm-Tip leads the fingertip-end relay under both anchors, above Original's own score at f1 (seed 21).
+  - Palm-Tip collapses in the grasp (90%) and in 7b′ (0.18).
+  - The choice of reference is a choice of task. Bound 2 says it cannot be avoided at 7 mm.
+- **Dial y (f1) is not a fingertip-end task.** Palm-Tip's Δ_skel of 0.60 does not beat MO-Pad there. Coverage (7.7%) and MRS (6.4%), which balance both paths, lead it. Dial y needs both paths.
+- **Cube: Δt is not all.**
+  - Palm-Tip has Δt 1, like MO-Pad, but rotates at 0.82, below MO-Pad's 0.94. It is still above the Δt 4 hands (Pad-Pad 0.75, Coverage 0.70).
+  - Full turns are kept at 0.99.
+  - So Δt sets most of the cube transfer, and the pad path adds to it once Δ_contact is as large as 4 mm. The ρ −0.98 over 14 hands came from hands whose Δ_contact stayed ≤ 3.3.
