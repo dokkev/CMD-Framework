@@ -35,3 +35,28 @@ User request (2026-11-27): try three-finger-pinch tasks (candidate 2, after the 
   4. Skeleton's E ≥ U's.
   5. MO-Pad's E is within 3 points of R's.
 - **Stop rule:** R and U run first. If E_U < 10%, the run stops and is reported as not discriminating.
+
+## Result (2026-11-27)
+
+All 22 hands scored 47 of 47 pairs (`logs/e45_ptrans.json`).
+
+| hand | E |
+|---|---|
+| R (CoDe now) | 9.1% |
+| U (Coverage) | 39.6% |
+| Skeleton (`conv_e25`) | 47.1% |
+| MO-Pad (`mrmid_free`) | **40.5%** |
+| S2F (`s2free_s2f`) | 53.6% |
+| pins-free Skeleton (`conv_e25f`) | 21.3% |
+| `h3to5_hr` | 3.1% |
+| other 15 hands | 9.3–59.3% |
+
+- **Judgments:**
+  1. **Holds:** E_R 9.1% < E_U 39.6%.
+  2. **Fails:** ρ(E, Δ_contact) 0.27, p 0.145, 18 hands.
+  3. ρ(E, Δ_skel) is −0.05.
+  4. **Holds:** Skeleton 47.1% ≥ U's 39.6%.
+  5. **Fails:** MO-Pad 40.5% against R's 9.1%.
+- Only the two R hands (`h3to5_hr`, R) and `d2p25_maxDs` are low. Most other hands sit at 33–59% whatever their Δ_contact, so the error does not follow it.
+- MO-Pad errs like Coverage, and pins-free Skeleton errs less than MO-Pad. Pad depth enters here too: the soft thumb pushes the object onto each hand's pad, and the pad then drags it from a different place. This is not explained further.
+- **Not a Fig. 4 candidate.** No hydro run.
