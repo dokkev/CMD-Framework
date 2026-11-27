@@ -843,3 +843,16 @@ Skeleton at 5 / 9 mm in the cube: 0.810 / 0.531 (s20), 0.342 / 0.153 (s21).
   - The relay (fingertip-end contact) follows Δ_skel.
   - The cube follows the proximal face's place (Δt).
   - MO-Pad is near the top in the walk and the cube and near Pad-Pad in the relay. Skeleton is the reverse.
+
+## Result: Skeleton (conv_e25) in Isaac Lab, condition A (2026-11-27)
+
+`run_isaac_replace.sh` Skeleton block, all steps rc 0 (ISAAC_CONV_DONE). Friction-dose error E with `sim/drake/analyze.py error(load_isaac, ...)`, the same function and pairs as the 18 hands.
+
+| thickness | CoDe (R) | Coverage (U) | Skeleton |
+|---|---|---|---|
+| 5 mm | 3.4% (54) | 51.9% (52) | **120.0%** (56) |
+| 7 mm | 21.0% (48) | 123.6% (52) | **222.3%** (52) |
+| 9 mm | 40.7% (48) | 106.0% (52) | **236.1%** (51) |
+
+- Skeleton errs most at every thickness, as in Drake. Its fingertip path stays within 0.06–1.94 mm of O's, while its contact surfaces move 3.4–8.5 mm.
+- The other conditions of the block (B, C, D sweep, E, padk) are logged under `sim/isaaclab/logs/study3/two_pad/tp_*conv_e25*`; Table I no longer carries Skeleton, so they are not tabulated here.
