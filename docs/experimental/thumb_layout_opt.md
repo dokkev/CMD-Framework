@@ -691,7 +691,9 @@ Run data: `design/output/thumb_layout/prototype_pads/strict_zaxis_ip90/proximal/
   - K5 sits on the IP limit with its 5 deg margin (−85).
   - In effect the distal segment folds back so that its pad faces the finger.
 - **The clocking sits at or near its −45 deg bound.** RO itself reaches −85 in the RO window, which is −130 deg from the prototype zero. The RO joint has no limit, so the bound only places the 180 deg arc that the RAA sweep must clear.
+- **IP range (user, 2026-11-26).** The thumb IP servo turns ±90 deg symmetrically about its body, without self-contact. So hyperextension to 90 deg is buildable.
+  - The flexion end then drops from 100 to 90 deg.
+  - All nine front designs keep F-K8 and pinch 0 when re-evaluated with IP in [−90, 90].
 - **Open.**
-  - IP self-contact at 60–85 deg of hyperextension is not modelled.
   - The IP servo would hold the pad force in hyperextension, with the force pushing the IP further into extension.
   - Robustness: the robust run is going.
