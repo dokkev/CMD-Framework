@@ -455,7 +455,7 @@ def task_span(hand: str = "O", margin_mm: float = 4.5) -> tuple[float, float]:
 
 
 def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict | None = None,
-                   size=(W, H), ref: str = TASK_REF, fingers=TASK_FINGERS, curled=()) -> Path:
+                   size=(W, H), ref: str = TASK_REF, fingers=TASK_FINGERS, curled=(), thumb: dict | None = None) -> Path:
     """The scene (in the reference finger's planar frame) with the hand's URDF geometry (the USD's visuals, through
     load_hand.py), palm down in the hand frame: MCP FE and AA at 0, the task fingers' four-bars closed at flexion q
     [rad] from the description's ``four_bar`` table (``fingers``), the ``curled`` ones at ``CURL`` (MCP FE, PIP deg), the
@@ -474,7 +474,7 @@ def render_on_hand(sc: Scene, out: Path, q: float, hand: str = "O", camera: dict
                                                      pose=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
     ctx = diagram.CreateDefaultContext()
     pctx, sctx = plant.GetMyMutableContextFromRoot(ctx), sg.GetMyMutableContextFromRoot(ctx)
-    LH.set_pose(plant, pctx, model, desc, 0.0, 0.0, THUMB_NEUTRAL)
+    LH.set_pose(plant, pctx, model, desc, 0.0, 0.0, {**THUMB_NEUTRAL, **(thumb or {})})
     for digit in curled:
         for name, value in LH.table(desc, digit, CURL[1]).items():
             plant.GetJointByName(name, model).set_angle(pctx, value)

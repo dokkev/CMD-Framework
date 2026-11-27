@@ -244,6 +244,17 @@ Isaac 행은 GPU 대기열에 있다.
 - **기록 정정 (2026-11-26).** 23차 유지 시간은 1 s다(옛 문서의 "2 s 유지"는 run의 `hold_s` 1.0과 다름). 23차에서 H가 끝에 놓친 쌍은 lost로 따로 세고 점수에 넣지 않는다(옛 문서와 raw metadata의 "가장 큰 오차로 둔다"는 코드와 다름; `fig4_sync.py`가 E를 그대로 재현해 확인).
 - 하드웨어 Stage 2(SSoT §8.4)는 아직이다. 계획한 H_R, H_M, H_U의 E는 21, 72, 124%(Δ_contact 0.86, 2.33, 3.91 mm)이고 R < M < U는 48개 블록 중 43개.
 
+### 6.1 TODO
+
+- **23b: distal pad에서 시작하는 grasp 획득.** Fig. 4의 획득 렌더(`sim/drake/render_acquire_tip.py`, `logs/render_acquire_tip_strip.png`)는 원기둥을 편 손가락의 distal pad 가운데(proximal-face 좌표 x 72.7 mm)에 두고 시작한다.
+  - 잰 23차는 두 pad가 쥐는 위치에서 손끝 쪽으로 3·6 mm 옮긴 곳(편 손가락에서는 PIP 근처)에서 시작하므로, 지금 렌더는 실험과 시작 위치가 다르다.
+  - 같은 시작으로 실험을 돌려 렌더와 맞춘다. 순서는 지금까지와 같다.
+    1. 사전 기록을 쓰고 O를 보정한다.
+    2. R과 U를 먼저 돌려 E_U < 10%이면 멈춘다.
+    3. 통과하면 18개 손과 대체 손을 point와 hydro 둘 다 돌린다.
+  - O 렌더 시뮬레이션에서는 원기둥이 2 s 안에 x 22 mm까지 끌려 들어온다.
+  - 렌더의 엄지는 물체를 감싸는 듯한 그림용 자세일 뿐이다. 시뮬레이션하지 않고 물체에 닿지 않는다.
+
 ## 7. 실험 색인
 
 계획 commit은 계획 제목이 처음 들어간 commit, 결과 commit은 결과가 들어간 commit이다. 8d71987 전의 기록은 `git show <hash>:docs/experimental/separability.md`. 계획과 결과가 같은 commit인 실험(3B, 4, 9, 10, 12, 13, 14)은 git만으로 사전 기록을 확인할 수 없다.
