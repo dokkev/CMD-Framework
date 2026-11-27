@@ -28,3 +28,18 @@ for _v in ("", "Touch", "TouchDir", "ObsS", "ObsL"):
                 "default_agent": "rsl_rl",
             },
         )
+
+from .grid import GRID  # noqa: E402
+
+for _key in GRID:  # attempt 9: the Study 3 hand grid (closed loop)
+    for _sfx in ("", "-Eval"):
+        gym.register(
+            id=f"CoDe-Finger-Walk-{_key}{_sfx}",
+            entry_point="isaaclab.envs:ManagerBasedRLEnv",
+            disable_env_checker=True,
+            kwargs={
+                "env_cfg_entry_point": f"{__name__}.env_cfg:FingerWalk{_key}{_sfx.lstrip('-')}EnvCfg",
+                "rsl_rl_cfg_entry_point": f"{__name__}.agents:FingerWalkPPORunnerCfg",
+                "default_agent": "rsl_rl",
+            },
+        )

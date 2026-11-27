@@ -47,6 +47,7 @@ from ..finger_relay.env_cfg import TOUCH, default_joint_pos
 from ..rotate_cube.camera import recording_visualizer_cfg
 from ..rotate_cube.grasp import FLEXION_DAMPING, FLEXION_STIFFNESS, HANDS, _matrix_to_quat_xyzw, face_frame
 from . import mdp
+from .grid import GRID, TOUCH_BODY
 
 FINGERS = ("index", "middle", "ring")
 ACTING = tuple(f"{f}_pip_servo" for f in FINGERS)
@@ -142,6 +143,8 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
     """With ``object_observed`` False: the actor also sees the sign of the target error (+1 / -1), nothing more."""
     evaluation: bool = False
     contact_model: dict | None = None
+    touch_body: str = "distal"
+    """The body carrying each finger's distal pad, which the touch sensor filters (the fixed-axis hands: servo_link)."""
 
     scene: SceneCfg = SceneCfg()
     observations: ObservationsCfg = ObservationsCfg()
@@ -182,7 +185,7 @@ class FingerWalkEnvCfg(ManagerBasedRLEnvCfg):
         self.scene.object = obj
         self.scene.tip_touch = ContactSensorCfg(
             prim_path="{ENV_REGEX_NS}/object",
-            filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/Robot/{f}_distal" for f in FINGERS],
+            filter_prim_paths_expr=[f"{{ENV_REGEX_NS}}/Robot/{f}_{self.touch_body}" for f in FINGERS],
         )
         face = {"face_origin": tuple(float(v) for v in o), "face_rot": tuple(float(v) for v in rot.reshape(-1))}
         self.rewards.walk_goal.params = {**face, "targets_m": TARGETS_M, "success_m": SUCCESS_M,
@@ -253,3 +256,9 @@ for _key in ("O", "R", "U", "R5", "U5", "R9", "U9"):
         _n = f"FingerWalk{_key}{_v}EvalEnvCfg"
         globals()[_n] = configclass(type(_n, (FingerWalkEnvCfg,), {"hand_key": _key, "object_observed": _obs,
                                                                     "direction_observed": _dir, "evaluation": True}))
+
+for _key in GRID:  # attempt 9: the Study 3 hand grid, closed loop only (training and evaluation)
+    for _sfx, _ev in (("", False), ("Eval", True)):
+        _n = f"FingerWalk{_key}{_sfx}EnvCfg"
+        globals()[_n] = configclass(type(_n, (FingerWalkEnvCfg,), {"hand_key": _key, "evaluation": _ev,
+                                                                    "touch_body": TOUCH_BODY[_key]}))

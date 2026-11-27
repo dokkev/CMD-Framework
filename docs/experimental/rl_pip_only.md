@@ -481,3 +481,109 @@ G = E(U) − E(R) (양수면 R이 유리)와 이전 비율 간격 (ratio_R − r
 - touch+direction seed 21은 segment 5 학습 중에 멈췄다. segment 4에서 O는 336 mm를 걸었고, 이전(R/U eval)은 하지 않았다. run 폴더는 `stopped/`다.
 - 중간 수준(ObsS, ObsL)은 돌리지 않았다. walk ObsS seed 20은 3분 만에 멈춰 수치가 없다.
 - 따라서 원기둥 걷기의 용량-반응은 판정하지 않는다.
+
+## 시도 9: 손 격자로 이전 조건 찾기 (사전 등록, 새 손의 이전 수치를 보기 전, 2026-11-26)
+
+**질문:** 7b′(closed loop)에서 R이 U보다 정책을 잘 물려받은 것은 7 mm 한 쌍, 학습 seed 두 개다. 어떤 기구학적 양이 이전을 예측하는가? 그 양으로 "R이 U를 이기는 조건"을 말할 수 있는가? (단계 1: 새 학습 없이, 기존 O 정책 두 개를 많은 손으로 옮긴다.)
+
+### 정책
+- seed 20: `logs/rsl_rl/code_finger_walk/2026-11-26_03-30-35_finger_walk_O_s20_walk_seg3/model_597.pt`
+- seed 21: `logs/rsl_rl/code_finger_walk/2026-11-26_05-23-33_finger_walk_O_s21_walks21_seg3/model_597.pt`
+- 7b′ closed loop, MCP 잠금, PIP만. 과제와 기존 손의 export는 바꾸지 않는다.
+
+### 손 (73개)
+- **O** (기준)와 **R, U, R5, U5, R9, U9** (기존 6개). 같은 절차로 모두 다시 잰다. 이전 값은 재현 점검에만 쓴다.
+- **CFL 격자 62개:** `design/output/sim/study3/hands/cfl_q120_h3to{5,7,9}_d*.yaml` 전부 (Study 3 e18 재설계). 7 mm 44개, 5 mm 12개, 9 mm 6개다.
+  - `h3to7_d1p5_s1`은 `h3to7_d1p5_s0`과 파라미터가 바이트 단위로 같아 뺐다.
+  - 키는 `g<t>_<suffix>`이다 (예: `g7_d1p5_minDs_s0`).
+- **고정축 4개 (`FA3`, `FA5`, `FA7`, `FA9`):** O의 joint gap 중앙에 PIP 하나, pad 3/5/7/9 mm (`scripts/study3_measurement/fixed_axis_hands.py`의 `build()`).
+- CFL 손은 R/U와 같은 exporter(`design/scripts/export/code_hand_sim.py`)로 `logs/finger_walk/hands/`에 다시 export했다 (`scripts/finger_relay/export_walk_grid.sh`). R을 같은 방법으로 다시 export하면 커밋된 것과 같다 (source 제외).
+  - `design/output`에 있던 격자 JSON은 palm housing 이전 것이라 쓰지 않는다.
+  - 고정축 손도 O의 현재 export에서 다시 만들었다 (기구학은 Study 3과 같고, palm housing이 더해졌다).
+- 접촉 모델(`pad13_condim4_v1`), dome pad, 시작 상태(각 손의 face frame), 목표는 7b′와 같다.
+- 고정축 손의 distal pad는 `<finger>_servo_link`에 붙어 있다. 그래서 접촉 센서는 그 body를 거른다 (`grid.TOUCH_BODY`). 다른 손은 7b′와 같이 `<finger>_distal`이다.
+- 등록: `CoDe-Finger-Walk-<key>`와 `-Eval` (`tasks/finger_walk/grid.py`, closed loop만).
+
+### 설계 지표 (`scripts/finger_relay/walk_grid_metrics.py` → `logs/finger_walk/grid/hand_metrics.json`)
+- **Δ_contact, Δ_skel, C̄_pad:** Study 3 값이다. 출처는 e18 설계표 `design/output/study/exploratory/e18_rct_dose/designs*.csv` (`contact_change_mm`, `skeleton_change` × 90 mm, `c_pad_mean`)이다. `scripts/study3_measurement/dose_analysis.py`의 상수와 같다.
+  - Isaac export에서 다시 계산해 확인했다: middle 손가락, MCP 0, PIP 0–120°. Δ_contact는 proximal face 좌표계에서 본 distal pad 면 손끝 쪽 끝점의 경로 차이, Δ_skel은 링크선 손끝의 경로 차이다. 68개 CFL 손에서 설계표와 0.005 mm 안에서 같다.
+- **proximal face 깊이:** mount offset + 두께 (손의 yaml).
+- **탐색용:** 두께, proximal pad 길이.
+- **고정축 손:** 설계표 행이 없다. 그래서 다시 계산한 값을 쓴다. O 기준이다 (Study 3의 "Δ_skel = 0"은 FA3 기준이다).
+
+| 손 | Δ_contact | Δ_skel | proximal pad 길이 | face 깊이 |
+|---|---|---|---|---|
+| FA3 | 5.60 | 5.60 | 39.3 | 6 |
+| FA5 | 9.07 | 5.60 | 35.8 | 8 |
+| FA7 | 12.53 | 5.60 | 32.4 | 10 |
+| FA9 | 16.00 | 5.60 | 28.9 | 12 |
+
+(mm; O의 proximal pad는 44 mm.)
+- 고정축 계열은 O 기준 Δ_skel이 5.6 mm로 일정하고, Δ_contact만 커진다.
+- 고정축 손의 proximal pad가 짧다. 그래서 45 mm 목표와 시작 범위(28–42 mm)의 일부가 pad 끝 너머에 있다. 이 계열의 결과에는 pad 길이가 섞인다.
+- **CFL 68개에서 설계 지표 사이의 Spearman ρ (결과와 무관):**
+  - Δ_contact와: Δ_skel +0.21, C̄_pad −0.59, face 깊이 +0.40, 두께 +0.48, pad 길이 −0.04
+  - Δ_skel과 pad 길이 +0.58 (minDs 손은 proximal pad가 짧다)
+  - C̄_pad와 face 깊이 −0.86
+  - Δ_contact 범위: 0.35–5.40 mm
+
+### 측정
+- 손마다 pad μ 1.3 / 2.0, eval seed 94000 / 95000, 1024 env (`eval_walk.py`). 한 process에서 두 checkpoint를 차례로 잰다 (`scripts/finger_relay/run_walk_grid.sh`, GPU에 한 job씩).
+  - O seed 20의 μ 1.3 seed 94000을 같은 조건으로 되풀이하면 515 (이전), 522 (두 checkpoint 한 process), 512, 519 mm다. 실행 간 비결정성은 약 ±1%다.
+- **손 H, 학습 seed k마다** (eval seed 두 개 평균):
+  - 이전 비율 = walked(H, μ 1.3) / walked(O, μ 1.3)
+  - 떨어뜨림 = μ 1.3에서 떨어뜨린 비율
+  - E = |Δ(H) − Δ(O)| / |Δ(O)|, Δ = walked(μ 2.0) − walked(μ 1.3) (7b′와 같다)
+  - eval 잡음: eval seed 사이의 차이를 같은 방식으로 나눈 값
+  - 기준 O는 이 시도에서 다시 잰 값이다.
+- **pooled:** 두 학습 seed의 평균이다.
+
+### 분석 (`scripts/finger_relay/walk_grid_analysis.py`)
+- **주 집합:** CFL 68개 (격자 62 + 기존 6). 고정축 4개는 따로 보고한다.
+- **상관:** 학습 seed별과 pooled로 계산한다.
+  - 이전 비율, E, 떨어뜨림 각각에 대해, Δ_contact, Δ_skel, C̄_pad, face 깊이 (탐색: 두께, pad 길이)와의 Spearman ρ
+  - 양측 순열 p (20,000회), 손 bootstrap 95% 구간 (10,000회, seed 0)
+- **partial ρ:** ρ(Y, Δ_contact | Δ_skel), 그리고 | 두께, | C̄_pad. 순위 잔차의 Pearson이고, 순열과 bootstrap은 위와 같다.
+- **|ρ(Y, Δ_contact)| − |ρ(Y, Δ_skel)|:** bootstrap 구간을 본다.
+- **7 mm만 (46개):** 같은 상관을 보조로 낸다.
+- **min/max Δ_skel 쌍 (직접 대조):** 같은 Δ_contact 목표의 minDs/maxDs 쌍 중 Δ_skel 차이가 2 mm 이상인 17쌍이다 (7 mm 12, 5 mm 4, 9 mm `d3p5` 1). `h3to7_d4p5`와 `h3to9_d5`는 차이 < 0.4 mm라 뺀다.
+  - 쌍마다 Y(maxDs) − Y(minDs)를 구한다. 중앙값, 양수 개수, Wilcoxon 부호순위 양측 p를 본다.
+  - 쌍 안의 Δ_contact 차이는 ≤ 0.15 mm다. 다만 minDs 손은 pad가 짧고 C̄_pad도 다르다.
+- **허용 곡선:** pooled 비율을 Δ_contact에 대해 감소 isotonic 회귀로 맞춘다. Dc50은 맞춘 값이 0.5 아래로 처음 내려가는 손과 그 직전 손의 Δ_contact 중점이다. 손 bootstrap 구간과 seed별 값도 낸다.
+
+### 예측
+1. 이전 비율은 Δ_contact가 클수록 떨어지고, E는 커진다.
+   - pooled ρ(비율, Δ_contact) < 0, ρ(E, Δ_contact) > 0, 각각 p < 0.05
+   - 두 학습 seed에서 부호가 같다.
+2. Δ_skel 때문이 아니다.
+   - partial ρ(Y, Δ_contact | Δ_skel)이 같은 부호이고 p < 0.05다.
+   - |ρ(Y, Δ_contact)| − |ρ(Y, Δ_skel)|의 구간이 0보다 크다.
+   - min/max Δ_skel 쌍에서 일관된 차이가 없다.
+3. 고정축 손은 잘 이전되지 않는다.
+   - FA5/7/9의 비율이 두 seed 모두 0.5 미만이고, 같은 두께의 R(R5, R, R9)보다 낮다.
+   - FA3도 0.5 미만이다 (Δ_contact 5.6 mm가 U의 3.91 mm보다 크다).
+4. Dc50은 R(0.86 mm)과 U(3.91 mm) 사이에 있다. 기존 수치로 보면 약 2 mm로 예상한다. 판정 조건이 아니라 보고할 값이다.
+
+### 반증 조건
+- **F1 (Δ_contact가 예측하지 못함):** pooled ρ(비율, Δ_contact) ≥ 0이거나 p ≥ 0.05다. E도 따로 같은 방식으로 본다 (ρ(E, Δ_contact) ≤ 0 또는 p ≥ 0.05).
+- **F2 (seed 비재현):** 두 학습 seed의 ρ(비율, Δ_contact) 부호가 다르다.
+- **F3 (Δ_skel이 더 나은 예측자):** |ρ(Y, Δ_contact)| − |ρ(Y, Δ_skel)|의 구간이 모두 0 아래다.
+  - partial ρ(Y, Δ_contact | Δ_skel)의 구간이 0을 포함하면, "Δ_skel과 분리되지 않음"으로 기록한다 (지지 아님).
+- **F4 (같은 Δ_contact에서 Δ_skel이 효과를 냄):** min/max 쌍의 Wilcoxon p < 0.05이고, |중앙값 차이|가 비율 0.10 이상 또는 E 0.25 이상이다.
+- **F5 (고정축이 잘 이전됨):** FA5/7/9 중 하나가 두 seed 모두에서 같은 두께 R 이상이다. 또는 FA3의 비율이 두 seed 모두 0.5 이상이다.
+- **판정 불가:**
+  - O의 Δ(O)가 seed 사이에서 부호가 다르다.
+  - |Δ(O)|가 O의 eval seed 차이의 2배보다 작다.
+  - 이 경우 E는 판정하지 않는다.
+
+### 정지 규칙
+- O와 기존 6개 손을 먼저 잰다.
+- 기존 값(같은 seed, 같은 μ)과 평균 이동 거리가 손마다 5% 넘게 다르면 멈추고 보고한다. 단, 이동 거리 < 50 mm인 U, U9는 절대 차이 10 mm를 기준으로 한다.
+- 손이 로드되지 않거나 eval이 실패하면, 그 손을 빼고 기록한다. 10%를 넘으면 멈춘다.
+
+### 공개 (등록 시점에 본 것)
+- 기존 6개 손의 7b′ 값 (두 seed): 비율 R 0.73/0.61, U 0.07/0.07, R5 0.82, U5 0.54, R9 0.42, U9 0.04 (seed 20)와 seed 21의 5/9 mm 값.
+- 설계 지표와 그 상관 (위).
+- 정책 없이 한 load 점검 (16 env, 세 손가락을 100°까지 굽힘): O, FA7, `g7_d1_s1` 모두 로드되고, 세 손가락 접촉이 잡힌다. 원기둥 x는 O 29.2, FA7 40.2, `g7_d1_s1` 23.6 mm다.
+- O의 두 checkpoint 재현 점검 (위).
+- 새 손에서 정책을 돌린 수치는 없다.
