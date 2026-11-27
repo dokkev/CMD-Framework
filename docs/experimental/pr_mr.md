@@ -863,7 +863,7 @@ Skeleton at 5 / 9 mm in the cube: 0.810 / 0.531 (s20), 0.342 / 0.153 (s21).
 
 | hand | pairs | signed median | E |
 |---|---|---|---|
-| CoDe (R) | 13 | −27% (Table I) | — |
+| CoDe (R) | 13 | −27% | 27% |
 | Coverage (U) | 5 | +117% | 157% |
 | Skeleton | 5 | +83% | 198% |
 
