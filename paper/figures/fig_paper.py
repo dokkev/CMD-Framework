@@ -7,10 +7,10 @@ Figure plan (user, 2026-11-24): physical meaning first; no trend lines, Pareto f
           the skeleton frame and from the contact frame. (a) and (c) are schematics from the closed-form model.
   Fig. 3  design validation (Studies 1, 2): (a) optimized geometry at 120 deg, 7 mm (evaluator) and coverage dots;
           (b) reference and redesign paths at 120 deg, 3 -> 7 mm, and contact-deviation dots with the fixed-axis value.
-  Fig. 4  scientific validation (Study 3): five Drake tasks (power-grasp hold, grasp acquisition, hook pull, fingertip
-          dial, box pivot): the task, R's and U's response minus O's, the bias in the friction effect, and each task's
-          error E for R and U with point and hydroelastic contact.
-  Table I contact-model robustness (R and U errors), written as LaTeX to sections/table_robust.tex.
+  Fig. 4  scientific validation (Study 3): four Drake tasks (power-grasp hold, grasp acquisition, fingertip dial, box
+          pivot): the task, the three morphologies' (CoDe, Skeleton, Coverage) response minus O's, the bias in
+          the friction effect, and each task's error E for each with point and hydroelastic contact.
+  Table I contact-model robustness (CoDe, Skeleton and Coverage errors), written as LaTeX to sections/table_robust.tex.
 Colours: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple.
 """
 import csv
@@ -650,7 +650,7 @@ def task_icon(ax, kind):
 
 
 def fig4():
-    """Study 3: five Drake tasks under O's reused command. Per task: three frames; R and U's object response minus O's
+    """Study 3: four Drake tasks under O's reused command (the hook pull, 38, is in the text: paper/SSoT.md 6.1). Per task: three frames; R and U's object response minus O's
     over E's pairs (median, quartiles; friction 1.3 circles, 2.0 diamonds); each redesign's friction effect minus O's;
     and under the bottom panel each task's error E (median |bias| over placements) for CoDe, Skeleton and Coverage with point
     and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
@@ -662,7 +662,6 @@ def fig4():
              "load deviation (N)", "effect bias (N)"),
             ("Grasp acquisition", "acquire", "grasp_acquisition.png", "time (s)", "drawn-in deviation (mm)",
              "effect bias (mm)"),
-            ("Hook pull", "hook", "hook_pull.png", "bar displacement (mm)", "load deviation (N)", "effect bias (N)"),
             ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
              "effect bias (deg)"),
             ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",

@@ -158,7 +158,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 Font: Helvetica Light for figure text (bold and math italic in Nimbus Sans, which the Light cut lacks). Physical meaning first: no trend lines, Pareto fronts or statistics (ρ, p) in figures; statistics, the selection rule
 and coverage retention go in the text. White background, thin technical linework, LaTeX-style math, restrained
-colour: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, pole purple. Final plots come from the
+colour: CFL / CoDe blue, 2R-remote amber, 2R-DD / reference grey, RCJ teal, pole purple; in Study 3 the three morphologies are CoDe blue, Skeleton teal, Coverage warm red. Final plots come from the
 evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-drawn values.
 
 | Figure | Role | Content |
@@ -166,9 +166,9 @@ evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-d
 | Fig. 1 | overview | the hand manipulating (USD), the CFL finger (CAD) with room for interfaces, contact- vs skeleton-centred redesign, interfaces incl. NARI-Touch |
 | Fig. 2 | kinematic principle (double column, 45–50 mm) | (a) clearance set by the pole, (b) achievable poles (CFL, RCJ, fixed axis), (c) motion seen from the skeleton frame and the contact frame; no mechanism detail |
 | Fig. 3 | design validation (double column, 65–75 mm) | (a) optimized geometry at 120°, 7 mm (evaluator: pads light, cylinder-holding surface dark, mechanism grey, extended + flexed) and coverage dots; (b) reference–redesign paths at 120°, 3→7 mm, and Δ_contact dots with the fixed-axis value dashed |
-| Fig. 4 | scientific validation (double column, 70–80 mm) | one column per task: the task, R's and U's error, every redesign's error against Δ_contact |
+| Fig. 4 | scientific validation (double column, 70–80 mm) | one column per task: the task and the three morphologies, CoDe, Skeleton and Coverage, compared with O (never R or U in a figure or the text). Four tasks (user, 2026-11-27): power-grasp hold, grasp acquisition, fingertip dial, box pivot, the tasks that pass in both contact models without a caveat. The hook pull (38) goes in the text in one sentence (point contact holds; under hydroelastic contact the force gate rejects Coverage). The acquisition frames start the cylinder on the open finger's distal pad (`render_acquire_tip.py`, a drawing start; the caption says the measured starts are 3–6 mm from the grasp until experiment 23b runs) |
 | Fig. 2(b) bounds | every joint's achievable-pole region uses the same size rule as the CFL's design space (pivots on the link line within the finger; RCJ 2r <= 90 mm); no extra cap on any joint |
-| Table I | contact-model robustness | R and U errors per contact model (medians per design's valid conditions, not matched condition by condition) |
+| Table I | contact-model robustness | CoDe, Skeleton and Coverage errors per contact model (medians per design's valid conditions, not matched condition by condition) |
 
 ## 7. Numbers and their sources
 
