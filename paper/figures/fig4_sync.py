@@ -239,7 +239,8 @@ def deviation(pairs):
     dev["dial"]["x"] = (np.arange(1, n_d + 1) / 30).round(4).tolist()
     # box pivot: tilt from the sweep's start against time (e35), over the E pairs
     bp = {h: BP._load(NAME[h], "e35") for h in ("O",) + REDESIGNS}
-    n_p = min(len(bp[h][k][f"{m:g}"]["trace"]) for h in ("O",) + REDESIGNS for k in pairs["pivot"][h] for m in MU)
+    n_p = min(len(bp[hh][k][f"{m:g}"]["trace"]) for h in REDESIGNS for k in pairs["pivot"][h] for hh in ("O", h)
+              for m in MU)
     dev["pivot"] = _trajectories(lambda h, m, k: np.array(bp[h][k][f"{m:g}"]["trace"])[:, 0],
                                  {h: list(pairs["pivot"][h]) for h in REDESIGNS}, n_cut=n_p)
     dev["pivot"]["x"] = (np.arange(1, n_p + 1) / 30).round(4).tolist()

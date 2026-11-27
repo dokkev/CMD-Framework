@@ -847,22 +847,28 @@ def table():
                   ("joint torque", pr["torque"]),
                   ("close at sensed touch", pr["touch"]),
                   ("matched contact force$^{c}$", pr["force"]))))
-    lines = [r"\begin{table}[t]", r"  \centering", r"  \small",
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{4pt}",
              r"  \caption{Error in the measured pad effect, median over placements ($+$: overstated). Pull-out, "
              r"$7$\,mm pads, joint setpoint reused unless noted. $^{a}$Stiffness $\propto 1/h$ (upper bound); "
              r"reference: $O$ with the same pad. $^{b}$Drake; setpoint matched at the fingertip contact point. "
              r"$^{c}$Oracle distal force. $^{d}$Drake; each shape placed where $O$'s pads of that shape touch. "
+             r"--: not yet run. "
              r"Coverage under joint torque: "
              f"${100 * pr['torque']['U']['bias_q25']:.0f}$ to ${100 * pr['torque']['U']['bias_q75']:+.0f}\\%$ (quartiles).}}",
-             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    & \ourmethod{} & Coverage \\"]
+             r"  \label{tab:robust}", r"  \begin{tabular}{lrrr}", r"    \toprule",
+             r"    & \ourmethod{} & Skeleton & Coverage \\"]
     for k, (title, rows) in enumerate(sections):
         lines.append(r"    \midrule")
-        lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")
+        lines.append(f"    \\multicolumn{{4}}{{l}}{{\\textit{{{title}}}}} \\\\")
         for name, d in rows:
-            fmt = [f"{v:+.0f}" if round(v) != 0 else "0" for v in (100 * d["R"]["bias_median"],
-                                                                 100 * d["U"]["bias_median"])]
-            lines.append(f"    \\quad {name} & ${fmt[0]}\\%$ & ${fmt[1]}\\%$ \\\\")
+            cells = []
+            for hh in ("R", "S", "U"):
+                if hh not in d:
+                    cells.append("--")
+                    continue
+                v = 100 * d[hh]["bias_median"]
+                cells.append(f"${v:+.0f}\\%$" if round(v) != 0 else "$0\\%$")
+            lines.append(f"    \\quad {name} & {cells[0]} & {cells[1]} & {cells[2]} \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
