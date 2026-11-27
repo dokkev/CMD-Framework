@@ -655,7 +655,7 @@ def fig4():
     and under the bottom panel each task's error E (median |bias| over placements) for CoDe, Skeleton and Coverage with point
     and hydroelastic contact. Data: report/study3/data/fig4_sync.json (fig4_sync.py)."""
     from PIL import Image
-    from scipy.stats import spearmanr
+    from scipy.stats import rankdata, spearmanr
     d = json.load(open(S3 / "fig4_sync.json"))
     DV = d["deviation"]
     # (title, task key, image, x label, response label, effect label)
@@ -749,17 +749,20 @@ def fig4():
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=5.8, ha="left", va="center",
                          color=HC[hh])
-            # Spearman rho of E with this quantity over the correlation's hands (Skeleton outside it), point / hydro
-            rr = []
+            # Spearman rho of E with this quantity over the correlation's hands (Skeleton outside it), both contact
+            # models in one value: each hand's E ranked within each model, the two ranks averaged (E's size differs
+            # between the models, so pooling the raw errors would mix the models' scales into the ranking)
             pt_all = pt
             if key in ("dial", "pivot"):  # every hand on the 32 draws (fig4_sync's first32 holds R and U only)
                 f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
                 pt_all = {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
-            for src in (pt_all, d["hydro"][key]):
-                hs = [hh for hh, r in src.items() if hh != "S" and r and r.get("E") is not None and hh in hdall]
-                rr.append(spearmanr([src[hh]["E"] for hh in hs], [hdall[hh][k_] for hh in hs]).correlation)
-            fig.text(xm + 0.50 / W, yy, "$\\rho$ " + " / ".join(f"{v:.2f}".replace("-", "\u2212") for v in rr),
-                     fontsize=5.0, ha="left", va="center", color=INK2)
+            hy = d["hydro"][key]
+            ok = lambda src, hh: hh != "S" and src.get(hh) and src[hh].get("E") is not None and hh in hdall
+            hs = [hh for hh in hdall if ok(pt_all, hh) and ok(hy, hh)]
+            mrank = (rankdata([pt_all[hh]["E"] for hh in hs]) + rankdata([hy[hh]["E"] for hh in hs])) / 2
+            rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
+            fig.text(xm + 0.50 / W, yy, f"$\\rho$ {rho:.2f}".replace("-", "\u2212"),
+                     fontsize=5.4, ha="left", va="center", color=INK2)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
