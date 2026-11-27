@@ -646,3 +646,25 @@ Coverage ends of each front (free heights) against the paper's Study 2 (`study2_
   - Fig. 4 and Table I with the chosen hand.
   - USD renders.
   - Section 8.4's H_R.
+
+## Paper decision and the Conventional hand (2026-11-27)
+
+- **User decision.** The paper keeps R as CoDe's redesign. R is also a contact-centred redesign, so the paper calls it the result of contact-centred design and does not wait for the pins-free reruns. The paper compares three hands:
+  - **CoDe** (R): least Δ_contact.
+  - **Conventional:** skeleton minimization.
+  - **Coverage** (the old U): coverage only.
+- **Conventional** (`e25_skeleton_min.py`):
+  - Study 2's own space (A and B on the link line, the mounting rule, the goal). NSGA-II on Δ_skel and −C̄_pad, seeds 0 and 1, 200 × 200.
+  - Pick: the least Δ_skel at C̄_pad no more than 0.05 below CoDe's at that thickness. A fixed floor of 0.70 has no design at 9 mm, where CoDe itself has 0.695.
+
+| t | Δ_skel | Δ_contact | Δ_MCP | C̄_pad | face |
+|---|---|---|---|---|---|
+| 5 | 0.06 | 3.43 | 2.04 | 0.738 | 8 |
+| 7 | 0.34 | 6.61 | 4.05 | 0.684 | 10 |
+| 9 | 1.94 | 8.51 | 6.19 | 0.646 | 12 |
+
+  At 7 mm it sits near the fixed-axis bound (Δ_contact 6.61 against 6.93) with the skeleton nearly unchanged. It is the CFL counterpart of the fixed-axis family (Δ_skel 0).
+- **Pre-registration (before any Conventional run).** Drake, the five tasks in point and hydroelastic contact, with the experiments' own tags, and the pull-out at 5 and 9 mm. Isaac condition A (friction) at 5/7/9 mm once the GPU is free.
+  1. CoDe errs less than Conventional in every task and both contact models.
+  2. In the grasping tasks (pull-out 21, acquisition 23, hook 38), Conventional errs at least as much as Coverage, since its Δ_contact is larger (6.61 against 3.91).
+  3. Adding Conventional to the hands of each task keeps E's correlation with Δ_contact positive, and Δ_skel's no better than before.
