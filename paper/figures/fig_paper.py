@@ -668,7 +668,8 @@ def fig4():
              "effect bias (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER, "S": TEAL}
     RED = tuple(hh for hh in ("R", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
-    h = 3.40
+    B = 0.24  # room for the two motion-change rows under each task's E rows
+    h = 3.40 + B
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -692,7 +693,7 @@ def fig4():
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
         # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52) / h, (cw - 0.58) / W, 0.74 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52) / h, (cw - 0.36) / W, 0.74 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
         for hi, hh in enumerate(RED):
@@ -701,27 +702,6 @@ def fig4():
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
                 ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
                         mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 6, step))
-        # end labels: the final deviation as a share of O's final value at the same friction, marker = friction
-        labs_r = []
-        for hh in RED:
-            for mu, mk_ in (("1.3", "o"), ("2", "D")):
-                dev_end = dv[f"{hh}_{mu}"]["median"][-1]
-                ref_end = dv[f"O_{mu}_abs"]["median"][-1]
-                pct = 100 * dev_end / ref_end
-                labs_r.append((dev_end, "0%" if round(pct) == 0 else f"{pct:+.0f}%", HC[hh], mk_))
-        y0, y1 = ra.get_ylim()
-        fr = sorted(((v - y0) / (y1 - y0), t, c, m) for v, t, c, m in labs_r)
-        for k in range(1, len(fr)):
-            if fr[k][0] - fr[k - 1][0] < 0.10:
-                fr[k] = (fr[k - 1][0] + 0.10,) + fr[k][1:]
-        over = fr[-1][0] - 0.97
-        if over > 0:
-            fr = [(q[0] - over,) + tuple(q[1:]) for q in fr]
-        for f_, t, c, m in fr:
-            ra.plot(1.045, f_, marker=m, ms=2.4 if m == "o" else 2.1, mfc="white", mec=c, mew=0.5, ls="none",
-                    transform=ra.transAxes, clip_on=False)
-            ra.text(1.08, f_, t, transform=ra.transAxes, fontsize=5.6, va="center", ha="left", color=c,
-                    fontweight="bold")
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.tick_params(labelbottom=False)
         clean(ra)
@@ -729,27 +709,17 @@ def fig4():
         # same placement, in the task's unit (the stored share of O's final effect times that effect); end labels:
         # the share of O's effect. 0 is the friction effect measured without bias
         sc = dv["O_effect"]["median"][-1] / 100.0
-        ea = fig.add_axes(((x0 + 0.30) / W, 0.80 / h, (cw - 0.58) / W, 0.70 / h), sharex=ra)
+        ea = fig.add_axes(((x0 + 0.30) / W, (0.80 + B) / h, (cw - 0.36) / W, 0.70 / h), sharex=ra)
         ea.axhline(0, color=INK, lw=0.6, zorder=2)
-        labs = []
         for hh in [x for x in ("S", "U", "R") if f"{x}_bias" in dv]:
             bd = dv[f"{hh}_bias"]
             m_ = sc * np.asarray(bd["median"])
             ea.fill_between(x, sc * np.asarray(bd["q25"]), sc * np.asarray(bd["q75"]), color=HC[hh], alpha=0.12, lw=0,
                             zorder=1)
             ea.plot(x, m_, color=HC[hh], lw=0.7, zorder=3)
-            labs.append((m_[-1], "0%" if round(bd["median"][-1]) == 0 else f"{bd['median'][-1]:+.0f}%", HC[hh]))
         lim = abs(sc) * max(25.0, 1.15 * max(abs(v) for b_ in RED if f"{b_}_bias" in dv for v in dv[f"{b_}_bias"]["q75"]
                                         + dv[f"{b_}_bias"]["q25"]))
         ea.set_ylim(-lim, lim)
-        y0, y1 = ea.get_ylim()
-        fr = sorted(((v - y0) / (y1 - y0), t, c) for v, t, c in labs)
-        for k in range(1, len(fr)):
-            if fr[k][0] - fr[k - 1][0] < 0.11:
-                fr[k] = (fr[k - 1][0] + 0.11, fr[k][1], fr[k][2])
-        for f_, t, c in fr:
-            ea.text(1.02, f_, t, transform=ea.transAxes, fontsize=5.8, va="center", ha="left", color=c,
-                    fontweight="bold")
         ea.set_xlabel(xl, labelpad=1, fontsize=6.3)
         ea.set_ylabel(el, labelpad=1, fontsize=5.6)
         clean(ea)
@@ -759,13 +729,22 @@ def fig4():
             f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
             pt = d["first32"][key] if "first32" in d else {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
-            yy = (0.40 - 0.115 * j) / h
-            xm = (x0 + 0.30 + (cw - 0.58) / 2) / W
+            yy = (0.40 + B - 0.115 * j) / h
+            xm = (x0 + 0.30 + (cw - 0.36) / 2) / W
             fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 e = src.get(hh)
                 fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=5.8,
                          ha="left", va="center", color=HC[hh], fontweight="bold")
+        # how much each morphology changes the contact-surface and the skeletal motion (mm, 7 mm; one hand each, so
+        # the same under every task), under the E rows and aligned with them
+        hd = d["tasks"]["pull"]["hands"]
+        for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
+            yy = (0.40 + B - 0.115 * (j + 2) - 0.03) / h
+            fig.text(xm - 0.22 / W, yy, lab, fontsize=5.6, ha="right", va="center", color=INK2)
+            for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
+                fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=5.8, ha="left", va="center",
+                         color=HC[hh])
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
@@ -774,9 +753,8 @@ def fig4():
                           label="pad friction 1.3"),
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
                           label="pad friction 2.0"),
-               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements"),
-               plt.Line2D([], [], ls="none", label="%: relative to O")]
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=8, frameon=False, fontsize=6.0,
+               plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)
@@ -823,7 +801,7 @@ def fig_protocols():
 
 # ----------------------------------------------------------------------------------------------------------- Table I
 def table():
-    """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe, Skeleton and
+    """Table I (Study 3B and the command protocols): the signed bias in the measured pad effect of CoDe and
     Coverage (pull-out, 7 mm), median over placements and load directions of (D(H) - D(O)) / D(O), + overstating
     O's effect, in two sections: the pad change (friction, stiffness and the soft thick pad in Isaac Lab, point
     contact; the soft thick pad with hydroelastic contact and the pad shape in Drake, each shape placed by O's own
@@ -847,20 +825,20 @@ def table():
                   ("matched contact force", pr["force"]))))
     lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{4pt}",
              r"  \caption{Signed error in the measured pad effect}",
-             r"  \label{tab:robust}", r"  \begin{tabular}{lrrr}", r"    \toprule",
-             r"    & \ourmethod{} & Skeleton & Coverage \\"]
+             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
+             r"    & \ourmethod{} & Coverage \\"]
     for k, (title, rows) in enumerate(sections):
         lines.append(r"    \midrule")
-        lines.append(f"    \\multicolumn{{4}}{{l}}{{\\textit{{{title}}}}} \\\\")
+        lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")
         for name, d in rows:
             cells = []
-            for hh in ("R", "S", "U"):
+            for hh in ("R", "U"):  # Skeleton is in Fig. 4, not in the table (user, 2026-11-27)
                 if hh not in d:
                     cells.append("--")
                     continue
                 v = 100 * d[hh]["bias_median"]
                 cells.append(f"${v:+.0f}\\%$" if round(v) != 0 else "$0\\%$")
-            lines.append(f"    \\quad {name} & {cells[0]} & {cells[1]} & {cells[2]} \\\\")
+            lines.append(f"    \\quad {name} & {cells[0]} & {cells[1]} \\\\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))

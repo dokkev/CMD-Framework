@@ -172,7 +172,7 @@ evaluator and the raw CSV/JSON (`paper/figures/fig_paper.py`), never from hand-d
 | Fig. 3 | design validation (double column, 65–75 mm) | (a) optimized geometry at 120°, 7 mm (evaluator: pads light, cylinder-holding surface dark, mechanism grey, extended + flexed) and coverage dots; (b) reference–redesign paths at 120°, 3→7 mm, and Δ_contact dots with the fixed-axis value dashed |
 | Fig. 4 | scientific validation (double column, 70–80 mm) | one column per task: the task and the three morphologies, CoDe, Skeleton and Coverage, compared with O (never R or U in a figure or the text). Four tasks (user, 2026-11-27): power-grasp hold, grasp acquisition, fingertip dial, box pivot, the tasks that pass in both contact models without a caveat. The hook pull (38) goes in the text in one sentence (point contact holds; under hydroelastic contact the force gate rejects Coverage). The acquisition frames start the cylinder on the open finger's distal pad (`render_acquire_tip.py`, a drawing start; the caption says the measured starts are 3–6 mm from the grasp until experiment 23b runs) |
 | Fig. 2(b) bounds | every joint's achievable-pole region uses the same size rule as the CFL's design space (pivots on the link line within the finger; RCJ 2r <= 90 mm); no extra cap on any joint |
-| Table I | contact-model robustness | CoDe, Skeleton and Coverage errors per contact model (medians per design's valid conditions, not matched condition by condition) |
+| Table I | contact-model robustness | CoDe and Coverage errors (Skeleton is in Fig. 4 only; user, 2026-11-27) (medians per design's valid conditions, not matched condition by condition) |
 
 ## 7. Numbers and their sources
 
