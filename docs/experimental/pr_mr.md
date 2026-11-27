@@ -775,3 +775,21 @@ These two tasks are Fig. 4 candidates in place of hook and acquisition, so the r
   2. Twist (a three-finger grasp): MO-Pad ≤ R at point contact, as in the three grasping tasks where it halved R's error.
   3. `conv_e25f` errs more than R in both tasks.
 - Fails if MO-Pad errs more than R + 3 points in either task at point contact.
+
+## Result: coin drag and twist on MO-Pad, S2F and pins-free Skeleton (2026-11-27)
+
+`run_drake_alt2.sh`, all steps rc 0. Scored as for Skeleton above (each script's own `o_pairs`/`o_keep` and `hand_error`).
+
+| task | contact | R | MO-Pad | S2F | pins-free Skeleton | Skeleton | U |
+|---|---|---|---|---|---|---|---|
+| coin drag | point | 2.2% | **8.8%** | 6.2% | 4.9% | 19.3% | 16.3% |
+| coin drag | hydro | 3.2% | **10.2%** | 8.3% | 4.9% | 20.6% | 15.9% |
+| twist, 3 fingers | point | 16.1% | **7.0%** (48) | 15.5% (48) | 49.9% (48; 6 over-pressed) | 71.9% (28) | 54.4% (50) |
+| twist, 3 fingers | hydro | 13.4% (50) | **12.9%** (54) | 24.0% (46) | — (0) | — (0) | — (0) |
+
+- **Prediction 1 fails:** in the coin drag, MO-Pad errs 6.6 points (point) and 7.0 points (hydro) more than R, against the pre-registered limit of 3. S2F also misses it (4.0 and 5.1 points).
+- **Prediction 2 holds:** in the twist, MO-Pad 7.0% < R's 16.1% at point contact. MO-Pad is also the only redesign besides R that scores in twist hydro (12.9% against R's 13.4%).
+- **Prediction 3 holds:** pins-free Skeleton errs more than R in both tasks (coin 4.9 vs 2.2 / 3.2%; twist 49.9 vs 16.1%).
+- **Fail condition met** (MO-Pad > R + 3 points at point contact, coin).
+- Not predicted: in the coin drag, pins-free Skeleton (4.9%) errs less than MO-Pad. The coin is dragged by the fingertip against a table, as in the ball roll (41), whose error followed the path's normal component rather than Δ_contact.
+- For Fig. 4: twist (39) is consistent with the grasping tasks, where MO-Pad halves R's error. The coin drag is the one task where replacing R by MO-Pad costs more than the 1–2 points seen in the disk and the pivot.
