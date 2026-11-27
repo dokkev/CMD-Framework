@@ -150,6 +150,9 @@ def build(hand, mu, pl, time_step, k_theta, d_theta, stage, opts):
             PdControllerGains(p=1.0e5, d=1.0e3))
         plant.AddJointActuator("spin", js).set_controller_gains(PdControllerGains(p=10.0, d=0.1))
     else:
+        if "t_drive" in opts:  # experiment 44: a PD drive along t (target 0; the ramp is fed forward), before spin
+            kp, kd = opts["t_drive"]
+            plant.AddJointActuator("sph_t", jt).set_controller_gains(PdControllerGains(p=kp, d=kd))
         share = opts.get("share", 1.0)  # experiment 33b: one finger of a symmetric two-finger pinch carries half
         plant.AddJointActuator("spin", js).set_controller_gains(PdControllerGains(p=share * pl["k_r"],
                                                                                    d=share * D_SPIN))
@@ -157,6 +160,11 @@ def build(hand, mu, pl, time_step, k_theta, d_theta, stage, opts):
     def props(k):
         pr = ProximityProperties()
         AddContactMaterial(point_stiffness=k, friction=CoulombFriction(mu, mu), properties=pr)
+        return pr
+
+    def thumb_props(k, mu_t):  # experiment 44: the thumb on the twist axis, frictionless
+        pr = ProximityProperties()
+        AddContactMaterial(point_stiffness=k, friction=CoulombFriction(mu_t, mu_t), properties=pr)
         return pr
 
     s0, s1 = pads["proximal_start_mm"] * mm, pads["proximal_end_mm"] * mm
@@ -168,7 +176,8 @@ def build(hand, mu, pl, time_step, k_theta, d_theta, stage, opts):
     tt = THUMB_THICK_MM * mm
     # the thumb pad's face on the thumb frame's origin, its body behind it (away from the sphere, + local z = +n)
     plant.RegisterCollisionGeometry(thumb, RigidTransform([0.0, 0.0, tt / 2]), Box(THUMB_LEN_MM * mm, w, tt),
-                                    "thumb_pad", props(opts.get("thumb_contact_k", T.POINT_STIFFNESS)))
+                                    "thumb_pad", props(opts.get("thumb_contact_k", T.POINT_STIFFNESS)) if "thumb_mu" not in opts else
+                                    thumb_props(opts.get("thumb_contact_k", T.POINT_STIFFNESS), opts["thumb_mu"]))
     plant.RegisterCollisionGeometry(sph, RigidTransform(), Sphere(r), "sphere", props(1.0e8))
     plant.Finalize()
     plant.mutable_gravity_field().set_gravity_vector(np.zeros(3))

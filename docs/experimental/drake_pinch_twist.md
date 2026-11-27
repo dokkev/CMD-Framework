@@ -40,3 +40,16 @@ vector clearly. The goal is to make Fig. 4's columns differ in kind. Results sta
   discriminate, and it is reported as such.
 - **Render.** The pinch from the side, with a bold curved arrow about the spin axis and the axis vector itself
   (normal to the finger's plane), so the torsional load reads at a glance.
+
+## Result (2026-11-27)
+
+All 21 hands ran (`logs/e43_ptwist.json`); 128 of 128 pairs scored for every hand except Skeleton (126, 2 over-pressed).
+
+- Judgments 1–3:
+  - **1 holds:** E_R 0.0%, E_U 4.5%.
+  - **2 holds:** ρ(E, Δ_contact) 0.54, p 0.0098, 18 hands.
+  - **3:** ρ(E, Δ_skel) is 0.50, p 0.017. It is as large as ρ(E, Δ_contact), so the task does not separate the two.
+- **4 holds only numerically:** Skeleton 6.9% against U's 4.5%. The 2.4-point gap is below one torque step (4%).
+- **The discrimination rule applies: E_U 4.5% < 10%.** The task does not discriminate, as the known risk said. Seven of 18 hands score 0.0%, one torque step is 4%, and the largest E is 25%.
+- MO-Pad 18.8% and S2F 18.5%, both larger than U. Their pads sit deeper (mount 0), so the thumb's squeeze meets the sphere at another point of the distal pad. This is not in Δ_contact. It is left unexplained.
+- Not a Fig. 4 candidate. Experiment 44 (the tripod pinch, `drake_tripod_twist.md`) replaces it.
