@@ -235,3 +235,16 @@ uv run python anchor_f1.py analyze --task tipdial_z --tag e29z_f1 --compare e29z
 uv run python anchor_f1.py analyze --task pivot --tag e35_f1 --compare e35 --out logs/anchor_f1_e35_f1.json
 ```
 Wall time: the 18 hands × 3 tasks took 61 min (3, then 6 workers). The 8 MR hands × 3 tasks × 2 anchors took about 40 min.
+
+## Pre-registration: Δ_MCP or Δ_skel under F₁ anchoring? (2026-11-27, before the run)
+
+- **Why.** Under f1 the Drake error followed Δ_MCP, but also Δ_skel: ρ(Δ_MCP, Δ_skel) is 0.93 on the paper's hands. The paper says "contact, not skeleton". If Δ_skel wins under f1, that claim holds only for face-anchored objects.
+- **Hands.** `design/scripts/study/exploratory/e21_mcp_vs_skeleton.py`, 7 mm, A and B heights free, C̄_pad ≥ 0.70. Two families:
+  - lowM: Δ_MCP ≤ 1.5 with Δ_skel spread over 4–6, 6–8 and 8+ mm;
+  - highM: Δ_skel ≤ 3 with Δ_MCP spread over 3–4.5, 4.5–6 and 6+ mm.
+- **Runs.** Drake dial y and pivot at anchor f1, the same protocol as the f1 runs above. The new hands are pooled with the 26 hands already run.
+- **Prediction.** E follows the contact point.
+  - ρ(E, Δ_MCP | Δ_skel) > 0 with p < 0.05 in both tasks.
+  - ρ(E, Δ_skel | Δ_MCP) is not significant.
+  - lowM hands err less than highM hands, pairing by rank.
+- **If it fails** (Δ_skel carries it), the f1 error is a skeleton effect. The paper's "not the skeleton" then needs the face anchoring stated.
