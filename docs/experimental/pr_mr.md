@@ -619,3 +619,30 @@ Coverage ends of each front (free heights) against the paper's Study 2 (`study2_
   - About equal to the paper's at 120° and at 7–9 mm of 90° and 150°.
   - Worse at 5 mm of 90° (2.67 against 1.22) and of 150° (1.32 against 0.77). The coverage end there trades contact path for coverage.
 - So freeing the pins is a free gain in coverage and face place at 120°. Elsewhere the pick along the front matters (not only its coverage end).
+
+## Plan: reproduce every R experiment on the pins-free candidates (2026-11-27)
+
+- **Why.** The user checked the raised pin over a pad mounted at 0 in CAD (it packages) and wants the new hand to replace R. Every experiment that reports R must therefore be reproduced on it.
+- **Candidates.** S2F (Study 2 with the pins free, the paper's own objectives) and MO-Pad (an added Δ_MCP objective). The choice waits for the S2F Drake and RL results.
+- **Already done.**
+  - MO-Pad: pull-out (21, point and hydro), dial y and pivot (35, point), cube and 7b′ transfer.
+  - S2F: pull-out and dial/pivot are running.
+- **Drake** (queued after the S2F Drake runs; `scratchpad run_drake_replace.sh`, the experiments' own tags), both 7 mm candidates:
+  - 23 acquisition: e23 point, e23h hydro.
+  - 29z fingertip disk: e29z point, e29zh hydro.
+  - 38 hook: e38 point, e38h hydro.
+  - 34 pad shape: e34.
+  - 27 contact setpoint: e27, e27m.
+  - 21 pull-out, hydro: e21.
+  - 35 pivot, hydro: e35h.
+  - 25 soft as thick: e25.
+- **Isaac Study 3** (queued after the seed-21 cube and the S2F RL evals; `run_isaac_replace.sh`, impratio 1000 as in R's runs):
+  - Condition A at μ 1.3/2.0 and ρ 15/20, for both candidates at 5, 7 and 9 mm.
+  - Conditions B, C, E and the D sweep (0.1–10), and A with ke 1e3 (compliance, experiment 10), for the 7 mm candidates.
+  - padk (experiments 15/17; R4 preliminary uses them), at 5, 7 and 9 mm.
+- **Not rerun.** The hand-independent grids (12, 13, 18, 19), the fixed-axis family (14) and the candidate comparison (11): R plays no special part there.
+- **Then.**
+  - Transmission (dθ/dq, MA_wc).
+  - Fig. 4 and Table I with the chosen hand.
+  - USD renders.
+  - Section 8.4's H_R.
