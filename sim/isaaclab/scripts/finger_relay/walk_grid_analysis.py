@@ -263,7 +263,7 @@ def main() -> int:
             print(f"  {key:43s} rho {v['rho']:+.3f} p {v['p']:.4f} CI [{v['ci'][0]:+.2f}, {v['ci'][1]:+.2f}] n {v['n']}")
     print("Ds pairs:", json.dumps(res["ds_pairs_summary"], indent=None))
     print("tolerance:", json.dumps(tol))
-    for h in fa + PAIR_KEYS:
+    for h in fa + list(PAIR_KEYS):
         if h in out:
             print(h, {k: {m: round(out[h][k][m], 3) for m in ("ratio", "E", "drop")} for k in ("pooled",) + SEEDS})
     if args.figure:

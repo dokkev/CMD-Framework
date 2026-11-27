@@ -587,3 +587,28 @@ G = E(U) − E(R) (양수면 R이 유리)와 이전 비율 간격 (ratio_R − r
 - 정책 없이 한 load 점검 (16 env, 세 손가락을 100°까지 굽힘): O, FA7, `g7_d1_s1` 모두 로드되고, 세 손가락 접촉이 잡힌다. 원기둥 x는 O 29.2, FA7 40.2, `g7_d1_s1` 23.6 mm다.
 - O의 두 checkpoint 재현 점검 (위).
 - 새 손에서 정책을 돌린 수치는 없다.
+
+### 시도 9 결과 (2026-11-27)
+
+292개 평가 모두 rc=0이다. 분석은 `scripts/finger_relay/walk_grid_analysis.py`로 했다 (등록된 그대로, 마지막 출력 단계의 tuple 버그 하나만 고침). 결과는 `logs/finger_walk/grid/analysis.json`와 `analysis.png`에 있다. CFL 손은 68개다.
+
+| Y (pooled) | ρ(Δ_contact) | ρ(Δ_skel) | partial ρ(Δ_contact \| Δ_skel) | \|ρ_Dc\| − \|ρ_Ds\| (95% CI) |
+|---|---|---|---|---|
+| 이전 비율 | −0.71 (p < 1e-4) | −0.59 | −0.74 (p < 1e-4) | +0.12 [−0.12, +0.36] |
+| E | +0.44 (p 0.0003) | −0.14 (p 0.27) | +0.49 (p < 1e-4) | +0.31 [−0.09, +0.57] |
+| 떨어뜨림 | +0.54 | −0.23 | +0.62 | +0.32 [+0.03, +0.57] |
+
+- **예측 1은 맞았다.** 비율은 Δ_contact가 클수록 떨어지고, E는 커진다. 두 학습 seed 모두 부호가 같다. E의 ρ는 seed 20이 +0.28 (p 0.02), seed 21이 +0.53이다.
+- **예측 2는 절반만 맞았다.**
+  - partial ρ(·, Δ_contact | Δ_skel)은 비율과 E 모두에서 유의하다.
+  - 그러나 |ρ_Dc| − |ρ_Ds|의 구간은 비율과 E 모두 0을 포함한다. 떨어뜨림만 0보다 크다.
+- **min/max Δ_skel 쌍 (17쌍):** 이전 비율은 maxDs 쪽이 낮다 (중앙값 −0.21, 17쌍 중 1쌍만 양수, Wilcoxon p 3e-5). E와 떨어뜨림은 차이가 없다.
+  - Δ_skel이 큰 손은 Δ_contact가 같아도 덜 걷는다.
+  - 다만 minDs 손은 proximal pad가 짧고 C̄_pad도 다르다 (등록 때 적은 혼재).
+  - Drake agent가 따로 찾은 것이 있다. Drake는 maxDs 손 일부(d1p5_maxDs_s0, d3_maxDs_s0, h3to9_d3p5_maxDs_s0)를 distal mount를 proximal과 같게 잘못 놓고 시뮬레이션했다. Isaac exporter도 같은지 확인이 필요하다.
+- **허용 곡선:** Dc50은 1.72 mm (CI 1.10–2.01)다. Δ_contact가 약 1.7 mm를 넘으면 pooled 비율이 0.5 아래로 떨어진다.
+- **고정축 계열:** 비율이 FA3 0.56, FA5 0.29, FA7 0.21, FA9 0.08이다. 기구학이 O와 같은 FA3도 0.56이다. 이 계열은 pad 길이가 짧은 것이 섞여 있다(등록 때 적음).
+- **탐색 (PR/MR, 사후):** 이 과제의 시작 상태는 각 손의 face frame이다.
+  - Δ_MCP (`docs/experimental/pr_mr.md`)와의 ρ는 비율 −0.70, E +0.05 (p 0.70), 떨어뜨림 +0.06이다.
+  - E와 떨어뜨림은 Δ_contact만 따른다. 비율의 상관은 두께를 통한 것이다 (Δ_MCP ≈ 면 이동 Δt).
+  - face-anchored 과제가 Δ_contact를 따른다는 PR/MR 해석과 맞는다.
