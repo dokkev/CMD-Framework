@@ -560,3 +560,18 @@ All runs rc 0. Drake is E (lower is better). RL is the ratio to Original (higher
   1. Freeing the heights lowers the least Δ_contact at C̄_pad ≥ 0.70 by less than 0.3 mm. Δ_contact alone does not reward a small Δt.
   2. The front's designs keep Δt near h − 3. Their least Δ_MCP at C̄_pad ≥ 0.70 stays above 2.5 mm, far from MO-Pad's 1.06.
   - If both hold, MO-Pad needs Δ_MCP as an objective (or Δt as a constraint): the paper's formulation with one reference does not find it.
+
+## Result: Study 2 with A and B heights free, q 120 (2026-11-27)
+
+`redesign.py --free-heights`, the paper's objectives (least Δ_contact, most C̄_pad); `design/output/study/study2_redesign_free_heights/`. At C̄_pad ≥ 0.70:
+
+| to | least Δ_contact (Δ_MCP, C̄, face) | coverage end (Δ_contact, Δ_MCP, C̄, face) | paper front (coverage end) |
+|---|---|---|---|
+| 5 mm | 0.25 (0.55, 0.762, 6.3) | 0.36, 1.19, 0.771, 5.0 | 0.35, 2.10, 0.753, 8 |
+| 7 mm | 0.75 (4.33, 0.725, 9.6) | **0.85, 1.62, 0.743, 7.0** | 0.86, 4.65, 0.725, 10 |
+| 9 mm | 1.96 (4.88, 0.700, 9.0) | 2.13, 4.79, 0.712, 9.0 | none ≥ 0.70 |
+
+- **Prediction 1 holds.** The least Δ_contact drops by 0.09 mm at 7 mm (0.84 → 0.75), less than 0.3.
+- **Prediction 2 fails.** With the heights free, the coverage end itself mounts the proximal pad at 0. Its face sits at 7 mm (Δd_p 1), and its Δ_MCP is 1.62 mm, not above 2.5. A deeper mount gives the pads more room, so the paper's own objectives find the face kept at 5 and 7 mm. At 9 mm the face reaches its floor (Δd_p 3), but Δ_MCP stays at 4.79. There, only an objective on Δ_MCP keeps it (MO-Pad 9: 2.39).
+- **Reading.** For the paper, the pins off the link line are the change, not a second objective. The 7 mm coverage end ("Pad-Pad, pins free") keeps Δ_contact as the paper's redesign does (0.85), keeps the face near its place, and has the most coverage of all the 7 mm hands (0.743).
+- **Next.** Hand files for the 5/7/9 mm coverage ends, then the Drake pull-out, dial and pivot and the RL cube and 7b′ transfer against MO-Pad and Pad-Pad.
