@@ -122,3 +122,24 @@ Experimental (playground). Not in the SSoT or the paper.
   2. 7b′, where the cylinder rolls on the pads with starts in each hand's face frame (PR-anchored): MRmid_free ≈ PR > MR_free on the ratio. MR_free is no better than U.
   3. MRmid_free is within 0.1 of O's ratio on both tasks. It is the only hand predicted to do well on both.
 - **Kill rule.** If O itself fails to reproduce its attempt-1/9 score within ±5%, stop and fix the setup before reading any hand.
+
+## Result: MR at 5 and 9 mm, A and B heights free (2026-11-26)
+
+`design/output/study/exploratory/e20_mcp_referenced_free_h{5,9}/`
+
+| t | hand | Δ_MCP | Δ_contact | Δ_skel | C̄_pad | proximal face (O: 6) | a_z, b_z |
+|---|---|---|---|---|---|---|---|
+| 5 | PR | 2.10 | 0.35 | 3.55 | 0.753 | 8 | 0, 0 |
+| 5 | U | 2.16 | 1.58 | 2.02 | 0.748 | 8 | 0, 0 |
+| 5 | MR | 0.11 | 0.99 | 2.09 | 0.750 | 6.9 | 1.1, 2.2 |
+| 5 | **MR-mid** | **0.28** | **0.28** | 2.02 | **0.763** | **6.0** | 2.0, 1.8 |
+| 7 | **MR-mid** | **1.06** | **1.07** | 4.78 | **0.735** | 7.0 | 3.5, 2.8 |
+| 9 | PR | 6.36 | 2.32 | 9.37 | 0.695 | 12 | 0, 0 |
+| 9 | U | 6.11 | 3.89 | 7.17 | 0.687 | 12 | 0, 0 |
+| 9 | MR | 1.47 | 3.99 | 6.98 | 0.700 | 9.0 | 3.3, 7.2 |
+| 9 | MR-mid | 2.39 | 2.43 | 7.00 | 0.707 | 9.0 | 3.0, 3.7 |
+
+- **What limits it is the proximal face depth, which cannot go below the pad thickness.** The mount offset is ≥ 0, with no spacer and no pocket below the link line. O's face is at 3 + 3 = 6. So the face moves by at least Δt_min = max(0, h − 6): 0 at 5 mm, 1 at 7 mm and 3 at 9 mm.
+- In every row, Δ_contact + Δ_MCP stays above that Δt_min: 0.56 ≥ 0, 2.13 ≥ 1, 4.82 ≥ 3.
+- Up to h ≈ t_O, a redesign can keep the proximal face where O's is and both references with it. That holds for 5 mm (both deviations at 0.28) and nearly for 7 mm. Beyond it, the remaining face shift must be split between the two references.
+- In every case MR-mid has at least PR's coverage.
