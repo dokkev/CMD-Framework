@@ -412,7 +412,7 @@ def main() -> int:
             else:
                 share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
                 ok = kind == "R"
-                txt = f"{share:.0f}% of\nref.'s change"
+                txt = f"{share:.0f}% of the\nreference's"
             # check / cross (not O / X, which read as the reference hand O; v38 review)
             fig.text(*inch(x0 + 0.53, yt - 0.02), "\u2713" if ok else "\u2717", fontsize=9, ha="left", va="top",
                      color=GREEN_ if ok else RED_, family="DejaVu Sans", fontweight="bold")

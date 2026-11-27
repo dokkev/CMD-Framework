@@ -589,6 +589,18 @@ def fig3():
              va="bottom")
     label(fig, 4.05, row_b + 0.02, "(c) Preservation, $3\\to5,7,9$ mm", h)
     # (b) right: contact motion kept, 100 (1 - Delta_contact / Delta_fixed), every condition; 0: a fixed axis
+    # the axis reaches every redesign (no clipping; v39 review): its floor is the lowest share kept over all panels
+    YLO, lowest = -40.0, 0.0
+    for q in (90.0, 120.0, 150.0):
+        for key in ARCH:
+            for hh in (5.0, 7.0, 9.0):
+                r = [x for x in s2 if x["architecture"] == key and float(x["required_flexion_deg"]) == q
+                     and float(x["to_mm"]) == hh]
+                if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
+                    fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
+                    YLO = min(YLO, 100 * (1 - LF * float(r[0]["change_at_most_c_pad"]) / fa) - 12)
+    YLO = 10 * np.floor(YLO / 10)
+    print("fig3c floor", YLO)
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
         ax.axhline(0, color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=1)
@@ -600,11 +612,12 @@ def fig3():
                 fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
                 if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
                     kept = 100 * (1 - LF * float(r[0]["change_at_most_c_pad"]) / fa)
-                    ax.plot(x, max(kept, -38), ls="none", marker=ARCH[key][2], ms=3.0, color=ARCH[key][1],
+                    ax.plot(x, kept, ls="none", marker=ARCH[key][2], ms=3.0, color=ARCH[key][1],
                             mec="white", mew=0.3, zorder=3, clip_on=False)
+                    lowest = min(lowest, kept)
                 else:
-                    ax.plot(x, -40, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
-        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(-40, 100); ax.set_yticks([0, 50, 100])
+                    ax.plot(x, YLO + 4, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
+        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(YLO, 100); ax.set_yticks([-100, -50, 0, 50, 100])
         ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
         if j == 0:
             ax.set_ylabel("contact motion\nkept (%)", labelpad=1, linespacing=1.25)
@@ -718,10 +731,10 @@ def fig4():
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
             yy = (0.40 + B - D - 0.115 * j) / h
             xm = (x0 + 0.30 + (cw - 0.36) / 2 - 0.30) / W  # left of centre: room for the rho column
-            fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=5.6, ha="right", va="center", color=INK2)
+            fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=6.4, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
                 e = src.get(hh)
-                fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=5.8,
+                fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=6.6,
                          ha="left", va="center", color=HC[hh], fontweight="bold")
         # how much each morphology changes the contact-surface and the skeletal motion (mm, 7 mm; one hand each, so
         # the same under every task), under the E rows and aligned with them
@@ -729,9 +742,9 @@ def fig4():
         hdall = d["tasks"][key]["hands"]  # every hand's Delta_contact and Delta_skel
         for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
-            fig.text(xm - 0.22 / W, yy, lab, fontsize=5.6, ha="right", va="center", color=INK2)
+            fig.text(xm - 0.22 / W, yy, lab, fontsize=6.4, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
-                fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=5.8, ha="left", va="center",
+                fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=6.6, ha="left", va="center",
                          color=HC[hh])
             # Spearman rho of E with this quantity over the correlation's hands (Skeleton outside it), both contact
             # models in one value: each hand's E ranked within each model, the two ranks averaged (E's size differs
@@ -745,8 +758,8 @@ def fig4():
             hs = [hh for hh in hdall if ok(pt_all, hh) and ok(hy, hh)]
             mrank = (rankdata([pt_all[hh]["E"] for hh in hs]) + rankdata([hy[hh]["E"] for hh in hs])) / 2
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
-            fig.text(xm + 0.50 / W, yy, f"$\\rho$ {rho:.2f}".replace("-", "\u2212"),
-                     fontsize=5.4, ha="left", va="center", color=INK2)
+            fig.text(xm + 0.60 / W, yy, f"$\\rho$ {rho:.2f}".replace("-", "\u2212"),
+                     fontsize=6.2, ha="left", va="center", color=INK2)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
@@ -867,7 +880,7 @@ def table():
     st, pr = t["settings"], t["protocols"]
     # one wide table: every simulator, contact model, pad change and command side by side (user, 2026-11-27: the
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
-    groups = (("MJWarp, point contact", (("friction", st["friction, Isaac point"]),
+    groups = (("MuJoCo-Warp, point contact", (("friction", st["friction, Isaac point"]),
                                             ("stiffness", st["stiffness, Isaac point"]),
                                             ("friction, compliant pad", st["friction softer pad, Isaac point"]),
                                             ("convex pad", st["crowned, Isaac point"]))),
@@ -876,7 +889,7 @@ def table():
                                         ("contact setpoint", pr["contact setpoint"]))),
               ("Drake, hydroelastic", (("friction", st["friction, Drake hydro"]),
                                        ("friction, compliant pad", st["friction softer pad, Drake hydro"]))),
-              ("MJWarp, other commands", (("joint torque", pr["torque"]),
+              ("MuJoCo-Warp, other commands", (("joint torque", pr["torque"]),
                                              ("sensed touch", pr["touch"]),
                                              ("contact force", pr["force"]))))
     cols = [c for _, cs in groups for c in cs]
@@ -897,7 +910,7 @@ def table():
         v = 100 * d[hh]["bias_median"]
         num = f"{v:+.0f}" if round(v) != 0 else "0"
         return f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "R" else f"${num}\\%$"
-    lines = [r"\begin{table*}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{3.2pt}",
+    lines = [r"\begin{table*}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.6pt}",
              r"  \caption{Signed error in the measured pad effect across simulators, contact models and commands}",
              r"  \label{tab:robust}", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
