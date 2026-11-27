@@ -828,37 +828,46 @@ def table():
     (paper/figures/table_signed.py; median |bias| reproduces each setting's E)."""
     t = json.load(open(S3 / "table_signed.json"))
     st, pr = t["settings"], t["protocols"]
-    # no description in a table (paper/SSoT.md 6): the caption is a title, the conditions are in the text
-    sections = (("Pad change",
-                 (("friction $1.3\\to2.0$", st["friction, Isaac point"]),
-                  ("stiffness $2.5\\to1.0$\\,kN/m", st["stiffness, Isaac point"]),
-                  ("soft thick pad", st["friction softer pad, Isaac point"]),
-                  ("soft thick pad, hydroelastic", st["friction softer pad, Drake hydro"]),
-                  ("shape, flat $\\to$ 2\\,mm crown", st["crowned, Drake point"]))),
-                ("Reused command",
-                 (("joint setpoint", pr["setpoint"]),
-                  ("contact setpoint", pr["contact setpoint"]),
-                  ("joint torque", pr["torque"]),
-                  ("close at sensed touch", pr["touch"]),
-                  ("matched contact force", pr["force"]))))
-    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{4pt}",
-             r"  \caption{Signed error in the measured pad effect}",
-             r"  \label{tab:robust}", r"  \begin{tabular}{lrr}", r"    \toprule",
-             r"    & Coverage & \ourmethod{} \\"]
-    for k, (title, rows) in enumerate(sections):
-        lines.append(r"    \midrule")
-        lines.append(f"    \\multicolumn{{3}}{{l}}{{\\textit{{{title}}}}} \\\\")
-        for name, d in rows:
-            cells = []
-            for hh in ("U", "R"):  # Coverage, then CoDe at the right in bold; Skeleton is in Fig. 4 only (user, 2026-11-27)
-                if hh not in d:
-                    cells.append("--")
-                    continue
-                v = 100 * d[hh]["bias_median"]
-                num = f"{v:+.0f}" if round(v) != 0 else "0"
-                cells.append(f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "R" else f"${num}\\%$")
-            lines.append(f"    \\quad {name} & {cells[0]} & {cells[1]} \\\\")
-    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    # one wide table: every simulator, contact model, pad change and command side by side (user, 2026-11-27: the
+    # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
+    groups = (("Isaac Lab, point contact", (("friction", st["friction, Isaac point"]),
+                                            ("stiffness", st["stiffness, Isaac point"]),
+                                            ("soft thick pad", st["friction softer pad, Isaac point"]),
+                                            ("crowned pad", st["crowned, Isaac point"]))),
+              ("Drake, point contact", (("friction", st["friction, Drake point"]),
+                                        ("crowned pad", st["crowned, Drake point"]),
+                                        ("contact setpoint", pr["contact setpoint"]))),
+              ("Drake, hydroelastic", (("friction", st["friction, Drake hydro"]),
+                                       ("soft thick pad", st["friction softer pad, Drake hydro"]))),
+              ("Isaac Lab, other commands", (("joint torque", pr["torque"]),
+                                             ("sensed touch", pr["touch"]),
+                                             ("contact force", pr["force"]))))
+    cols = [c for _, cs in groups for c in cs]
+    n = len(cols)
+    head1, rules, pos = [], [], 2
+    for g, cs in groups:
+        head1.append(f"\\multicolumn{{{len(cs)}}}{{c}}{{{g}}}")
+        rules.append(f"\\cmidrule(lr){{{pos}-{pos + len(cs) - 1}}}")
+        pos += len(cs)
+
+    def stack(name):  # two-word headers on two lines
+        w = name.split(" ", 1)
+        return name if len(w) == 1 else f"\\begin{{tabular}}[b]{{@{{}}c@{{}}}}{w[0]}\\\\{w[1]}\\end{{tabular}}"
+
+    def cell(d, hh):
+        if hh not in d:
+            return "--"
+        v = 100 * d[hh]["bias_median"]
+        num = f"{v:+.0f}" if round(v) != 0 else "0"
+        return f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "R" else f"${num}\\%$"
+    lines = [r"\begin{table*}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{3.2pt}",
+             r"  \caption{Signed error in the measured pad effect across simulators, contact models and commands}",
+             r"  \label{tab:robust}", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
+             "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
+             "    & " + " & ".join(stack(name) for name, _ in cols) + r" \\", r"    \midrule",
+             "    Coverage & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
+             r"    \ourmethod{} & " + " & ".join(cell(d, "R") for _, d in cols) + r" \\",
+             r"    \bottomrule", r"  \end{tabular}", r"\end{table*}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
 
