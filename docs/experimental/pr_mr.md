@@ -364,3 +364,25 @@ The cylinder rests on the proximal face (face-anchored by nature). Runs use `run
 
 - At 7 and 9 mm, MRM errs less than PR in the paper's own pull-out, even though its Δ_contact is a little larger. At 5 mm, MRM5 and PR5 are within 1 point of each other.
 - Across Drake's pull-out, dial y and pivot (both anchorings) and Isaac's 7b′ and cube, MRM is the only 7 mm redesign that is never worse than the best other hand by more than a few points. In each task it is best or near best.
+
+## Result: RL relay dial, face against f1 (2026-11-27)
+
+36 evals, all rc 0. O's face-anchored rotation is 280 / 274 deg (training seeds 20 / 21), on the logged 280. The ratio is rotation at μ 1.3 over O's; eval noise is ≤ 0.008.
+
+| hand | Δ_contact | Δ_MCP | Δ_skel | ratio, face (s20 / s21) | ratio, f1 (s20 / s21) |
+|---|---|---|---|---|---|
+| PR (R) | 0.86 | 4.65 | 7.67 | 0.57 / 0.56 | 0.68 / 0.69 |
+| U | 3.91 | 4.26 | **3.38** | **0.72 / 0.68** | **0.84 / 0.89** |
+| MR | 3.26 | 0.54 | 4.29 | 0.51 / 0.52 | 0.63 / 0.63 |
+| MRM | 1.07 | 1.06 | 4.78 | 0.57 / 0.56 | 0.69 / 0.63 |
+
+- **All three predictions fail.**
+  - Under f1 the order is not by Δ_MCP: MR is last and U is first.
+  - Under face the order is not by Δ_contact: U is first, and PR equals MRM.
+  - MRM is 0.15–0.25 below U under both anchors.
+- E is not read here. O's friction response is +17 deg, and E comes out at 1–3 for every hand.
+- **Reading.**
+  - The relay dial is driven by strokes of the fingertip end. The disk's hand-facing face sits at O's index fingertip.
+  - The hand with the smallest Δ_skel (U) transfers best under both anchors. That matches the attempt-7a′ note that the fingertip position sets the result there, and Drake dial y under f1, where Δ_skel carried the error too.
+  - So the contact-surface account covers pad contact. A task that touches with the fingertip end follows the skeleton's tip path, whatever the anchoring. That is a scope limit to state.
+- All hands transfer better under f1 than under face (by about 0.1–0.17). Placing the dial in each hand's own face frame moves it about 4 mm along the face normal; at O's palm pose it sits closer to where the hand's fingertips actually are.
