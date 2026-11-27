@@ -49,3 +49,25 @@ Experimental (playground). Not in the SSoT or the paper.
 - **Isaac RL.** O policies transferred to PR, MR and U, zero-shot:
   - cube rotation (MCP and fingertips): MR should transfer better than PR;
   - 7b′ rolling on the pads: PR should transfer better than MR.
+
+## Observation: the Drake fingertip tasks are PR-anchored by construction (2026-11-26, before any new run)
+
+- The paper's fingertip tasks place the object in each hand's proximal-face frame: the dial, the pivot and the coin. The source says "the same coordinates on every hand" (`sim/drake/dial_placements.py`, `box_pivot.py`, `coin_drag.py`; world z = z_face − face).
+- So on a thicker-pad hand, the environment is moved by Δt along with the proximal face. That choice is the PR reference.
+- Placing the same objects at O's world coordinates, fixed to the MCP axis and palm, is the MR reference. With the MCP held, F₁ is the world. A distal-pad-only task with the object fixed to the palm should then follow Δ_MCP, whatever the MCP does.
+- The Isaac 7b′ starts are also set in each hand's face frame, which is PR. The cube rotation's cube is placed in the palm frame, which is MR-like. That is where R did not beat U.
+
+## Pre-registration: Drake fingertip tasks anchored at F₁ (before the run)
+
+- **Tasks.**
+  - The fingertip dial: in-plane `tipdial` y, the paper's starts.
+  - The block pivot.
+  - Point contact first. Hydroelastic only if the point result is clear.
+- **Hands.** The hands each task ran on in the paper, plus MR and MR-mid once built.
+- **Change.** One option: objects placed at O's coordinates in F₁ for every hand (anchor f1), instead of each hand's face frame (anchor face, the paper's runs). Everything else is unchanged: commands, gates, friction swap 1.3 → 2.0, the error E.
+- **Predictions.**
+  1. Anchor f1: E follows Δ_MCP (one-sided permutation p < 0.05). Its |ρ| exceeds that of Δ_contact.
+  2. Anchor f1: PR's E is no smaller than U's. Both have Δ_MCP ≈ 4.3–4.7.
+  3. Anchor f1: MR (if it reaches Δ_MCP ≤ 2) errs least of PR, U, MR.
+  4. Anchor face: the paper's result stands (E follows Δ_contact). With MR added, PR errs less than MR.
+- **If prediction 1 fails** (E still follows Δ_contact at f1), the face-anchored result is not an artefact of the placement. The MR idea then has no task support in Drake.
