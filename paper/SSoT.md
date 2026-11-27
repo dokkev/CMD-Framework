@@ -24,8 +24,10 @@ the evidence are in `design/SSoT/` and are not repeated here.
 
 - RSS 2027 extended abstract, Stage 1: at most 5 pages of content and 1 page of references (6 pages in all).
   Nothing beyond the 6 pages is reviewed.
-  Length is deferred (user, 2026-11-24): write for the storyline first and fit the five pages in a final pass;
-  do not cut content during revisions to stay within the page limit. Due 2026-12-04; re-check the dates on roboticsconference.org.
+  Length (user, 2026-11-27, replacing the 2026-11-24 deferral): fit 5 pages of content and 1 page of references
+  now. Keep the main result and the evidence that answers the reviewers' standing critiques (beyond preload: at
+  matched force and after re-referencing, Delta_contact still predicts the error; what to preserve depends on where
+  the task touches the finger); move detail to one table or drop it. Due 2026-12-04; re-check the dates on roboticsconference.org.
 - Template: RSS (IEEEtran, natbib `plainnat`). Anonymous review.
 - Manuscript repo: private `dokkev/ContactCentricDesign-RSS2027`, synced with Overleaf, cloned at
   `../ContactCentricDesign-RSS2027`. It is the only LaTeX copy: pull before editing.
