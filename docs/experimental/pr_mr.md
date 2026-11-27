@@ -55,7 +55,11 @@ Experimental (playground). Not in the SSoT or the paper.
 - The paper's fingertip tasks place the object in each hand's proximal-face frame: the dial, the pivot and the coin. The source says "the same coordinates on every hand" (`sim/drake/dial_placements.py`, `box_pivot.py`, `coin_drag.py`; world z = z_face − face).
 - So on a thicker-pad hand, the environment is moved by Δt along with the proximal face. That choice is the PR reference.
 - Placing the same objects at O's world coordinates, fixed to the MCP axis and palm, is the MR reference. With the MCP held, F₁ is the world. A distal-pad-only task with the object fixed to the palm should then follow Δ_MCP, whatever the MCP does.
-- The Isaac 7b′ starts are also set in each hand's face frame, which is PR. The cube rotation's cube is placed in the palm frame, which is MR-like. That is where R did not beat U.
+- The Isaac 7b′ starts are also set in each hand's face frame, which is PR.
+- **Correction (2026-11-27, before any MR result; found by the RL agent).** The cube rotation is face-anchored too. `pinch_grasp` sets the cube's rest position in each hand's proximal-face frame at MCP 35 deg, on the proximal face. Each hand also has its own held-out grasp cache (`gen_grasps.py`, seed 76000).
+  - So my earlier note that the cube was palm-frame and MR-like was wrong.
+  - RL prediction 1 (cube: MR beats PR) was registered on that wrong premise. It is kept as registered and is judged as it stands.
+  - Under face anchoring, the corrected expectation is PR ≈ MRmid ≥ MR on the cube. This is noted, not registered.
 
 ## Pre-registration: Drake fingertip tasks anchored at F₁ (before the run)
 
