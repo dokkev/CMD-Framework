@@ -329,3 +329,20 @@ Driver: `sim/isaaclab/scripts/rotate_cube/run_mr_transfer.sh`; summary: `mr_tran
   - The hands that fail all move the proximal face 3–4 mm. MRM moves it 1 mm, and also keeps both Δ_contact and Δ_MCP near 1 mm.
   - In 7b′, MRM equals PR. So keeping the face in place costs nothing there, and it buys the cube.
   - Next: a dose check on Δt with the 5 mm and 9 mm MR and MRM hands on the cube.
+
+## Pre-registration: cube transfer versus the proximal face shift (2026-11-27, before the run)
+
+- **Hands added.** R5, U5, R9, U9 (re-run with this code); MR5, MRM5, MR9, MRM9 (e20 free picks). The protocol is the cube one above.
+
+| hand | Δt (proximal face) | Δ_contact | Δ_MCP |
+|---|---|---|---|
+| MRM5 | 0 | 0.28 | 0.28 |
+| MR5 | 0.9 | 0.99 | 0.11 |
+| R5 / U5 | 2 | 0.35 / 1.58 | 2.10 / 2.16 |
+| MR9 / MRM9 | 3 | 3.99 / 2.43 | 1.47 / 2.39 |
+| R9 / U9 | 6 | 2.32 / 3.89 | 6.36 / 6.11 |
+
+- **Predictions (post hoc in origin).** They come from the MRM result, so this is a confirmation run.
+  1. Across the 13 hands (7 mm: R, U, MR, MRM, MRbz, MRMbz; plus these 8), the cube rotation ratio falls with Δt. Spearman ρ < 0, one-sided p < 0.05.
+  2. MRM5 ≥ 0.90.
+  3. Δt predicts the ratio better than Δ_contact or Δ_MCP: |ρ| is larger.
