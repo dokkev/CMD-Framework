@@ -18,6 +18,7 @@ press on and drag, and the disk turns against :data:`K_SPIN` N m/rad with :data:
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import numpy as np
@@ -204,8 +205,13 @@ class FingerRelayEnvCfg(ManagerBasedRLEnvCfg):
         self.scene.robot = spec.robot_cfg.replace(
             init_state=spec.robot_cfg.init_state.replace(joint_pos=default_joint_pos(desc))
         )
-        # the dial: fixed at the same face-frame coordinates on every hand (this hand's own pad face)
-        o, r = face_frame(desc, 0.0)
+        # the dial: fixed at the same face-frame coordinates on every hand (this hand's own pad face); with
+        # CODE_RELAY_ANCHOR=f1 (docs/experimental/pr_mr.md) at O's face frame on every hand instead, i.e. fixed to the
+        # palm and MCP axis (F_1) at O's world pose
+        anchor = os.environ.get("CODE_RELAY_ANCHOR", "face")
+        if anchor not in ("face", "f1"):
+            raise ValueError(f"CODE_RELAY_ANCHOR must be face or f1, not {anchor!r}")
+        o, r = face_frame(Description.load(HANDS["O"]) if anchor == "f1" else desc, 0.0)
         r = np.asarray(r).reshape(3, 3)
         place = dial_place_face()
         self.placement_face = tuple(float(v) for v in place)
@@ -284,7 +290,7 @@ for _v, _noise in OBS_NOISE.items():
     _n = f"FingerRelayO{_v}EnvCfg"
     globals()[_n] = configclass(type(_n, (FingerRelayEnvCfg,), {"hand_key": "O", "dial_noise": _noise}))
 
-KEYS = ("O", "R", "U", "R5", "U5", "R9", "U9")
+KEYS = ("O", "R", "U", "R5", "U5", "R9", "U9", "MR", "MRM")
 for _key in KEYS:
     for _v, _extra in (("", {}), ("Touch", {"dial_observed": False}),
                        *((k, {"dial_noise": v}) for k, v in OBS_NOISE.items())):

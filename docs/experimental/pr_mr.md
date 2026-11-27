@@ -276,3 +276,22 @@ Wall time: the 18 hands × 3 tasks took 61 min (3, then 6 workers). The 8 MR han
   - Which contact quantity decides the error depends on what the object is fixed to. Fixed to the proximal face (face anchoring): Δ_contact. Fixed to the palm (f1): Δ_MCP, the same contact point seen from the MCP axis.
   - For a fingertip-edge contact (dial y) under f1, the skeleton's tip path adds to it.
   - Only a hand whose proximal face stays put keeps both: MRmid_free (Δt 1 mm) and the 5 mm MRs (Δt ≈ 0) have E ≤ 10% under both anchorings in both tasks.
+
+## Pre-registration: RL relay dial with the dial fixed to the palm (2026-11-27, before any run)
+
+- **Why.** Every RL task so far places the object in each hand's proximal-face frame (PR-anchored):
+  - 7b′, the cube, and the 7a′ relay dial (`finger_relay/env_cfg.py`: "the same face-frame coordinates on every hand").
+  - A dial bolted to the world sits at one pose relative to the palm. That is anchor f1.
+- **Change.** `CODE_RELAY_ANCHOR=f1` places the dial with O's face frame on every hand. The default (`face`) is unchanged.
+- **Runs.**
+  - Policies: the 7a′ closed-loop policies (dial angle observed), training seeds 20 and 21, `*_relay_seg2/model_398.pt`, zero-shot.
+  - Hands: O, PR (R), U, MR (mr_free), MRM (mrmid_free).
+  - Anchor face and f1; pad μ 1.3 / 2.0; eval seeds 94000 / 95000; 1024 envs; `eval_relay.py`.
+- **Measures.**
+  - The transfer ratio: rotation at μ 1.3 over O's. This is the primary measure.
+  - E is secondary. O's friction response here is small (+17 deg), so E is unstable, as noted in attempt 8.
+- **Predictions.**
+  1. Under f1 the ratio orders by Δ_MCP: MR ≥ MRM > U ≈ PR. MR and MRM both beat PR in both training seeds.
+  2. Under face the ratio orders by Δ_contact: PR ≈ MRM > MR ≈ U.
+  3. MRM is within 0.1 of the best hand under both anchors.
+- **Kill rule.** If O's face-anchored rotation is off its logged 280 deg by more than 5%, stop.
