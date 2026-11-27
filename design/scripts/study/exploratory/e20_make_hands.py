@@ -21,8 +21,9 @@ from core.morphology.code_hand.parameters import PROTOTYPE  # noqa: E402
 from core.optimization.mechanism import mechanism, read_config_file  # noqa: E402
 
 RUNS = [("bz", "e20_mcp_referenced_bz", 7.0), ("free", "e20_mcp_referenced_free", 7.0),
-        ("free", "e20_mcp_referenced_free_h5", 5.0), ("free", "e20_mcp_referenced_free_h9", 9.0)]
-LABELS = {"MR": "mr", "MR-mid": "mrmid"}
+        ("free", "e20_mcp_referenced_free_h5", 5.0), ("free", "e20_mcp_referenced_free_h9", 9.0),
+        ("e21", "e21_mcp_vs_skeleton", 7.0)]
+LABELS = {"MR": "mr", "MR-mid": "mrmid", "lowM_s4": "lowm_s4", "highM_m3": "highm_m3", "highM_m4p5": "highm_m4p5"}
 
 
 def main() -> int:
@@ -47,7 +48,8 @@ def main() -> int:
             doc = {"base": str(Path("../../../../core/morphology/code_hand") / PROTOTYPE.name), "finger": finger, "pads": pads,
                    "source": {"study": "PR/MR (docs/experimental/pr_mr.md), e20 " + run, "label": r["label"],
                               "design": [round(v, 6) for v in x], "required_flexion_deg": 120.0, "pad_thickness_mm": t,
-                              "mcp_change_mm": float(r["mcp_change_mm"]), "contact_change_mm": float(r["contact_change_mm"])}}
+                              "mcp_change_mm": float(r["mcp_change_mm"]), "contact_change_mm": float(r["contact_change_mm"]),
+                              "skeleton_change_mm": float(r.get("skeleton_change_mm") or "nan")}}
             path = M.OUT / f"cfl_q120_h3to{t:g}_{name}.yaml"
             path.write_text(yaml.safe_dump(doc, sort_keys=False))
             print(f"  -> {path.relative_to(ROOT)}")

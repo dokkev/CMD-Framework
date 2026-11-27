@@ -248,3 +248,31 @@ Wall time: the 18 hands × 3 tasks took 61 min (3, then 6 workers). The 8 MR han
   - ρ(E, Δ_skel | Δ_MCP) is not significant.
   - lowM hands err less than highM hands, pairing by rank.
 - **If it fails** (Δ_skel carries it), the f1 error is a skeleton effect. The paper's "not the skeleton" then needs the face anchoring stated.
+
+## Result: Δ_MCP or Δ_skel under F₁ (2026-11-27)
+
+- **Hands** (e21, 7 mm; the Drake recomputation matches the design):
+
+| hand | Δ_contact | Δ_MCP | Δ_skel |
+|---|---|---|---|
+| lowM_s4 | 1.39 | 1.48 | 5.48 |
+| highM_m3 | 4.52 | 4.45 | 1.97 |
+| highM_m4p5 | 4.93 | 5.93 | 1.93 |
+
+  The lowM search found no design with Δ_MCP ≤ 1.5 and Δ_skel ≥ 6 at C̄_pad ≥ 0.70, so there is one lowM hand, not three.
+- **Runs.** dial y and pivot, anchor f1 (and face), the same protocol as above. They are pooled with the 26 hands already run, 29 in all. Across these 29 hands the rank correlation of Δ_MCP with Δ_skel drops to 0.65.
+
+| task (f1) | E lowM_s4 | E highM_m3 | E highM_m4p5 | partial ρ(E, Δ_MCP \| Δ_skel) | partial ρ(E, Δ_skel \| Δ_MCP) |
+|---|---|---|---|---|---|
+| dial y | 9.6% | 15.0% | 8.8% | 0.71 (p < 1e-4) | 0.72 (p 1e-4) |
+| pivot | 3.4% | 19.7% | 12.7% | 0.68 (p < 1e-4) | −0.05 (p 0.61) |
+
+(one-sided permutation, 20,000)
+- **Prediction, by task.**
+  - **Pivot: holds.** Under f1 the error follows the contact point (Δ_MCP), not the skeleton. The lowM hand errs least.
+  - **Dial y: fails in part.** Δ_MCP carries the error given Δ_skel, but Δ_skel carries it too given Δ_MCP. The dial is tangent to the pad near its tip end, so the fingertip's own path matters as well. The lowM hand is not below highM_m4p5.
+- **Face anchoring stays as the paper has it** (29 hands): E follows Δ_contact in both tasks (ρ 0.72 for dial y and 0.61 for the pivot, p ≤ 3e-4). E does not follow Δ_MCP (0.10, 0.11) or Δ_skel (−0.17, −0.13).
+- **Reading.**
+  - Which contact quantity decides the error depends on what the object is fixed to. Fixed to the proximal face (face anchoring): Δ_contact. Fixed to the palm (f1): Δ_MCP, the same contact point seen from the MCP axis.
+  - For a fingertip-edge contact (dial y) under f1, the skeleton's tip path adds to it.
+  - Only a hand whose proximal face stays put keeps both: MRmid_free (Δt 1 mm) and the 5 mm MRs (Δt ≈ 0) have E ≤ 10% under both anchorings in both tasks.
