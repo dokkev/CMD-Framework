@@ -532,6 +532,22 @@ Run data: `design/output/thumb_layout/h0/strict_orient20_dsup_ip30/proximal/seed
   - The robust front holds K6 under all 12 perturbations at a lever ratio ≥ 0.9.
 - **Decision rule.** Among robust-front designs with lever ≥ 0.85: the highest level kept under every perturbation, then the highest robust score, then the best pinch.
 
+### Result: RO axis in the palm plane, nominal run (2026-11-26)
+
+Run data: `design/output/thumb_layout/h0/strict_flat_ip30/proximal/seed0/` (796 evaluations, 14 min).
+- **The first hypothesis failed: F-K8 is reachable with the RO axis in the palm plane (roll 0).** IP ≥ −30 and the free clocking and bend do what the axis elevation did before.
+
+| x, z, e [mm] | yaw (in-plane) | clocking | bend | F | lever (IP/MCP) | pinch |
+|---|---|---|---|---|---|---|
+| −53.5, −4.5, 36.5 | +2 | −20 | +2 | K8 | 0.89 (1.21/0.89) | 1.6 |
+| −57.5, −3.5, 40.5 | +8 | −8 | −1 | K8 | 0.85 (1.08/0.85) | 9.3 |
+| −56.5, −12.5, 38.5 | −1 | −7 | +4 | K8 | 0.87 (1.14/0.87) | 11.7 |
+| −56.5, −9.5, 25.5 | −10 | −19 | −8 | K6 | 1.03 (1.78/1.03) | 3.4 |
+
+- **The RO range (user, 2026-11-26).** The RO joint has no limit. Clocking therefore only chooses which 180 deg arc of RO the RAA servo has to clear the abduction servos over (the envelope's RAA sweep), and where the ±90 deg working range sits. It is not a hardware tilt.
+- K8 needs a case of 36–44 mm. The short cases (e 15–25) stay at K6.
+- Robustness: the robust run is still going.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.
