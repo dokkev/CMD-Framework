@@ -793,3 +793,31 @@ These two tasks are Fig. 4 candidates in place of hook and acquisition, so the r
 - **Fail condition met** (MO-Pad > R + 3 points at point contact, coin).
 - Not predicted: in the coin drag, pins-free Skeleton (4.9%) errs less than MO-Pad. The coin is dragged by the fingertip against a table, as in the ball roll (41), whose error followed the path's normal component rather than Δ_contact.
 - For Fig. 4: twist (39) is consistent with the grasping tasks, where MO-Pad halves R's error. The coin drag is the one task where replacing R by MO-Pad costs more than the 1–2 points seen in the disk and the pivot.
+
+## Result: cube transfer with the second training seed (2026-11-27)
+
+The seed-21 release (v2c seg2 `model_1497`) was evaluated on Original and 16 hands, all rc 0 (`logs/pr_mr_transfer_cube_s21/`). Ratios use the same summary (`TRANSFER_DIR=... SUMMARY_HANDS=... mr_transfer_summary.py`).
+
+- **Validity gate: passed.** Original's held-out rotation is 786° / 735° at μ 1.3 (two eval seeds), above half of seed 20's 919°.
+
+| hand | Δt | rotation ratio (s20 → s21) | full≤30° ratio (s21) |
+|---|---|---|---|
+| MRM5 | 0 | 0.989 → **0.975** | 1.017 |
+| MR5 | 0.9 | 0.963 → 0.818 | 0.983 |
+| MRM (MO-Pad) | 1 | 0.938 → **0.564** | 0.931 |
+| R5 / U5 | 2 | 0.84 / 0.84 → 0.243 / 0.273 | 0.118 / 0.182 |
+| MR / MR9 / MRM9 | 3 | 0.77–0.82 → 0.213 / 0.213 / 0.215 | 0.053 / 0.085 / 0.076 |
+| R (Pad-Pad) / U / MRbz / MRMbz | 4 | 0.70–0.75 → 0.187 / 0.211 / 0.205 / 0.201 | 0.032 / 0.116 / 0.071 / 0.069 |
+| R9 / U9 | 6 | 0.66 / 0.62 → 0.166 / 0.171 | 0.046 / 0.052 |
+| Palm-Tip (MS) / MRS | – | → 0.516 / 0.658 | 0.908 / 0.966 |
+
+Spearman ρ over the same 14 hands, one-sided permutation (20,000): rotation ratio against Δt **−0.98** (p < 5e-5); full≤30° ratio against Δt **−0.88** (p 0.00015).
+
+- **Prediction 1 holds:** ρ(ratio, Δt) −0.98 ≤ −0.8.
+- **Prediction 2 holds:** MO-Pad exceeds Pad-Pad by 0.38 (0.564 vs 0.187).
+- **Prediction 3 holds:** Palm-Tip at 0.516 lies between Pad-Pad and MO-Pad.
+- **Not predicted: the second policy is far more sensitive to the face shift.**
+  - Every hand with Δt ≥ 2 keeps only 17–27% of Original's rotation, against 62–84% under seed 20.
+  - MO-Pad (Δt 1) keeps 56%, and only the Δt ≤ 1 hands keep most of the full turns (0.93–1.02).
+  - The order by Δt is the same under both seeds; the size of the loss depends on the policy.
+  - So the cube result is replicated as an ordering, not as a magnitude.
