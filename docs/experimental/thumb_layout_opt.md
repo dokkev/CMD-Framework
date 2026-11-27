@@ -434,6 +434,27 @@ Run data: `design/output/thumb_layout/h0/strict_orient20_dsup/proximal/seed0/` (
 - **Grasp-set benchmark for the double-support pitch-only base** (`O_pitch_ds`, x −55, e 33): median ε over the common pairs (μ 0.5) is 0.220, against O_thumbopt 0.222, O_pitch 0.224 and O 0.129; the spread is 0.016. With 77 feasible pairs, it is not distinguished from O_thumbopt or O_pitch, and is better than O. At μ 1.0: 0.416 against 0.415 / 0.418 / 0.328.
 - **Reading.** K7–K8 (ring PIP crease, ring proximal base) are what the cantilever O_thumbopt keeps over the double-support pitch-only base. Those two levels do not show up in grasp quality on the object set.
 
+### Thumb IP hyperextension (user request, 2026-11-26)
+
+- **Change.** `Evaluator(thumb_limits_deg={"ip": (lo, 100)})` and `run.py --ip-min` override the thumb's IP lower limit, which is otherwise the exporter's −10 deg. The sim assets keep the exporter's limits. The 5 deg functional margin still applies.
+- **Probe** (double-support plates in the envelope; flat pads; 45 deg facing):
+
+| IP lower limit | prototype | A: pitch-only, double support (x −55, e 33) | B: O_thumbopt, cantilever |
+|---|---|---|---|
+| −10 (now) | K3, pinch 29.4 | K6, pinch 16.5 | K8, pinch 8.8 |
+| −20 | K3, 27.3 | K6, 10.3 | K8, 1.9 |
+| −30 | K3, 22.0 | **K8**, 4.8 | K8, 0.0 |
+| −45 | K3, 33.8 | K8, 0.0 | K8, 0.0 |
+
+- Every solution uses IP at its margin, the limit + 5 deg.
+- With −30 deg the double-support pitch-only base reaches F-K8, so it matches the cantilever design.
+- The prototype gains nothing: its limit is RO, not IP.
+- The thumb's own self-collision (distal case against the proximal segment) is not modelled. At −30 to −45 deg the case starts 10 mm from the IP axis, outside the servo's 9.5 mm cap, but this needs a CAD check.
+- **Pre-registration: re-optimisation with IP ≥ −30 deg** (before the run).
+  - Run: O, strict, proximal IP, orientation ±20, double support, `--ip-min -30`, 32 × 25.
+  - Hypothesis: the front reaches F-K8 with yaw/roll near zero.
+  - Decision rule: as for the double-support run. Highest F-level with lever ≥ 0.85; ties to the smallest yaw/roll; then the best pinch.
+
 ### Lever trade-off
 
 - Within a functional level the front runs mostly along e: a longer case reaches more but pushes less.

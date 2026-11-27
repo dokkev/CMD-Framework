@@ -333,9 +333,10 @@ def _grid(limits: list[tuple[float, float]], step: float) -> np.ndarray:
     return np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1).reshape(-1, len(limits))
 
 
-def _limits_rad(names) -> tuple[np.ndarray, np.ndarray]:
-    lo = np.radians([LIMITS_DEG[n][0] for n in names])
-    hi = np.radians([LIMITS_DEG[n][1] for n in names])
+def _limits_rad(names, limits=None) -> tuple[np.ndarray, np.ndarray]:
+    limits = LIMITS_DEG if limits is None else limits
+    lo = np.radians([limits[n][0] for n in names])
+    hi = np.radians([limits[n][1] for n in names])
     return lo, hi
 
 
@@ -446,7 +447,8 @@ class Evaluator:
     """Fixed finger morphology ``parameters``; :meth:`evaluate` scores a :class:`ThumbDesign` on it."""
 
     def __init__(self, parameters: HandParameters, seeds: int = SEEDS, iterations: int = ITERATIONS,
-                 floor_mm: float = 20.0, double_support: bool = False) -> None:
+                 floor_mm: float = 20.0, double_support: bool = False,
+                 thumb_limits_deg: dict[str, tuple[float, float]] | None = None) -> None:
         self.parameters = parameters
         self.floor_mm = floor_mm
         self.double_support = double_support
@@ -457,8 +459,11 @@ class Evaluator:
         self.fingers = {d: FingerKinematics(parameters, d) for d in FINGERS}
         self._pairs: dict = {}
         self.finger_lo, self.finger_hi = _limits_rad(FINGER_JOINTS)
-        self.thumb_lo, self.thumb_hi = _limits_rad(THUMB_JOINTS)
-        self.thumb_grid = _grid([LIMITS_DEG[n] for n in THUMB_JOINTS], GRID_STEP_DEG)
+        self.thumb_limits = {**LIMITS_DEG, **(thumb_limits_deg or {})}
+        """Thumb joint limits [deg]: the exporter's, with ``thumb_limits_deg`` overriding (e.g. IP hyperextension,
+        ``{"ip": (-30.0, 100.0)}``; the sim assets keep the exporter's)."""
+        self.thumb_lo, self.thumb_hi = _limits_rad(THUMB_JOINTS, self.thumb_limits)
+        self.thumb_grid = _grid([self.thumb_limits[n] for n in THUMB_JOINTS], GRID_STEP_DEG)
         finger_grid = _grid([LIMITS_DEG[n] for n in FINGER_JOINTS], GRID_STEP_DEG)
         zero = np.zeros((1, 3))
         self.rest = {}  # each finger extended: capsules (4, 2, 3), radii, names
@@ -841,7 +846,7 @@ class Evaluator:
             return worst
 
         sweep = min(to_boxes(code_hand_sim._rotate(raa, ro_f[:3, 3], ro_f[:3, 2], deg))
-                    for deg in np.linspace(*LIMITS_DEG["ro"], 37))
+                    for deg in np.linspace(*self.thumb_limits["ro"], 37))
         ro_pts = _servo_cloud(ro_f, geometry)
         ro_clear = to_boxes(ro_pts)
         for d in FINGERS:
