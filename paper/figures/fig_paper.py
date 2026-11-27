@@ -669,7 +669,8 @@ def fig4():
              "effect bias (deg)"))
     HC = {"O": INK, "R": BLUE, "U": AMBER, "S": TEAL}
     RED = tuple(hh for hh in ("R", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
-    B = 0.24  # room for the two motion-change rows under each task's E rows
+    RB = 1.12  # the learned-policy band at the bottom (user, 2026-11-27: RL results joined to Fig. 4)
+    B = 0.24 + RB  # room for the two motion-change rows under each task's E rows, and the band below
     LG = 0.20  # the legend's row between the renders and the trajectories
     D = 0.12  # the bottom legend's room, now unused
     h = 3.40 + B + LG - D
@@ -763,6 +764,45 @@ def fig4():
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
             fig.text(xm + 0.50 / W, yy, f"$\\rho$ {rho:.2f}".replace("-", "\u2212"),
                      fontsize=5.4, ha="left", va="center", color=INK2)
+    # ---- learned policies run zero-shot: the share of O's performance each morphology keeps, two training seeds
+    rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]
+    fig.text(0.05 / W, (RB + 0.02) / h, "Policies learned on O, run unchanged on the redesign: share of O's performance kept",
+             fontsize=7, fontweight="bold", ha="left", va="top")
+    # each task's governing quantity under its bars (7 mm; the proximal face's shift toward the palm, Delta d_p, is
+    # 4 mm on all three hands: docs/experimental/pr_mr.md)
+    hd7 = d["tasks"]["pull"]["hands"]
+    gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("R", "S", "U")}),
+           "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("R", "S", "U")}),
+           "cube": ("face shift", {"R": 4.0, "S": 4.0, "U": 4.0})}
+    rl_cols = (("walk", "Finger walk (on the pads)", "walked distance"),
+               ("relay", "Relay dial (fingertip end)", "dial rotation"),
+               ("cube", "Cube rotation (whole hand)", "cube rotation"))
+    rw = (W - 0.62 - 0.04 - 2 * 0.62) / 3
+    MAP = (("R", "R", "CoDe"), ("SK", "S", "Skeleton"), ("U", "U", "Coverage"))
+    for i, (k, title, ylab) in enumerate(rl_cols):
+        x0 = 0.62 + i * (rw + 0.62)
+        ax = fig.add_axes((x0 / W, 0.40 / h, rw / W, 0.48 / h))
+        for j, (hh, hk, nm) in enumerate(MAP):
+            for t_, (v, hatch) in enumerate(zip(rl[k]["ratio"][hh], ("", "////"))):
+                xx = j + (t_ - 0.5) * 0.34
+                ax.bar(xx, v, width=0.32, color=HC[hk], alpha=0.9 if t_ == 0 else 0.45, lw=0, hatch=hatch,
+                       edgecolor="white", zorder=2)
+                ax.text(xx, v + 0.03, f"{100 * v:.0f}", ha="center", va="bottom", fontsize=5.2, color=HC[hk])
+        ax.axhline(1.0, color=INK, lw=0.6, ls=(0, (2, 2)), zorder=1)
+        ax.set_ylim(0, 1.18); ax.set_yticks([0, 0.5, 1.0]); ax.set_yticklabels(["0", "50%", "100%"], fontsize=5.6)
+        ax.set_xticks(range(3)); ax.set_xticklabels([nm for _, _, nm in MAP], fontsize=5.8)
+        for lab_ in ax.get_xticklabels():
+            lab_.set_color(HC[{"CoDe": "R", "Skeleton": "S", "Coverage": "U"}[lab_.get_text()]])
+        ax.set_xlim(-0.6, 2.6)
+        ax.set_title(title, fontsize=6.4, pad=2)
+        ax.set_ylabel(ylab, labelpad=1, fontsize=5.6)
+        clean(ax)
+        gl, gv = gov[k]
+        ax.text(-0.70, -0.50, gl, transform=ax.transData, fontsize=5.6, ha="right", va="center", color=INK2)
+        for j, (hh, hk, nm) in enumerate(MAP):
+            ax.text(j, -0.50, f"{gv[hk]:.1f}", fontsize=5.8, ha="center", va="center", color=HC[hk])
+    fig.text((W - 0.05) / W, (RB + 0.02) / h, "solid: training seed 20; hatched: seed 21", fontsize=5.6,
+             ha="right", va="top", color=INK2)
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
