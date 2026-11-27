@@ -45,7 +45,7 @@ def main(argv=None) -> int:
     from isaaclab_tasks.utils import setup_preset_cli
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--hand", default="O", choices=("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "O_thumbopt", "MR", "MRM", "MRbz", "MRMbz"))
+    parser.add_argument("--hand", default="O", choices=("O", "R", "U", "R5", "U5", "R9", "U9", "RL", "RL60", "UL120", "UL", "O_thumbopt", "MR", "MRM", "MRbz", "MRMbz", "MR5", "MRM5", "MR9", "MRM9"))
     parser.add_argument("--out_dir", type=Path, required=True, help="cache directory (gets <hand>.pt)")
     parser.add_argument("--target", type=int, default=4096)
     parser.add_argument("--num_envs", type=int, default=2048)
