@@ -101,3 +101,24 @@ Experimental (playground). Not in the SSoT or the paper.
   - The lever the paper does not use is the face depth change itself. Freeing A's height shrinks it, so a thicker pad need not move the proximal face.
   - This is the "mount compensation" idea from the RL notes: the skeleton moves dorsally instead of the face moving palmar.
 - **Caveat.** A proximal mount offset of 0 puts the pad's mounting surface on the link line. The packaging checks pass, but the PIP servo and A's housing clearance should be checked in CAD before reading much into it.
+
+## MR hands (2026-11-26)
+
+- `design/scripts/study/exploratory/e20_make_hands.py` writes `design/output/sim/study3/hands/cfl_q120_h3to7_{mr_bz,mrmid_bz,mr_free,mrmid_free}.yaml` by Study 3's mapping. The hand model's tip and contact paths match the designs to 3e-14 mm, with a_z and b_z nonzero.
+- Isaac exports (`design/scripts/export/code_hand_sim.py`) are in `sim/isaaclab/logs/finger_walk/hands/`. The names do not match attempt 9's grid glob, so attempt 9 is unaffected.
+
+## Pre-registration: RL transfer to MR (before any MR rollout)
+
+- **Policies.** O's, unchanged, zero-shot:
+  - the cube-rotation release policy (attempt 1, OmniReset v2c seg2 `model_1497`);
+  - the two 7b′ closed-loop walk policies (seeds 20 and 21, attempt 9's checkpoints).
+- **Hands.** O, PR (= R), U, MR_free, MRmid_free, plus MR_bz and MRmid_bz.
+- **Measures.**
+  - The transfer ratio: the hand's score over O's.
+  - The friction-swap error E (pad μ 1.3 → 2.0).
+  - Protocols, eval seeds and env counts are as in attempts 1 and 9.
+- **Predictions.**
+  1. Cube rotation, where contact is mostly fingertips and the MCP moves: MR_free and MRmid_free transfer better than PR and U, on the ratio and on E.
+  2. 7b′, where the cylinder rolls on the pads with starts in each hand's face frame (PR-anchored): MRmid_free ≈ PR > MR_free on the ratio. MR_free is no better than U.
+  3. MRmid_free is within 0.1 of O's ratio on both tasks. It is the only hand predicted to do well on both.
+- **Kill rule.** If O itself fails to reproduce its attempt-1/9 score within ±5%, stop and fix the setup before reading any hand.
