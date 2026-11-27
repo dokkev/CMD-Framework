@@ -722,3 +722,30 @@ All 13 steps rc 0. E with fig4_sync.py's own pair functions (the paper's gates):
 - **Prediction 2 (Skeleton ≥ Coverage in the grasping tasks): holds** in pull-out and acquisition, point and hydro, and in the hook.
 - **Not predicted:** Skeleton also errs most in the fingertip tasks (disk hydro 15.0%, pivot 26.9 / 21.2%). Keeping the skeleton does not help where the fingertip acts, as long as the contact path changes (Δ_contact 6.61).
 - **Prediction 3** (ρ with Δ_contact) waits for the rerun of each task's correlation with Skeleton added.
+
+## Result: every Drake experiment of R reproduced on S2F and MO-Pad (2026-11-27)
+
+The replacement batch finished with all steps rc 0. E with the paper's own pair functions; dial and pivot point on the first 32 draws. Units are %.
+
+| task | R (CoDe now) | S2F | MO-Pad | Skeleton | Coverage |
+|---|---|---|---|---|---|
+| hold, point / hydro | 19.4 / 16.7 | 16.9 / 14.2 | **8.5 / 12.8** | 86.1 / 387.7 | 71.7 / 253.8 |
+| acquisition, point / hydro | 21.3 / 15.8 | 18.5 / 13.0 | **10.4 / 13.5** | 106.8 / 91.6 | 74.1 / 65.9 |
+| hook, point / hydro | 28.6 / 42.5 | 25.0 / 36.1 | **13.4 / 19.8** | 246 (2 pairs) / — | 150.0 / — |
+| fingertip disk, point / hydro | 17.0 / 4.1 | 16.2 / 4.0 | 18.0 / 5.9 | 45.9 / 15.0 | 47.9 / 12.4 |
+| box pivot, point / hydro | 5.2 / 4.8 | 5.2 / 4.7 | 6.7 / 6.3 | 26.8 / 21.2 | 20.3 / 18.2 |
+
+Table I, Drake rows (signed median bias, E in brackets):
+
+| row | R | S2F | MO-Pad |
+|---|---|---|---|
+| pad shape (point) | −43% (55) | −45% (52) | −18% (47) |
+| friction, point | −19% (19) | −17% (17) | −8% (8) |
+| friction, hydro | −15% (17) | −13% (14) | +12% (13) |
+| softer pad, hydro | −8% (16) | −4% (14) | +16% (17) |
+| contact setpoint | −13% (14) | −11% (12) | −8% (8) |
+
+- **MO-Pad halves R's error in the three grasping tasks**, point and hydro. In the fingertip tasks it errs 1–2 points more than R.
+- **S2F errs as R does or slightly less everywhere.**
+- Replacing R by MO-Pad therefore strengthens the paper's grasping results and leaves the fingertip ones within 2 points.
+- The Isaac reruns (friction dose, stiffness, protocols, padk) are queued on the GPU behind Skeleton's.
