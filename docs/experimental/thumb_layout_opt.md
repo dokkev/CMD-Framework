@@ -697,3 +697,18 @@ Run data: `design/output/thumb_layout/prototype_pads/strict_zaxis_ip90/proximal/
 - **Open.**
   - The IP servo would hold the pad force in hyperextension, with the force pushing the IP further into extension.
   - Robustness: the robust run is going.
+
+### Result: prototype fingers, IP ±90, in-plane oblique axis, robust run (2026-11-26)
+
+Run data: `design/output/thumb_layout/prototype_pads/strict_zaxis_ip90_robust/proximal/seed0/` (5089 evaluations, 88 min).
+- **Both hypotheses held.** Every front design keeps F-K8 under all 12 perturbations (x, z, e ±1 mm; yaw and clocking ±3 deg).
+
+| x, z, e [mm] | yaw (Z) | clocking | robust score | F | lever (IP/MCP) | pinch |
+|---|---|---|---|---|---|---|
+| **−55.5, −4, 18.5** (registered pick) | +3 | −45 | 8.810, K8 kept 12/12 | K8 | 1.08 (2.13/1.08) | 0 |
+| −55, −5, 15.5 | +3 | −45 | 8.788, 12/12 | K8 | 1.10 | 0 |
+| −54.5, −5.5, 15 | +3 | −44/−45 | 8.774, 12/12 | K8 | 1.11 | 0 |
+
+- **Unlike the IP −30 K8 points (0–4/12), IP hyperextension to 90 makes K8 robust.** The chosen layout needs only a 3 deg in-plane yaw of the RO axis, a short case (e 18.5) and the RO arc placed 45 deg round. RO has no joint limit.
+- The clocking sits on its −45 bound. A wider bound may move the arc further. It is not a hardware tilt.
+- The layout is not for the paper (user, 2026-11-26).
