@@ -52,6 +52,35 @@ def frames(rho, q0, sense):
     return out, lim
 
 
+def torque_arrows(sc, c, rho, y_end, sgn, rgba=None):
+    """A bold arc arrow (about 290 deg) just outside the cylinder's near end, and a straight arrow along the cylinder's
+    axis (the torque vector, +y for +spin by the right-hand rule; -spin points out of the near end, the view's side), both in the
+    load colour, so the torsional load reads at a glance."""
+    rgba = rgba or R.LOAD
+    r = rho + 5.0
+    yy = y_end - 2.5
+    a0 = math.radians(120.0)
+    a1 = a0 - sgn * math.radians(290.0)
+    ts = np.linspace(a0, a1, 48)
+    pts = [c + r * np.array([math.cos(t), math.sin(t)]) for t in ts]
+    for p, q in zip(pts[:-5], pts[1:-4]):
+        sc.bar(p, q, 1.3, yy - 1.3, yy + 1.3, rgba)
+    R.arrow(sc, pts[-6], pts[-1], yy, rgba, half_width=1.3, head_len=7.0, head_half=4.2)
+    # the axis vector: a square shaft from the end face outward, then a tapered head
+    out = sgn  # the torque vector along the spin axis (+y for +spin, right-hand rule); -spin points out of the near end
+    shaft, head, w = 26.0, 9.0, 1.6
+    sq = lambda h: [c + np.array([dx, dz]) for dx, dz in ((-h, -h), (h, -h), (h, h), (-h, h))]
+    y0 = y_end - 1.0
+    y1 = y0 - shaft if out < 0 else y0 + shaft
+    sc.extrude(sq(w), min(y0, y1), max(y0, y1), rgba, smooth_deg=0.0)
+    steps = 28
+    for k in range(steps):
+        h = 4.2 * (1.0 - k / steps)
+        ya = y1 + out * head * k / steps
+        yb = y1 + out * head * (k + 1) / steps
+        sc.extrude(sq(max(h, 0.3)), min(ya, yb), max(ya, yb), rgba, smooth_deg=0.0)
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--rho", type=float, default=15.0)
@@ -68,10 +97,9 @@ def main() -> int:
     sgn = 1.0 if a.sense == "+spin" else -1.0
     for i, st in enumerate(frs):
         sc = R.build("hold", st, snapd, LOGS / "render3d" / f"twist{i}", finger=False, span=span)
-        if i > 0:  # the torque: an arc arrow just off the cylinder's near end (y below the span)
+        if i > 0:  # the torque: a bold arc about the cylinder's axis, and the axis vector itself (right-hand rule)
             c = np.array(st["centre"])
-            a0 = math.radians(200.0)
-            R.arc_arrow(sc, c, a.rho + 4.0, a0, a0 - sgn * math.radians(110), span[0] - 3.0, R.LOAD)
+            torque_arrows(sc, c, a.rho, span[0], sgn)
         paths.append(R.render_on_hand(sc, LOGS / f"render_twist{i}.png", st["distal"][2], camera=R.HOLD_ISO_CAMERA))
     R.strip(paths, LOGS / "render_twist_strip.png")
     return 0
