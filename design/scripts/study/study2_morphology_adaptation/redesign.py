@@ -17,6 +17,9 @@ searched as well (``FREE_HEIGHTS``): the CFL's A and B (the joint-axes alignment
 the proximal and the distal link line, the RCJ's roller centres A and B above theirs. Each row also gives the change
 of the same contact path seen from the MCP axis (``mcp_change_mm``, Delta_MCP).
 
+``--heights above`` keeps the pivots on or above their link lines (``ABOVE_HEIGHTS``; the default ``signed`` allows
+them 3 mm below).
+
 With ``--objective eq9`` (the paper's Eq. 9), the search has three objectives: the least change of the contact path
 seen from the proximal pad (Delta^prox_distal, ``contact_change``), the least change of the same path seen from the
 finger base F_1 (Delta^base_distal, ``mcp_change``) and the most coverage, with the pivots' heights free (as
@@ -60,19 +63,24 @@ FREE_HEIGHTS = {"a_z_mm": (-3.0, 8.0), "b_z_mm": (-3.0, 10.0)}
 """Search bounds of the pivots' heights under ``--free-heights`` (the e20-e22 hands' bounds): the proximal one's
 (the CFL's A, the 2R's A above the proximal link line, the RCJ's A) and the distal one's (the CFL's B, the 2R's A above
 the distal link line, the RCJ's B)."""
+ABOVE_HEIGHTS = {name: (0.0, high) for name, (_, high) in FREE_HEIGHTS.items()}
+"""The same with the pivots kept on or above their link lines (``--heights above``, Eq. 9's "above the link line")."""
+HEIGHT_RANGES = {"signed": FREE_HEIGHTS, "above": ABOVE_HEIGHTS}
 OBJECTIVES = ("paper", "eq9")
 NEAR_C_PAD = 0.005
 """The coverage band of the summary's second pick: the least Delta^prox_distal at no less than the front's most
 coverage minus this."""
 
 
-def free_heights(config):
-    """``config`` with the pivots' heights searched (``FREE_HEIGHTS``): the linkage's A and B (the joint-axes
-    alignment dropped), the 2R's and the RCJ's joint (``heights``; the belt 2R's in its joint's config)."""
+def free_heights(config, ranges=None):
+    """``config`` with the pivots' heights searched (``ranges``, default ``FREE_HEIGHTS``): the linkage's A and B
+    (the joint-axes alignment dropped), the 2R's and the RCJ's joint (``heights``; the belt 2R's in its joint's
+    config)."""
 
-    heights = (FREE_HEIGHTS["a_z_mm"], FREE_HEIGHTS["b_z_mm"])
+    ranges = FREE_HEIGHTS if ranges is None else ranges
+    heights = (ranges["a_z_mm"], ranges["b_z_mm"])
     if hasattr(config, "align_joint_axes"):  # the linkage
-        return dataclasses.replace(config, bounds={**dict(config.bounds), **FREE_HEIGHTS}, align_joint_axes=False)
+        return dataclasses.replace(config, bounds={**dict(config.bounds), **ranges}, align_joint_axes=False)
     if hasattr(config, "heights"):  # the 2R, the RCJ
         return dataclasses.replace(config, heights=heights)
     if hasattr(config, "base") and hasattr(config.base, "heights"):  # the belt 2R
@@ -144,9 +152,11 @@ def _row(head: dict, seed, x, evaluation, base, config, reference, scale: float)
 
 
 def run(path: Path, resume: bool = False, only_architectures=None, only_flexions=None,
-        output: str | None = None, heights: bool = False, objective: str = "paper") -> Path:
+        output: str | None = None, heights: bool = False, objective: str = "paper",
+        height_range: str = "signed") -> Path:
     if objective not in OBJECTIVES:
         raise ValueError(f"objective must be one of {OBJECTIVES}")
+    ranges = HEIGHT_RANGES[height_range]
     eq9 = objective == "eq9"
     heights = heights or eq9  # Eq. 9's F' frees the pivots' heights
     config = read_config_file(path)
@@ -179,7 +189,7 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
             for target in sorted(h for h in designs if h > thin):
                 goal = designs[target]
                 if heights:
-                    goal = dataclasses.replace(goal, config=free_heights(goal.config))
+                    goal = dataclasses.replace(goal, config=free_heights(goal.config, ranges))
                 head = {"architecture": name, "mechanism": first.mechanism, "upper_bound": first.upper_bound,
                         "required_flexion_deg": flexion, "from_mm": thin, "to_mm": target}
                 for seed in search["seeds"]:
@@ -245,7 +255,7 @@ def run(path: Path, resume: bool = False, only_architectures=None, only_flexions
                 shared.write_csv(out / "profiles.csv", profiles)
     (out / "manifest.json").write_text(json.dumps({
         "config": str(path), "formulation": "problem_formulation.md A.6.3 (2026-11-20: contact-centric redesign)",
-        "redesign": settings, "objective": objective, "free_heights": FREE_HEIGHTS if heights else None,
+        "redesign": settings, "objective": objective, "free_heights": ranges if heights else None,
         "near_c_pad": NEAR_C_PAD, "skipped": skipped, **shared.git_commit(out)}, indent=2))
     return out
 
@@ -260,10 +270,12 @@ def main(argv=None) -> int:
     parser.add_argument("--free-heights", action="store_true", help="also search the pivots' heights")
     parser.add_argument("--objective", choices=OBJECTIVES, default="paper",
                         help="paper: Delta_contact and C_pad (default); eq9: also Delta_MCP, the heights free")
+    parser.add_argument("--heights", choices=tuple(HEIGHT_RANGES), default="signed",
+                        help="signed: FREE_HEIGHTS (default); above: the pivots on or above their link lines")
     args = parser.parse_args(argv)
     out = run(Path(args.config), args.resume, args.architectures.split(",") if args.architectures else None,
               [float(q) for q in args.flexions.split(",")] if args.flexions else None, args.output, args.free_heights,
-              args.objective)
+              args.objective, args.heights)
     print(f"wrote {out}")
     return 0
 

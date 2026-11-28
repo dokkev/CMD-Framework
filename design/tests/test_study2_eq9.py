@@ -125,3 +125,13 @@ def test_the_linkage_frees_a_and_b_as_before():
     config = load_yaml(mechanism("linkage"), CONFIG, PINNED)[0]
     free = redesign.free_heights(config)
     assert free.bounds["a_z_mm"] == redesign.FREE_HEIGHTS["a_z_mm"] and not free.align_joint_axes
+
+
+@pytest.mark.parametrize("case", sorted(CASES))
+def test_above_keeps_the_pivots_on_or_above_their_lines(case):
+    base, config, _ = load(case)
+    free = redesign.free_heights(config, redesign.ABOVE_HEIGHTS)
+    names = base.search_names(free)
+    i = names.index("a_z_mm")
+    lower, upper = base.search_box(free)
+    assert (lower[i], lower[i + 1]) == (0.0, 0.0) and (upper[i], upper[i + 1]) == (8.0, 10.0)
