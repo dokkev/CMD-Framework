@@ -414,44 +414,44 @@ def main() -> int:
         ax.spines["left"].set_linewidth(0.5); ax.spines["bottom"].set_linewidth(0.5)
     fig.text(*inch(W_ / 2, yc - 1.24), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
-    # ---- (d) the consequence: the same command on a thicker interface measures the interface itself
+    # ---- (d) the point: on a redesigned finger, is the interface's own effect what gets measured? Each redesign runs
+    # O's command with the old and the new interface; its measured effect over the interface's own effect (measured on
+    # O, which needs no redesign): 100% = the interface alone, the rest is what the finger's change adds (user,
+    # 2026-11-27: not task success). Isaac Lab compliant-pad pull-out (isaac_conclusion_study3.json) and the Drake
+    # grasp acquisition's friction effect (fig4_sync.json); CoDe = MO-Pad.
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "same command: is the interface's effect measured?")
-    tasks = (("task_hold", "compliant pad:\npull-out load"), ("task_acquire", "higher friction:\ncylinder drawn in"))
-    # the second column: grasp acquisition (CoDe = MO-Pad measures 103% of the reference effect, Coverage 174%); the
-    # fingertip dial it replaced reads 80% for MO-Pad, just outside the 20-point check (2026-11-27)
+    plabel(0.07, yd, "d", "measuring a new interface on the redesigned finger")
     conc = {**conc, "C": json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["outside"]["mrmid_free"]}
-    o_pull = conc["C"]["true_change_pct"]  # CoDe = MO-Pad (2026-11-27); the reference effect on its own pairs
-    cx0 = (1.12, 2.28)  # the two task columns
-    for c_, (fn, lab) in enumerate(tasks):
-        fig.text(*inch(cx0[c_] + 0.46, yd - 0.17), lab, fontsize=5.4, ha="center", va="top", color=INK2,
-                 linespacing=1.0)
-    outs = (("C", "CoDe Hand", BLUE_, yd - 0.40), ("U", "Coverage Hand", ORANGE_, yd - 0.74))
-    for kind, name, col, yt in outs:
-        fig.text(*inch(0.07, yt - 0.12), name, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
-        for c_, (fn, lab) in enumerate(tasks):
-            x0 = cx0[c_]
-            if fn == "task_acquire":  # the middle frame of Fig. 4's acquisition strip
-                st_ = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / "grasp_acquisition.png").convert("RGB"))
-                wq_ = st_.shape[1] // 3
-                im_ = crop_white(st_[:, wq_:2 * wq_])
-            else:
-                im_ = crop_white(np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")))
-            image(im_, x0, yt - 0.32, fit=(0.44, 0.33))
-            if fn == "task_hold":
-                meas = conc[kind]["measured_change_pct"]
-                ok = abs(meas - o_pull) <= 20.0  # within 20 points of the reference's effect (v41 review)
-                txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "−")
-            else:
-                share = 100 * sync["acquire"]["hands"][kind]["ratio_median"]
-                ok = abs(share - 100.0) <= 20.0
-                txt = f"{share:.0f}% of the\nreference's"
-            # check / cross (not O / X, which read as the reference hand O; v38 review)
-            fig.text(*inch(x0 + 0.48, yt + 0.02), "✓" if ok else "✗", fontsize=8.5, ha="left", va="top",
-                     color=GREEN_ if ok else RED_, family="DejaVu Sans", fontweight="bold")
-            fig.text(*inch(x0 + 0.48, yt - 0.14), txt, fontsize=5.4, ha="left", va="top", linespacing=1.0, color=INK)
-    fig.text(*inch(W_ / 2, 0.03), "CoDe's redesign distorts the interface's measured effect far less", fontsize=5.8,
-             ha="center", va="bottom", color=BLUE_, **BOLD)
+    groups = (("compliant pad: pull-out load",
+               {k: 100 * conc[k]["measured_change_pct"] / conc[k]["true_change_pct"] for k in ("C", "U")}),
+              ("more friction: drawn-in distance",
+               {k: 100 * sync["acquire"]["hands"][k]["ratio_median"] for k in ("C", "U")}))
+    ax = fig.add_axes((0.62 / W_, 0.36 / H_, (W_ - 0.74) / W_, (yd - 0.66) / H_))
+    rows = []
+    for g, (glab, vals) in enumerate(groups):
+        for j, (k, nm, col) in enumerate((("C", "CoDe", BLUE_), ("U", "Coverage", ORANGE_))):
+            y_ = -(g * 3.3 + 1.0 + j * 1.05)
+            v = vals[k]
+            ax.barh(y_, v, height=0.85, color=col, alpha=0.9 if k == "C" else 0.75, lw=0, zorder=3)
+            ax.text(v + (5 if v >= 0 else -5), y_, f"{v:.0f}%".replace("-", "\u2212"), fontsize=5.8, va="center",
+                    ha="left" if v >= 0 else "right", color=col, zorder=4, **(BOLD if k == "C" else {}))
+            ax.text(-182, y_, nm, fontsize=5.8, va="center", ha="right", color=col, **(BOLD if k == "C" else {}))
+        ax.text(-178, -(g * 3.3) - 0.05, glab.replace("\n", " "), fontsize=5.6, va="center", ha="left", color=INK2,
+                style="italic")
+    ax.axvline(100, color=GREEN_, lw=1.0, ls=(0, (3, 1.5)), zorder=2)
+    ax.axvline(0, color=INK, lw=0.6, zorder=2)
+    ax.text(106, 0.35, "interface's own\neffect (on O)", fontsize=5.4, color=GREEN_, ha="left", va="center",
+            linespacing=1.0)
+    ax.text(-90, -6.05, "reversed (< 0)", fontsize=5.2, color=INK2, ha="center", va="center")
+    ax.set_xlim(-180, 200); ax.set_ylim(-6.4, 1.0)
+    ax.set_xticks([-100, 0, 100, 200]); ax.set_yticks([])
+    ax.tick_params(axis="x", labelsize=5.6, length=2, pad=1)
+    ax.set_xlabel("measured effect (% of the interface's own)", fontsize=5.8, labelpad=1)
+    for sp in ("top", "right", "left"):
+        ax.spines[sp].set_visible(False)
+    ax.spines["bottom"].set_linewidth(0.5)
+    fig.text(*inch(W_ / 2, 0.03), "CoDe measures the interface's own effect; Coverage adds its finger's change to it",
+             fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")
