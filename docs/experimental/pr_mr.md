@@ -1161,3 +1161,25 @@ Not reproduced: condim-4 torsional friction at point contact, MuJoCo's mass-depe
   - The Drake model reproduces Isaac Lab's implicit servos, which exceed the XM335's speed (up to 19 rad/s at the servo against its 5.55 rad/s no-load speed). The walk is a property of that model, not of the real servo.
   - There is no condim-4 torsional friction at point contact.
   - Hydroelastic pads (0.1 MPa over 3 mm) sink about 0.8 mm deeper than MuJoCo's at an edge contact.
+
+## Pre-registration: training seeds 22–24 for the three RL tasks (2026-11-27, before training)
+
+- **Why.** Fig. 5 rests on two training seeds per task (20, 21). Seed 21's cube policy kept far less on every redesign than seed 20's, so the size of each transfer depends on the policy. Three more seeds per task make the mean over five policies the figure's value.
+- **Training.** Each lineage is repeated exactly; only the seed changes (22, 23, 24). One training at a time on the GPU, in this order: cube s22 → s23 → s24, then walk, then relay.
+  - **Cube** (`docs/experimental/omnireset_recipe.md` §6.2, as seed 21): v2 seg1, 500 iterations from scratch → v2c seg1 from its `model_499` (goal bonus 5, entropy 0.001, std cap 1.0), 500 iterations → v2c seg2, 500 iterations. The release is the last checkpoint (`model_1497`). The NaN world recovery (§6.4) is in the code for every segment.
+  - **Walk (7b′)** and **relay (7a′)** (`rl_pip_only.md`, the seed-21 drivers `logs/finger_{walk,relay}/run/driver_s21.sh`): O, 4096 envs, 200-iteration segments, an O eval after each (1024 envs, eval seeds 94000/95000, μ 1.3), stop when the gain over the previous segment is below 5% or after 5 segments; the release is the stopped segment's last checkpoint. The drivers' own gates stay (walk ≥ 50 mm, relay ≥ 180°).
+- **Validity gate** (as the cube seed-21 gate). A seed counts only if O's own score with its release (Isaac Lab, μ 1.3, mean of the two eval seeds) is at least half of seed 20's: cube ≥ 460° (seed 20: 919°), walk ≥ 260 mm (519 mm), relay ≥ 140° (280°). A seed that fails is reported as a failed training. It is not replaced and not dropped silently.
+- **Isaac Lab eval** (as seeds 20 and 21). Hands O, CoDe = MO-Pad (MRM), Skeleton (SK), Coverage (U), and R for reference. Pad μ 1.3 / 2.0, eval seeds 94000 / 95000, 1024 envs.
+  - Cube: the held-out grasps (`heldout_transfer_v1`, seed 76000) and attempt 1's eval overrides (`run_mr_transfer.sh`).
+  - Walk: `eval_walk.py`. Relay: `eval_relay.py`, face and f1 anchors.
+  - Outputs: `sim/isaaclab/logs/pr_mr_transfer_s<seed>/{cube,walk,relay}/`.
+- **Drake eval** (`sim/drake/policy_transfer.py`, as seeds 20 and 21). The actor exported from Isaac Lab, 32 episodes per hand and seed, hands O, MRM, SK, U, R.
+  - Cube: point contact (primary), hydroelastic (secondary); tags `pt1_point`, `pt1_hydro`.
+  - Relay: hydroelastic (primary), point (secondary); tags `pt1_hydro`, `pt1_point`.
+  - Walk: `--match mujoco`, hydroelastic (primary), point (secondary); tags `wm1_hydro`, `wm1_point`.
+- **Metric.** Each hand's score over O's, per training seed (Isaac Lab: μ 1.3, mean of the two eval seeds; relay: face anchor). The figure's value is the mean over the valid seeds of 20–24.
+- **Predictions** (the paper's current claims), each judged on the 5-seed mean and reported per seed (how many of the valid seeds it holds in):
+  1. **Walk.** CoDe keeps the most of CoDe, Skeleton and Coverage, in Isaac Lab and in Drake (hydro). In Isaac Lab, Skeleton and Coverage keep little (< 0.3).
+  2. **Relay.** Skeleton ≥ Coverage > CoDe, in Isaac Lab (face) and in Drake (hydro).
+  3. **Cube.** CoDe keeps the most of CoDe, Skeleton and Coverage, in Isaac Lab and in Drake (point).
+  - A prediction fails on the mean if its inequality reverses on the 5-seed mean. Per-seed reversals are reported as such.
