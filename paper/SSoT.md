@@ -75,6 +75,8 @@ model, the analysis and the design studies; Experiment holds simulation only.
 
 ### 4.2 Terms (define once, never vary)
 
+- **Symbols (user, 2026-11-28):** the distal pad's path deviation is one quantity, Delta_d, with the frame it is seen from as a superscript: Delta_d^p (from the proximal pad frame F_p; the analysis's Delta_contact) and Delta_d^1 (from the link-line frame F_1; formerly Delta_MCP, a misleading name). Delta_skel is unchanged. Analysis docs and data keys keep d_contact / d_mcp.
+
 | Term | Meaning |
 |---|---|
 | contact-surface motion, c(q) | path of the distal-face point below the fingertip in the proximal-phalanx frame F_p |

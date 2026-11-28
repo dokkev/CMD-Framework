@@ -765,7 +765,7 @@ def fig4():
         # the same under every task), under the E rows and aligned with them
         hd = d["tasks"]["pull"]["hands"]
         hdall = d["tasks"][key]["hands"]  # every hand's Delta_contact and Delta_skel
-        for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
+        for j, (lab, k_) in enumerate((("$\\Delta^{p}_\\mathrm{d}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
             fig.text(xm - 0.22 / W, yy, lab, fontsize=6.4, ha="right", va="center", color=INK2)
             for dx, hh in ((-0.17, "C"), (0.10, "S"), (0.37, "U")):
@@ -810,7 +810,7 @@ def fig_rl():
     d = json.load(open(S3 / "fig4_sync.json"))
     hd7 = d["tasks"]["pull"]["hands"]
     HC = {"C": BLUE, "U": AMBER, "S": TEAL}
-    gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("C", "S", "U")}),
+    gov = {"walk": ("$\\Delta^{p}_\\mathrm{d}$", {h: hd7[h]["d_contact"] for h in ("C", "S", "U")}),
            "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("C", "S", "U")}),
            "cube": ("palm shift", {"C": 1.0, "S": 4.0, "U": 4.0})}  # Delta d_p in mm (docs/experimental/pr_mr.md)
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
