@@ -59,7 +59,12 @@ CKPT = {
     ("walk", 21): "code_finger_walk/2026-11-26_05-23-33_finger_walk_O_s21_walks21_seg3/model_597.pt",
     ("relay", 20): "code_finger_relay/2026-11-26_01-50-50_finger_relay_O_s20_relay_seg2/model_398.pt",
     ("relay", 21): "code_finger_relay/2026-11-26_14-20-04_finger_relay_O_s21_relays21_seg2/model_398.pt",
+    ("cube", 20): "code_rotate_cube_omnireset_v2/2026-11-25_07-41-53_rotate_cube_O_OmniResetV2_s20_v2c_seg2/model_1497.pt",
+    ("cube", 21): "code_rotate_cube_omnireset_v2/2026-11-27_12-13-44_rotate_cube_O_OmniResetV2_s21_s21_v2c_seg2/model_1497.pt",
 }
+CUBE_HANDS = ("O", "MRM", "SK", "U", "R")
+"""Hands whose held-out cube grasps (``sim/isaaclab/logs/rotate_cube/heldout_transfer_v1/<hand>.pt``, the caches the
+Isaac Lab transfer evals used) and pinch-grasp rest poses ``export`` writes for the cube task."""
 HAND_ROOT = np.array([0.0, 0.0, 0.5])
 ROOT_R = np.diag([1.0, -1.0, -1.0])  # palm up: half a turn about x
 DT_ENV, SUB = 4.0 / 120.0, 40
@@ -197,13 +202,14 @@ class Actor:
     def __init__(self, task: str, seed: int):
         z = np.load(OUT / f"actor_{task}_s{seed}.npz")
         self.mean, self.std = z["mean"], z["std"]
-        self.layers = [(z[f"w{i}"], z[f"b{i}"]) for i in range(4)]
+        n = sum(1 for k in z.files if k.startswith("w"))
+        self.layers = [(z[f"w{i}"], z[f"b{i}"]) for i in range(n)]
 
     def __call__(self, obs: np.ndarray) -> np.ndarray:
         x = (obs - self.mean) / (self.std + 1e-2)
         for i, (w, b) in enumerate(self.layers):
             x = w @ x + b
-            if i < 3:
+            if i < len(self.layers) - 1:
                 x = np.where(x > 0, x, np.expm1(np.minimum(x, 0)))
         return x[: len(x) // 2]  # the heteroscedastic head: (mean, log std); the mean
 
@@ -216,10 +222,23 @@ def export() -> int:
     for (task, seed), rel in CKPT.items():
         sd = torch.load(ISAAC / "logs" / "rsl_rl" / rel, map_location="cpu", weights_only=False)["actor_state_dict"]
         arrays = {"mean": sd["obs_normalizer._mean"].numpy()[0], "std": sd["obs_normalizer._std"].numpy()[0]}
-        for i, k in enumerate((0, 2, 4, 6)):
+        lin = sorted(int(k.split(".")[1]) for k in sd if k.startswith("mlp.") and k.endswith(".weight"))
+        for i, k in enumerate(lin):
             arrays[f"w{i}"], arrays[f"b{i}"] = sd[f"mlp.{k}.weight"].numpy(), sd[f"mlp.{k}.bias"].numpy()
         np.savez(OUT / f"actor_{task}_s{seed}.npz", **arrays)
-        print(task, seed, "obs", arrays["mean"].shape, "out", arrays["b3"].shape)
+        print(task, seed, "obs", arrays["mean"].shape, "out", arrays[f"b{len(lin) - 1}"].shape)
+    # the cube task's held-out grasps and each hand's pinch-grasp rest pose (rotate_cube.grasp.pinch_grasp)
+    from code_isaaclab.assets.description import Description
+    from code_isaaclab.tasks.rotate_cube.grasp import HANDS as GRASP_HANDS, pinch_grasp
+
+    for hand in CUBE_HANDS:
+        d = torch.load(ISAAC / "logs" / "rotate_cube" / "heldout_transfer_v1" / f"{hand}.pt", map_location="cpu",
+                       weights_only=True)
+        g = pinch_grasp(Description.load(GRASP_HANDS[hand]))
+        np.savez(OUT / f"cube_grasps_{hand}.npz", joint_names=np.array(d["joint_names"]), q=d["q"].numpy(),
+                 target=d.get("target", d["q"]).numpy(), pos=d["pos"].numpy(), quat_xyzw=d["quat"].numpy(),
+                 rest_pos=np.asarray(g["rest_env"], float), rest_quat_xyzw=np.asarray(g["rest_quat_xyzw"], float))
+        print("cube grasps", hand, d["q"].shape, "rest", np.round(g["rest_env"], 4))
     return 0
 
 
@@ -505,6 +524,269 @@ class Env:
         return self.observe(), done
 
 
+# ------------------------------------------------------------------------------------------------------- the cube
+# rotate_cube_omnireset V2 Eval (tasks/rotate_cube_omnireset/env_cfg.py, mdp.py; rotate_cube/rotate_cube_mdp.py)
+C_SIZE, C_MASS = 0.040, 0.05 * (0.040 / 0.05) ** 3
+C_STEPS = 600
+C_STEP_RAD = 1.0 / 24.0
+C_GOAL, C_SUCC_D, C_SUCC_O, C_HOLD = math.radians(45.0), 0.02, 0.3, 6
+C_OFF_GRASP, C_TILT_MIN_DOT, C_ABNORMAL = 0.07, 0.0, 10.0
+C_OBJ_MU = 1.0e3
+"""MuJoCo pairs take the larger coefficient: pad-cube 1.3, link-cube 0.5 (``pad13_condim4_v1``; the cube 0.5). Drake
+combines 2ab/(a+b), so the cube gets a large coefficient and the hand the value that gives the same pairs."""
+C_PAD_MU = 1.3 * C_OBJ_MU / (2 * C_OBJ_MU - 1.3)
+C_HAND_MU = 0.5 * C_OBJ_MU / (2 * C_OBJ_MU - 0.5)
+
+
+def _axis_angle(R) -> np.ndarray:
+    """``isaaclab.utils.math.axis_angle_from_quat`` of a rotation (angle in [0, pi]), from a Drake RotationMatrix."""
+    aa = R.ToAngleAxis()
+    return np.asarray(aa.axis()) * aa.angle()
+
+
+def build_cube(hand: str, contact: str = "hydro"):
+    from pydrake.geometry import (AddCompliantHydroelasticProperties, AddContactMaterial, AddRigidHydroelasticProperties,
+                                  Box, CollisionFilterDeclaration, GeometrySet, ProximityProperties, RoleAssign)
+    from pydrake.math import RigidTransform, RollPitchYaw
+    from pydrake.multibody.parsing import Parser
+    from pydrake.multibody.plant import AddMultibodyPlant, CoulombFriction, MultibodyPlantConfig
+    from pydrake.multibody.tree import JointActuatorIndex, SpatialInertia, UnitInertia
+    from pydrake.systems.framework import DiagramBuilder, LeafSystem
+
+    desc = description(hand)
+    builder = DiagramBuilder()
+    plant, sg = AddMultibodyPlant(MultibodyPlantConfig(time_step=DT_ENV / SUB, discrete_contact_approximation="sap",
+                                                       contact_model={"point": "point", "hydro": "hydroelastic_with_fallback"}[contact]), builder)
+    model = Parser(plant).AddModels(str(urdf(hand)))[0]
+    plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("palm", model),
+                     RigidTransform(RollPitchYaw(math.pi, 0.0, 0.0), HAND_ROOT))
+    origin = {b["name"]: np.asarray(b["origin"], float) for b in desc["bodies"]}
+    for cut in desc["loops"]:
+        a, b = plant.GetBodyByName(cut["parent"], model), plant.GetBodyByName(cut["child"], model)
+        anchor = np.asarray(cut["anchor"], float)
+        plant.AddBallConstraint(a, anchor - origin[cut["parent"]], b, anchor - origin[cut["child"]])
+    acts = {}
+    for k in range(plant.num_actuators()):
+        act = plant.get_joint_actuator(JointActuatorIndex(k))
+        act.set_default_rotor_inertia(ARMATURE)
+        act.set_default_gear_ratio(1.0)
+        acts[act.joint().name()] = act  # every servo: the explicit DC-motor law (ServoTorque), no PD
+    obj_model = plant.AddModelInstance("object")
+    cube = plant.AddRigidBody("cube", obj_model, SpatialInertia(C_MASS, np.zeros(3), UnitInertia.SolidBox(C_SIZE, C_SIZE, C_SIZE)))
+    pr = ProximityProperties()
+    if contact == "hydro":
+        AddRigidHydroelasticProperties(resolution_hint=0.004, properties=pr)
+    AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(C_OBJ_MU, C_OBJ_MU), properties=pr)
+    plant.RegisterCollisionGeometry(cube, RigidTransform(), Box(C_SIZE, C_SIZE, C_SIZE), "cube", pr)
+    inspector = sg.model_inspector()
+    for body_index in plant.GetBodyIndices(model):
+        body = plant.get_body(body_index)
+        for gid in plant.GetCollisionGeometriesForBody(body):
+            name = inspector.GetName(gid)
+            pad = name.endswith("_c3") and body.name().endswith(("_proximal", "_distal"))
+            p = ProximityProperties()
+            mu = C_PAD_MU if pad else C_HAND_MU
+            if pad and contact == "hydro":
+                h = inspector.GetShape(gid)
+                half = min(h.width(), h.depth(), h.height()) / 2
+                AddCompliantHydroelasticProperties(resolution_hint=0.002, hydroelastic_modulus=HYDRO_K * half,
+                                                   properties=p)
+            AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(mu, mu), properties=p)
+            sg.AssignRole(plant.get_source_id(), gid, p, RoleAssign.kReplace)
+    manager = sg.collision_filter_manager()
+    for x, y in desc["collision"]["filtered_pairs"]:
+        gx = plant.GetCollisionGeometriesForBody(plant.GetBodyByName(x, model))
+        gy = plant.GetCollisionGeometriesForBody(plant.GetBodyByName(y, model))
+        if gx and gy:
+            manager.Apply(CollisionFilterDeclaration().ExcludeBetween(GeometrySet(gx), GeometrySet(gy)))
+    plant.Finalize()
+
+    actuated = [j["name"] for j in desc["joints"] if j.get("actuator") is not None]  # Description.actuated()
+    joints = {n: plant.GetJointByName(n, model) for n in actuated}
+    act_index = {n: int(acts[n].index()) for n in actuated}
+    servo = desc["servo"]
+    kp0 = servo["stall_torque_nm"] * servo["duty_per_rad"]
+    kd0 = servo["stall_torque_nm"] / servo["no_load_speed_rad_s"]
+
+    class ServoTorque(LeafSystem):
+        """Isaac Lab's ``DCMotor`` on every servo: ``kp (theta_d - theta) - kd theta_dot`` clipped to the torque-speed
+        envelope, at every plant step; the PIP gains rescheduled per control step (``RelativeFlexionAction``)."""
+
+        def __init__(self):
+            super().__init__()
+            self.state = self.DeclareVectorInputPort("x", plant.num_multibody_states())
+            self.DeclareVectorOutputPort("u", plant.num_actuators(), self.calc)
+            self.target = {n: 0.0 for n in actuated}
+            self.kp = {n: kp0 for n in actuated}
+            self.kd = {n: kd0 for n in actuated}
+
+        def calc(self, context, out):
+            x = self.state.Eval(context)
+            u = np.zeros(plant.num_actuators())
+            nq = plant.num_positions()
+            for n in actuated:
+                j = joints[n]
+                th, w = x[j.position_start()], x[nq + j.velocity_start()]
+                tau = self.kp[n] * (self.target[n] - th) - self.kd[n] * w
+                hi = min(max(STALL_NM * (1.0 - w / NO_LOAD), 0.0), STALL_NM)
+                lo = max(min(STALL_NM * (-1.0 - w / NO_LOAD), 0.0), -STALL_NM)
+                u[act_index[n]] = min(max(tau, lo), hi)
+            out.SetFromVector(u)
+
+    torque = builder.AddSystem(ServoTorque())
+    builder.Connect(plant.get_state_output_port(), torque.state)
+    builder.Connect(torque.get_output_port(0), plant.get_actuation_input_port())
+    diagram = builder.Build()
+    return {"diagram": diagram, "plant": plant, "model": model, "desc": desc, "torque": torque, "cube": cube,
+            "actuated": actuated, "joints": joints}
+
+
+class CubeEnv:
+    """The V2 evaluation: a held-out grasp drawn from the hand's cache (joints, targets, cube pose), 600 control steps
+    at 30 Hz, relative joint targets (1/24 rad per step, PIP in flexion), the 45 deg chained goals, and the
+    evaluation's terminations (cube 70 mm off the grasp, the reset-up axis below horizontal, a servo over 10x its
+    no-load speed, a non-finite state). Score: the integrated world-z rotation until the first termination
+    (``eval_policy.py`` ``signed_rotation_deg_mean``)."""
+
+    def __init__(self, hand: str):
+        from pydrake.systems.analysis import Simulator
+
+        self.hand = hand
+        self.b = build_cube(hand, CONTACT)
+        self.plant, self.model = self.b["plant"], self.b["model"]
+        self.ctx = self.b["diagram"].CreateDefaultContext()
+        self.pctx = self.plant.GetMyMutableContextFromRoot(self.ctx)
+        self.sim = Simulator(self.b["diagram"], self.ctx)
+        self.sim.Initialize()
+        self.desc, self.actuated, self.cube = self.b["desc"], self.b["actuated"], self.b["cube"]
+        self.pips = [n for n in self.actuated if n.endswith("_pip_servo")]
+        self.tab = Tables(self.desc, [n.split("_")[0] for n in self.pips])
+        lim = {j["name"]: np.radians(j["limits_deg"]) for j in self.desc["joints"]}
+        self.lo = np.array([0.0 if n in self.pips else lim[n][0] for n in self.actuated])
+        self.hi = np.array([Q_HI if n in self.pips else lim[n][1] for n in self.actuated])
+        g = np.load(OUT / f"cube_grasps_{hand}.npz")
+        self.g = {k: g[k] for k in g.files}
+        self.names = [str(n) for n in self.g["joint_names"]]
+        self.rest = self.g["rest_pos"]
+
+    def _flex(self, n, th):
+        return self.tab.flexion(n.split("_")[0], th) if n in self.pips else th
+
+    def _servo(self, n, q):
+        return self.tab.servo(n.split("_")[0], q) if n in self.pips else q
+
+    def cube_pose(self):
+        X = self.plant.EvalBodyPoseInWorld(self.pctx, self.cube)
+        return X.translation(), X.rotation()
+
+    def reset(self, rng):
+        from pydrake.common.eigen_geometry import Quaternion
+        from pydrake.math import RigidTransform, RotationMatrix
+        from pydrake.multibody.math import SpatialVelocity
+
+        plant, ctx = self.plant, self.pctx
+        self.sim.get_mutable_context().SetTime(0.0)
+        row = int(rng.integers(0, len(self.g["q"])))
+        self.row = row
+        plant.SetVelocities(ctx, self.model, np.zeros(plant.num_velocities(self.model)))
+        for k, n in enumerate(self.names):
+            plant.GetJointByName(n, self.model).set_angle(ctx, float(self.g["q"][row, k]))
+        x, y, z, w = (float(v) for v in self.g["quat_xyzw"][row])
+        pos = np.asarray(self.g["pos"][row], float)
+        plant.SetFreeBodyPose(ctx, self.cube, RigidTransform(RotationMatrix(Quaternion(w, x, y, z)), pos))
+        plant.SetFreeBodySpatialVelocity(ctx, self.cube, SpatialVelocity(np.zeros(3), np.zeros(3)))
+        tgt = {n: float(self.g["target"][row, k]) for k, n in enumerate(self.names)}
+        self.cmd = np.array([self._flex(n, tgt[n]) for n in self.actuated])  # grasp_target, PIP in flexion
+        tq = self.b["torque"]
+        for i, n in enumerate(self.actuated):
+            tq.target[n] = self._servo(n, self.cmd[i])
+        self.grasp_pos = pos
+        _, R = self.cube_pose()
+        self.prev_R = R
+        self.up_body = R.inverse().multiply(np.array([0.0, 0.0, 1.0]))  # ObjectTilted's reset-up axis
+        self.progress, self.goal, self.hold, self.goals = 0.0, C_GOAL, 0, 0
+        self.yaw = 0.0
+        self.last_action = np.zeros(len(self.actuated))
+        self.hist = None
+        return self.observe(first=True)
+
+    def joint_q(self):
+        return np.array([self.b["joints"][n].get_angle(self.pctx) for n in self.actuated])
+
+    def observe(self, first=False):
+        q = self.joint_q()
+        qf = np.array([self._flex(n, q[i]) for i, n in enumerate(self.actuated)])
+        jpos = 2 * (qf - (self.lo + self.hi) / 2) / (self.hi - self.lo)
+        p, R = self.cube_pose()
+        dp = p - self.rest
+        Rm = R.matrix()
+        k = int(np.argmax(np.abs(Rm[2, :])))
+        up = Rm[:, k] * (1.0 if Rm[2, k] >= 0 else -1.0)
+        yaw_err = float(np.clip(self.goal - self.progress, -math.pi, math.pi))
+        tgt = 2 * (self.cmd - (self.lo + self.hi) / 2) / (self.hi - self.lo)
+        terms = [self.last_action.copy(), jpos, np.concatenate([dp, _axis_angle(R)]),
+                 np.concatenate([dp, up[:2], [yaw_err]]), tgt]
+        if first or self.hist is None:
+            self.hist = [[t.copy() for _ in range(5)] for t in terms]
+        else:
+            for h, t in zip(self.hist, terms):
+                h.pop(0)
+                h.append(t)
+        return np.concatenate([np.concatenate(h) for h in self.hist])
+
+    def step(self, action):
+        self.last_action = np.asarray(action, float).copy()
+        self.cmd = np.clip(self.cmd + C_STEP_RAD * np.clip(action, -1.0, 1.0), self.lo, self.hi)
+        tq = self.b["torque"]
+        for i, n in enumerate(self.actuated):
+            tq.target[n] = self._servo(n, self.cmd[i])
+            if n in self.pips:  # flexion-space gains, scheduled at the measured flexion
+                d = n.split("_")[0]
+                r = self.tab.ratio(d, self.tab.flexion(d, self.b["joints"][n].get_angle(self.pctx)))
+                tq.kp[n], tq.kd[n] = K_Q / r**2, D_Q / r**2
+        self.sim.AdvanceTo(self.sim.get_context().get_time() + DT_ENV)
+        p, R = self.cube_pose()
+        dq = _axis_angle(R.multiply(self.prev_R.inverse()))
+        self.prev_R = R
+        self.yaw += dq[2]
+        self.progress += dq[2]
+        v = self.plant.GetVelocities(self.pctx, self.model)
+        bad = not (np.isfinite(p).all() and np.isfinite(v).all())
+        wq = np.array([self.b["joints"][n].get_angular_rate(self.pctx) for n in self.actuated])
+        done = bad or (np.linalg.norm(p - self.grasp_pos) > C_OFF_GRASP) \
+            or (R.multiply(self.up_body)[2] < C_TILT_MIN_DOT) or bool((np.abs(wq) > C_ABNORMAL * NO_LOAD).any())
+        # GoalContext (the goal error the actor reads)
+        Rm = R.matrix()
+        tilt = math.acos(min(np.abs(Rm[2, :]).max(), 1.0))
+        dist = np.linalg.norm(p - self.rest)
+        succ = dist < C_SUCC_D and abs(self.goal - self.progress) + tilt < C_SUCC_O
+        self.hold = self.hold + 1 if succ else 0
+        if self.hold >= C_HOLD:
+            self.goal += C_GOAL
+            self.goals += 1
+            self.hold = 0
+        return self.observe(), done
+
+
+def cube_episode(args):
+    hand, seed, ep, mode = args
+    env = CubeEnv(hand)
+    rng = np.random.default_rng(1000 * seed + ep)
+    actor = Actor("cube", seed) if mode == "policy" else None
+    obs = env.reset(rng)
+    t0 = time.time()
+    steps, ended = 0, False
+    for _ in range(C_STEPS):
+        a = actor(obs) if actor else np.zeros(len(env.actuated))
+        obs, done = env.step(a)
+        steps += 1
+        if done:
+            ended = True
+            break
+    return {"episode": ep, "row": env.row, "score": float(math.degrees(env.yaw)), "goals": int(env.goals),
+            "terminated": ended, "steps": steps, "wall_s": round(time.time() - t0, 1)}
+
+
 def episode(args):
     task, hand, seed, ep, policy, const = args
     env = Env(hand, task)
@@ -528,17 +810,18 @@ def cmd_run(a) -> int:
     from multiprocessing import Pool
 
     OUT.mkdir(parents=True, exist_ok=True)
-    jobs = [(a.task, h, s, e, True, 0.0) for s in a.seeds for h in a.hands for e in range(a.episodes)
-            if not (OUT / f"{a.task}_{h}_s{s}_{a.tag}.json").exists()]
+    cube = a.task == "cube"
+    jobs = [((h, s, e, "policy") if cube else (a.task, h, s, e, True, 0.0)) for s in a.seeds for h in a.hands
+            for e in range(a.episodes) if not (OUT / f"{a.task}_{h}_s{s}_{a.tag}.json").exists()]
     with Pool(a.workers) as pool:
-        res = pool.map(episode, jobs, chunksize=1)
+        res = pool.map(cube_episode if cube else episode, jobs, chunksize=1)
     by = {}
     for j, r in zip(jobs, res):
-        by.setdefault((j[1], j[2]), []).append(r)
+        by.setdefault((j[0], j[1]) if cube else (j[1], j[2]), []).append(r)
     for (h, s), rs in by.items():
         (OUT / f"{a.task}_{h}_s{s}_{a.tag}.json").write_text(json.dumps(
             {"task": a.task, "hand": h, "seed": s, "contact": CONTACT, "episodes": rs, "score_mean": float(np.mean([r["score"] for r in rs])),
-             "dropped_rate": float(np.mean([r["dropped"] for r in rs]))}, indent=1))
+             "dropped_rate": float(np.mean([r.get("dropped", r.get("terminated", False)) for r in rs]))}, indent=1))
     summarize(a.task, a.tag, a.seeds)
     return 0
 
@@ -557,6 +840,10 @@ def summarize(task, tag, seeds):
 
 
 def cmd_check(a) -> int:
+    if a.task == "cube":
+        for mode in ("hold", "policy"):
+            print(mode, cube_episode((a.hand, 20, 0, mode)))
+        return 0
     for const in (-1.0, 0.0):
         r = episode((a.task, a.hand, 20, 0, False, const))
         print("constant action", const, r)
@@ -570,7 +857,7 @@ def main() -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("export")
     r = sub.add_parser("run")
-    r.add_argument("--task", choices=tuple(TASK), required=True)
+    r.add_argument("--task", choices=tuple(TASK) + ("cube",), required=True)
     r.add_argument("--hands", nargs="+", default=["O", "MRM", "SK", "U"])
     r.add_argument("--seeds", nargs="+", type=int, default=[20, 21])
     r.add_argument("--episodes", type=int, default=24)
@@ -578,11 +865,11 @@ def main() -> int:
     r.add_argument("--tag", default="pt1")
     r.add_argument("--contact", choices=("hydro", "point"), default="hydro")
     c = sub.add_parser("check")
-    c.add_argument("--task", choices=tuple(TASK), required=True)
+    c.add_argument("--task", choices=tuple(TASK) + ("cube",), required=True)
     c.add_argument("--hand", default="O")
     c.add_argument("--contact", choices=("hydro", "point"), default="hydro")
     s = sub.add_parser("summary")
-    s.add_argument("--task", choices=tuple(TASK), required=True)
+    s.add_argument("--task", choices=tuple(TASK) + ("cube",), required=True)
     s.add_argument("--tag", default="pt1")
     s.add_argument("--seeds", nargs="+", type=int, default=[20, 21])
     a = p.parse_args()

@@ -1053,3 +1053,27 @@ This analysis was not pre-registered. It reads the existing transfer evals at pa
   - Drake's friction combination (hand-object 0.72 off the pads)
   - the DC-motor law with no velocity limit beyond its torque envelope
   - the dial as a sprung slider and spring-loaded spin joint, as in Isaac Lab
+
+## Pre-registration: Drake transfer of the cube policies (2026-11-27, before any redesign run)
+
+- **Environment.** `sim/drake/policy_transfer.py` (`--task cube`) reproduces the Isaac Lab V2 evaluation:
+  - held-out grasps from `heldout_transfer_v1/<hand>.pt`, the same caches as the Isaac transfer evals;
+  - 600 steps at 30 Hz, relative targets of 1/24 rad per step, PIP commands in flexion;
+  - the DC-motor law on every servo;
+  - the 45° chained goals;
+  - observations as in V2: last action, joint positions, cube pose, goal error, targets, 5-step history;
+  - the evaluation's terminations: 70 mm off the grasp, reset-up axis below horizontal, 10× no-load speed, non-finite state;
+  - score: the integrated world-z rotation (`signed_rotation_deg_mean`);
+  - friction pairs set to MuJoCo's: pad–cube 1.3, link–cube 0.5;
+  - pads are flat boxes; Isaac's are 1 mm domes.
+- **Gate on O (passed).** 32 episodes per training seed:
+  - point contact: 590° / 362°, i.e. 64% / 46% of Isaac's 919° / 786°; terminations 6%;
+  - hydroelastic: 312° / 199°, i.e. 34% / 25%; terminations 12%;
+  - with zero actions the grasp holds for 20 s without turning.
+- **Primary analysis: point contact.** It reproduces O best. Hydroelastic is secondary.
+- **Hands.** O, CoDe (MO-Pad, `MRM`), Skeleton (`SK`), Coverage (`U`), and R for reference. 32 episodes per hand and seed, rows drawn by the same RNG per episode index.
+- **Metric.** The hand's mean score over O's, per training seed.
+- **Predictions** (from Isaac: MO-Pad 0.94 / 0.56, Skeleton 0.65 / 0.20, Coverage 0.70 / 0.21; palm shift 1 mm for MO-Pad, 4 mm for the others):
+  1. CoDe's ratio is the highest of CoDe, Skeleton and Coverage under both training seeds, at point contact.
+  2. CoDe's ratio exceeds R's (palm shift 1 against 4 mm) under both seeds, at point contact.
+  - Fails if, in either seed, Skeleton or Coverage reaches CoDe's ratio (prediction 1), or R does (prediction 2).
