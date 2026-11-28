@@ -324,3 +324,23 @@ bound" vs Fig. 3(c) at 150 deg and the at-joint points above 0 at 90 deg (a move
 for the four-bar claim; which redesigns the 42 -> 14% median covers; the abstract's 48 / 41% stated as physical;
 Fig. 1(d) vs Table I compliant-pad columns (pad swap vs friction on the pad); per-hand medians vs correlations
 (torque column). Standing: simulation only, pads not deformable, density.
+
+v43: 5, 5, 5, all Reject (manuscript after the MO-Pad switch and the policy Fig. 1(d); review PDF without Mingyo's
+notes). The drop comes from inconsistencies the switch introduced, raised by all three reviewers:
+- "all twelve settings" against Table I's torque column (Coverage 0%, CoDe +8%).
+- Sec. IV-B1 still points to Fig. 1(d) as a pad swap on pull-out.
+- The abstract's 48% / 41% have no source in the body.
+- The CoDe pick rule was dropped with the old Eq. (9).
+- The correlation-set wording.
+- The conclusion's "near 10%" against Fig. 1(d)'s -101 vs -172 mm.
+New, from the reviewers:
+- Fig. 2(a)'s rolling region reaches the face band (r1).
+- The abstract's "force matched" overclaims (r1).
+- Fig. 1(d)'s reversal is measured on a policy that fails on Coverage (r1).
+- The grid is 27, not 18 (r1).
+- Eq. (9) overflows its column.
+Standing:
+- simulation only, pads not deformed
+- two RL seeds
+- MA cost
+- no limitations paragraph
