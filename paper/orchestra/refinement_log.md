@@ -458,3 +458,10 @@ circular in the obvious sense"), but the reference attack moved: "thickness is e
 definition". Clarity is held at 2 by items our own rules keep out: "Conventional" vs "Coverage", "CoDe" for both the
 architecture and the hand, n behind every rho, Table I blank cells / bold / undefined columns (title-only caption),
 undefined E/error (no displayed equation). Asked the user which rules to relax.
+
+v57 (Fig. 1 says Coverage; n beside each rho; Delta_d^p / Delta_d^1): 5, 5, 5 (Clarity 2, 2, 2; Presentation 2, 2, 2;
+r2 Significance 3). Naming and n complaints dropped. What remains in all three: no hardware, no pad deformation, and
+the reference ("why is the effect on O's geometry the pad's effect?"). r3 suggests framing the claim as the transfer
+of O's command (what the reused command does on the redesign vs on O) rather than "misreporting the pad's effect".
+Clarity items still common: Measure paragraph too dense (error/E without an equation), Table I undefined columns and
+blanks, Fig. 3(c) normalized axis, Fig. 4 small text, the CoDe Pareto pick rule.
