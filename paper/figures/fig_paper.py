@@ -39,7 +39,7 @@ INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
 BLUE, AMBER, GREY, TEAL, PURPLE = "#0F4D92", "#B64342", "#767676", "#42949E", "#9A4D8E"
 # display names without acronyms (v42 editing pass): servo at the joint, servo remote, rolling contact joint
 ARCH = {"2r_dd": ("At-joint", GREY, "^"), "2r_remote": ("Remote", AMBER, "s"), "rcj": ("Rolling", TEAL, "D"),
-        "cfl": ("CoDe", BLUE, "o")}
+        "cfl": ("Four-bar", BLUE, "o")}  # the architecture; "CoDe" names the contact-preserving redesign (v47)
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
@@ -323,7 +323,7 @@ def fig2():
              zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-14, 18, "CoDe", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(-14, 18, "Crossed four-bar", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
     pax.text(27, -3.0, "Rolling\ncontact joint", fontsize=6.4, linespacing=1.0, ha="center", color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
@@ -422,8 +422,8 @@ def fig2():
         kax.plot(*pt, marker="o", ms=3.0, mfc="white", mec=INK, mew=0.7, zorder=30)
     for pt in (O, C):
         kax.plot(*pt, marker="o", ms=2.0, color=INK, zorder=30)
-    pts = {"A": A, "A'": Ap, "B": B, "B'": Bp, "C": C, "O": O}
-    offs = {"A": (-4, -7), "A'": (-6, 6), "B": (5, -7), "B'": (7, 6), "C": (6, -5), "O": (-6, -8)}
+    pts = {"A": A, "A'": Ap, "B": B, "B'": Bp, "C": C, "J": O}  # J: the MCP axis (O names the original hand)
+    offs = {"A": (-4, -7), "A'": (-6, 6), "B": (5, -7), "B'": (7, 6), "C": (6, -5), "J": (-6, -8)}
     for nm_, at in pts.items():
         kax.annotate(f"${nm_}$", xy=at, xytext=offs[nm_], textcoords="offset points", fontsize=7, ha="center",
                      va="center", color=INK, zorder=31)
@@ -871,9 +871,9 @@ def fig_rl():
             ax.text(j, -0.36, f"{gv[hk]:.1f}", fontsize=5.6, ha="center", va="center", color=HC[hk],
                     transform=ax.transData)
         if i == 0:
-            ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, fc="#888", label="seed 20"),
+            ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, fc="#888", label="seed 1"),
                                plt.Rectangle((0, 0), 1, 1, fc="#888", alpha=0.45, hatch="////", ec="white",
-                                             label="seed 21")],
+                                             label="seed 2")],
                       loc="upper right", bbox_to_anchor=(1.02, 0.92), frameon=False, fontsize=5.4, handlelength=1.2,
                       title="training", title_fontsize=5.4)
     fig.text(0.02 / W1, (0.42 + 0.40) / h, "share of O's performance kept", rotation=90, fontsize=5.8, ha="left",

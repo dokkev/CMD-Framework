@@ -385,3 +385,16 @@ Response:
   - The abstract's 48/41 vs Table I's +125% (per-placement medians).
 
 Standing: no hardware, rigid pads, two RL seeds, MA cost, software alternatives.
+
+v47: 5, 5, 5, all Reject. Two common items are new:
+- Validation reads as close to circular: why O's stiffness-only effect is the ground truth.
+- The setpoint space: flexion or actuator.
+
+Recurring, all three reviewers:
+- clarity: c_1, Q_eval, the error formula, Eq. (4)'s colon, the O point vs the O hand, "contact Jacobian" undefined
+- bullet 3 is walk-only
+- Fig. 4 and Fig. 5 labels
+- Table I simulator and bold
+- Conventional vs Coverage
+
+User goal (2026-11-27): 7, 6, 6 with Clarity and Presentation 4.
