@@ -38,8 +38,8 @@ INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
 # figures4papers house palette: method blue, comparator warm red, reference grey (paper/SSoT.md §6)
 BLUE, AMBER, GREY, TEAL, PURPLE = "#0F4D92", "#B64342", "#767676", "#42949E", "#9A4D8E"
 # display names without acronyms (v42 editing pass): servo at the joint, servo remote, rolling contact joint
-ARCH = {"2r_dd": ("At-joint", GREY, "^"), "2r_remote": ("Remote", AMBER, "s"), "rcj": ("Rolling", TEAL, "D"),
-        "cfl": ("CoDe", BLUE, "o")}  # the crossed four-bar architecture; the text ties it to the CoDe and Coverage hands (user, 2026-11-27)
+ARCH = {"2r_dd": ("At-joint", GREY, "^"), "2r_remote": ("Remote", AMBER, "s"), "rcj": ("RCJ", TEAL, "D"),
+        "cfl": ("CFL (ours)", BLUE, "o")}  # the crossed four-bar linkage; CoDe names the design method (user, 2026-11-28)
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
@@ -323,9 +323,9 @@ def fig2():
              zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-14, 18, "CoDe", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(-14, 18, "CFL (ours)", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
-    pax.text(27, -3.0, "Rolling\ncontact joint", fontsize=6.4, linespacing=1.0, ha="center", color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(27, -3.0, "RCJ", fontsize=6.4, linespacing=1.0, ha="center", color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
     pax.set_xlim(-32, 55); pax.set_ylim(-27, 30); pax.set_aspect("equal")
     pax.set_xlabel("along the finger (mm)", labelpad=1); pax.set_ylabel("above the link line (mm)", labelpad=1)
@@ -613,44 +613,43 @@ def fig3():
              "$\\bar C_{pad}$ averages $2|T|/L_f$ over $Q_{eval}$", fontsize=5.6, color=INK2, ha="center",
              va="bottom")
     label(fig, 4.05, row_b + 0.02, "(c) Preservation, $3\\to5,7,9$ mm", h)
-    # (b) right: contact motion kept, 100 (1 - Delta_contact / Delta_fixed), every condition; 0: a fixed axis
-    # the axis reaches every redesign (no clipping; v39 review): its floor is the lowest share kept over all panels
-    YLO, lowest = -40.0, 0.0
+    # (c) right: each redesign's Delta_d^p in mm against the fixed-axis bound 2 sin(q/2)|Delta t| (dashed), every
+    # condition (user, 2026-11-28: mm, not a normalized share); x: no feasible redesign
+    YHI = 0.0
     for q in (90.0, 120.0, 150.0):
         for key in ARCH:
             for hh in (5.0, 7.0, 9.0):
                 r = [x for x in s2 if x["architecture"] == key and float(x["required_flexion_deg"]) == q
                      and float(x["to_mm"]) == hh]
                 if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
-                    fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
-                    YLO = min(YLO, 100 * (1 - LF * float(r[0]["change_at_most_c_pad"]) / fa) - 12)
-    YLO = 10 * np.floor(YLO / 10)
-    print("fig3c floor", YLO)
+                    YHI = max(YHI, LF * float(r[0]["change_at_most_c_pad"]))
+    YHI = 2 * np.ceil(YHI / 2 + 0.5)
+    print("fig3c top", YHI)
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, 0.30 / h, 0.82 / W, (row_b - 0.48) / h))
-        ax.axhline(0, color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=1)
+        hs_ = np.array([4.4, 5.0, 7.0, 9.0, 9.6])
+        ax.plot(hs_, 2 * np.sin(np.radians(q) / 2) * (hs_ - 3.0), color=INK, lw=0.8, ls=(0, (1.5, 1.2)), zorder=1)
         for k, key in enumerate(ARCH):
             for hh in (5.0, 7.0, 9.0):
                 r = [x for x in s2 if x["architecture"] == key and float(x["required_flexion_deg"]) == q
                      and float(x["to_mm"]) == hh]
                 x = hh + (k - 1.5) * 0.32
-                fa = 2 * np.sin(np.radians(q) / 2) * (hh - 3.0)
                 if r and r[0]["change_at_most_c_pad"] not in ("", "nan"):
-                    kept = 100 * (1 - LF * float(r[0]["change_at_most_c_pad"]) / fa)
-                    ax.plot(x, kept, ls="none", marker=ARCH[key][2], ms=3.0, color=ARCH[key][1],
-                            mec="white", mew=0.3, zorder=3, clip_on=False)
-                    lowest = min(lowest, kept)
+                    ax.plot(x, LF * float(r[0]["change_at_most_c_pad"]), ls="none", marker=ARCH[key][2], ms=3.0,
+                            color=ARCH[key][1], mec="white", mew=0.3, zorder=3, clip_on=False)
                 else:
-                    ax.plot(x, YLO + 4, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
-        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(YLO, 100); ax.set_yticks([-100, -50, 0, 50, 100])
+                    ax.plot(x, YHI - 0.6, ls="none", marker="x", ms=2.8, color=ARCH[key][1], mew=0.7, clip_on=False)
+        ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(0, YHI)
         ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
         if j == 0:
-            ax.set_ylabel("contact motion\nkept (%)", labelpad=1, linespacing=1.25)
-            ax.text(4.2, 3, "fixed axis", fontsize=5.4, color=INK2, va="bottom")
+            ax.set_ylabel("$\\Delta^{p}_\\mathrm{d}$ (mm)", labelpad=1)
         else:
             ax.set_yticklabels([])
         if j == 1:
             ax.set_xlabel("redesigned for (mm)", labelpad=1, fontsize=6.2)
+        if j == 2:
+            ax.text(9.9, 2 * np.sin(np.radians(q) / 2) * 6.6 + 0.6, "fixed axis", fontsize=5.6, color=INK2,
+                    va="bottom", ha="right")
         clean(ax)
     handles = [plt.Line2D([], [], ls="none", marker=ARCH[k][2], ms=3.4, color=ARCH[k][1], label=ARCH[k][0])
                for k in ARCH]
@@ -712,12 +711,15 @@ def fig4():
     LG = 0.20  # the legend's row between the renders and the trajectories
     D = 0.12  # the bottom legend's room, now unused
     NB = 0.85  # the bias row dropped to fit 5 pages (2026-11-27): E under each task carries it
-    h = 3.40 + B + LG - D - NB
+    NT = 0.62  # the E / Delta / rho rows moved to Table II (user, 2026-11-28)
+    h = 3.40 + B + LG - D - NB - NT
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
+    tab = {}  # the task table (user, 2026-11-28: Fig. 4's numbers as a table, sections/table_tasks.tex)
     for i, (name, key, img, xl, yl, el) in enumerate(cols):
         x0 = left + i * (cw + gapc)
+        tab[key] = {"name": name}
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
         ia = fig.add_axes((x0 / W, (h - 0.70) / h, cw / W, 0.52 / h))
         strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
@@ -756,21 +758,16 @@ def fig4():
         for j, (model, src) in enumerate((("point", pt), ("hydro", d["hydro"][key]))):
             yy = (0.40 + B - D - 0.115 * j) / h
             xm = (x0 + 0.30 + (cw - 0.36) / 2 - 0.30) / W  # left of centre: room for the rho column
-            fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=6.4, ha="right", va="center", color=INK2)
-            for dx, hh in ((-0.17, "C"), (0.10, "S"), (0.37, "U")):
+            for hh in ("C", "S", "U"):
                 e = src.get(hh)
-                fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=6.6,
-                         ha="left", va="center", color=HC[hh], fontweight="bold")
+                tab[key][(model, hh)] = None if e is None else 100 * e["E"]
         # how much each morphology changes the contact-surface and the skeletal motion (mm, 7 mm; one hand each, so
         # the same under every task), under the E rows and aligned with them
         hd = d["tasks"]["pull"]["hands"]
         hdall = d["tasks"][key]["hands"]  # every hand's Delta_contact and Delta_skel
         for j, (lab, k_) in enumerate((("$\\Delta^{p}_\\mathrm{d}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
-            fig.text(xm - 0.22 / W, yy, lab, fontsize=6.4, ha="right", va="center", color=INK2)
-            for dx, hh in ((-0.17, "C"), (0.10, "S"), (0.37, "U")):
-                fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=6.6, ha="left", va="center",
-                         color=HC[hh])
+            tab["delta", k_] = {hh: hd[hh][k_] for hh in ("C", "S", "U")}
             # Spearman rho of E with this quantity over the correlation's hands (Skeleton and CoDe = MO-Pad outside it), both contact
             # models in one value: each hand's E ranked within each model, the two ranks averaged (E's size differs
             # between the models, so pooling the raw errors would mix the models' scales into the ranking)
@@ -783,8 +780,7 @@ def fig4():
             hs = [hh for hh in hdall if ok(pt_all, hh) and ok(hy, hh)]
             mrank = (rankdata([pt_all[hh]["E"] for hh in hs]) + rankdata([hy[hh]["E"] for hh in hs])) / 2
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
-            fig.text(xm + 0.60 / W, yy, f"$\\rho$ {rho:.2f}".replace("-", "\u2212"),
-                     fontsize=6.2, ha="left", va="center", color=INK2)
+            tab[key][("rho", k_)] = rho
     handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
@@ -799,6 +795,29 @@ def fig4():
     save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)
     print("fig4", h)
+    pc = lambda v: "--" if v is None else f"{v:.0f}"
+    rh = lambda v: f"${v:.2f}$".replace("-", "-")
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.2pt}",
+             r"  \caption{Drake tasks (Fig.~\ref{fig:study3}): $E$ (\%) at $7$\,mm and $\rho$ over $18$ redesigns}",
+             r"  \label{tab:tasks}", r"  \begin{tabular}{lrrrrrrrr}", r"    \toprule",
+             r"    & \multicolumn{3}{c}{$E$, point} & \multicolumn{3}{c}{$E$, hydro.} & \multicolumn{2}{c}{$\rho$ with} \\",
+             r"    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-9}",
+             r"    & \ourmethod{} & Skel. & Cov. & \ourmethod{} & Skel. & Cov. & $\Dcon$ & $\Dskel$ \\", r"    \midrule"]
+    for key in ("pull", "acquire", "dial", "pivot"):
+        t = tab[key]
+        cells = [pc(t[("point", hh)]) for hh in ("C", "S", "U")] + [pc(t[("hydro", hh)]) for hh in ("C", "S", "U")]
+        cells = [rf"\textbf{{{c}}}" if k % 3 == 0 else c for k, c in enumerate(cells)]
+        cells += [rh(t[("rho", "d_contact")]), rh(t[("rho", "d_skel")])]
+        short = {"pull": "Hold", "acquire": "Acquisition", "dial": "Pad-turned dial", "pivot": "Box pivot"}[key]
+        lines.append("    " + short + " & " + " & ".join(cells) + r" \\")
+    lines.append(r"    \midrule")
+    for lab, k_ in ((r"$\Dcon$ (mm)", "d_contact"), (r"$\Dskel$ (mm)", "d_skel")):
+        dd = tab["delta", k_]
+        lines.append(f"    {lab} & " + " & ".join(f"{dd[hh]:.1f}" for hh in ("C", "S", "U")) + r" & & & & & \\")
+    lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
+    out = DEST.parent / "sections" / "table_tasks.tex"
+    out.write_text("\n".join(lines))
+    print(out)
 
 
 # ------------------------------------------------------------------------------------------- Fig. 5 learned policies
