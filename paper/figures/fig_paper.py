@@ -15,6 +15,7 @@ Colours: CFL / R blue, 2R-remote / U amber, 2R-DD / reference grey, RCJ teal, po
 """
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -692,6 +693,10 @@ def task_icon(ax, kind):
         return "turn a sprung dial $45^\\circ$; pad friction"
 
 
+FIG4_BIAS = os.environ.get("FIG4_BIAS", "1") == "1"  # the paper uses the effect-error curves (user, 2026-11-28)
+"""Fig. 4 plots each redesign's friction-effect error (its effect minus O's) instead of its two trajectories."""
+
+
 def fig4():
     """Study 3: four Drake tasks under O's reused command (the hook pull, 38, is in the text: paper/SSoT.md 6.1). Per task: three frames; R and U's object response minus O's
     over E's pairs (median, quartiles; friction 1.3 circles, 2.0 diamonds); each redesign's friction effect minus O's;
@@ -720,7 +725,7 @@ def fig4():
     NT = 0.62  # the E / Delta / rho rows moved to Table II (user, 2026-11-28)
     h = 3.24 + B + LG - D - NB - NT
     fig = plt.figure(figsize=(W, h))
-    left, gapc = 0.05, 0.06
+    left, gapc = 0.12, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
     tab = {}  # the task table (user, 2026-11-28: Fig. 4's numbers as a table, sections/table_tasks.tex)
     for i, (name, key, img, xl, yl, el) in enumerate(cols):
@@ -747,12 +752,19 @@ def fig4():
         ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.36 - LG) / h, (cw - 0.36) / W, 0.68 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
-        for hi, hh in enumerate(RED):
-            for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
-                bd = dv[f"{hh}_{mu}"]
-                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
-                ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
-                        mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 6, step))
+        if FIG4_BIAS:  # one curve per hand: its friction effect minus O's, as a share of O's final effect (user, 2026-11-28)
+            for hh in RED:
+                bd = dv[f"{hh}_bias"]
+                ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.12, lw=0, zorder=1)
+                ra.plot(x, bd["median"], color=HC[hh], lw=1.0, zorder=3)
+            yl = "effect error (%)"
+        else:
+            for hi, hh in enumerate(RED):
+                for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
+                    bd = dv[f"{hh}_{mu}"]
+                    ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.08, lw=0, zorder=1)
+                    ra.plot(x, bd["median"], color=HC[hh], lw=0.6, zorder=3, marker=mk_, ms=2.4 if mk_ == "o" else 2.1,
+                            mfc="white", mew=0.5, markevery=((2 * hi + mi) * step // 6, step))
         ra.set_ylabel(yl, labelpad=1, fontsize=5.6)
         ra.set_xlabel(xl, labelpad=1, fontsize=6.3)
         clean(ra)
@@ -787,7 +799,14 @@ def fig4():
             mrank = (rankdata([pt_all[hh]["E"] for hh in hs]) + rankdata([hy[hh]["E"] for hh in hs])) / 2
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
             tab[key][("rho", k_)] = rho
-    handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
+    if FIG4_BIAS:
+        handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: the pad's effect as O measures it"),
+                   plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
+                   plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
+                   plt.Line2D([], [], color=AMBER, lw=1.1, label="Coverage"),
+                   plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
+    else:
+      handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: as O (original)"),
                plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
                plt.Line2D([], [], color=AMBER, lw=1.1, label="Coverage"),
@@ -798,7 +817,7 @@ def fig4():
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
     fig.legend(handles=handles, loc="center", bbox_to_anchor=(0.5, (h - 0.64 - LG / 2) / h), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
-    save_figure(fig, DEST / "fig_study3.pdf")
+    save_figure(fig, Path(os.environ["FIG4_OUT"]) if os.environ.get("FIG4_OUT") else DEST / "fig_study3.pdf")
     plt.close(fig)
     print("fig4", h)
     pc = lambda v: "--" if v is None else f"{v:.0f}"
