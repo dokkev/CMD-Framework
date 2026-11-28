@@ -370,7 +370,7 @@ def main() -> int:
     box(0.02, TB, W_ - 0.04, top - TB, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "original design")
     hand = usd_render(CAD / "hand_usd_relaxed.png")
-    image(hand, 0.10, TB + 0.04, fit=(1.30, top - TB - 0.24))
+    image(hand, 0.06, TB + 0.04, fit=(1.12, top - TB - 0.24))
     # the policy learned on the original design (user, 2026-11-28): a small network badge, pi_O
     def nn_icon(x0, y0, sc, z=6):
         """A small policy network in the style the user gave (2026-11-28): 2-3-2 nodes, blue strokes, white fill."""
@@ -386,21 +386,10 @@ def main() -> int:
             for (xx, yy) in layer:
                 fig.patches.append(Circle(inch(xx, yy), 0.026 * sc / W_, transform=fig.transFigure, fc="white",
                                           ec=NB, lw=1.0 * sc, zorder=z + 1))
-    # a virtual object over the palm, dashed, with the task policy inside it (user, 2026-11-28)
-    cx_, cy_, e_ = 0.62, TB + 0.40, 0.34  # front face's lower-left corner and edge [in]
-    off = np.array([0.15, 0.11])
-    fr = [np.array(v) for v in ((cx_, cy_), (cx_ + e_, cy_), (cx_ + e_, cy_ + e_), (cx_, cy_ + e_))]
-    bk = [v + off for v in fr]
-    edges = [(fr[k], fr[(k + 1) % 4]) for k in range(4)] + [(bk[k], bk[(k + 1) % 4]) for k in range(4)] + \
-            [(fr[k], bk[k]) for k in range(4)]
-    for p1, p2 in edges:
-        fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#2f6db0", lw=0.8,
-                                  ls=(0, (2.5, 1.6)), transform=fig.transFigure, zorder=8))
-    fig.patches.append(Rectangle(inch(cx_, cy_), e_ / W_, e_ / H_, transform=fig.transFigure, fc="white", ec="none",
-                                 alpha=0.75, zorder=7))
-    nn_icon(cx_ + 0.05, cy_ + e_ / 2, 0.85, z=9)
-    fig.text(*inch(cx_ + e_ / 2 + 0.07, cy_ + e_ + off[1] + 0.02), "task policy $\\pi_O$", fontsize=5.8, ha="center",
-             va="bottom", color=INK)
+    # the task policy learned on the original hand, beside it (user, 2026-11-28: no virtual object, no overlap)
+    nn_icon(1.235, TB + 0.42, 0.85, z=9)
+    fig.text(*inch(1.345, TB + 0.56), "task policy\n$\\pi_O$", fontsize=5.6, ha="center", va="bottom", color=INK,
+             linespacing=1.0)
     rx = 1.55
     box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
@@ -501,7 +490,9 @@ def main() -> int:
         # proximal phalanx: the interface on the pad surface (y = 0), the bone above it
         ax.add_patch(Rectangle((8, 0), 44, pt, fc=col, ec="none", alpha=0.35, zorder=2))
         ax.plot([8, 52], [0, 0], color=col, lw=1.4, zorder=4)
-        ax.plot([0, 56], [dep, dep], color=BONE, lw=2.6, solid_capstyle="round", zorder=3)
+        # proximal phalanx as a rigid triangle (as Fig. 2(b)): J-A on the link line, A' above
+        PJ, PA, PAp = np.array([0.0, dep]), np.array([44.0, dep]), np.array([36.0, dep + 13.0])
+        ax.add_patch(Polygon([PJ, PA, PAp], fc="#e2e2e0", ec=BONE, lw=0.9, zorder=3))
         for n_, k_ in enumerate((0, 60, 120)):
             qr = np.radians(k_)
             d_ = np.array([np.cos(qr), -np.sin(qr)])
@@ -510,12 +501,21 @@ def main() -> int:
             c1, c0 = ch[k_], ch[k_] - LP * d_
             ax.add_patch(Polygon([c0, c1, c1 + pt * nn_, c0 + pt * nn_], fc=col, ec="none", alpha=0.35 * a_, zorder=2))
             ax.plot(*np.array([c0, c1]).T, color=col, lw=1.4, alpha=a_, solid_capstyle="butt", zorder=4)
-            ax.plot(*np.array([c0 - 2 * d_ + dep * nn_, c1 + 3 * d_ + dep * nn_]).T, color=BONE, lw=2.2, alpha=a_,
-                    solid_capstyle="round", zorder=3)
+            # distal phalanx as a rigid triangle on its bone line, B at the joint end, B' above, C at the tip
+            DB, DC = c1 - 40.0 * d_ + dep * nn_, c1 + 3 * d_ + dep * nn_
+            DBp = DB + 0.22 * (DC - DB) + 10.0 * nn_
+            ax.add_patch(Polygon([DB, DBp, DC], fc="#e2e2e0", ec=BONE, lw=0.9, alpha=a_, zorder=3))
+            if k_ == 60:  # the crossed links at one pose: A'-B and A-B'
+                for p1, p2 in ((PAp, DB), (PA, DBp)):
+                    ax.plot(*np.array([p1, p2]).T, color=INK, lw=0.8, zorder=4)
+                for pt_ in (PA, PAp):
+                    ax.plot(*pt_, marker="o", ms=1.8, color=INK, zorder=6)
+                for pt_ in (DB, DBp):
+                    ax.plot(*pt_, marker="o", ms=1.8, mfc="white", mec=INK, mew=0.5, zorder=6)
             o1 = co[k_]
             ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
-        ax.set_xlim(-4, 100); ax.set_ylim(-46, 22); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(50, 21, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.set_xlim(-4, 100); ax.set_ylim(-46, 36); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(50, 36, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
         ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top")
     fig.text(*inch(2.62, yc - 1.13), "tracked: the distal pad surface;  dashed: O", fontsize=5.0,
              color=INK2, ha="center", va="top")
