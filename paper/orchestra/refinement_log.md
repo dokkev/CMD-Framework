@@ -465,3 +465,13 @@ the reference ("why is the effect on O's geometry the pad's effect?"). r3 sugges
 of O's command (what the reused command does on the redesign vs on O) rather than "misreporting the pad's effect".
 Clarity items still common: Measure paragraph too dense (error/E without an equation), Table I undefined columns and
 blanks, Fig. 3(c) normalized axis, Fig. 4 small text, the CoDe Pareto pick rule.
+
+v58 (command-transfer framing, error as Eq. 10, CoDe = method / CFL = mechanism / RCJ, Fig. 3(c) in mm, Table II):
+5, 5, 5 (Presentation 2, 3, 2; Clarity 2, 2, 2).
+
+Control (2026-11-28): the v42 manuscript (commit 0c82c43, scored 6, 6, 6, all Accept in v42), rebuilt unchanged and
+reviewed with the same prompt: 5, 5, 5, all Reject (Q2 C2 Si2 So2 P2 for all three). So the 6 -> 5 step from v43 on is
+not caused by the manuscript changes: the same paper now scores 5. The reviewers' calibration moved (reviewer model or
+its behaviour), and since then no version has left 5. Read rounds against this control: v58 matches or beats the
+v42 control on every subscore (v58 r1 Presentation 3, Contribution 2-3), and its item lists no longer raise the
+Fig. 1(d)/Table I units, "Conventional", n, or Delta_MCP naming that the control still raises.
