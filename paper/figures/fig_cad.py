@@ -482,44 +482,49 @@ def main() -> int:
     for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "CoDe", BLUE_, "pad surface tracks O's"),
                                                   ("conv_e25", "Skeleton", TEAL_, "skeleton tracks O's,\npad surface drifts"))):
         ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.00) / H_, 0.82 / W_, 0.94 / H_))
-        co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
-        dep = DEPTH[key]
-        pt = 0.75 * dep  # the interface drawn between its surface and the bone
-        LP = 24.0
-        # proximal phalanx: the interface on the pad surface (y = 0), the bone above it
-        ax.add_patch(Rectangle((8, 0), 44, pt, fc=col, ec="none", alpha=0.35, zorder=2))
-        ax.plot([8, 52], [0, 0], color=col, lw=1.4, zorder=4)
-        # proximal phalanx as a rigid triangle (as Fig. 2(b)): J-A on the link line, A' above
-        PJ, PA, PAp = np.array([0.0, dep]), np.array([44.0, dep]), np.array([36.0, dep + 13.0])
+        # everything in the finger-base frame (the link line at y = 0): the distal link from the fingertip data, the
+        # pad surfaces from the contact-point data moved down by each hand's contact-surface depth
+        def geo(k):
+            dep_ = DEPTH[k]
+            c_ = np.array(paths[k]["contact"]) - np.array([0.0, dep_])
+            t_ = np.array(paths[k]["tip"])
+            return dep_, c_, t_
+        dep, ch, th = geo(key)
+        _, co, to = geo("O")
+        pt = 0.75 * dep
+        LP, L2 = 24.0, 40.0
+        PJ, PA, PAp = np.array([0.0, 0.0]), np.array([44.0, 0.0]), np.array([36.0, 13.0])
         ax.add_patch(Polygon([PJ, PA, PAp], fc="#e2e2e0", ec=BONE, lw=0.9, zorder=3))
+        ax.add_patch(Rectangle((8, -dep), 36, pt, fc=col, ec="none", alpha=0.35, zorder=2))
+        ax.plot([8, 44], [-dep, -dep], color=col, lw=1.4, zorder=4)
         for n_, k_ in enumerate((0, 60, 120)):
             qr = np.radians(k_)
             d_ = np.array([np.cos(qr), -np.sin(qr)])
             nn_ = np.array([np.sin(qr), np.cos(qr)])
             a_ = 0.45 + 0.275 * n_
+            # distal phalanx: a triangle whose base is the distal link (joint end to fingertip)
+            DC = th[k_]
+            DB = DC - L2 * d_
+            DBp = DB + 0.22 * (DC - DB) + 10.0 * nn_
+            ax.add_patch(Polygon([DB, DBp, DC], fc="#e2e2e0", ec="none", alpha=0.8 * a_, zorder=2))
+            ax.plot(*np.array([DB, DC]).T, color=BONE, lw=1.6, alpha=a_, solid_capstyle="round", zorder=3)
             c1, c0 = ch[k_], ch[k_] - LP * d_
             ax.add_patch(Polygon([c0, c1, c1 + pt * nn_, c0 + pt * nn_], fc=col, ec="none", alpha=0.35 * a_, zorder=2))
             ax.plot(*np.array([c0, c1]).T, color=col, lw=1.4, alpha=a_, solid_capstyle="butt", zorder=4)
-            # distal phalanx as a rigid triangle on its bone line, B at the joint end, B' above, C at the tip
-            DB, DC = c1 - 40.0 * d_ + dep * nn_, c1 + 3 * d_ + dep * nn_
-            DBp = DB + 0.22 * (DC - DB) + 10.0 * nn_
-            ax.add_patch(Polygon([DB, DBp, DC], fc="#e2e2e0", ec=BONE, lw=0.9, alpha=a_, zorder=3))
             if k_ == 60:  # the crossed links at one pose: A'-B and A-B'
                 for p1, p2 in ((PAp, DB), (PA, DBp)):
-                    ax.plot(*np.array([p1, p2]).T, color=INK, lw=0.8, zorder=4)
+                    ax.plot(*np.array([p1, p2]).T, color=INK, lw=0.7, zorder=4)
                 for pt_ in (PA, PAp):
                     ax.plot(*pt_, marker="o", ms=1.8, color=INK, zorder=6)
                 for pt_ in (DB, DBp):
                     ax.plot(*pt_, marker="o", ms=1.8, mfc="white", mec=INK, mew=0.5, zorder=6)
-            o1 = co[k_]
-            if key == "conv_e25":  # Skeleton is judged on O's links: O's distal triangle, dashed
-                OB, OC = o1 - 40.0 * d_ + DEPTH["O"] * nn_, o1 + 3 * d_ + DEPTH["O"] * nn_
-                ax.plot(*np.array([OB, OC]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)  # O's distal link only
-            else:  # CoDe is judged on O's distal pad surface, dashed
-                ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
-        ax.set_xlim(-4, 100); ax.set_ylim(-46, 36); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(50, 36, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
-        ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
+            if key == "conv_e25":  # Skeleton is judged on O's distal link
+                ax.plot(*np.array([to[k_] - L2 * d_, to[k_]]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)
+            else:  # CoDe on O's distal pad surface
+                ax.plot(*np.array([co[k_] - LP * d_, co[k_]]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)
+        ax.set_xlim(-4, 100); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(50, 30, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.text(50, -46, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
     fig.text(*inch(2.55, yc - 1.00), "dashed: O's distal pad (CoDe), O's distal link (Skeleton)", fontsize=4.8,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.12), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
