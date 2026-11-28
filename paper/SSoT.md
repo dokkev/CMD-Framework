@@ -96,6 +96,8 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Big picture over mechanism detail** (user, 2026-11-27): with the 5-page limit, do not spend text on detailed mechanism bookkeeping such as each hand's surface-depth change Δt or checking Eq. (4) hand by hand, even when a reviewer asks. State the principle and the result; leave per-hand mechanism numbers to the figures or out.
+
 - **Spoon-feed the reader (user, 2026-11-27).** The paper hands the reader every step. They should never have to infer, recompute or look elsewhere to follow the point.
   - Say what to look at and what it shows, in the sentence that points to it.
   - Name the comparison and its outcome explicitly: which is better, by how much, and why.
