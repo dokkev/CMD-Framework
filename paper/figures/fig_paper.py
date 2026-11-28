@@ -864,7 +864,7 @@ def fig_rl():
     # two rows of bars (user, 2026-11-28): Isaac Lab, where the policies were trained, and the same policies run
     # unchanged in Drake (sim-to-sim; each task's pre-registered contact model: relay hydroelastic, cube point). Bars:
     # the mean over the policies trained on O for the task (user, 2026-11-28: deployment view, no seeds shown).
-    PRIM = {"relay": "hydro", "cube": "point", "walk": "point"}
+    PRIM = {"relay": "hydro", "cube": "point", "walk": "hydro"}  # the pre-registered primaries
     W1, h = 3.45, 2.38
     fig = plt.figure(figsize=(W1, h))
     aw, ih = 0.78, 0.50

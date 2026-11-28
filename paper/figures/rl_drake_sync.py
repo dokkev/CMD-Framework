@@ -15,20 +15,23 @@ LOGS = ROOT / "sim" / "drake" / "logs" / "policy_transfer"
 OUT = ROOT / "report" / "study4" / "data" / "rl_drake_transfer.json"
 HANDS = ("MRM", "SK", "U")  # CoDe (MO-Pad), Skeleton, Coverage
 SEEDS = (20, 21)
+TAG = {"walk": "wm1", "relay": "pt1", "cube": "pt1"}
+"""Run tags: the walk runs with ``--match mujoco`` (Isaac Lab's domed pads, servo, friction pairs and damping; the
+pt1 walk did not run on O), relay and cube as first run."""
 
 
 def main() -> int:
-    out = {"source": "sim/drake/policy_transfer.py, tag pt1", "tasks": {}}
+    out = {"source": "sim/drake/policy_transfer.py, tags " + str(TAG), "tasks": {}}
     for task in ("walk", "relay", "cube"):
         t = {}
         for contact in ("point", "hydro"):
-            o = [LOGS / f"{task}_O_s{s}_pt1_{contact}.json" for s in SEEDS]
+            o = [LOGS / f"{task}_O_s{s}_{TAG[task]}_{contact}.json" for s in SEEDS]
             if not all(p.exists() for p in o):
                 continue
             o_score = [json.load(open(p))["score_mean"] for p in o]
             ratio = {}
             for h in HANDS:
-                ps = [LOGS / f"{task}_{h}_s{s}_pt1_{contact}.json" for s in SEEDS]
+                ps = [LOGS / f"{task}_{h}_s{s}_{TAG[task]}_{contact}.json" for s in SEEDS]
                 if all(p.exists() for p in ps):
                     ratio[h] = [json.load(open(p))["score_mean"] / so for p, so in zip(ps, o_score)]
             t[contact] = {"O_score": o_score, "ratio": ratio}
