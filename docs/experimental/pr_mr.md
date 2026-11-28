@@ -1098,3 +1098,39 @@ This analysis was not pre-registered. It reads the existing transfer evals at pa
   - No condim-4 torsional friction.
   - O keeps only 64% / 46% (point) and 34% / 25% (hydro) of its Isaac score.
   - Isaac draws its rows with its own RNG, so the sampled rows differ.
+
+## Pre-registration: Drake walk transfer with Isaac Lab's pads, contact and servos (2026-11-27, before any redesign run)
+
+**Why the walk failed.** Probes of Isaac Lab's walk (its MuJoCo-Warp model read back, scripted and policy rollouts on O against the same runs in Drake) found four mismatches. The observations, frames and cylinder (mass, inertia, cylinder primitive) already matched.
+- **Domed pads.** On Isaac Lab's dome (1 mm crowns along and across) a cylinder off the apex (22 mm) rolls outward by itself. With all fingers extended it rolls from 28 mm to the gap at 50 mm in 0.4 s. The policy walks out by letting go. On Drake's flat boxes the cylinder only drifts, so the policy rolled it in and never got it back out.
+- **Servos.** Isaac Lab's servos run in its implicit mode: a PD drive at the rescheduled gains `K_q/r²`, `D_q/r²`, clamped at the stall torque (the joint's `actuatorfrcrange`) with no speed limit. A full stroke takes 2 control steps (servo speed up to 19 rad/s). Drake applied the XM335 torque-speed envelope, so the same stroke took 7 steps.
+- **Friction pairs.** MuJoCo takes the larger coefficient: link-cylinder 0.5. Drake's combination gave 0.72.
+- **Damping.** MuJoCo's damping-to-stiffness ratio is 2 d_max tc = 0.024 s. Drake's SAP default is 0.2 s per pair. SAP adds the two geometries' relaxation times; checked with a drop test.
+
+**Change.** A new option, `policy_transfer.py --match mujoco` (tags `wm1_hydro`, `wm1_point`), applied identically to every hand:
+- every pad the domed convex prism of `contact_interface` (`dome1x1`, 11 × 5 face vertices);
+- pad-cylinder friction 1.3 and link-cylinder 0.5;
+- relaxation time 0.012 s per geometry;
+- the acting PIPs as Isaac Lab's implicit servos.
+
+Not reproduced: condim-4 torsional friction at point contact, MuJoCo's mass-dependent `solimp` stiffness, and the PIP servo-body colliders (dorsal, away from the cylinder). The relay and cube runs keep the default (`--match none`), so their results are unchanged.
+
+**Gate on O** (32 episodes per training seed, Isaac Lab means over eval seeds 94000/95000: 519 / 563 mm):
+
+| contact | before (flat pads, envelope) | after (`--match mujoco`), s20 / s21 | share of Isaac Lab | gate (≥ 50%, both seeds) |
+|---|---|---|---|---|
+| hydro | 7 mm (s20) | 361 / 310 mm | 0.70 / 0.55 | passes |
+| point | 22 mm (s20) | 178 / 66 mm | 0.34 / 0.12 | fails |
+
+- Under point contact the fast walk-in stroke often flings the cylinder over the MCP onto the palm, where it stays. Isaac Lab does this too, but less often.
+- **Primary analysis: hydroelastic.** Point contact is run and reported but carries no prediction.
+
+**Redesign run.**
+- Hands: O, CoDe = MO-Pad (`mrmid_free`, MRM), Skeleton (`conv_e25`, SK), Coverage (`hu`, U), and R (`hr`, reported only).
+- 32 episodes per hand and training seed (20, 21), both contact models.
+- Metric: each hand's mean walk over O's, per training seed.
+- Isaac Lab reference: MO-Pad 0.71 / 0.59, Skeleton 0.025 / 0.009, Coverage 0.08 / 0.07.
+- **Prediction** (hydro, both seeds):
+  1. CoDe's ratio exceeds Skeleton's and Coverage's.
+  2. Skeleton's and Coverage's ratios are below 0.3.
+  - It fails if any of these inequalities reverses for either seed.

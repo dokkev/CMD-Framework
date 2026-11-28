@@ -17,6 +17,16 @@ The Drake environment reproduces the Isaac Lab task (``sim/isaaclab/src/code_isa
   other hand colliders 0.5 (hand-object 0.72 under Drake's combination; MuJoCo takes the larger, 1.3 and 0.5). The
   pads are the URDF's flat boxes; Isaac Lab's are domed (1 mm crown) and condim 4 with torsional friction: a known
   difference.
+- **``--match mujoco``** (the walk's runs from ``wm1`` on; the relay and cube runs use the default ``none`` and are
+  unchanged): what Isaac Lab's walk actually simulates, read from its MuJoCo-Warp model. (1) Every pad the domed convex
+  prism (1 mm crowns along and across, the finger walk's ``PadProfile("dome1x1")``): on the dome a cylinder off the
+  apex rolls outward by itself, which the policy's walk-out uses. (2) MuJoCo's friction pairs (the larger coefficient:
+  pad-cylinder 1.3, link-cylinder 0.5). (3) MuJoCo's damping-to-stiffness ratio (SAP relaxation time 0.024 s per pair).
+  (4) The servos as Isaac Lab runs them (``SERVO_MODE`` "implicit"): the acting PIPs a PD drive (the rescheduled
+  ``K_q/r^2``, ``D_q/r^2``) clamped at the stall torque with no speed limit, not the torque-speed envelope, so a
+  stroke takes 2 control steps rather than 7. Not reproduced: condim-4 torsional friction at point contact (the
+  hydroelastic patch carries some), MuJoCo's mass-dependent ``solimp`` stiffness, and the PIP servo bodies' colliders
+  (dorsal, away from the cylinder).
 - **Control.** 30 Hz (``dt`` 1/120 x decimation 4), the plant at 1/1200 s. The action (3 or 2 PIP flexions in
   [-1, 1]) is clipped, mapped to 0-120 deg, smoothed by the EMA (alpha 0.5) from the last command, and sent as the
   servo angle theta(q).
@@ -33,6 +43,7 @@ The Drake environment reproduces the Isaac Lab task (``sim/isaaclab/src/code_isa
 
     cd sim/isaaclab && uv run python ../drake/policy_transfer.py export          # actors -> sim/drake/logs/policy_transfer
     cd sim/drake && uv run python policy_transfer.py run --task walk --hands O MRM SK U --episodes 24 --tag pt1
+    cd sim/drake && uv run python policy_transfer.py run --task walk --match mujoco --contact hydro --episodes 32 --tag wm1_hydro
     cd sim/drake && uv run python policy_transfer.py check --task walk --hand O   # zero / constant action sanity runs
 
 Writes ``logs/policy_transfer/<task>_<hand>_s<seed>_<tag>.json`` (per-episode scores) and prints the ratios to O.
@@ -79,6 +90,18 @@ HYDRO_K = 1.0e5 / 0.003
 """Hydroelastic pads (the default contact): pressure per depth [Pa/m], the Drake study's 0.1 MPa over 3 mm
 (two_pad_drake.MODULUS_PA / PAD_REFERENCE_M); the object is rigid, the other hand colliders fall back to point contact."""
 PAD_MU, HAND_MU, OBJ_MU = 1.3, 0.5, 1.3
+MATCH = "none"
+"""``--match``: ``none`` (the relay and cube runs, unchanged) or ``mujoco``, Isaac Lab's ``pad13_condim4_v1`` pads and
+pairs reproduced for the walk: every pad (``*_c3`` of a proximal or distal body) the domed convex prism of
+``code_isaaclab.contact_interface`` (:data:`DOME_CROWN_M`, :data:`DOME_GRID`), MuJoCo's friction pairs (the larger
+coefficient: pad-object 1.3, link-object 0.5, through the cube task's object coefficient :data:`C_OBJ_MU`), and
+MuJoCo's ratio of contact damping to stiffness (:data:`RELAX_S`)."""
+DOME_CROWN_M, DOME_GRID = (0.001, 0.001), (11, 5)
+"""The finger walk's ``PadProfile("dome1x1")``: 1 mm crowns along the length and across the width (the middle keeps the
+full thickness, the corners 2 mm less), sampled on 11 x 5 face vertices; a convex hull in MuJoCo and in Drake."""
+RELAX_S = 0.012
+"""SAP relaxation time per geometry [s] (a pair adds both: 0.024 s): MuJoCo's damping over stiffness, b / k = 2 d_max tc
+with solref (0.012 s, damping ratio 1) and d_max 0.99, independent of the effective mass."""
 Q_LO, Q_HI = 0.0, math.radians(120.0)
 TOUCH = {"max_force_n": 5.0, "threshold_n": 0.05, "force_noise": 0.10, "flip_prob": 0.05}
 TASK = {
@@ -102,26 +125,87 @@ def description(hand: str) -> dict:
                        f"cfl_q120_h3to7_{HANDS[hand]}.json").read_text())
 
 
-def urdf(hand: str) -> Path:
+def _write_atomic(dst: Path, text: str) -> None:
+    """Write ``text`` to ``dst`` unless it already holds it (atomic: parallel workers may build the same hand)."""
+    if dst.exists() and dst.read_text() == text:
+        return
+    import os
+    import tempfile
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=dst.parent, suffix=dst.suffix)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    os.replace(tmp, dst)
+
+
+def dome_points(half_extents) -> np.ndarray:
+    """``contact_interface._dome_mesh``'s vertices: the pad's local frame (x along the segment, +y the contact face, z
+    across), the face at ``hy`` in the middle and lowered by a circular crown along each axis, over the four mounting
+    corners at ``-hy``."""
+    hx, hy, hz = (float(v) for v in half_extents)
+
+    def drop(u, half, crown):  # the crown's depth below the face at u (contact_face_height)
+        r = half**2 / (2.0 * crown) + crown / 2.0
+        return r - np.sqrt(r**2 - u**2)
+
+    nx, nz = DOME_GRID
+    gx, gz = np.meshgrid(np.linspace(-hx, hx, nx), np.linspace(-hz, hz, nz), indexing="ij")
+    gy = hy - drop(gx, hx, DOME_CROWN_M[0]) - drop(gz, hz, DOME_CROWN_M[1])
+    top = np.column_stack([gx.ravel(), gy.ravel(), gz.ravel()])
+    bottom = np.array([[sx * hx, -hy, sz * hz] for sx in (-1.0, 1.0) for sz in (-1.0, 1.0)])
+    return np.vstack([top, bottom])
+
+
+def dome_obj(half_extents, folder: Path) -> str:
+    """The domed pad's convex hull as an OBJ in ``folder`` (named by its half extents [um]); returns the file name."""
+    from scipy.spatial import ConvexHull
+
+    pts = dome_points(half_extents)
+    hull = ConvexHull(pts)
+    centre = pts.mean(axis=0)
+    lines = [f"v {p[0]:.9f} {p[1]:.9f} {p[2]:.9f}" for p in pts]
+    for f in hull.simplices:  # outward, counter-clockwise
+        a, b, c = pts[f]
+        if np.cross(b - a, c - a) @ (a - centre) < 0:
+            f = f[::-1]
+        lines.append("f " + " ".join(str(int(i) + 1) for i in f))
+    name = "dome_" + "_".join(f"{round(1e6 * float(v))}" for v in half_extents) + ".obj"
+    _write_atomic(folder / name, "\n".join(lines) + "\n")
+    return name
+
+
+def urdf(hand: str, dome: bool = False) -> Path:
     """The hand's plain URDF; when it carries zero-size colliders (the pins-free designs' proximal link capsule, radius
-    0), a copy beside it without them (``*_drake.urdf``): they have no volume, and Drake rejects them."""
+    0), a copy beside it without them (``*_drake.urdf``): they have no volume, and Drake rejects them. ``dome``: a copy
+    (``*_dome_drake.urdf``) with every pad box (``*_c3`` of a proximal or distal link) replaced by the domed convex
+    prism of the same extents and pose (:func:`dome_obj`, meshes in ``*_dome_drake/``)."""
     import re
 
     src = ISAAC / "logs" / "urdf" / f"cfl_q120_h3to7_{HANDS[hand]}_thumbpad.urdf"
     text = src.read_text()
-    if 'radius="0"' not in text:
+    if 'radius="0"' not in text and not dome:
         return src
-    dst = src.with_name(src.stem + "_drake.urdf")
     pattern = r'\s*<(visual|collision) name="[^"]*">(?:(?!</\1>).)*?radius="0"(?:(?!</\1>).)*?</\1>'
     clean = re.sub(pattern, "", text, flags=re.S)
-    if not dst.exists() or dst.read_text() != clean:  # atomic: parallel workers may build the same hand
-        import os
-        import tempfile
+    if not dome:
+        dst = src.with_name(src.stem + "_drake.urdf")
+        _write_atomic(dst, clean)
+        return dst
+    dst = src.with_name(src.stem + "_dome_drake.urdf")
+    folder = dst.with_suffix("")
 
-        fd, tmp = tempfile.mkstemp(dir=dst.parent, suffix=".urdf")
-        with os.fdopen(fd, "w") as f:
-            f.write(clean)
-        os.replace(tmp, dst)
+    def pad(m):
+        size = [float(v) / 2 for v in m.group(3).split()]
+        return f'{m.group(1)}<mesh filename="{folder.name}/{dome_obj(size, folder)}"><drake:declare_convex/></mesh>{m.group(4)}'
+
+    box = r'(<collision name="\w+_(?:proximal|distal)_c3">(?:(?!</collision>).)*?<geometry>)(\s*)<box size="([^"]+)"/>(\s*</geometry>)'
+    clean, n = re.subn(box, lambda m: pad(m), clean, flags=re.S)
+    if n != 7:
+        raise RuntimeError(f"{hand}: expected 7 pad boxes (6 finger pads and the thumb pad), found {n}")
+    if "xmlns:drake" not in clean:
+        clean = clean.replace("<robot ", '<robot xmlns:drake="http://drake.mit.edu" ', 1)
+    _write_atomic(dst, clean)
     return dst
 
 
@@ -251,6 +335,23 @@ def export() -> int:
 
 
 # ------------------------------------------------------------------------------------------------------- the plant
+def _relax(props) -> None:
+    """``--match mujoco``: MuJoCo's damping-to-stiffness ratio (:data:`RELAX_S`); otherwise Drake's default."""
+    if MATCH == "mujoco":
+        props.AddProperty("material", "relaxation_time", RELAX_S)
+
+
+def _pad_half_thickness(shape) -> float:
+    """A pad's half thickness at its middle: the box's smallest half extent, or the domed prism's along local y."""
+    from pydrake.geometry import Box
+
+    if isinstance(shape, Box):
+        return min(shape.width(), shape.depth(), shape.height()) / 2
+    hull = shape.GetConvexHull()
+    v = np.array([hull.vertex(i) for i in range(hull.num_vertices())])
+    return float(np.ptp(v[:, 1])) / 2
+
+
 def build(hand: str, task: str, contact: str = "hydro"):
     from pydrake.geometry import (AddCompliantHydroelasticProperties, AddContactMaterial, AddRigidHydroelasticProperties,
                                   CollisionFilterDeclaration, Cylinder, GeometrySet, ProximityProperties, RoleAssign)
@@ -263,10 +364,14 @@ def build(hand: str, task: str, contact: str = "hydro"):
 
     desc = description(hand)
     acting = TASK[task]["acting"]
+    if MATCH == "mujoco":  # MuJoCo's pairs (the larger coefficient), as the cube task
+        obj_mu, pad_mu, hand_mu = C_OBJ_MU, C_PAD_MU, C_HAND_MU
+    else:
+        obj_mu, pad_mu, hand_mu = OBJ_MU, PAD_MU, HAND_MU
     builder = DiagramBuilder()
     plant, sg = AddMultibodyPlant(MultibodyPlantConfig(time_step=DT_ENV / SUB, discrete_contact_approximation="sap",
                                                        contact_model={"point": "point", "hydro": "hydroelastic_with_fallback"}[contact]), builder)
-    model = Parser(plant).AddModels(str(urdf(hand)))[0]
+    model = Parser(plant).AddModels(str(urdf(hand, dome=MATCH == "mujoco")))[0]
     plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("palm", model),
                      RigidTransform(RollPitchYaw(math.pi, 0.0, 0.0), HAND_ROOT))
     origin = {b["name"]: np.asarray(b["origin"], float) for b in desc["bodies"]}
@@ -294,7 +399,8 @@ def build(hand: str, task: str, contact: str = "hydro"):
         pr = ProximityProperties()
         if contact == "hydro":
             AddRigidHydroelasticProperties(resolution_hint=0.002, properties=pr)
-        AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(OBJ_MU, OBJ_MU), properties=pr)
+        AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(obj_mu, obj_mu), properties=pr)
+        _relax(pr)
         plant.RegisterCollisionGeometry(body, RigidTransform(RotationMatrix.MakeXRotation(math.pi / 2)),
                                         Cylinder(W_RADIUS, W_LENGTH), "cylinder", pr)
         objects["object"] = body
@@ -312,7 +418,7 @@ def build(hand: str, task: str, contact: str = "hydro"):
         pr = ProximityProperties()
         if contact == "hydro":
             AddRigidHydroelasticProperties(resolution_hint=0.002, properties=pr)
-        AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(OBJ_MU, OBJ_MU), properties=pr)
+        AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(obj_mu, obj_mu), properties=pr)
         plant.RegisterCollisionGeometry(disk, RigidTransform([0, 0, R_THICK / 2]), Cylinder(R_RADIUS, R_THICK), "disk", pr)
         objects.update(object=disk, slide=slide, spin=spin)
     # contact materials of the hand colliders (pads: the *_c3 boxes of the proximal and distal bodies, the thumb pad)
@@ -323,13 +429,14 @@ def build(hand: str, task: str, contact: str = "hydro"):
             name = inspector.GetName(gid)
             pad = name.endswith("_c3") and body.name().endswith(("_proximal", "_distal"))
             pr = ProximityProperties()
-            mu = PAD_MU if pad else HAND_MU
+            mu = pad_mu if pad else hand_mu
             if pad and contact == "hydro":  # a compliant layer: Drake's box pressure E * depth / (half thickness)
                 h = inspector.GetShape(gid)
-                half = min(h.width(), h.depth(), h.height()) / 2
+                half = _pad_half_thickness(h)
                 AddCompliantHydroelasticProperties(resolution_hint=0.002, hydroelastic_modulus=HYDRO_K * half,
                                                    properties=pr)
             AddContactMaterial(point_stiffness=K_CONTACT, friction=CoulombFriction(mu, mu), properties=pr)
+            _relax(pr)
             sg.AssignRole(plant.get_source_id(), gid, pr, RoleAssign.kReplace)
     manager = sg.collision_filter_manager()
     for x, y in desc["collision"]["filtered_pairs"]:
@@ -342,10 +449,13 @@ def build(hand: str, task: str, contact: str = "hydro"):
     tables = Tables(desc, acting)
     act_index = {d: int(a.index()) for d, a in pip_act.items()}
     joint_of = {d: plant.GetJointByName(f"{d}_pip_servo", model) for d in acting}
+    envelope = MATCH != "mujoco"
 
     class ServoTorque(LeafSystem):
         """The acting PIP servos' DC-motor torque, from the plant's state at every plant step; gains and targets set
-        once per control step (``Env.step``)."""
+        once per control step (``Env.step``). ``--match mujoco``: Isaac Lab's servos as its tasks run them
+        (``SERVO_MODE`` "implicit": a PD drive whose total torque MuJoCo clamps at the stall torque, the joint's
+        ``actuatorfrcrange``, with no speed limit), not the torque-speed envelope."""
 
         def __init__(self):
             super().__init__()
@@ -363,8 +473,11 @@ def build(hand: str, task: str, contact: str = "hydro"):
                 j = joint_of[d]
                 th, w = x[j.position_start()], x[nq + j.velocity_start()]
                 tau = self.kp[d] * (self.target[d] - th) - self.kd[d] * w
-                hi = min(max(STALL_NM * (1.0 - w / NO_LOAD), 0.0), STALL_NM)
-                lo = max(min(STALL_NM * (-1.0 - w / NO_LOAD), 0.0), -STALL_NM)
+                if envelope:
+                    hi = min(max(STALL_NM * (1.0 - w / NO_LOAD), 0.0), STALL_NM)
+                    lo = max(min(STALL_NM * (-1.0 - w / NO_LOAD), 0.0), -STALL_NM)
+                else:
+                    hi, lo = STALL_NM, -STALL_NM
                 u[act_index[d]] = min(max(tau, lo), hi)
             out.SetFromVector(u)
 
@@ -828,7 +941,7 @@ def cmd_run(a) -> int:
         by.setdefault((j[0], j[1]) if cube else (j[1], j[2]), []).append(r)
     for (h, s), rs in by.items():
         (OUT / f"{a.task}_{h}_s{s}_{a.tag}.json").write_text(json.dumps(
-            {"task": a.task, "hand": h, "seed": s, "contact": CONTACT, "episodes": rs, "score_mean": float(np.mean([r["score"] for r in rs])),
+            {"task": a.task, "hand": h, "seed": s, "contact": CONTACT, "match": MATCH, "episodes": rs, "score_mean": float(np.mean([r["score"] for r in rs])),
              "dropped_rate": float(np.mean([r.get("dropped", r.get("terminated", False)) for r in rs]))}, indent=1))
     summarize(a.task, a.tag, a.seeds)
     return 0
@@ -872,17 +985,20 @@ def main() -> int:
     r.add_argument("--workers", type=int, default=6)
     r.add_argument("--tag", default="pt1")
     r.add_argument("--contact", choices=("hydro", "point"), default="hydro")
+    r.add_argument("--match", choices=("none", "mujoco"), default="none")
     c = sub.add_parser("check")
     c.add_argument("--task", choices=tuple(TASK) + ("cube",), required=True)
     c.add_argument("--hand", default="O")
     c.add_argument("--contact", choices=("hydro", "point"), default="hydro")
+    c.add_argument("--match", choices=("none", "mujoco"), default="none")
     s = sub.add_parser("summary")
     s.add_argument("--task", choices=tuple(TASK) + ("cube",), required=True)
     s.add_argument("--tag", default="pt1")
     s.add_argument("--seeds", nargs="+", type=int, default=[20, 21])
     a = p.parse_args()
-    global CONTACT
+    global CONTACT, MATCH
     CONTACT = getattr(a, "contact", CONTACT)
+    MATCH = getattr(a, "match", MATCH)
     if a.cmd == "export":
         return export()
     if a.cmd == "run":
