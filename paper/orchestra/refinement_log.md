@@ -475,3 +475,5 @@ not caused by the manuscript changes: the same paper now scores 5. The reviewers
 its behaviour), and since then no version has left 5. Read rounds against this control: v58 matches or beats the
 v42 control on every subscore (v58 r1 Presentation 3, Contribution 2-3), and its item lists no longer raise the
 Fig. 1(d)/Table I units, "Conventional", n, or Delta_MCP naming that the control still raises.
+
+Paused (user, 2026-11-28): the review loop stops after v58 and the v42 control. No further rounds until the user asks.
