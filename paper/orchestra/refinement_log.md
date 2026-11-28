@@ -316,3 +316,11 @@ v41: 6, 6, 6, all Accept (manuscript with the new Fig. 1: what a redesign keeps,
 interface). Clarity and Presentation 2. Fig. 1 itself is read as informative, but two reviewers find (d) overstated:
 checks on CoDe's -55% vs -41% and 83% of the dial, and the line "evaluated independently of the redesign". Also: CoDe's
 errors systematically negative and unexplained (the 0.75x preload sentence had been cut), whether Eq. 9 fixes c0.
+
+v42: 6, 6, 6, all Accept (manuscript 0c82c43; editor's presentation pass: reading guide, error in words, no joint
+acronyms, takeaways first, fewer numbers in text, Table I regrouped). Clarity and Presentation 2 (r1 Quality 2).
+Fig. 1 "conveys the story well" (r1). Remaining concrete items, fixed in the next commit: the remote joint "on the
+bound" vs Fig. 3(c) at 150 deg and the at-joint points above 0 at 90 deg (a moved initial contact point); [16] cited
+for the four-bar claim; which redesigns the 42 -> 14% median covers; the abstract's 48 / 41% stated as physical;
+Fig. 1(d) vs Table I compliant-pad columns (pad swap vs friction on the pad); per-hand medians vs correlations
+(torque column). Standing: simulation only, pads not deformable, density.
