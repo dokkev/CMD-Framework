@@ -491,7 +491,7 @@ def main() -> int:
             return dep_, c_, t_
         dep, ch, th = geo(key)
         _, co, to = geo("O")
-        pt = 0.75 * dep
+        pt = dep  # the interface fills the space from its surface up to the bone (user, 2026-11-28)
         LP, L2 = 24.0, 40.0
         PJ, PA, PAp = np.array([0.0, 0.0]), np.array([44.0, 0.0]), np.array([36.0, 13.0])
         ax.add_patch(Polygon([PJ, PA, PAp], fc="#e2e2e0", ec=BONE, lw=0.9, zorder=3))
@@ -509,7 +509,9 @@ def main() -> int:
             ax.add_patch(Polygon([DB, DBp, DC], fc="#e2e2e0", ec="none", alpha=0.8 * a_, zorder=2))
             ax.plot(*np.array([DB, DC]).T, color=BONE, lw=1.6, alpha=a_, solid_capstyle="round", zorder=3)
             c1, c0 = ch[k_], ch[k_] - LP * d_
-            ax.add_patch(Polygon([c0, c1, c1 + pt * nn_, c0 + pt * nn_], fc=col, ec="none", alpha=0.35 * a_, zorder=2))
+            off_ = float(np.dot(DC - c1, nn_))  # the distal pad fills the space from its surface up to the distal link
+            ax.add_patch(Polygon([c0, c1, c1 + off_ * nn_, c0 + off_ * nn_], fc=col, ec="none", alpha=0.35 * a_,
+                                 zorder=2))
             ax.plot(*np.array([c0, c1]).T, color=col, lw=1.4, alpha=a_, solid_capstyle="butt", zorder=4)
             if k_ == 60:  # the crossed links at one pose: A'-B and A-B'
                 for p1, p2 in ((PAp, DB), (PA, DBp)):
