@@ -416,3 +416,14 @@ Plateau: 5, 5, 5 for seven rounds (v43-v49). The remaining score-limiting items 
 - equal-objective baselines (Coverage and Skeleton in F')
 - the ground-truth argument
 - the 9 mm error
+
+v50: 5, 5, 5, all Reject (softer intro scope; "keeps most of it"). Eight rounds at 5 (v43-v50).
+Diagnosis with the user (2026-11-27): Soundness and Quality fell from 3 to 2 at v43, while Clarity and Presentation
+stayed at 2. Most new objections since v43 come from the MO-Pad switch:
+- CoDe alone gets F' (free pivot heights) and Delta_MCP. Eq. (9) states F' in the text, while Coverage (Eq. 8) and Skeleton use F, so the reviewers infer the asymmetry from the notation.
+- CoDe's Delta_t of 1 mm makes Eq. (4) look violated.
+- Study 2's numbers are two-objective.
+Under R (v42), all hands came from the same space and problem.
+Pending user decision:
+- A: R-based, consistent paper, keeping the presentation gains.
+- B: re-select Coverage and Skeleton in F' and rerun.
