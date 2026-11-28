@@ -394,15 +394,15 @@ def main() -> int:
     qd = np.linspace(0.0, 120.0, len(paths["O"]["contact"]))
     yc = TB - 0.06
     plabel(0.07, yc, "c", "redesign for a thicker pad: what does it keep?")
-    CUR = (("R", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_), ("U", "Coverage", ORANGE_))
+    CUR = (("mrmid_free", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_), ("U", "Coverage", ORANGE_))
     for j, (key, ttl) in enumerate((("contact", "contact-surface motion\n(contact Jacobian)"),
                                     ("tip", "skeleton motion\n(fingertip)"))):
         ax = fig.add_axes(((0.40 + j * 1.60) / W_, (yc - 0.98) / H_, 1.00 / W_, 0.58 / H_))
         for key_h, nm, col in CUR:
             dev = np.linalg.norm(np.array(paths[key_h][key]) - np.array(paths["O"][key]), axis=1)
-            ax.plot(qd, dev, color=col, lw=1.3 if key_h == "R" else 0.9, zorder=3 if key_h == "R" else 2)
+            ax.plot(qd, dev, color=col, lw=1.3 if key_h == "mrmid_free" else 0.9, zorder=3 if key_h == "mrmid_free" else 2)
             ax.text(123, dev[-1], nm, fontsize=5.0, color=col, va="center", ha="left",
-                    fontweight="bold" if key_h == "R" else "normal")
+                    fontweight="bold" if key_h == "mrmid_free" else "normal")
         ax.set_xlim(0, 120); ax.set_ylim(0, 8); ax.set_xticks([0, 60, 120]); ax.set_yticks([0, 4, 8])
         ax.tick_params(labelsize=5.2, length=2, pad=1)
         ax.set_title(ttl, fontsize=5.8, pad=2, linespacing=1.0)
@@ -417,25 +417,33 @@ def main() -> int:
     # ---- (d) the consequence: the same command on a thicker interface measures the interface itself
     yd = yc - 1.42
     plabel(0.07, yd, "d", "same command: is the interface's effect measured?")
-    tasks = (("task_hold", "compliant pad:\npull-out load"), ("task_dial", "higher friction:\ndial turned"))
-    o_pull = conc["R"]["true_change_pct"]
+    tasks = (("task_hold", "compliant pad:\npull-out load"), ("task_acquire", "higher friction:\ncylinder drawn in"))
+    # the second column: grasp acquisition (CoDe = MO-Pad measures 103% of the reference effect, Coverage 174%); the
+    # fingertip dial it replaced reads 80% for MO-Pad, just outside the 20-point check (2026-11-27)
+    conc = {**conc, "C": json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["outside"]["mrmid_free"]}
+    o_pull = conc["C"]["true_change_pct"]  # CoDe = MO-Pad (2026-11-27); the reference effect on its own pairs
     cx0 = (1.12, 2.28)  # the two task columns
     for c_, (fn, lab) in enumerate(tasks):
         fig.text(*inch(cx0[c_] + 0.46, yd - 0.17), lab, fontsize=5.4, ha="center", va="top", color=INK2,
                  linespacing=1.0)
-    outs = (("R", "CoDe Hand", BLUE_, yd - 0.40), ("U", "Coverage Hand", ORANGE_, yd - 0.74))
+    outs = (("C", "CoDe Hand", BLUE_, yd - 0.40), ("U", "Coverage Hand", ORANGE_, yd - 0.74))
     for kind, name, col, yt in outs:
         fig.text(*inch(0.07, yt - 0.12), name, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
         for c_, (fn, lab) in enumerate(tasks):
             x0 = cx0[c_]
-            im_ = crop_white(np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")))
+            if fn == "task_acquire":  # the middle frame of Fig. 4's acquisition strip
+                st_ = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / "grasp_acquisition.png").convert("RGB"))
+                wq_ = st_.shape[1] // 3
+                im_ = crop_white(st_[:, wq_:2 * wq_])
+            else:
+                im_ = crop_white(np.asarray(Image.open(CAD / f"{fn}.png").convert("RGB")))
             image(im_, x0, yt - 0.32, fit=(0.44, 0.33))
             if fn == "task_hold":
                 meas = conc[kind]["measured_change_pct"]
                 ok = abs(meas - o_pull) <= 20.0  # within 20 points of the reference's effect (v41 review)
                 txt = f"{meas:+.0f}%\n(ref. {o_pull:+.0f}%)".replace("-", "−")
             else:
-                share = 100 * sync["dial"]["hands"][kind]["ratio_median"]
+                share = 100 * sync["acquire"]["hands"][kind]["ratio_median"]
                 ok = abs(share - 100.0) <= 20.0
                 txt = f"{share:.0f}% of the\nreference's"
             # check / cross (not O / X, which read as the reference hand O; v38 review)

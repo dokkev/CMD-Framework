@@ -1,6 +1,6 @@
 """Table I data: the signed bias in the measured pad effect, (D(H) - D(O)) / D(O) per placement-direction pair (+: the
 effect overstated in its own direction, -: understated or reversed), its
-median for CoDe (R), Skeleton (S, conv_e25: least Delta_skel, 2026-11-27; where its runs exist) and Coverage (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
+median for CoDe (C = MO-Pad, mrmid_free; R kept for the stored E checks), Skeleton (S, conv_e25: least Delta_skel, 2026-11-27; where its runs exist) and Coverage (U), and O's effect D(O) (median, N), for the seven Study 3B settings. Same pairs
 and gates as each setting's E (median |bias|, checked here against report/study3/data). No simulation: the raw logs
 (sim/isaaclab/logs/study3/two_pad, sim/drake/logs). Writes report/study3/data/table_signed.json.
 
@@ -21,6 +21,23 @@ import robust_analysis as ra  # noqa: E402
 from padk_analysis import effects  # noqa: E402
 import analyze as dk  # noqa: E402
 import analyze_e25 as e25  # noqa: E402
+
+_latest = da.latest
+
+
+def _latest_any(hand, mu, cond, radius):
+    """da.latest, also taking the convex-pad runs made after the study with --profile crowned --tag crowned (named
+    A-crowned-crowned: Skeleton conv_e25 and MO-Pad mrmid_free); the same runs and settings otherwise."""
+    d = _latest(hand, mu, cond, radius)
+    if d is None and cond == "A-crowned":
+        d = _latest(hand, mu, "A-crowned-crowned", radius)
+    return d
+
+
+da.latest = _latest_any
+OUTSIDE = {"S": "conv_e25", "C": "mrmid_free"}
+"""Scored with the same pairs and gates but not checked against report/study3/data (no stored E): Skeleton and CoDe =
+MO-Pad (user, 2026-11-27: the figures and Table I show MO-Pad as CoDe)."""
 
 
 def isaac_friction(hand, cond="A"):
@@ -144,17 +161,20 @@ def one(name, fn, ref_):
             row[h] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
                       "bias_q75": float(np.percentile(b, 75)), "E": e, "pairs": int(len(b)),
                       "O_effect_median_n": float(np.median([do for _, do in pr.values()]))}
-        try:
-            pr = fn("conv_e25")
-        except (FileNotFoundError, TypeError, AttributeError, KeyError, ValueError):
-            pr = {}
-        if pr:
+        for hl, hk in OUTSIDE.items():
+            try:
+                pr = fn(hk)
+            except (FileNotFoundError, TypeError, AttributeError, KeyError, ValueError):
+                pr = {}
+            if not pr:
+                continue
             b = np.array([(dh - do) / do for dh, do in pr.values()])
-            row["S"] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
+            row[hl] = {"bias_median": float(np.median(b)), "bias_q25": float(np.percentile(b, 25)),
                         "bias_q75": float(np.percentile(b, 75)), "E": float(np.median(np.abs(b))), "pairs": int(len(b)),
                         "O_effect_median_n": float(np.median([do for _, do in pr.values()]))}
         sk = f"{100 * row['S']['bias_median']:+5.0f}% (E {100 * row['S']['E']:.0f})" if "S" in row else "  —"
-        print(f"{name:34s} O {row['R']['O_effect_median_n']:+.2f} N | CoDe {100 * row['R']['bias_median']:+5.0f}% "
+        cd = f"{100 * row['C']['bias_median']:+5.0f}% (E {100 * row['C']['E']:.0f})" if "C" in row else "  —"
+        print(f"{name:34s} O {row['R']['O_effect_median_n']:+.2f} N | CoDe {cd} | R {100 * row['R']['bias_median']:+5.0f}% "
               f"(E {100 * row['R']['E']:.0f}) | Skeleton {sk} | Coverage {100 * row['U']['bias_median']:+5.0f}% "
               f"(E {100 * row['U']['E']:.0f})")
         return row

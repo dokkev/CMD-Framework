@@ -25,11 +25,15 @@ import box_pivot as BP  # noqa: E402
 import hook_pull as HP  # noqa: E402
 
 MU = (1.3, 2.0)
-NAME = {"O": "O", "R": "R", "U": "U", "S": "conv_e25"}
+NAME = {"O": "O", "R": "R", "U": "U", "S": "conv_e25", "C": "mrmid_free"}
 """Hands drawn: O; CoDe = R; Coverage = U; Skeleton = S, the least-Delta_skel redesign of Study 2's space (2026-11-27,
 design/scripts/study/exploratory/e25_skeleton_min.py). S is scored with the same pair functions but kept out of
 analyze.DESIGN, so the pre-registered dose-response sets are unchanged."""
-REDESIGNS = ("R", "U", "S")
+REDESIGNS = ("C", "U", "S")
+OUTSIDE = {"S": (6.61, 0.34), "C": (1.07, 4.78)}
+"""Hands scored with the same pair functions but outside analyze.DESIGN (the pre-registered dose-response set):
+Skeleton and CoDe = MO-Pad (mrmid_free; user, 2026-11-27: the figures show MO-Pad as CoDe), with their
+(Delta_contact, Delta_skel) in mm."""
 LOG = DRAKE / "logs"
 S3 = ROOT / "report" / "study3" / "data"
 
@@ -176,14 +180,14 @@ def _trajectories(series, keys, n_cut=None):
     for h, ks in keys.items():
         for m in MU:
             dv[f"{h}_{m:g}"] = _band([cut(series(h, m, k) - series("O", m, k)) for k in ks])
-    pk = sorted(set(keys["R"]) & set(keys["U"]), key=str)
+    pk = sorted(set(keys["C"]) & set(keys["U"]), key=str)
     hands = ("O",) + tuple(keys)
-    shared = {h: pk if h != "S" else sorted(set(keys["R"]) & set(keys["S"]), key=str) for h in hands}
+    shared = {h: pk if h != "S" else sorted(set(keys["C"]) & set(keys["S"]), key=str) for h in hands}
     eff = {h: {k: cut(series(h, 2.0, k) - series(h, 1.3, k)) for k in set(pk) | set(shared.get("S", []))}
-           for h in ("O", "R", "U")}
+           for h in ("O", "C", "U")}
     if "S" in keys:
         eff["S"] = {k: cut(series("S", 2.0, k) - series("S", 1.3, k)) for k in shared["S"]}
-    for h in ("O", "R", "U"):
+    for h in ("O", "C", "U"):
         dv[f"{h}_effect"] = _band([eff[h][k] for k in pk])
         for m in MU:
             dv[f"{h}_{m:g}_abs"] = _band([cut(series(h, m, k)) for k in pk])
@@ -275,23 +279,23 @@ def main():
                         pairs[task][hand] = pr
                 else:
                     out["hydro"].setdefault(task, {})[hand] = row
-        for label, f in (("point", fn), ("hydro", fn_h)):  # Skeleton: same pair functions, outside analyze.DESIGN
+        for (hl, (dc_, ds_)), (label, f) in [(o, lf) for o in OUTSIDE.items() for lf in (("point", fn), ("hydro", fn_h))]:
             try:
-                pr = f(NAME["S"])
+                pr = f(NAME[hl])
             except (FileNotFoundError, TypeError, AttributeError):
                 pr = None
             if not pr:
                 continue
             v = np.array(list(pr.values()))
-            row = {"d_contact": 6.61, "d_skel": 0.34, "E": float(np.median(np.abs(v - 1))),
+            row = {"d_contact": dc_, "d_skel": ds_, "E": float(np.median(np.abs(v - 1))),
                    "ratio_median": float(np.median(v)), "bias_median": float(np.median(v - 1)),
                    "bias_q25": float(np.percentile(v - 1, 25)), "bias_q75": float(np.percentile(v - 1, 75)),
                    "pairs": len(v)}
             if label == "point":
-                hands["S"] = row
-                pairs[task]["S"] = pr
+                hands[hl] = row
+                pairs[task][hl] = pr
             else:
-                out["hydro"].setdefault(task, {})["S"] = row
+                out["hydro"].setdefault(task, {})[hl] = row
         if task in ("dial", "pivot"):  # point on the first 32 randomized draws (the hydro rerun's)
             fr = (lambda h: dial_pairs(h, "point", "e29z", True)) if task == "dial" else (lambda h: pivot_pairs(h, "e35"))
             out.setdefault("first32", {})[task] = {}
@@ -301,7 +305,7 @@ def main():
                 out["first32"][task][hh] = {"E": float(np.median(np.abs(v - 1))), "pairs": len(v)}
         out["tasks"][task] = {"hands": hands}
         hy = out["hydro"].get(task, {})
-        print(task, len(hands), "hands; point E R", round(hands["R"]["E"], 3), "U", round(hands["U"]["E"], 3),
+        print(task, len(hands), "hands; point E CoDe", round(hands["C"]["E"], 3), "R", round(hands["R"]["E"], 3), "U", round(hands["U"]["E"], 3),
               "S", round(hands["S"]["E"], 3) if "S" in hands else None,
               "| hydro R", hy.get("R", {}).get("bias_median"), "U", hy.get("U", {}).get("bias_median"))
     out["deviation"] = deviation(pairs)

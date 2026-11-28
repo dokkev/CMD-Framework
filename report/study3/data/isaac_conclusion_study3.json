@@ -130,5 +130,16 @@
   ],
   "p_one_sided": 0.01119988800111999
  },
- "n_hands": 14
+ "n_hands": 14,
+ "outside": {
+  "note": "Scored as the hands above (same O base and reference, same gates) but outside the correlation set: CoDe = MO-Pad (mrmid_free; user, 2026-11-27). Computed with conclusion_analysis.loads.",
+  "mrmid_free": {
+   "thickness_mm": 7,
+   "pairs": 108,
+   "true_change_pct": -41.3793065176567,
+   "measured_change_pct": -39.310345507972144,
+   "reversed_share": 0.037037037037037035,
+   "relative_error": 0.13333333333333333
+  }
+ }
 }

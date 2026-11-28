@@ -705,8 +705,8 @@ def fig4():
              "effect bias (deg)"),
             ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",
              "effect bias (deg)"))
-    HC = {"O": INK, "R": BLUE, "U": AMBER, "S": TEAL}
-    RED = tuple(hh for hh in ("R", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
+    HC = {"O": INK, "C": BLUE, "U": AMBER, "S": TEAL}
+    RED = tuple(hh for hh in ("C", "U", "S") if f"{hh}_1.3" in next(iter(DV.values())))
     RB = 0.0  # the learned policies are Fig. 5 (fig_rl), after the v35 review found Fig. 4 overloaded
     B = 0.24 + RB  # room for the two motion-change rows under each task's E rows, and the band below
     LG = 0.20  # the legend's row between the renders and the trajectories
@@ -757,7 +757,7 @@ def fig4():
             yy = (0.40 + B - D - 0.115 * j) / h
             xm = (x0 + 0.30 + (cw - 0.36) / 2 - 0.30) / W  # left of centre: room for the rho column
             fig.text(xm - 0.22 / W, yy, f"E {model}", fontsize=6.4, ha="right", va="center", color=INK2)
-            for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
+            for dx, hh in ((-0.17, "C"), (0.10, "S"), (0.37, "U")):
                 e = src.get(hh)
                 fig.text(xm + (dx - 0.02) / W, yy, "n/a" if e is None else f"{100 * e['E']:.0f}%", fontsize=6.6,
                          ha="left", va="center", color=HC[hh], fontweight="bold")
@@ -768,10 +768,10 @@ def fig4():
         for j, (lab, k_) in enumerate((("$\\Delta_\\mathrm{contact}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
             fig.text(xm - 0.22 / W, yy, lab, fontsize=6.4, ha="right", va="center", color=INK2)
-            for dx, hh in ((-0.17, "R"), (0.10, "S"), (0.37, "U")):
+            for dx, hh in ((-0.17, "C"), (0.10, "S"), (0.37, "U")):
                 fig.text(xm + (dx - 0.02) / W, yy, f"{hd[hh][k_]:.1f}", fontsize=6.6, ha="left", va="center",
                          color=HC[hh])
-            # Spearman rho of E with this quantity over the correlation's hands (Skeleton outside it), both contact
+            # Spearman rho of E with this quantity over the correlation's hands (Skeleton and CoDe = MO-Pad outside it), both contact
             # models in one value: each hand's E ranked within each model, the two ranks averaged (E's size differs
             # between the models, so pooling the raw errors would mix the models' scales into the ranking)
             pt_all = pt
@@ -779,7 +779,7 @@ def fig4():
                 f32 = {"dial": "drake_e29z_point_first32.json", "pivot": "drake_e35_point_first32.json"}[key]
                 pt_all = {r["hand"]: r for r in json.load(open(S3 / f32))["rows"]}
             hy = d["hydro"][key]
-            ok = lambda src, hh: hh != "S" and src.get(hh) and src[hh].get("E") is not None and hh in hdall
+            ok = lambda src, hh: hh not in ("S", "C") and src.get(hh) and src[hh].get("E") is not None and hh in hdall
             hs = [hh for hh in hdall if ok(pt_all, hh) and ok(hy, hh)]
             mrank = (rankdata([pt_all[hh]["E"] for hh in hs]) + rankdata([hy[hh]["E"] for hh in hs])) / 2
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
@@ -809,13 +809,13 @@ def fig_rl():
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]
     d = json.load(open(S3 / "fig4_sync.json"))
     hd7 = d["tasks"]["pull"]["hands"]
-    HC = {"R": BLUE, "U": AMBER, "S": TEAL}
-    gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("R", "S", "U")}),
-           "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("R", "S", "U")}),
-           "cube": ("palm shift", {"R": 4.0, "S": 4.0, "U": 4.0})}
+    HC = {"C": BLUE, "U": AMBER, "S": TEAL}
+    gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("C", "S", "U")}),
+           "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("C", "S", "U")}),
+           "cube": ("palm shift", {"C": 1.0, "S": 4.0, "U": 4.0})}  # Delta d_p in mm (docs/experimental/pr_mr.md)
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
             ("cube", "Cube rotation\n(whole hand)"))
-    MAP = (("R", "R", "CoDe"), ("SK", "S", "Skel."), ("U", "U", "Cov."))
+    MAP = (("MRM", "C", "CoDe"), ("SK", "S", "Skel."), ("U", "U", "Cov."))  # CoDe = MO-Pad (2026-11-27)
     from fig_cad import usd_render
     from PIL import Image as _Image
     CADD = ROOT / "paper" / "figures" / "cad"
@@ -963,14 +963,14 @@ def table():
             return "--"
         v = 100 * d[hh]["bias_median"]
         num = f"{v:+.0f}" if round(v) != 0 else "0"
-        return f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "R" else f"${num}\\%$"
+        return f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "C" else f"${num}\\%$"
     lines = [r"\begin{table*}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.6pt}",
              r"  \caption{Signed error in the measured pad effect across simulators, contact models and commands}",
              r"  \label{tab:robust}", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
              "    & " + " & ".join(name for name, _ in cols) + r" \\", r"    \midrule",
              "    Coverage & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
-             r"    \ourmethod{} & " + " & ".join(cell(d, "R") for _, d in cols) + r" \\",
+             r"    \ourmethod{} & " + " & ".join(cell(d, "C") for _, d in cols) + r" \\",
              r"    \bottomrule", r"  \end{tabular}", r"\end{table*}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
