@@ -481,7 +481,7 @@ def main() -> int:
     DEPTH = {"O": 3.0, "mrmid_free": 4.0, "conv_e25": 7.0}  # contact-surface depth below the link line (3 + Delta t)
     BONE = "#5b5b59"
     for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "CoDe", BLUE_, "pad surface tracks O's"),
-                                                  ("conv_e25", "Skeleton", TEAL_, "pad surface drifts"))):
+                                                  ("conv_e25", "Skeleton", TEAL_, "skeleton tracks O's,\npad surface drifts"))):
         ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.98 / H_))
         co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
         dep = DEPTH[key]
@@ -516,8 +516,8 @@ def main() -> int:
             ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
         ax.set_xlim(-4, 100); ax.set_ylim(-46, 36); ax.set_aspect("equal"); ax.axis("off")
         ax.text(50, 36, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
-        ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top")
-    fig.text(*inch(2.62, yc - 1.13), "tracked: the distal pad surface;  dashed: O", fontsize=5.0,
+        ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
+    fig.text(*inch(2.62, yc - 1.13), "dashed: O's distal pad surface", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
