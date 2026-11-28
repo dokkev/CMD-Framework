@@ -75,6 +75,8 @@ model, the analysis and the design studies; Experiment holds simulation only.
 
 ### 4.2 Terms (define once, never vary)
 
+- **Contact kinematics, not contact Jacobian (user, 2026-11-28):** the preserved quantity is the contact kinematics [Montana 1988]: where the contact points are and how they move with flexion. "Contact Jacobian" is not used in the paper (Delta measures a path deviation, not a Jacobian difference).
+
 - **Interface vs pad (user, 2026-11-28):** the thing that is swapped, compared or evaluated is the (contact) interface: "a new interface", "the interface's effect", "interface thickness". "Pad" names only the physical surfaces on the phalanges (proximal pad, distal pad), the pads holding an object, and the symbol C-bar_pad / pad coverage.
 - **Effect error (user, 2026-11-28): the core metric.** D_H is the interface's effect as hand H measures it (the change in outcome when the interface changes); on O it is the interface's own effect. e_H = (D_H - D_O)/|D_O|, E = median |e_H|. Named "effect error" in the text (its own subsubsection in Setup) and "friction effect error (%)" on Fig. 4's axis.
 
