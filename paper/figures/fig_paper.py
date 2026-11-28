@@ -599,7 +599,7 @@ def fig3():
             alpha = 0.5 * np.arccos(np.clip(rays[0] @ rays[1], -1, 1))
             bis = (rays[0] + rays[1]) / np.linalg.norm(rays[0] + rays[1])
             for r_ in rays:  # each face's line, dashed, across the panel
-                ax.plot(*np.array([X - 120 * r_, X + 120 * r_]).T, color=GREEN, lw=0.5, ls=(0, (3, 2)), zorder=21)
+                ax.plot(*np.array([X - 40 * r_, X + 40 * r_]).T, color=GREEN, lw=0.5, ls=(0, (3, 2)), zorder=21, clip_on=True)
                 ax.plot(*np.array([X + lo * r_, X + hi * r_]).T, color=GREEN, lw=2.2, solid_capstyle="butt",
                         zorder=25)
             for tt in np.linspace(max(lo, 0.35 * hi), hi, 4):  # inscribed cylinders over T
