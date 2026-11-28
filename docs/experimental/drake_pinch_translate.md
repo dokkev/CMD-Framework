@@ -27,7 +27,7 @@ User request (2026-11-27): try three-finger-pinch tasks (candidate 2, after the 
 
 ### Hands and judgments
 
-- As in experiment 44: the 18 hands of `analyze.DESIGN`, plus Skeleton, MO-Pad, S2F and pins-free Skeleton.
+- As in experiment 44: the 18 hands of `analyze.DESIGN`, plus Skeleton, MO-Pad, S2F and free-pin.
 - **Judgments:**
   1. E_R < E_U.
   2. ρ(E, Δ_contact) > 0, p < 0.05.
@@ -47,7 +47,7 @@ All 22 hands scored 47 of 47 pairs (`logs/e45_ptrans.json`).
 | Skeleton (`conv_e25`) | 47.1% |
 | MO-Pad (`mrmid_free`) | **40.5%** |
 | S2F (`s2free_s2f`) | 53.6% |
-| pins-free Skeleton (`conv_e25f`) | 21.3% |
+| free-pin (`conv_e25f`) | 21.3% |
 | `h3to5_hr` | 3.1% |
 | other 15 hands | 9.3–59.3% |
 
@@ -58,5 +58,5 @@ All 22 hands scored 47 of 47 pairs (`logs/e45_ptrans.json`).
   4. **Holds:** Skeleton 47.1% ≥ U's 39.6%.
   5. **Fails:** MO-Pad 40.5% against R's 9.1%.
 - Only the two R hands (`h3to5_hr`, R) and `d2p25_maxDs` are low. Most other hands sit at 33–59% whatever their Δ_contact, so the error does not follow it.
-- MO-Pad errs like Coverage, and pins-free Skeleton errs less than MO-Pad. Pad depth enters here too: the soft thumb pushes the object onto each hand's pad, and the pad then drags it from a different place. This is not explained further.
+- MO-Pad errs like Coverage, and free-pin errs less than MO-Pad. Pad depth enters here too: the soft thumb pushes the object onto each hand's pad, and the pad then drags it from a different place. This is not explained further.
 - **Not a Fig. 4 candidate.** No hydro run.

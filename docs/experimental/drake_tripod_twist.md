@@ -87,7 +87,7 @@ All 22 hands ran (`logs/e44b_tripod.json`).
 | R (CoDe now) | 0.86 | **2.1%** | 64/64 |
 | U (Coverage) | 3.91 | 19.6% | 64/64 |
 | Skeleton (`conv_e25`) | 6.61 | 27.3% | 63/64 |
-| pins-free Skeleton (`conv_e25f`) | – | 2.6% | 64/64 |
+| free-pin (`conv_e25f`) | – | 2.6% | 64/64 |
 | MO-Pad (`mrmid_free`) | – | — | 0/64: never touches |
 | S2F (`s2free_s2f`) | – | — | 0/64: never touches |
 | d1p5_maxDs / d3_maxDs / h3to9_d3p5_maxDs | 1.46 / 3.04 / 3.52 | 58.5% / — / — | 26 / 0 / 0 (over-pressed) |
