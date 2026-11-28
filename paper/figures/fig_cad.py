@@ -372,20 +372,22 @@ def main() -> int:
     hand = usd_render(CAD / "hand_usd_relaxed.png")
     image(hand, 0.10, TB + 0.04, fit=(1.30, top - TB - 0.24))
     # the policy learned on the original design (user, 2026-11-28): a small network badge, pi_O
-    def nn_icon(x0, y0, sc, lw=0.3):
-        lay = (3, 4, 3)
-        P = [[(x0 + li * 0.09 * sc, y0 + (k - (n - 1) / 2) * 0.075 * sc) for k in range(n)] for li, n in enumerate(lay)]
+    def nn_icon(x0, y0, sc, z=6):
+        """A small policy network in the style the user gave (2026-11-28): 2-3-2 nodes, blue strokes, white fill."""
+        NB = "#2f6db0"
+        lay = (2, 3, 2)
+        P = [[(x0 + li * 0.13 * sc, y0 + (k - (n - 1) / 2) * 0.11 * sc) for k in range(n)] for li, n in enumerate(lay)]
         for a_, b_ in zip(P[:-1], P[1:]):
             for p1 in a_:
                 for p2 in b_:
-                    fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5",
-                                              lw=lw, transform=fig.transFigure, zorder=6))
+                    fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color=NB,
+                                              lw=0.8 * sc, transform=fig.transFigure, zorder=z))
         for layer in P:
             for (xx, yy) in layer:
-                fig.patches.append(Circle(inch(xx, yy), 0.022 * sc / W_, transform=fig.transFigure, fc="white",
-                                          ec="#6b6b69", lw=0.5, zorder=7))
-    nn_icon(1.12, top - 0.42, 1.0)
-    fig.text(*inch(1.21, top - 0.29), r"$\pi_O$", fontsize=8, ha="center", va="bottom", color=INK)
+                fig.patches.append(Circle(inch(xx, yy), 0.026 * sc / W_, transform=fig.transFigure, fc="white",
+                                          ec=NB, lw=1.0 * sc, zorder=z + 1))
+    nn_icon(1.13, top - 0.42, 1.0)
+    fig.text(*inch(1.24, top - 0.28), "task policy $\\pi_O$", fontsize=5.8, ha="center", va="bottom", color=INK)
     rx = 1.55
     box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
@@ -502,25 +504,13 @@ def main() -> int:
     kept = {"O": 1.0, "MRM": float(np.mean(rl["MRM"])), "U": float(np.mean(rl["U"]))}
     # the policy: a small neural network, labelled pi_O, then the task it runs (the finger-walk render), then the hands
     nx0, ny0 = 0.12, yd - 0.86
-    layers = (3, 4, 4, 2)
-    pts = []
-    for li, n in enumerate(layers):
-        xx = nx0 + li * 0.11
-        pts.append([(xx, ny0 + 0.26 + (k - (n - 1) / 2) * 0.10) for k in range(n)])
-    for a_, b_ in zip(pts[:-1], pts[1:]):
-        for p1 in a_:
-            for p2 in b_:
-                fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5", lw=0.3,
-                                          transform=fig.transFigure, zorder=2))
-    for layer in pts:
-        for (xx, yy) in layer:
-            fig.patches.append(Circle(inch(xx, yy), 0.028 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
-                                      lw=0.5, zorder=3))
-    fig.text(*inch(nx0 + 0.165, ny0 + 0.52), r"same $\pi_O$", fontsize=7, ha="center", va="bottom", color=INK)
+    nn_icon(nx0 + 0.02, ny0 + 0.26, 0.95, z=2)
+    fig.text(*inch(0.08, ny0 + 0.50), "same task policy $\\pi_O$", fontsize=5.8, ha="left", va="bottom",
+             color=INK)
     walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_cube_O.png")
     wax = fig.add_axes((0.50 / W_, (yd - 0.98) / H_, 0.62 / W_, 0.66 / H_))
     wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
-    fig.patches.append(FancyArrowPatch(inch(nx0 + 0.37, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
+    fig.patches.append(FancyArrowPatch(inch(nx0 + 0.33, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
     # illustrative trajectories (user, 2026-11-28: a schematic, not data): the object's position along the pads under
     # the same policy; CoDe follows O's walk, Coverage leaves it
