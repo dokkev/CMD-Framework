@@ -317,7 +317,7 @@ def main() -> int:
     (fig4_sync.json, friction effect as a share of O's)."""
     import json
     from PIL import Image
-    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci, Circle, Rectangle
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from pngout import register_fonts, save_figure
     register_fonts()
@@ -393,7 +393,7 @@ def main() -> int:
     paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
     qd = np.linspace(0.0, 120.0, len(paths["O"]["contact"]))
     yc = TB - 0.06
-    plabel(0.07, yc, "c", "redesign for a thicker pad: what does it keep?")
+    plabel(0.07, yc, "c", "redesign for a thicker interface: what does it keep?")
     CUR = (("mrmid_free", "CoDe", BLUE_), ("U", "Coverage", ORANGE_))  # Fig. 1: CoDe vs Coverage (user, 2026-11-27: one name everywhere)
     for j, (key, ttl) in enumerate((("contact", "contact-surface motion\n(contact Jacobian)"),
                                     ("tip", "skeleton motion\n(fingertip)"))):
@@ -414,39 +414,48 @@ def main() -> int:
         ax.spines["left"].set_linewidth(0.5); ax.spines["bottom"].set_linewidth(0.5)
     fig.text(*inch(W_ / 2, yc - 1.24), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
-    # ---- (d) the point (user, 2026-11-27): O's command runs unchanged on each redesign with the old and the new pad;
-    # the pad's effect each measures. The thicker, compliant pad on the pull-out (Isaac Lab, 7 mm): O carries the pad's
-    # compliance on its own geometry as the reference (isaac_conclusion_study3.json; CoDe = MO-Pad, "outside").
-    # Arrow length = the change in held load, one scale; the pre-registered grid result is in Sec. IV.
+    # ---- (d) (user, 2026-11-28): a policy learned on O (a neural network pi) runs unchanged on each redesign with the
+    # thicker interface; on CoDe it keeps working, so the interface can be evaluated through it. Finger walk, Isaac Lab,
+    # 7 mm, the share of O's performance kept (report/study4/data/rl_transfer.json, mean of the training seeds).
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "same command, new interface: is its effect measured?")
-    cc = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))
-    eff = {"O": cc["outside"]["mrmid_free"]["true_change_pct"], "MRM": cc["outside"]["mrmid_free"]["measured_change_pct"],
-           "U": cc["hands"]["U"]["measured_change_pct"]}
-    # the command, unchanged: a box with O's impedance setpoint
-    bx, by = 0.10, yd - 0.82
-    box(bx, by, 0.66, 0.34, "#f2f2f0", "#9a9a97", r=0.05, lw=0.6)
-    fig.text(*inch(bx + 0.33, by + 0.22), "O's command", fontsize=6.2, ha="center", va="center", color=INK, **BOLD)
-    fig.text(*inch(bx + 0.33, by + 0.09), "setpoint $q^*$, $K_0$", fontsize=5.6, ha="center", va="center", color=INK2)
+    plabel(0.07, yd, "d", "same policy, new interface: does it still work?")
+    rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]["walk"]["ratio"]
+    kept = {"O": 1.0, "MRM": float(np.mean(rl["MRM"])), "U": float(np.mean(rl["U"]))}
+    # the policy: a small neural network, labelled pi
+    nx0, ny0 = 0.16, yd - 0.92
+    layers = (3, 4, 4, 2)
+    pts = []
+    for li, n in enumerate(layers):
+        xx = nx0 + li * 0.17
+        pts.append([(xx, ny0 + 0.32 + (k - (n - 1) / 2) * 0.12) for k in range(n)])
+    for a_, b_ in zip(pts[:-1], pts[1:]):
+        for p1 in a_:
+            for p2 in b_:
+                fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5", lw=0.35,
+                                          transform=fig.transFigure, zorder=2))
+    for layer in pts:
+        for (xx, yy) in layer:
+            fig.patches.append(Circle(inch(xx, yy), 0.035 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
+                                      lw=0.6, zorder=3))
+    fig.text(*inch(nx0 + 0.255, ny0 + 0.62), r"$\pi$", fontsize=9, ha="center", va="bottom", color=INK)
+    fig.text(*inch(nx0 + 0.255, ny0 - 0.02), "learned on O", fontsize=5.6, ha="center", va="top", color=INK2)
     rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.94))
-    xh, xa0, xs_ = 1.00, 2.35, 0.0110  # hand label x; arrows zero; inches per percent
-    fig.text(*inch(0.43, yd - 0.30), "run unchanged", fontsize=5.4, ha="center", va="center", color=INK2, style="italic")
-    fig.text(*inch(2.55, yd - 0.17), "thicker, compliant interface: change in pull-out load", fontsize=5.6,
-             ha="center", va="center", color=INK2)
+    xh, xa0, xs_ = 1.12, 2.15, 0.92  # hand label x; bars' zero; inches per unit share
+    fig.text(*inch(0.95, yd - 0.24), "run unchanged", fontsize=5.4, ha="center", va="center", color=INK2, style="italic")
+    fig.text(*inch(xa0 + 0.55, yd - 0.17), "finger walk kept, thicker interface", fontsize=5.6, ha="center",
+             va="center", color=INK2)
     for k, nm, col, yr in rows:
-        fig.patches.append(FancyArrowPatch(inch(bx + 0.70, by + 0.17), inch(xh - 0.04, yr), transform=fig.transFigure,
+        fig.patches.append(FancyArrowPatch(inch(nx0 + 0.56, ny0 + 0.32), inch(xh - 0.04, yr), transform=fig.transFigure,
                                            arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
         fig.text(*inch(xh, yr), nm, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
-        e_ = eff[k]
-        fig.patches.append(FancyArrowPatch(inch(xa0, yr), inch(xa0 + e_ * xs_, yr), transform=fig.transFigure,
-                                           arrowstyle="-|>,head_length=4,head_width=3", mutation_scale=1, lw=2.2,
-                                           color=col, zorder=3))
-        lab = f"{e_:+.0f}%".replace("-", "\u2212") + ("\nreversed" if e_ * eff["O"] < 0 else "")
-        fig.text(*inch(xa0 + (e_ * xs_ + 0.05 if e_ > 0 else 0.05), yr), lab, fontsize=5.8, va="center", ha="left",
-                 linespacing=1.0, color=col, **(BOLD if k == "MRM" else {}))
+        v = kept[k]
+        fig.patches.append(Rectangle(inch(xa0, yr - 0.07), v * xs_ / W_, 0.14 / H_, transform=fig.transFigure,
+                                     fc=col, ec="none", alpha=0.9, zorder=3))
+        fig.text(*inch(xa0 + v * xs_ + 0.05, yr), f"{100 * v:.0f}%", fontsize=5.8, va="center", ha="left", color=col,
+                 **(BOLD if k == "MRM" else {}))
     fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
                               transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the interface's effect is O's; on Coverage it reverses",
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps working, so the interface can be evaluated through it",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
