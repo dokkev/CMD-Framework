@@ -104,6 +104,13 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Abstract (user, 2026-11-28): written like the abstract of "Attention Is All You Need".** Its moves, in order:
+  1. the dominant approach, in one plain sentence ("The dominant ... models are based on ...");
+  2. what the best of them also do, which sets up the gap;
+  3. "We propose a new, simple ..., based solely on ..., dispensing with ..." (the idea in one sentence, named);
+  4. experiments show it is better, with one or two concrete headline numbers and what they beat;
+  5. one sentence that it generalizes beyond the main setting.
+  Short declarative sentences, no hedges or qualifier chains, no implementation detail, every number a result.
 - **Opening (Mingyo, relayed by the user 2026-11-28):** start from general manipulation, not from learning-oriented hand platforms. Opening with LEAP/ORCA comparisons makes readers file the paper as a learning-hardware paper. Platforms appear only as part of the obstacle (servos at the joints take the room).
 - **No run-in headings (user, 2026-11-28):** never `\emph{Tasks.}`-style paragraph heads (or `\paragraph`, bold run-ins). Every heading is `\subsection` or `\subsubsection`.
 - **Review is spear against shield** (user, 2026-11-27): a reviewer can thrust anywhere at no risk; we have one shield and limited pages, so we choose where to defend and concentrate there. In the body, as important as the novelty is creating no point of attack.
