@@ -250,10 +250,10 @@ qreq
 2
 No redesign whose contact surfaces deepen keeps both
 motions. Here ∆t is how far the contact surfaces deepen,
-not how much the pad thickens: a redesign that raises
-its pivots lets the surfaces deepen less. Depth matters on
-its own: seen from F1 , the contact point deviates by at
-most ∆contact + |∆t| (∆MCP , Eq. (7)), so keeping both
+not how much the pad thickens: a redesign that raises its
+pivots lets the surfaces deepen less. Depth matters on its
+own: seen from F1 , the contact point deviates by at most
+∆contact +|∆t| (∆MCP , defined in Eq. (7)), so keeping both
 the contact motion and the surfaces’ depth keeps where
 contact happens on the hand. A fixed axis keeps its depth,
 since its pin and lugs must sit above a full-width pad’s

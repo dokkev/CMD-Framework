@@ -452,3 +452,9 @@ construction" and "O is unrealizable". v56 shields (logic only): O is the one ha
 kinematic change; the test is not circular because Skeleton keeps O's fingertip path as closely as CoDe keeps O's
 contact surfaces; Eq. 3 holds for every point of the distal surface at once; a learned policy has no setpoint to
 re-reference. Counts (n) still asked for; left out per the no-implementation-detail rule.
+
+v56: 5, 5, 5 (Soundness 3, 3, 2; Presentation 2, 2, 2; Clarity 2, 2, 2). The circularity shield landed (r1: "not
+circular in the obvious sense"), but the reference attack moved: "thickness is excluded from the pad effect by
+definition". Clarity is held at 2 by items our own rules keep out: "Conventional" vs "Coverage", "CoDe" for both the
+architecture and the hand, n behind every rho, Table I blank cells / bold / undefined columns (title-only caption),
+undefined E/error (no displayed equation). Asked the user which rules to relax.
