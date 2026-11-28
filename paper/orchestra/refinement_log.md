@@ -431,3 +431,10 @@ Pending user decision:
 v51: 5, 5, 5 (r2 Soundness 3). The objective story ("the objective decides what is kept; freeing the pivots serves
 it; ablation 21 -> 17 -> 10%") removed the unequal-baseline objection: no reviewer raises it this round.
 New (r3): Delta_MCP matters in the ablation but the theory of III-A has no term for the proximal surface's place.
+
+v52 (two of three in; PDF before the strip): 5, 5. The reviewers again cite implementation values (K0, 0.70, Q_eval,
+placement floors, the 0.84-1.45 force spread, 2.5 kN/m) as unjustified.
+User (2026-11-27):
+- Stop handing reviewers attack points. Implementation detail goes to a future appendix.
+- Put every strength in without gaps, and state the weaknesses ourselves in the Conclusion.
+Both rules are now in paper SSoT section 5. The manuscript is stripped of implementation values, and the Conclusion lists the limits.
