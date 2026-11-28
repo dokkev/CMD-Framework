@@ -479,8 +479,8 @@ def main() -> int:
     # quantity is the distal pad's surface seen from the proximal pad, with O's dashed (user, 2026-11-28: no numbers)
     DEPTH = {"O": 3.0, "mrmid_free": 4.0, "conv_e25": 7.0}  # contact-surface depth below the link line (3 + Delta t)
     BONE = "#5b5b59"
-    for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "CoDe", BLUE_, "pad surface tracks O's"),
-                                                  ("conv_e25", "Skeleton", TEAL_, "skeleton tracks O's,\npad surface drifts"))):
+    for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "Contact-Centric\nDesign", BLUE_, "pad surface kept"),
+                                                  ("conv_e25", "Skeleton-Centric\nDesign", TEAL_, "skeleton kept,\npad surface drifts"))):
         ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.00) / H_, 0.82 / W_, 0.94 / H_))
         # everything in the finger-base frame (the link line at y = 0): the distal link from the fingertip data, the
         # pad surfaces from the contact-point data moved down by each hand's contact-surface depth
@@ -524,10 +524,10 @@ def main() -> int:
                 ax.plot(*np.array([to[k_] - L2 * d_, to[k_]]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)
             else:  # CoDe on O's distal pad surface
                 ax.plot(*np.array([co[k_] - LP * d_, co[k_]]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)
-        ax.set_xlim(-4, 100); ax.set_ylim(-52, 30); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(50, 30, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.set_xlim(-4, 100); ax.set_ylim(-52, 36); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(50, 34, nm, fontsize=5.8, color=col, ha="center", va="top", linespacing=1.0, **BOLD)
         ax.text(50, -46, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
-    fig.text(*inch(2.55, yc - 1.00), "dashed: O's distal pad (CoDe), O's distal link (Skeleton)", fontsize=4.8,
+    fig.text(*inch(2.55, yc - 1.00), "dashed: the original hand", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.12), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
