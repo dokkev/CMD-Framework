@@ -39,7 +39,7 @@ INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
 BLUE, AMBER, GREY, TEAL, PURPLE = "#0F4D92", "#B64342", "#767676", "#42949E", "#9A4D8E"
 # display names without acronyms (v42 editing pass): servo at the joint, servo remote, rolling contact joint
 ARCH = {"2r_dd": ("At-joint", GREY, "^"), "2r_remote": ("Remote", AMBER, "s"), "rcj": ("Rolling", TEAL, "D"),
-        "cfl": ("Four-bar", BLUE, "o")}  # the architecture; "CoDe" names the contact-preserving redesign (v47)
+        "cfl": ("CoDe", BLUE, "o")}  # the crossed four-bar architecture; the text ties it to the CoDe and Coverage hands (user, 2026-11-27)
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
 
@@ -323,7 +323,7 @@ def fig2():
              zorder=6, fontweight="bold", family="Nimbus Sans")
     pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
-    pax.text(-14, 18, "Crossed four-bar", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
+    pax.text(-14, 18, "CoDe", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
     pax.text(27, -3.0, "Rolling\ncontact joint", fontsize=6.4, linespacing=1.0, ha="center", color=TEAL, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
