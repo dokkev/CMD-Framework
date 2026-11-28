@@ -108,7 +108,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
-- **Results are claims, not figure readings (user, 2026-11-28; RSS award papers: IRP, On-Palm, DiSECt, FEAST).**
+- **Results and Design are claims, not figure readings (user, 2026-11-28; RSS award papers: IRP, On-Palm, DiSECt, FEAST).** The Design section follows the same pattern: it opens by saying what it shows, its titles are claims, and each result carries its reason and its limit.
   - The Results open with the questions they answer (Q1, Q2, ...).
   - Every subsubsection title is a claim, written as a sentence.
   - Each paragraph runs: claim -> 1-3 numbers with a reference point (Fig./Table in parentheses) -> why (the mechanism) -> where it stops holding (stated by us) -> what it means for the contribution.
