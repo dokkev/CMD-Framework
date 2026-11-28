@@ -822,7 +822,9 @@ def fig4():
         short = {"pull": "Hold", "acquire": "Acquisition", "dial": "Pad-turned dial", "pivot": "Box pivot"}[key]
         lines.append("    " + short + " & " + " & ".join(cells) + r" \\")
     lines.append(r"    \midrule")
-    for lab, k_ in ((r"$\Dcon$ (mm)", "d_contact"), (r"$\Dskel$ (mm)", "d_skel")):
+    # Delta^base_distal of the three named hands (sim/drake/anchor_f1.py deltas: mrmid_free, conv_e25, U)
+    tab["delta", "d_mcp"] = {"C": 1.06, "S": 4.05, "U": 4.26}
+    for lab, k_ in ((r"$\Dcon$ (mm)", "d_contact"), (r"$\Dmcp$ (mm)", "d_mcp"), (r"$\Dskel$ (mm)", "d_skel")):
         dd = tab["delta", k_]
         lines.append(f"    {lab} & " + " & ".join(f"{dd[hh]:.1f}" for hh in ("C", "S", "U")) + r" & & \\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
