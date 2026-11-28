@@ -1203,3 +1203,56 @@ Not reproduced: condim-4 torsional friction at point contact, MuJoCo's mass-depe
   2. At 120°, 3 → 7 mm, the CFL's whole front lies at smaller Δ^prox_distal and higher C̄_pad than every point of every other front, on the (Δ^prox_distal, C̄_pad) projection.
   3. "Barely change": each pick's Δ^prox_distal is within 0.5 mm of 2026-11-21's, and its C̄_pad within 0.03.
 - **Amendment (2026-11-28, after the signed run's 2R fronts, before the second run).** The run above used the CFL's `--free-heights` bounds, which allow a pivot 3 mm *below* its link line. The 2Rs use that freedom in almost every front design: with A 2–3 mm below both link lines, both pads keep their M0 place relative to the joint, and Δ^prox_distal falls to 0 at 3 → 5 mm (2R-remote at 90°/120°, at more coverage than the CFL). That is the fixed axis moved palmar by Δt, not the freedom Eq. 9 names ("the pivots' heights *above* the link line"). So the main run is `--heights above`: every pivot on or above its link line (proximal 0 to 8 mm, distal 0 to 10 mm), for all four architectures, CFL included. Everything else is as registered. The signed run is kept as a sensitivity run (`study2_redesign_eq9_signed/`). The predictions are judged on the main run and reported for both.
+
+## Result: Study 2 in the form of Eq. 9 (2026-11-28)
+
+`redesign.py --objective eq9 --heights above`, `design/output/study/study2_redesign_eq9/` (main run). The signed-height sensitivity run is in `study2_redesign_eq9_signed/`. Per-condition comparison: `comparison.csv` in each run. Fig. 3(c) reads `summary.csv` as before. `change_at_most_c_pad` (share of L_f) and the new `change_at_most_c_pad_mm` are the pick's Δ^prox_distal, and `mcp_change_at_most_c_pad_mm` is its Δ^base_distal.
+
+**Pick** (unchanged rule): the most C̄_pad on the three-objective front, ties to the least Δ^prox_distal, then the least Δ^base_distal. Old Δ^base_distal is recomputed for the 2026-11-21 picks against the same M0.
+
+| arch | q | to | Δ^prox old → new | Δ^base old → new | C̄ old → new | heights (prox; dist) |
+|---|---|---|---|---|---|---|
+| CFL | 90 | 5 | 1.22 → 1.24 | 2.77 → 1.43 | 0.776 → 0.792 | 3.1; 1.9 |
+| CFL | 90 | 7 | 1.84 → 1.58 | 3.93 → 1.99 | 0.749 → 0.763 | 3.0; 1.9 |
+| CFL | 90 | 9 | 4.31 → 3.97 | 5.93 → 5.25 | 0.717 → 0.732 | 3.5; 0.6 |
+| CFL | 120 | 5 | 0.35 → 0.43 | 2.10 → 1.20 | 0.753 → 0.771 | 3.0; 2.5 |
+| CFL | 120 | 7 | 0.86 → 1.03 | 4.65 → 1.11 | 0.725 → 0.742 | 3.0; 3.4 |
+| CFL | 120 | 9 | 2.32 → 2.27 | 6.36 → 3.98 | 0.695 → 0.711 | 3.1; 2.0 |
+| CFL | 150 | 5 | 0.77 → 1.16 | 2.60 → 1.55 | 0.738 → 0.759 | 3.1; 1.9 |
+| CFL | 150 | 7 | 1.71 → 1.79 | 5.30 → 1.75 | 0.707 → 0.726 | 3.0; 2.4 |
+| CFL | 150 | 9 | 3.65 → 3.52 | 6.97 → 5.68 | 0.673 → 0.691 | 3.0; 0.5 |
+| 2R-DD | 90 | 5 | 2.12 → 2.12 | 2.00 → 8.73 | 0.73 → 0.790 | 8.0; 0.1 |
+| 2R-DD | 90 | 7 | 3.82 → 3.82 | 4.00 → 8.25 | 0.71 → 0.756 | 6.2; 0.3 |
+| 2R-DD | 90 | 9 | 5.23 → 5.23 | 6.00 → 7.74 | 0.69 → 0.723 | 4.3; 0.2 |
+| 2R-DD | 120 | 5 | 2.00 → 3.20 | 2.00 → 5.22 | 0.70 → 0.728 | 2.8; 0.7 |
+| 2R-DD | 120 | 7 | 4.40 → 4.70 | 4.00 → 4.56 | 0.68 → 0.689 | 0.8; 0.2 |
+| 2R-DD | 120 | 9 | 5.86 → 5.86 | 6.00 → 6.00 | 0.63 → 0.633 | 0; 0 |
+| 2R-DD | 150 | 5 | 3.00 → 3.00 | 2.00 → 2.00 | 0.59 → 0.593 | 0; 0 |
+| 2R-DD | 150 | 7, 9 | no Study 1 design (infeasible, as before) | | | |
+| 2R-remote | 90 | 5 / 7 / 9 | 2.83 / 5.66 / 8.49 → 2.90 / 5.73 / 8.56 | 2.0 / 4.0 / 6.0 → 2.1 / 4.1 / 6.1 | 0.81 / 0.77 / 0.74 → same | ≈ 0 |
+| 2R-remote | 120 | 5 / 7 / 9 | 3.46 / 6.93 / 10.39 → 3.55 / 7.01 / 10.39 | 2.0 / 4.0 / 6.0 → 2.1 / 4.1 / 6.0 | 0.76 / 0.70 / 0.63 → same | ≈ 0 |
+| 2R-remote | 150 | 5 / 7 / 9 | 3.86 / 13.77 / 22.86 → unchanged | 2.0 / 11.1 / 19.1 → unchanged | 0.59 / 0.21 / 0.00 → same | 0 |
+| RCJ | 90 | 5 / 7 / 9 | 2.83 / 5.16 / 7.14 → 3.04 / 5.16 / 7.42 | 2.0 / 3.7 / 5.1 → 8.5 / 8.8 / 10.0 | 0.66 / 0.63 / 0.61 → 0.77 / 0.73 / 0.70 | 8; 9–10 |
+| RCJ | 120 | 5 / 7 / 9 | 2.08 / 3.72 / 9.30 → 2.08 / 3.72 / 5.57 | 1.3 / 2.5 / 5.6 → 8.8 / 8.8 / 8.8 | 0.61 / 0.58 / 0.56 → 0.72 / 0.67 / 0.62 | 4–8; 8–9 |
+| RCJ | 150 | 5 / 7 | 1.90 / 7.10 → 1.90 / 5.50 | 1.6 / 6.8 → 7.4 / 6.9 | 0.56 / 0.51 → 0.65 / 0.57 | 3–6; 8 |
+| RCJ | 150 | 9 | no Study 1 design (infeasible, as before) | | | |
+
+(mm; C̄ the pick's.) Feasibility is unchanged: the same 34 of 36 conditions have a front.
+
+- **Prediction 1 holds.** The CFL's pick has the least Δ^prox_distal of the four in all nine conditions (9/9; also 9/9 under the near-coverage pick, `change_near_c_pad`). The margin is smallest at 150°, 5 mm (CFL 1.16 against 2R-DD 3.00 and 2R-remote 3.86) and at 120°, 9 mm (2.27 against 5.57).
+- **Prediction 2 holds for Δ, and for coverage in the dominance sense.**
+  - At 120°, 3 → 7 mm, the CFL's front, projected onto (Δ^prox_distal, C̄_pad) as Fig. 3(c) reads it, has Δ^prox_distal ≤ 1.03 mm. Every other front starts above it (2R-DD 3.72, RCJ 2.38, 2R-remote 6.93).
+  - The three-objective front is wider in coverage than 2026-11-21's two-objective front. The CFL's projected front now reaches down to C̄_pad 0.53, so "its whole front lies at higher coverage than every other front" no longer holds literally. Its coverage end (0.742) still exceeds every other front's maximum (2R-DD 0.689, 2R-remote 0.698, RCJ 0.672). Every design of every other front is dominated by a CFL design (14/14, 2/2, 48/48).
+  - Suggested wording: "its whole front lies at smaller Δ, and a CFL design beats every design of the other fronts on both Δ and coverage".
+- **Prediction 3 holds for the CFL and the 2R-remote, and fails for the 2R-DD's and the RCJ's coverage.**
+  - CFL: Δ^prox_distal within 0.4 mm of 2026-11-21 in every condition (largest change +0.39 at 150°, 5 mm), and C̄_pad up 0.01–0.02.
+  - 2R-remote: unchanged. Its heights stay at about 0, because raising the joint only takes the pads farther from it.
+  - 2R-DD and RCJ: raising the joint above the link line lets the proximal pad mount nearer the link line. The coverage end then gains 0.03–0.06 (2R-DD) and 0.06–0.11 (RCJ), often at the 8 mm bound.
+    - The pick's Δ^prox_distal moves by more than 0.5 mm in three conditions: 2R-DD at 120°, 5 mm (+1.2); RCJ at 120°, 9 mm (−3.7) and at 150°, 7 mm (−1.6).
+    - None of these come near the CFL's.
+- **Δ^base_distal.** With the heights free, the CFL keeps both references. Its pick's Δ^base_distal falls from 2.1–7.0 to 1.1–5.7 mm, at 120°, 7 mm from 4.65 to 1.11. The 2R-DD and the RCJ raise their joints for coverage, and their Δ^base_distal grows (up to 8–10 mm).
+- **Signed heights (sensitivity, `study2_redesign_eq9_signed/`; pivots allowed 3 mm below the line).** The 2Rs lower the joint by about Δt and keep both pads where M0's were relative to it. Prediction 1 then fails in 4 of 9 conditions:
+  - 2R-remote at 90°, 5 and 7 mm, and at 120°, 5 mm (0.10, 1.49, 0.20 against the CFL's 1.11, 2.89, 1.29);
+  - 2R-DD at 150°, 5 mm (0.77 against 1.16);
+  - 150°, 7 mm is a near tie (2R-remote 1.93 against 1.98).
+  - That freedom is a fixed axis moved palmar, which Eq. 9's "above the link line" excludes. If the paper keeps "above", the main run is its result.
