@@ -236,6 +236,8 @@ conclusion, with the report or output file it comes from (`report/`, `design/out
 
 ## 8. Revision and review
 
+- **Review form (user, 2026-11-28):** review rounds use `paper/orchestra/prompt_reviewer_rss_stage1.txt`, the RSS 2027 Stage 1 form (Value of Hypothesis 1-4, Feasibility of Conclusion 1-4, Extension Charter, desk-reject flags; Invite to Rebuttal / Reject). The old 1-10 prompt (`prompt_reviewer.txt`) is not the venue's form; its 6/6/6-to-5/5/5 history is a calibration artifact (see refinement_log). The manuscript states its hypotheses H1-H3 with what refutes each, and the Stage 2 plan in the conclusion.
+
 - Reviews follow the PaperOrchestra AgentReview step with Claude reviewers: three independent reviewers,
   `paper/orchestra/prompt_reviewer.txt` verbatim, each reading the built PDF (for the figures) and its text.
   Reviewers see only the paper, no earlier reviews or repository files.

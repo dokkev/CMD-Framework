@@ -14,3 +14,15 @@
   fig_designs_q150.png (7.16 in × ~1.3 in), study0_pole_sketch.png (~1.7 in at 0.9 textwidth),
   fig_study1_cpad.png (~1.8 in), fig_study2_q120.png (~1.8 in). A column table of ~10 rows ≈ 2 in.
   Content budget therefore ≈ 3,600–3,900 words including equations.
+
+## How Stage 1 is reviewed (RSS 2027 Reviewer Guidelines, read 2026-11-28)
+- Reviewers judge the hypothesis and methodology, not a finished paper. Two scores, each 1-4:
+  Value of Hypothesis (1 Limited Interest ... 4 Strongly Interesting) and Feasibility of Conclusion
+  (1 Weak ... 4 Very Strong). There is no overall score.
+- Free text: Approach and Hypothesis; Feasibility of Conclusion; Extension Charter points; Confidential Comments.
+- "Negative results are valued equally with positive ones." Missing or preliminary experiments are expected.
+- Decision: Reject or Invitation to Rebuttal (Feb 5, 2027); after the rebuttal, Reject or Invitation to execute an
+  Extension Charter (Feb 26, 2027). Stage 2 checks that the Charter was executed (8 pages + references).
+- Desk rejection: broken anonymity, hallucinated references, format violations. No supplementary material at Stage 1.
+- Sources: roboticsconference.org/information/cfp/, /information/reviewer-guidelines/, /information/author-faq/.
+- The orchestra's Stage 1 reviewer prompt is prompt_reviewer_rss_stage1.txt.
