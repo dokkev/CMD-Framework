@@ -701,7 +701,7 @@ def fig4():
              "load deviation (N)", "effect bias (N)"),
             ("Grasp acquisition", "acquire", "grasp_acquisition.png", "time (s)", "drawn-in deviation (mm)",
              "effect bias (mm)"),
-            ("Fingertip dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
+            ("Pad-turned dial", "dial", "fingertip_disk.png", "time (s)", "rotation deviation (deg)",
              "effect bias (deg)"),
             ("Box pivot", "pivot", "fingertip_pivot.png", "time (s)", "tilt deviation (deg)",
              "effect bias (deg)"))
