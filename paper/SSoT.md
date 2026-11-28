@@ -104,6 +104,7 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Opening (Mingyo, relayed by the user 2026-11-28):** start from general manipulation, not from learning-oriented hand platforms. Opening with LEAP/ORCA comparisons makes readers file the paper as a learning-hardware paper. Platforms appear only as part of the obstacle (servos at the joints take the room).
 - **No run-in headings (user, 2026-11-28):** never `\emph{Tasks.}`-style paragraph heads (or `\paragraph`, bold run-ins). Every heading is `\subsection` or `\subsubsection`.
 - **Review is spear against shield** (user, 2026-11-27): a reviewer can thrust anywhere at no risk; we have one shield and limited pages, so we choose where to defend and concentrate there. In the body, as important as the novelty is creating no point of attack.
 - **Detail of logic, not of implementation** (user, 2026-11-27): when the body introduces a hypothesis or a result, the detail it gives is the detail of the logic (why the claim follows, what it is compared against, what would refute it). Implementation detail does not belong there: explaining it fully costs the page limit, crowds out the details that matter, and each item is a new target. Detail for reproducibility goes into an appendix after acceptance (see the appendix rule below).
