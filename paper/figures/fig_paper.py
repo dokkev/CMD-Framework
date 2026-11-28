@@ -1023,10 +1023,11 @@ def table():
         num = f"{v:+.0f}" if round(v) != 0 else "0"
         return f"$\\mathbf{{{num}}}$" if hh == "C" else f"${num}$"
     lines = [r"\begin{table}[t]", r"  \centering", r"  \scriptsize", r"  \setlength{\tabcolsep}{1.2pt}",
-             r"  \caption{Signed effect error (\%) at $7$\,mm across simulators, contact models and commands}",
+             r"  \caption{Signed effect error (\%) at $7$\,mm across simulators, contact models and commands. fric.: friction $1.3\to2.0$; stiff.: contact stiffness; compl.: a thicker, softer interface; conv.: a crowned interface; commands (friction change): joint torque, close at touch, contact force, and a setpoint re-referenced to $O$'s contact}",
              r"  \label{tab:robust}", r"  \resizebox{\columnwidth}{!}{%", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
              "    & " + " & ".join(name for name, _ in cols) + r" \\", r"    \midrule",
+             "    Skel. & " + " & ".join(cell(d, "S") for _, d in cols) + r" \\",
              "    Cov. & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
              r"    \ourmethod{} & " + " & ".join(cell(d, "C") for _, d in cols) + r" \\",
              r"    \bottomrule", r"  \end{tabular}}", r"\end{table}", ""]

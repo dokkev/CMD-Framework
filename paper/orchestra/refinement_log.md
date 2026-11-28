@@ -477,3 +477,22 @@ v42 control on every subscore (v58 r1 Presentation 3, Contribution 2-3), and its
 Fig. 1(d)/Table I units, "Conventional", n, or Delta_MCP naming that the control still raises.
 
 Paused (user, 2026-11-28): the review loop stops after v58 and the v42 control. No further rounds until the user asks.
+
+## RSS 2027 Stage 1 rounds (prompt_reviewer_rss_stage1.txt; Value 1-4, Feasibility 1-4)
+
+Goal (user, 2026-11-28): run Stage 1 reviews and revise, keeping style and structure; word edits or added experiments
+only.
+
+s1v1: (V2, F2, Reject), (V3, F2, Invite), (V2, F2, Reject); confidence 4. All three call H1 careful and well
+supported in simulation. Value is held down by "H1 is close to a geometric consequence of the setup" and "keep the
+skeleton is a straw man"; Feasibility by rigid pads only, friction as the interface change, and H3 read as post hoc.
+Common clarity items: Table I without Skeleton and undefined columns; "partial rho up to 0.91"; weak Drake dial/pivot
+rho summarized as "the same order"; Box pivot (called a fingertip task) vs "fingertip-end contact follows the
+skeleton"; abstract "carry over" overstates Fig. 5; Conclusion grammar; Eq. 3 vs Table II (CoDe's Delta t).
+Revised (s1v2, word level): Table I gains the Skeleton row and a caption defining its columns; partial rho 0.86-0.91;
+the Drake dial/pivot rho stated; force- and torque-setting commands shrink every redesign's error (stated); the pivot
+drags the block with the distal pad, set against fingertip-end contact; Eq. 3 explains why only CoDe keeps both
+frames (its surfaces sit 1 mm deeper at 7 mm); abstract "keep the most"; intro "When a command is reused, it is
+wrong"; Fig. 5 caption names each task's performance and Skeleton's 2% walk; Conclusion grammar.
+Not taken (structure or implementation detail): per-test n and CIs, a pre-registration link, a FEM pad, practitioner
+baselines.
