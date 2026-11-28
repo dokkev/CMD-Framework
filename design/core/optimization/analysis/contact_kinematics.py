@@ -101,15 +101,24 @@ def paths(base: Mechanism, x: Sequence[float], config, evaluation=None, samples:
     return {"q": q, "tip": tips, "contact": contact_path(tips, q, float(depths[0]), float(depths[1]))}
 
 
+def in_base_frame(contact: np.ndarray, proximal_depth_mm: float) -> np.ndarray:
+    """A contact path from the proximal face's line (:func:`contact_path`) seen from the finger-base frame ``F_1``
+    instead (the MCP axis on the proximal link line): its Delta_MCP, the paper's Delta^base_distal."""
+
+    return np.asarray(contact, dtype=float) - np.array((0.0, proximal_depth_mm))
+
+
 @dataclass(frozen=True)
 class Redesigned:
     """A design's own evaluation (``base``), its contact path's change from the
-    reference finger's and its pad coverage."""
+    reference finger's and its pad coverage (and, with a base-frame reference,
+    the same path's change seen from ``F_1``, ``mcp_change``)."""
 
     base: Any
     contact_change: float
     c_pad_mean: float
     constraints: Mapping[str, float] = field(default_factory=dict)
+    mcp_change: float = INVALID
 
     @property
     def g(self) -> tuple[float, ...]:
@@ -131,7 +140,8 @@ class ContactMechanism(Mechanism):
     contact path from ``reference`` (``(samples, 2)``, per ``scale_mm``) and
     the most pad coverage."""
 
-    def __init__(self, base: Mechanism, reference: np.ndarray, scale_mm: float, anchor: bool = False) -> None:
+    def __init__(self, base: Mechanism, reference: np.ndarray, scale_mm: float, anchor: bool = False,
+                 reference_depth_mm: float | None = None) -> None:
         self.base, self.reference, self.scale_mm = base, np.asarray(reference, dtype=float), float(scale_mm)
         self.anchor = bool(anchor)  # compare the paths from a common start (:func:`anchored`)
         self.variable_names = base.variable_names
@@ -141,6 +151,15 @@ class ContactMechanism(Mechanism):
             "contact_change": Objective(lambda e: e.contact_change, "contact_change", "D_c", "least_contact_change",
                                         False),
             "c_pad_mean": Objective(lambda e: -e.c_pad_mean, "c_pad_mean", "C_pad", "most_coverage", True)}
+        # With the reference's proximal face depth: the third objective, the path's change seen from F_1 (Eq. 9).
+        self.reference_base = (None if reference_depth_mm is None
+                               else in_base_frame(self.reference, float(reference_depth_mm)))
+        if self.reference_base is not None:
+            self.name, self.formulation = f"contact_mcp:{base.name}", f"{base.formulation}+contact-mcp-v1"
+            self.objectives = {"contact_change": self.objectives["contact_change"],
+                               "mcp_change": Objective(lambda e: e.mcp_change, "mcp_change", "D_MCP",
+                                                       "least_mcp_change", False),
+                               "c_pad_mean": self.objectives["c_pad_mean"]}
 
     def search_names(self, config):
         return self.base.search_names(config)
@@ -180,18 +199,23 @@ class ContactMechanism(Mechanism):
         if base is None:
             return None
         base = _picklable(base)
-        change, coverage = INVALID, 0.0
+        change, coverage, mcp = INVALID, 0.0, INVALID
         if base.feasible:
             found = paths(self.base, x, config, base, len(self.reference))
             own = None if found is None else (anchored(found["contact"], self.reference) if self.anchor
                                               else found["contact"])
             change = INVALID if own is None else path_change(own, self.reference, self.scale_mm)
-            value = self.base.report(base).get("c_pad_mean")
+            report = self.base.report(base)
+            if self.reference_base is not None and found is not None:
+                mcp = path_change(in_base_frame(found["contact"], float(report["proximal_depth_mm"])),
+                                  self.reference_base, self.scale_mm)
+            value = report.get("c_pad_mean")
             coverage = float(value) if value not in (None, "") and math.isfinite(float(value)) else 0.0
-        return Redesigned(base, change, coverage, dict(base.constraints))
+        return Redesigned(base, change, coverage, dict(base.constraints), mcp)
 
     def report(self, evaluation) -> dict[str, Any]:
-        return {"contact_change": evaluation.contact_change, "c_pad_mean": evaluation.c_pad_mean}
+        found = {"contact_change": evaluation.contact_change, "c_pad_mean": evaluation.c_pad_mean}
+        return found if self.reference_base is None else {**found, "mcp_change": evaluation.mcp_change}
 
 
 def front(points: Sequence[tuple[float, float]]) -> list[int]:
@@ -206,16 +230,32 @@ def front(points: Sequence[tuple[float, float]]) -> list[int]:
     return kept
 
 
+def front_of(points: Sequence[Sequence[float]]) -> list[int]:
+    """The indices of the points no other dominates, every value minimized (any number of objectives), by rising
+    first value. Equal points: the first one only."""
+
+    values = [tuple(float(v) for v in point) for point in points]
+    kept = []
+    for i, p in enumerate(values):
+        beaten = any(all(qv <= pv + 1e-12 for qv, pv in zip(q, p)) and (q != p or j < i)
+                     for j, q in enumerate(values) if j != i)
+        if not beaten:
+            kept.append(i)
+    return sorted(kept, key=lambda i: values[i])
+
+
 def redesign(base: Mechanism, config, reference: np.ndarray, scale_mm: float, settings: OptimizerSettings,
-             warm: Sequence[Sequence[float] | None] = (), workers: int = 1, anchor: bool = False):
+             warm: Sequence[Sequence[float] | None] = (), workers: int = 1, anchor: bool = False,
+             reference_depth_mm: float | None = None):
     """The front of the redesigns of ``config``'s interface: ``[(x, Redesigned)]``
     by rising change of the contact path, and the evaluations it took. The
     starts (``warm``) that are designs compete too. ``anchor``: the change of
-    the path from a common start (:func:`anchored`)."""
+    the path from a common start (:func:`anchored`). ``reference_depth_mm`` (the reference's proximal face depth):
+    a third objective, the path's change seen from ``F_1`` (``mcp_change``), and the front of all three."""
 
     from core.optimization.study import run_study
 
-    mechanism = ContactMechanism(base, reference, scale_mm, anchor)
+    mechanism = ContactMechanism(base, reference, scale_mm, anchor, reference_depth_mm)
     starts = []
     for x in warm:
         if x is None:
@@ -233,9 +273,14 @@ def redesign(base: Mechanism, config, reference: np.ndarray, scale_mm: float, se
         if evaluation is not None and evaluation.feasible:
             found.append((x, evaluation))
     found = [f for f in found if f[1].contact_change < INVALID]
-    keep = front([(e.contact_change, e.c_pad_mean) for _, e in found])
+    if reference_depth_mm is None:
+        keep = front([(e.contact_change, e.c_pad_mean) for _, e in found])
+    else:
+        found = [f for f in found if f[1].mcp_change < INVALID]
+        keep = front_of([(e.contact_change, e.mcp_change, -e.c_pad_mean) for _, e in found])
     return [found[i] for i in keep], result.evaluation_count
 
 
-__all__ = ["INVALID", "PATH_SAMPLES", "ContactMechanism", "Redesigned", "anchored", "contact_path", "front", "path_change",
+__all__ = ["INVALID", "PATH_SAMPLES", "ContactMechanism", "Redesigned", "anchored", "contact_path", "front", "front_of",
+           "in_base_frame", "path_change",
            "paths", "redesign", "tip_path"]

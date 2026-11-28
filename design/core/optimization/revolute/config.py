@@ -61,6 +61,9 @@ class RevoluteConfig:
     """A pulley on ``A`` (``goal.hardware.pulley_radius_mm``), as a belt or a
     tendon drives the joint through (with ``joint_servo`` off): the joint's
     envelope is the larger of it and the pin's housing."""
+    heights: tuple[tuple[float, float], tuple[float, float]] | None = None
+    """Search bounds of the joint's two heights above the link lines (``HEIGHT_NAMES`` of the solids; experimental,
+    ``docs/experimental/pr_mr.md``), searched after the vector's own values; ``None``: on both lines (the studies')."""
 
     @property
     def joint_radius_mm(self) -> float:

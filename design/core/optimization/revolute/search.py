@@ -25,7 +25,7 @@ import numpy as np
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
 
-from core.morphology.mechanism.revolute.solids import servo_rear
+from core.morphology.mechanism.revolute.solids import HEIGHT_NAMES, servo_rear
 
 from core.optimization.linkage.config import face_shift_mm
 from core.optimization.revolute.config import VARIABLE_NAMES, RevoluteConfig, pad_reach_mm
@@ -58,15 +58,17 @@ def _limits(config: RevoluteConfig, tilt_deg: float) -> dict[str, tuple[float, f
 def search_names(config: RevoluteConfig) -> tuple[str, ...]:
     """:data:`SEARCH_NAMES`, without the drops when the goal's mounting policy sets them."""
 
-    if config.goal.mount_policy == "searched":
-        return SEARCH_NAMES
-    return tuple(name for name in SEARCH_NAMES if name not in DROP_NAMES)
+    names = SEARCH_NAMES if config.goal.mount_policy == "searched" else tuple(
+        name for name in SEARCH_NAMES if name not in DROP_NAMES)
+    return names + (HEIGHT_NAMES if config.heights is not None else ())
 
 
 def search_box(config: RevoluteConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
     box = {"finger_length_mm": config.goal.extended_length_bounds_mm, "ac_share": (0.0, 1.0),
            "app_share": (0.0, 1.0), "bpp_share": (0.0, 1.0), "distal_drop_mm": config.bounds["distal_drop_mm"],
            "proximal_drop_mm": config.bounds["proximal_drop_mm"], "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
+    if config.heights is not None:
+        box.update(zip(HEIGHT_NAMES, config.heights))
     names = search_names(config)
     return tuple(box[name][0] for name in names), tuple(box[name][1] for name in names)
 
@@ -119,7 +121,8 @@ def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[flo
               "bpp_from_a_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
               "distal_drop_mm": grid(v["distal_drop_mm"]), "proximal_drop_mm": grid(v["proximal_drop_mm"]),
               "servo_tilt_deg": tilt}
-    x = tuple(design[name] for name in VARIABLE_NAMES)
+    heights = tuple(grid(v[name]) for name in HEIGHT_NAMES) if config.heights is not None else ()
+    x = tuple(design[name] for name in VARIABLE_NAMES) + heights
     if config.goal.mount_policy == "searched":
         return x
     # Each pad at the least depth the joint's servo needs, within what it supports.
@@ -129,7 +132,7 @@ def to_design(coordinates: Sequence[float], config: RevoluteConfig) -> tuple[flo
     if not found.supported:
         return None
     design["proximal_drop_mm"], design["distal_drop_mm"] = found.depths_mm
-    return tuple(design[name] for name in VARIABLE_NAMES)
+    return tuple(design[name] for name in VARIABLE_NAMES) + heights
 
 
 def from_design(x: Sequence[float], config: RevoluteConfig) -> tuple[float, ...]:
@@ -147,6 +150,7 @@ def from_design(x: Sequence[float], config: RevoluteConfig) -> tuple[float, ...]
                    "app_share": share(d["app_x_mm"], p_low, p_high),
                    "bpp_share": share(d["bpp_from_a_mm"], d_low, d_high), "distal_drop_mm": d["distal_drop_mm"],
                    "proximal_drop_mm": d["proximal_drop_mm"], "servo_tilt_deg": d["servo_tilt_deg"]}
+    coordinates.update(zip(HEIGHT_NAMES, (float(v) for v in tuple(x[len(VARIABLE_NAMES):]) + (0.0, 0.0))))
     return tuple(coordinates[name] for name in search_names(config))
 
 

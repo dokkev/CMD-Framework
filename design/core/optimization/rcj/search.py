@@ -24,7 +24,7 @@ import numpy as np
 
 from core.morphology.packaging.gaps import servo_floor_x
 from core.morphology.packaging.hardware import Packaging
-from core.morphology.mechanism.rcj.solids import finger_length_mm
+from core.morphology.mechanism.rcj.solids import HEIGHT_NAMES, finger_length_mm
 from core.morphology.mechanism.revolute.solids import servo_rear
 
 from core.optimization.rcj.config import VARIABLE_NAMES, RcjConfig, distal_reach, proximal_reach
@@ -40,9 +40,9 @@ TILT_STEP_DEG = 1.0
 def search_names(config: RcjConfig) -> tuple[str, ...]:
     """:data:`SEARCH_NAMES`, without the drops when the goal's mounting policy sets them."""
 
-    if config.goal.mount_policy == "searched":
-        return SEARCH_NAMES
-    return tuple(name for name in SEARCH_NAMES if name not in DROP_NAMES)
+    names = SEARCH_NAMES if config.goal.mount_policy == "searched" else tuple(
+        name for name in SEARCH_NAMES if name not in DROP_NAMES)
+    return names + (HEIGHT_NAMES if config.heights is not None else ())
 
 
 @functools.lru_cache(maxsize=256)
@@ -62,6 +62,8 @@ def _tilt(value: float, config: RcjConfig) -> float:
 def search_box(config: RcjConfig) -> tuple[tuple[float, ...], tuple[float, ...]]:
     box = {"finger_length_mm": config.goal.extended_length_bounds_mm,
            "roller_radius_mm": config.bounds["roller_radius_mm"], "servo_tilt_deg": config.bounds["servo_tilt_deg"]}
+    if config.heights is not None:
+        box.update(zip(HEIGHT_NAMES, config.heights))
     names = search_names(config)
     return (tuple(box.get(name, (0.0, 1.0))[0] for name in names),
             tuple(box.get(name, (0.0, 1.0))[1] for name in names))
@@ -108,7 +110,8 @@ def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, .
               "bpp_from_b_mm": grid(d_low + v["bpp_share"] * (d_high - d_low)),
               "distal_drop_mm": min(grid(v["drop_share"] * r), r),
               "proximal_drop_mm": min(grid(v["proximal_drop_share"] * r), r), "servo_tilt_deg": tilt}
-    x = tuple(design[name] for name in VARIABLE_NAMES)
+    heights = tuple(grid(v[name]) for name in HEIGHT_NAMES) if config.heights is not None else ()
+    x = tuple(design[name] for name in VARIABLE_NAMES) + heights
     if config.goal.mount_policy == "searched":
         return x
     # Each pad at the least depth its own roller (and the servo) needs, within what they carry.
@@ -118,7 +121,7 @@ def to_design(coordinates: Sequence[float], config: RcjConfig) -> tuple[float, .
     if not found.supported:
         return None
     design["proximal_drop_mm"], design["distal_drop_mm"] = found.depths_mm
-    return tuple(design[name] for name in VARIABLE_NAMES)
+    return tuple(design[name] for name in VARIABLE_NAMES) + heights
 
 
 def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
@@ -137,6 +140,7 @@ def from_design(x: Sequence[float], config: RcjConfig) -> tuple[float, ...]:
                    "bpp_share": share(d["bpp_from_b_mm"], d_low, d_high),
                    "drop_share": share(d["distal_drop_mm"], 0.0, r),
                    "proximal_drop_share": share(d["proximal_drop_mm"], 0.0, r), "servo_tilt_deg": d["servo_tilt_deg"]}
+    coordinates.update(zip(HEIGHT_NAMES, (float(v) for v in tuple(x[len(VARIABLE_NAMES):]) + (0.0, 0.0))))
     return tuple(coordinates[name] for name in search_names(config))
 
 

@@ -43,6 +43,17 @@ joint end ``B''`` from ``A`` along ``A->C``, how far below ``A-C`` the distal
 pad's top face lies and below ``O-A`` the proximal pad's, and the distal
 servo's dorsal tilt from ``-X`` (degrees; the goal's PIP servo tilt, fixed or
 searched). The pads are plain rectangular blocks on their respective segments."""
+HEIGHT_NAMES = ("a_z_mm", "a_z_distal_mm")
+"""The joint ``A``'s height above the proximal link line (through ``O``) and above the distal one (through ``C``,
+parallel to ``A->C``): two optional values after a vector's own (0 when absent, the studies' joint on both lines;
+experimental, ``docs/experimental/pr_mr.md``). Each pad keeps its drop below its own link line."""
+
+
+def joint_heights(x: Sequence[float], names: Sequence[str]) -> tuple[float, float]:
+    """The two heights (:data:`HEIGHT_NAMES`) after a vector's ``names``, 0 where the vector stops."""
+
+    extra = [float(value) for value in x[len(names):len(names) + 2]]
+    return tuple(extra + [0.0] * (2 - len(extra)))
 
 
 def servo_rear(tilt_deg: float) -> tuple[float, float]:
@@ -73,6 +84,10 @@ class RevoluteGeometry:
     distal_mount_local: np.ndarray | None = None
     """The distal mounting line, ``B''`` then the fingertip end, in the distal
     frame (``None``: the pad's top face): the support, there whatever module it carries."""
+    a_z_mm: float = 0.0
+    """``A``'s height above the proximal link line (:data:`HEIGHT_NAMES`)."""
+    distal_line_mm: float = 0.0
+    """``A``'s height above the distal link line, which carries the distal pad and ``C`` (:data:`HEIGHT_NAMES`)."""
 
     @property
     def finger_length_mm(self) -> float:
@@ -89,7 +104,7 @@ class RevoluteGeometry:
         phi = np.atleast_1d(np.asarray(phi_rad, dtype=float))
         e = np.stack((np.cos(phi), -np.sin(phi)), axis=1)
         n = np.stack((-e[:, 1], e[:, 0]), axis=1)
-        a = np.array((self.a_x_mm, 0.0))
+        a = np.array((self.a_x_mm, self.a_z_mm))
         local = np.asarray(local, dtype=float)
         return a + local[None, :, :1] * e[:, None] + local[None, :, 1:] * n[:, None]
 
@@ -113,14 +128,14 @@ class RevoluteGeometry:
     def tip(self, phi_rad: np.ndarray) -> np.ndarray:
         """``C`` at distal flexions ``phi``, ``(n, 2)``."""
 
-        phi = np.atleast_1d(np.asarray(phi_rad, dtype=float))
-        return np.stack((self.a_x_mm + self.ac_length_mm * np.cos(phi), -self.ac_length_mm * np.sin(phi)), axis=1)
+        return self.posed(np.array(((self.ac_length_mm, -self.distal_line_mm),)), phi_rad)[:, 0]
 
 
 def geometry(x: Sequence[float], packaging: Packaging) -> RevoluteGeometry:
     """The solids of a design vector (its drops as given; the study sets them, ``evaluate.geometry``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    a_z, line = joint_heights(x, VARIABLE_NAMES)
     proximal, distal = packaging.proximal_pad, packaging.distal_pad
     start = packaging.proximal_pad_start_mm
     proximal_room = v["app_x_mm"] - start
@@ -132,13 +147,13 @@ def geometry(x: Sequence[float], packaging: Packaging) -> RevoluteGeometry:
     proximal_span = PadSpan(start, start + max(proximal_length, 1e-6), proximal_room)
     proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
-    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
-    servo = servo_footprint(packaging.pip_servo, (v["a_x_mm"], 0.0), servo_rear(v["servo_tilt_deg"]))
+    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"] + line)
+    servo = servo_footprint(packaging.pip_servo, (v["a_x_mm"], a_z), servo_rear(v["servo_tilt_deg"]))
     # The mounting line from B'' to the fingertip end, whatever the module.
-    mount = np.array(((outer - distal_room, -v["distal_drop_mm"]), (outer, -v["distal_drop_mm"])))
+    mount = np.array(((outer - distal_room, -v["distal_drop_mm"] - line), (outer, -v["distal_drop_mm"] - line)))
     return RevoluteGeometry(v["a_x_mm"], v["ac_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                             v["proximal_drop_mm"], servo,
-                            proximal_length, distal_length, proximal_room, distal_room, mount)
+                            proximal_length, distal_length, proximal_room, distal_room, mount, a_z, line)
 
 
 def carrier_local(distal_pad_local: np.ndarray, drop_mm: float, packaging) -> np.ndarray | None:
@@ -200,7 +215,7 @@ def margins(geo: RevoluteGeometry, phi: np.ndarray, checks: JointChecks,
         if checks.joint_servo:
             margins[(name, "pip_servo")] = footprint_gaps(solid, geo.distal_servo, packaging) - clearance
         else:
-            a = np.broadcast_to((geo.a_x_mm, 0.0), (count, 2))
+            a = np.broadcast_to((geo.a_x_mm, geo.a_z_mm), (count, 2))
             margins[(name, "a_pin")] = polygon_to_disk(solid, a, checks.joint_radius_mm) - clearance
         if packaging.pad_pad_check:
             margins[(name, "proximal_pad")] = polygon_gaps(solid, proximal, packaging) - clearance
@@ -245,7 +260,7 @@ def bar_capsule_margins(geo, phi: np.ndarray, radius_mm: float, clearance: float
     them), the distal pad against the proximal bar ``O-A``."""
 
     count = len(phi)
-    a = np.broadcast_to((geo.a_x_mm, 0.0), (count, 2))
+    a = np.broadcast_to((geo.a_x_mm, getattr(geo, "a_z_mm", 0.0)), (count, 2))
     near, far = np.moveaxis(geo.posed(geo.distal_mount, phi), 1, 0)
     proximal = np.broadcast_to(geo.proximal_pad, (count, *geo.proximal_pad.shape))
     margins = {("proximal_pad", f"link_{name}"): segment_polygon_gaps(proximal, start, end) - radius_mm - clearance
@@ -273,6 +288,6 @@ def between_samples(geo, phi: np.ndarray, margins: dict[tuple[str, str], np.ndar
                             lambda q, pairs: {pair: gap for pair, gap in margins_of(geo, q).items() if pair in pairs})
 
 
-__all__ = ["VARIABLE_NAMES", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples", "with_mcp_pairs",
+__all__ = ["HEIGHT_NAMES", "VARIABLE_NAMES", "joint_heights", "JointChecks", "RevoluteGeometry", "bar_capsule_margins", "between_samples", "with_mcp_pairs",
            "carrier_local", "contact_faces", "geometry",
            "margins", "servo_rear"]

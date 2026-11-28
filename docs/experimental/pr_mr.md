@@ -1183,3 +1183,22 @@ Not reproduced: condim-4 torsional friction at point contact, MuJoCo's mass-depe
   2. **Relay.** Skeleton ≥ Coverage > CoDe, in Isaac Lab (face) and in Drake (hydro).
   3. **Cube.** CoDe keeps the most of CoDe, Skeleton and Coverage, in Isaac Lab and in Drake (point).
   - A prediction fails on the mean if its inequality reverses on the 5-seed mean. Per-seed reversals are reported as such.
+
+## Pre-registration: Study 2 in the form of Eq. 9 (2026-11-27, before the run)
+
+- **Why.** The paper defines the redesign as Eq. 9: min over F′ of (Δ^prox_distal, Δ^base_distal, −C̄_pad) against each architecture's M0, with F′ freeing the pivots' heights above the link line. Fig. 3(c) plots `study2_redesign_2026-11-21`, which had two objectives (Δ^prox_distal, −C̄_pad) and the pivots on the link line. This run puts Fig. 3(c) in Eq. 9's form.
+- **Objectives** (`redesign.py --objective eq9`, NSGA-II, all three minimized):
+  - Δ^prox_distal = `contact_change` (Δ_contact): the distal contact point's path seen from the proximal pad face, against M0's;
+  - Δ^base_distal = `mcp_change` (Δ_MCP): the same path seen from F₁. It is the proximal-face path minus the proximal face depth, against M0's minus M0's depth, as e20 (MO-Pad) and the rows of `--free-heights` compute it;
+  - −C̄_pad under Study 1's goal for the thicker pad.
+- **Freed heights** (bounds as `--free-heights`: proximal −3 to 8 mm, distal −3 to 10 mm, for every architecture):
+  - **CFL:** A's and B's heights above their link lines, the joint-axes alignment dropped (as `--free-heights`).
+  - **2R-DD and 2R-remote:** the joint A's height above the proximal link line (through O) and above the distal link line (which carries the distal pad and the fingertip C). The servo on A (2R-DD) and A′ (2R-remote, fixed from A) ride with A. Each pad keeps its mount below its own link line, set by the mounting rule: the shallowest depth ≥ 0 that clears A's servo or pin and lugs, no deeper than that hardware's support. Raising A lets the proximal pad mount nearer the link line.
+  - **RCJ:** the analogous parameters exist: the proximal roller centre A above the proximal link line and the distal roller centre B above the distal link line. The servo rides with A. Each pad's mount is set by the same rule against its own roller.
+  - At heights 0, every architecture's design and evaluation are the studies' (tested).
+- **Budget.** As 2026-11-21: population 200, 200 generations, seeds 0 and 1, warm-started from M0 and Study 1's design for the thicker pad (heights 0), and from the previous thickness's front. Four architectures (cfl, 2r_dd, 2r_remote, rcj) × q_req 90/120/150 × 3 → 5/7/9 mm. Conditions without a Study 1 design are infeasible, as before. Output: `design/output/study/study2_redesign_eq9/`.
+- **Pick** (Fig. 3(c)'s value, `change_at_most_c_pad`). The old rule takes the coverage end of the (Δ, C̄) front: the most C̄_pad, ties to the least Δ^prox_distal. On the three-objective front the same rule holds: the most C̄_pad, ties to the least Δ^prox_distal, then the least Δ^base_distal. A second column gives the least Δ^prox_distal within 0.005 of that coverage (`change_near_c_pad`), as a robustness check of the pick.
+- **Prediction** (user). The results barely change, and the CFL still preserves Δ^prox_distal best of the four in every feasible condition. Operationally:
+  1. In every condition the CFL's pick has the least Δ^prox_distal of the four architectures (the paper's "in all nine conditions").
+  2. At 120°, 3 → 7 mm, the CFL's whole front lies at smaller Δ^prox_distal and higher C̄_pad than every point of every other front, on the (Δ^prox_distal, C̄_pad) projection.
+  3. "Barely change": each pick's Δ^prox_distal is within 0.5 mm of 2026-11-21's, and its C̄_pad within 0.03.

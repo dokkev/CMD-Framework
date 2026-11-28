@@ -55,13 +55,16 @@ class ParallelMechanism(RevoluteMechanism):
         return ParallelConfig.from_goal(config_from_goal(values))
 
     def config_to_json(self, config: ParallelConfig) -> dict[str, Any]:
-        return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds)}
+        return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds),
+                **({} if config.base.heights is None else {"heights": [list(pair) for pair in config.base.heights]})}
 
     def config_from_json(self, values: dict[str, Any]) -> ParallelConfig:
         goal = config_from_json(values["goal"])
         bounds = {name: tuple(pair) for name, pair in values["bounds"].items()}
         joint = RevoluteConfig.from_goal(goal, joint_servo=False)
-        base = RevoluteConfig(goal, {**joint.bounds, "servo_tilt_deg": bounds["servo_tilt_deg"]}, False)
+        heights = values.get("heights")
+        base = RevoluteConfig(goal, {**joint.bounds, "servo_tilt_deg": bounds["servo_tilt_deg"]}, False,
+                              heights=None if heights is None else tuple(tuple(pair) for pair in heights))
         return ParallelConfig(base, bounds)
 
     def search_names(self, config: ParallelConfig) -> tuple[str, ...]:
@@ -83,7 +86,8 @@ class ParallelMechanism(RevoluteMechanism):
         resolution = config.resolution_mm
         dx, dz = (round(round(float(value) / resolution) * resolution, 9)
                   for value in coordinates[joint_count:joint_count + 2])
-        x = (*joint, dx, dz)
+        heights = tuple(joint[JOINT_VARIABLES:])  # the joint's heights, when searched, after A'
+        x = (*joint[:JOINT_VARIABLES], dx, dz, *heights)
         if config.goal.mount_policy == "searched":
             return x
         # Each pad at the least depth A's pin and the servo on A' need, within what they carry.
@@ -94,14 +98,15 @@ class ParallelMechanism(RevoluteMechanism):
             return None
         design = dict(zip(VARIABLE_NAMES, x))
         design["proximal_drop_mm"], design["distal_drop_mm"] = found.depths_mm
-        return tuple(design[name] for name in VARIABLE_NAMES)
+        return tuple(design[name] for name in VARIABLE_NAMES) + heights
 
     def prepare(self, config: ParallelConfig) -> None:
         pass
 
     def from_design(self, x: Sequence[float], config: ParallelConfig) -> tuple[float, ...]:
-        return (*revolute_search.from_design(x[:JOINT_VARIABLES], config.base),
-                *(float(value) for value in x[JOINT_VARIABLES:]))
+        own = len(VARIABLE_NAMES)
+        return (*revolute_search.from_design((*x[:JOINT_VARIABLES], *x[own:]), config.base),
+                *(float(value) for value in x[JOINT_VARIABLES:own]))
 
     def refine(self, config: ParallelConfig, step_rad: float) -> ParallelConfig:
         goal = dataclasses.replace(config.goal, flexion_step_rad=step_rad)

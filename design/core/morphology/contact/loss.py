@@ -298,7 +298,7 @@ def joint_scene(mechanism: str, geo, packaging, phi_deg) -> Scene:
                   "pulley": Shapes(),
                   "roller": Shapes(disks=[(a, geo.roller_radius_mm), (b, geo.roller_radius_mm)])}
     else:
-        a = np.array((joint.a_x_mm, 0.0))
+        a = np.array((joint.a_x_mm, getattr(joint, "a_z_mm", 0.0)))
         others = {"link": Shapes(segments=_bars(((0.0, 0.0), a), (a, near), (a, far), (near, far))),
                   "pin": Shapes(disks=[(a, packaging.pivot_radius_mm("a"))]),
                   "mcp_servo": Shapes([mcp]),

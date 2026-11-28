@@ -48,13 +48,16 @@ class RevoluteMechanism(Mechanism):
     def config_to_json(self, config: RevoluteConfig) -> dict[str, Any]:
         return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds),
                 "search_bounds": dict(config.search_bounds), "joint_servo": config.joint_servo,
-                "joint_pulley": config.joint_pulley}
+                "joint_pulley": config.joint_pulley,
+                **({} if config.heights is None else {"heights": [list(pair) for pair in config.heights]})}
 
     def config_from_json(self, values: dict[str, Any]) -> RevoluteConfig:
         # Runs before 2026-10-26 also searched the chamfers, now gone (plain blocks).
         bounds = {name: tuple(pair) for name, pair in values["bounds"].items() if name in VARIABLE_NAMES}
+        heights = values.get("heights")
         return RevoluteConfig(config_from_json(values["goal"]), bounds, values.get("joint_servo", True),
-                              values.get("joint_pulley", False))
+                              values.get("joint_pulley", False),
+                              None if heights is None else tuple(tuple(pair) for pair in heights))
 
     # Searched in core.optimization.revolute.search's coordinates.
 

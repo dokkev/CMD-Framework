@@ -44,7 +44,7 @@ import numpy as np
 from core.morphology.packaging.gaps import footprint_gaps, polygon_gaps
 from core.morphology.packaging.hardware import MARGIN_TOLERANCE_MM, Packaging
 from core.morphology.packaging.shapes import PadSpan, ServoFootprint, pad_outline, polygon_to_disk, turn_points, servo_footprint
-from core.morphology.mechanism.revolute.solids import carrier_local, servo_rear, with_mcp_pairs
+from core.morphology.mechanism.revolute.solids import carrier_local, joint_heights, servo_rear, with_mcp_pairs
 
 
 VARIABLE_NAMES = ("a_x_mm", "roller_radius_mm", "bc_length_mm", "app_x_mm", "bpp_from_b_mm", "distal_drop_mm",
@@ -57,6 +57,10 @@ joint's radius, as the 2R's; each pad clears its own roller), and the
 servo's dorsal tilt from ``-X`` (degrees, as the 2R's ``servo_tilt_deg``;
 2026-11-05, 0 in a vector without it: the earlier fixed layout). The pads
 are plain blocks."""
+HEIGHT_NAMES = ("a_z_mm", "b_z_mm")
+"""The proximal roller's centre ``A`` above the proximal link line (through ``O``) and the distal one's ``B`` above
+the distal link line (through ``C``, parallel to ``B->C``): two optional values after the vector's own (0 when absent:
+the studies' rollers centred on both lines; experimental, ``docs/experimental/pr_mr.md``)."""
 SERVO_REAR = (-1.0, 0.0)
 """The servo on ``A`` laid back along ``-X`` untilted (``servo_tilt_deg`` 0):
 within the roller's depth (``r`` is at least its radius)."""
@@ -91,6 +95,10 @@ class RcjGeometry:
     proximal_drop_mm: float = 0.0
     distal_carrier_local: np.ndarray | None = None
     """The distal pad's carrier plate in the distal frame (``None``: none)."""
+    a_z_mm: float = 0.0
+    """``A`` above the proximal link line (:data:`HEIGHT_NAMES`)."""
+    distal_line_mm: float = 0.0
+    """``B`` above the distal link line, which carries the distal pad and ``C`` (:data:`HEIGHT_NAMES`)."""
 
     @property
     def finger_length_mm(self) -> float:
@@ -98,7 +106,7 @@ class RcjGeometry:
 
     @property
     def a(self) -> np.ndarray:
-        return np.array((self.a_x_mm, 0.0))
+        return np.array((self.a_x_mm, self.a_z_mm))
 
     def b(self, phi_rad: np.ndarray) -> np.ndarray:
         """The distal roller's centre at distal flexions ``phi``, ``(n, 2)``: the carrier turned by ``phi / 2``."""
@@ -138,13 +146,14 @@ class RcjGeometry:
     def tip(self, phi_rad: np.ndarray) -> np.ndarray:
         """``C`` at distal flexions ``phi``, ``(n, 2)``."""
 
-        return self.posed(np.array(((self.bc_length_mm, 0.0),)), phi_rad)[:, 0]
+        return self.posed(np.array(((self.bc_length_mm, -self.distal_line_mm),)), phi_rad)[:, 0]
 
 
 def geometry(x: Sequence[float], packaging: Packaging, joint_servo: bool = True) -> RcjGeometry:
     """The solids of a design vector (``joint_servo`` off: no servo on ``A``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
+    a_z, line = joint_heights(x, VARIABLE_NAMES)
     proximal, distal = packaging.proximal_pad, packaging.distal_pad
     r = v["roller_radius_mm"]
     start = packaging.proximal_pad_start_mm
@@ -156,12 +165,12 @@ def geometry(x: Sequence[float], packaging: Packaging, joint_servo: bool = True)
     proximal_span = PadSpan(start, start + max(proximal_length, 1e-6), proximal_room)
     proximal_outline = pad_outline(proximal_span, proximal) - (0.0, v["proximal_drop_mm"])
     distal_span = PadSpan(outer - max(distal_length, 1e-6), outer, distal_room)
-    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"])
-    servo = (servo_footprint(packaging.pip_servo, (v["a_x_mm"], 0.0), servo_rear(v.get("servo_tilt_deg", 0.0)))
+    distal_outline = pad_outline(distal_span, distal) - (0.0, v["distal_drop_mm"] + line)
+    servo = (servo_footprint(packaging.pip_servo, (v["a_x_mm"], a_z), servo_rear(v.get("servo_tilt_deg", 0.0)))
              if joint_servo else None)
     return RcjGeometry(v["a_x_mm"], r, v["bc_length_mm"], proximal_outline, distal_outline, v["distal_drop_mm"],
                        servo, proximal_length, distal_length, proximal_room, distal_room, v["proximal_drop_mm"],
-                       carrier_local(distal_outline, v["distal_drop_mm"], packaging))
+                       carrier_local(distal_outline, v["distal_drop_mm"] + line, packaging), a_z, line)
 
 
 def roller_mcp_gaps(centres: np.ndarray, radius_mm: float, packaging: Packaging,
@@ -207,5 +216,5 @@ def margins(geo: RcjGeometry, phi: np.ndarray, packaging: Packaging, mcp_samples
                           include_static_pairs)
 
 
-__all__ = ["SERVO_REAR", "TORQUE_RATIO", "VARIABLE_NAMES", "RcjGeometry", "finger_length_mm", "geometry", "margins",
+__all__ = ["HEIGHT_NAMES", "SERVO_REAR", "TORQUE_RATIO", "VARIABLE_NAMES", "RcjGeometry", "finger_length_mm", "geometry", "margins",
            "roller_mcp_gaps"]

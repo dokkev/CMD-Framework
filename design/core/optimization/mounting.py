@@ -250,7 +250,7 @@ def revolute_mounting(x: Sequence[float], config) -> Mounting:
     from core.optimization.revolute.config import VARIABLE_NAMES
 
     bare = tuple(0.0 if name in ("proximal_drop_mm", "distal_drop_mm") else float(value)
-                 for name, value in zip(VARIABLE_NAMES, x))
+                 for name, value in zip(VARIABLE_NAMES, x)) + tuple(float(v) for v in x[len(VARIABLE_NAMES):])
     return _cached(("revolute", bare), config, lambda: _revolute_mounting(bare, config))
 
 
@@ -263,11 +263,12 @@ def parallel_mounting(x: Sequence[float], config) -> Mounting:
     from core.morphology.mechanism.revolute_parallel.solids import VARIABLE_NAMES
     from core.optimization.revolute_parallel.evaluate import geometry
 
+    heights = tuple(float(v) for v in x[len(VARIABLE_NAMES):])  # the joint's heights (revolute.solids.HEIGHT_NAMES)
     bare = tuple(0.0 if name in ("proximal_drop_mm", "distal_drop_mm") else float(value)
-                 for name, value in zip(VARIABLE_NAMES, x))
+                 for name, value in zip(VARIABLE_NAMES, x)) + heights
     servo = geometry(bare, config).servo  # on A', the drops aside
     return _cached(("revolute_parallel", bare), config,
-                   lambda: _revolute_mounting(bare[:len(JOINT_NAMES)], config.base, servo))
+                   lambda: _revolute_mounting(bare[:len(JOINT_NAMES)] + heights, config.base, servo))
 
 
 def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
@@ -291,7 +292,7 @@ def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
 
     def gaps(depths: Sequence[float]) -> tuple[float, float]:
         geo = at(depths)
-        a = np.array([[geo.a_x_mm, 0.0]])
+        a = np.array([[geo.a_x_mm, geo.a_z_mm]])
         if not config.joint_servo:  # a pin at A (as the evaluator checks it)
             proximal = float(polygon_to_disk(geo.proximal_pad[None], a, radius)[0])
         elif packaging.pip_servo_pad_check:
@@ -309,7 +310,8 @@ def _revolute_mounting(x: Sequence[float], config, servo=None) -> Mounting:
     geo = at((0.0, 0.0))
     spans = ((float(geo.proximal_pad[:, 0].min()), float(geo.proximal_pad[:, 0].max())),
              (float(geo.distal_pad_local[:, 0].min()), float(geo.distal_pad_local[:, 0].max())))
-    centers = ((geo.a_x_mm, 0.0), (0.0, 0.0))
+    # The joint's centre from each pad's link line (above both by its heights; 0: on them).
+    centers = ((geo.a_x_mm, geo.a_z_mm), (0.0, geo.distal_line_mm))
     guesses = [clearing_depth_mm(span, center, radius + clearance) for span, center in zip(spans, centers)]
     # The servo's housing (or A's pin) as deep as it reaches below the line: the
     # proximal pad's support where it runs into it, being on its body. The
@@ -352,7 +354,7 @@ def rcj_mounting(x: Sequence[float], config) -> Mounting:
     from core.optimization.rcj.config import VARIABLE_NAMES
 
     bare = tuple(0.0 if name in ("proximal_drop_mm", "distal_drop_mm") else float(value)
-                 for name, value in zip(VARIABLE_NAMES, x))
+                 for name, value in zip(VARIABLE_NAMES, x)) + tuple(float(v) for v in x[len(VARIABLE_NAMES):])
     return _cached(("rcj", bare), config, lambda: _rcj_mounting(bare, config))
 
 
@@ -392,7 +394,7 @@ def _rcj_mounting(x: Sequence[float], config) -> Mounting:
     r = geo.roller_radius_mm
     spans = ((float(geo.proximal_pad[:, 0].min()), float(geo.proximal_pad[:, 0].max())),
              (float(geo.distal_pad_local[:, 0].min()), float(geo.distal_pad_local[:, 0].max())))
-    centers = ((geo.a_x_mm, 0.0), (0.0, 0.0))
+    centers = ((geo.a_x_mm, geo.a_z_mm), (0.0, geo.distal_line_mm))  # each roller's centre from its pad's line
     guesses = [clearing_depth_mm(span, center, r) for span, center in zip(spans, centers)]
     # Each roller is its own segment's body, the servo the proximal one's: each
     # carries its pad as deep as it reaches over the pad.

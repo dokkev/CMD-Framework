@@ -155,7 +155,9 @@ def joint_coverage(joint, poses_rad, l1_mm: float, l2_mm: float, distal_start_u_
         proximal_face, proximal_normal, distal_faces, distal_normals = contact_faces(joint, np.array([q]))
         cut = ((IntervalSet(), IntervalSet()) if hidden is None
                else hidden(q, proximal_face, proximal_normal, distal_faces[0], distal_normals[0]))
-        distal_start = joint.posed(np.array(((distal_start_u_mm, 0.0),)), np.array([q]))[0, 0]
+        # B'' on the distal link line (``distal_line_mm`` below the joint's centre; 0: through it).
+        line = getattr(joint, "distal_line_mm", 0.0)
+        distal_start = joint.posed(np.array(((distal_start_u_mm, -line),)), np.array([q]))[0, 0]
         found.append(PoseCoverage(float(q), common_length_mm(proximal_face, distal_faces[0], cut),
                                   posed_finger_length_mm(l1_mm, l2_mm, (l1_mm, 0.0), distal_start)))
     return tuple(found)
@@ -252,7 +254,7 @@ def evaluate(x: Sequence[float], config: RevoluteConfig) -> RevoluteEvaluation:
                                         - clearance) if packaging.pip_servo_pad_check else 0.0)
     elif max(static.values()) <= 0.0:  # idealized: only a pin at A, the proximal pad off its housing
         static["static_mcp_servo_mm"] = 0.0
-        a = np.array([[geo.a_x_mm, 0.0]])
+        a = np.array([[geo.a_x_mm, geo.a_z_mm]])
         static["static_pip_servo_pad_mm"] = -(float(polygon_to_disk(geo.proximal_pad[None], a, config.joint_radius_mm)[0])
                                        - clearance)
     if max(static.values()) <= 0.0:

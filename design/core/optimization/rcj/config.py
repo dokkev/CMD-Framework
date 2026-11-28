@@ -40,6 +40,9 @@ class RcjConfig:
     """The servo on ``A`` (packaged). ``False``: the idealized RCJ, driven from
     elsewhere, its rollers at least ``A``'s pin housing (and no tilt), as the
     idealized 2R's."""
+    heights: tuple[tuple[float, float], tuple[float, float]] | None = None
+    """Search bounds of the joint's two heights above the link lines (``HEIGHT_NAMES`` of the solids; experimental,
+    ``docs/experimental/pr_mr.md``), searched after the vector's own values; ``None``: on both lines (the studies')."""
 
     def __post_init__(self) -> None:
         if set(self.bounds) != set(VARIABLE_NAMES):

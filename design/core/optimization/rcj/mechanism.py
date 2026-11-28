@@ -35,11 +35,13 @@ class RcjMechanism(RevoluteMechanism):
         return RcjConfig.from_goal(config_from_goal(values))
 
     def config_to_json(self, config: RcjConfig) -> dict[str, Any]:
-        return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds), "joint_servo": config.joint_servo}
+        return {"goal": config_to_json(config.goal), "bounds": dict(config.bounds), "joint_servo": config.joint_servo,
+                **({} if config.heights is None else {"heights": [list(pair) for pair in config.heights]})}
 
     def config_from_json(self, values: dict[str, Any]) -> RcjConfig:
+        heights = values.get("heights")
         return RcjConfig(config_from_json(values["goal"]), {name: tuple(pair) for name, pair in values["bounds"].items()},
-                         values.get("joint_servo", True))
+                         values.get("joint_servo", True), None if heights is None else tuple(tuple(p) for p in heights))
 
     def search_names(self, config: RcjConfig) -> tuple[str, ...]:
         return search.search_names(config)

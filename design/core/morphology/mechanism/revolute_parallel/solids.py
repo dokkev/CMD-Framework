@@ -47,15 +47,16 @@ class ParallelGeometry:
 
     @property
     def a(self) -> np.ndarray:
-        return np.array((self.joint.a_x_mm, 0.0))
+        return np.array((self.joint.a_x_mm, self.joint.a_z_mm))
 
 
 def geometry(x: Sequence[float], packaging: Packaging, pulley_radius_mm: float) -> ParallelGeometry:
     """The solids of a design vector (the 2R's, then the servo on ``A'``)."""
 
     v = dict(zip(VARIABLE_NAMES, (float(value) for value in x)))
-    joint = revolute_geometry(tuple(x[:len(REVOLUTE_NAMES)]), packaging)
-    ap = np.array((joint.a_x_mm + v["ap_from_a_x_mm"], v["ap_from_a_z_mm"]))
+    # The joint's heights (revolute.solids.HEIGHT_NAMES) follow this vector's own values; A' rides with A.
+    joint = revolute_geometry(tuple(x[:len(REVOLUTE_NAMES)]) + tuple(x[len(VARIABLE_NAMES):]), packaging)
+    ap = np.array((joint.a_x_mm + v["ap_from_a_x_mm"], joint.a_z_mm + v["ap_from_a_z_mm"]))
     servo = packaging.pip_servo
     tilt = math.radians(v["servo_tilt_deg"])
     footprint = servo_footprint(servo, (float(ap[0]), float(ap[1])), (-math.cos(tilt), math.sin(tilt)))
