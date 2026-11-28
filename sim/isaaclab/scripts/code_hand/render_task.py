@@ -26,6 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 USD = {"O": "cfl_q120_h3to7_h0", "R": "cfl_q120_h3to7_hr", "U": "cfl_q120_h3to7_hu"}
 PIP = {"walk": {"index": 62.0, "middle": 38.0, "ring": 12.0}, "relay": {"index": 30.0, "middle": 16.0, "ring": 0.0},
        "cube": {}}
+CUBE_TURN_DEG = 0.0
+"""cube: the start grasp (a turned 40 mm cube would cut into the distal pads' wall; the figure draws the turn)."""
 CAM = {"walk": (0.10, -0.12, 0.12), "relay": (0.14, 0.13, 0.012), "cube": (0.08, -0.29, 0.15)}
 """Camera offset from the object, in the proximal pad-face frame (x toward the tips, z out of the pads) [m]."""
 OBJECT_RGB = (0.86, 0.55, 0.30)
@@ -38,6 +40,7 @@ def main(argv=None) -> int:
     p.add_argument("--pip", default="{}", help="JSON overrides of the PIP flexions [deg]")
     p.add_argument("--cam", type=float, nargs=3, default=None, help="camera offset from the object, face frame [m]")
     p.add_argument("--size", type=int, nargs=2, default=(1400, 1100))
+    p.add_argument("--turn", type=float, default=None, help="cube: its turn about the pad normal [deg], mid-rotation")
     args = p.parse_args(argv)
     pip = {**PIP[args.task], **json.loads(args.pip)}
     import pyglet
@@ -74,7 +77,9 @@ def main(argv=None) -> int:
         shapes.append(("cylinder", at([x, 0.0, walk.RADIUS_M + 0.0015]), quat(m), (walk.RADIUS_M, walk.LENGTH_M / 2)))
     elif args.task == "cube":  # the task's 40 mm cube at its rest pose in the pinch grasp (the episode's start)
         g = cube.pinch_grasp(desc)
-        shapes.append(("box", np.asarray(g["rest_env"]) - np.asarray(HAND_ROOT_POS), tuple(g["rest_quat_xyzw"]),
+        turn = Rotation.from_rotvec(r[:, 2] * math.radians(CUBE_TURN_DEG if args.turn is None else args.turn))
+        q_cube = tuple((turn * Rotation.from_quat(g["rest_quat_xyzw"])).as_quat())
+        shapes.append(("box", np.asarray(g["rest_env"]) - np.asarray(HAND_ROOT_POS), q_cube,
                        (cube.CUBE_SIZE_M / 2,) * 3))
     else:
         place = relay.dial_place_face()
@@ -106,6 +111,9 @@ def main(argv=None) -> int:
         for name, rad in cube.grasp_joint_pos(desc, g["thumb_mcp_deg"], g["thumb_ip_deg"]).items():
             if name in names:
                 q[starts[names.index(name)]] = rad
+        for digit, deg in pip.items():
+            for name, d_ in desc.closed_pose(digit, deg).items():
+                q[starts[names.index(name)]] = math.radians(d_)
     else:
         for digit in desc.four_bar_digits():
             for name, deg in desc.closed_pose(digit, pip.get(digit, 0.0)).items():

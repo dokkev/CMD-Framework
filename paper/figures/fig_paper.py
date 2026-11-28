@@ -836,6 +836,18 @@ def fig_rl():
         x0 = 0.46 + i * (aw + 0.28)
         iax = fig.add_axes(((x0 - 0.06) / W1, 1.26 / h, (aw + 0.12) / W1, ih / h))
         iax.imshow(renders[k]); iax.set_aspect("equal"); iax.axis("off")
+        # the object's motion in the task, drawn around it (located by its orange in the render)
+        im_ = renders[k].astype(int)
+        m_ = (im_[..., 0] > 170) & (im_[..., 1] > 95) & (im_[..., 1] < 215) & (im_[..., 2] < 140)
+        ys_, xs_ = np.nonzero(m_)
+        ox0, ox1, oy0, oy1 = np.percentile(xs_, 2), np.percentile(xs_, 98), np.percentile(ys_, 2), np.percentile(ys_, 98)
+        ocx, ocy, ow = (ox0 + ox1) / 2, (oy0 + oy1) / 2, ox1 - ox0
+        mot = dict(arrowstyle="-|>", mutation_scale=6, lw=1.0, color="#c0392b", shrinkA=0, shrinkB=0, zorder=5)
+        if k == "cube":  # turning about the vertical: an arc over the cube and one under it
+            iax.add_patch(FancyArrowPatch((ocx - 0.62 * ow, ocy - 0.05 * ow), (ocx + 0.62 * ow, ocy - 0.25 * ow),
+                                          connectionstyle="arc3,rad=-0.45", **mot))
+            iax.add_patch(FancyArrowPatch((ocx + 0.62 * ow, ocy + 0.05 * ow), (ocx - 0.55 * ow, ocy + 0.30 * ow),
+                                          connectionstyle="arc3,rad=-0.45", **mot))
         ax = fig.add_axes((x0 / W1, 0.42 / h, aw / W1, 0.80 / h))
         for j, (hh, hk, nm) in enumerate(MAP):
             for t_, (v, hatch) in enumerate(zip(rl[k]["ratio"][hh], ("", "////"))):
