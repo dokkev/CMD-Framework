@@ -496,3 +496,13 @@ frames (its surfaces sit 1 mm deeper at 7 mm); abstract "keep the most"; intro "
 wrong"; Fig. 5 caption names each task's performance and Skeleton's 2% walk; Conclusion grammar.
 Not taken (structure or implementation detail): per-test n and CIs, a pre-registration link, a FEM pad, practitioner
 baselines.
+
+s1v2: (V2, F2, Reject), (V3, F2, Invite), (V3, F2, Invite); confidence 4. Up from one invite to two. Still raised: H1
+near a consequence of the setpoint law, H3 post hoc, no deforming pad, no hardware, re-referencing as a cheap fix,
+|D_O| normalization. New: the s1v2 sentence "CoDe's interface mounts shallower" read as a mount-depth confound (r1,
+r3). Clarity: Table I signed median vs E, Table II parentheses and rho's contact model, the "CoDe (Sec. III-C)"
+reference, whether every hand is a CFL.
+Revised (s1v3, word level): the mount sentence now says the CFL's pole, not its pins, sets the contact motion, so its
+pivots can rise and the interface mount shallower; Table I caption says median of e_H; Table II caption names the
+hydroelastic parentheses and the pooled rho; "All are crossed four-bar fingers"; CoDe refers to Sec. III-B; the
+command sentence trimmed to fit the page.

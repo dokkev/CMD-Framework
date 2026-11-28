@@ -823,7 +823,7 @@ def fig4():
     pc = lambda v: "--" if v is None else f"{v:.0f}"
     rh = lambda v: f"${v:.2f}$".replace("-", "-")
     lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.4pt}",
-             r"  \caption{Drake tasks: $E$ (\%) at $7$\,mm, point (hydroelastic) contact; $\rho$ over $18$ redesigns}",
+             r"  \caption{Drake tasks: $E$ (\%) at $7$\,mm under point contact, hydroelastic in parentheses; $\rho$ over $18$ redesigns, both contact models ranked together}",
              r"  \label{tab:tasks}", r"  \begin{tabular}{lccccc}", r"    \toprule",
              r"    & \multicolumn{3}{c}{$E$, point (hydro.)} & \multicolumn{2}{c}{$\rho$ with} \\",
              r"    \cmidrule(lr){2-4} \cmidrule(lr){5-6}",
@@ -1023,7 +1023,7 @@ def table():
         num = f"{v:+.0f}" if round(v) != 0 else "0"
         return f"$\\mathbf{{{num}}}$" if hh == "C" else f"${num}$"
     lines = [r"\begin{table}[t]", r"  \centering", r"  \scriptsize", r"  \setlength{\tabcolsep}{1.2pt}",
-             r"  \caption{Signed effect error (\%) at $7$\,mm across simulators, contact models and commands. fric.: friction $1.3\to2.0$; stiff.: contact stiffness; compl.: a thicker, softer interface; conv.: a crowned interface; commands (friction change): joint torque, close at touch, contact force, and a setpoint re-referenced to $O$'s contact}",
+             r"  \caption{Signed effect error (\%) at $7$\,mm across simulators, contact models and commands: median of $e_H$ over placements. fric.: friction $1.3\to2.0$; stiff.: contact stiffness; compl.: a thicker, softer interface; conv.: a crowned interface; commands (friction change): joint torque, close at touch, contact force, and a setpoint re-referenced to $O$'s contact}",
              r"  \label{tab:robust}", r"  \resizebox{\columnwidth}{!}{%", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
              "    & " + " & ".join(name for name, _ in cols) + r" \\", r"    \midrule",
