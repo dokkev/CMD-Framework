@@ -341,7 +341,7 @@ def fig2():
     v = view_of(run.mechanism.name, run.config, list(run.mechanism.read_design(row)))
     qk = 0.0  # the extended pose only
     kax = fig.add_axes((0.02 / WC, 0.02 / h, (WC - 0.04) / WC, (hb - 0.10) / h))
-    kax.set_xlim(-16, 103); kax.set_ylim(-12, 26); kax.set_aspect("equal"); kax.axis("off")
+    kax.set_xlim(-16, 103); kax.set_ylim(-13.5, 26); kax.set_aspect("equal"); kax.axis("off")
     # the CAD side view underneath, semi-transparent, registered on the pivots A and B (pixel centres read from
     # finger_side.png: A (1448, 480), B (1975, 492)); similarity transform, the image rotated about A
     from PIL import Image as _Im
@@ -375,7 +375,21 @@ def fig2():
     st = four.sweep([qk])
     A, Ap = four.finger.joint.a.array, four.finger.joint.ap.array
     B, Bp, C = st.b[0], st.bp[0], st.tip[0]
-    O = np.zeros(2)
+    # the diagram follows the CAD (user, 2026-11-27): the points it shows are read off finger_side.png and mapped
+    # through the same registration as the image (A, A' and B agree with the model within 1 mm; the built MCP axis,
+    # pads and fingertip differ from the optimized design, so those come from the CAD); B' is the pin where the
+    # link from A meets the distal lug, partly hidden under the driven link
+    th = np.radians(tilt)
+
+    def px(u, v_):
+        du, dv = u - uA, v_ - vA
+        return np.array([Am[0] + (du * np.cos(th) + dv * np.sin(th)) / s_px,
+                         (du * np.sin(th) - dv * np.cos(th)) / s_px])
+    Bp = px(1748.0, 372.0)
+    A, Ap, B = px(1448.0, 480.0), px(1499.0, 260.0), px(1977.0, 491.0)
+    O, C = px(852.0, 480.0), px(2388.0, 491.0)
+    cad_pads = [[px(1060.0, 534.0), px(1580.0, 534.0), px(1580.0, 632.0), px(1060.0, 632.0)],
+                [px(1772.0, 528.0), px(2388.0, 528.0), px(2388.0, 618.0), px(1772.0, 618.0)]]
     d0 = v.distal_pad(0.0); dq = v.distal_pad(qk)
     ang = np.arctan2(*(dq[1] - dq[0])[::-1]) - np.arctan2(*(d0[1] - d0[0])[::-1])
     # proximal phalanx (ground link): O-A-A', dark grey
@@ -392,7 +406,7 @@ def fig2():
     for p1, p2 in ((Ap, B), (A, Bp)):
         kax.plot(*np.array([p1, p2]).T, color=INK, lw=1.1, solid_capstyle="round", zorder=12)
     # the pads (mounted at the shallowest depth the structure allows), blue as in every figure
-    for poly in (v.proximal_pad(), v.distal_pad(qk)):
+    for poly in cad_pads:
         kax.add_patch(Polygon(np.asarray(poly), fc="#9cc0ea", ec=BLUE, lw=0.6, alpha=0.85, zorder=8))
     # pivot packaging: the clearance each pin and its lugs need (filled), and the pivots: fixed filled, moving open
     pk = run.config.packaging
@@ -416,18 +430,20 @@ def fig2():
     import matplotlib.patheffects as pe
     halo = [pe.withStroke(linewidth=2.6, foreground="white")]
     arrow = dict(arrowstyle="-|>", lw=0.8, color=INK, mutation_scale=7, shrinkA=0, shrinkB=0, path_effects=halo)
-    kax.annotate("", xy=(0, 15), xytext=(0, 0), arrowprops=arrow, zorder=35)
-    kax.annotate("", xy=(15, -0.01), xytext=(0, 0), arrowprops=dict(arrow, color="#2b2b2b"), zorder=35)
-    kax.text(16.0, 1.0, "$x$", fontsize=6.5, va="bottom", zorder=36, path_effects=halo)
-    kax.text(-1.5, 15.5, "$z$", fontsize=6.5, ha="right", zorder=36)
-    kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
+    ox, oz = O
+    kax.annotate("", xy=(ox, oz + 15), xytext=(ox, oz), arrowprops=arrow, zorder=35)
+    kax.annotate("", xy=(ox + 15, oz - 0.01), xytext=(ox, oz), arrowprops=dict(arrow, color="#2b2b2b"), zorder=35)
+    kax.text(ox + 16.0, oz + 1.0, "$x$", fontsize=6.5, va="bottom", zorder=36, path_effects=halo)
+    kax.text(ox - 1.5, oz + 15.5, "$z$", fontsize=6.5, ha="right", zorder=36, path_effects=halo)
+    kax.text(ox - 3, oz + 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36,
+             path_effects=halo)
     fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
              va="top")
     # legend for what is drawn on the CAD: pads and pivot clearance
-    kax.add_patch(Polygon([(-14, -10.5), (-8, -10.5), (-8, -8.5), (-14, -8.5)], fc="#9cc0ea", ec=BLUE, lw=0.6, zorder=8))
-    kax.text(-7, -9.5, "pad", fontsize=5.8, va="center", color=INK2, zorder=36)
-    kax.add_patch(_C((3.5, -9.5), 1.6, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
-    kax.text(6, -9.5, "pivot clearance", fontsize=5.8, va="center", color=INK2, zorder=36)
+    kax.add_patch(Polygon([(-14, -12.5), (-8, -12.5), (-8, -10.5), (-14, -10.5)], fc="#9cc0ea", ec=BLUE, lw=0.6, zorder=8))
+    kax.text(-7, -11.5, "pad", fontsize=5.8, va="center", color=INK2, zorder=36)
+    kax.add_patch(_C((2.5, -11.5), 1.6, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
+    kax.text(5, -11.5, "pivot clearance", fontsize=5.8, va="center", color=INK2, zorder=36)
     save_figure(fig, DEST / "fig_mechanisms.pdf")
     plt.close(fig)
     print("fig2", h)
