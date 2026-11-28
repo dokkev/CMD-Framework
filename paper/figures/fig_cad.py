@@ -513,11 +513,16 @@ def main() -> int:
                 for pt_ in (DB, DBp):
                     ax.plot(*pt_, marker="o", ms=1.8, mfc="white", mec=INK, mew=0.5, zorder=6)
             o1 = co[k_]
-            ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
+            if key == "conv_e25":  # Skeleton is judged on O's links: O's distal triangle, dashed
+                OB, OC = o1 - 40.0 * d_ + DEPTH["O"] * nn_, o1 + 3 * d_ + DEPTH["O"] * nn_
+                OBp = OB + 0.22 * (OC - OB) + 10.0 * nn_
+                ax.add_patch(Polygon([OB, OBp, OC], fc="none", ec=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5))
+            else:  # CoDe is judged on O's distal pad surface, dashed
+                ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
         ax.set_xlim(-4, 100); ax.set_ylim(-46, 36); ax.set_aspect("equal"); ax.axis("off")
         ax.text(50, 36, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
         ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
-    fig.text(*inch(2.62, yc - 1.13), "dashed: O's distal pad surface", fontsize=5.0,
+    fig.text(*inch(2.62, yc - 1.13), "dashed: O's pad surface (CoDe), O's links (Skeleton)", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
