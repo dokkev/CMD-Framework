@@ -623,7 +623,7 @@ def fig3():
     fig.text(2.1 / W, 0.02 / h, "green: $T=T_1\\cap T_2$, where both pads hold a cylinder;  "
              "$\\bar C_{pad}$ averages $2|T|/L_f$ over $Q_{eval}$", fontsize=5.6, color=INK2, ha="center",
              va="bottom")
-    label(fig, 4.05, row_b + 0.02, "(c) Preservation, $3\\to5,7,9$ mm", h)
+    label(fig, 4.05, row_b + 0.02, "(c) Redesign, $3\\to5,7,9$ mm", h)
     # (c) right: each redesign's Delta_d^p in mm against the fixed-axis bound 2 sin(q/2)|Delta t| (dashed), every
     # condition (user, 2026-11-28: mm, not a normalized share); x: no feasible redesign
     YHI = 0.0
