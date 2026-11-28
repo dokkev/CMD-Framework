@@ -1134,3 +1134,30 @@ Not reproduced: condim-4 torsional friction at point contact, MuJoCo's mass-depe
   1. CoDe's ratio exceeds Skeleton's and Coverage's.
   2. Skeleton's and Coverage's ratios are below 0.3.
   - It fails if any of these inequalities reverses for either seed.
+
+## Result: Drake walk transfer with Isaac Lab's pads, contact and servos (2026-11-27)
+
+**Runs.** `policy_transfer.py run --task walk --match mujoco`, 32 episodes per hand and training seed, all completed (tags `wm1_hydro`, `wm1_point`).
+
+**Table.** Each hand's mean walk over O's, per training seed s20 / s21; the share of episodes that drop the cylinder in brackets.
+
+| contact | O (mm) | CoDe (MO-Pad) | Skeleton | Coverage | R |
+|---|---|---|---|---|---|
+| **hydro (primary)** | 361 / 310 | **0.95 / 0.90** (0 / 0) | 0.07 / 0.19 (0 / 0) | 0.72 / 0.70 (0.06 / 0.12) | 0.86 / 0.86 (0 / 0) |
+| point (gate failed) | 178 / 66 | −0.05 / −0.26 (0.12 / 0.12) | 0.08 / −0.08 (0.59 / 0.31) | 0.08 / −0.25 (0.16 / 0.12) | −0.01 / 0.12 (0.06 / 0.06) |
+| Isaac Lab (reference) | 519 / 563 | 0.71 / 0.59 | 0.025 / 0.009 | 0.08 / 0.07 | 0.72 / 0.61 |
+
+- **Prediction 1 holds.** CoDe's ratio exceeds Skeleton's and Coverage's under both seeds (0.95 against 0.07 / 0.72; 0.90 against 0.19 / 0.70).
+- **Prediction 2 fails, for Coverage.**
+  - Skeleton stays below 0.3 (0.07 / 0.19).
+  - Coverage keeps 0.72 / 0.70 of O's walk in Drake, against 0.08 / 0.07 in Isaac Lab.
+  - So the registered prediction fails as stated.
+- **Reading.**
+  - In a second simulator, CoDe keeps the walk, as do R and O, and Skeleton loses it. This part of Isaac Lab's split replicates.
+  - Coverage's collapse does not replicate. Isaac Lab's Coverage result depends on simulator details that Drake does not share. Its ranking between Skeleton and CoDe is therefore not a robust Drake check.
+  - Every hand keeps more of O's walk in Drake than in Isaac Lab, CoDe 0.95 / 0.90 against 0.71 / 0.59.
+- **Point contact.** It failed the gate on O (34% / 12%), and every hand walks about nothing. It carries no information about the hands.
+- **Fidelity limits.**
+  - The Drake model reproduces Isaac Lab's implicit servos, which exceed the XM335's speed (up to 19 rad/s at the servo against its 5.55 rad/s no-load speed). The walk is a property of that model, not of the real servo.
+  - There is no condim-4 torsional friction at point contact.
+  - Hydroelastic pads (0.1 MPa over 3 mm) sink about 0.8 mm deeper than MuJoCo's at an edge contact.
