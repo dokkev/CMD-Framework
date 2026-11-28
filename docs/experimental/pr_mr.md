@@ -892,3 +892,21 @@ Against the predictions registered for `conv_e25` and carried over to SKF:
   
   This reading is post hoc and is not counted as a confirmed prediction.
 - **For the paper.** If Skeleton becomes conv_e25f, the walk/relay split is unchanged: walk follows Δ_contact and relay follows Δ_skel. Fig. 5's cube column would show palm shifts of 1 (SKF) against 4 (Coverage) instead of three equal values. The swap waits for MO-Pad's Isaac reruns, so that CoDe and Skeleton change together.
+
+## Result: S2F in the RL tasks (2026-11-27)
+
+`run_s2f_rl.sh`, then `run_s2f_cube_redo.sh`. The first S2F and S2F9 cube grasp generations failed for lack of GPU memory (rc 1, around 18:00, alongside a render job). The redo has every eval at rc 0. Ratios are computed as in the Skeleton RL result (μ 1.3, mean of the two eval seeds, per training seed s20 / s21; relay over Original's face-anchor rotation).
+
+| task | **S2F** | Pad-Pad (R) | MO-Pad |
+|---|---|---|---|
+| 7b′ walk (s20 / s21) | **0.737 / 0.613** | 0.724 / 0.612 | 0.712 / 0.593 |
+| relay, face (s20 / s21) | **0.60 / 0.57** | 0.57 / 0.56 | 0.57 / 0.56 |
+| relay, f1 (s20 / s21) | **0.62 / 0.62** | 0.68 / 0.69 | 0.69 / 0.63 |
+| cube 5 mm (s20 / s21) | **0.933 / 1.021** | — | — |
+| cube 7 mm (s20 / s21) | **0.926 / 0.496** | 0.749 / 0.187 | 0.938 / 0.564 |
+| cube 9 mm (s20 / s21) | **0.800 / 0.213** | — | MRM9 0.815 / 0.215 |
+
+- **Prediction 3 holds** (seed-20 policy, as registered): S2F 0.926 ≥ 0.90, S2F5 0.933 ≥ 0.90, and S2F9 0.800 within 0.75–0.88. Under seed 21 the order is the same: S2F (0.50) is far above Pad-Pad (0.19), and S2F9 (0.21) is at Pad-Pad's level.
+- **Prediction 4 holds:** the walk ratio is 0.737 / 0.613, above 0.55 and level with Pad-Pad (Δ_contact 0.85 against 0.86).
+- **Relay** (no prediction): about Pad-Pad's, as Δ_skel (5.24) predicts.
+- **Reading:** in RL, S2F matches MO-Pad at 5 and 7 mm, by keeping the face place (Δd_p ≤ 1) without MO-Pad's extra objective. At 9 mm both fall to Δd_p 3 and score alike, so here MO-Pad's extra objective buys nothing over S2F in the cube.
