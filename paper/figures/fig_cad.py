@@ -327,7 +327,7 @@ def main() -> int:
     BOLD = dict(fontweight="bold", family="Nimbus Sans")
     # single column (user, 2026-11-27): (a) the hand and (b) the interfaces on top; (c) the two redesigns running the
     # reference hand's command below; the redesign operator panel is dropped
-    W_, H_ = 3.45, 3.92
+    W_, H_ = 3.45, 3.60
     fig = plt.figure(figsize=(W_, H_))
     conc = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["hands"]
     sync = json.load(open(ROOT / "report" / "study3" / "data" / "fig4_sync.json"))["tasks"]
@@ -370,7 +370,7 @@ def main() -> int:
     box(0.02, TB, W_ - 0.04, top - TB, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
     plabel(0.07, top - 0.04, "a", "original design")
     hand = usd_render(CAD / "hand_usd_relaxed.png")
-    image(hand, 0.06, TB + 0.04, fit=(1.12, top - TB - 0.24))
+    image(hand, 0.03, TB + 0.02, fit=(1.24, top - TB - 0.14))
     # the policy learned on the original design (user, 2026-11-28): a small network badge, pi_O
     def nn_icon(x0, y0, sc, z=6):
         """A small policy network in the style the user gave (2026-11-28): 2-3-2 nodes, blue strokes, white fill."""
@@ -387,9 +387,8 @@ def main() -> int:
                 fig.patches.append(Circle(inch(xx, yy), 0.026 * sc / W_, transform=fig.transFigure, fc="white",
                                           ec=NB, lw=1.0 * sc, zorder=z + 1))
     # the task policy learned on the original hand, beside it (user, 2026-11-28: no virtual object, no overlap)
-    nn_icon(1.235, TB + 0.42, 0.85, z=9)
-    fig.text(*inch(1.345, TB + 0.56), "task policy\n$\\pi_O$", fontsize=5.6, ha="center", va="bottom", color=INK,
-             linespacing=1.0)
+    nn_icon(1.24, top - 0.36, 0.75, z=9)
+    fig.text(*inch(1.34, top - 0.25), "task policy $\\pi_O$", fontsize=5.6, ha="center", va="bottom", color=INK)
     rx = 1.55
     box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
@@ -444,7 +443,7 @@ def main() -> int:
         ax.plot(*tip, marker="o", ms=2.2, color=col, zorder=5)
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
     from matplotlib.colors import LinearSegmentedColormap
-    lax = fig.add_axes((0.05 / W_, (yc - 1.20) / H_, 1.55 / W_, 1.10 / H_), projection="3d")
+    lax = fig.add_axes((0.05 / W_, (yc - 1.10) / H_, 1.55 / W_, 1.04 / H_), projection="3d")
     gx, gy = np.meshgrid(np.linspace(-1, 1, 60), np.linspace(-1, 1, 60))
     zz = (0.55 + 0.25 * (gx ** 2 + gy ** 2) - 0.55 * np.exp(-((gx - 0.45) ** 2 + (gy + 0.35) ** 2) / 0.10)
           - 0.28 * np.exp(-((gx + 0.50) ** 2 + (gy - 0.40) ** 2) / 0.12))
@@ -472,7 +471,7 @@ def main() -> int:
     lax.scatter([-0.50], [0.40], [zc + 0.02], color=TEAL_, s=12, zorder=11, depthshade=False)
     lax.text(-0.50, 0.40, zc + 0.22, "Skeleton", fontsize=5.6, color=TEAL_, ha="center", zorder=12, **BOLD)
     lax.set_axis_off(); lax.view_init(elev=32, azim=-58); lax.set_box_aspect((1, 1, 0.55), zoom=1.45)
-    fig.patches.append(FancyArrowPatch(inch(1.62, yc - 0.62), inch(1.78, yc - 0.62), transform=fig.transFigure,
+    fig.patches.append(FancyArrowPatch(inch(1.62, yc - 0.56), inch(1.78, yc - 0.56), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
     # the distal pad's contact-point path seen from the proximal pad, overlaid on O's (user, 2026-11-28: data, not a
     # schematic); design/output/paper/fig1_paths_ORU.json, 3 -> 7 mm, q = 0..120 deg
@@ -482,7 +481,7 @@ def main() -> int:
     BONE = "#5b5b59"
     for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "CoDe", BLUE_, "pad surface tracks O's"),
                                                   ("conv_e25", "Skeleton", TEAL_, "skeleton tracks O's,\npad surface drifts"))):
-        ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.98 / H_))
+        ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.00) / H_, 0.82 / W_, 0.94 / H_))
         co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
         dep = DEPTH[key]
         pt = 0.75 * dep  # the interface drawn between its surface and the bone
@@ -515,31 +514,30 @@ def main() -> int:
             o1 = co[k_]
             if key == "conv_e25":  # Skeleton is judged on O's links: O's distal triangle, dashed
                 OB, OC = o1 - 40.0 * d_ + DEPTH["O"] * nn_, o1 + 3 * d_ + DEPTH["O"] * nn_
-                OBp = OB + 0.22 * (OC - OB) + 10.0 * nn_
-                ax.add_patch(Polygon([OB, OBp, OC], fc="none", ec=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5))
+                ax.plot(*np.array([OB, OC]).T, color=INK, lw=0.9, ls=(0, (2.0, 1.4)), zorder=5)  # O's distal link only
             else:  # CoDe is judged on O's distal pad surface, dashed
                 ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
         ax.set_xlim(-4, 100); ax.set_ylim(-46, 36); ax.set_aspect("equal"); ax.axis("off")
         ax.text(50, 36, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
         ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top", linespacing=1.1)
-    fig.text(*inch(2.62, yc - 1.13), "dashed: O's pad surface (CoDe), O's links (Skeleton)", fontsize=5.0,
+    fig.text(*inch(2.55, yc - 1.00), "dashed: O's distal pad (CoDe), O's distal link (Skeleton)", fontsize=4.8,
              color=INK2, ha="center", va="top")
-    fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
+    fig.text(*inch(W_ / 2, yc - 1.12), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
     # ---- (d) (user, 2026-11-28): a policy learned on O (a neural network pi) runs unchanged on each redesign with the
     # thicker interface; on CoDe it keeps working, so the interface can be evaluated through it. Finger walk, Isaac Lab,
     # 7 mm, the share of O's performance kept (report/study4/data/rl_transfer.json, mean of the training seeds).
-    yd = yc - 1.42
+    yd = yc - 1.24
     plabel(0.07, yd, "d", "policy transfer")
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]["walk"]["ratio"]
     kept = {"O": 1.0, "MRM": float(np.mean(rl["MRM"])), "U": float(np.mean(rl["U"]))}
     # the policy: a small neural network, labelled pi_O, then the task it runs (the finger-walk render), then the hands
-    nx0, ny0 = 0.12, yd - 0.86
+    nx0, ny0 = 0.12, yd - 0.76
     nn_icon(nx0 + 0.02, ny0 + 0.26, 0.95, z=2)
     fig.text(*inch(0.08, ny0 + 0.50), "same task policy $\\pi_O$", fontsize=5.8, ha="left", va="bottom",
              color=INK)
     walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_cube_O.png")
-    wax = fig.add_axes((0.50 / W_, (yd - 0.98) / H_, 0.62 / W_, 0.66 / H_))
+    wax = fig.add_axes((0.50 / W_, (yd - 0.88) / H_, 0.62 / W_, 0.66 / H_))
     wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
     fig.patches.append(FancyArrowPatch(inch(nx0 + 0.33, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
@@ -547,7 +545,7 @@ def main() -> int:
     # the same policy; CoDe follows O's walk, Coverage leaves it
     fig.patches.append(FancyArrowPatch(inch(1.12, ny0 + 0.26), inch(1.30, ny0 + 0.26), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
-    tax = fig.add_axes((1.42 / W_, (yd - 1.00) / H_, 1.90 / W_, 0.70 / H_))
+    tax = fig.add_axes((1.42 / W_, (yd - 0.84) / H_, 1.90 / W_, 0.68 / H_))
     tt = np.linspace(0, 1, 400)
     # cube rotation over time: O turns it steadily, CoDe nearly as fast, Skeleton falls behind and stalls
     wig = lambda a, f: a * np.sin(f * tt) * tt
