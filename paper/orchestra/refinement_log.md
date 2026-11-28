@@ -446,3 +446,9 @@ User (2026-11-27): review is spear against shield; the body gives the detail of 
 (paper SSoT section 5). v55: Drake replication of relay/cube in the RL paragraph, walk's non-transfer in the
 Limitations; Delta_contact = 0 stated as same points and same Jacobian; statistic of Fig. 1(d) vs Table I named;
 set counts and the revolute aside removed.
+
+v55: 5, 5, 5 (Presentation 2, 2, 3). New shared attack: circularity, i.e. "error vs O tracks Delta_contact by
+construction" and "O is unrealizable". v56 shields (logic only): O is the one hand whose effect is not mixed with a
+kinematic change; the test is not circular because Skeleton keeps O's fingertip path as closely as CoDe keeps O's
+contact surfaces; Eq. 3 holds for every point of the distal surface at once; a learned policy has no setpoint to
+re-reference. Counts (n) still asked for; left out per the no-implementation-detail rule.
