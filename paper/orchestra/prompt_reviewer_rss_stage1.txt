@@ -14,6 +14,11 @@ figures and tables), and you review responsibly and constructively.
 - "A hypothesis is judged by its scientific value, meaning that 'negative' results are valued equally with positive
   ones." Missing hardware or missing experiments are not, by themselves, reasons to reject at Stage 1; they belong in
   the Extension Charter if they are needed to support or refute the hypothesis.
+- Calibrate against the real field, not the letter of the rules. Although Stage 1 allows preliminary experiments, the
+  strongest competing submissions arrive with near-complete results: hardware, many tasks, careful ablations. You
+  are reviewing this paper against those monsters, not against an idealized "semi-complete" abstract. Let the
+  amount and quality of evidence already shown weigh fully in Feasibility of Conclusion, be demanding about what is
+  claimed versus shown, and do not award a 3 or 4 out of leniency.
 - The related work should cite only literature directly tied to the paper's central problem and novelty; judge
   citations by direct relevance, not comprehensiveness.
 - Papers that pass Stage 1 are invited to a rebuttal; the Area Chair then turns the reviews into an Extension Charter
