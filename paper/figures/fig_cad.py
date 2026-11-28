@@ -462,26 +462,29 @@ def main() -> int:
     lax.plot(path[:, 0], path[:, 1], pz, color="#fff3d6", lw=1.4, zorder=10)
     lax.scatter([path[0, 0]], [path[0, 1]], [pz[0]], color="#4D4D4D", s=8, zorder=11, depthshade=False)
     lax.scatter([path[-1, 0]], [path[-1, 1]], [pz[-1]], color=BLUE_, s=14, zorder=11, depthshade=False)
-    lax.text(path[0, 0] + 0.35, path[0, 1], pz[0] + 0.22, "O + new interface", fontsize=5.0, color=INK, ha="center", zorder=12)
+    lax.text(path[0, 0] + 0.55, path[0, 1] - 0.10, pz[0] + 0.40, "O + new interface", fontsize=5.0, color=INK, ha="center", zorder=12)
     lax.text(path[-1, 0] + 0.05, path[-1, 1], pz[-1] - 0.25, "CoDe", fontsize=6.0, color=BLUE_, ha="left", zorder=12, **BOLD)
     zc = 0.55 + 0.25 * (0.5 ** 2 + 0.4 ** 2) - 0.28 - 0.55 * np.exp(-((-0.95) ** 2 + 0.75 ** 2) / 0.10)
     lax.scatter([-0.50], [0.40], [zc + 0.02], color=TEAL_, s=12, zorder=11, depthshade=False)
     lax.text(-0.50, 0.40, zc + 0.22, "Skeleton", fontsize=5.6, color=TEAL_, ha="center", zorder=12, **BOLD)
     lax.set_axis_off(); lax.view_init(elev=32, azim=-58); lax.set_box_aspect((1, 1, 0.55), zoom=1.45)
-    fig.text(*inch(0.84, yc - 0.10), r"$\min\;\Delta^{\mathrm{prox}}_{\mathrm{distal}},\,\Delta^{\mathrm{base}}_{\mathrm{distal}},\,-\bar C_{pad}$",
-             fontsize=6.0, ha="center", va="top", color=INK)
     fig.patches.append(FancyArrowPatch(inch(1.62, yc - 0.62), inch(1.78, yc - 0.62), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
-    for j, (nm, col, skel, face, verdict) in enumerate((
-            ("CoDe", BLUE_, (4.0, 3.0), (0.0, 0.0), "contact surfaces kept,\nskeleton moved"),
-            ("Skeleton", TEAL_, (0.0, 0.0), (4.0, -3.0), "skeleton kept,\ncontact surfaces moved"))):
-        ax = fig.add_axes(((1.80 + j * 0.82) / W_, (yc - 1.10) / H_, 0.80 / W_, 0.90 / H_))
-        finger(ax, "#6b6b69", (0, (2.5, 1.5)), 0.7, 3.0, fill=False)
-        finger(ax, col, "-", 1.1, 7.0, skel=skel, face=face)
-        ax.set_xlim(-2, 62); ax.set_ylim(-46, 12); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(30, 11, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
-        ax.text(30, -38, verdict, fontsize=5.0, color=col, ha="center", va="top")
-    fig.text(*inch(2.62, yc - 1.13), "dashed: O (exaggerated)", fontsize=5.0,
+    # the distal pad's contact-point path seen from the proximal pad, overlaid on O's (user, 2026-11-28: data, not a
+    # schematic); design/output/paper/fig1_paths_ORU.json, 3 -> 7 mm, q = 0..120 deg
+    for j, (key, nm, col) in enumerate((("mrmid_free", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_))):
+        ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.96 / H_))
+        co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
+        ax.plot([0, 48], [0, 0], color="#9a9a97", lw=3.0, solid_capstyle="butt", zorder=1)  # the proximal pad's face
+        ax.plot(*co.T, color="#4D4D4D", lw=0.9, ls=(0, (2.5, 1.5)), zorder=3)
+        ax.plot(*ch.T, color=col, lw=1.4, zorder=2)
+        for k_ in (0, 60, 120):
+            ax.plot(*ch[k_], marker="o", ms=2.0, color=col, zorder=4)
+        dev = float(np.max(np.linalg.norm(ch - co, axis=1)))
+        ax.set_xlim(-2, 96); ax.set_ylim(-48, 20); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(48, 19, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.text(48, -40, f"off O's path by {dev:.1f} mm", fontsize=5.0, color=col, ha="center", va="top")
+    fig.text(*inch(2.62, yc - 1.13), "grey: proximal pad;  dashed: O", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
@@ -509,7 +512,7 @@ def main() -> int:
             fig.patches.append(Circle(inch(xx, yy), 0.028 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
                                       lw=0.5, zorder=3))
     fig.text(*inch(nx0 + 0.165, ny0 + 0.52), r"same $\pi_O$", fontsize=7, ha="center", va="bottom", color=INK)
-    walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_walk_O.png")
+    walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_cube_O.png")
     wax = fig.add_axes((0.50 / W_, (yd - 0.98) / H_, 0.62 / W_, 0.66 / H_))
     wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
     fig.patches.append(FancyArrowPatch(inch(nx0 + 0.37, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
@@ -520,10 +523,11 @@ def main() -> int:
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
     tax = fig.add_axes((1.42 / W_, (yd - 1.00) / H_, 1.90 / W_, 0.70 / H_))
     tt = np.linspace(0, 1, 400)
-    sm = lambda u: 0.5 - 0.5 * np.cos(np.pi * np.clip(u, 0, 1))
-    xo = 0.2 + 0.6 * (sm((tt - 0.08) / 0.16) - sm((tt - 0.42) / 0.16) + sm((tt - 0.74) / 0.16))
-    xc = 0.2 + 0.6 * (sm((tt - 0.10) / 0.17) - sm((tt - 0.44) / 0.17) + sm((tt - 0.76) / 0.17)) - 0.03
-    xu = 0.2 + 0.25 * sm((tt - 0.10) / 0.25) + 0.04 * np.sin(9 * tt) * sm((tt - 0.25) / 0.2)
+    # cube rotation over time: O turns it steadily, CoDe nearly as fast, Skeleton falls behind and stalls
+    wig = lambda a, f: a * np.sin(f * tt) * tt
+    xo = 0.10 + 0.80 * tt + wig(0.015, 23)
+    xc = 0.10 + 0.72 * tt + wig(0.02, 19)
+    xu = 0.10 + 0.32 * (1 - np.exp(-tt / 0.35)) + wig(0.015, 17)
     tax.plot(tt, xo, color="#4D4D4D", lw=1.0, ls=(0, (3, 2)), label="O")
     tax.plot(tt, xc, color=BLUE_, lw=1.4, label="CoDe")
     tax.plot(tt, xu, color=TEAL_, lw=1.4, label="Skeleton")
@@ -531,11 +535,11 @@ def main() -> int:
     for sp in ("top", "right"):
         tax.spines[sp].set_visible(False)
     tax.spines["left"].set_linewidth(0.5); tax.spines["bottom"].set_linewidth(0.5)
-    tax.set_xlabel("time", fontsize=5.6, labelpad=1); tax.set_ylabel("object along the pads", fontsize=5.6, labelpad=1)
-    tax.text(0.98, xo[-1] + 0.06, "O", fontsize=6.0, color="#4D4D4D", ha="right", va="bottom", **BOLD)
-    tax.text(0.62, 0.86, "CoDe", fontsize=6.2, color=BLUE_, ha="center", va="bottom", **BOLD)
-    tax.text(0.98, xu[-1] - 0.17, "Skeleton", fontsize=6.2, color=TEAL_, ha="right", va="top", **BOLD)
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps walking; on Skeleton it does not", fontsize=5.8,
+    tax.set_xlabel("time", fontsize=5.6, labelpad=1); tax.set_ylabel("cube rotation", fontsize=5.6, labelpad=1)
+    tax.text(0.90, xo[-1] + 0.02, "O", fontsize=6.0, color="#4D4D4D", ha="right", va="bottom", **BOLD)
+    tax.text(0.97, xc[-1] - 0.05, "CoDe", fontsize=6.2, color=BLUE_, ha="right", va="top", **BOLD)
+    tax.text(0.98, xu[-1] - 0.06, "Skeleton", fontsize=6.2, color=TEAL_, ha="right", va="top", **BOLD)
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps turning the cube; on Skeleton it falls behind", fontsize=5.8,
              ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
