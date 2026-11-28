@@ -868,3 +868,27 @@ Skeleton at 5 / 9 mm in the cube: 0.810 / 0.531 (s20), 0.342 / 0.153 (s21).
 | Skeleton | 5 | +83% | 198% |
 
 - Skeleton overstates the convex pad's effect and errs more than Coverage in magnitude, on the same 5 pairs. Few pairs pass for the two thick-contact hands (O's convex-pad gate), so this is a small sample.
+
+## Result: pins-free Skeleton (conv_e25f) in the RL tasks (2026-11-27)
+
+`run_skf_rl.sh`, every eval rc 0. Ratios are computed as in the Skeleton (conv_e25) RL result: μ 1.3, mean of the two eval seeds, per training seed s20 / s21. Relay values are over Original's face-anchor rotation.
+
+| task | Skeleton (conv_e25) | **pins-free Skeleton (SKF)** | Coverage (U) |
+|---|---|---|---|
+| 7b′ walk (s20 / s21) | 0.025 / 0.009 | **0.068 / 0.014** | 0.077 / 0.071 |
+| relay, face (s20 / s21) | 0.82 / 0.76 | **1.01 / 0.98** | 0.72 / 0.68 |
+| relay, f1 (s20 / s21) | 0.87 / 0.94 | **1.08 / 1.01** | 0.84 / 0.89 |
+| cube, 7 mm (s20 / s21) | 0.645 / 0.198 | **0.819 / 0.489** | 0.703 / 0.211 |
+
+SKF at 5 / 9 mm in the cube: 0.879 / 0.627 (s20) and 0.600 / 0.185 (s21).
+
+Against the predictions registered for `conv_e25` and carried over to SKF:
+- **Prediction 1 holds.** The walk ratio is below 0.3 (0.068 / 0.014). SKF's Δ_contact is 4.46.
+- **Prediction 2 holds.** In the relay, SKF is at or above Coverage under both anchors and both training seeds. It keeps O's relay performance, the best of any hand so far. Its Δ_skel of 0.23 is the smallest.
+- **Prediction 3 fails.** The prediction was cube ≤ 0.78, and SKF scores 0.819 under s20. The prediction was copied from conv_e25 (Δd_p 4) without updating SKF's own palm shift. With the pins free, SKF mounts its pads at 0, so its proximal face sits at 7.0 mm: Δd_p is about 1 at 7 mm and 3 at 9 mm, as for S2F. Read against palm shift, the result fits the cube rule:
+  - SKF (Δd_p 1) does better than conv_e25, Pad-Pad and Coverage (Δd_p 4) under both seeds.
+  - SKF9 (Δd_p 3) falls back to their level.
+  - SKF stays below MO-Pad (0.938 / 0.564).
+  
+  This reading is post hoc and is not counted as a confirmed prediction.
+- **For the paper.** If Skeleton becomes conv_e25f, the walk/relay split is unchanged: walk follows Δ_contact and relay follows Δ_skel. Fig. 5's cube column would show palm shifts of 1 (SKF) against 4 (Coverage) instead of three equal values. The swap waits for MO-Pad's Isaac reruns, so that CoDe and Skeleton change together.
