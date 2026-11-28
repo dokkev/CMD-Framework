@@ -285,7 +285,7 @@ def fig2():
     """Single column, two panels stacked: (a) the poles each joint can reach, (b) the CoDe kinematic model over the
     CAD side view (paper/figures/cad/finger_side.png, registered on pivots A and B)."""
     WC = 3.45
-    ha, hb = 1.78, 1.20
+    ha, hb = 1.55, 1.10  # a little smaller overall (user, 2026-11-27)
     h = ha + hb + 0.10
     fig = plt.figure(figsize=(WC, h))
     head = h - 0.02
@@ -353,7 +353,7 @@ def fig2():
     cad = cad.rotate(tilt, center=(uA, vA), resample=_Im.BICUBIC, fillcolor=(255, 255, 255, 0))
     arr = np.asarray(cad).astype(float) / 255.0
     white = arr[..., :3].min(axis=2) > 0.97
-    a = np.where(white, 0.0, 0.55)[..., None]
+    a = np.where(white, 0.0, 0.22)[..., None]  # more transparent, so the model and the pads read on top
     arr = a * arr[..., :3] + (1.0 - a)  # on white, so the PDF gets no soft mask
     Wp, Hp = cad.size
     kax.imshow(arr, extent=(Am[0] - uA / s_px, Am[0] + (Wp - uA) / s_px, Am[1] - (Hp - vA) / s_px, Am[1] + vA / s_px),
@@ -391,14 +391,17 @@ def fig2():
     # the crossed links A'-B and A-B', black
     for p1, p2 in ((Ap, B), (A, Bp)):
         kax.plot(*np.array([p1, p2]).T, color=INK, lw=1.1, solid_capstyle="round", zorder=12)
-    # pivot clearance (dashed) and the pivots: fixed filled, moving open
+    # the pads (mounted at the shallowest depth the structure allows), blue as in every figure
+    for poly in (v.proximal_pad(), v.distal_pad(qk)):
+        kax.add_patch(Polygon(np.asarray(poly), fc="#9cc0ea", ec=BLUE, lw=0.6, alpha=0.85, zorder=8))
+    # pivot packaging: the clearance each pin and its lugs need (filled), and the pivots: fixed filled, moving open
     pk = run.config.packaging
     for nm_, pt in (("a", A), ("ap", Ap), ("b", B), ("bp", Bp)):
         try:
             r_ = pk.pivot_radius_mm(nm_)
         except Exception:
             r_ = pk.pivot_clearance_diameter_mm / 2.0
-        kax.add_patch(_C(pt, r_, fc="none", ec="#6b6b69", lw=0.5, ls=(0, (1.6, 1.2)), zorder=13))
+        kax.add_patch(_C(pt, r_, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
     for pt in (A, Ap):
         kax.plot(*pt, marker="o", ms=3.0, color=INK, zorder=30)
     for pt in (B, Bp):
@@ -415,11 +418,16 @@ def fig2():
     arrow = dict(arrowstyle="-|>", lw=0.8, color=INK, mutation_scale=7, shrinkA=0, shrinkB=0, path_effects=halo)
     kax.annotate("", xy=(0, 15), xytext=(0, 0), arrowprops=arrow, zorder=35)
     kax.annotate("", xy=(15, -0.01), xytext=(0, 0), arrowprops=dict(arrow, color="#2b2b2b"), zorder=35)
-    kax.text(15.5, -2.0, "$x$", fontsize=6.5, va="top", zorder=36, path_effects=halo)
+    kax.text(16.0, 1.0, "$x$", fontsize=6.5, va="bottom", zorder=36, path_effects=halo)
     kax.text(-1.5, 15.5, "$z$", fontsize=6.5, ha="right", zorder=36)
     kax.text(-3, 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36)
     fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
              va="top")
+    # legend for what is drawn on the CAD: pads and pivot clearance
+    kax.add_patch(Polygon([(-14, -10.5), (-8, -10.5), (-8, -8.5), (-14, -8.5)], fc="#9cc0ea", ec=BLUE, lw=0.6, zorder=8))
+    kax.text(-7, -9.5, "pad", fontsize=5.8, va="center", color=INK2, zorder=36)
+    kax.add_patch(_C((3.5, -9.5), 1.6, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
+    kax.text(6, -9.5, "pivot clearance", fontsize=5.8, va="center", color=INK2, zorder=36)
     save_figure(fig, DEST / "fig_mechanisms.pdf")
     plt.close(fig)
     print("fig2", h)
@@ -792,11 +800,26 @@ def fig_rl():
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
             ("cube", "Cube rotation\n(whole hand)"))
     MAP = (("R", "R", "CoDe"), ("SK", "S", "Skel."), ("U", "U", "Cov."))
-    W1, h = 3.45, 1.55
+    from fig_cad import usd_render
+    from PIL import Image as _Image
+    CADD = ROOT / "paper" / "figures" / "cad"
+    def key_left(path):  # sky gradient and ground behind the hand: keyed row by row against the left edge
+        im = np.asarray(_Image.open(path).convert("RGB")).astype(float)
+        bg = np.median(im[:, :24], axis=1)[:, None, :]
+        a = np.clip((np.linalg.norm(im - bg, axis=2) - 10.0) / 12.0, 0.0, 1.0)[..., None]
+        out = a * im + (1.0 - a) * 255.0
+        rows, cols_ = np.where(a[..., 0] > 0.05)
+        return out[max(rows.min() - 8, 0):rows.max() + 8, max(cols_.min() - 8, 0):cols_.max() + 8].astype(np.uint8)
+
+    renders = {"walk": usd_render(CADD / "rl_walk_O.png"), "relay": key_left(CADD / "rl_relay_O.png"),
+               "cube": usd_render(CADD / "usd_hand_cube.png")}
+    W1, h = 3.45, 2.25
     fig = plt.figure(figsize=(W1, h))
-    aw = 0.80
+    aw, ih = 0.78, 0.62
     for i, (k, title) in enumerate(cols):
-        x0 = 0.48 + i * (aw + 0.30)
+        x0 = 0.46 + i * (aw + 0.28)
+        iax = fig.add_axes(((x0 - 0.06) / W1, 1.26 / h, (aw + 0.12) / W1, ih / h))
+        iax.imshow(renders[k]); iax.set_aspect("equal"); iax.axis("off")
         ax = fig.add_axes((x0 / W1, 0.42 / h, aw / W1, 0.80 / h))
         for j, (hh, hk, nm) in enumerate(MAP):
             for t_, (v, hatch) in enumerate(zip(rl[k]["ratio"][hh], ("", "////"))):
@@ -810,7 +833,7 @@ def fig_rl():
         for lab_, (_, hk, _) in zip(ax.get_xticklabels(), MAP):
             lab_.set_color(HC[hk])
         ax.set_xlim(-0.6, 2.6)
-        ax.set_title(title, fontsize=6.0, pad=2, linespacing=1.0)
+        iax.set_title(title, fontsize=6.0, pad=2, linespacing=1.0)
         clean(ax)
         gl, gv = gov[k]
         ax.text(-0.62, -0.36, gl, fontsize=5.4, ha="right", va="center", color=INK2, transform=ax.transData)
