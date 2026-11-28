@@ -1029,3 +1029,27 @@ This analysis was not pre-registered. It reads the existing transfer evals at pa
 - **Walk.** The pad's effect keeps its sign only on the contact-preserving hands (CoDe, R), and reverses on Skeleton and Coverage. Fig. 1(d) shows this task: O −172 mm, CoDe −101 mm, Coverage +58 mm, means of the two seeds.
 - **Relay.** The effect reverses on every redesign. Fingertip-end contact is outside C2.
 - **Cube.** No hand reverses the sign. The size differs: CoDe overstates it (1.2–1.4×), and Skeleton and Coverage understate it under s21.
+
+## Result: Drake sim-to-sim transfer of the relay policy (2026-11-27)
+
+**Runs.** `policy_transfer.py run --task relay`, 32 episodes per hand and training seed, all completed.
+- The first attempt hung: MO-Pad's URDF carries zero-radius proximal link colliders, which Drake aborts on.
+- The loader now drops zero-size colliders for Drake (`*_drake.urdf`), and the run was repeated from scratch.
+
+**Result.** Each hand's mean rotation over O's (s20 / s21):
+
+| contact | O, mean rotation | CoDe (MO-Pad) | Skeleton | Coverage | R |
+|---|---|---|---|---|---|
+| hydro (primary) | 309 / 273° | 0.43 / 0.42 | **0.98 / 1.03** | 0.65 / 0.67 | 0.40 / 0.43 |
+| point (secondary) | 141 / 126° | 0.83 / 0.46 | **1.06** / 0.87 | 0.97 / 0.88 | 0.84 / 0.39 |
+| Isaac Lab, for reference | 280 / 274° | 0.57 / 0.56 | 0.82 / 0.76 | 0.72 / 0.68 | 0.57 / 0.56 |
+
+- **The prediction holds in the primary contact model.** Skeleton ≥ Coverage and Skeleton ≥ CoDe under both seeds. The Isaac Lab order (Skeleton > Coverage > CoDe ≈ R) is reproduced, with a larger spread.
+- **Point contact (secondary)** keeps Skeleton ≥ CoDe under both seeds. Under s21, Skeleton and Coverage tie (0.87 against 0.88), and O itself keeps only 45–50% of its Isaac Lab rotation there.
+- **The walk does not transfer** (gate above), so the paper's pad-contact task has no Drake check. The relay result supports the claim that fingertip-end contact follows Δ_skel. It says nothing about Δ_contact.
+- **Fidelity limits:**
+  - flat pads, not domed
+  - no condim-4 torsional friction
+  - Drake's friction combination (hand-object 0.72 off the pads)
+  - the DC-motor law with no velocity limit beyond its torque envelope
+  - the dial as a sprung slider and spring-loaded spin joint, as in Isaac Lab

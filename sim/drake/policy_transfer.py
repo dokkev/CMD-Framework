@@ -98,7 +98,18 @@ def description(hand: str) -> dict:
 
 
 def urdf(hand: str) -> Path:
-    return ISAAC / "logs" / "urdf" / f"cfl_q120_h3to7_{HANDS[hand]}_thumbpad.urdf"
+    """The hand's plain URDF; when it carries zero-size colliders (the pins-free designs' proximal link capsule, radius
+    0), a copy beside it without them (``*_drake.urdf``): they have no volume, and Drake rejects them."""
+    import re
+
+    src = ISAAC / "logs" / "urdf" / f"cfl_q120_h3to7_{HANDS[hand]}_thumbpad.urdf"
+    text = src.read_text()
+    if 'radius="0"' not in text:
+        return src
+    dst = src.with_name(src.stem + "_drake.urdf")
+    pattern = r'\s*<(visual|collision) name="[^"]*">(?:(?!</\1>).)*?radius="0"(?:(?!</\1>).)*?</\1>'
+    dst.write_text(re.sub(pattern, "", text, flags=re.S))
+    return dst
 
 
 def closed_pose(desc: dict, digit: str, q_deg: float) -> dict:
