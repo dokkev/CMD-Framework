@@ -75,6 +75,9 @@ model, the analysis and the design studies; Experiment holds simulation only.
 
 ### 4.2 Terms (define once, never vary)
 
+- **Interface vs pad (user, 2026-11-28):** the thing that is swapped, compared or evaluated is the (contact) interface: "a new interface", "the interface's effect", "interface thickness". "Pad" names only the physical surfaces on the phalanges (proximal pad, distal pad), the pads holding an object, and the symbol C-bar_pad / pad coverage.
+- **Effect error (user, 2026-11-28): the core metric.** D_H is the interface's effect as hand H measures it (the change in outcome when the interface changes); on O it is the interface's own effect. e_H = (D_H - D_O)/|D_O|, E = median |e_H|. Named "effect error" in the text (its own subsubsection in Setup) and "friction effect error (%)" on Fig. 4's axis.
+
 - **CoDe vs CFL (user, 2026-11-28; supersedes 'CoDe for the mechanism'):** CoDe names the design method (keep the contact-surface motion), the CoDe Hand and the contact-preserving redesign hand. The crossed four-bar architecture is the CFL ("crossed four-bar linkage (CFL)" at first use; "CFL (ours)" in bold in Figs. 2(a) and 3). The rolling contact joint is RCJ.
 - **Framing (user, 2026-11-28):** the error is a command-transfer error: O's command runs unchanged, and the question is whether it does on a redesign what it did on O, including how its outcome responds to a new pad (Eq. error). O is the reference because the command was made for it.
 - **t and Delta t (user, 2026-11-28):** t is the contact surfaces' depth below the link line (mount depth plus pad thickness); Delta t is its change in a redesign, which on the same mount is the pad-thickness change (Fig. 2(b) draws that case). Never define Delta t as the pad-thickness change itself: CoDe raises its mount, and Eq. 4 would then read as violated (1.1 + 4.8 < 6.9 mm).

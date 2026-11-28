@@ -419,7 +419,7 @@ def main() -> int:
     # compliance on its own geometry as the reference (isaac_conclusion_study3.json; CoDe = MO-Pad, "outside").
     # Arrow length = the change in held load, one scale; the pre-registered grid result is in Sec. IV.
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "same command, new pad: is the pad's effect measured?")
+    plabel(0.07, yd, "d", "same command, new interface: is its effect measured?")
     cc = json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))
     eff = {"O": cc["outside"]["mrmid_free"]["true_change_pct"], "MRM": cc["outside"]["mrmid_free"]["measured_change_pct"],
            "U": cc["hands"]["U"]["measured_change_pct"]}
@@ -431,7 +431,7 @@ def main() -> int:
     rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.94))
     xh, xa0, xs_ = 1.00, 2.35, 0.0110  # hand label x; arrows zero; inches per percent
     fig.text(*inch(0.43, yd - 0.30), "run unchanged", fontsize=5.4, ha="center", va="center", color=INK2, style="italic")
-    fig.text(*inch(2.55, yd - 0.17), "thicker, compliant pad: change in pull-out load", fontsize=5.6,
+    fig.text(*inch(2.55, yd - 0.17), "thicker, compliant interface: change in pull-out load", fontsize=5.6,
              ha="center", va="center", color=INK2)
     for k, nm, col, yr in rows:
         fig.patches.append(FancyArrowPatch(inch(bx + 0.70, by + 0.17), inch(xh - 0.04, yr), transform=fig.transFigure,
@@ -446,7 +446,7 @@ def main() -> int:
                  linespacing=1.0, color=col, **(BOLD if k == "MRM" else {}))
     fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
                               transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect is O's; on Coverage it reverses",
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the interface's effect is O's; on Coverage it reverses",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")

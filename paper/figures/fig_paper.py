@@ -286,7 +286,7 @@ def fig2():
     """Single column, two panels stacked: (a) the poles each joint can reach, (b) the CoDe kinematic model over the
     CAD side view (paper/figures/cad/finger_side.png, registered on pivots A and B)."""
     WC = 3.45
-    ha, hb = 1.55, 1.10  # a little smaller overall (user, 2026-11-27)
+    ha, hb = 1.38, 1.02  # a little smaller overall (user, 2026-11-27)
     h = ha + hb + 0.10
     fig = plt.figure(figsize=(WC, h))
     head = h - 0.02
@@ -320,7 +320,7 @@ def fig2():
     halo = [pe.withStroke(linewidth=2.2, foreground="white")]
     pax.text(-31, 1.2, "Revolute", fontsize=6.2, color=GREY, va="bottom", ha="left", path_effects=halo,
              zorder=6, fontweight="bold", family="Nimbus Sans")
-    pax.text(-31, -13.2, "contact faces,\n3–9 mm pads", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
+    pax.text(-31, -13.2, "contact faces,\n3–9 mm interfaces", fontsize=5.6, color=INK2, va="top", linespacing=1.0,
              path_effects=halo, zorder=6)
     pax.text(-14, 18, "CFL (ours)", fontsize=6.4, color=BLUE, fontweight="bold", family="Nimbus Sans", va="top",
              path_effects=halo, zorder=6)
@@ -757,7 +757,7 @@ def fig4():
                 bd = dv[f"{hh}_bias"]
                 ra.fill_between(x, bd["q25"], bd["q75"], color=HC[hh], alpha=0.12, lw=0, zorder=1)
                 ra.plot(x, bd["median"], color=HC[hh], lw=1.0, zorder=3)
-            yl = "effect error (%)"
+            yl = "friction effect error (%)"
         else:
             for hi, hh in enumerate(RED):
                 for mi, (mu, mk_) in enumerate((("1.3", "o"), ("2", "D"))):
@@ -800,7 +800,7 @@ def fig4():
             rho = spearmanr(mrank, [hdall[hh][k_] for hh in hs]).correlation
             tab[key][("rho", k_)] = rho
     if FIG4_BIAS:
-        handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: the pad's effect as O measures it"),
+        handles = [plt.Line2D([], [], color=INK, lw=0.9, label="0: the interface's effect as O measures it"),
                    plt.Line2D([], [], color=BLUE, lw=1.1, label="CoDe"),
                    plt.Line2D([], [], color=TEAL, lw=1.1, label="Skeleton"),
                    plt.Line2D([], [], color=AMBER, lw=1.1, label="Coverage"),
@@ -993,12 +993,12 @@ def table():
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
     groups = (("MuJoCo-Warp, point", (("friction", st["friction, Isaac point"]),
                                       ("stiffness", st["stiffness, Isaac point"]),
-                                      ("compl.\\ pad", st["friction softer pad, Isaac point"]),
+                                      ("compliant", st["friction softer pad, Isaac point"]),
                                       ("convex", st["crowned, Isaac point"]))),
               ("Drake, point", (("friction", st["friction, Drake point"]),
                                 ("convex", st["crowned, Drake point"]))),
               ("Drake, hydro.", (("friction", st["friction, Drake hydro"]),
-                                 ("compl.\\ pad", st["friction softer pad, Drake hydro"]))),
+                                 ("compliant", st["friction softer pad, Drake hydro"]))),
               ("Other commands", (("torque", pr["torque"]),
                                   ("touch", pr["touch"]),
                                   ("force", pr["force"]),
