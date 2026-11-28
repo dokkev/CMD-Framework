@@ -910,3 +910,40 @@ Against the predictions registered for `conv_e25` and carried over to SKF:
 - **Prediction 4 holds:** the walk ratio is 0.737 / 0.613, above 0.55 and level with Pad-Pad (Δ_contact 0.85 against 0.86).
 - **Relay** (no prediction): about Pad-Pad's, as Δ_skel (5.24) predicts.
 - **Reading:** in RL, S2F matches MO-Pad at 5 and 7 mm, by keeping the face place (Δd_p ≤ 1) without MO-Pad's extra objective. At 9 mm both fall to Δd_p 3 and score alike, so here MO-Pad's extra objective buys nothing over S2F in the cube.
+
+## Result: S2F and MO-Pad in Isaac Lab, Study 3 reruns (2026-11-27)
+
+`run_isaac_replace.sh` (ISAAC_REPLACE_DONE), 0 failed steps. These reruns had no registered prediction; they reproduce R's runs, so they are reported descriptively.
+
+Condition A (friction), `analyze.error(load_isaac, ...)`, the same function and pairs as the 18 hands: E (pairs).
+
+| thickness | R (Pad-Pad) | S2F | MO-Pad | Coverage (U) |
+|---|---|---|---|---|
+| 5 mm | 3.4% (54) | 6.3% (56) | 3.5% (56) | 51.9% (52) |
+| 7 mm | 21.0% (48) | 17.2% (52) | **9.5%** (55) | 123.6% (52) |
+| 9 mm | 40.7% (48) | **31.7%** (48) | 38.1% (48) | 106.0% (52) |
+
+Table I settings and command protocols at 7 mm (`table_signed` functions; signed median / E, pairs):
+
+| setting | R | S2F | MO-Pad | U |
+|---|---|---|---|---|
+| friction, Isaac point | −21 / 21 (48) | −17 / 17 (52) | −0 / **10** (55) | +115 / 124 (52) |
+| stiffness, Isaac point | −25 / 25 (48) | −22 / 23 (52) | −0 / **8** (52) | +173 / 173 (48) |
+| compliant pad, Isaac point | −14 / 14 (51) | −11 / 12 (52) | +0 / **10** (52) | +125 / 129 (51) |
+| convex pad, Drake point | −43 / 55 (52) | −45 / 52 (48) | −18 / **47** (52) | +70 / 123 (39) |
+| friction, Drake point | −19 / 19 (46) | −17 / 17 (46) | −8 / **8** (46) | +70 / 72 (48) |
+| friction, Drake hydro | −15 / 17 (53) | −13 / 14 (46) | +12 / **13** (54) | +254 / 254 (54) |
+| compliant pad, Drake hydro | −8 / 16 (44) | −4 / **14** (43) | +16 / 17 (51) | +347 / 347 (22) |
+| contact setpoint | −13 / 14 (46) | −11 / 12 (46) | −8 / **8** (46) | +17 / 26 (49) |
+| torque | +13 / 17 (56) | +11 / 16 (56) | +8 / **11** (56) | −0 / 28 (44) |
+| touch | −22 / 23 (56) | −17 / 18 (56) | −14 / **14** (56) | −17 / 20 (44) |
+| force | +0 / 3 (44) | +0 / 0 (44) | +0 / 2 (44) | −4 / 7 (48) |
+
+- The convex pad in Isaac (`A-crowned-crowned`) was run for R, U and Skeleton only, not for the candidates.
+- **MO-Pad errs least at 7 mm in every setting but one.** In the Isaac point settings its median bias is about 0: E 8–10%, against R's 14–25%. The exception is the compliant pad with hydroelastic contact (17% against S2F's 14% and R's 16%).
+- **S2F errs a little less than R everywhere.** It improves on R by 1–4 points, and at 9 mm in condition A by 9 points (31.7% against 40.7%).
+- At 9 mm the two candidates are close (32% and 38%), as in the cube (Δd_p 3 for both).
+- **Reading:**
+  - MO-Pad's extra Δ_MCP objective halves the 7 mm error of R and S2F in the commands that reuse the setpoint.
+  - S2F, from the paper's own objectives with the pins free, is a modest gain over R.
+  - Both keep the ordering CoDe ≪ Coverage in every setting.
