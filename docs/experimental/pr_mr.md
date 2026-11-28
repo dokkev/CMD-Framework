@@ -963,3 +963,22 @@ Table I settings and command protocols at 7 mm (`table_signed` functions; signed
 - **Scope.** Free-pin stays in experimental documents only. It is not the paper's Skeleton, even if CoDe's data become MO-Pad's.
 - **Why.** Freeing the pins does not help the skeleton: Δ_skel is 0.23 mm, against 0.34 for conv_e25. What it does is let the proximal pad mount at 0, so Δd_p falls from 4 to 1 mm and Δ_contact from 6.61 to 4.46 mm. Free-pin therefore mixes keeping the skeleton with keeping the contact surfaces' place, and as a Skeleton control it would bias the comparison.
 - **The paper's Skeleton** stays conv_e25: tip path kept, contact surfaces moved 6.6 mm.
+
+## Result: Fig. 4 inputs for MO-Pad (2026-11-27)
+
+- **Runs.** `run_drake_mopad_fig4.sh`, no errors: the 12-placement disk (e28z) and the trace runs (e21c, e23c, e28zc) for MO-Pad and free-pin.
+- **Fingertip disk at point contact** (e28z, `fig4_sync.dial_pairs`, 12 pairs):
+
+  | hand | E |
+  |---|---|
+  | R | 17.0% |
+  | MO-Pad | 20.4% |
+  | Skeleton (conv_e25) | 43.0% |
+  | Coverage | 46.8% |
+
+- **Fig. 4 with MO-Pad as CoDe** and conv_e25 as Skeleton keeps the order CoDe < Skeleton, Coverage in all four tasks:
+  - hold: 8.5 / 12.8%
+  - acquisition: 10.4 / 13.5%
+  - disk: 20.4 / 5.9%
+  - pivot: 7.4 / 6.3%
+- In the disk and the pivot, MO-Pad errs 1–3 points more than R.
