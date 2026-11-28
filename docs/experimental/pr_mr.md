@@ -947,3 +947,12 @@ Table I settings and command protocols at 7 mm (`table_signed` functions; signed
   - MO-Pad's extra Δ_MCP objective halves the 7 mm error of R and S2F in the commands that reuse the setpoint.
   - S2F, from the paper's own objectives with the pins free, is a modest gain over R.
   - Both keep the ordering CoDe ≪ Coverage in every setting.
+
+## Paper decision: R stays as CoDe (2026-11-27, evening)
+
+- **Decision.** After the reruns above, the user chose: "지금은 R 유지에 그냥 CoDe 라고 부르자; 이미 보여 주고 싶은 결과가 나온건 다시 할 필요없어."
+  - The paper keeps R as CoDe's redesign. Skeleton stays `conv_e25`, with the pins fixed as in R.
+  - No figure or table moves to MO-Pad, S2F or SKF.
+  - Results already shown are not rerun.
+- **Status of the other hands.** MO-Pad, S2F and SKF stay here as a possible later improvement. MO-Pad halves the 7 mm error, which is the main reason to revisit them.
+- **Not tabulated.** SKF's Isaac condition A finished (GPU_SKF_DONE, all rc 0) under `sim/isaaclab/logs/study3/two_pad/tp_*conv_e25f*`. With this decision it is not tabulated.
