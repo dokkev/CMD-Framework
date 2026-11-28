@@ -540,7 +540,7 @@ def fig3():
     xlim, ylim = (box.x0 - 2, box.x1 + 2), (box.y0 - 2, box.y1 + 2)
     aspect = (ylim[1] - ylim[0]) / (xlim[1] - xlim[0])
     s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
-    s2 = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
+    s2 = rows(ROOT / "report" / "study2" / "data" / "study2_redesign_eq9_summary.csv")  # Eq. 9 form (pivot heights above the link line), 2026-11-28
     traj = json.loads((ROOT / "design" / "output" / "paper" / "fig3_paths_q120_3to7.json").read_text())
     h = 2.56
     fig = plt.figure(figsize=(W, h))
