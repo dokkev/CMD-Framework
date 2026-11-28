@@ -398,3 +398,8 @@ Recurring, all three reviewers:
 - Conventional vs Coverage
 
 User goal (2026-11-27): 7, 6, 6 with Clarity and Presentation 4.
+
+v48: 5, 5, 5, all Reject. The clarity pass is not yet reflected in the scores; the intro rewrite came after this PDF.
+New common item: every number must name its statistic and simulator. E vs signed median, and Fig. 1(d)'s medians of
+load change vs Table I's per-placement relative errors, read as inconsistent. Also: visible hyperlink boxes;
+Fig. 4's caption sentence on the acquisition starts; why the joint is called PIP.
