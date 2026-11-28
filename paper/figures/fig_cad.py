@@ -419,7 +419,7 @@ def main() -> int:
     # (7b', two training seeds, mean of eval seeds 94000/95000; logs/pr_mr_transfer/walk). On O the higher friction
     # walks less; on CoDe (MO-Pad) also less; on Coverage more (reversed). Arrow length = the change, one scale.
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "a policy learned on O, transferred: is the pad's effect kept?")
+    plabel(0.07, yd, "d", "a policy learned on O, transferred: is the pad's effect kept? (post hoc)")
     import json as _j
     W7 = ROOT / "sim" / "isaaclab" / "logs" / "pr_mr_transfer" / "walk"
 
@@ -473,7 +473,7 @@ def main() -> int:
                  ha="left", linespacing=1.0, color=col, **(BOLD if k == "MRM" else {}))
     fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
                               transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect keeps its sign; on Coverage it reverses",
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect keeps its sign and 59% of its size; on Coverage it reverses",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")

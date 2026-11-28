@@ -344,3 +344,14 @@ Standing:
 - two RL seeds
 - MA cost
 - no limitations paragraph
+
+v44: 5, 5, 5, all Reject. The v43 inconsistencies are no longer raised. New, common to all three:
+- Eq. (4) seems violated by CoDe's 1.1 + 4.8 = 5.9 mm if Delta_t = 4 mm at 120 deg. CoDe's proximal surface moves 1 mm (Delta_d_p 1), so its bound is 1.7 mm, but the paper never states Delta_t or q_req for the Sec. IV hands.
+- The contribution bullet still reads as general.
+- "with nothing else" overstates.
+- Fig. 1(d)'s tagline is weaker than the error metric, and the panel is post hoc.
+- Fig. 3(c) has no formula.
+- "points" and Q_eval are undefined.
+- O names both the hand and the MCP point.
+- Table I shows signed medians while the text argues with E.
+Standing: rigid pads, no hardware, two seeds, MA cost, no retargeting or fine-tuning baseline.
