@@ -843,11 +843,13 @@ def fig_rl():
         ox0, ox1, oy0, oy1 = np.percentile(xs_, 2), np.percentile(xs_, 98), np.percentile(ys_, 2), np.percentile(ys_, 98)
         ocx, ocy, ow = (ox0 + ox1) / 2, (oy0 + oy1) / 2, ox1 - ox0
         mot = dict(arrowstyle="-|>", mutation_scale=6, lw=1.0, color="#c0392b", shrinkA=0, shrinkB=0, zorder=5)
-        if k == "cube":  # turning about the vertical: an arc over the cube and one under it
-            iax.add_patch(FancyArrowPatch((ocx - 0.62 * ow, ocy - 0.05 * ow), (ocx + 0.62 * ow, ocy - 0.25 * ow),
-                                          connectionstyle="arc3,rad=-0.45", **mot))
-            iax.add_patch(FancyArrowPatch((ocx + 0.62 * ow, ocy + 0.05 * ow), (ocx - 0.55 * ow, ocy + 0.30 * ow),
-                                          connectionstyle="arc3,rad=-0.45", **mot))
+        if k == "cube":  # the task's positive turn: about world +z (up, palm-up hand), counterclockwise from above;
+            # the camera looks along the face +y with +x (toward the tips) to the right, so the far side moves left
+            # and the near side right
+            iax.add_patch(FancyArrowPatch((ocx + 0.62 * ow, ocy - 0.25 * ow), (ocx - 0.62 * ow, ocy - 0.05 * ow),
+                                          connectionstyle="arc3,rad=0.45", **mot))
+            iax.add_patch(FancyArrowPatch((ocx - 0.55 * ow, ocy + 0.30 * ow), (ocx + 0.62 * ow, ocy + 0.05 * ow),
+                                          connectionstyle="arc3,rad=0.45", **mot))
         ax = fig.add_axes((x0 / W1, 0.42 / h, aw / W1, 0.80 / h))
         for j, (hh, hk, nm) in enumerate(MAP):
             for t_, (v, hatch) in enumerate(zip(rl[k]["ratio"][hh], ("", "////"))):
