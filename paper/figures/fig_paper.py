@@ -822,7 +822,7 @@ def fig4():
     print("fig4", h)
     pc = lambda v: "--" if v is None else f"{v:.0f}"
     rh = lambda v: f"${v:.2f}$".replace("-", "-")
-    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{3.0pt}",
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.4pt}",
              r"  \caption{Drake tasks: $E$ (\%) at $7$\,mm, point (hydroelastic) contact; $\rho$ over $18$ redesigns}",
              r"  \label{tab:tasks}", r"  \begin{tabular}{lccccc}", r"    \toprule",
              r"    & \multicolumn{3}{c}{$E$, point (hydro.)} & \multicolumn{2}{c}{$\rho$ with} \\",
@@ -833,7 +833,7 @@ def fig4():
         cells = [f"{pc(t[('point', hh)])} ({pc(t[('hydro', hh)])})" for hh in ("C", "S", "U")]
         cells[0] = rf"\textbf{{{cells[0]}}}"
         cells += [rh(t[("rho", "d_contact")]), rh(t[("rho", "d_skel")])]
-        short = {"pull": "Hold", "acquire": "Acquisition", "dial": "Pad-turned dial", "pivot": "Box pivot"}[key]
+        short = {"pull": "Hold", "acquire": "Acquire", "dial": "Dial", "pivot": "Pivot"}[key]
         lines.append("    " + short + " & " + " & ".join(cells) + r" \\")
     lines.append(r"    \midrule")
     # Delta^base_distal of the three named hands (sim/drake/anchor_f1.py deltas: mrmid_free, conv_e25, U)
@@ -991,18 +991,19 @@ def table():
     st, pr = t["settings"], t["protocols"]
     # one wide table: every simulator, contact model, pad change and command side by side (user, 2026-11-27: the
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
-    groups = (("MuJoCo-Warp, point", (("friction", st["friction, Isaac point"]),
-                                      ("stiffness", st["stiffness, Isaac point"]),
-                                      ("compliant", st["friction softer pad, Isaac point"]),
-                                      ("convex", st["crowned, Isaac point"]))),
-              ("Drake, point", (("friction", st["friction, Drake point"]),
-                                ("convex", st["crowned, Drake point"]))),
-              ("Drake, hydro.", (("friction", st["friction, Drake hydro"]),
-                                 ("compliant", st["friction softer pad, Drake hydro"]))),
-              ("Other commands", (("torque", pr["torque"]),
-                                  ("touch", pr["touch"]),
-                                  ("force", pr["force"]),
-                                  ("setpoint", pr["contact setpoint"]))))
+    # one column, abbreviated headers, numbers without % (user, 2026-11-28: more compact)
+    groups = (("MuJoCo-Warp pt.", (("fric.", st["friction, Isaac point"]),
+                                   ("stiff.", st["stiffness, Isaac point"]),
+                                   ("compl.", st["friction softer pad, Isaac point"]),
+                                   ("conv.", st["crowned, Isaac point"]))),
+              ("Drake pt.", (("fric.", st["friction, Drake point"]),
+                             ("conv.", st["crowned, Drake point"]))),
+              ("Drake hyd.", (("fric.", st["friction, Drake hydro"]),
+                              ("compl.", st["friction softer pad, Drake hydro"]))),
+              ("Commands", (("torq.", pr["torque"]),
+                            ("touch", pr["touch"]),
+                            ("force", pr["force"]),
+                            ("setp.", pr["contact setpoint"]))))
     cols = [c for _, cs in groups for c in cs]
     n = len(cols)
     head1, rules, pos = [], [], 2
@@ -1020,15 +1021,15 @@ def table():
             return "--"
         v = 100 * d[hh]["bias_median"]
         num = f"{v:+.0f}" if round(v) != 0 else "0"
-        return f"$\\mathbf{{{num}}}$\\textbf{{\\%}}" if hh == "C" else f"${num}\\%$"
-    lines = [r"\begin{table*}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.6pt}",
-             r"  \caption{Signed error in the measured pad effect across simulators, contact models and commands}",
-             r"  \label{tab:robust}", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
+        return f"$\\mathbf{{{num}}}$" if hh == "C" else f"${num}$"
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \scriptsize", r"  \setlength{\tabcolsep}{1.2pt}",
+             r"  \caption{Signed effect error (\%) at $7$\,mm across simulators, contact models and commands}",
+             r"  \label{tab:robust}", r"  \resizebox{\columnwidth}{!}{%", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
              "    & " + " & ".join(name for name, _ in cols) + r" \\", r"    \midrule",
-             "    Coverage & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
+             "    Cov. & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
              r"    \ourmethod{} & " + " & ".join(cell(d, "C") for _, d in cols) + r" \\",
-             r"    \bottomrule", r"  \end{tabular}", r"\end{table*}", ""]
+             r"    \bottomrule", r"  \end{tabular}}", r"\end{table}", ""]
     (MS / "sections" / "table_robust.tex").write_text("\n".join(lines))
     print("\n".join(lines))
 
