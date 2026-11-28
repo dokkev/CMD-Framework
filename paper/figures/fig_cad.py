@@ -371,6 +371,21 @@ def main() -> int:
     plabel(0.07, top - 0.04, "a", "original design")
     hand = usd_render(CAD / "hand_usd_relaxed.png")
     image(hand, 0.10, TB + 0.04, fit=(1.30, top - TB - 0.24))
+    # the policy learned on the original design (user, 2026-11-28): a small network badge, pi_O
+    def nn_icon(x0, y0, sc, lw=0.3):
+        lay = (3, 4, 3)
+        P = [[(x0 + li * 0.09 * sc, y0 + (k - (n - 1) / 2) * 0.075 * sc) for k in range(n)] for li, n in enumerate(lay)]
+        for a_, b_ in zip(P[:-1], P[1:]):
+            for p1 in a_:
+                for p2 in b_:
+                    fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5",
+                                              lw=lw, transform=fig.transFigure, zorder=6))
+        for layer in P:
+            for (xx, yy) in layer:
+                fig.patches.append(Circle(inch(xx, yy), 0.022 * sc / W_, transform=fig.transFigure, fc="white",
+                                          ec="#6b6b69", lw=0.5, zorder=7))
+    nn_icon(1.12, top - 0.42, 1.0)
+    fig.text(*inch(1.21, top - 0.29), r"$\pi_O$", fontsize=8, ha="center", va="bottom", color=INK)
     rx = 1.55
     box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
@@ -423,17 +438,51 @@ def main() -> int:
         ax.plot([0, L1], [sdz, sdz], color=col, lw=lw * 0.8, ls=ls, solid_capstyle="round", zorder=3)
         ax.plot(*np.array([ps, tip]).T, color=col, lw=lw * 0.8, ls=ls, solid_capstyle="round", zorder=3)
         ax.plot(*tip, marker="o", ms=2.2, color=col, zorder=5)
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+    from matplotlib.colors import LinearSegmentedColormap
+    lax = fig.add_axes((0.05 / W_, (yc - 1.20) / H_, 1.55 / W_, 1.10 / H_), projection="3d")
+    gx, gy = np.meshgrid(np.linspace(-1, 1, 60), np.linspace(-1, 1, 60))
+    zz = (0.55 + 0.25 * (gx ** 2 + gy ** 2) - 0.55 * np.exp(-((gx - 0.45) ** 2 + (gy + 0.35) ** 2) / 0.10)
+          - 0.28 * np.exp(-((gx + 0.50) ** 2 + (gy - 0.40) ** 2) / 0.12))
+    cm = LinearSegmentedColormap.from_list("land", ["#0b3d91", "#4f86c6", "#bcd3ee", "#f6e7c8", "#f2b37b", "#d9603b"])
+    lax.computed_zorder = False  # the path, the minima and their labels drawn over the surface
+    lax.plot_surface(gx, gy, zz, cmap=cm, linewidth=0, antialiased=True, alpha=0.92, rstride=1, cstride=1, zorder=1)
+    # gradient descent from O's design (a thicker interface on it) into the contact-preserving basin
+    path = [np.array([-0.85, -0.80])]
+    for _ in range(40):
+        x_, y_ = path[-1]
+        e1 = np.exp(-((x_ - 0.45) ** 2 + (y_ + 0.35) ** 2) / 0.10)
+        e2 = np.exp(-((x_ + 0.50) ** 2 + (y_ - 0.40) ** 2) / 0.12)
+        gxd = 0.5 * x_ + 0.55 * e1 * 2 * (x_ - 0.45) / 0.10 + 0.28 * e2 * 2 * (x_ + 0.50) / 0.12
+        gyd = 0.5 * y_ + 0.55 * e1 * 2 * (y_ + 0.35) / 0.10 + 0.28 * e2 * 2 * (y_ - 0.40) / 0.12
+        path.append(path[-1] - 0.06 * np.array([gxd, gyd]) + np.array([0.03, 0.015]) * (len(path) < 14))
+    path = np.array(path)
+    pz = (0.55 + 0.25 * (path[:, 0] ** 2 + path[:, 1] ** 2) - 0.55 * np.exp(-((path[:, 0] - 0.45) ** 2 + (path[:, 1] + 0.35) ** 2) / 0.10)
+          - 0.28 * np.exp(-((path[:, 0] + 0.50) ** 2 + (path[:, 1] - 0.40) ** 2) / 0.12)) + 0.02
+    lax.plot(path[:, 0], path[:, 1], pz, color="#fff3d6", lw=1.4, zorder=10)
+    lax.scatter([path[0, 0]], [path[0, 1]], [pz[0]], color="#4D4D4D", s=8, zorder=11, depthshade=False)
+    lax.scatter([path[-1, 0]], [path[-1, 1]], [pz[-1]], color=BLUE_, s=14, zorder=11, depthshade=False)
+    lax.text(path[0, 0] + 0.35, path[0, 1], pz[0] + 0.22, "O + new interface", fontsize=5.0, color=INK, ha="center", zorder=12)
+    lax.text(path[-1, 0] + 0.05, path[-1, 1], pz[-1] - 0.25, "CoDe", fontsize=6.0, color=BLUE_, ha="left", zorder=12, **BOLD)
+    zc = 0.55 + 0.25 * (0.5 ** 2 + 0.4 ** 2) - 0.28 - 0.55 * np.exp(-((-0.95) ** 2 + 0.75 ** 2) / 0.10)
+    lax.scatter([-0.50], [0.40], [zc + 0.02], color=TEAL_, s=12, zorder=11, depthshade=False)
+    lax.text(-0.50, 0.40, zc + 0.22, "Skeleton", fontsize=5.6, color=TEAL_, ha="center", zorder=12, **BOLD)
+    lax.set_axis_off(); lax.view_init(elev=32, azim=-58); lax.set_box_aspect((1, 1, 0.55), zoom=1.45)
+    fig.text(*inch(0.84, yc - 0.10), r"$\min\;\Delta^{\mathrm{prox}}_{\mathrm{distal}},\,\Delta^{\mathrm{base}}_{\mathrm{distal}},\,-\bar C_{pad}$",
+             fontsize=6.0, ha="center", va="top", color=INK)
+    fig.patches.append(FancyArrowPatch(inch(1.62, yc - 0.62), inch(1.78, yc - 0.62), transform=fig.transFigure,
+                                       arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
     for j, (nm, col, skel, face, verdict) in enumerate((
-            ("CoDe", BLUE_, (4.0, 3.0), (0.0, 0.0), "contact surfaces: kept\nskeleton: moved"),
-            ("Coverage", ORANGE_, (0.5, -1.0), (4.0, -2.5), "contact surfaces: moved"))):
-        ax = fig.add_axes(((0.25 + j * 1.70) / W_, (yc - 1.12) / H_, 1.45 / W_, 0.95 / H_))
-        finger(ax, "#6b6b69", (0, (2.5, 1.5)), 0.9, 3.0, fill=False)
-        finger(ax, col, "-", 1.4, 7.0, skel=skel, face=face)
-        ax.set_xlim(-2, 62); ax.set_ylim(-36, 10); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(0, 9.5, nm, fontsize=6.6, color=col, ha="left", va="top", **BOLD)
-        ax.text(0, -22, verdict, fontsize=5.6, color=col, ha="left", va="top", linespacing=1.15)
-    fig.text(*inch(0.25, yc - 1.13), "dashed: O;  solid: redesigned for a thicker interface (exaggerated)", fontsize=5.2,
-             color=INK2, ha="left", va="top")
+            ("CoDe", BLUE_, (4.0, 3.0), (0.0, 0.0), "contact surfaces kept,\nskeleton moved"),
+            ("Skeleton", TEAL_, (0.0, 0.0), (4.0, -3.0), "skeleton kept,\ncontact surfaces moved"))):
+        ax = fig.add_axes(((1.80 + j * 0.82) / W_, (yc - 1.10) / H_, 0.80 / W_, 0.90 / H_))
+        finger(ax, "#6b6b69", (0, (2.5, 1.5)), 0.7, 3.0, fill=False)
+        finger(ax, col, "-", 1.1, 7.0, skel=skel, face=face)
+        ax.set_xlim(-2, 62); ax.set_ylim(-46, 12); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(30, 11, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.text(30, -38, verdict, fontsize=5.0, color=col, ha="center", va="top")
+    fig.text(*inch(2.62, yc - 1.13), "dashed: O (exaggerated)", fontsize=5.0,
+             color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
     # ---- (d) (user, 2026-11-28): a policy learned on O (a neural network pi) runs unchanged on each redesign with the
@@ -459,7 +508,7 @@ def main() -> int:
         for (xx, yy) in layer:
             fig.patches.append(Circle(inch(xx, yy), 0.028 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
                                       lw=0.5, zorder=3))
-    fig.text(*inch(nx0 + 0.165, ny0 + 0.52), r"$\pi_O$", fontsize=9, ha="center", va="bottom", color=INK)
+    fig.text(*inch(nx0 + 0.165, ny0 + 0.52), r"same $\pi_O$", fontsize=7, ha="center", va="bottom", color=INK)
     walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_walk_O.png")
     wax = fig.add_axes((0.50 / W_, (yd - 0.98) / H_, 0.62 / W_, 0.66 / H_))
     wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
@@ -477,7 +526,7 @@ def main() -> int:
     xu = 0.2 + 0.25 * sm((tt - 0.10) / 0.25) + 0.04 * np.sin(9 * tt) * sm((tt - 0.25) / 0.2)
     tax.plot(tt, xo, color="#4D4D4D", lw=1.0, ls=(0, (3, 2)), label="O")
     tax.plot(tt, xc, color=BLUE_, lw=1.4, label="CoDe")
-    tax.plot(tt, xu, color=ORANGE_, lw=1.4, label="Coverage")
+    tax.plot(tt, xu, color=TEAL_, lw=1.4, label="Skeleton")
     tax.set_xticks([]); tax.set_yticks([]); tax.set_xlim(0, 1); tax.set_ylim(0.05, 0.95)
     for sp in ("top", "right"):
         tax.spines[sp].set_visible(False)
@@ -485,8 +534,8 @@ def main() -> int:
     tax.set_xlabel("time", fontsize=5.6, labelpad=1); tax.set_ylabel("object along the pads", fontsize=5.6, labelpad=1)
     tax.text(0.98, xo[-1] + 0.06, "O", fontsize=6.0, color="#4D4D4D", ha="right", va="bottom", **BOLD)
     tax.text(0.62, 0.86, "CoDe", fontsize=6.2, color=BLUE_, ha="center", va="bottom", **BOLD)
-    tax.text(0.98, xu[-1] - 0.10, "Coverage", fontsize=6.2, color=ORANGE_, ha="right", va="top", **BOLD)
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps walking; on Coverage it does not", fontsize=5.8,
+    tax.text(0.98, xu[-1] - 0.17, "Skeleton", fontsize=6.2, color=TEAL_, ha="right", va="top", **BOLD)
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps walking; on Skeleton it does not", fontsize=5.8,
              ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
