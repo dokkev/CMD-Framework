@@ -435,7 +435,7 @@ def fig2():
     kax.annotate("", xy=(ox + 15, oz - 0.01), xytext=(ox, oz), arrowprops=dict(arrow, color="#2b2b2b"), zorder=35)
     kax.text(ox + 16.0, oz + 1.0, "$x$", fontsize=6.5, va="bottom", zorder=36, path_effects=halo)
     kax.text(ox - 1.5, oz + 15.5, "$z$", fontsize=6.5, ha="right", zorder=36, path_effects=halo)
-    kax.text(ox - 3, oz + 8, "$\\mathcal{F}_1$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36,
+    kax.text(ox - 3, oz + 8, "$\\mathcal{F}_\\mathrm{base}$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36,
              path_effects=halo)
     fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
              va="top")
@@ -642,7 +642,7 @@ def fig3():
         ax.set_xticks([5, 7, 9]); ax.set_xlim(4, 10); ax.set_ylim(0, YHI)
         ax.set_title(f"$q_{{req}}={q:.0f}^\\circ$", fontsize=6.4, pad=1)
         if j == 0:
-            ax.set_ylabel("$\\Delta^{p}_\\mathrm{d}$ (mm)", labelpad=1)
+            ax.set_ylabel("$\\Delta^{\\mathrm{prox}}_\\mathrm{distal}$ (mm)", labelpad=1)
         else:
             ax.set_yticklabels([])
         if j == 1:
@@ -765,7 +765,7 @@ def fig4():
         # the same under every task), under the E rows and aligned with them
         hd = d["tasks"]["pull"]["hands"]
         hdall = d["tasks"][key]["hands"]  # every hand's Delta_contact and Delta_skel
-        for j, (lab, k_) in enumerate((("$\\Delta^{p}_\\mathrm{d}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
+        for j, (lab, k_) in enumerate((("$\\Delta^{\\mathrm{prox}}_\\mathrm{distal}$", "d_contact"), ("$\\Delta_\\mathrm{skel}$", "d_skel"))):
             yy = (0.40 + B - D - 0.115 * (j + 2) - 0.03) / h
             tab["delta", k_] = {hh: hd[hh][k_] for hh in ("C", "S", "U")}
             # Spearman rho of E with this quantity over the correlation's hands (Skeleton and CoDe = MO-Pad outside it), both contact
@@ -831,7 +831,7 @@ def fig_rl():
     d = json.load(open(S3 / "fig4_sync.json"))
     hd7 = d["tasks"]["pull"]["hands"]
     HC = {"C": BLUE, "U": AMBER, "S": TEAL}
-    gov = {"walk": ("$\\Delta^{p}_\\mathrm{d}$", {h: hd7[h]["d_contact"] for h in ("C", "S", "U")}),
+    gov = {"walk": ("$\\Delta^{\\mathrm{prox}}_\\mathrm{distal}$", {h: hd7[h]["d_contact"] for h in ("C", "S", "U")}),
            "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("C", "S", "U")}),
            "cube": ("palm shift", {"C": 1.0, "S": 4.0, "U": 4.0})}  # Delta d_p in mm (docs/experimental/pr_mr.md)
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
