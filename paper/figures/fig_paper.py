@@ -826,6 +826,9 @@ def fig_rl():
     per training seed (solid 20, hatched 21), with each task's governing quantity under its bars. Data:
     report/study4/data/rl_transfer.json (rl_sync.py) and fig4_sync.json (Delta_contact, Delta_skel)."""
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]
+    # the same policies run unchanged in Drake (rl_drake_sync.py): markers on each seed's bar (user, 2026-11-28)
+    dk = json.load(open(ROOT / "report" / "study4" / "data" / "rl_drake_transfer.json"))["tasks"]
+    DMK = {"point": ("o", "Drake, point"), "hydro": ("D", "Drake, hydro.")}
     d = json.load(open(S3 / "fig4_sync.json"))
     hd7 = d["tasks"]["pull"]["hands"]
     HC = {"C": BLUE, "U": AMBER, "S": TEAL}
@@ -875,8 +878,15 @@ def fig_rl():
                 xx = j + (t_ - 0.5) * 0.36
                 ax.bar(xx, v, width=0.34, color=HC[hk], alpha=0.9 if t_ == 0 else 0.45, lw=0, hatch=hatch,
                        edgecolor="white", zorder=2)
+                for c_, (mk, _) in DMK.items():
+                    r_ = dk.get(k, {}).get(c_, {}).get("ratio", {}).get(hh)
+                    if r_ is not None:
+                        ax.plot(xx, min(r_[t_], 1.27), ls="none", marker=mk, ms=2.6 if mk == "D" else 3.0,
+                                mfc="white", mec=INK, mew=0.6, zorder=4, clip_on=False)
+        if not dk.get(k, {}).get("point", {}).get("ratio"):
+            ax.text(1.0, 1.2, "Drake: fails on O", fontsize=5.0, ha="center", va="center", color=INK2)
         ax.axhline(1.0, color=INK, lw=0.6, ls=(0, (2, 2)), zorder=1)
-        ax.set_ylim(0, 1.1); ax.set_yticks([0, 0.5, 1.0])
+        ax.set_ylim(0, 1.3); ax.set_yticks([0, 0.5, 1.0])
         ax.set_yticklabels(["0", "50%", "100%"] if i == 0 else [], fontsize=5.6)
         ax.set_xticks(range(3)); ax.set_xticklabels([nm for _, _, nm in MAP], fontsize=5.6)
         for lab_, (_, hk, _) in zip(ax.get_xticklabels(), MAP):
@@ -892,9 +902,11 @@ def fig_rl():
         if i == 0:
             ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, fc="#888", label="seed 1"),
                                plt.Rectangle((0, 0), 1, 1, fc="#888", alpha=0.45, hatch="////", ec="white",
-                                             label="seed 2")],
-                      loc="upper right", bbox_to_anchor=(1.02, 0.92), frameon=False, fontsize=5.4, handlelength=1.2,
-                      title="training", title_fontsize=5.4)
+                                             label="seed 2")]
+                      + [plt.Line2D([], [], ls="none", marker=mk, ms=3.0, mfc="white", mec=INK, mew=0.6, label=lb)
+                         for mk, lb in DMK.values()],
+                      loc="upper right", bbox_to_anchor=(1.08, 0.73), frameon=False, fontsize=5.0, handlelength=1.2,
+                      labelspacing=0.25, title="bars: Isaac Lab", title_fontsize=5.0)
     fig.text(0.02 / W1, (0.42 + 0.40) / h, "share of O's performance kept", rotation=90, fontsize=5.8, ha="left",
              va="center")
     save_figure(fig, DEST / "fig_rl.pdf")
