@@ -317,7 +317,7 @@ def main() -> int:
     (fig4_sync.json, friction effect as a share of O's)."""
     import json
     from PIL import Image
-    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci, Circle, Rectangle
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Circle as Ci, Circle, Rectangle, Polygon
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from pngout import register_fonts, save_figure
     register_fonts()
@@ -368,7 +368,7 @@ def main() -> int:
     # ---- top: the hand (a), its finger and the interfaces it can carry (b)
     TB = H_ - 1.20  # the top band's bottom
     box(0.02, TB, W_ - 0.04, top - TB, "none", "0.55", r=0.08, lw=0.7, ls=(0, (3, 2)))
-    plabel(0.07, top - 0.04, "a", "CoDe Hand")
+    plabel(0.07, top - 0.04, "a", "original design")
     hand = usd_render(CAD / "hand_usd_relaxed.png")
     image(hand, 0.10, TB + 0.04, fit=(1.30, top - TB - 0.24))
     rx = 1.55
@@ -377,9 +377,9 @@ def main() -> int:
     image(white_to_alpha(fin, "#eaf1fa"), rx + 0.06, top - 0.43, fit=(1.05, 0.36))
     fig.text(*inch(rx + 1.46, top - 0.26), "crossed\nfour-bar\nfinger", fontsize=5.8, ha="center", va="center",
              color=INK2, linespacing=1.0)
-    fig.text(*inch(rx + 0.93, top - 0.54), "+", fontsize=10, ha="center", va="center", color=INK, **BOLD)
+    fig.text(*inch(rx + 0.93, top - 0.54), "\u2193", fontsize=10, ha="center", va="center", color="#8a8a87", **BOLD)
     box(rx, TB + 0.04, 1.86, top - 0.61 - TB - 0.04, "#f6f1e6", "#dccfb3", r=0.05, lw=0.6)
-    plabel(rx + 0.04, top - 0.64, "b", "interfaces")
+    plabel(rx + 0.04, top - 0.64, "b", "new contact interface")
     names = (("nari", "tactile"), ("honeycomb", "compliant"), ("traction", "traction"), ("soft", "gel pad"))
     for k, (kk, nm) in enumerate(names):
         cx, cy = rx + 0.08 + k * 0.45, TB + 0.16
@@ -393,32 +393,54 @@ def main() -> int:
     paths = json.load(open(ROOT / "design" / "output" / "paper" / "fig1_paths_ORU.json"))
     qd = np.linspace(0.0, 120.0, len(paths["O"]["contact"]))
     yc = TB - 0.06
-    plabel(0.07, yc, "c", "redesign for a thicker interface: what does it keep?")
-    CUR = (("mrmid_free", "CoDe", BLUE_), ("U", "Coverage", ORANGE_))  # Fig. 1: CoDe vs Coverage (user, 2026-11-27: one name everywhere)
-    for j, (key, ttl) in enumerate((("contact", "contact-surface motion\n(contact Jacobian)"),
-                                    ("tip", "skeleton motion\n(fingertip)"))):
-        ax = fig.add_axes(((0.40 + j * 1.60) / W_, (yc - 0.98) / H_, 1.00 / W_, 0.58 / H_))
-        for key_h, nm, col in CUR:
-            dev = np.linalg.norm(np.array(paths[key_h][key]) - np.array(paths["O"][key]), axis=1)
-            ax.plot(qd, dev, color=col, lw=1.3 if key_h == "mrmid_free" else 0.9, zorder=3 if key_h == "mrmid_free" else 2)
-            ax.text(123, dev[-1], nm, fontsize=5.0, color=col, va="center", ha="left",
-                    fontweight="bold" if key_h == "mrmid_free" else "normal")
-        ax.set_xlim(0, 120); ax.set_ylim(0, 8); ax.set_xticks([0, 60, 120]); ax.set_yticks([0, 4, 8])
-        ax.tick_params(labelsize=5.2, length=2, pad=1)
-        ax.set_title(ttl, fontsize=5.8, pad=2, linespacing=1.0)
-        ax.set_xlabel("flexion (deg)", fontsize=5.4, labelpad=0)
-        if j == 0:
-            ax.set_ylabel("change from O (mm)", fontsize=5.4, labelpad=1)
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
-        ax.spines["left"].set_linewidth(0.5); ax.spines["bottom"].set_linewidth(0.5)
-    fig.text(*inch(W_ / 2, yc - 1.24), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
+    plabel(0.07, yc, "c", "re-design optimization")
+    # illustrative (user, 2026-11-28: a schematic like a design-concept figure, not a plot): O's finger dashed, the
+    # redesign solid, flexed to one pose, differences exaggerated. CoDe: thicker interfaces whose contact faces sit where
+    # O's do, the skeleton (links and fingertip) moved; Coverage: the contact faces themselves moved.
+    def finger(ax, col, ls, lw, pad_t, skel=(0.0, 0.0), face=(0.0, 0.0), q=np.radians(62), fill=True):
+        """skel / face: (shift down of the link line, shift of the pole along x) for the skeleton and for the contact
+        faces. A redesign that keeps the contact motion keeps face = (0, 0) and moves skel; the faces' pads are drawn
+        thick (pad_t) above the face."""
+        L1, L2 = 40.0, 30.0
+        R = np.array([[np.cos(-q), -np.sin(-q)], [np.sin(-q), np.cos(-q)]])
+        nrm_d = R @ np.array([0.0, 1.0])
+        # contact faces (proximal at depth 3, distal at depth 3 in the distal frame), from the face pole
+        fdz, fdx = face
+        pf = np.array([L1 + fdx, -1.5 - fdz])
+        f0 = -3.0 - fdz
+        d0 = pf + R @ np.array([4.0, -1.5])
+        d1 = pf + R @ np.array([L2 - 1.0, -1.5])
+        if fill:
+            ax.add_patch(Rectangle((4, f0), 32, pad_t, fc=col, ec="none", alpha=0.25, zorder=2))
+            ax.add_patch(Polygon([d0, d1, d1 + pad_t * nrm_d, d0 + pad_t * nrm_d], fc=col, ec="none", alpha=0.25,
+                                 zorder=2))
+        ax.plot([4, 36], [f0, f0], color=col, lw=lw, ls=ls, zorder=4)
+        ax.plot(*np.array([d0, d1]).T, color=col, lw=lw, ls=ls, zorder=4)
+        # skeleton: link lines and fingertip, from the skeleton pole
+        sdz, sdx = skel
+        ps = np.array([L1 + sdx, sdz - 1.5])
+        tip = ps + R @ np.array([L2, 0.0])
+        ax.plot([0, L1], [sdz, sdz], color=col, lw=lw * 0.8, ls=ls, solid_capstyle="round", zorder=3)
+        ax.plot(*np.array([ps, tip]).T, color=col, lw=lw * 0.8, ls=ls, solid_capstyle="round", zorder=3)
+        ax.plot(*tip, marker="o", ms=2.2, color=col, zorder=5)
+    for j, (nm, col, skel, face, verdict) in enumerate((
+            ("CoDe", BLUE_, (4.0, 3.0), (0.0, 0.0), "contact surfaces: kept\nskeleton: moved"),
+            ("Coverage", ORANGE_, (0.5, -1.0), (4.0, -2.5), "contact surfaces: moved"))):
+        ax = fig.add_axes(((0.25 + j * 1.70) / W_, (yc - 1.12) / H_, 1.45 / W_, 0.95 / H_))
+        finger(ax, "#6b6b69", (0, (2.5, 1.5)), 0.9, 3.0, fill=False)
+        finger(ax, col, "-", 1.4, 7.0, skel=skel, face=face)
+        ax.set_xlim(-2, 62); ax.set_ylim(-36, 10); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(0, 9.5, nm, fontsize=6.6, color=col, ha="left", va="top", **BOLD)
+        ax.text(0, -22, verdict, fontsize=5.6, color=col, ha="left", va="top", linespacing=1.15)
+    fig.text(*inch(0.25, yc - 1.13), "dashed: O;  solid: redesigned for a thicker interface (exaggerated)", fontsize=5.2,
+             color=INK2, ha="left", va="top")
+    fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
     # ---- (d) (user, 2026-11-28): a policy learned on O (a neural network pi) runs unchanged on each redesign with the
     # thicker interface; on CoDe it keeps working, so the interface can be evaluated through it. Finger walk, Isaac Lab,
     # 7 mm, the share of O's performance kept (report/study4/data/rl_transfer.json, mean of the training seeds).
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "same policy, thicker interface")
+    plabel(0.07, yd, "d", "policy transfer")
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]["walk"]["ratio"]
     kept = {"O": 1.0, "MRM": float(np.mean(rl["MRM"])), "U": float(np.mean(rl["U"]))}
     # the policy: a small neural network, labelled pi_O, then the task it runs (the finger-walk render), then the hands
@@ -443,22 +465,29 @@ def main() -> int:
     wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
     fig.patches.append(FancyArrowPatch(inch(nx0 + 0.37, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
-    rows = (("O", "O", "#4D4D4D", yd - 0.40), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.92))
-    xh, xa0, xs_ = 1.22, 1.98, 0.95  # hand label x; bars' zero; inches per unit share
-    fig.text(*inch(xa0 + 0.48, yd - 0.20), "finger walk kept", fontsize=5.8, ha="center", va="center", color=INK2)
-    for k, nm, col, yr in rows:
-        fig.patches.append(FancyArrowPatch(inch(1.12, ny0 + 0.26), inch(xh - 0.04, yr), transform=fig.transFigure,
-                                           arrowstyle="-|>", mutation_scale=6, lw=0.7, color="#8a8a87", zorder=3))
-        fig.text(*inch(xh, yr), nm, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
-        v = kept[k]
-        fig.patches.append(Rectangle(inch(xa0, yr - 0.07), v * xs_ / W_, 0.14 / H_, transform=fig.transFigure,
-                                     fc=col, ec="none", alpha=0.9, zorder=3))
-        fig.text(*inch(xa0 + v * xs_ + 0.05, yr), f"{100 * v:.0f}%", fontsize=5.8, va="center", ha="left", color=col,
-                 **(BOLD if k == "MRM" else {}))
-    fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.02) / H_, (yd - 0.29) / H_], color=INK, lw=0.6,
-                              transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "CoDe keeps the policy working", fontsize=5.8, ha="center", va="bottom", color=BLUE_,
-             **BOLD)
+    # illustrative trajectories (user, 2026-11-28: a schematic, not data): the object's position along the pads under
+    # the same policy; CoDe follows O's walk, Coverage leaves it
+    fig.patches.append(FancyArrowPatch(inch(1.12, ny0 + 0.26), inch(1.30, ny0 + 0.26), transform=fig.transFigure,
+                                       arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
+    tax = fig.add_axes((1.42 / W_, (yd - 1.00) / H_, 1.90 / W_, 0.70 / H_))
+    tt = np.linspace(0, 1, 400)
+    sm = lambda u: 0.5 - 0.5 * np.cos(np.pi * np.clip(u, 0, 1))
+    xo = 0.2 + 0.6 * (sm((tt - 0.08) / 0.16) - sm((tt - 0.42) / 0.16) + sm((tt - 0.74) / 0.16))
+    xc = 0.2 + 0.6 * (sm((tt - 0.10) / 0.17) - sm((tt - 0.44) / 0.17) + sm((tt - 0.76) / 0.17)) - 0.03
+    xu = 0.2 + 0.25 * sm((tt - 0.10) / 0.25) + 0.04 * np.sin(9 * tt) * sm((tt - 0.25) / 0.2)
+    tax.plot(tt, xo, color="#4D4D4D", lw=1.0, ls=(0, (3, 2)), label="O")
+    tax.plot(tt, xc, color=BLUE_, lw=1.4, label="CoDe")
+    tax.plot(tt, xu, color=ORANGE_, lw=1.4, label="Coverage")
+    tax.set_xticks([]); tax.set_yticks([]); tax.set_xlim(0, 1); tax.set_ylim(0.05, 0.95)
+    for sp in ("top", "right"):
+        tax.spines[sp].set_visible(False)
+    tax.spines["left"].set_linewidth(0.5); tax.spines["bottom"].set_linewidth(0.5)
+    tax.set_xlabel("time", fontsize=5.6, labelpad=1); tax.set_ylabel("object along the pads", fontsize=5.6, labelpad=1)
+    tax.text(0.98, xo[-1] + 0.06, "O", fontsize=6.0, color="#4D4D4D", ha="right", va="bottom", **BOLD)
+    tax.text(0.62, 0.86, "CoDe", fontsize=6.2, color=BLUE_, ha="center", va="bottom", **BOLD)
+    tax.text(0.98, xu[-1] - 0.10, "Coverage", fontsize=6.2, color=ORANGE_, ha="right", va="top", **BOLD)
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps walking; on Coverage it does not", fontsize=5.8,
+             ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")
