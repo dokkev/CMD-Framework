@@ -96,6 +96,8 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **No implementation detail in the text** (user, 2026-11-27): every implementation choice stated in the manuscript (a length such as L_f = 90 mm, a stiffness, a threshold, a seed count, a grid, a count of placements) invites "why this value?" and a reject. The paper has no appendix, so such details stay in the repository (docs, report) and out of the manuscript, figures and captions. The text states the principle, the comparison and the result; a number appears only if it is a result the story needs. Check every sentence for this before writing, not after a review.
+
 - **Big picture over mechanism detail** (user, 2026-11-27): with the 5-page limit, do not spend text on detailed mechanism bookkeeping such as each hand's surface-depth change Δt or checking Eq. (4) hand by hand, even when a reviewer asks. State the principle and the result; leave per-hand mechanism numbers to the figures or out. Keep the high-level concept detailed, and leave out entirely what invites nitpicks without carrying the story (user, 2026-11-27): post hoc analyses, uncorrected p-values, design-side bookkeeping such as selection margins or pin heights, and arguments the data do not test. Fig. 1 shows only pre-registered results.
 
 - **Spoon-feed the reader (user, 2026-11-27).** The paper hands the reader every step. They should never have to infer, recompute or look elsewhere to follow the point.
