@@ -355,3 +355,19 @@ v44: 5, 5, 5, all Reject. The v43 inconsistencies are no longer raised. New, com
 - O names both the hand and the MCP point.
 - Table I shows signed medians while the text argues with E.
 Standing: rigid pads, no hardware, two seeds, MA cost, no retargeting or fine-tuning baseline.
+
+v45: 5, 5, 5, all Reject (manuscript after the v44 fixes). Eq. (4) is now read as consistent (r3 calls it a nice check).
+New:
+- Why Delta_t is 1 mm for CoDe. Answering it in the paper would expose the pin-space difference with Skeleton.
+- The fixed-axis claim needs its packaging and same-c0 conditions in the abstract.
+- The 41% reference is a counterfactual on O, and should be called a simulated reference.
+- Fig. 1(d)'s teaser rests on a post hoc result and a Coverage policy that barely walks. Two reviewers suggest the pre-registered Isaac pad-swap result instead.
+- The scope is blind setpoint replay (touch shows no gain).
+- Exact 0% medians.
+Plateau at 5. The score-limiting items need experiments or user decisions:
+- hardware
+- deformable pads
+- more RL seeds
+- a retargeting or fine-tuning baseline
+- MA cost
+- the Fig. 1(d) teaser choice
