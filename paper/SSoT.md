@@ -109,6 +109,8 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Related work (user, 2026-11-28):** concise; say what past work did, grouped by approach, and how we see the problem differently. No single work is singled out by name; citations stay grouped (Stage 1: only literature tied to the central problem).
+- **Where to cut (user, 2026-11-28):** when the page limit forces cuts, cut from the Design section first.
 - **Results and Design are claims, not figure readings (user, 2026-11-28; RSS award papers: IRP, On-Palm, DiSECt, FEAST).** The Design section follows the same pattern: it opens by saying what it shows, its titles are claims, and each result carries its reason and its limit.
   - The Results open with the questions they answer (Q1, Q2, ...).
   - Every subsubsection title is a claim, written as a sentence.
