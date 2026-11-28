@@ -1015,3 +1015,17 @@ Table I settings and command protocols at 7 mm (`table_signed` functions; signed
 - Primary: hydro. Secondary: point.
 - Metric: each hand's mean rotation over O's, per training seed.
 - Prediction (Isaac Lab's order, primary contact): Skeleton ≥ Coverage and Skeleton ≥ CoDe, for both seeds. It fails if either inequality reverses for either seed.
+
+## Post hoc: the pad's effect through a transferred policy (2026-11-27, for Fig. 1(d))
+
+This analysis was not pre-registered. It reads the existing transfer evals at pad friction 1.3 and 2.0 (`logs/pr_mr_transfer`, mean of eval seeds 94000/95000). The pad's effect is score(μ 2.0) − score(μ 1.3) under the policy learned on O, reported per training seed s20 / s21.
+
+| task | O | CoDe (MO-Pad) | Skeleton | Coverage | R |
+|---|---|---|---|---|---|
+| 7b′ walk, mm | −174 / −170 | −71 / −131 (0.41 / 0.77 of O) | +79 / +86 (reversed) | +73 / +43 (reversed) | −86 / −188 |
+| relay (face), deg | +16 / +18 | −17 / −13 (reversed) | −33 / 0 | −17 / −1 | −19 / −13 |
+| cube, deg (s20 / s21 policy) | −115 / −82 | −166 / −101 (1.44 / 1.24) | −90 / −19 | −98 / −26 | −128 / −25 |
+
+- **Walk.** The pad's effect keeps its sign only on the contact-preserving hands (CoDe, R), and reverses on Skeleton and Coverage. Fig. 1(d) shows this task: O −172 mm, CoDe −101 mm, Coverage +58 mm, means of the two seeds.
+- **Relay.** The effect reverses on every redesign. Fingertip-end contact is outside C2.
+- **Cube.** No hand reverses the sign. The size differs: CoDe overstates it (1.2–1.4×), and Skeleton and Coverage understate it under s21.

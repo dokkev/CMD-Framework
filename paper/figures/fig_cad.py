@@ -414,43 +414,66 @@ def main() -> int:
         ax.spines["left"].set_linewidth(0.5); ax.spines["bottom"].set_linewidth(0.5)
     fig.text(*inch(W_ / 2, yc - 1.24), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
-    # ---- (d) the point: on a redesigned finger, is the interface's own effect what gets measured? Each redesign runs
-    # O's command with the old and the new interface; its measured effect over the interface's own effect (measured on
-    # O, which needs no redesign): 100% = the interface alone, the rest is what the finger's change adds (user,
-    # 2026-11-27: not task success). Isaac Lab compliant-pad pull-out (isaac_conclusion_study3.json) and the Drake
-    # grasp acquisition's friction effect (fig4_sync.json); CoDe = MO-Pad.
+    # ---- (d) the point (user, 2026-11-27): a policy pi learned on O is transferred unchanged to each redesign, and the
+    # pad is evaluated through it: pad friction 1.3 -> 2.0, the change in the distance the finger walks the cylinder
+    # (7b', two training seeds, mean of eval seeds 94000/95000; logs/pr_mr_transfer/walk). On O the higher friction
+    # walks less; on CoDe (MO-Pad) also less; on Coverage more (reversed). Arrow length = the change, one scale.
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "measuring a new interface on the redesigned finger")
-    conc = {**conc, "C": json.load(open(ROOT / "report" / "study3" / "data" / "isaac_conclusion_study3.json"))["outside"]["mrmid_free"]}
-    groups = (("compliant pad: pull-out load",
-               {k: 100 * conc[k]["measured_change_pct"] / conc[k]["true_change_pct"] for k in ("C", "U")}),
-              ("more friction: drawn-in distance",
-               {k: 100 * sync["acquire"]["hands"][k]["ratio_median"] for k in ("C", "U")}))
-    ax = fig.add_axes((0.62 / W_, 0.36 / H_, (W_ - 0.74) / W_, (yd - 0.66) / H_))
-    rows = []
-    for g, (glab, vals) in enumerate(groups):
-        for j, (k, nm, col) in enumerate((("C", "CoDe", BLUE_), ("U", "Coverage", ORANGE_))):
-            y_ = -(g * 3.3 + 1.0 + j * 1.05)
-            v = vals[k]
-            ax.barh(y_, v, height=0.85, color=col, alpha=0.9 if k == "C" else 0.75, lw=0, zorder=3)
-            ax.text(v + (5 if v >= 0 else -5), y_, f"{v:.0f}%".replace("-", "\u2212"), fontsize=5.8, va="center",
-                    ha="left" if v >= 0 else "right", color=col, zorder=4, **(BOLD if k == "C" else {}))
-            ax.text(-182, y_, nm, fontsize=5.8, va="center", ha="right", color=col, **(BOLD if k == "C" else {}))
-        ax.text(-178, -(g * 3.3) - 0.05, glab.replace("\n", " "), fontsize=5.6, va="center", ha="left", color=INK2,
-                style="italic")
-    ax.axvline(100, color=GREEN_, lw=1.0, ls=(0, (3, 1.5)), zorder=2)
-    ax.axvline(0, color=INK, lw=0.6, zorder=2)
-    ax.text(106, 0.35, "interface's own\neffect (on O)", fontsize=5.4, color=GREEN_, ha="left", va="center",
-            linespacing=1.0)
-    ax.text(-90, -6.05, "reversed (< 0)", fontsize=5.2, color=INK2, ha="center", va="center")
-    ax.set_xlim(-180, 200); ax.set_ylim(-6.4, 1.0)
-    ax.set_xticks([-100, 0, 100, 200]); ax.set_yticks([])
-    ax.tick_params(axis="x", labelsize=5.6, length=2, pad=1)
-    ax.set_xlabel("measured effect (% of the interface's own)", fontsize=5.8, labelpad=1)
-    for sp in ("top", "right", "left"):
-        ax.spines[sp].set_visible(False)
-    ax.spines["bottom"].set_linewidth(0.5)
-    fig.text(*inch(W_ / 2, 0.03), "CoDe measures the interface's own effect; Coverage adds its finger's change to it",
+    plabel(0.07, yd, "d", "a policy learned on O, transferred: is the pad's effect kept?")
+    import json as _j
+    W7 = ROOT / "sim" / "isaaclab" / "logs" / "pr_mr_transfer" / "walk"
+
+    def walk_eff(h):
+        v = []
+        for m in ("1.3", "2.0"):
+            per = []
+            for sd in (94000, 95000):
+                d_ = _j.load(open(W7 / f"{h}_mu{m}_seed{sd}.json"))
+                per.append([x["walked_mm_mean"] for x in (d_ if isinstance(d_, list) else [d_])])
+            v.append(np.mean(per, axis=0))
+        return float(np.mean(v[1] - v[0]))  # mean over the two training seeds
+    eff = {k: walk_eff(k) for k in ("O", "MRM", "U")}
+    # the policy: a small network drawn as layers of nodes
+    nx0, ny0 = 0.16, yd - 0.66
+    layers = (3, 4, 4, 2)
+    pts_ = []
+    for li, nn in enumerate(layers):
+        xs = nx0 + li * 0.15
+        ys = [ny0 + (k - (nn - 1) / 2) * 0.11 for k in range(nn)]
+        pts_.append([(xs, y_) for y_ in ys])
+    for a_, b_ in zip(pts_[:-1], pts_[1:]):
+        for p1 in a_:
+            for p2 in b_:
+                fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5", lw=0.35,
+                                          transform=fig.transFigure, zorder=1))
+    for lay in pts_:
+        for (x_, y_) in lay:
+            fig.patches.append(Ci(inch(x_, y_), 0.028 / W_, transform=fig.transFigure, fc="white", ec=INK2, lw=0.6,
+                                  zorder=2))
+    fig.text(*inch(nx0 + 0.225, ny0 + 0.30), "$\\pi$", fontsize=10, ha="center", va="center", color=INK)
+    fig.text(*inch(nx0 + 0.225, ny0 - 0.24), "learned on O", fontsize=5.6, ha="center", va="top", color=INK2)
+    # transfer arrows to the three hands, each evaluated with the old and the new pad
+    rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.94))
+    xh, xa0, xs_ = 1.00, 2.72, 0.0050  # hand label x; arrows' zero; inches per mm
+    fig.text(*inch(0.80, yd - 0.30), "run"+chr(10)+"unchanged", fontsize=5.4, ha="center", va="center", color=INK2,
+             style="italic", linespacing=1.0)
+    fig.text(*inch(2.55, yd - 0.17), "pad friction 1.3 to 2.0: change in distance walked", fontsize=5.6,
+             ha="center", va="center", color=INK2)
+    for k, nm, col, yr in rows:
+        fig.patches.append(FancyArrowPatch(inch(nx0 + 0.52, ny0), inch(xh - 0.04, yr), transform=fig.transFigure,
+                                           arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87",
+                                           connectionstyle="arc3,rad=0.0", zorder=3))
+        fig.text(*inch(xh, yr), nm, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
+        e_ = eff[k]
+        fig.patches.append(FancyArrowPatch(inch(xa0, yr), inch(xa0 + e_ * xs_, yr), transform=fig.transFigure,
+                                           arrowstyle="-|>,head_length=4,head_width=3", mutation_scale=1, lw=2.2,
+                                           color=col, zorder=3))
+        lab = f"{e_:+.0f} mm".replace("-", "\u2212") + ("\nreversed" if e_ * eff["O"] < 0 else "")
+        fig.text(*inch(xa0 + (e_ * xs_ + 0.05 if e_ > 0 else 0.05), yr), lab, fontsize=5.8, va="center",
+                 ha="left", linespacing=1.0, color=col, **(BOLD if k == "MRM" else {}))
+    fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
+                              transform=fig.transFigure, zorder=2))
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect keeps its sign; on Coverage it reverses",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
