@@ -113,7 +113,15 @@ def urdf(hand: str) -> Path:
         return src
     dst = src.with_name(src.stem + "_drake.urdf")
     pattern = r'\s*<(visual|collision) name="[^"]*">(?:(?!</\1>).)*?radius="0"(?:(?!</\1>).)*?</\1>'
-    dst.write_text(re.sub(pattern, "", text, flags=re.S))
+    clean = re.sub(pattern, "", text, flags=re.S)
+    if not dst.exists() or dst.read_text() != clean:  # atomic: parallel workers may build the same hand
+        import os
+        import tempfile
+
+        fd, tmp = tempfile.mkstemp(dir=dst.parent, suffix=".urdf")
+        with os.fdopen(fd, "w") as f:
+            f.write(clean)
+        os.replace(tmp, dst)
     return dst
 
 

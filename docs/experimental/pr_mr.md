@@ -1077,3 +1077,24 @@ This analysis was not pre-registered. It reads the existing transfer evals at pa
   1. CoDe's ratio is the highest of CoDe, Skeleton and Coverage under both training seeds, at point contact.
   2. CoDe's ratio exceeds R's (palm shift 1 against 4 mm) under both seeds, at point contact.
   - Fails if, in either seed, Skeleton or Coverage reaches CoDe's ratio (prediction 1), or R does (prediction 2).
+
+## Result: Drake transfer of the cube policies (2026-11-27)
+
+- **Runs.** `policy_transfer.py run --task cube`, 32 episodes per hand and seed, all steps without errors. A first attempt failed: parallel workers raced on writing MO-Pad's Drake URDF copy. The copy is now written atomically, and the batch was rerun from scratch.
+- **Table.** Ratios to O's Drake score, per training seed s20 / s21; terminated share in brackets.
+
+| contact | O (deg) | CoDe (MO-Pad) | Skeleton | Coverage | R |
+|---|---|---|---|---|---|
+| **point (primary)** | 590 / 362 | **0.82 / 0.49** (0.03 / 0.03) | 0.25 / 0.29 (0.25 / 0.03) | 0.34 / 0.32 (0.19 / 0.06) | 0.24 / 0.21 (0.16 / 0.25) |
+| hydroelastic | 312 / 199 | **1.20 / 0.74** (0.22 / 0.06) | 0.48 / 0.37 (0.19 / 0.22) | 0.37 / 0.44 (0.50 / 0.25) | 0.57 / 0.25 (0.38 / 0.16) |
+| Isaac Lab (reference) | 919 / 786 | 0.94 / 0.56 | 0.65 / 0.20 | 0.70 / 0.21 | 0.75 / 0.19 |
+
+- **Prediction 1 holds.** At point contact, CoDe's ratio is the highest of CoDe, Skeleton and Coverage under both seeds (0.82 against 0.25 / 0.34; 0.49 against 0.29 / 0.32).
+- **Prediction 2 holds.** CoDe exceeds R under both seeds (0.82 against 0.24; 0.49 against 0.21).
+- **Hydroelastic** (secondary) gives the same order under both seeds.
+- **Reading.** The palm-shift split replicates in a second simulator. The 1 mm hand keeps the most. The 4 mm hands (Skeleton, Coverage, R) fall together, as in Isaac Lab. Drake separates them more under seed 20: the 4 mm hands keep 0.24–0.34 against Isaac's 0.65–0.75.
+- **Fidelity limits.**
+  - Pads are flat boxes; Isaac's are 1 mm domes.
+  - No condim-4 torsional friction.
+  - O keeps only 64% / 46% (point) and 34% / 25% (hydro) of its Isaac score.
+  - Isaac draws its rows with its own RNG, so the sampled rows differ.
