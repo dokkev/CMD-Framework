@@ -403,3 +403,16 @@ v48: 5, 5, 5, all Reject. The clarity pass is not yet reflected in the scores; t
 New common item: every number must name its statistic and simulator. E vs signed median, and Fig. 1(d)'s medians of
 load change vs Table I's per-placement relative errors, read as inconsistent. Also: visible hyperlink boxes;
 Fig. 4's caption sentence on the acquisition starts; why the joint is called PIP.
+
+v49: 5, 5, 5, all Reject (new intro storyline; numbers name their statistic). The reviewers read the new framing
+("the natural answer, keep the skeleton, is wrong") as clear, but call the intro's "any hand driven in joint space"
+and "every interface comparison and every policy" over-general.
+New and serious (r3): the baselines are unequal. CoDe (MO-Pad) comes from F' with Delta_MCP; Coverage and Skeleton do
+not, so the palm-shift advantage follows from the extra objective.
+Plateau: 5, 5, 5 for seven rounds (v43-v49). The remaining score-limiting items need evidence or a decision, not text:
+- hardware
+- deformable pads
+- more RL seeds
+- equal-objective baselines (Coverage and Skeleton in F')
+- the ground-truth argument
+- the 9 mm error
