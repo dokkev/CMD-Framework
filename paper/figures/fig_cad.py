@@ -418,45 +418,47 @@ def main() -> int:
     # thicker interface; on CoDe it keeps working, so the interface can be evaluated through it. Finger walk, Isaac Lab,
     # 7 mm, the share of O's performance kept (report/study4/data/rl_transfer.json, mean of the training seeds).
     yd = yc - 1.42
-    plabel(0.07, yd, "d", "same policy, new interface: does it still work?")
+    plabel(0.07, yd, "d", "same policy, thicker interface")
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]["walk"]["ratio"]
     kept = {"O": 1.0, "MRM": float(np.mean(rl["MRM"])), "U": float(np.mean(rl["U"]))}
-    # the policy: a small neural network, labelled pi
-    nx0, ny0 = 0.16, yd - 0.92
+    # the policy: a small neural network, labelled pi_O, then the task it runs (the finger-walk render), then the hands
+    nx0, ny0 = 0.12, yd - 0.86
     layers = (3, 4, 4, 2)
     pts = []
     for li, n in enumerate(layers):
-        xx = nx0 + li * 0.17
-        pts.append([(xx, ny0 + 0.32 + (k - (n - 1) / 2) * 0.12) for k in range(n)])
+        xx = nx0 + li * 0.11
+        pts.append([(xx, ny0 + 0.26 + (k - (n - 1) / 2) * 0.10) for k in range(n)])
     for a_, b_ in zip(pts[:-1], pts[1:]):
         for p1 in a_:
             for p2 in b_:
-                fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5", lw=0.35,
+                fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#b8b8b5", lw=0.3,
                                           transform=fig.transFigure, zorder=2))
     for layer in pts:
         for (xx, yy) in layer:
-            fig.patches.append(Circle(inch(xx, yy), 0.035 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
-                                      lw=0.6, zorder=3))
-    fig.text(*inch(nx0 + 0.255, ny0 + 0.62), r"$\pi$", fontsize=9, ha="center", va="bottom", color=INK)
-    fig.text(*inch(nx0 + 0.255, ny0 - 0.02), "learned on O", fontsize=5.6, ha="center", va="top", color=INK2)
-    rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.94))
-    xh, xa0, xs_ = 1.12, 2.15, 0.92  # hand label x; bars' zero; inches per unit share
-    fig.text(*inch(0.95, yd - 0.24), "run unchanged", fontsize=5.4, ha="center", va="center", color=INK2, style="italic")
-    fig.text(*inch(xa0 + 0.55, yd - 0.17), "finger walk kept, thicker interface", fontsize=5.6, ha="center",
-             va="center", color=INK2)
+            fig.patches.append(Circle(inch(xx, yy), 0.028 / W_, transform=fig.transFigure, fc="white", ec="#6b6b69",
+                                      lw=0.5, zorder=3))
+    fig.text(*inch(nx0 + 0.165, ny0 + 0.52), r"$\pi_O$", fontsize=9, ha="center", va="bottom", color=INK)
+    walk = usd_render(ROOT / "paper" / "figures" / "cad" / "rl_walk_O.png")
+    wax = fig.add_axes((0.50 / W_, (yd - 0.98) / H_, 0.62 / W_, 0.66 / H_))
+    wax.imshow(walk); wax.set_aspect("equal"); wax.axis("off")
+    fig.patches.append(FancyArrowPatch(inch(nx0 + 0.37, ny0 + 0.26), inch(0.52, ny0 + 0.26), transform=fig.transFigure,
+                                       arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
+    rows = (("O", "O", "#4D4D4D", yd - 0.40), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.92))
+    xh, xa0, xs_ = 1.22, 1.98, 0.95  # hand label x; bars' zero; inches per unit share
+    fig.text(*inch(xa0 + 0.48, yd - 0.20), "finger walk kept", fontsize=5.8, ha="center", va="center", color=INK2)
     for k, nm, col, yr in rows:
-        fig.patches.append(FancyArrowPatch(inch(nx0 + 0.56, ny0 + 0.32), inch(xh - 0.04, yr), transform=fig.transFigure,
-                                           arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
+        fig.patches.append(FancyArrowPatch(inch(1.12, ny0 + 0.26), inch(xh - 0.04, yr), transform=fig.transFigure,
+                                           arrowstyle="-|>", mutation_scale=6, lw=0.7, color="#8a8a87", zorder=3))
         fig.text(*inch(xh, yr), nm, fontsize=6.4, ha="left", va="center", color=col, **BOLD)
         v = kept[k]
         fig.patches.append(Rectangle(inch(xa0, yr - 0.07), v * xs_ / W_, 0.14 / H_, transform=fig.transFigure,
                                      fc=col, ec="none", alpha=0.9, zorder=3))
         fig.text(*inch(xa0 + v * xs_ + 0.05, yr), f"{100 * v:.0f}%", fontsize=5.8, va="center", ha="left", color=col,
                  **(BOLD if k == "MRM" else {}))
-    fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
+    fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.02) / H_, (yd - 0.29) / H_], color=INK, lw=0.6,
                               transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps working, so the interface can be evaluated through it",
-             fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
+    fig.text(*inch(W_ / 2, 0.03), "CoDe keeps the policy working", fontsize=5.8, ha="center", va="bottom", color=BLUE_,
+             **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
     print(out, f"{W_} x {H_} in")
