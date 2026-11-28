@@ -104,6 +104,11 @@ In the introduction, "the joints and links" stands for the kinematic layout; no 
 
 ## 5. Writing
 
+- **Results are claims, not figure readings (user, 2026-11-28; RSS award papers: IRP, On-Palm, DiSECt, FEAST).**
+  - The Results open with the questions they answer (Q1, Q2, ...).
+  - Every subsubsection title is a claim, written as a sentence.
+  - Each paragraph runs: claim -> 1-3 numbers with a reference point (Fig./Table in parentheses) -> why (the mechanism) -> where it stops holding (stated by us) -> what it means for the contribution.
+  - Never "Fig. N shows ..." as a subject. Never restate a table: the table holds the numbers, the text interprets them.
 - **Abstract (user, 2026-11-28): written like the abstract of "Attention Is All You Need".** Its moves, in order:
   1. the dominant approach, in one plain sentence ("The dominant ... models are based on ...");
   2. what the best of them also do, which sets up the gap;
