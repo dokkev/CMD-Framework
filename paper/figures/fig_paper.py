@@ -808,23 +808,23 @@ def fig4():
     print("fig4", h)
     pc = lambda v: "--" if v is None else f"{v:.0f}"
     rh = lambda v: f"${v:.2f}$".replace("-", "-")
-    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{2.2pt}",
-             r"  \caption{Drake tasks (Fig.~\ref{fig:study3}): $E$ (\%) at $7$\,mm and $\rho$ over $18$ redesigns}",
-             r"  \label{tab:tasks}", r"  \begin{tabular}{lrrrrrrrr}", r"    \toprule",
-             r"    & \multicolumn{3}{c}{$E$, point} & \multicolumn{3}{c}{$E$, hydro.} & \multicolumn{2}{c}{$\rho$ with} \\",
-             r"    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-9}",
-             r"    & \ourmethod{} & Skel. & Cov. & \ourmethod{} & Skel. & Cov. & $\Dcon$ & $\Dskel$ \\", r"    \midrule"]
+    lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{3.0pt}",
+             r"  \caption{Drake tasks (Fig.~\ref{fig:study3}): $E$ (\%) at $7$\,mm, point contact (hydroelastic), and $\rho$ over $18$ redesigns}",
+             r"  \label{tab:tasks}", r"  \begin{tabular}{lccccc}", r"    \toprule",
+             r"    & \multicolumn{3}{c}{$E$, point (hydro.)} & \multicolumn{2}{c}{$\rho$ with} \\",
+             r"    \cmidrule(lr){2-4} \cmidrule(lr){5-6}",
+             r"    & \ourmethod{} & Skel. & Cov. & $\Dcon$ & $\Dskel$ \\", r"    \midrule"]
     for key in ("pull", "acquire", "dial", "pivot"):
         t = tab[key]
-        cells = [pc(t[("point", hh)]) for hh in ("C", "S", "U")] + [pc(t[("hydro", hh)]) for hh in ("C", "S", "U")]
-        cells = [rf"\textbf{{{c}}}" if k % 3 == 0 else c for k, c in enumerate(cells)]
+        cells = [f"{pc(t[('point', hh)])} ({pc(t[('hydro', hh)])})" for hh in ("C", "S", "U")]
+        cells[0] = rf"\textbf{{{cells[0]}}}"
         cells += [rh(t[("rho", "d_contact")]), rh(t[("rho", "d_skel")])]
         short = {"pull": "Hold", "acquire": "Acquisition", "dial": "Pad-turned dial", "pivot": "Box pivot"}[key]
         lines.append("    " + short + " & " + " & ".join(cells) + r" \\")
     lines.append(r"    \midrule")
     for lab, k_ in ((r"$\Dcon$ (mm)", "d_contact"), (r"$\Dskel$ (mm)", "d_skel")):
         dd = tab["delta", k_]
-        lines.append(f"    {lab} & " + " & ".join(f"{dd[hh]:.1f}" for hh in ("C", "S", "U")) + r" & & & & & \\")
+        lines.append(f"    {lab} & " + " & ".join(f"{dd[hh]:.1f}" for hh in ("C", "S", "U")) + r" & & \\")
     lines += [r"    \bottomrule", r"  \end{tabular}", r"\end{table}", ""]
     out = DEST.parent / "sections" / "table_tasks.tex"
     out.write_text("\n".join(lines))
