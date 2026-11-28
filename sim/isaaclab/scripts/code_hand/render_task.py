@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Render the original hand's visual USD in a learned-policy task scene (Fig. 5 of the paper), with Newton's GL viewer,
-offscreen: the finger walk (a cylinder lying across the proximal pads, a distal pad on its top) or the finger relay
-(the dial over the index and middle fingertips). The objects sit where the task's environment puts them
+offscreen: the finger walk (a cylinder lying across the proximal pads, a distal pad on its top), the finger relay
+(the dial over the index and middle fingertips) or the cube rotation (the 40 mm cube in its starting pinch grasp). The objects sit where the task's environment puts them
 (``tasks/finger_walk/env_cfg.py``, ``tasks/finger_relay/env_cfg.py``: the proximal pad-face frame); the fingers are set
 to a pose from the task by hand. No simulation.
 
-    env -u DISPLAY -u WAYLAND_DISPLAY uv run python scripts/code_hand/render_task.py --task walk|relay [--hand O]
+    env -u DISPLAY -u WAYLAND_DISPLAY uv run python scripts/code_hand/render_task.py --task walk|relay|cube [--hand O]
 
 Writes logs/visuals/task_<task>_<hand>.png.
 """
@@ -24,15 +24,16 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 USD = {"O": "cfl_q120_h3to7_h0", "R": "cfl_q120_h3to7_hr", "U": "cfl_q120_h3to7_hu"}
-PIP = {"walk": {"index": 62.0, "middle": 38.0, "ring": 12.0}, "relay": {"index": 30.0, "middle": 16.0, "ring": 0.0}}
-CAM = {"walk": (0.10, -0.12, 0.12), "relay": (0.14, 0.13, 0.012)}
+PIP = {"walk": {"index": 62.0, "middle": 38.0, "ring": 12.0}, "relay": {"index": 30.0, "middle": 16.0, "ring": 0.0},
+       "cube": {}}
+CAM = {"walk": (0.10, -0.12, 0.12), "relay": (0.14, 0.13, 0.012), "cube": (0.08, -0.29, 0.15)}
 """Camera offset from the object, in the proximal pad-face frame (x toward the tips, z out of the pads) [m]."""
 OBJECT_RGB = (0.86, 0.55, 0.30)
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--task", choices=("walk", "relay"), required=True)
+    p.add_argument("--task", choices=("walk", "relay", "cube"), required=True)
     p.add_argument("--hand", default="O", choices=tuple(USD))
     p.add_argument("--pip", default="{}", help="JSON overrides of the PIP flexions [deg]")
     p.add_argument("--cam", type=float, nargs=3, default=None, help="camera offset from the object, face frame [m]")
@@ -51,10 +52,11 @@ def main(argv=None) -> int:
     from code_isaaclab.hands.code_variants import HAND_ROOT_POS
     from code_isaaclab.tasks.finger_relay import env_cfg as relay
     from code_isaaclab.tasks.finger_walk import env_cfg as walk
+    from code_isaaclab.tasks.rotate_cube import grasp as cube
     from code_isaaclab.tasks.rotate_cube.grasp import HANDS, face_frame
 
     desc = Description.load(HANDS[args.hand])
-    o, r = face_frame(desc, 0.0)
+    o, r = face_frame(desc, cube.GRASP_MCP_DEG if args.task == "cube" else 0.0)
     o = np.asarray(o) - np.asarray(HAND_ROOT_POS)  # the render puts the hand's root at the origin
     r = np.asarray(r).reshape(3, 3)
 
@@ -70,6 +72,10 @@ def main(argv=None) -> int:
         # the cylinder's axis across the fingers (face y); Newton's cylinder axis is its local z
         m = r @ Rotation.from_euler("x", 90, degrees=True).as_matrix()
         shapes.append(("cylinder", at([x, 0.0, walk.RADIUS_M + 0.0015]), quat(m), (walk.RADIUS_M, walk.LENGTH_M / 2)))
+    elif args.task == "cube":  # the task's 40 mm cube at its rest pose in the pinch grasp (the episode's start)
+        g = cube.pinch_grasp(desc)
+        shapes.append(("box", np.asarray(g["rest_env"]) - np.asarray(HAND_ROOT_POS), tuple(g["rest_quat_xyzw"]),
+                       (cube.CUBE_SIZE_M / 2,) * 3))
     else:
         place = relay.dial_place_face()
         shapes.append(("cylinder", at(place + [0, 0, relay.THICK_M / 2]), quat(r), (relay.RADIUS_M, relay.THICK_M / 2)))
@@ -96,11 +102,16 @@ def main(argv=None) -> int:
     x_p = model.joint_X_p.numpy()
     x_p[names.index("palm_fixed")] = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]  # palm up: half a turn about x
     model.joint_X_p.assign(x_p)
-    for digit in desc.four_bar_digits():
-        for name, deg in desc.closed_pose(digit, pip.get(digit, 0.0)).items():
+    if args.task == "cube":
+        for name, rad in cube.grasp_joint_pos(desc, g["thumb_mcp_deg"], g["thumb_ip_deg"]).items():
+            if name in names:
+                q[starts[names.index(name)]] = rad
+    else:
+        for digit in desc.four_bar_digits():
+            for name, deg in desc.closed_pose(digit, pip.get(digit, 0.0)).items():
+                q[starts[names.index(name)]] = math.radians(deg)
+        for name, deg in relay.THUMB_DEG.items():
             q[starts[names.index(name)]] = math.radians(deg)
-    for name, deg in relay.THUMB_DEG.items():
-        q[starts[names.index(name)]] = math.radians(deg)
     state = model.state()
     newton.eval_fk(model, wp.array(q, dtype=wp.float32, device=model.device), model.joint_qd, state)
     colors = model.shape_color.numpy()

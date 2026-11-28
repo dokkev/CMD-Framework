@@ -828,7 +828,7 @@ def fig_rl():
         return out[max(rows.min() - 8, 0):rows.max() + 8, max(cols_.min() - 8, 0):cols_.max() + 8].astype(np.uint8)
 
     renders = {"walk": usd_render(CADD / "rl_walk_O.png"), "relay": key_left(CADD / "rl_relay_O.png"),
-               "cube": usd_render(CADD / "usd_hand_cube.png")}
+               "cube": usd_render(CADD / "rl_cube_O.png")}
     W1, h = 3.45, 2.25
     fig = plt.figure(figsize=(W1, h))
     aw, ih = 0.78, 0.62
