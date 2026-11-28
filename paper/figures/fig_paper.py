@@ -37,7 +37,8 @@ W = 7.16
 INK, INK2, LIGHT = "#111111", "#55534f", "#d9d9d6"
 # figures4papers house palette: method blue, comparator warm red, reference grey (paper/SSoT.md §6)
 BLUE, AMBER, GREY, TEAL, PURPLE = "#0F4D92", "#B64342", "#767676", "#42949E", "#9A4D8E"
-ARCH = {"2r_dd": ("2R-DD", GREY, "^"), "2r_remote": ("2R-remote", AMBER, "s"), "rcj": ("RCJ", TEAL, "D"),
+# display names without acronyms (v42 editing pass): servo at the joint, servo remote, rolling contact joint
+ARCH = {"2r_dd": ("At-joint", GREY, "^"), "2r_remote": ("Remote", AMBER, "s"), "rcj": ("Rolling", TEAL, "D"),
         "cfl": ("CoDe", BLUE, "o")}
 S1NAME = {"2r_dd": "2R-DD", "2r_remote": "2R-remote", "rcj": "RCJ", "cfl": "CFL"}
 LF = 90.0
@@ -787,7 +788,7 @@ def fig_rl():
     HC = {"R": BLUE, "U": AMBER, "S": TEAL}
     gov = {"walk": ("$\\Delta_\\mathrm{contact}$", {h: hd7[h]["d_contact"] for h in ("R", "S", "U")}),
            "relay": ("$\\Delta_\\mathrm{skel}$", {h: hd7[h]["d_skel"] for h in ("R", "S", "U")}),
-           "cube": ("$\\Delta t_p$", {"R": 4.0, "S": 4.0, "U": 4.0})}
+           "cube": ("palm shift", {"R": 4.0, "S": 4.0, "U": 4.0})}
     cols = (("walk", "Finger walk\n(on the pads)"), ("relay", "Relay dial\n(fingertip end)"),
             ("cube", "Cube rotation\n(whole hand)"))
     MAP = (("R", "R", "CoDe"), ("SK", "S", "Skel."), ("U", "U", "Cov."))
@@ -880,18 +881,18 @@ def table():
     st, pr = t["settings"], t["protocols"]
     # one wide table: every simulator, contact model, pad change and command side by side (user, 2026-11-27: the
     # table says how many simulations agree); rows Coverage and CoDe (bold, at the bottom); title-only caption
-    groups = (("MuJoCo-Warp, point contact", (("friction", st["friction, Isaac point"]),
-                                            ("stiffness", st["stiffness, Isaac point"]),
-                                            ("friction, compliant pad", st["friction softer pad, Isaac point"]),
-                                            ("convex pad", st["crowned, Isaac point"]))),
-              ("Drake, point contact", (("friction", st["friction, Drake point"]),
-                                        ("convex pad", st["crowned, Drake point"]),
-                                        ("contact setpoint", pr["contact setpoint"]))),
-              ("Drake, hydroelastic", (("friction", st["friction, Drake hydro"]),
-                                       ("friction, compliant pad", st["friction softer pad, Drake hydro"]))),
-              ("MuJoCo-Warp, other commands", (("joint torque", pr["torque"]),
-                                             ("sensed touch", pr["touch"]),
-                                             ("contact force", pr["force"]))))
+    groups = (("MuJoCo-Warp, point", (("friction", st["friction, Isaac point"]),
+                                      ("stiffness", st["stiffness, Isaac point"]),
+                                      ("compl.\\ pad", st["friction softer pad, Isaac point"]),
+                                      ("convex", st["crowned, Isaac point"]))),
+              ("Drake, point", (("friction", st["friction, Drake point"]),
+                                ("convex", st["crowned, Drake point"]))),
+              ("Drake, hydro.", (("friction", st["friction, Drake hydro"]),
+                                 ("compl.\\ pad", st["friction softer pad, Drake hydro"]))),
+              ("Other commands", (("torque", pr["torque"]),
+                                  ("touch", pr["touch"]),
+                                  ("force", pr["force"]),
+                                  ("setpoint", pr["contact setpoint"]))))
     cols = [c for _, cs in groups for c in cs]
     n = len(cols)
     head1, rules, pos = [], [], 2
@@ -914,7 +915,7 @@ def table():
              r"  \caption{Signed error in the measured pad effect across simulators, contact models and commands}",
              r"  \label{tab:robust}", f"  \\begin{{tabular}}{{l{'r' * n}}}", r"    \toprule",
              "    & " + " & ".join(head1) + r" \\", "    " + " ".join(rules),
-             "    & " + " & ".join(stack(name) for name, _ in cols) + r" \\", r"    \midrule",
+             "    & " + " & ".join(name for name, _ in cols) + r" \\", r"    \midrule",
              "    Coverage & " + " & ".join(cell(d, "U") for _, d in cols) + r" \\",
              r"    \ourmethod{} & " + " & ".join(cell(d, "R") for _, d in cols) + r" \\",
              r"    \bottomrule", r"  \end{tabular}", r"\end{table*}", ""]
