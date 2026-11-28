@@ -541,7 +541,7 @@ def fig3():
     s1 = rows(OUT / "study1_thickness_coverage" / "summary.csv")
     s2 = rows(OUT / "study2_redesign_2026-11-21" / "summary.csv")
     traj = json.loads((ROOT / "design" / "output" / "paper" / "fig3_paths_q120_3to7.json").read_text())
-    h = 2.85
+    h = 2.56
     fig = plt.figure(figsize=(W, h))
     row_a, row_b = h - 0.20, h / 2 - 0.08
     # (a) left: optimized geometry, one scale
@@ -559,8 +559,6 @@ def fig3():
                  color=ARCH[key][1], ha="center", va="top", fontweight="bold" if key == "cfl" else "normal", family="Nimbus Sans" if key == "cfl" else "Helvetica Light")
         fig.text((0.04 + i * (gw + 0.02) + gw / 2) / W, (row_a - 0.14 - gh) / h, f"$\\bar C_{{pad}}$ = {100 * c:.0f}%",
                  fontsize=6.2, color=ARCH[key][1], ha="center", va="top")
-    fig.text(0.05 / W, (row_b + 0.22) / h, "dark: contact surface holding the cylinder;  light: mounted pad;  "
-             "grey: actuator, linkage, rollers, joints;  faint: extended", fontsize=5.4, color=INK2, va="center")
     # (a) right: coverage dots, every condition
     for j, q in enumerate((90.0, 120.0, 150.0)):
         ax = fig.add_axes(((4.32 + j * 0.95) / W, (row_b + 0.55) / h, 0.82 / W, (row_a - row_b - 0.85) / h))
@@ -620,9 +618,6 @@ def fig3():
             ax.text(X[0] + 2, X[1] + 2, "$X$", fontsize=6.2, zorder=27)
         ax.set_xlim(-42, 96); ax.set_ylim(-82, 20)
         ax.set_title(f"$q={qe:.0f}^\\circ$", fontsize=6.4, pad=1)
-    fig.text(2.1 / W, 0.02 / h, "green: $T=T_1\\cap T_2$, where both pads hold a cylinder;  "
-             "$\\bar C_{pad}$ averages $2|T|/L_f$ over $Q_{eval}$", fontsize=5.6, color=INK2, ha="center",
-             va="bottom")
     label(fig, 4.05, row_b + 0.02, "(c) Redesign, $3\\to5,7,9$ mm", h)
     # (c) right: each redesign's Delta_d^p in mm against the fixed-axis bound 2 sin(q/2)|Delta t| (dashed), every
     # condition (user, 2026-11-28: mm, not a normalized share); x: no feasible redesign
@@ -723,7 +718,7 @@ def fig4():
     D = 0.12  # the bottom legend's room, now unused
     NB = 0.85  # the bias row dropped to fit 5 pages (2026-11-27): E under each task carries it
     NT = 0.62  # the E / Delta / rho rows moved to Table II (user, 2026-11-28)
-    h = 3.40 + B + LG - D - NB - NT
+    h = 3.24 + B + LG - D - NB - NT
     fig = plt.figure(figsize=(W, h))
     left, gapc = 0.05, 0.06
     cw = (W - left - 0.04 - gapc * (len(cols) - 1)) / len(cols)
@@ -732,7 +727,7 @@ def fig4():
         x0 = left + i * (cw + gapc)
         tab[key] = {"name": name}
         fig.text((x0 + cw / 2) / W, (h - 0.02) / h, name, fontsize=7, fontweight="bold", ha="center", va="top")
-        ia = fig.add_axes((x0 / W, (h - 0.70) / h, cw / W, 0.52 / h))
+        ia = fig.add_axes((x0 / W, (h - 0.60) / h, cw / W, 0.42 / h))
         strip = np.asarray(Image.open(ROOT / "report" / "study3" / "figures" / img).convert("RGB"))
         wq = strip.shape[1] // 3
         rr = np.nonzero((strip.min(axis=2) < 240).any(axis=1))[0]
@@ -749,7 +744,7 @@ def fig4():
         # the friction effect each hand measures (same hand, 2.0 minus 1.3); O's is the effect of friction alone, the
         # gap to it (shaded) is what the changed finger adds; end labels: share of O's effect
         # the trajectories as deviation from O: R and U minus O on each placement, at each friction (0: O's own)
-        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.52 - LG) / h, (cw - 0.36) / W, 0.74 / h))
+        ra = fig.add_axes(((x0 + 0.30) / W, (h - 1.36 - LG) / h, (cw - 0.36) / W, 0.68 / h))
         ra.axhline(0, color=INK, lw=0.6, zorder=2)
         step = max(len(x) // 6, 1)
         for hi, hh in enumerate(RED):
@@ -801,7 +796,7 @@ def fig4():
                plt.Line2D([], [], color="#777", lw=1.0, marker="D", ms=2.9, mfc="white", mew=0.7,
                           label="pad friction 2.0"),
                plt.Rectangle((0, 0), 1, 1, fc="#999", alpha=0.3, label="quartiles over placements")]
-    fig.legend(handles=handles, loc="center", bbox_to_anchor=(0.5, (h - 0.74 - LG / 2) / h), ncol=7, frameon=False, fontsize=6.0,
+    fig.legend(handles=handles, loc="center", bbox_to_anchor=(0.5, (h - 0.64 - LG / 2) / h), ncol=7, frameon=False, fontsize=6.0,
                handletextpad=0.4, columnspacing=1.2, handlelength=1.8)
     save_figure(fig, DEST / "fig_study3.pdf")
     plt.close(fig)
@@ -809,7 +804,7 @@ def fig4():
     pc = lambda v: "--" if v is None else f"{v:.0f}"
     rh = lambda v: f"${v:.2f}$".replace("-", "-")
     lines = [r"\begin{table}[t]", r"  \centering", r"  \footnotesize", r"  \setlength{\tabcolsep}{3.0pt}",
-             r"  \caption{Drake tasks (Fig.~\ref{fig:study3}): $E$ (\%) at $7$\,mm, point contact (hydroelastic), and $\rho$ over $18$ redesigns}",
+             r"  \caption{Drake tasks: $E$ (\%) at $7$\,mm, point (hydroelastic) contact; $\rho$ over $18$ redesigns}",
              r"  \label{tab:tasks}", r"  \begin{tabular}{lccccc}", r"    \toprule",
              r"    & \multicolumn{3}{c}{$E$, point (hydro.)} & \multicolumn{2}{c}{$\rho$ with} \\",
              r"    \cmidrule(lr){2-4} \cmidrule(lr){5-6}",
@@ -867,10 +862,10 @@ def fig_rl():
     # unchanged in Drake (sim-to-sim; each task's pre-registered contact model: relay hydroelastic, cube point). Bars:
     # the mean over the policies trained on O for the task (user, 2026-11-28: deployment view, no seeds shown).
     PRIM = {"relay": "hydro", "cube": "point", "walk": "hydro"}  # the pre-registered primaries
-    W1, h = 3.45, 2.38
+    W1, h = 3.45, 2.12
     fig = plt.figure(figsize=(W1, h))
-    aw, ih = 0.78, 0.50
-    BH, B0, B1 = 0.56, 0.22, 0.90  # bar-panel height; bottoms of the Drake and the Isaac Lab rows
+    aw, ih = 0.78, 0.42
+    BH, B0, B1 = 0.50, 0.22, 0.84  # bar-panel height; bottoms of the Drake and the Isaac Lab rows
     for i, (k, title) in enumerate(cols):
         x0 = 0.46 + i * (aw + 0.28)
         iax = fig.add_axes(((x0 - 0.06) / W1, (B1 + BH + 0.06) / h, (aw + 0.12) / W1, ih / h))
