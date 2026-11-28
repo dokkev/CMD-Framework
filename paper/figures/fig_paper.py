@@ -854,10 +854,10 @@ def fig_rl():
     # unchanged in Drake (sim-to-sim; each task's pre-registered contact model: relay hydroelastic, cube point). Bars:
     # the mean over the policies trained on O for the task (user, 2026-11-28: deployment view, no seeds shown).
     PRIM = {"relay": "hydro", "cube": "point", "walk": "point"}
-    W1, h = 3.45, 2.50
+    W1, h = 3.45, 2.38
     fig = plt.figure(figsize=(W1, h))
     aw, ih = 0.78, 0.50
-    BH, B0, B1 = 0.56, 0.34, 1.02  # bar-panel height; bottoms of the Drake and the Isaac Lab rows
+    BH, B0, B1 = 0.56, 0.22, 0.90  # bar-panel height; bottoms of the Drake and the Isaac Lab rows
     for i, (k, title) in enumerate(cols):
         x0 = 0.46 + i * (aw + 0.28)
         iax = fig.add_axes(((x0 - 0.06) / W1, (B1 + BH + 0.06) / h, (aw + 0.12) / W1, ih / h))
@@ -905,11 +905,7 @@ def fig_rl():
             if i == 0:
                 ax.text(-0.5, 1.2, "Isaac Lab (trained)" if src == "isaac" else "Drake (run unchanged)",
                         fontsize=5.6, ha="left", va="center", fontweight="bold")
-        gl, gv = gov[k]
-        ax.text(-0.62, -0.42, gl, fontsize=5.4, ha="right", va="center", color=INK2, transform=ax.transData)
-        for j, (_, hk, _) in enumerate(MAP):
-            ax.text(j, -0.42, f"{gv[hk]:.1f}", fontsize=5.6, ha="center", va="center", color=HC[hk],
-                    transform=ax.transData)
+        # the governing quantities are in Table II and the text (user, 2026-11-28: none under the bars)
     fig.text(0.02 / W1, (B0 + B1 + BH) / 2 / h, "share of O's performance kept", rotation=90, fontsize=5.8,
              ha="left", va="center")
     save_figure(fig, DEST / "fig_rl.pdf")
