@@ -506,3 +506,13 @@ Revised (s1v3, word level): the mount sentence now says the CFL's pole, not its 
 pivots can rise and the interface mount shallower; Table I caption says median of e_H; Table II caption names the
 hydroelastic parentheses and the pooled rho; "All are crossed four-bar fingers"; CoDe refers to Sec. III-B; the
 command sentence trimmed to fit the page.
+
+s1v3: (V3, F3, Invite), (V3, F2, Invite), (V3, F2, Invite); confidence 4. First round with every reviewer inviting,
+and the first Feasibility 3. The pole-placement wording for the shallow mount was read as intended (no confound
+attack in two of three; r1 asks whether the shallow mount is physically realizable). Still raised: H3 post hoc
+(a task-to-motion rule fixed in advance), no deforming pad, no hardware, pre-registration record, software-only fixes
+(re-referencing, fine-tuning), Table I exact zeros, how D_O is measured on hardware.
+Revised (s1v4, word level): contribution 2 says "As designed"; the hardware plan measures a friction change on every
+hand (so D_O stays defined on hardware).
+Experiments worth adding next (after the seed runs free the GPU): an a priori task-to-motion check for H3 over the
+full redesign set; a re-referenced/fine-tuned policy baseline.
