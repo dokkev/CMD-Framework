@@ -438,3 +438,11 @@ User (2026-11-27):
 - Stop handing reviewers attack points. Implementation detail goes to a future appendix.
 - Put every strength in without gaps, and state the weaknesses ourselves in the Conclusion.
 Both rules are now in paper SSoT section 5. The manuscript is stripped of implementation values, and the Conclusion lists the limits.
+
+v53: 5, 5, 5 (Quality/Soundness 3 appear). v54: 5, 5, 5 (r3 Quality/Soundness 3; Clarity 2 everywhere).
+Shared v54 items: Delta_t is design-dependent (impossibility read as weak); "contact Jacobian" vs path deviation;
+Fig. 1(d) vs Table I statistics; too many design-set counts; weak dial/pivot rho; O as counterfactual reference.
+User (2026-11-27): review is spear against shield; the body gives the detail of the logic, not of the implementation
+(paper SSoT section 5). v55: Drake replication of relay/cube in the RL paragraph, walk's non-transfer in the
+Limitations; Delta_contact = 0 stated as same points and same Jacobian; statistic of Fig. 1(d) vs Table I named;
+set counts and the revolute aside removed.
