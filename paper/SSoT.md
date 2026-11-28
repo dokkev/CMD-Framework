@@ -53,6 +53,8 @@ The story is north-star's "How the paper tells it". The manuscript places it as 
 | IV Experiment (simulation) | C2.3 (what keeping it buys) |
 | V Conclusion; Planned hardware test | the hardware stage; big-picture limitations and future work |
 
+Redesign problem (user, 2026-11-27 evening): Eq. (9) states the redesign in MO-Pad's form. The pins' heights above the link line are design variables, and the objectives are Δ_contact, Δ_MCP (the same contact point's path seen from F₁) and −C̄_pad, minimized together. The manuscript does not mention the two-objective form or R. The experiments' CoDe data stay R's (4.2, the CoDe row), and the redesign study's numbers stay as computed.
+
 Section structure: I Introduction, II Related Work, III Design, IV Experiment, V Conclusion. Design holds the
 model, the analysis and the design studies; Experiment holds simulation only.
 
