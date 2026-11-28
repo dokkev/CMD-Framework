@@ -462,7 +462,7 @@ def main() -> int:
     lax.plot(path[:, 0], path[:, 1], pz, color="#fff3d6", lw=1.4, zorder=10)
     lax.scatter([path[0, 0]], [path[0, 1]], [pz[0]], color="#4D4D4D", s=8, zorder=11, depthshade=False)
     lax.scatter([path[-1, 0]], [path[-1, 1]], [pz[-1]], color=BLUE_, s=14, zorder=11, depthshade=False)
-    lax.text(path[0, 0] + 0.55, path[0, 1] - 0.10, pz[0] + 0.40, "O + new interface", fontsize=5.0, color=INK, ha="center", zorder=12)
+    fig.text(*inch(0.10, yc - 0.20), "O + new interface", fontsize=5.0, color=INK, ha="left", va="top")
     lax.text(path[-1, 0] + 0.05, path[-1, 1], pz[-1] - 0.25, "CoDe", fontsize=6.0, color=BLUE_, ha="left", zorder=12, **BOLD)
     zc = 0.55 + 0.25 * (0.5 ** 2 + 0.4 ** 2) - 0.28 - 0.55 * np.exp(-((-0.95) ** 2 + 0.75 ** 2) / 0.10)
     lax.scatter([-0.50], [0.40], [zc + 0.02], color=TEAL_, s=12, zorder=11, depthshade=False)
@@ -476,15 +476,20 @@ def main() -> int:
         ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.96 / H_))
         co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
         ax.plot([0, 48], [0, 0], color="#9a9a97", lw=3.0, solid_capstyle="butt", zorder=1)  # the proximal pad's face
-        ax.plot(*co.T, color="#4D4D4D", lw=0.9, ls=(0, (2.5, 1.5)), zorder=3)
-        ax.plot(*ch.T, color=col, lw=1.4, zorder=2)
-        for k_ in (0, 60, 120):
-            ax.plot(*ch[k_], marker="o", ms=2.0, color=col, zorder=4)
+        # the distal pad's surface at four flexions (O dashed, the redesign solid): a segment ending at the contact
+        # point, turned by q (all hands share q), and the contact point's path faint
+        LP = 24.0
+        ax.plot(*co.T, color="#c9c9c6", lw=0.6, zorder=1)
+        for k_ in (0, 40, 80, 120):
+            qr = np.radians(k_)
+            d_ = np.array([np.cos(qr), -np.sin(qr)])
+            ax.plot(*np.array([ch[k_] - LP * d_, ch[k_]]).T, color=col, lw=1.8, solid_capstyle="butt", zorder=2)
+            ax.plot(*np.array([co[k_] - LP * d_, co[k_]]).T, color="#4D4D4D", lw=0.8, ls=(0, (2.2, 1.4)), zorder=3)
         dev = float(np.max(np.linalg.norm(ch - co, axis=1)))
-        ax.set_xlim(-2, 96); ax.set_ylim(-48, 20); ax.set_aspect("equal"); ax.axis("off")
+        ax.set_xlim(-2, 96); ax.set_ylim(-52, 20); ax.set_aspect("equal"); ax.axis("off")
         ax.text(48, 19, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
         ax.text(48, -40, f"off O's path by {dev:.1f} mm", fontsize=5.0, color=col, ha="center", va="top")
-    fig.text(*inch(2.62, yc - 1.13), "grey: proximal pad;  dashed: O", fontsize=5.0,
+    fig.text(*inch(2.62, yc - 1.13), "distal pad surface over flexion; dashed: O", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
@@ -537,7 +542,7 @@ def main() -> int:
     tax.spines["left"].set_linewidth(0.5); tax.spines["bottom"].set_linewidth(0.5)
     tax.set_xlabel("time", fontsize=5.6, labelpad=1); tax.set_ylabel("cube rotation", fontsize=5.6, labelpad=1)
     tax.text(0.90, xo[-1] + 0.02, "O", fontsize=6.0, color="#4D4D4D", ha="right", va="bottom", **BOLD)
-    tax.text(0.97, xc[-1] - 0.05, "CoDe", fontsize=6.2, color=BLUE_, ha="right", va="top", **BOLD)
+    tax.text(0.62, xc[248] + 0.08, "CoDe", fontsize=6.2, color=BLUE_, ha="right", va="bottom", **BOLD)
     tax.text(0.98, xu[-1] - 0.06, "Skeleton", fontsize=6.2, color=TEAL_, ha="right", va="top", **BOLD)
     fig.text(*inch(W_ / 2, 0.03), "On CoDe the policy keeps turning the cube; on Skeleton it falls behind", fontsize=5.8,
              ha="center", va="bottom", color=BLUE_, **BOLD)
