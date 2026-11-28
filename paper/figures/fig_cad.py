@@ -386,8 +386,21 @@ def main() -> int:
             for (xx, yy) in layer:
                 fig.patches.append(Circle(inch(xx, yy), 0.026 * sc / W_, transform=fig.transFigure, fc="white",
                                           ec=NB, lw=1.0 * sc, zorder=z + 1))
-    nn_icon(1.13, top - 0.42, 1.0)
-    fig.text(*inch(1.24, top - 0.28), "task policy $\\pi_O$", fontsize=5.8, ha="center", va="bottom", color=INK)
+    # a virtual object over the palm, dashed, with the task policy inside it (user, 2026-11-28)
+    cx_, cy_, e_ = 0.62, TB + 0.40, 0.34  # front face's lower-left corner and edge [in]
+    off = np.array([0.15, 0.11])
+    fr = [np.array(v) for v in ((cx_, cy_), (cx_ + e_, cy_), (cx_ + e_, cy_ + e_), (cx_, cy_ + e_))]
+    bk = [v + off for v in fr]
+    edges = [(fr[k], fr[(k + 1) % 4]) for k in range(4)] + [(bk[k], bk[(k + 1) % 4]) for k in range(4)] + \
+            [(fr[k], bk[k]) for k in range(4)]
+    for p1, p2 in edges:
+        fig.add_artist(plt.Line2D([p1[0] / W_, p2[0] / W_], [p1[1] / H_, p2[1] / H_], color="#2f6db0", lw=0.8,
+                                  ls=(0, (2.5, 1.6)), transform=fig.transFigure, zorder=8))
+    fig.patches.append(Rectangle(inch(cx_, cy_), e_ / W_, e_ / H_, transform=fig.transFigure, fc="white", ec="none",
+                                 alpha=0.75, zorder=7))
+    nn_icon(cx_ + 0.05, cy_ + e_ / 2, 0.85, z=9)
+    fig.text(*inch(cx_ + e_ / 2 + 0.07, cy_ + e_ + off[1] + 0.02), "task policy $\\pi_O$", fontsize=5.8, ha="center",
+             va="bottom", color=INK)
     rx = 1.55
     box(rx, top - 0.47, 1.86, 0.43, "#eaf1fa", "#b9cce4", r=0.05, lw=0.6)
     fin = crop_white(np.asarray(Image.open(CAD / "finger_side.png").convert("RGB"))[:, 705:])
@@ -474,24 +487,37 @@ def main() -> int:
                                        arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#8a8a87", zorder=3))
     # the distal pad's contact-point path seen from the proximal pad, overlaid on O's (user, 2026-11-28: data, not a
     # schematic); design/output/paper/fig1_paths_ORU.json, 3 -> 7 mm, q = 0..120 deg
-    for j, (key, nm, col) in enumerate((("mrmid_free", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_))):
-        ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.96 / H_))
+    # a finger at three flexions, from the data (fig1_paths_ORU.json): bones dark grey, interfaces filled; the tracked
+    # quantity is the distal pad's surface seen from the proximal pad, with O's dashed (user, 2026-11-28: no numbers)
+    DEPTH = {"O": 3.0, "mrmid_free": 4.0, "conv_e25": 7.0}  # contact-surface depth below the link line (3 + Delta t)
+    BONE = "#5b5b59"
+    for j, (key, nm, col, verdict) in enumerate((("mrmid_free", "CoDe", BLUE_, "pad surface tracks O's"),
+                                                  ("conv_e25", "Skeleton", TEAL_, "pad surface drifts"))):
+        ax = fig.add_axes(((1.80 + j * 0.84) / W_, (yc - 1.10) / H_, 0.82 / W_, 0.98 / H_))
         co, ch = np.array(paths["O"]["contact"]), np.array(paths[key]["contact"])
-        ax.plot([0, 48], [0, 0], color="#9a9a97", lw=3.0, solid_capstyle="butt", zorder=1)  # the proximal pad's face
-        # the distal pad's surface at four flexions (O dashed, the redesign solid): a segment ending at the contact
-        # point, turned by q (all hands share q), and the contact point's path faint
+        dep = DEPTH[key]
+        pt = 0.75 * dep  # the interface drawn between its surface and the bone
         LP = 24.0
-        ax.plot(*co.T, color="#c9c9c6", lw=0.6, zorder=1)
-        for k_ in (0, 40, 80, 120):
+        # proximal phalanx: the interface on the pad surface (y = 0), the bone above it
+        ax.add_patch(Rectangle((8, 0), 44, pt, fc=col, ec="none", alpha=0.35, zorder=2))
+        ax.plot([8, 52], [0, 0], color=col, lw=1.4, zorder=4)
+        ax.plot([0, 56], [dep, dep], color=BONE, lw=2.6, solid_capstyle="round", zorder=3)
+        for n_, k_ in enumerate((0, 60, 120)):
             qr = np.radians(k_)
             d_ = np.array([np.cos(qr), -np.sin(qr)])
-            ax.plot(*np.array([ch[k_] - LP * d_, ch[k_]]).T, color=col, lw=1.8, solid_capstyle="butt", zorder=2)
-            ax.plot(*np.array([co[k_] - LP * d_, co[k_]]).T, color="#4D4D4D", lw=0.8, ls=(0, (2.2, 1.4)), zorder=3)
-        dev = float(np.max(np.linalg.norm(ch - co, axis=1)))
-        ax.set_xlim(-2, 96); ax.set_ylim(-52, 20); ax.set_aspect("equal"); ax.axis("off")
-        ax.text(48, 19, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
-        ax.text(48, -40, f"off O's path by {dev:.1f} mm", fontsize=5.0, color=col, ha="center", va="top")
-    fig.text(*inch(2.62, yc - 1.13), "distal pad surface over flexion; dashed: O", fontsize=5.0,
+            nn_ = np.array([np.sin(qr), np.cos(qr)])
+            a_ = 0.45 + 0.275 * n_
+            c1, c0 = ch[k_], ch[k_] - LP * d_
+            ax.add_patch(Polygon([c0, c1, c1 + pt * nn_, c0 + pt * nn_], fc=col, ec="none", alpha=0.35 * a_, zorder=2))
+            ax.plot(*np.array([c0, c1]).T, color=col, lw=1.4, alpha=a_, solid_capstyle="butt", zorder=4)
+            ax.plot(*np.array([c0 - 2 * d_ + dep * nn_, c1 + 3 * d_ + dep * nn_]).T, color=BONE, lw=2.2, alpha=a_,
+                    solid_capstyle="round", zorder=3)
+            o1 = co[k_]
+            ax.plot(*np.array([o1 - LP * d_, o1]).T, color=INK, lw=0.8, ls=(0, (2.0, 1.4)), zorder=5)
+        ax.set_xlim(-4, 100); ax.set_ylim(-46, 22); ax.set_aspect("equal"); ax.axis("off")
+        ax.text(50, 21, nm, fontsize=6.2, color=col, ha="center", va="top", **BOLD)
+        ax.text(50, -40, verdict, fontsize=5.2, color=col, ha="center", va="top")
+    fig.text(*inch(2.62, yc - 1.13), "tracked: the distal pad surface;  dashed: O", fontsize=5.0,
              color=INK2, ha="center", va="top")
     fig.text(*inch(W_ / 2, yc - 1.30), "CoDe keeps the contact surfaces' motion and lets the skeleton change",
              fontsize=5.8, ha="center", va="top", color=BLUE_, **BOLD)
