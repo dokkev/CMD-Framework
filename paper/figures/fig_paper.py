@@ -828,7 +828,6 @@ def fig_rl():
     rl = json.load(open(ROOT / "report" / "study4" / "data" / "rl_transfer.json"))["tasks"]
     # the same policies run unchanged in Drake (rl_drake_sync.py): markers on each seed's bar (user, 2026-11-28)
     dk = json.load(open(ROOT / "report" / "study4" / "data" / "rl_drake_transfer.json"))["tasks"]
-    DMK = {"point": ("o", "Drake, point"), "hydro": ("D", "Drake, hydro.")}
     d = json.load(open(S3 / "fig4_sync.json"))
     hd7 = d["tasks"]["pull"]["hands"]
     HC = {"C": BLUE, "U": AMBER, "S": TEAL}
@@ -851,12 +850,17 @@ def fig_rl():
 
     renders = {"walk": usd_render(CADD / "rl_walk_O.png"), "relay": key_left(CADD / "rl_relay_O.png"),
                "cube": usd_render(CADD / "rl_cube_O.png")}
-    W1, h = 3.45, 2.25
+    # two rows of bars (user, 2026-11-28): Isaac Lab, where the policies were trained, and the same policies run
+    # unchanged in Drake (sim-to-sim; each task's pre-registered contact model: relay hydroelastic, cube point). Bars:
+    # the mean over the policies trained on O for the task (user, 2026-11-28: deployment view, no seeds shown).
+    PRIM = {"relay": "hydro", "cube": "point", "walk": "point"}
+    W1, h = 3.45, 2.50
     fig = plt.figure(figsize=(W1, h))
-    aw, ih = 0.78, 0.62
+    aw, ih = 0.78, 0.50
+    BH, B0, B1 = 0.56, 0.34, 1.02  # bar-panel height; bottoms of the Drake and the Isaac Lab rows
     for i, (k, title) in enumerate(cols):
         x0 = 0.46 + i * (aw + 0.28)
-        iax = fig.add_axes(((x0 - 0.06) / W1, 1.26 / h, (aw + 0.12) / W1, ih / h))
+        iax = fig.add_axes(((x0 - 0.06) / W1, (B1 + BH + 0.06) / h, (aw + 0.12) / W1, ih / h))
         iax.imshow(renders[k]); iax.set_aspect("equal"); iax.axis("off")
         # the object's motion in the task, drawn around it (located by its orange in the render)
         im_ = renders[k].astype(int)
@@ -872,43 +876,42 @@ def fig_rl():
                                           connectionstyle="arc3,rad=0.45", **mot))
             iax.add_patch(FancyArrowPatch((ocx - 0.55 * ow, ocy + 0.30 * ow), (ocx + 0.62 * ow, ocy + 0.05 * ow),
                                           connectionstyle="arc3,rad=0.45", **mot))
-        ax = fig.add_axes((x0 / W1, 0.42 / h, aw / W1, 0.80 / h))
-        for j, (hh, hk, nm) in enumerate(MAP):
-            for t_, (v, hatch) in enumerate(zip(rl[k]["ratio"][hh], ("", "////"))):
-                xx = j + (t_ - 0.5) * 0.36
-                ax.bar(xx, v, width=0.34, color=HC[hk], alpha=0.9 if t_ == 0 else 0.45, lw=0, hatch=hatch,
-                       edgecolor="white", zorder=2)
-                for c_, (mk, _) in DMK.items():
-                    r_ = dk.get(k, {}).get(c_, {}).get("ratio", {}).get(hh)
-                    if r_ is not None:
-                        ax.plot(xx, min(r_[t_], 1.27), ls="none", marker=mk, ms=2.6 if mk == "D" else 3.0,
-                                mfc="white", mec=INK, mew=0.6, zorder=4, clip_on=False)
-        if not dk.get(k, {}).get("point", {}).get("ratio"):
-            ax.text(1.0, 1.2, "Drake: fails on O", fontsize=5.0, ha="center", va="center", color=INK2)
-        ax.axhline(1.0, color=INK, lw=0.6, ls=(0, (2, 2)), zorder=1)
-        ax.set_ylim(0, 1.3); ax.set_yticks([0, 0.5, 1.0])
-        ax.set_yticklabels(["0", "50%", "100%"] if i == 0 else [], fontsize=5.6)
-        ax.set_xticks(range(3)); ax.set_xticklabels([nm for _, _, nm in MAP], fontsize=5.6)
-        for lab_, (_, hk, _) in zip(ax.get_xticklabels(), MAP):
-            lab_.set_color(HC[hk])
-        ax.set_xlim(-0.6, 2.6)
         iax.set_title(title, fontsize=6.0, pad=2, linespacing=1.0)
-        clean(ax)
+        for row, (b0, src) in enumerate(((B1, "isaac"), (B0, "drake"))):
+            ax = fig.add_axes((x0 / W1, b0 / h, aw / W1, BH / h))
+            if src == "isaac":
+                vals = {hh: rl[k]["ratio"][hh] for hh, _, _ in MAP}
+            else:
+                vals = dk.get(k, {}).get(PRIM[k], {}).get("ratio", {})
+            for j, (hh, hk, nm) in enumerate(MAP):
+                v = vals.get(hh)
+                if not v:
+                    continue
+                ax.bar(j, float(np.mean(v)), width=0.6, color=HC[hk], alpha=0.9, lw=0, zorder=2)
+            if not vals:
+                ax.text(1.0, 0.55, "fails on O\nin Drake", fontsize=5.4, ha="center", va="center", color=INK2,
+                        linespacing=1.0)
+            ax.axhline(1.0, color=INK, lw=0.6, ls=(0, (2, 2)), zorder=1)
+            ax.set_ylim(0, 1.25); ax.set_yticks([0, 0.5, 1.0])
+            ax.set_yticklabels(["0", "50%", "100%"] if i == 0 else [], fontsize=5.6)
+            ax.set_xticks(range(3)); ax.set_xlim(-0.6, 2.6)
+            if row == 1:
+                ax.set_xticklabels([nm for _, _, nm in MAP], fontsize=5.6)
+                for lab_, (_, hk, _) in zip(ax.get_xticklabels(), MAP):
+                    lab_.set_color(HC[hk])
+            else:
+                ax.set_xticklabels([])
+            clean(ax)
+            if i == 0:
+                ax.text(-0.5, 1.2, "Isaac Lab (trained)" if src == "isaac" else "Drake (run unchanged)",
+                        fontsize=5.6, ha="left", va="center", fontweight="bold")
         gl, gv = gov[k]
-        ax.text(-0.62, -0.36, gl, fontsize=5.4, ha="right", va="center", color=INK2, transform=ax.transData)
+        ax.text(-0.62, -0.42, gl, fontsize=5.4, ha="right", va="center", color=INK2, transform=ax.transData)
         for j, (_, hk, _) in enumerate(MAP):
-            ax.text(j, -0.36, f"{gv[hk]:.1f}", fontsize=5.6, ha="center", va="center", color=HC[hk],
+            ax.text(j, -0.42, f"{gv[hk]:.1f}", fontsize=5.6, ha="center", va="center", color=HC[hk],
                     transform=ax.transData)
-        if i == 0:
-            ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, fc="#888", label="seed 1"),
-                               plt.Rectangle((0, 0), 1, 1, fc="#888", alpha=0.45, hatch="////", ec="white",
-                                             label="seed 2")]
-                      + [plt.Line2D([], [], ls="none", marker=mk, ms=3.0, mfc="white", mec=INK, mew=0.6, label=lb)
-                         for mk, lb in DMK.values()],
-                      loc="upper right", bbox_to_anchor=(1.08, 0.73), frameon=False, fontsize=5.0, handlelength=1.2,
-                      labelspacing=0.25, title="bars: Isaac Lab", title_fontsize=5.0)
-    fig.text(0.02 / W1, (0.42 + 0.40) / h, "share of O's performance kept", rotation=90, fontsize=5.8, ha="left",
-             va="center")
+    fig.text(0.02 / W1, (B0 + B1 + BH) / 2 / h, "share of O's performance kept", rotation=90, fontsize=5.8,
+             ha="left", va="center")
     save_figure(fig, DEST / "fig_rl.pdf")
     plt.close(fig)
     print("fig_rl", h)
