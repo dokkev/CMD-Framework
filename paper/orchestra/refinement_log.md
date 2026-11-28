@@ -427,3 +427,7 @@ Under R (v42), all hands came from the same space and problem.
 Pending user decision:
 - A: R-based, consistent paper, keeping the presentation gains.
 - B: re-select Coverage and Skeleton in F' and rerun.
+
+v51: 5, 5, 5 (r2 Soundness 3). The objective story ("the objective decides what is kept; freeing the pivots serves
+it; ablation 21 -> 17 -> 10%") removed the unequal-baseline objection: no reviewer raises it this round.
+New (r3): Delta_MCP matters in the ablation but the theory of III-A has no term for the proximal surface's place.
