@@ -408,6 +408,18 @@ def fig2():
     # the pads (mounted at the shallowest depth the structure allows), blue as in every figure
     for poly in cad_pads:
         kax.add_patch(Polygon(np.asarray(poly), fc="#9cc0ea", ec=BLUE, lw=0.6, alpha=0.85, zorder=8))
+    # Delta t (user, 2026-11-28): a thicker pad deepens the contact surface; dashed: the proximal face of a pad
+    # 4 mm thicker on the same mount, and the depth change between the two faces
+    pl = [np.asarray(q_, float) for q_ in cad_pads[0]]
+    nrm = (pl[3] - pl[0]) / np.linalg.norm(pl[3] - pl[0])
+    DT = 4.0
+    f0, f1 = pl[3], pl[2]
+    kax.plot(*np.array([f0 + DT * nrm, f1 + DT * nrm]).T, color=BLUE, lw=0.8, ls=(0, (2.5, 1.5)), zorder=8)
+    am = f0 + 0.18 * (f1 - f0)
+    kax.annotate("", xy=am + DT * nrm, xytext=am, zorder=35,
+                 arrowprops=dict(arrowstyle="<|-|>", lw=0.6, color=INK, mutation_scale=5, shrinkA=0, shrinkB=0))
+    kax.text(*(am + 0.5 * DT * nrm + np.array([1.2, 0.0])), "$\\Delta t$", fontsize=7, va="center", ha="left",
+             color=INK, zorder=36)
     # pivot packaging: the clearance each pin and its lugs need (filled), and the pivots: fixed filled, moving open
     pk = run.config.packaging
     for nm_, pt in (("a", A), ("ap", Ap), ("b", B), ("bp", Bp)):
@@ -440,10 +452,12 @@ def fig2():
     fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
              va="top")
     # legend for what is drawn on the CAD: pads and pivot clearance
-    kax.add_patch(Polygon([(-14, -12.5), (-8, -12.5), (-8, -10.5), (-14, -10.5)], fc="#9cc0ea", ec=BLUE, lw=0.6, zorder=8))
-    kax.text(-7, -11.5, "pad", fontsize=5.8, va="center", color=INK2, zorder=36)
-    kax.add_patch(_C((2.5, -11.5), 1.6, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
-    kax.text(5, -11.5, "pivot clearance", fontsize=5.8, va="center", color=INK2, zorder=36)
+    LX = 58.0  # the legend sits under the distal pad, clear of the Delta t mark under the proximal one
+    kax.add_patch(Polygon([(LX, -12.5), (LX + 6, -12.5), (LX + 6, -10.5), (LX, -10.5)], fc="#9cc0ea", ec=BLUE, lw=0.6,
+                          zorder=8))
+    kax.text(LX + 7, -11.5, "pad", fontsize=5.8, va="center", color=INK2, zorder=36)
+    kax.add_patch(_C((LX + 16.5, -11.5), 1.6, fc="#cfcfcd", ec="#6b6b69", lw=0.5, alpha=0.6, zorder=13))
+    kax.text(LX + 19, -11.5, "pivot clearance", fontsize=5.8, va="center", color=INK2, zorder=36)
     save_figure(fig, DEST / "fig_mechanisms.pdf")
     plt.close(fig)
     print("fig2", h)
