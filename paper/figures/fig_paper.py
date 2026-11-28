@@ -295,8 +295,6 @@ def fig2():
     # (b) where each joint can put the pole (Study 0): the poles reachable over each design space
     from fig_mechanisms import cached_outlines, roller_pole
     lab(0.02, head, "(a) Achievable poles")
-    fig.text((WC - 0.04) / WC, head / h, "over each joint's design space, $q\\in[0, 120^\\circ]$", fontsize=6.0,
-             color=INK2, ha="right", va="top")
     pax = fig.add_axes((0.40 / WC, (hb + 0.10 + 0.30) / h, (WC - 0.46) / WC, (ha - 0.50) / h))
     # CFL: poles reachable at some q in [10, 120] deg, by two-position synthesis with closure checked
     # (fig2_pole_manifold.py, no sampling); RCJ: P(q) = r - i r tan(q/4) family over the same q and radii
@@ -349,7 +347,8 @@ def fig2():
     uA, vA, uB, vB = 1448.0, 480.0, 1975.0, 492.0
     Bm = np.array([72.415, -0.065]); Am = np.array([44.1, 0.0])
     s_px = np.hypot(uB - uA, vB - vA) / np.linalg.norm(Bm - Am)
-    tilt = np.degrees(np.arctan2(vB - vA, uB - uA)) - np.degrees(np.arctan2(-(Bm - Am)[1], (Bm - Am)[0]))
+    tilt = 0.0  # the CAD as rendered, unrotated (user, 2026-11-28: the 1.2 deg A-B registration tilted the image);
+    # every point drawn on it is read off its pixels below, so the diagram stays on the CAD
     cad = cad.rotate(tilt, center=(uA, vA), resample=_Im.BICUBIC, fillcolor=(255, 255, 255, 0))
     arr = np.asarray(cad).astype(float) / 255.0
     white = arr[..., :3].min(axis=2) > 0.97
@@ -449,8 +448,6 @@ def fig2():
     kax.text(ox - 1.5, oz + 15.5, "$z$", fontsize=6.5, ha="right", zorder=36, path_effects=halo)
     kax.text(ox - 3, oz + 8, "$\\mathcal{F}_\\mathrm{base}$", fontsize=8, ha="right", math_fontfamily="stix", zorder=36,
              path_effects=halo)
-    fig.text((WC - 0.04) / WC, (hb + 0.06) / h, "extended ($q=0$), over the CAD", fontsize=6.0, color=INK2, ha="right",
-             va="top")
     # legend for what is drawn on the CAD: pads and pivot clearance
     LX = 58.0  # the legend sits under the distal pad, clear of the Delta t mark under the proximal one
     kax.add_patch(Polygon([(LX, -12.5), (LX + 6, -12.5), (LX + 6, -10.5), (LX, -10.5)], fc="#9cc0ea", ec=BLUE, lw=0.6,
