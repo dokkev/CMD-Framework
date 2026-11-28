@@ -394,7 +394,7 @@ def main() -> int:
     qd = np.linspace(0.0, 120.0, len(paths["O"]["contact"]))
     yc = TB - 0.06
     plabel(0.07, yc, "c", "redesign for a thicker pad: what does it keep?")
-    CUR = (("mrmid_free", "CoDe", BLUE_), ("conv_e25", "Skeleton", TEAL_), ("U", "Coverage", ORANGE_))
+    CUR = (("mrmid_free", "CoDe", BLUE_), ("U", "Conventional", ORANGE_))  # Fig. 1: CoDe vs Conventional (= Coverage; user, 2026-11-27)
     for j, (key, ttl) in enumerate((("contact", "contact-surface motion\n(contact Jacobian)"),
                                     ("tip", "skeleton motion\n(fingertip)"))):
         ax = fig.add_axes(((0.40 + j * 1.60) / W_, (yc - 0.98) / H_, 1.00 / W_, 0.58 / H_))
@@ -428,7 +428,7 @@ def main() -> int:
     box(bx, by, 0.66, 0.34, "#f2f2f0", "#9a9a97", r=0.05, lw=0.6)
     fig.text(*inch(bx + 0.33, by + 0.22), "O's command", fontsize=6.2, ha="center", va="center", color=INK, **BOLD)
     fig.text(*inch(bx + 0.33, by + 0.09), "setpoint $q^*$, $K_0$", fontsize=5.6, ha="center", va="center", color=INK2)
-    rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Coverage", ORANGE_, yd - 0.94))
+    rows = (("O", "O (reference)", "#4D4D4D", yd - 0.38), ("MRM", "CoDe", BLUE_, yd - 0.66), ("U", "Conventional", ORANGE_, yd - 0.94))
     xh, xa0, xs_ = 1.00, 2.35, 0.0110  # hand label x; arrows zero; inches per percent
     fig.text(*inch(0.43, yd - 0.30), "run unchanged", fontsize=5.4, ha="center", va="center", color=INK2, style="italic")
     fig.text(*inch(2.55, yd - 0.17), "thicker, compliant pad: change in pull-out load", fontsize=5.6,
@@ -446,7 +446,7 @@ def main() -> int:
                  linespacing=1.0, color=col, **(BOLD if k == "MRM" else {}))
     fig.add_artist(plt.Line2D([xa0 / W_] * 2, [(yd - 1.04) / H_, (yd - 0.27) / H_], color=INK, lw=0.6,
                               transform=fig.transFigure, zorder=2))
-    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect is O's; on Coverage it reverses",
+    fig.text(*inch(W_ / 2, 0.03), "On CoDe the pad's effect is O's; on Conventional it reverses",
              fontsize=5.8, ha="center", va="bottom", color=BLUE_, **BOLD)
     DEST.mkdir(parents=True, exist_ok=True)
     out = save_figure(fig, DEST / "fig_cad.pdf")
