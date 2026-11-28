@@ -371,3 +371,17 @@ Plateau at 5. The score-limiting items need experiments or user decisions:
 - a retargeting or fine-tuning baseline
 - MA cost
 - the Fig. 1(d) teaser choice
+
+v46: 5, 5, 5, all Reject. The manuscript now has:
+- Fig. 1(d) back on the pre-registered pad swap, as arrows, under O's command.
+- Nitpick-prone detail removed: the post hoc walk, uncorrected p-values, the hardware argument, the selection margin, and the per-hand Delta_t check.
+
+Response:
+- Fig. 1(d) is now read as a strength (r1, r3: "shows the stakes concisely").
+- The Delta_t check was removed on the user's rule, so two reviewers again read Eq. (4) as violated by CoDe (5.9 < 6.93 mm).
+- New:
+  - O's mechanism is unclear.
+  - Fig. 1(c)'s CoDe curve ends near 0.5 mm while Delta_contact is 1.1 (a max over q).
+  - The abstract's 48/41 vs Table I's +125% (per-placement medians).
+
+Standing: no hardware, rigid pads, two RL seeds, MA cost, software alternatives.
