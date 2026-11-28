@@ -982,3 +982,36 @@ Table I settings and command protocols at 7 mm (`table_signed` functions; signed
   - disk: 20.4 / 5.9%
   - pivot: 7.4 / 6.3%
 - In the disk and the pivot, MO-Pad errs 1–3 points more than R.
+
+## Pre-registration: Drake sim-to-sim transfer of the RL policies (2026-11-27, before any redesign run)
+
+**Code.** `sim/drake/policy_transfer.py` reproduces the Isaac Lab tasks term by term: hand, actions, observations, touch, reset, episode and score. The docstring lists the known differences.
+- The pads are the URDF's flat boxes. Isaac Lab's are domed and use condim 4.
+- The contact models are Drake hydroelastic pads (default) or point contact.
+- The policies are the Isaac Lab actors, exported to numpy and run unchanged.
+
+**Gate on O (the sim-to-sim gap), Drake mean over 16 episodes against Isaac Lab:**
+
+| task | contact | O, Drake (s20 / s21) | O, Isaac Lab | gate |
+|---|---|---|---|---|
+| walk | point | 22 mm (s20 only) | 521 mm | fails |
+| walk | hydro | 7 mm (s20 only) | 521 mm | fails |
+| relay | hydro | 304 / 285° | 280 / 274° | passes |
+| relay | point | 139 / 128° | 280 / 274° | passes (~48%) |
+
+- **Walk does not transfer.** It is reported as a failed transfer and not run on the redesigns.
+  - In Drake the policy rolls the cylinder toward the MCP but does not walk it back out.
+  - It keeps one finger flexed on the cylinder instead.
+  - Its gait depends on contact details that differ between the simulators (domed pads, condim 4, soft contact).
+- **The cube is not attempted.** The plan ran it only if both finger tasks transferred.
+- **The relay passes.** The relay sanity runs on O (hydro, seed-20 checkpoint, one episode each):
+  - constant extension: 0°
+  - constant 60°: 32°
+  - policy: 349°
+
+**Relay redesign run.**
+- Hands: O, CoDe = MO-Pad (`mrmid_free`, MRM), Skeleton (`conv_e25`, SK), Coverage (`hu`, U), and R (`hr`, reported only).
+- Pad friction 1.3, face anchor (the dial placed in each hand's own pad-face frame, as Isaac Lab's default), 32 episodes per hand and training seed.
+- Primary: hydro. Secondary: point.
+- Metric: each hand's mean rotation over O's, per training seed.
+- Prediction (Isaac Lab's order, primary contact): Skeleton ≥ Coverage and Skeleton ≥ CoDe, for both seeds. It fails if either inequality reverses for either seed.
